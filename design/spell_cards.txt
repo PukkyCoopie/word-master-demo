@@ -1,0 +1,58 @@
+# 法术卡（一次性）设计备忘
+
+商店牌包区单价 $3；大类出现权重见 `src/spells/packOfferRollConfig.js`（当前法术约 15%，长度/稀有度升级平分其余）。购得后先关详情，再弹出目标选择层：从棋盘上随机若干格作为候选，玩家按规则选满后确定生效。
+
+## 约定
+
+- 下表「玩家说明」与 `src/spells/spellDefinitions.js` 的 `description` **一致**，为界面展示用。
+- 「实现备忘」仅给策划/程序对照逻辑或材质 id，**不要**写进 `description`。
+- 选格类文案统一用 **字母块**；材质/随机类型用 **xx块**（如幸运块、钢铁块），勿写英文材质 id 进玩家说明。
+
+## 已实现（与 `spellDefinitions.js` 同步）
+
+| id | 名称 | iconClass（Remix `ri-`） | 选格 | 玩家说明 |
+|----|------|-------------------------|------|----------|
+| restart | 重播 | ri-restart-fill | 按上一张法术 | 重复你的上一张法术卡的效果 |
+| cake | 蛋糕 | ri-cake-2-fill | 2 | 选择2个字母块，使其变为幸运块 |
+| dice | 骰子 | ri-dice-fill | 0 | 随机释放2张其他法术卡 |
+| arrow_up | 向上 | ri-arrow-up-circle-fill | 0 | 随机释放2个升级卡 |
+| blaze | 炙烤 | ri-blaze-fill | 2 | 选择2个字母块，使其变为火焰块 |
+| drinks | 饮料 | ri-drinks-2-fill | 2 | 选择2个字母块，使其变为水波块 |
+| lightbulb | 点亮 | ri-lightbulb-ai-fill | 1 | 选择1个字母块，使其变为万能块 |
+| hammer | 锤炼 | ri-hammer-fill | 1 | 选择1个字母块，使其变为钢铁块 |
+| snowflake | 降温 | ri-snowflake-fill | 1 | 选择1个字母块，使其变为碎冰块 |
+| hand_coin | 积累 | ri-hand-coin-fill | 0 | 翻倍余额，至多获得$20 |
+| star | 星星 | ri-star-fill | 0 | 1/4 概率：为你的一个随机宝藏装备一个随机配饰 |
+| seedling | 生长 | ri-seedling-fill | 2 | 选择2个字母块，使他们后移1位 |
+| delete_back | 删除 | ri-delete-back-2-fill | 2 | 选择2个字母块，从牌库中将其移除 |
+| file_copy | 复制 | ri-file-copy-fill | 2 | 选择2个字母块，将第1个变为第2个的复制 |
+| price_tag | 标签 | ri-price-tag-3-fill | 0 | 获得金币，数值相当于当前所有宝藏的售出价值总和 |
+| flask | 炼金 | ri-flask-fill | 1 | 选择1个字母块，使其变为黄金块 |
+| bard | 抛光 | ri-bard-fill | 2 | 选择2个字母块，使其稀有度提升1级 |
+| mic | 麦克风 | ri-mic-fill | 2 | 选择2个字母块，使其变为随机的辅音块 |
+| notification | 铃铛 | ri-notification-3-fill | 2 | 选择2个字母块，使其变为随机的元音块 |
+| phone | 电话 | ri-phone-fill | 3 | 选择3个字母块，使其变为随机的任意块 |
+| treasure_map | 藏宝图 | ri-treasure-map-fill | 0 | 获取一个随机宝藏。 |
+
+## 实现备忘（勿写入 description）
+
+| id | 备忘 |
+|----|------|
+| cake | lucky 材质（展示为幸运块） |
+| dice | 目标随机选择 |
+| arrow_up | 从所有升级卡（长度升级、稀有度升级）中选 2 个 |
+| blaze | fire 材质（展示为火焰块） |
+| drinks | water 材质（展示为水波块） |
+| lightbulb | wildcard 材质（展示为万能块） |
+| hammer | steel 材质（展示为钢铁块） |
+| snowflake | ice 材质（展示为碎冰块） |
+| flask | gold 材质（展示为黄金块） |
+
+## 候选格数量
+
+默认候选为至多 10 个有字母的格子随机子集（若总格不足则全列）。
+
+## 依赖
+
+- 棋盘材质/万能逻辑与 useGameState 一致；开局不再随机赋值测试材质。
+- 骰子池排除 restart、dice，避免递归。

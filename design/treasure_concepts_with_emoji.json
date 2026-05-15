@@ -1,0 +1,438 @@
+{
+  "version": 2,
+  "source": "design/treasure_concepts.txt",
+  "treasures": [
+    {
+      "index": 1,
+      "treasureId": "global_mult",
+      "price": 2,
+      "rarity": "rare",
+      "name": "老式闹钟",
+      "emoji": "⏰",
+      "description": "+4倍率"
+    },
+    {
+      "index": 2,
+      "treasureId": "letter_common_mult",
+      "price": 5,
+      "rarity": "rare",
+      "name": "绘图铅笔",
+      "emoji": "✏️",
+      "description": "拼写的普通字母在记分时给予+1倍率"
+    },
+    {
+      "index": 3,
+      "treasureId": "letter_rare_mult",
+      "price": 5,
+      "rarity": "rare",
+      "name": "钢笔",
+      "emoji": "🖋️",
+      "description": "拼写的稀有字母在记分时给予+3倍率"
+    },
+    {
+      "index": 4,
+      "treasureId": "letter_epic_mult",
+      "price": 5,
+      "rarity": "rare",
+      "name": "蘸水羽毛笔",
+      "emoji": "🪶",
+      "description": "拼写的史诗字母在记分时给予+6倍率"
+    },
+    {
+      "index": 5,
+      "treasureId": "letter_legend_mult",
+      "price": 5,
+      "rarity": "rare",
+      "name": "冠军奖杯",
+      "emoji": "🏆",
+      "description": "拼写的传说字母在记分时给予+10倍率"
+    },
+    {
+      "index": 6,
+      "treasureId": "streak_letter_mult",
+      "price": 4,
+      "rarity": "rare",
+      "name": "铁链扣",
+      "emoji": "🔗",
+      "description": "如果单词中包含连续的相同字母，+10倍率"
+    },
+    {
+      "index": 7,
+      "treasureId": "triple_letter_mult",
+      "price": 5,
+      "rarity": "rare",
+      "name": "复读机",
+      "emoji": "📻",
+      "description": "如果单词中某个字母出现的次数为3次或以上，+10倍率"
+    },
+    {
+      "index": 8,
+      "treasureId": "unique_letters_mult",
+      "price": 3,
+      "rarity": "rare",
+      "name": "手持镜",
+      "emoji": "🪞",
+      "description": "如果单词中不包含重复的字母，+6倍率"
+    },
+    {
+      "index": 9,
+      "treasureId": "three_rarities_mult",
+      "price": 4,
+      "rarity": "rare",
+      "name": "三色团子",
+      "emoji": "🍡",
+      "description": "如果单词中包含至少3种稀有度，+16倍率"
+    },
+    {
+      "index": 10,
+      "treasureId": "uniform_rarity_mult",
+      "price": 4,
+      "rarity": "rare",
+      "name": "红砖",
+      "emoji": "🧱",
+      "description": "如果单词中所有字母的稀有度相同，+12倍率"
+    },
+    {
+      "index": 11,
+      "treasureId": "streak_letter_score",
+      "price": 4,
+      "rarity": "rare",
+      "name": "传真机",
+      "emoji": "📠",
+      "description": "如果单词中包含连续的相同字母，+100分数"
+    },
+    {
+      "index": 12,
+      "treasureId": "triple_letter_score",
+      "price": 5,
+      "rarity": "rare",
+      "name": "三明治",
+      "emoji": "🥪",
+      "description": "如果单词中某个字母出现的次数为3次或以上，+100分数"
+    },
+    {
+      "index": 13,
+      "treasureId": "unique_letters_score",
+      "price": 3,
+      "rarity": "rare",
+      "name": "雪花挂件",
+      "emoji": "❄️",
+      "description": "如果单词中不包含重复的字母，+60分数"
+    },
+    {
+      "index": 14,
+      "treasureId": "three_rarities_score",
+      "price": 4,
+      "rarity": "rare",
+      "name": "甜筒",
+      "emoji": "🍦",
+      "description": "如果单词中包含至少3种稀有度，+150分数"
+    },
+    {
+      "index": 15,
+      "treasureId": "uniform_rarity_score",
+      "price": 4,
+      "rarity": "rare",
+      "name": "西装领带",
+      "emoji": "👔",
+      "description": "如果单词中所有字母的稀有度相同，+120分数"
+    },
+    {
+      "index": 16,
+      "treasureId": "short_word_mult",
+      "price": 5,
+      "rarity": "rare",
+      "name": "腕表",
+      "emoji": "⌚",
+      "description": "如果单词的长度为3或更短，+30倍率"
+    },
+    {
+      "index": 17,
+      "treasureId": "empty_slot_mult",
+      "price": 8,
+      "rarity": "epic",
+      "name": "空礼盒",
+      "emoji": "🎁",
+      "description": "你每有一个空的宝藏槽位便获得x1倍率（当前x1）"
+    },
+    {
+      "index": 18,
+      "treasureId": "spare_removal_score",
+      "price": 5,
+      "rarity": "rare",
+      "name": "餐刀",
+      "emoji": "🔪",
+      "description": "你每剩余一次移除机会，+40分数"
+    },
+    {
+      "index": 19,
+      "treasureId": "no_removal_mult",
+      "price": 5,
+      "rarity": "rare",
+      "name": "挂锁",
+      "emoji": "🔒",
+      "description": "当没有移除机会时，+20倍率"
+    },
+    {
+      "index": 20,
+      "treasureId": "word_streak_x4",
+      "price": 5,
+      "rarity": "epic",
+      "name": "篮球",
+      "emoji": "🏀",
+      "description": "每拼写5个单词，具有一次x4倍率"
+    },
+    {
+      "index": 21,
+      "treasureId": "random_0_26_mult",
+      "price": 4,
+      "rarity": "rare",
+      "name": "骰子",
+      "emoji": "🎲",
+      "description": "随机+0-26倍率"
+    },
+    {
+      "index": 22,
+      "treasureId": "last_word_rescore",
+      "price": 5,
+      "rarity": "epic",
+      "name": "助威喇叭",
+      "emoji": "📣",
+      "description": "每关最后一个单词会额外触发一次字母计分"
+    },
+    {
+      "index": 23,
+      "treasureId": "top_rarity_score_to_mult",
+      "price": 5,
+      "rarity": "rare",
+      "name": "望远镜",
+      "emoji": "🔭",
+      "description": "会将棋盘中最高的稀有度对应的奖励分数添加至倍率"
+    },
+    {
+      "index": 24,
+      "treasureId": "shop_free_refresh",
+      "price": 4,
+      "rarity": "rare",
+      "name": "入场券",
+      "emoji": "🎟️",
+      "description": "每次进入商店获得1次免费刷新"
+    },
+    {
+      "index": 25,
+      "treasureId": "subset_letters_mult",
+      "price": 8,
+      "rarity": "epic",
+      "name": "邮简",
+      "emoji": "💌",
+      "description": "每一个拼写的A,B,C,E,H,M,U给予+4倍率"
+    },
+    {
+      "index": 26,
+      "treasureId": "per_treasure_mult",
+      "price": 4,
+      "rarity": "rare",
+      "name": "念珠",
+      "emoji": "📿",
+      "description": "你每有一个宝藏，+4倍率"
+    },
+    {
+      "index": 27,
+      "treasureId": "idle_removal_payout",
+      "price": 4,
+      "rarity": "rare",
+      "name": "存钱罐",
+      "emoji": "🐷",
+      "description": "在关卡完成时，如果你没有使用过移除，则每个移除机会会给予你$2"
+    },
+    {
+      "index": 28,
+      "treasureId": "retrigger_abcde",
+      "price": 6,
+      "rarity": "epic",
+      "name": "电钢琴",
+      "emoji": "🎹",
+      "description": "重新触发所有拼写的A,B,C,D,E"
+    },
+    {
+      "index": 29,
+      "treasureId": "fragile_mult",
+      "price": 5,
+      "rarity": "rare",
+      "name": "泡泡棒",
+      "emoji": "🫧",
+      "description": "+20倍率，在关卡完成时1/6的概率摧毁自身"
+    },
+    {
+      "index": 30,
+      "treasureId": "vowel_mode",
+      "price": 5,
+      "rarity": "epic",
+      "name": "小提琴",
+      "emoji": "🎻",
+      "description": "所有字母均视为元音字母"
+    },
+    {
+      "index": 31,
+      "treasureId": "consonant_mode",
+      "price": 5,
+      "rarity": "epic",
+      "name": "架子鼓",
+      "emoji": "🥁",
+      "description": "所有字母均视为辅音字母"
+    },
+    {
+      "index": 32,
+      "treasureId": "vowel_flat_score",
+      "price": 5,
+      "rarity": "rare",
+      "name": "蜂蜜罐",
+      "emoji": "🍯",
+      "description": "每一个拼写的元音字母给予+40分数"
+    },
+    {
+      "index": 33,
+      "treasureId": "vowel_flat_mult",
+      "price": 5,
+      "rarity": "rare",
+      "name": "气球",
+      "emoji": "🎈",
+      "description": "每一个拼写的元音字母给予+4倍率"
+    },
+    {
+      "index": 34,
+      "treasureId": "consonant_flat_score",
+      "price": 5,
+      "rarity": "rare",
+      "name": "卵石",
+      "emoji": "🪨",
+      "description": "每一个拼写的辅音字母给予+40分数"
+    },
+    {
+      "index": 35,
+      "treasureId": "consonant_flat_mult",
+      "price": 5,
+      "rarity": "rare",
+      "name": "冰块",
+      "emoji": "🧊",
+      "description": "每一个拼写的辅音字母给予+4倍率"
+    },
+    {
+      "index": 36,
+      "treasureId": "letter_e_bonus",
+      "price": 4,
+      "rarity": "rare",
+      "name": "头戴耳机",
+      "emoji": "🎧",
+      "description": "字母E在记分时给予+20分数和+4倍率"
+    },
+    {
+      "index": 37,
+      "treasureId": "vowel_gamble_coin",
+      "price": 4,
+      "rarity": "rare",
+      "name": "老虎机",
+      "emoji": "🎰",
+      "description": "元音字母在记分时有1/2概率使你获得$2"
+    },
+    {
+      "index": 38,
+      "treasureId": "word_length_counts_mult",
+      "price": 5,
+      "rarity": "rare",
+      "name": "家用梯",
+      "emoji": "🪜",
+      "description": "将每种长度的单词在本轮游戏内被拼写过的次数添加至倍率"
+    },
+    {
+      "index": 39,
+      "treasureId": "length_level_chance",
+      "price": 5,
+      "rarity": "epic",
+      "name": "冲浪板",
+      "emoji": "🏄",
+      "description": "有1/4的几率升级拼写单词的长度等级"
+    },
+    {
+      "index": 40,
+      "treasureId": "non_noun_streak",
+      "price": 6,
+      "rarity": "rare",
+      "name": "戏剧面具",
+      "emoji": "🎭",
+      "description": "每当你拼写出一个不是名词的单词，获得+1倍率"
+    },
+    {
+      "index": 41,
+      "treasureId": "sell_price_tick",
+      "price": 4,
+      "rarity": "rare",
+      "name": "旧行李箱",
+      "emoji": "🧳",
+      "description": "在关卡完成时本宝藏的出售价格提高$3"
+    },
+    {
+      "index": 42,
+      "treasureId": "removal_to_spell_start",
+      "price": 7,
+      "rarity": "epic",
+      "name": "礼帽",
+      "emoji": "🎩",
+      "description": "开局时候将你的所有移除机会转换为拼写机会"
+    },
+    {
+      "index": 43,
+      "treasureId": "rare_board_mult",
+      "price": 6,
+      "rarity": "epic",
+      "name": "小油灯",
+      "emoji": "🪔",
+      "description": "如果棋盘中剩下的都是普通或稀有字母，x3倍率"
+    },
+    {
+      "index": 44,
+      "treasureId": "unique_word_score",
+      "price": 5,
+      "rarity": "rare",
+      "name": "滑板",
+      "emoji": "🛹",
+      "description": "每当你拼写的单词不包含重复的字母，获得+20分数"
+    },
+    {
+      "index": 45,
+      "treasureId": "first_word_dup_legend",
+      "price": 8,
+      "rarity": "legendary",
+      "name": "双人立牌",
+      "emoji": "👯",
+      "description": "如果关卡中拼写的第一个单词只有3个字母或更少，则将第一个字母的一个相同的复制洗入牌库"
+    },
+    {
+      "index": 46,
+      "treasureId": "tiny_words_ok",
+      "price": 3,
+      "rarity": "rare",
+      "name": "水果糖",
+      "emoji": "🍬",
+      "description": "你可以拼写长度为1或2的单词"
+    },
+    {
+      "index": 47,
+      "treasureId": "deck_remain_score",
+      "price": 5,
+      "rarity": "rare",
+      "name": "钓鱼竿",
+      "emoji": "🎣",
+      "description": "你的牌库中每剩余一个字母，+2分数（当前+0）"
+    },
+    {
+      "index": 48,
+      "treasureId": "first_solo_removal_cut",
+      "price": 6,
+      "rarity": "epic",
+      "name": "裁缝剪",
+      "emoji": "✂️",
+      "description": "如果关卡的第一次移除只有一个字母，则将其从牌库中永久移除并获得$3"
+    }
+  ]
+}

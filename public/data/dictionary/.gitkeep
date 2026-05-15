@@ -1,0 +1,4 @@
+# 运行时词典以项目根目录 data/dictionary/dict.json 为准：
+# - 开发：Vite 中间件优先从该路径提供，避免此处旧版精简词典覆盖完整版。
+# - 构建：vite.config.js 在打包结束时会把 data/dictionary/dict.json 复制到 dist。
+# 若需静态托管且不经过 Vite 构建，请手动将 data/dictionary/dict.json 复制到本目录。

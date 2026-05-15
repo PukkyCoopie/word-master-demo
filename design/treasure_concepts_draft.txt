@@ -1,0 +1,23 @@
+
+All Flushes and Straights can be made with 4 cards
+
+棋盘上字母块的能力触发2次
+可以负债，最多-$20
+
+When Blind is selected, destroy Joker to the right and permanently add double its sell value to this Mult (Currently +0 Mult)
+
+Adds one Stone card to the deck when Blind is selected
+1 in 4 chance for each played 8 to create a Tarot card when scored (Must have room)
+Gives X0.2 Mult for each Steel Card in your full deck (Currently X1 Mult)
+Every played card counts in scoring
+If first hand of round is a single 6, destroy it and create a Spectral card (Must have room)
+Create a Tarot card if poker hand contains an Ace and a Straight (Must have room)
+This Joker gains +3 Mult when any Booster Pack is skipped (Currently +0 Mult)
+If poker hand is a Straight Flush, create a random Spectral card (Must have room)
+This Joker gains X0.1 Mult per scoring Enhanced card played, removes card Enhancement (Currently X1 Mult)
+Create a Tarot card if hand is played with $4 or less
++5 hand size, reduces by 1 each round
+1 in 2 chance to create a Tarot card when any Booster Pack is opened (Must have room)
++1 Mult per Tarot card used this run (Currently +0)
+Gives +25 Chips for each Stone Card in your full deck (Currently +0 Chips)
+This Joker gains X0.25 Mult every time a Lucky card successfully triggers (Currently X1 Mult)
