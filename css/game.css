@@ -776,8 +776,12 @@ body {
 	cursor: pointer;
 	transition: filter 0.15s;
 }
-.word-slots .word-slot-tile:hover {
+.word-slots .word-slot-tile:hover:not(.word-slot-tile--boss-debuff) {
 	filter: brightness(1.05);
+}
+
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff:hover {
+	filter: brightness(0.76) saturate(0.85);
 }
 .word-slots .word-slot-tile .letter-gem {
 	position: absolute;
@@ -962,11 +966,18 @@ body {
 }
 
 .grid-tile.letter-tile-boss-debuff,
-.word-slots .word-slot-content.letter-tile-boss-debuff,
-.word-slots .word-slot-tile--boss-debuff .word-slot-content,
 .fly-letter.letter-tile-boss-debuff,
 .fly-letter-back.letter-tile-boss-debuff {
 	filter: brightness(0.72) saturate(0.85);
+}
+
+/* 词槽：压暗整块槽位（含底色），仅滤内层会显得「变亮」 */
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff {
+	filter: brightness(0.72) saturate(0.85);
+}
+
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff .word-slot-content.letter-tile-boss-debuff {
+	filter: none;
 }
 
 /* 材质 Regl canvas 不参与父级 filter 时：父级不滤、canvas 与字/宝石分别压暗 */
@@ -1004,12 +1015,21 @@ body {
 	filter: brightness(0.72) saturate(0.85);
 }
 
-/* 记分高光在槽位父级；削弱格改在内容层叠亮，避免 filter 被父级覆盖 */
-.word-slots .word-slot-tile.word-slot-scoring-highlight:has(.letter-tile-boss-debuff) {
+/* 词槽父级已整块压暗时，内层材质/字不再叠 filter */
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-gold-canvas,
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-steel-canvas,
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-ice-canvas,
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-water-canvas,
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-fire-canvas,
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-wildcard-canvas,
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-lucky-canvas,
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .letter-gem,
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .letter-tile-char {
 	filter: none;
 }
 
-.word-slots .word-slot-tile.word-slot-scoring-highlight .word-slot-content.letter-tile-boss-debuff {
+/* 记分高光：削弱格整块槽位略提亮，仍明显偏暗 */
+.word-slots .word-slot-tile.word-slot-scoring-highlight.word-slot-tile--boss-debuff {
 	filter: brightness(0.76) saturate(0.85);
 }
 
@@ -3252,29 +3272,49 @@ body {
 }
 
 .shop-treasure-visual.shop-treasure-visual--detail.shop-treasure-visual--deck-offer {
+	width: auto;
+	max-width: 100%;
+	align-items: center;
+	box-sizing: border-box;
+}
+
+/* tile + 价签同列同宽，避免价签 nowrap 把整列撑宽 */
+.shop-deck-offer-product-stack {
 	width: calc(156 * var(--rpx));
 	max-width: 100%;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
 	align-items: stretch;
 	box-sizing: border-box;
 }
 
-.shop-treasure-visual--deck-offer .shop-shelf-letter-tile {
+.shop-deck-offer-product-stack .shop-shelf-letter-tile--detail {
+	width: 100%;
+	height: auto;
+	aspect-ratio: 1;
 	flex-shrink: 0;
-	align-self: center;
 }
 
-.shop-treasure-visual--deck-offer .shop-treasure-price {
+.shop-deck-offer-product-stack .shop-treasure-price {
 	width: 100%;
 	min-width: 0;
 	max-width: 100%;
-	align-self: stretch;
+	flex-shrink: 0;
 	box-sizing: border-box;
 }
 
-.shop-treasure-visual--deck-offer .shop-treasure-price-inner {
+.shop-deck-offer-product-stack .shop-treasure-price-inner {
+	width: 100%;
 	min-width: 0;
 	max-width: 100%;
 	box-sizing: border-box;
+}
+
+.treasure-detail-backdrop--deck-offer .treasure-detail-icon-column {
+	width: calc(156 * var(--rpx));
+	max-width: 100%;
+	min-width: 0;
 }
 
 .treasure-detail-fly-clone-root .shop-shelf-letter-tile--detail {

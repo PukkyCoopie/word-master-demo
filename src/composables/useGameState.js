@@ -63,6 +63,16 @@ const WILDCARD_TILE_LETTER = "?";
 
 let deckCardUidSeq = 0;
 
+/** 新局开局前调用，避免跨局 _dcUid 与调试混淆 */
+export function resetDeckCardUidSeqForRun(runSeedNumeric = 0) {
+  const base = Math.floor(Number(runSeedNumeric)) || 0;
+  deckCardUidSeq = (base % 100000) * 1000;
+}
+
+function defaultRng() {
+  return Math.random();
+}
+
 /**
  * 牌库 multiset 中一枚「牌张」的稳定引用；材质/稀有度/万能等跨小关保存在此对象上，
  * 棋盘格 `tile._deckCard` 指向同一引用。
@@ -152,9 +162,10 @@ function shuffleArrayInPlace(arr, rng = Math.random) {
   return arr;
 }
 
-function drawFromDeck(deckArr) {
+function drawFromDeck(deckArr, rng = defaultRng) {
   if (!deckArr.length) return null;
-  const idx = Math.floor(Math.random() * deckArr.length);
+  const rnd = typeof rng === "function" ? rng : defaultRng;
+  const idx = Math.floor(rnd() * deckArr.length);
   const [card] = deckArr.splice(idx, 1);
   return card;
 }
@@ -376,10 +387,13 @@ export const MAX_LETTERS_PER_REMOVAL = 8;
 
 
 /**
- * @param {{ ownedVoucherIdsRef?: import("vue").Ref<readonly string[]> | import("vue").Ref<string[]> | null }} [gameOpts]
+ * @param {{ ownedVoucherIdsRef?: import("vue").Ref<readonly string[]> | import("vue").Ref<string[]> | null, getRng?: () => number, runSeedNumeric?: number }} [gameOpts]
  */
 export function useGameState(gameOpts = {}) {
   const ownedVoucherIdsRef = gameOpts?.ownedVoucherIdsRef ?? null;
+  const getRng =
+    typeof gameOpts?.getRng === "function" ? gameOpts.getRng : defaultRng;
+  resetDeckCardUidSeqForRun(gameOpts?.runSeedNumeric ?? 0);
 
   let idCounter = 0;
 
@@ -389,7 +403,7 @@ export function useGameState(gameOpts = {}) {
   /** 本局 multiset 中全部牌张（稳定引用）；`deck` 为尚未抽到棋盘上的子集 */
   const initialDeckSnapshot = ref(initialCards);
   const deck = ref([...initialCards]);
-  shuffleArrayInPlace(deck.value);
+  shuffleArrayInPlace(deck.value, getRng);
 
   /** 当前小关 Boss slug（x-3 / 8-3）；非 Boss 小关为空串） */
   const activeBossSlug = ref("");
@@ -649,7 +663,7 @@ export function useGameState(gameOpts = {}) {
           ph.letter = "";
           row.push(ph);
         } else {
-          const card = drawFromDeck(d);
+          const card = drawFromDeck(d, getRng);
           row.push(
             card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
           );
@@ -831,7 +845,7 @@ export function useGameState(gameOpts = {}) {
       }
     }
     if (!opts.length) return;
-    const { r, c } = opts[Math.floor(Math.random() * opts.length)];
+    const { r, c } = opts[Math.floor(getRng() * opts.length)];
     const t = g[r][c];
     if (t && typeof t === "object") t.ceruleanBellLocked = true;
     selectTile(r, c);
@@ -852,7 +866,7 @@ export function useGameState(gameOpts = {}) {
         for (let c = 0; c < COLS; c++) {
           const cell = g[r][c];
           if (cell && !cell.bossGridBlocked && (!cell.letter || String(cell.letter).trim() === "")) {
-            const card = drawFromDeck(d);
+            const card = drawFromDeck(d, getRng);
             if (!card) break outer;
             g[r][c] = createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value);
             placed += 1;
@@ -894,7 +908,7 @@ export function useGameState(gameOpts = {}) {
           if (skipNewFromDeck) {
             newColumn.push(null);
           } else {
-            const card = drawFromDeck(d);
+            const card = drawFromDeck(d, getRng);
             newColumn.push(
               card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
             );
@@ -927,7 +941,7 @@ export function useGameState(gameOpts = {}) {
         if (skipNewFromDeck) {
           newColumn.push(null);
         } else {
-          const card = drawFromDeck(d);
+          const card = drawFromDeck(d, getRng);
 
           newColumn.push(
             card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
@@ -1084,7 +1098,7 @@ export function useGameState(gameOpts = {}) {
         const removeCount = playableRows - columnTiles.length;
         const newColumn = [];
         for (let i = 0; i < removeCount; i++) {
-          const card = drawFromDeck(d);
+          const card = drawFromDeck(d, getRng);
           newColumn.push(
             card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
           );
@@ -1119,7 +1133,7 @@ export function useGameState(gameOpts = {}) {
 
       for (let i = 0; i < removeCount; i++) {
 
-        const card = drawFromDeck(d);
+        const card = drawFromDeck(d, getRng);
 
         newColumn.push(
           card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
@@ -1185,7 +1199,7 @@ export function useGameState(gameOpts = {}) {
       const removeCount = playableRows - columnTiles.length;
       const newColumn = [];
       for (let i = 0; i < removeCount; i++) {
-        const card = drawFromDeck(d);
+        const card = drawFromDeck(d, getRng);
         newColumn.push(
           card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
         );
@@ -1203,7 +1217,7 @@ export function useGameState(gameOpts = {}) {
       if (r === targetRow) continue;
       columnTiles.push(cloneGridTileShallowForColumn(g[r][targetCol]));
     }
-    const card = drawFromDeck(d);
+    const card = drawFromDeck(d, getRng);
     const topTile = card
       ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value)
       : emptyTile(nextId);
@@ -1260,7 +1274,7 @@ export function useGameState(gameOpts = {}) {
         syncTileStateToDeckCard(t);
       }
     }
-    shuffleArrayInPlace(pool);
+    shuffleArrayInPlace(pool, getRng);
     deck.value = pool;
   }
 
@@ -1290,7 +1304,7 @@ export function useGameState(gameOpts = {}) {
       }
     }
     for (const c of deck.value) pool.push(c);
-    shuffleArrayInPlace(pool);
+    shuffleArrayInPlace(pool, getRng);
     deck.value = pool;
     grid.value = buildGrid();
     const bh =

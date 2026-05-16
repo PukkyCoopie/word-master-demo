@@ -9,7 +9,8 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  buildPostLetterStep() {
-    return { multAdd: Math.floor(Math.random() * 27) };
+  buildPostLetterStep(ctx) {
+    const rnd = typeof ctx?.rng === "function" ? ctx.rng : Math.random;
+    return { multAdd: Math.floor(rnd() * 27) };
   },
 };

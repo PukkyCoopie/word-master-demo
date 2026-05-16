@@ -40,7 +40,9 @@ function buildPostLetterTreasureSteps(
   isLastSubmitChance,
   baseLetterScoreSum,
   lengthTableLen,
+  rng = Math.random,
 ) {
+  const rnd = typeof rng === "function" ? rng : Math.random;
   const slots = ownedSlotTreasureIds ?? [];
   const conditions = buildTreasureLogicConditions(tiles, letterParts);
   const lenKey = Math.max(0, Math.round(Number(lengthTableLen)) || 0) || Math.max(0, tiles?.length || 0);
@@ -64,6 +66,7 @@ function buildPostLetterTreasureSteps(
       isLastSubmitChance,
       baseLetterScoreSum,
       lengthTableLen: lenKey,
+      rng: rnd,
     });
     if (step) steps.push({ treasureId: tid, slotIndex: si, ...step });
   }
@@ -125,7 +128,7 @@ const LUCKY_MATERIAL_MONEY_CHANCE = 1 / 15;
  * @param {(string | null | undefined)[] | null} [ownedSlotTreasureAccessoryIds=null] 与槽位同索引的具名配饰 id（`treasureAccessories.js`）；空位忽略
  * @param {number} [lengthMultFactor=1] 词长倍率额外乘数（保留参数；望远镜二级在升级步生效，见 `lengthUpgradeObservatoryExtra`）
  * @param {number} [lengthJudgmentBonus=0] 计分时词长表上的额外长度（直尺券）
- * @param {{ disabledTreasureSlotIndices?: Set<number> | readonly number[], bossFlintQuarter?: boolean, lengthUpgradeObservatoryExtra?: Record<number, { score?: number, mult?: number }> | null }} [submitOptions={}]
+ * @param {{ disabledTreasureSlotIndices?: Set<number> | readonly number[], bossFlintQuarter?: boolean, lengthUpgradeObservatoryExtra?: Record<number, { score?: number, mult?: number }> | null, rng?: () => number }} [submitOptions={}]
  */
 export function computeWordScoreDetailedForSubmit(
   tiles,
@@ -153,6 +156,7 @@ export function computeWordScoreDetailedForSubmit(
         : null;
   const slots = rawSlots.map((tid, si) => (disabledSet?.has(si) ? null : tid));
   const bossFlintQuarter = submitOptions?.bossFlintQuarter === true;
+  const rnd = typeof submitOptions?.rng === "function" ? submitOptions.rng : Math.random;
 
   const lengthUpgradeExtra = submitOptions?.lengthUpgradeObservatoryExtra ?? null;
   const base = computeWordScoreDetailed(
@@ -176,6 +180,7 @@ export function computeWordScoreDetailedForSubmit(
     isLastSubmitChance,
     base.scoreSum,
     base.lengthTableLen ?? tiles.length,
+    rnd,
   );
   const accessoryRow =
     ownedSlotTreasureAccessoryIds == null
@@ -319,9 +324,9 @@ export function computeWordScoreDetailedForSubmit(
     const triggerCount = 1 + Math.max(0, Math.floor(Number(replayCounts[i]) || 0));
     for (let k = 0; k < triggerCount; k++) {
       let multAdd = 0;
-      if (Math.random() < LUCKY_MATERIAL_MULT_CHANCE) multAdd = LUCKY_MATERIAL_MULT_ADD;
+      if (rnd() < LUCKY_MATERIAL_MULT_CHANCE) multAdd = LUCKY_MATERIAL_MULT_ADD;
       let moneyAdd = 0;
-      if (Math.random() < LUCKY_MATERIAL_MONEY_CHANCE) moneyAdd = LUCKY_MATERIAL_MONEY_ADD;
+      if (rnd() < LUCKY_MATERIAL_MONEY_CHANCE) moneyAdd = LUCKY_MATERIAL_MONEY_ADD;
       luckyMaterialRollsByLetter[i].push({ multAdd, moneyAdd });
       luckyMaterialMultAddTotal += multAdd;
     }

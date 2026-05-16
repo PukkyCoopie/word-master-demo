@@ -52,19 +52,35 @@
               class="shop-treasure-visual shop-treasure-visual--detail"
               :class="{ 'shop-treasure-visual--deck-offer': isDeckOffer }"
             >
-              <LetterTile
-                v-if="isDeckOffer"
-                ref="detailFlyFrameRef"
-                variant="grid"
-                class="shop-shelf-letter-tile shop-shelf-letter-tile--detail"
-                :letter="deckOfferLetter"
-                :rarity="treasure.letterRarity ?? treasure.rarity ?? 'common'"
-                :material-id="treasure.offerType === 'deckTile' ? treasure.deckTileMaterialId : undefined"
-                :accessory-id="deckOfferAccessoryId"
-                :treasure-accessory-id="deckOfferTreasureAccessoryId"
-                :tile-score-bonus="0"
-                :tile-mult-bonus="0"
-              />
+              <template v-if="isDeckOffer">
+                <div class="shop-deck-offer-product-stack">
+                  <LetterTile
+                    ref="detailFlyFrameRef"
+                    variant="grid"
+                    class="shop-shelf-letter-tile shop-shelf-letter-tile--detail"
+                    :letter="deckOfferLetter"
+                    :rarity="treasure.letterRarity ?? treasure.rarity ?? 'common'"
+                    :material-id="treasure.offerType === 'deckTile' ? treasure.deckTileMaterialId : undefined"
+                    :accessory-id="deckOfferAccessoryId"
+                    :treasure-accessory-id="deckOfferTreasureAccessoryId"
+                    :tile-score-bonus="0"
+                    :tile-mult-bonus="0"
+                  />
+                  <div
+                    class="shop-treasure-price"
+                    :aria-label="mode === 'pack-inner' ? '参考售价' : mode === 'offer' ? '售价' : '回收价'"
+                  >
+                    <div
+                      class="shop-treasure-price-inner"
+                      :class="{ 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' }"
+                    >
+                      <template v-if="mode === 'offer'">${{ offerPriceDisplayed }}</template>
+                      <template v-else-if="mode === 'pack-inner'">${{ offerPriceDisplayed }}</template>
+                      <template v-else>${{ sellRefund }}</template>
+                    </div>
+                  </div>
+                </div>
+              </template>
               <div
                 v-else
                 ref="detailFlyFrameRef"
@@ -171,7 +187,11 @@
                   aria-hidden="true"
                 ></i>
               </div>
-              <div class="shop-treasure-price" :aria-label="mode === 'pack-inner' ? '参考售价' : mode === 'offer' ? '售价' : '回收价'">
+              <div
+                v-if="!isDeckOffer"
+                class="shop-treasure-price"
+                :aria-label="mode === 'pack-inner' ? '参考售价' : mode === 'offer' ? '售价' : '回收价'"
+              >
                 <div
                   class="shop-treasure-price-inner"
                   :class="{ 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' }"
@@ -222,6 +242,77 @@
                 :description="descriptionOverride ?? treasure.description"
               />
             </template>
+          </div>
+
+          <div
+            v-if="isDeckOffer && showDeckOfferMaterialRegion"
+            ref="deckOfferMaterialRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span class="treasure-detail-desc-panel-title-text">{{ deckOfferMaterialTitle }}</span>
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="deckOfferMaterialEffectText"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
+            v-if="isDeckOffer && showDeckOfferAccessoryRegion"
+            ref="deckOfferAccessoryRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span
+                v-if="deckOfferTileAccessoryChipVisual"
+                class="tile-accessory-chip detail-panel-accessory-chip-inline"
+                :class="deckOfferTileAccessoryChipVisual.chipClass"
+                aria-hidden="true"
+              >
+                <span class="tile-accessory-chip-ripple" aria-hidden="true" />
+                <i
+                  class="tile-accessory-chip-icon"
+                  :class="deckOfferTileAccessoryChipVisual.iconClass"
+                  aria-hidden="true"
+                />
+              </span>
+              <span class="treasure-detail-desc-panel-title-text">{{ deckOfferAccessoryTitle }}</span>
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="deckOfferAccessoryDesc"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
+            v-if="isDeckOffer && showDeckOfferTreasureAccessoryRegion"
+            ref="deckOfferTreasureAccessoryRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span
+                v-if="deckOfferTreasureAccessoryChipVisual"
+                class="treasure-accessory-chip detail-panel-accessory-chip-inline"
+                :class="deckOfferTreasureAccessoryChipVisual.chipClass"
+                aria-hidden="true"
+              >
+                <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+                <i
+                  class="treasure-accessory-chip-icon"
+                  :class="deckOfferTreasureAccessoryChipVisual.iconClass"
+                  aria-hidden="true"
+                />
+              </span>
+              <span class="treasure-detail-desc-panel-title-text">{{ deckOfferTreasureAccessoryTitle }}</span>
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="deckOfferTreasureAccessoryDesc"
+              :panel-body="true"
+            />
           </div>
 
           <div
@@ -460,14 +551,25 @@ import {
   getTreasureAccessoryPanelTitle,
   getTreasureAccessoryPanelDescription,
 } from "../game/treasureAccessories.js";
+import { getTileAccessoryChipVisual } from "../game/tileAccessories.js";
+import { getTileMaterialEffectDescription, getTileAccessoryEffectDescription } from "../game/tileDetailDescriptions.js";
 import { resolveTreasureDetailGainPanel } from "../treasures/treasureRegistry.js";
 import { getSpellGainPanel } from "../spells/spellGainPanel.js";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
 import LetterTile from "./LetterTile.vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
-import { getBaseScoreForRarity, getRarityMultBonusForRarity } from "../composables/useScoring.js";
-import { tileDetailLayerCopy, getTileDetailRarityTierLabel } from "../game/tileDetailLayerCopy.js";
+import {
+  getPerLetterIntrinsicMultDisplay,
+  getPerLetterIntrinsicScoreDisplay,
+  getRarityForLetter,
+} from "../composables/useScoring.js";
+import {
+  tileDetailLayerCopy,
+  getTileDetailRarityTierLabel,
+  getTileDetailMaterialTitle,
+  getTileDetailAccessoryTitle,
+} from "../game/tileDetailLayerCopy.js";
 
 const props = defineProps({
   treasure: { type: Object, required: true },
@@ -541,7 +643,9 @@ const offerTreasureAccessoryId = computed(() => {
 });
 
 const deckOfferRarityKey = computed(() => {
-  const r = String(props.treasure?.letterRarity ?? props.treasure?.rarity ?? "common");
+  const raw = String(props.treasure?.deckLetterRaw ?? "").toLowerCase();
+  const fromLetter = raw ? getRarityForLetter(raw === "qu" ? "q" : raw) : "";
+  const r = String(props.treasure?.letterRarity ?? props.treasure?.rarity ?? (fromLetter || "common"));
   if (r === "rare" || r === "epic" || r === "legendary") return r;
   return "common";
 });
@@ -557,20 +661,79 @@ function formatDeckOfferMultDisplay(n) {
 }
 
 const deckOfferScoreDisplay = computed(() => {
-  const base = Math.max(
-    0,
-    Math.round(Number(getBaseScoreForRarity(deckOfferRarityKey.value, props.rarityLevelsByRarity)) || 0),
-  );
-  return String(base);
+  const n = getPerLetterIntrinsicScoreDisplay(deckOfferRarityKey.value, props.rarityLevelsByRarity);
+  return String(Math.max(0, Math.round(n)));
 });
 
 const deckOfferMultDisplay = computed(() => {
-  const m = Number(getRarityMultBonusForRarity(deckOfferRarityKey.value, props.rarityLevelsByRarity));
-  return formatDeckOfferMultDisplay(Number.isFinite(m) ? m : 0);
+  const n = getPerLetterIntrinsicMultDisplay(deckOfferRarityKey.value, props.rarityLevelsByRarity);
+  return formatDeckOfferMultDisplay(n);
 });
 
 const deckOfferScoreMultAria = computed(() =>
   tileDetailLayerCopy.rarity.formatTotalPerLetterAria(deckOfferScoreDisplay.value, deckOfferMultDisplay.value),
+);
+
+const deckOfferMaterialIdNorm = computed(() => {
+  if (props.treasure?.offerType !== "deckTile") return "";
+  const id = props.treasure?.deckTileMaterialId;
+  return id != null ? String(id).trim() : "";
+});
+
+const deckOfferMaterialDesc = computed(() =>
+  getTileMaterialEffectDescription(deckOfferMaterialIdNorm.value || null),
+);
+
+const deckOfferMaterialTitle = computed(() =>
+  getTileDetailMaterialTitle(deckOfferMaterialIdNorm.value || null),
+);
+
+const deckOfferMaterialEffectText = computed(() => deckOfferMaterialDesc.value || "");
+
+const showDeckOfferMaterialRegion = computed(
+  () => Boolean(deckOfferMaterialIdNorm.value && String(deckOfferMaterialEffectText.value ?? "").trim()),
+);
+
+const deckOfferAccessoryIdNorm = computed(() => {
+  const id = deckOfferAccessoryId.value;
+  return id != null ? String(id).trim() : "";
+});
+
+const deckOfferAccessoryDesc = computed(() =>
+  getTileAccessoryEffectDescription(deckOfferAccessoryIdNorm.value || null),
+);
+
+const deckOfferAccessoryTitle = computed(() =>
+  getTileDetailAccessoryTitle(deckOfferAccessoryIdNorm.value || null),
+);
+
+const deckOfferTileAccessoryChipVisual = computed(() =>
+  getTileAccessoryChipVisual(deckOfferAccessoryId.value),
+);
+
+const showDeckOfferAccessoryRegion = computed(
+  () => Boolean(deckOfferAccessoryIdNorm.value && deckOfferAccessoryDesc.value),
+);
+
+const deckOfferTreasureAccessoryIdNorm = computed(() => {
+  const id = deckOfferTreasureAccessoryId.value;
+  return id != null ? String(id).trim() : "";
+});
+
+const deckOfferTreasureAccessoryTitle = computed(() =>
+  getTreasureAccessoryPanelTitle(deckOfferTreasureAccessoryIdNorm.value || null),
+);
+
+const deckOfferTreasureAccessoryDesc = computed(() =>
+  getTreasureAccessoryPanelDescription(deckOfferTreasureAccessoryIdNorm.value || null),
+);
+
+const deckOfferTreasureAccessoryChipVisual = computed(() =>
+  getTreasureAccessoryChipVisual(deckOfferTreasureAccessoryIdNorm.value || null),
+);
+
+const showDeckOfferTreasureAccessoryRegion = computed(() =>
+  Boolean(String(deckOfferTreasureAccessoryDesc.value ?? "").trim()),
 );
 
 const packInnerPrimaryLabel = computed(() => {
@@ -705,6 +868,9 @@ const emojiRef = ref(null);
 const walletBoxRef = ref(null);
 const nameRef = ref(null);
 const descRef = ref(null);
+const deckOfferMaterialRef = ref(null);
+const deckOfferAccessoryRef = ref(null);
+const deckOfferTreasureAccessoryRef = ref(null);
 const spellGainPanelRef = ref(null);
 const treasureGainPanelRef = ref(null);
 const accessoryPanelRef = ref(null);
@@ -739,6 +905,9 @@ function staggerTargets() {
   return [
     titleGroupRef.value,
     descRef.value,
+    deckOfferMaterialRef.value,
+    deckOfferAccessoryRef.value,
+    deckOfferTreasureAccessoryRef.value,
     treasureGainPanelRef.value,
     spellGainPanelRef.value,
     accessoryPanelRef.value,

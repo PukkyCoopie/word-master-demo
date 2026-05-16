@@ -294,7 +294,32 @@ export function getRarityMultBonusForRarity(rarity, rarityLevelsByRarity = null)
   return base + Math.floor(upgradeSteps * per);
 }
 
+/**
+ * 详情「分数×倍率」分数侧：与 {@link computeWordScoreDetailed} 单字母项一致（稀有度奖励分 + 格上加分；
+ * 不含词长每字基础 3、不含材质分——材质见独立分区）。
+ */
+export function getPerLetterIntrinsicScoreDisplay(
+  rarity,
+  rarityLevelsByRarity = null,
+  tileScoreBonus = 0,
+) {
+  const rarityPart = getRarityBonusForRarity(rarity, rarityLevelsByRarity);
+  const extra = Math.max(0, Math.floor(Number(tileScoreBonus) || 0));
+  return rarityPart + extra;
+}
 
+/**
+ * 详情「分数×倍率」倍率侧：稀有度倍率 + 格上倍率（不含材质倍率——材质见独立分区）。
+ */
+export function getPerLetterIntrinsicMultDisplay(
+  rarity,
+  rarityLevelsByRarity = null,
+  tileMultBonus = 0,
+) {
+  const rarityPart = getRarityMultBonusForRarity(rarity, rarityLevelsByRarity);
+  const extra = Math.max(0, Math.round(Number(tileMultBonus) || 0));
+  return rarityPart + extra;
+}
 
 export function sumLetterScores(tiles) {
 

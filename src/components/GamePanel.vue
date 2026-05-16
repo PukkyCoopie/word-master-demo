@@ -250,7 +250,7 @@
               {
                 'word-slot-tile-out': isSlotOutOfFlow(i),
                 'word-slot-scoring-highlight': scoringLetterIndex === i,
-                'word-slot-tile--boss-debuff': entry.bossTileDebuffed === true,
+                'word-slot-tile--boss-debuff': !!entry.bossTileDebuffed,
               },
             ]"
             @click="onSlotClick(i)"
@@ -268,7 +268,7 @@
               :tile-score-bonus="Number(entry.tileScoreBonus) || 0"
               :tile-mult-bonus="Number(entry.letterMultBonus) || 0"
               :content-hidden="isSlotContentHidden(i)"
-              :boss-tile-debuffed="entry.bossTileDebuffed === true"
+              :boss-tile-debuffed="!!entry.bossTileDebuffed"
               :cerulean-bell-locked="entry.ceruleanBellLocked === true"
             />
           </div>
@@ -524,6 +524,7 @@
         :length-upgrade-observatory-extra="lengthUpgradeObservatoryExtra"
         :rarity-levels="rarityLevelsByRarity"
         :owned-voucher-ids="ownedVoucherIds"
+        :run-seed-display="props.runSeedDisplay"
       />
     </Teleport>
   </div>
@@ -561,6 +562,7 @@ import {
 import { getShopTreasureAccessoryPriceAdd, rollShopTreasureAccessoryId } from "../treasures/shopTreasureAccessoryRoll.js";
 import { LEVELS, LEVEL_COUNT, resolveLevelTargetScore } from "../levelDefinitions";
 import { pickBossSlugForLevel } from "../game/bossRoll.js";
+import { coerceRunSeedNumeric, createRunRng } from "../game/runRng.js";
 import BossBlindRerollLayer from "./BossBlindRerollLayer.vue";
 import { getBossDef } from "../game/bossBlindDefinitions.js";
 import {
@@ -669,7 +671,17 @@ const toast = ref("");
 const dictFatalError = computed(() => !!dictError.value && !dictionaryReady.value);
 
 /** @type {import('vue').Ref<string[]>} */
+const props = defineProps({
+  runSeed: { type: Number, default: 0 },
+  runSeedDisplay: { type: String, default: "" },
+});
+
 const ownedVoucherIds = ref([]);
+
+const runRng = createRunRng(coerceRunSeedNumeric(props.runSeed));
+function runRandom() {
+  return runRng.next();
+}
 
 const shopPortalZ = ref(0);
 const deckPortalZ = ref(0);
@@ -879,7 +891,11 @@ const {
   bumpBasketballWordSubmitted,
   ROWS,
   COLS,
-} = useGameState({ ownedVoucherIdsRef: ownedVoucherIds });
+} = useGameState({
+  ownedVoucherIdsRef: ownedVoucherIds,
+  getRng: runRandom,
+  runSeedNumeric: coerceRunSeedNumeric(props.runSeed),
+});
 
 /**
  * 供宝藏「结算后改棋盘」：随机非万能有字格变为万能块；
@@ -898,7 +914,7 @@ async function mutateRandomNonWildcardLetterTileToWildcard() {
     }
   }
   if (!candidates.length) return;
-  const { row, col } = candidates[Math.floor(Math.random() * candidates.length)];
+  const { row, col } = candidates[Math.floor(runRandom() * candidates.length)];
   const oldSnap = cloneGridTileSnapshot(g[row][col]);
   const draft = cloneGridTileSnapshot(g[row][col]);
   if (!oldSnap || !draft) return;
@@ -930,7 +946,9 @@ const mouthLockedLengthBoss = ref(/** @type {number | null} */ (null));
 const clubRequiredKeyBoss = ref(/** @type {string | null} */ (null));
 const pillarUsedDeckUids = ref(/** @type {Set<number>} */ (new Set()));
 const verdantTreasureSold = ref(false);
-const bossRunSeed = ref(90210);
+function getRunSeedNumeric() {
+  return coerceRunSeedNumeric(props.runSeed);
+}
 /** 离开商店进 Boss 关前的重掷预览会话 */
 const bossRerollSession = ref(/** @type {{ levelId: string, slug: string, rerollsUsed: number, rerollNonce: number } | null} */ (null));
 /** 场记板券确认后写入的 Boss slug，供 `buildLevelResetRunOpts` 使用 */
@@ -961,7 +979,7 @@ const bossTapeSubLine = computed(() => {
 
 function pickClubRequiredKey() {
   const opts = [...BOSS_CLUB_POS_OPTIONS];
-  return opts[Math.floor(Math.random() * opts.length)]?.key ?? "n";
+  return opts[Math.floor(runRandom() * opts.length)]?.key ?? "n";
 }
 
 function gridTileRawLower(tile) {
@@ -988,7 +1006,7 @@ function openBossBlindRerollSession() {
   const levelId = next?.id ?? "1-3";
   bossRerollSession.value = {
     levelId,
-    slug: pickBossSlugForLevel(levelId, bossRunSeed.value, 0),
+    slug: pickBossSlugForLevel(levelId, getRunSeedNumeric(), 0),
     rerollsUsed: 0,
     rerollNonce: 0,
   };
@@ -998,7 +1016,7 @@ function buildLevelResetRunOpts(levelDef) {
   const id = levelDef?.id ?? "1-1";
   const override = String(pendingBossSlugOverride.value ?? "").trim();
   const slug =
-    override && parseLevelSubFromId(id) === 3 ? override : pickBossSlugForLevel(id, bossRunSeed.value);
+    override && parseLevelSubFromId(id) === 3 ? override : pickBossSlugForLevel(id, getRunSeedNumeric());
   const ts = resolveLevelTargetScore(id, slug);
   let rem = getBaseRemovalsPerLevel(ownedVoucherIds.value);
   if (slug === "the_water") rem = 0;
@@ -1081,7 +1099,7 @@ function applyHookBossAfterSubmit() {
 
 function shuffleArrayInPlaceLocal(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(runRandom() * (i + 1));
     const t = arr[i];
     arr[i] = arr[j];
     arr[j] = t;
@@ -1096,7 +1114,7 @@ function pickCrimsonDisabledTreasureSlotIndex() {
     if (own[i]?.treasureId) idxs.push(i);
   }
   if (!idxs.length) return null;
-  return idxs[Math.floor(Math.random() * idxs.length)];
+  return idxs[Math.floor(runRandom() * idxs.length)];
 }
 
 function evaluateOxBossHit(judgedLen, counts) {
@@ -1390,7 +1408,10 @@ function shopPriceForOffer(basePrice) {
 }
 
 const shopNextRerollCostDisplay = computed(() =>
-  shopPriceForOffer(getEffectiveShopRerollCost(ownedVoucherIds.value, computeShopRerollCost(shopRerollsThisVisit.value))),
+  getEffectiveShopRerollCost(
+    ownedVoucherIds.value,
+    computeShopRerollCost(shopRerollsThisVisit.value),
+  ),
 );
 
 const shopCanReroll = computed(() => {
@@ -1527,7 +1548,7 @@ function onShopUpgradeInteractionUnlock() {
 }
 
 async function playArrowUpShopUpgradeSequence({ restoreLayersAfter = false } = {}) {
-  const picks = rollRandomUpgradePicks(UPGRADE_LENGTH_GROUPS, 2);
+  const picks = rollRandomUpgradePicks(UPGRADE_LENGTH_GROUPS, 2, runRandom);
   const levelRefs = { rarityLevelsByRarity, lengthLevelsByLength };
   const obsFn = (len) => isLengthObservatoryBoosted(ownedVoucherIds.value, len, spellCountsByLength.value);
   const steps = picks.map((pick) => ({
@@ -1710,7 +1731,7 @@ async function fulfillSpellAfterPackPayment(t, { restoreLayersAfter = false } = 
     }
     const ctx0 = buildSpellRuntimeContext();
     const beforeGrid = cloneGridDeep(grid.value, ROWS, COLS);
-    applySpell(ctx0, spellId, effectiveSpellId, [], {});
+    applySpell(ctx0, spellId, effectiveSpellId, [], { rng: runRandom });
     const afterGrid = cloneGridDeep(grid.value, ROWS, COLS);
     const animTargets = diffGridAppearanceTargets(beforeGrid, afterGrid, ROWS, COLS);
     if (animTargets.length > 0) {
@@ -1740,7 +1761,7 @@ async function fulfillSpellAfterPackPayment(t, { restoreLayersAfter = false } = 
     spellDescription: t.description ?? def?.description ?? "",
     spellRarity: t.rarity ?? "rare",
     pickCount,
-    offerSlots: buildSpellOfferSlots(),
+    offerSlots: buildSpellOfferSlots(runRandom),
     purchasedSpellId: spellId,
     effectiveSpellId,
   };
@@ -2221,7 +2242,7 @@ watch(showShop, (open) => {
   const shelfGen = getVoucherShelfGeneration(levelId);
   if (shopVoucherShelfGeneration.value !== shelfGen) {
     shopVoucherShelfGeneration.value = shelfGen;
-    const d = rollShopVoucherOfferDef(ownedVoucherIds.value, Math.random);
+    const d = rollShopVoucherOfferDef(ownedVoucherIds.value, runRandom);
     shopVoucherShelf.value = d
       ? {
           kind: "offer",
@@ -2239,7 +2260,7 @@ watch(showShop, (open) => {
         }
       : makeEmptyVoucherSlot();
   }
-  const visitStock = rollShopVisitStock();
+  const visitStock = rollShopVisitStock(runRandom);
   shopOffers.value = visitStock.shop;
   packOffers.value = visitStock.pack;
 });
@@ -2707,7 +2728,7 @@ const effectiveWordValid = computed(() => {
  */
 const wordSlotTilePresentations = computed(() => {
   const orderTiles = selectedTiles.value.map(({ tile }) => tile);
-  if (flyingLetters.value.length > 0) return orderTiles;
+  if (flyingLetters.value.length > 0) return orderTiles.map(normalizeWordSlotPresentationTile);
   const batches = flyingBackBatches.value;
   const minSlot = batches.length > 0 ? Math.min(...batches.map((b) => b.slotIndex)) : orderTiles.length;
   const res = resolvedWordForSubmit.value;
@@ -2715,24 +2736,30 @@ const wordSlotTilePresentations = computed(() => {
   if (!res || eff.length !== res.length) return orderTiles;
   let pos = 0;
   return orderTiles.map((tile, idx) => {
-    if (idx >= minSlot) return tile;
+    if (idx >= minSlot) return normalizeWordSlotPresentationTile(tile);
     const frag = String(tile?.letter ?? "").toLowerCase();
     const start = pos;
     pos += frag.length;
-    if (!isWildcardMaterialTile(tile) || frag !== "?") return tile;
+    if (!isWildcardMaterialTile(tile) || frag !== "?") return normalizeWordSlotPresentationTile(tile);
     const ch = res[start];
-    if (!ch || ch < "a" || ch > "z") return tile;
+    if (!ch || ch < "a" || ch > "z") return normalizeWordSlotPresentationTile(tile);
     const letter = ch === "q" ? "Qu" : ch.toUpperCase();
     const rarity = getRarityForLetter(ch);
-    return {
+    return normalizeWordSlotPresentationTile({
       ...tile,
       letter,
       rarity,
       baseScore: getBaseScoreForRarity(rarity, rarityLevelsByRarity.value),
-      bossTileDebuffed: tile.bossTileDebuffed === true,
-    };
+    });
   });
 });
+
+/** 词槽展示用：保留棋盘格上的 boss 削弱标记，供整块槽位压暗 */
+function normalizeWordSlotPresentationTile(tile) {
+  if (!tile || typeof tile !== "object") return tile;
+  if (!tile.bossTileDebuffed) return tile;
+  return { ...tile, bossTileDebuffed: true };
+}
 
 /** 已选格在棋盘上与词槽同步展示解析后的字母/稀有度 */
 const gridTileLetterForRender = computed(() => {
@@ -3813,9 +3840,9 @@ function grantRandomShopTreasure() {
   const ix = ownedTreasures.value.findIndex((s) => s == null);
   if (ix < 0) return false;
   const owned = ownedTreasureIdSet.value;
-  const picks = rollDistinctShopTreasures(shopTreasurePool, owned, new Set(), 1, Math.random);
+  const picks = rollDistinctShopTreasures(shopTreasurePool, owned, new Set(), 1, runRandom);
   if (!picks[0]) return false;
-  const row = toShopOfferRows([picks[0]])[0];
+  const row = toShopOfferRows([picks[0]], runRandom)[0];
   const slots = [...ownedTreasures.value];
   slots[ix] = {
     treasureId: row.treasureId,
@@ -4061,7 +4088,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
 
   if (!targets.length) {
     const beforeGrid = cloneGridDeep(g, ROWS, COLS);
-    applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, ordered, {});
+    applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, ordered, { rng: runRandom });
     const afterGrid = cloneGridDeep(grid.value, ROWS, COLS);
     const animTargets = diffGridAppearanceTargets(beforeGrid, afterGrid, ROWS, COLS);
     if (!animTargets.length) {
@@ -4089,7 +4116,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
   }
 
   const oldSnaps = targets.map(({ row, col }) => cloneGridTileSnapshot(g[row][col]));
-  applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, ordered, {});
+  applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, ordered, { rng: runRandom });
   const newSnaps = targets.map(({ row, col }) => cloneGridTileSnapshot(g[row][col]));
   await nextTick();
   const playedOnOffer =
@@ -4222,7 +4249,7 @@ async function onTreasurePurchase() {
       }
       const ctx0 = buildSpellRuntimeContext();
       const beforeGrid = cloneGridDeep(grid.value, ROWS, COLS);
-      applySpell(ctx0, spellId, effectiveSpellId, [], {});
+      applySpell(ctx0, spellId, effectiveSpellId, [], { rng: runRandom });
       const afterGrid = cloneGridDeep(grid.value, ROWS, COLS);
       const animTargets = diffGridAppearanceTargets(beforeGrid, afterGrid, ROWS, COLS);
       if (animTargets.length > 0) {
@@ -4258,7 +4285,7 @@ async function onTreasurePurchase() {
       spellDescription: t.description ?? def?.description ?? "",
       spellRarity: t.rarity ?? "rare",
       pickCount,
-      offerSlots: buildSpellOfferSlots(),
+      offerSlots: buildSpellOfferSlots(runRandom),
       purchasedSpellId: spellId,
       effectiveSpellId,
     };
@@ -4338,7 +4365,8 @@ async function onShopReroll() {
   shopRerollsThisVisit.value += 1;
   const sessionExclude = new Set();
   addShopShelfTreasureIdsToExclude(sessionExclude, shopOffers.value);
-  packOffers.value = rollPackStock(Math.random, sessionExclude);
+  shopOffers.value = rollShopStock(runRandom, sessionExclude);
+  packOffers.value = rollPackStock(runRandom, sessionExclude);
   treasureDetail.value = null;
   packPickSession.value = null;
 }
@@ -4365,7 +4393,7 @@ function onBossBlindRerollPaid() {
   money.value -= BOSS_BLIND_REROLL_COST_DOLLARS;
   const rerollNonce = s.rerollNonce + 1;
   const rerollsUsed = s.rerollsUsed + 1;
-  const slug = pickBossSlugForLevel(s.levelId, bossRunSeed.value, rerollNonce);
+  const slug = pickBossSlugForLevel(s.levelId, getRunSeedNumeric(), rerollNonce);
   bossRerollSession.value = { ...s, slug, rerollNonce, rerollsUsed };
 }
 
@@ -6193,6 +6221,7 @@ async function submitWord() {
       disabledTreasureSlotIndices: crimsonSet,
       bossFlintQuarter: activeBossSlug.value === "the_flint",
       lengthUpgradeObservatoryExtra: lengthUpgradeObservatoryExtra.value,
+      rng: runRandom,
     },
   );
   if (submitViolated) {
@@ -6226,7 +6255,7 @@ async function submitWord() {
   try {
     await runSubmitScoringSequence(tiles, detailed, resolvedWord);
     for (const iceTileId of submittedIceTileIds) {
-      if (Math.random() < ICE_MATERIAL_SELF_DESTRUCT_CHANCE) {
+      if (runRandom() < ICE_MATERIAL_SELF_DESTRUCT_CHANCE) {
         consumeIceTileOnGrid(iceTileId);
       }
     }

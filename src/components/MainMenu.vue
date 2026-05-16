@@ -8,7 +8,7 @@
       />
 
       <nav class="menu-actions" aria-label="主菜单">
-        <button type="button" class="menu-btn menu-btn--start" @click="$emit('start', $event)">
+        <button type="button" class="menu-btn menu-btn--start" @click="$emit('request-start')">
           <i class="ri-play-fill menu-btn-icon" aria-hidden="true"></i>
           <span>开始游戏</span>
         </button>
@@ -28,7 +28,7 @@
 <script setup>
 import TileLetterShowcase from "./TileLetterShowcase.vue";
 
-defineEmits(["start"]);
+defineEmits(["request-start"]);
 
 const showcaseRows = [
   [

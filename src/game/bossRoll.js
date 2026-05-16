@@ -1,19 +1,5 @@
 import { NORMAL_BOSS_SLUGS, SHOWDOWN_BOSS_SLUGS } from "./bossBlindDefinitions.js";
-
-/**
- * 确定性伪随机 0..1
- * @param {number} seed
- * @returns {number}
- */
-function mulberry32(seed) {
-  let t = seed >>> 0;
-  return function () {
-    t += 0x6d2b79f5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-}
+import { hashSeed32, mulberry32 } from "./runRng.js";
 
 /**
  * @param {string} levelId
@@ -29,7 +15,7 @@ export function pickBossSlugForLevel(levelId, runSeed = 0, rerollNonce = 0) {
   const pool = chapter === 8 ? [...SHOWDOWN_BOSS_SLUGS] : [...NORMAL_BOSS_SLUGS];
   if (!pool.length) return "";
   const nonce = Math.max(0, Math.floor(Number(rerollNonce) || 0));
-  const seed = (runSeed * 10007 + chapter * 131 + 17 + nonce * 9749) >>> 0;
+  const seed = hashSeed32(runSeed, "boss", chapter, nonce);
   const rnd = mulberry32(seed);
   const idx = Math.floor(rnd() * pool.length);
   return pool[idx] ?? pool[0];

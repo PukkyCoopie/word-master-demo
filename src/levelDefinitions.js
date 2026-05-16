@@ -2,7 +2,7 @@
  * 关卡与经济奖励。
  *
  * `id`：关卡名（如 "1-1"）。
- * 通关目标分由 `resolveLevelTargetScore`（章底 B × 1×/1.5×/Boss 2×m）按 Balatro 曲线计算，见 `game/levelTargetScore.js`。
+ * 通关目标分由 `resolveLevelTargetScore`（Wiki Ante base × 1×/1.5×/Boss 表倍数）计算，见 `game/levelTargetScore.js`。
  * `rewardYuan`：通关基础奖励（元）；同一大关下小关 1→3、2→4、3→5。
  */
 

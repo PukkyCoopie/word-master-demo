@@ -18,11 +18,20 @@
             <div class="dict-boot-bar-fill" :style="{ width: dictBarPct + '%' }" />
           </div>
         </div>
-        <MainMenu v-if="showMenu" @start="onMenuStart" />
+        <MainMenu v-if="showMenu" @request-start="onMenuRequestStart" />
         <div v-else-if="showGame" class="game-session-stack">
-          <GamePanel :key="gameSessionKey" />
+          <GamePanel
+            :key="gameSessionKey"
+            :run-seed="sessionRunSeed"
+            :run-seed-display="sessionRunSeedDisplay"
+          />
         </div>
         <IrisTransition ref="irisFxRef" :color="IRIS_COLOR" />
+        <RunStartDialog
+          :open="showRunStartDialog"
+          @confirm="onRunStartConfirm"
+          @cancel="onRunStartCancel"
+        />
       </div>
     </div>
   </div>
@@ -32,9 +41,11 @@
 import { computed, onBeforeUnmount, onMounted, provide, ref } from "vue";
 import MainMenu from "./components/MainMenu.vue";
 import GamePanel from "./components/GamePanel.vue";
+import RunStartDialog from "./components/RunStartDialog.vue";
 import { useScale } from "./composables/useScale";
 import { useDictionary } from "./composables/useDictionary";
 import IrisTransition from "./components/IrisTransition.vue";
+import { coerceRunSeedNumeric } from "./game/runRng.js";
 
 useScale();
 
@@ -42,6 +53,11 @@ const { loadDictionary, dictionaryReady, loading: dictLoading, error: dictError,
 
 const screen = ref("menu");
 const gameSessionKey = ref(0);
+const showRunStartDialog = ref(false);
+/** @type {import('vue').Ref<'menu' | 'restart'>} */
+const runStartMode = ref("menu");
+const sessionRunSeed = ref(0);
+const sessionRunSeedDisplay = ref("");
 
 /** 与「开始游戏」按钮一致的转场色 */
 const IRIS_COLOR = "#5a8fb8";
@@ -50,6 +66,13 @@ const transitionBusy = ref(false);
 
 provide("irisTransition", {
   play: (event, opts) => irisFxRef.value?.play(event, opts),
+});
+
+/** 暂停菜单「重新开始」等：打开同一开局弹层（暂停 UI 未做时亦可 inject 调用） */
+provide("requestNewRun", () => {
+  if (transitionBusy.value) return;
+  runStartMode.value = "restart";
+  showRunStartDialog.value = true;
 });
 
 const showMenu = computed(() => dictionaryReady.value && screen.value === "menu");
@@ -75,16 +98,31 @@ function onDictBootBarClick() {
   loadDictionary({ shouldAbort: () => !appAlive });
 }
 
-async function onMenuStart(event) {
+function onMenuRequestStart() {
   if (transitionBusy.value) return;
+  runStartMode.value = "menu";
+  showRunStartDialog.value = true;
+}
+
+async function onRunStartConfirm(payload) {
+  if (transitionBusy.value) return;
+  sessionRunSeed.value = coerceRunSeedNumeric(payload.seedNumeric);
+  sessionRunSeedDisplay.value = String(payload.seedDisplay ?? "");
+  showRunStartDialog.value = false;
+
   transitionBusy.value = true;
-  await irisFxRef.value?.play(event, {
+  const mode = runStartMode.value;
+  await irisFxRef.value?.play(null, {
     onCovered: () => {
       gameSessionKey.value += 1;
-      screen.value = "game";
+      if (mode === "menu") screen.value = "game";
     },
   });
   transitionBusy.value = false;
+}
+
+function onRunStartCancel() {
+  showRunStartDialog.value = false;
 }
 </script>
 

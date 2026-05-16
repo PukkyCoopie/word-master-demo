@@ -45,6 +45,7 @@
  * @property {boolean} [isLastSubmitChance] 本手是否消耗本关内最后一次出牌（拼写）机会
  * @property {number} [baseLetterScoreSum]
  * @property {number[]} [letterReplayCounts]
+ * @property {() => number} [rng] 局内确定性随机 [0,1)，未传时宝藏逻辑可回退 Math.random
  */
 
 /**

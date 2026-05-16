@@ -163,7 +163,10 @@
 import gsap from "gsap";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import LetterTile from "./LetterTile.vue";
-import { getBaseScoreForRarity, getRarityMultBonusForRarity } from "../composables/useScoring";
+import {
+  getPerLetterIntrinsicMultDisplay,
+  getPerLetterIntrinsicScoreDisplay,
+} from "../composables/useScoring";
 import { getTileMaterialEffectDescription, getTileAccessoryEffectDescription } from "../game/tileDetailDescriptions";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
 import { getTileAccessoryChipVisual } from "../game/tileAccessories";
@@ -622,16 +625,6 @@ const rarityKey = computed(() => {
   return "common";
 });
 
-const rarityScore = computed(() => {
-  const r = String(props.payload?.rarity ?? "common");
-  return getBaseScoreForRarity(r, props.rarityLevelsByRarity);
-});
-
-const rarityMult = computed(() => {
-  const r = String(props.payload?.rarity ?? "common");
-  return getRarityMultBonusForRarity(r, props.rarityLevelsByRarity);
-});
-
 const rarityTagLabel = computed(() => getTileDetailRarityTierLabel(props.payload?.rarity));
 
 function formatMultDisplay(n) {
@@ -642,24 +635,23 @@ function formatMultDisplay(n) {
   return s.endsWith(".0") ? String(Math.round(x)) : s;
 }
 
-const tileScoreExtra = computed(() =>
-  Math.max(0, Math.floor(Number(props.payload?.tileScoreBonus) || 0)),
-);
-
-const tileMultExtra = computed(() =>
-  Math.max(0, Math.round(Number(props.payload?.tileMultBonus) || 0)),
-);
-
-/** 稀有度基础分（取整）+ 棋盘格额分，与原先分解式求和一致 */
+/** 稀有度奖励分 + 棋盘格额分（与结算单字母项、信息页稀有度表一致；不含词长每字基础 3） */
 const totalPerLetterScoreDisplay = computed(() => {
-  const base = Math.max(0, Math.round(Number(rarityScore.value) || 0));
-  return String(Math.max(0, base + tileScoreExtra.value));
+  const n = getPerLetterIntrinsicScoreDisplay(
+    rarityKey.value,
+    props.rarityLevelsByRarity,
+    props.payload?.tileScoreBonus,
+  );
+  return String(Math.max(0, Math.round(n)));
 });
 
 const totalPerLetterMultDisplay = computed(() => {
-  const rm = Number(rarityMult.value);
-  const m = Number.isFinite(rm) ? rm : 0;
-  return formatMultDisplay(m + tileMultExtra.value);
+  const n = getPerLetterIntrinsicMultDisplay(
+    rarityKey.value,
+    props.rarityLevelsByRarity,
+    props.payload?.tileMultBonus,
+  );
+  return formatMultDisplay(n);
 });
 
 const scoreMultSummaryAria = computed(() =>

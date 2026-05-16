@@ -7,6 +7,7 @@ function has(owned, id) {
   return s.has(id);
 }
 
+/** 货架商品标价乘数（不含商店「刷新」费用；刷新减价见 `getRerollCostDiscountDollars` / 骰子券）。 */
 /** @param {Iterable<string>} owned */
 export function getShopDiscountMultiplier(owned) {
   if (has(owned, "v_clearance_2")) return 0.5;

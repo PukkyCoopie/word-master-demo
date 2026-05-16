@@ -160,7 +160,13 @@
           </table>
         </div>
         <div v-show="activeTab === 'stage'" class="info-placeholder info-tab-layer" role="tabpanel">
-          关卡信息稍后补充
+          <template v-if="runSeedDisplay">
+            <p class="info-run-seed">
+              <span class="info-run-seed-label">本局种子</span>
+              <span class="info-run-seed-value">{{ runSeedDisplay }}</span>
+            </p>
+          </template>
+          <template v-else>关卡信息稍后补充</template>
         </div>
         <div
           v-show="activeTab === 'coupon'"
@@ -214,6 +220,8 @@ const props = defineProps({
   /** 本局已购买的优惠券 id 列表 */
   ownedVoucherIds: { type: Array, default: () => [] },
   overlaySuppressed: { type: Boolean, default: false },
+  /** 本局种子显示串（只读） */
+  runSeedDisplay: { type: String, default: "" },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -771,6 +779,23 @@ function close() {
   justify-content: center;
   font-size: calc(24 * var(--rpx));
   color: #8f7a66;
+}
+
+.info-run-seed {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(10 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
+  color: #8f7a66;
+}
+
+.info-run-seed-value {
+  font-size: calc(30 * var(--rpx));
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #3c3a32;
 }
 
 .info-back-btn {
