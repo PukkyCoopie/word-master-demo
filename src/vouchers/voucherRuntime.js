@@ -142,24 +142,26 @@ export function getOwnedTreasureSlotBonusFromVouchers(owned) {
 }
 
 /**
- * 卷轴券购买后跳转的关卡索引（上一大关或上两大关的首小关）。
- * @param {number} currentLevelIndex `LEVELS` 下标
- * @param {boolean} tier2 是否为「卷轴·二级」
+ * 卷轴券购买后跳转的关卡索引：相对「商店离开后即将进入的下一小关」回退 N 个大关，保留小关号。
+ * 例：刚通关 2-2 进店时下一关本为 2-3，购买一级卷轴后变为 1-3。
+ * @param {number} currentLevelIndex `LEVELS` 下标（通常为刚通关、尚未 +1 的关卡）
+ * @param {boolean} tier2 是否为「卷轴·二级」（回退 2 大关）
  * @returns {number | null}
  */
 export function getGlyphPurchaseTargetLevelIndex(currentLevelIndex, tier2) {
   const ix0 = Math.max(0, Math.min(Math.floor(Number(currentLevelIndex) || 0), LEVELS.length - 1));
-  const cur = LEVELS[ix0];
-  if (!cur?.id) return null;
-  const major = parseMajorFromLevelId(cur.id);
+  const upcomingIx = Math.min(ix0 + 1, LEVELS.length - 1);
+  const upcoming = LEVELS[upcomingIx];
+  if (!upcoming?.id) return null;
+  const major = parseMajorFromLevelId(upcoming.id);
+  const minor = parseLevelSubFromId(upcoming.id);
   const delta = tier2 ? 2 : 1;
   if (major <= delta) return null;
   const targetMajor = major - delta;
   const tix = LEVELS.findIndex((l) => {
-    const parts = String(l.id).split("-");
     const m = parseMajorFromLevelId(l.id);
-    const minor = Math.max(1, Math.round(Number(parts[1]) || 0) || 1);
-    return m === targetMajor && minor === 1;
+    const sub = parseLevelSubFromId(l.id);
+    return m === targetMajor && sub === minor;
   });
   return tix >= 0 ? tix : null;
 }

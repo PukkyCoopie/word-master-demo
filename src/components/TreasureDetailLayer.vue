@@ -1305,8 +1305,8 @@ onUnmounted(() => {
 
 defineExpose({
   getEmojiEl: () => emojiRef.value,
-  /** 购买飞入槽位：整框 shop-treasure-frame 起点 */
-  getFlyFrameEl: () => detailFlyFrameRef.value,
+  /** 购买飞入槽位：详情内 LetterTile 或 shop-treasure-frame 根 DOM */
+  getFlyFrameEl: () => refToFlyFrameEl(detailFlyFrameRef.value),
   getWalletEl: () => walletBoxRef.value,
   playClose,
 });

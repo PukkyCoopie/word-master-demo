@@ -2,7 +2,7 @@
  * 关卡与经济奖励。
  *
  * `id`：关卡名（如 "1-1"）。
- * 通关目标分由 `resolveLevelTargetScore`（Wiki Ante base × 1×/1.5×/Boss 表倍数）计算，见 `game/levelTargetScore.js`。
+ * 通关目标分 = List of Antes 章底 × 1× / 1.5× / Boss 倍数，见 `game/levelTargetScore.js`。
  * `rewardYuan`：通关基础奖励（元）；同一大关下小关 1→3、2→4、3→5。
  */
 
@@ -71,4 +71,28 @@ export function getLevelById(id) {
  */
 export function getLevelByIndex(index) {
   return LEVELS[index];
+}
+
+/** 标准流程最后一关下标（8-3） */
+export const STANDARD_RUN_FINAL_LEVEL_INDEX = LEVEL_COUNT - 1;
+
+/**
+ * @param {number} index 0-based 通关顺序下标（可超过 LEVEL_COUNT−1 表示无尽后续关）
+ * @returns {LevelDefinition}
+ */
+export function getRunLevelAtIndex(index) {
+  const i = Math.max(0, Math.floor(Number(index)) || 0);
+  if (i < LEVEL_COUNT) return LEVELS[i];
+  const chapter = Math.floor(i / 3) + 1;
+  const sub = (i % 3) + 1;
+  const id = `${chapter}-${sub}`;
+  return { id, rewardYuan: rewardYuanForLevelId(id) };
+}
+
+/**
+ * @param {number} index
+ * @returns {boolean}
+ */
+export function isStandardRunFinalLevelIndex(index) {
+  return Math.floor(Number(index)) === STANDARD_RUN_FINAL_LEVEL_INDEX;
 }

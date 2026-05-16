@@ -1,0 +1,744 @@
+{
+  "at": "2026-05-16T13:24:39.491Z",
+  "passed": [
+    {
+      "ok": true,
+      "category": "dictionary",
+      "id": "dict.json",
+      "message": "170353 条词条"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "1-1",
+      "message": "目标分 300，奖励 3 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "1-2",
+      "message": "目标分 450，奖励 4 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "1-3",
+      "message": "目标分 600，奖励 5 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "2-1",
+      "message": "目标分 800，奖励 3 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "2-2",
+      "message": "目标分 1200，奖励 4 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "2-3",
+      "message": "目标分 1600，奖励 5 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "3-1",
+      "message": "目标分 2000，奖励 3 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "3-2",
+      "message": "目标分 3000，奖励 4 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "3-3",
+      "message": "目标分 4000，奖励 5 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "4-1",
+      "message": "目标分 5000，奖励 3 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "4-2",
+      "message": "目标分 7500，奖励 4 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "4-3",
+      "message": "目标分 10000，奖励 5 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "5-1",
+      "message": "目标分 11000，奖励 3 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "5-2",
+      "message": "目标分 16500，奖励 4 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "5-3",
+      "message": "目标分 22000，奖励 5 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "6-1",
+      "message": "目标分 20000，奖励 3 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "6-2",
+      "message": "目标分 30000，奖励 4 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "6-3",
+      "message": "目标分 40000，奖励 5 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "7-1",
+      "message": "目标分 35000，奖励 3 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "7-2",
+      "message": "目标分 52500，奖励 4 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "7-3",
+      "message": "目标分 70000，奖励 5 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "8-1",
+      "message": "目标分 50000，奖励 3 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "8-2",
+      "message": "目标分 75000，奖励 4 元"
+    },
+    {
+      "ok": true,
+      "category": "level",
+      "id": "8-3",
+      "message": "目标分 100000，奖励 5 元"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "1",
+      "message": "已实装 火花"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "2",
+      "message": "已实装 铅笔"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "3",
+      "message": "已实装 宝石"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "4",
+      "message": "已实装 水晶球"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "5",
+      "message": "已实装 王冠"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "6",
+      "message": "已实装 链条"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "7",
+      "message": "已实装 扩音器"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "8",
+      "message": "已实装 放大镜"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "9",
+      "message": "已实装 拼图"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "10",
+      "message": "已实装 名牌"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "11",
+      "message": "已实装 键盘"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "12",
+      "message": "已实装 碗"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "13",
+      "message": "已实装 雪花"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "14",
+      "message": "已实装 调色盘"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "15",
+      "message": "已实装 丝带"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "16",
+      "message": "已实装 沙漏"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "17",
+      "message": "已实装 椅子"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "18",
+      "message": "已实装 手包"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "19",
+      "message": "已实装 火"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "20",
+      "message": "已实装 篮球"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "21",
+      "message": "已实装 靶心"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "22",
+      "message": "已实装 号角"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "23",
+      "message": "未实装 算盘"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "24",
+      "message": "未实装 小票"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "25",
+      "message": "已实装 备忘录"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "26",
+      "message": "已实装 书本"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "27",
+      "message": "未实装 硬币"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "28",
+      "message": "未实装 乐谱"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "29",
+      "message": "已实装 电池"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "30",
+      "message": "已实装 试管"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "31",
+      "message": "已实装 锤子"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "32",
+      "message": "已实装 满月"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "33",
+      "message": "已实装 黄圆点"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "34",
+      "message": "已实装 木头"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "35",
+      "message": "已实装 蓝钻"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "36",
+      "message": "已实装 标签"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "37",
+      "message": "未实装 摇杆"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "38",
+      "message": "已实装 尺子"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "39",
+      "message": "未实装 飞机"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "40",
+      "message": "未实装 书"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "41",
+      "message": "未实装 封蜡"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "42",
+      "message": "未实装 红绿灯"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "43",
+      "message": "未实装 灯泡"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "44",
+      "message": "未实装 笔记本"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "45",
+      "message": "未实装 打印机"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "46",
+      "message": "未实装 证件"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "47",
+      "message": "已实装 鱼竿"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "48",
+      "message": "未实装 匕首"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "49",
+      "message": "未实装 闪电"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "50",
+      "message": "未实装 砖块"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "51",
+      "message": "未实装 扫帚"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "52",
+      "message": "未实装 天平"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "53",
+      "message": "未实装 银行卡"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "54",
+      "message": "未实装 炸弹"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "55",
+      "message": "未实装 箱子"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "56",
+      "message": "未实装 卷轴"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "57",
+      "message": "未实装 紫方块"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "58",
+      "message": "未实装 工具箱"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "59",
+      "message": "未实装 面具"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "60",
+      "message": "未实装 火车"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "61",
+      "message": "未实装 星空"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "62",
+      "message": "未实装 磁铁"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "63",
+      "message": "未实装 钱袋"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "64",
+      "message": "未实装 旋钮"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "65",
+      "message": "未实装 陶罐"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "66",
+      "message": "未实装 信封"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "67",
+      "message": "未实装 金牌"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "68",
+      "message": "未实装 上涨图"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "69",
+      "message": "未实装 洞"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "70",
+      "message": "未实装 取款机"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "71",
+      "message": "未实装 A键"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "72",
+      "message": "未实装 银行"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "73",
+      "message": "未实装 加号"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "74",
+      "message": "未实装 手提包"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "75",
+      "message": "已实装 剪贴板"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "76",
+      "message": "已实装 回形针"
+    },
+    {
+      "ok": true,
+      "category": "treasure",
+      "id": "77",
+      "message": "已实装 彩虹"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "restart",
+      "message": "重播"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "cake",
+      "message": "蛋糕"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "dice",
+      "message": "骰子"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "arrow_up",
+      "message": "向上"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "blaze",
+      "message": "炙烤"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "drinks",
+      "message": "饮料"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "lightbulb",
+      "message": "点亮"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "hammer",
+      "message": "锤炼"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "snowflake",
+      "message": "降温"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "hand_coin",
+      "message": "积累"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "star",
+      "message": "星星"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "seedling",
+      "message": "生长"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "delete_back",
+      "message": "删除"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "file_copy",
+      "message": "复制"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "price_tag",
+      "message": "标签"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "flask",
+      "message": "炼金"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "bard",
+      "message": "抛光"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "mic",
+      "message": "麦克风"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "notification",
+      "message": "铃铛"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "phone",
+      "message": "电话"
+    },
+    {
+      "ok": true,
+      "category": "spell",
+      "id": "treasure_map",
+      "message": "藏宝图"
+    }
+  ],
+  "failed": []
+}

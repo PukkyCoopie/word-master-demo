@@ -7,10 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "favicon": "node scripts/render-favicon.mjs"
+    "favicon": "node scripts/render-favicon.mjs",
+    "e2e:audit": "node e2e/static-content-audit.mjs",
+    "e2e:play": "node e2e/run-auto-play.mjs",
+    "e2e": "npm run e2e:audit && npm run e2e:play"
   },
   "devDependencies": {
     "opentype.js": "^1.3.4",
+    "playwright": "^1.52.0",
     "sharp": "^0.34.5",
     "vite": "^6.0.0"
   },

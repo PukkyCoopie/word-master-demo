@@ -24,11 +24,14 @@
             :key="gameSessionKey"
             :run-seed="sessionRunSeed"
             :run-seed-display="sessionRunSeedDisplay"
+            @request-restart="onGameRequestRestart"
+            @exit-to-menu="onGameExitToMenu"
           />
         </div>
         <IrisTransition ref="irisFxRef" :color="IRIS_COLOR" />
         <RunStartDialog
           :open="showRunStartDialog"
+          :initial-seed="runStartPrefillSeed"
           @confirm="onRunStartConfirm"
           @cancel="onRunStartCancel"
         />
@@ -46,6 +49,8 @@ import { useScale } from "./composables/useScale";
 import { useDictionary } from "./composables/useDictionary";
 import IrisTransition from "./components/IrisTransition.vue";
 import { coerceRunSeedNumeric } from "./game/runRng.js";
+import { isE2eMode } from "./e2e/isE2eMode.js";
+import { registerAppTestHarness } from "./e2e/registerAppTestHarness.js";
 
 useScale();
 
@@ -58,6 +63,8 @@ const showRunStartDialog = ref(false);
 const runStartMode = ref("menu");
 const sessionRunSeed = ref(0);
 const sessionRunSeedDisplay = ref("");
+/** 失败「再来一局」时预填上一局种子 */
+const runStartPrefillSeed = ref("");
 
 /** 与「开始游戏」按钮一致的转场色 */
 const IRIS_COLOR = "#5a8fb8";
@@ -69,8 +76,12 @@ provide("irisTransition", {
 });
 
 /** 暂停菜单「重新开始」等：打开同一开局弹层（暂停 UI 未做时亦可 inject 调用） */
-provide("requestNewRun", () => {
+/**
+ * @param {{ prefillSeed?: string }} [opts]
+ */
+provide("requestNewRun", (opts = {}) => {
   if (transitionBusy.value) return;
+  runStartPrefillSeed.value = String(opts.prefillSeed ?? "").trim();
   runStartMode.value = "restart";
   showRunStartDialog.value = true;
 });
@@ -84,12 +95,26 @@ const dictBarPct = computed(() =>
 );
 
 let appAlive = true;
+/** @type {(() => void) | null} */
+let disposeAppE2eHarness = null;
 
 onMounted(() => {
   loadDictionary({ shouldAbort: () => !appAlive });
+  if (isE2eMode()) {
+    disposeAppE2eHarness = registerAppTestHarness({
+      screen,
+      gameSessionKey,
+      sessionRunSeed,
+      sessionRunSeedDisplay,
+      dictionaryReady,
+      loadDictionary: () => loadDictionary({ shouldAbort: () => !appAlive }),
+    });
+  }
 });
 
 onBeforeUnmount(() => {
+  disposeAppE2eHarness?.();
+  disposeAppE2eHarness = null;
   appAlive = false;
 });
 
@@ -100,6 +125,7 @@ function onDictBootBarClick() {
 
 function onMenuRequestStart() {
   if (transitionBusy.value) return;
+  runStartPrefillSeed.value = "";
   runStartMode.value = "menu";
   showRunStartDialog.value = true;
 }
@@ -108,6 +134,7 @@ async function onRunStartConfirm(payload) {
   if (transitionBusy.value) return;
   sessionRunSeed.value = coerceRunSeedNumeric(payload.seedNumeric);
   sessionRunSeedDisplay.value = String(payload.seedDisplay ?? "");
+  runStartPrefillSeed.value = "";
   showRunStartDialog.value = false;
 
   transitionBusy.value = true;
@@ -123,6 +150,26 @@ async function onRunStartConfirm(payload) {
 
 function onRunStartCancel() {
   showRunStartDialog.value = false;
+  runStartPrefillSeed.value = "";
+}
+
+/** @param {{ prefillSeed?: boolean }} payload */
+function onGameRequestRestart(payload) {
+  if (transitionBusy.value) return;
+  runStartPrefillSeed.value = payload?.prefillSeed ? sessionRunSeedDisplay.value : "";
+  runStartMode.value = "restart";
+  showRunStartDialog.value = true;
+}
+
+async function onGameExitToMenu() {
+  if (transitionBusy.value) return;
+  transitionBusy.value = true;
+  await irisFxRef.value?.play(null, {
+    onCovered: () => {
+      screen.value = "menu";
+    },
+  });
+  transitionBusy.value = false;
 }
 </script>
 

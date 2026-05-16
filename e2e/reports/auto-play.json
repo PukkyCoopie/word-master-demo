@@ -1,0 +1,186 @@
+{
+  "at": "2026-05-16T15:23:53.737Z",
+  "url": "http://127.0.0.1:5173/?e2e=1",
+  "seed": "e2e42",
+  "turns": 20,
+  "finalState": {
+    "idle": true,
+    "levelId": "3-1",
+    "levelIndex": 6,
+    "currentScore": 11560,
+    "targetScore": 2000,
+    "remainingWords": 3,
+    "remainingRemovals": 3,
+    "money": 8,
+    "canSubmit": false,
+    "showShop": true,
+    "showSettlement": false,
+    "bossBlindOpen": false,
+    "packPickOpen": false,
+    "treasureDetailOpen": false,
+    "spellTargetOpen": false,
+    "activeBoss": "",
+    "ownedTreasureIds": [
+      "36",
+      "20",
+      "14",
+      null,
+      null
+    ]
+  },
+  "stuckTurns": [],
+  "consoleErrors": [],
+  "issues": [],
+  "recentLogs": [
+    {
+      "t": 1778944923896,
+      "level": "info",
+      "msg": "关卡完成 1-1，进入商店"
+    },
+    {
+      "t": 1778944926455,
+      "level": "info",
+      "msg": "购买: 标签 ($4)"
+    },
+    {
+      "t": 1778944926807,
+      "level": "info",
+      "msg": "离开商店 (本店购入 1 件)"
+    },
+    {
+      "t": 1778944929593,
+      "level": "info",
+      "msg": "提交: rubiaceous (10 字)"
+    },
+    {
+      "t": 1778944939959,
+      "level": "info",
+      "msg": "关卡完成 1-2，进入商店"
+    },
+    {
+      "t": 1778944942093,
+      "level": "info",
+      "msg": "购买: 巨型字母包 ($6)"
+    },
+    {
+      "t": 1778944943585,
+      "level": "info",
+      "msg": "离开商店 (本店购入 1 件)"
+    },
+    {
+      "t": 1778944945551,
+      "level": "info",
+      "msg": "Boss 关: the_noble_end"
+    },
+    {
+      "t": 1778944946195,
+      "level": "info",
+      "msg": "提交: acouchy (7 字)"
+    },
+    {
+      "t": 1778944955712,
+      "level": "info",
+      "msg": "关卡完成 1-3，进入商店"
+    },
+    {
+      "t": 1778944957855,
+      "level": "info",
+      "msg": "购买: 升级包 ($4)"
+    },
+    {
+      "t": 1778944962180,
+      "level": "info",
+      "msg": "购买: 篮球 ($5)"
+    },
+    {
+      "t": 1778944962534,
+      "level": "info",
+      "msg": "离开商店 (本店购入 2 件)"
+    },
+    {
+      "t": 1778944965242,
+      "level": "info",
+      "msg": "提交: perfusive (9 字)"
+    },
+    {
+      "t": 1778944976252,
+      "level": "info",
+      "msg": "关卡完成 2-1，进入商店"
+    },
+    {
+      "t": 1778944978773,
+      "level": "info",
+      "msg": "购买: 调色盘 ($4)"
+    },
+    {
+      "t": 1778944979299,
+      "level": "info",
+      "msg": "购买: 字母包 ($4)"
+    },
+    {
+      "t": 1778944980760,
+      "level": "info",
+      "msg": "离开商店 (本店购入 2 件)"
+    },
+    {
+      "t": 1778944983469,
+      "level": "info",
+      "msg": "提交: fasciated (9 字)"
+    },
+    {
+      "t": 1778944993772,
+      "level": "info",
+      "msg": "关卡完成 2-2，进入商店"
+    },
+    {
+      "t": 1778944995907,
+      "level": "info",
+      "msg": "购买: 点亮 ($3)"
+    },
+    {
+      "t": 1778944998426,
+      "level": "info",
+      "msg": "购买: 字母包 ($4)"
+    },
+    {
+      "t": 1778944999884,
+      "level": "info",
+      "msg": "离开商店 (本店购入 2 件)"
+    },
+    {
+      "t": 1778945001837,
+      "level": "info",
+      "msg": "Boss 关: the_arm"
+    },
+    {
+      "t": 1778945002533,
+      "level": "info",
+      "msg": "提交: draughty (8 字)"
+    },
+    {
+      "t": 1778945012192,
+      "level": "info",
+      "msg": "关卡完成 2-3，进入商店"
+    },
+    {
+      "t": 1778945017141,
+      "level": "info",
+      "msg": "购买: 升级 · 普通 ($6)"
+    },
+    {
+      "t": 1778945017497,
+      "level": "info",
+      "msg": "离开商店 (本店购入 1 件)"
+    },
+    {
+      "t": 1778945020204,
+      "level": "info",
+      "msg": "提交: bebeerine (9 字)"
+    },
+    {
+      "t": 1778945031774,
+      "level": "info",
+      "msg": "关卡完成 3-1，进入商店"
+    }
+  ]
+}

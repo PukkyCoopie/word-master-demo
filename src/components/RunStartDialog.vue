@@ -63,6 +63,8 @@ import { generateRandomRunSeedString, normalizeRunSeedInput, resolveRunSeedFromD
 
 const props = defineProps({
   open: { type: Boolean, default: false },
+  /** 打开弹层时预填的种子（失败重开等） */
+  initialSeed: { type: String, default: "" },
 });
 
 const emit = defineEmits(["confirm", "cancel"]);
@@ -71,10 +73,10 @@ const seedDraft = ref("");
 const seedInputRef = ref(/** @type {HTMLInputElement | null} */ (null));
 
 watch(
-  () => props.open,
-  (isOpen) => {
+  () => [props.open, props.initialSeed],
+  ([isOpen, initial]) => {
     if (!isOpen) return;
-    seedDraft.value = "";
+    seedDraft.value = initial ? normalizeRunSeedInput(String(initial)) : "";
     nextTick(() => seedInputRef.value?.focus());
   },
 );

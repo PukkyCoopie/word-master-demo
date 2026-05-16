@@ -830,9 +830,12 @@ export function useGameState(gameOpts = {}) {
     }
   }
 
-  /** 在棋盘稳定后调用：青铃锁 Boss 随机选一格并入词槽 */
-  function applyCeruleanBellAfterGridStable() {
-    if (activeBossSlug.value !== "cerulean_bell") return;
+  /**
+   * 棋盘稳定后：青铃锁 Boss 随机标记一格（不立刻 selectTile；由 GamePanel 飞字入槽）。
+   * @returns {{ row: number, col: number } | null}
+   */
+  function prepareCeruleanBellPickAfterGridStable() {
+    if (activeBossSlug.value !== "cerulean_bell") return null;
     clearCeruleanBellFlagsOnGrid();
     const g = grid.value;
     const top = activeBossSlug.value === "the_manacle" ? 1 : 0;
@@ -844,13 +847,16 @@ export function useGameState(gameOpts = {}) {
         if (t?.letter && !t.bossGridBlocked && !t.bossTileDebuffed && !t.selected) opts.push({ r, c });
       }
     }
-    if (!opts.length) return;
+    if (!opts.length) return null;
     const { r, c } = opts[Math.floor(getRng() * opts.length)];
     const t = g[r][c];
     if (t && typeof t === "object") t.ceruleanBellLocked = true;
-    selectTile(r, c);
-    ceruleanBellSlotIndex.value = Math.max(0, selectedOrder.value.length - 1);
     triggerRef(grid);
+    return { row: r, col: c };
+  }
+
+  function finalizeCeruleanBellSlotIndex() {
+    ceruleanBellSlotIndex.value = Math.max(0, selectedOrder.value.length - 1);
   }
 
   function applySerpentBonusFillIfNeeded(skipNewFromDeck) {
@@ -1318,7 +1324,7 @@ export function useGameState(gameOpts = {}) {
     remainingWords.value = bh;
     remainingRemovals.value = br;
     currentScore.value = 0;
-    targetScore.value = Number.isFinite(ts) ? ts : 100;
+    targetScore.value = Number.isFinite(ts) ? ts : 300;
     selectedOrder.value = [];
     clearCeruleanBellFlagsOnGrid();
     lastWordInfo.value = null;
@@ -1504,7 +1510,8 @@ export function useGameState(gameOpts = {}) {
 
     applySubmitRefill,
 
-    applyCeruleanBellAfterGridStable,
+    prepareCeruleanBellPickAfterGridStable,
+    finalizeCeruleanBellSlotIndex,
 
     finalizeSubmitAfterAnimation,
 

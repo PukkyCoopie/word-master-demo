@@ -82,20 +82,20 @@ export const BASE_SCORE_PER_LETTER = 3;
  * - upgrade: [每升一级增加的分数, 每升一级增加的倍率]
  */
 export const WORD_LENGTH_BALANCE = {
-  3: { base: [3, 1], upgrade: [1, 2] },
-  4: { base: [3, 2], upgrade: [1, 2] },
-  5: { base: [3, 3], upgrade: [2, 3] },
-  6: { base: [4, 4], upgrade: [2, 4] },
-  7: { base: [4, 6], upgrade: [2, 5] },
-  8: { base: [5, 9], upgrade: [2, 6] },
-  9: { base: [6, 12], upgrade: [3, 8] },
-  10: { base: [8, 15], upgrade: [4, 10] },
-  11: { base: [11, 18], upgrade: [5, 14] },
-  12: { base: [16, 22], upgrade: [8, 19] },
-  13: { base: [24, 27], upgrade: [12, 25] },
-  14: { base: [36, 33], upgrade: [18, 32] },
-  15: { base: [60, 40], upgrade: [30, 40] },
-  16: { base: [100, 50], upgrade: [50, 50] },
+  3: { base: [5, 3], upgrade: [3, 1] },
+  4: { base: [6, 4], upgrade: [3, 2] },
+  5: { base: [8, 5], upgrade: [4, 2] },
+  6: { base: [11, 7], upgrade: [5, 4] },
+  7: { base: [15, 9], upgrade: [8, 5] },
+  8: { base: [20, 12], upgrade: [10, 6] },
+  9: { base: [26, 15], upgrade: [13, 8] },
+  10: { base: [33, 18], upgrade: [17, 9] },
+  11: { base: [42, 22], upgrade: [21, 11] },
+  12: { base: [54, 27], upgrade: [27, 14] },
+  13: { base: [70, 33], upgrade: [35, 17] },
+  14: { base: [88, 40], upgrade: [44, 20] },
+  15: { base: [108, 48], upgrade: [54, 24] },
+  16: { base: [150, 60], upgrade: [75, 30] },
 };
 
 /** 单词长度（Qu 算 1 格）→ 每个字母的基础分（不含稀有度加成） */

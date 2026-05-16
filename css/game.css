@@ -1068,20 +1068,37 @@ body {
 	z-index: 1;
 }
 
-.grid-tile.letter-tile-cerulean-lock,
-.word-slot-content.letter-tile-cerulean-lock {
-	position: relative;
+.grid-tile .letter-tile-cerulean-lock-icon,
+.word-slots .word-slot-content .letter-tile-cerulean-lock-icon,
+.fly-letter .letter-tile-cerulean-lock-icon,
+.fly-letter-back .letter-tile-cerulean-lock-icon {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: calc(56 * var(--rpx));
+	color: #1c6ea8;
+	opacity: 0.2;
+	pointer-events: none;
+	z-index: 1;
+	transform: scale(1.85);
+	transform-origin: 50% 50%;
 }
 
-.grid-tile .letter-tile-cerulean-lock-icon,
-.word-slots .letter-tile-cerulean-lock-icon {
-	position: absolute;
-	right: calc(4 * var(--rpx));
-	top: calc(4 * var(--rpx));
-	font-size: calc(18 * var(--rpx));
-	color: rgba(28, 110, 168, 0.92);
-	pointer-events: none;
-	z-index: 7;
+.grid-tile.letter-tile-cerulean-lock .letter-gem,
+.word-slots .word-slot-content.letter-tile-cerulean-lock .letter-gem,
+.fly-letter.letter-tile-cerulean-lock .letter-gem,
+.fly-letter-back.letter-tile-cerulean-lock .letter-gem {
+	z-index: 2;
+}
+
+.grid-tile.letter-tile-cerulean-lock .letter-tile-char,
+.word-slots .word-slot-content.letter-tile-cerulean-lock .letter-tile-char,
+.fly-letter.letter-tile-cerulean-lock .letter-tile-char,
+.fly-letter-back.letter-tile-cerulean-lock .letter-tile-char {
+	position: relative;
+	z-index: 3;
 }
 
 /* 关内结束后顶部不落新块：仅占网格位，不露空字母块样式 */

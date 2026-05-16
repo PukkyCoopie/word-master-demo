@@ -184,6 +184,14 @@ export function useDictionary() {
     return null;
   }
 
+  /** E2E：按词长取候选词列表（只读） */
+  function getCandidateWordsByLength(len) {
+    const byLength = wordsByLength.value;
+    if (!(byLength instanceof Map)) return [];
+    const n = Math.max(0, Math.floor(Number(len)));
+    return byLength.get(n) ?? [];
+  }
+
   return {
     loaded: dictLoaded,
     loading: dictLoading,
@@ -195,5 +203,6 @@ export function useDictionary() {
     isValidWordPattern,
     resolveWordPattern,
     getWordDefinition,
+    getCandidateWordsByLength,
   };
 }

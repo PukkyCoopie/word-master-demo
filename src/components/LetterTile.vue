@@ -100,6 +100,11 @@ const showBossDebuffVisual = computed(
   () => props.bossTileDebuffed && ["grid", "wordSlotContent", "fly"].includes(props.variant),
 );
 
+const showCeruleanLockVisual = computed(
+  () =>
+    props.ceruleanBellLocked && ["grid", "wordSlotContent", "fly"].includes(props.variant),
+);
+
 const mergedClass = computed(() => {
   const matClass = showGoldMaterial.value
     ? "tile-material-gold"
@@ -121,7 +126,7 @@ const mergedClass = computed(() => {
       ? "letter-tile-boss-blocked"
       : showBossDebuffVisual.value
         ? "letter-tile-boss-debuff"
-        : props.ceruleanBellLocked && (props.variant === "grid" || props.variant === "wordSlotContent")
+        : showCeruleanLockVisual.value
           ? "letter-tile-cerulean-lock"
           : "";
   return [variantClass.value, props.letter === "Qu" ? "letter-qu" : "", matClass, bossClass, attrs.class].filter(
@@ -189,13 +194,13 @@ const treasureAccessoryChipVisual = computed(() => {
       >
     </template>
     <span v-if="showBossDebuffVisual" class="letter-tile-boss-x" aria-hidden="true">×</span>
-    <span class="letter-gem" :class="`gem-${rarity}`" aria-hidden="true" />
-    <span class="letter-tile-char">{{ letter }}</span>
     <i
-      v-if="ceruleanBellLocked && (variant === 'grid' || variant === 'wordSlotContent')"
+      v-if="showCeruleanLockVisual"
       class="letter-tile-cerulean-lock-icon ri-lock-fill"
       aria-hidden="true"
     />
+    <span class="letter-gem" :class="`gem-${rarity}`" aria-hidden="true" />
+    <span class="letter-tile-char">{{ letter }}</span>
     <span
       v-if="treasureAccessoryChipVisual"
       class="treasure-accessory-chip tile-treasure-accessory-chip"

@@ -333,8 +333,8 @@
             class="icon-btn icon-btn-white"
             title="信息"
             aria-label="信息"
-            :disabled="showSettlement"
-            @click="!showSettlement && (showInfoLayer = true)"
+            :disabled="isRunFlowOverlayOpen()"
+            @click="!isRunFlowOverlayOpen() && (showInfoLayer = true)"
           >
             <i class="ri-information-line"></i>
           </button>
@@ -378,8 +378,8 @@
           class="deck-btn"
           title="牌库"
           aria-label="牌库"
-          :disabled="showSettlement"
-          @click="!showSettlement && (showDeckLayer = true)"
+          :disabled="isRunFlowOverlayOpen()"
+          @click="!isRunFlowOverlayOpen() && (showDeckLayer = true)"
         >
             <i class="ri-stack-line deck-btn-icon"></i>
             <span class="deck-btn-count">{{ deckCount }}</span>
@@ -445,7 +445,19 @@
         :accessory-id="fly.accessoryId ?? null"
         :treasure-accessory-id="fly.treasureAccessoryId ?? null"
         :boss-tile-debuffed="fly.bossTileDebuffed === true"
+        :cerulean-bell-locked="fly.ceruleanBell === true"
         :ref="el => setFlyingInRef(fly, el)"
+      />
+    </Teleport>
+
+    <Teleport defer to="#game-view-portal">
+      <RunEndLayer
+        :open="showRunEnd"
+        :outcome="runEndOutcome"
+        :portal-stack-style="runEndPortalStackStyle"
+        @retry="onRunEndRetry"
+        @main-menu="onRunEndMainMenu"
+        @endless="onRunEndEndless"
       />
     </Teleport>
 
@@ -458,6 +470,7 @@
           aria-modal="true"
           role="dialog"
           aria-labelledby="settlement-title"
+          @pointerdown="onSettlementOverlayPointerDown"
         >
           <div ref="settlementCardRef" class="stage-settlement-card">
             <h2 id="settlement-title" class="stage-settlement-title">关卡完成</h2>
@@ -500,7 +513,7 @@
               ref="settlementContinueBtnRef"
               type="button"
               class="stage-settlement-btn"
-              :disabled="!settlementContinueEnabled"
+              @pointerdown.stop
               @click="onSettlementContinue"
             >
               继续
@@ -560,7 +573,14 @@ import {
   rollDistinctShopTreasures,
 } from "../treasures/shopTreasureRoll.js";
 import { getShopTreasureAccessoryPriceAdd, rollShopTreasureAccessoryId } from "../treasures/shopTreasureAccessoryRoll.js";
-import { LEVELS, LEVEL_COUNT, resolveLevelTargetScore } from "../levelDefinitions";
+import {
+  LEVELS,
+  LEVEL_COUNT,
+  resolveLevelTargetScore,
+  getRunLevelAtIndex,
+  isStandardRunFinalLevelIndex,
+} from "../levelDefinitions";
+import RunEndLayer from "./RunEndLayer.vue";
 import { pickBossSlugForLevel } from "../game/bossRoll.js";
 import { coerceRunSeedNumeric, createRunRng } from "../game/runRng.js";
 import BossBlindRerollLayer from "./BossBlindRerollLayer.vue";
@@ -655,6 +675,9 @@ import TreasureSlot from "./TreasureSlot.vue";
 import ResultArea from "./ResultArea.vue";
 import { createFlyBackTileElement, disposeFlyBackTileElement } from "../utils/letterTileFlyBack.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { isE2eMode } from "../e2e/isE2eMode.js";
+import { registerGameTestHarness } from "../e2e/registerGameTestHarness.js";
+import { computeWordScore } from "../composables/useScoring.js";
 
 /** 提交时是否展示词典释义；暂时关闭，后续可改回 true 恢复 */
 const SHOW_SUBMIT_TRANSLATION = false;
@@ -663,6 +686,7 @@ const {
   getWordDefinition,
   loadDictionary,
   resolveWordPattern,
+  getCandidateWordsByLength,
   dictionaryReady,
   error: dictError,
 } =
@@ -676,6 +700,8 @@ const props = defineProps({
   runSeedDisplay: { type: String, default: "" },
 });
 
+const emit = defineEmits(["request-restart", "exit-to-menu"]);
+
 const ownedVoucherIds = ref([]);
 
 const runRng = createRunRng(coerceRunSeedNumeric(props.runSeed));
@@ -688,6 +714,7 @@ const deckPortalZ = ref(0);
 const deckExpandPortalZ = ref(0);
 const dictFatalPortalZ = ref(0);
 const settlementPortalZ = ref(0);
+const runEndPortalZ = ref(0);
 const toastPortalZ = ref(0);
 
 const shopPortalStackStyle = computed(() => (shopPortalZ.value > 0 ? { zIndex: shopPortalZ.value } : undefined));
@@ -701,7 +728,14 @@ const dictFatalPortalStackStyle = computed(() =>
 const settlementPortalStackStyle = computed(() =>
   settlementPortalZ.value > 0 ? { zIndex: settlementPortalZ.value } : undefined,
 );
+const runEndPortalStackStyle = computed(() =>
+  runEndPortalZ.value > 0 ? { zIndex: runEndPortalZ.value } : undefined,
+);
 const toastPortalStackStyle = computed(() => (toastPortalZ.value > 0 ? { zIndex: toastPortalZ.value } : undefined));
+
+function isRunFlowOverlayOpen() {
+  return showSettlement.value || showRunEnd.value;
+}
 
 watch(dictFatalError, (v) => {
   if (v) dictFatalPortalZ.value = bumpOverlayZ();
@@ -865,9 +899,11 @@ const {
   selectedTiles,
   selectTile,
   removeFromSlot,
+  clearCurrentWord,
   setLastWordFromSubmit,
   applySubmitRefill,
-  applyCeruleanBellAfterGridStable,
+  prepareCeruleanBellPickAfterGridStable,
+  finalizeCeruleanBellSlotIndex,
   removeSelectedLetters,
   consumeIceTileOnGrid,
   snapshotGridCellsByTileId,
@@ -939,6 +975,10 @@ const tileDetailOriginRect = ref(/** @type {{ left: number, top: number, width: 
 const suppressTilePrimaryClick = ref(false);
 
 const levelIndex = ref(0);
+/** 通关 8-3 后进入 Ante 9+ 无尽流程 */
+const isEndlessRun = ref(false);
+/** 卷轴券购买后已写入「下一关」下标；离店时不再 +1 */
+const glyphShopSkipLevelAdvance = ref(false);
 
 /** Boss 关：独口锁定长度、冷眼已用长度、棘梅词性、残柱牌张 uid、苍翠是否已卖藏 */
 const usedWordLengthsThisBoss = ref(/** @type {Set<number>} */ (new Set()));
@@ -991,8 +1031,10 @@ function gridTileRawLower(tile) {
 const BOSS_VOWELS = new Set(["a", "e", "i", "o", "u"]);
 
 function getNextLevelDefAfterShop() {
-  if (levelIndex.value + 1 < LEVEL_COUNT) return LEVELS[levelIndex.value + 1];
-  return LEVELS[0];
+  if (glyphShopSkipLevelAdvance.value) {
+    return getRunLevelAtIndex(levelIndex.value);
+  }
+  return getRunLevelAtIndex(levelIndex.value + 1);
 }
 
 function shouldOfferBossBlindRerollBeforeShopLeave() {
@@ -1135,7 +1177,7 @@ function dollarMarks(n) {
   const v = Math.max(0, Math.round(Number(n) || 0));
   return "$".repeat(v);
 }
-const currentLevel = computed(() => LEVELS[Math.min(levelIndex.value, LEVEL_COUNT - 1)] ?? LEVELS[0]);
+const currentLevel = computed(() => getRunLevelAtIndex(levelIndex.value));
 /** 左上角关卡标题，如「关卡 1-1」 */
 const levelTitleLabel = computed(() => {
   const id = currentLevel.value?.id ?? "1-1";
@@ -2053,9 +2095,9 @@ const treasureCanBuyOffer = computed(() => {
   const p = shopPriceForOffer(p0);
   if (t.offerType === "voucher") {
     const vid = String(t.voucherId ?? "");
-    const major = parseMajorFromLevelId(currentLevel.value?.id ?? "1-1");
-    if (vid === "v_glyph_1" && major <= 1) return false;
-    if (vid === "v_glyph_2" && major <= 2) return false;
+    if (vid === "v_glyph_1" || vid === "v_glyph_2") {
+      if (getGlyphPurchaseTargetLevelIndex(levelIndex.value, vid === "v_glyph_2") == null) return false;
+    }
     return w >= p;
   }
   if (t.offerType === "bundlePack") return w >= p;
@@ -2073,13 +2115,19 @@ const treasureCanBuyOffer = computed(() => {
 /** 与 App.vue 共用的 Iris 转场组件（注入由上层提供） */
 const irisTransition = inject("irisTransition", null);
 
+/** 整局结束层（失败 / 通关 8-3） */
+const showRunEnd = ref(false);
+/** @type {import('vue').Ref<'fail' | 'win'>} */
+const runEndOutcome = ref("fail");
+
 /** 小关结算层 */
 const showSettlement = ref(false);
 const disableSettlementLayerAnim = ref(false);
 const settlementCardRef = ref(null);
 /** 结算「继续」按钮：与 settle-row 同一套 GSAP 入场序列 */
 const settlementContinueBtnRef = ref(/** @type {HTMLButtonElement | null} */ (null));
-const settlementContinueEnabled = ref(false);
+/** @type {(() => void) | null} */
+let settlementIntroResolve = null;
 /** @type {import('vue').Ref<null | { clearReward: number, spareMoves: number, interest: number, total: number, moneyBefore: number }>} */
 const settlementSnapshot = ref(null);
 const animSettleClear = ref(0);
@@ -2158,10 +2206,11 @@ function settlementDollarGapCount(rowSpecs) {
  * 与总 $ 数 S 成一次函数：整段结算里「可拉伸的留白节拍」总秒数 P = clamp(k·S + b, Pmin, Pmax)
  * 再按间隔段数均分到每个 stepGap，少 $ 则整体更短，多 $ 则更长（不必与 S 严格成正比）
  */
-const SETTLEMENT_PACE_K_S = 0.052;
-const SETTLEMENT_PACE_B_S = 0.1;
-const SETTLEMENT_PACE_MIN_S = 0.12;
-const SETTLEMENT_PACE_MAX_S = 2.85;
+/** 相对原版 pace 略快约 4%（原版 k=0.052 b=0.1） */
+const SETTLEMENT_PACE_K_S = 0.05;
+const SETTLEMENT_PACE_B_S = 0.096;
+const SETTLEMENT_PACE_MIN_S = 0.115;
+const SETTLEMENT_PACE_MAX_S = 2.74;
 
 function settlementPaceBudgetSeconds(S) {
   if (S <= 0) return 0;
@@ -2179,43 +2228,100 @@ function settlementDollarStepGap(S, gapCount, SPositiveRows) {
   if (P <= 0) return 0.09;
   if (gapCount > 0) {
     const g = P / gapCount;
-    return Math.min(0.22, Math.max(0.032, g));
+    return Math.min(0.21, Math.max(0.031, g));
   }
   /* 每行最多 1 枚 $：没有行内间隔，在栏目之间插入短留白，使 P 仍随 S 线性生效 */
   const slots = Math.max(1, SPositiveRows - 1);
   const g = P / slots;
-  return Math.min(0.22, Math.max(0.032, g));
+  return Math.min(0.21, Math.max(0.031, g));
 }
 
 /** 行入场时长随 S 略变长：一次函数 + clamp */
 function settlementRowIntroDuration(S) {
-  const d = 0.32 + 0.014 * S;
-  return Math.min(0.5, Math.max(0.28, d));
+  const d = 0.31 + 0.0135 * S;
+  return Math.min(0.48, Math.max(0.27, d));
 }
 
 /**
- * 时间轴上逐个增加 $，每加一枚震行
- * @param {gsap.core.Timeline} tl
+ * 单行 $ 递增子时间轴（可叠到父轴任意起点，避免与下一行入场互相排队）
  * @param {import('vue').Ref<number>} animRef
  * @param {number} count
  * @param {HTMLElement | null} rowEl
- * @param {number} stepGap 行内相邻 $ 间隔
- * @param {number} [interRowPadS=0] 本行 dollar 结束后到下一行前的留白（G=0 时用）
+ * @param {number} stepGap
+ * @param {number} [interRowPadS=0]
  */
-function appendSettlementDollarBuild(tl, animRef, count, rowEl, stepGap, interRowPadS = 0) {
+function buildSettlementDollarSubTimeline(animRef, count, rowEl, stepGap, interRowPadS = 0) {
+  const st = gsap.timeline();
   const n = Math.max(0, Math.round(Number(count) || 0));
-  tl.call(() => {
+  st.call(() => {
     animRef.value = 0;
   });
-  if (n <= 0) return;
+  if (n <= 0) {
+    if (interRowPadS > 0) st.to({}, { duration: interRowPadS });
+    return st;
+  }
   for (let k = 1; k <= n; k++) {
-    tl.call(() => {
+    st.call(() => {
       animRef.value = k;
       shakeSettlementRow(rowEl);
     });
-    if (k < n) tl.to({}, { duration: stepGap });
+    if (k < n) st.to({}, { duration: stepGap });
   }
-  if (interRowPadS > 0) tl.to({}, { duration: interRowPadS });
+  if (interRowPadS > 0) st.to({}, { duration: interRowPadS });
+  return st;
+}
+
+/** 立即落到结算入场动画结束态（可重复调用） */
+function finishSettlementIntroInstant() {
+  const s = settlementSnapshot.value;
+  if (!s || !showSettlement.value) return false;
+
+  if (settlementTl) {
+    settlementTl.kill();
+    settlementTl = null;
+  }
+
+  const card = settlementCardRef.value;
+  const rows = settlementRowEls.value;
+  const continueBtn = settlementContinueBtnRef.value;
+  if (card) {
+    gsap.killTweensOf(card);
+    gsap.set(card, { opacity: 1, scale: 1, y: 0 });
+  }
+  const counts = [s.clearReward, s.spareMoves, s.interest, s.total];
+  animSettleClear.value = counts[0];
+  animSettleSpare.value = counts[1];
+  animSettleInterest.value = counts[2];
+  animSettleTotal.value = counts[3];
+  for (let i = 0; i < rows.length; i++) {
+    const el = rows[i];
+    if (!el) continue;
+    gsap.killTweensOf(el);
+    gsap.set(el, {
+      opacity: counts[i] === 0 ? 0.42 : 1,
+      y: 0,
+      rotation: 0,
+      transformOrigin: "50% 50%",
+    });
+  }
+  if (continueBtn) {
+    gsap.killTweensOf(continueBtn);
+    gsap.set(continueBtn, { opacity: 1, y: 0 });
+  }
+
+  if (settlementIntroResolve) {
+    const done = settlementIntroResolve;
+    settlementIntroResolve = null;
+    done();
+  }
+  return true;
+}
+
+function onSettlementOverlayPointerDown(ev) {
+  if (!showSettlement.value) return;
+  const btn = settlementContinueBtnRef.value;
+  if (btn && (btn === ev.target || btn.contains(/** @type {Node} */ (ev.target)))) return;
+  finishSettlementIntroInstant();
 }
 
 watch(showSettlement, (open) => {
@@ -2223,6 +2329,15 @@ watch(showSettlement, (open) => {
     settlementPortalZ.value = bumpOverlayZ();
     showDeckLayer.value = false;
     closeTileDetail();
+  }
+});
+
+watch(showRunEnd, (open) => {
+  if (open) {
+    runEndPortalZ.value = bumpOverlayZ();
+    showDeckLayer.value = false;
+    closeTileDetail();
+    showShop.value = false;
   }
 });
 
@@ -2451,6 +2566,15 @@ function getSelectedGridTileElsInOrder() {
     if (el) list.push(el);
   }
   return list;
+}
+
+/** 提交后词槽/棋盘格依次消失：单格 duration 不变，仅缩短 stagger；词越长间隔越小 */
+function submitWordLeaveStagger(letterCount) {
+  const n = Math.max(1, Math.min(24, Math.round(Number(letterCount) || 1)));
+  const extra = Math.max(0, n - 3);
+  const base = 0.082;
+  const taper = 0.0042;
+  return Math.max(0.03, base - extra * taper);
 }
 
 function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
@@ -2796,7 +2920,7 @@ function clearTileLongPressArm() {
 function canOpenTileDetail() {
   if (dictFatalError.value) return false;
   if (transitionBusy.value) return false;
-  if (showSettlement.value) return false;
+  if (isRunFlowOverlayOpen()) return false;
   if (scoringAnimating.value) return false;
   if (gridRefillAnimating.value) return false;
   return true;
@@ -2933,7 +3057,7 @@ function onGridTileContextMenu(e, row, col, tile) {
 function onGridTileDetailPointerDown(e, row, col, tile) {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   if (!tile || dictFatalError.value) return;
-  if (transitionBusy.value || showShop.value || showSettlement.value) return;
+  if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value || gridRefillAnimating.value) return;
   if (tile.selected || isTileFlying(row, col)) return;
   armTileLongPressFromPointer(e, () => {
@@ -2962,7 +3086,7 @@ function onWordSlotContextMenu(e, i) {
 function onWordSlotDetailPointerDown(e, i) {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   if (dictFatalError.value) return;
-  if (transitionBusy.value || showShop.value || showSettlement.value) return;
+  if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value) return;
   const order = selectedOrder.value;
   if (i < 0 || i >= order.length) return;
@@ -3214,7 +3338,7 @@ const displayFormulaMult = computed(() => {
 const canSubmit = computed(() => {
   return (
     !showShop.value &&
-    !showSettlement.value &&
+    !isRunFlowOverlayOpen() &&
     !transitionBusy.value &&
     dictionaryReady.value &&
     resolvedWordForSubmit.value != null &&
@@ -3234,7 +3358,7 @@ const canRemove = computed(() => {
   const cap = MAX_LETTERS_PER_REMOVAL;
   return (
     !showShop.value &&
-    !showSettlement.value &&
+    !isRunFlowOverlayOpen() &&
     !transitionBusy.value &&
     remainingRemovals.value > 0 &&
     !scoringAnimating.value &&
@@ -3281,15 +3405,65 @@ async function openStageSettlement() {
   animSettleSpare.value = 0;
   animSettleInterest.value = 0;
   animSettleTotal.value = 0;
-  settlementContinueEnabled.value = false;
+  settlementIntroResolve = null;
   showDeckLayer.value = false;
   showSettlement.value = true;
   await nextTick();
   await runSettlementIntro();
 }
 
+async function openRunEnd(outcome) {
+  runEndOutcome.value = outcome === "win" ? "win" : "fail";
+  showDeckLayer.value = false;
+  showInfoLayer.value = false;
+  treasureDetail.value = null;
+  tileDetailPayload.value = null;
+  showShop.value = false;
+  showSettlement.value = false;
+  settlementSnapshot.value = null;
+  runEndPortalZ.value = bumpOverlayZ();
+  showRunEnd.value = true;
+  await nextTick();
+}
+
+function onRunEndRetry() {
+  emit("request-restart", { prefillSeed: runEndOutcome.value === "fail" });
+}
+
+function onRunEndMainMenu() {
+  emit("exit-to-menu");
+}
+
+async function onRunEndEndless() {
+  if (transitionBusy.value) return;
+  showRunEnd.value = false;
+  isEndlessRun.value = true;
+  transitionBusy.value = true;
+
+  const enterEndless = () => {
+    levelIndex.value = LEVEL_COUNT;
+    gridIntroDone.value = false;
+    const L = getRunLevelAtIndex(levelIndex.value);
+    resetLevel(L, buildLevelResetRunOpts(L));
+    pendingBossSlugOverride.value = "";
+    showShop.value = false;
+  };
+
+  const playFx = irisTransition?.play;
+  if (typeof playFx === "function") {
+    await playFx(null, { onCovered: enterEndless });
+  } else {
+    enterEndless();
+  }
+
+  await nextTick();
+  await Promise.all([runGridIntroAfterReset(), playLevelAdvanceHeaderFx()]);
+  transitionBusy.value = false;
+}
+
 function runSettlementIntro() {
   return new Promise((resolve) => {
+    settlementIntroResolve = resolve;
     if (settlementTl) {
       settlementTl.kill();
       settlementTl = null;
@@ -3297,7 +3471,7 @@ function runSettlementIntro() {
     const card = settlementCardRef.value;
     const s = settlementSnapshot.value;
     if (!card || !s) {
-      settlementContinueEnabled.value = true;
+      settlementIntroResolve = null;
       resolve();
       return;
     }
@@ -3344,7 +3518,7 @@ function runSettlementIntro() {
     const tl = gsap.timeline({
       onComplete: () => {
         settlementTl = null;
-        settlementContinueEnabled.value = true;
+        settlementIntroResolve = null;
         resolve();
       },
     });
@@ -3353,7 +3527,7 @@ function runSettlementIntro() {
     tl.fromTo(
       card,
       { opacity: 0, scale: 0.92, y: 24 },
-      { opacity: 1, scale: 1, y: 0, duration: 0.42, ease: EASE_TRANSFORM },
+      { opacity: 1, scale: 1, y: 0, duration: 0.4, ease: EASE_TRANSFORM },
     );
 
     const S = settlementTotalDollarCount(s);
@@ -3373,14 +3547,14 @@ function runSettlementIntro() {
       const { el, anim, count, empty } = spec;
       const n = Math.max(0, Math.round(Number(count) || 0));
       const targetOpacity = empty ? 0.42 : 1;
-      const pos = firstRow ? ">-0.08" : ">";
+      const introPos = firstRow ? ">-0.07" : ">";
       firstRow = false;
       if (el) {
         tl.fromTo(
           el,
           { opacity: 0, y: 18 },
           { opacity: targetOpacity, y: 0, duration: rowIntroDur, ease: EASE_TRANSFORM },
-          pos,
+          introPos,
         );
       }
       const padAfter =
@@ -3390,10 +3564,10 @@ function runSettlementIntro() {
         (i < lastIdxWithDollars || (SPositiveRows === 1 && i === lastIdxWithDollars))
           ? interPad
           : 0;
-      appendSettlementDollarBuild(tl, anim, count, el, innerGap, padAfter);
+      const dollarSub = buildSettlementDollarSubTimeline(anim, count, el, innerGap, padAfter);
+      tl.add(dollarSub, ">");
     }
 
-    /* 最后一行 $ 播完后再入场，与 settle-row 同 easing / 时长节奏 */
     if (continueBtn) {
       tl.fromTo(
         continueBtn,
@@ -3420,7 +3594,7 @@ async function runGridIntroAfterReset() {
   gridRefillAnimating.value = true;
   await runGridDropAnimation(null, { initial: true });
   gridRefillAnimating.value = false;
-  applyCeruleanBellAfterGridStable();
+  tryCeruleanBellFlyInAfterGridStable();
   nextTick(() => updateSlotPositions(true));
 }
 
@@ -3546,15 +3720,12 @@ function playLevelAdvanceHeaderFx() {
 }
 
 async function onSettlementContinue(event) {
+  event?.stopPropagation?.();
   if (transitionBusy.value) return;
-  if (!settlementContinueEnabled.value) return;
   const s = settlementSnapshot.value;
   if (!s) return;
 
-  if (settlementTl) {
-    settlementTl.kill();
-    settlementTl = null;
-  }
+  finishSettlementIntroInstant();
 
   // 商店切换要求在转场“覆盖满屏”时刻就完成切换，
   // 禁用结算层离场动画，避免 reveal 时仍残留结算层。
@@ -3570,7 +3741,7 @@ async function onSettlementContinue(event) {
       onCovered: () => {
         showSettlement.value = false;
         settlementSnapshot.value = null;
-        settlementContinueEnabled.value = false;
+        settlementIntroResolve = null;
         resetDeckAfterStageEnd();
         showShop.value = true;
       },
@@ -3578,7 +3749,7 @@ async function onSettlementContinue(event) {
   } else {
     showSettlement.value = false;
     settlementSnapshot.value = null;
-    settlementContinueEnabled.value = false;
+    settlementIntroResolve = null;
     resetDeckAfterStageEnd();
     showShop.value = true;
   }
@@ -3612,7 +3783,7 @@ function swapArrayItems(list, a, b) {
 }
 
 function onGameOwnedDragStart(slotIndex, e) {
-  if (transitionBusy.value || showShop.value || showSettlement.value) {
+  if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) {
     e.preventDefault();
     return;
   }
@@ -3768,13 +3939,18 @@ async function animateTreasureFrameFly(fromFrameEl, toTarget) {
 
 /** 组合包：字母块从选项位飞入商店底部「查看牌库」按钮 */
 async function animatePackTileFlyToDeck(fromEl, toTarget) {
-  if (!fromEl || !toTarget) return;
-  const from = fromEl.getBoundingClientRect();
+  const fromNode = refToDom(fromEl) ?? (fromEl instanceof HTMLElement ? fromEl : null);
+  const toNode = refToDom(toTarget) ?? (toTarget instanceof HTMLElement ? toTarget : null);
+  if (!fromNode || typeof fromNode.getBoundingClientRect !== "function") return;
+  const from = fromNode.getBoundingClientRect();
   const to =
-    typeof toTarget.getBoundingClientRect === "function"
-      ? toTarget.getBoundingClientRect()
-      : /** @type {DOMRect} */ (toTarget);
-  const clone = fromEl.cloneNode(true);
+    toNode && typeof toNode.getBoundingClientRect === "function"
+      ? toNode.getBoundingClientRect()
+      : typeof toTarget?.getBoundingClientRect === "function"
+        ? toTarget.getBoundingClientRect()
+        : /** @type {DOMRect} */ (toTarget);
+  if (!to || !Number.isFinite(to.width)) return;
+  const clone = fromNode.cloneNode(true);
   clone.setAttribute("aria-hidden", "true");
   clone.classList.add("pack-tile-purchase-fly-clone");
   clone.querySelectorAll("canvas").forEach((c) => c.remove());
@@ -4203,12 +4379,17 @@ async function onTreasurePurchase() {
       const tix = getGlyphPurchaseTargetLevelIndex(levelIndex.value, vid === "v_glyph_2");
       if (tix != null) {
         levelIndex.value = tix;
+        glyphShopSkipLevelAdvance.value = true;
         const L = LEVELS[tix];
         if (L) {
           targetScore.value = resolveLevelTargetScore(L.id, "");
           activeBossSlug.value = "";
         }
-        showToast(vid === "v_glyph_2" ? "已回到上两大关首小关" : "已回到上一大关首小关");
+        showToast(
+          vid === "v_glyph_2"
+            ? `已后退两大关，下一关为 ${L.id}`
+            : `已后退一大关，下一关为 ${L.id}`,
+        );
       }
     }
     treasureDetail.value = null;
@@ -4413,13 +4594,16 @@ async function executeShopLeaveToNextLevel(event) {
     // 只在“覆盖阶段”做 grid 清空/重置：让新关的 grid 先处在 pre-intro 隐藏态；
     // 入场动画本身要在转场结束后再启动，才能保证你能看见。
     gridIntroDone.value = false;
-    if (levelIndex.value + 1 < LEVEL_COUNT) {
-      levelIndex.value += 1;
-      resetLevel(LEVELS[levelIndex.value], buildLevelResetRunOpts(LEVELS[levelIndex.value]));
+    if (glyphShopSkipLevelAdvance.value) {
+      glyphShopSkipLevelAdvance.value = false;
+      const cur = getRunLevelAtIndex(levelIndex.value);
+      resetLevel(cur, buildLevelResetRunOpts(cur));
+    } else if (!isEndlessRun.value && isStandardRunFinalLevelIndex(levelIndex.value)) {
+      void openRunEnd("win");
     } else {
-      showToast("已通过全部关卡！即将从第一关继续。");
-      levelIndex.value = 0;
-      resetLevel(LEVELS[0], buildLevelResetRunOpts(LEVELS[0]));
+      levelIndex.value += 1;
+      const next = getRunLevelAtIndex(levelIndex.value);
+      resetLevel(next, buildLevelResetRunOpts(next));
     }
     pendingBossSlugOverride.value = "";
     showShop.value = false;
@@ -4433,7 +4617,9 @@ async function executeShopLeaveToNextLevel(event) {
   }
 
   await nextTick();
-  await Promise.all([runGridIntroAfterReset(), playLevelAdvanceHeaderFx()]);
+  if (!showRunEnd.value) {
+    await Promise.all([runGridIntroAfterReset(), playLevelAdvanceHeaderFx()]);
+  }
   transitionBusy.value = false;
 }
 
@@ -5758,7 +5944,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
   };
   const leavePromise = runSlotAndGridLeaveAnimation(slotTileEls, submitGridLeaveEls, {
     duration: 0.28,
-    stagger: 0.12,
+    stagger: submitWordLeaveStagger(n),
   });
 
   const scorePromise = new Promise((resolve) => {
@@ -5802,7 +5988,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
       await runGridDropAnimation(prevFlip);
     } finally {
       gridRefillAnimating.value = false;
-      applyCeruleanBellAfterGridStable();
+      tryCeruleanBellFlyInAfterGridStable();
     }
   })();
 
@@ -5867,6 +6053,7 @@ function setFlyingInRef(fly, el) {
             flyingInAnimStarted.delete(item.id);
       flyingInElById.delete(item.id);
       selectTile(item.pendingRow, item.pendingCol);
+      if (item.ceruleanBell) finalizeCeruleanBellSlotIndex();
       queueMicrotask(() => {
         const slotIndex = Math.max(0, selectedOrder.value.length - 1);
         const slotEl = refToDom(wordSlotRefs.value?.[slotIndex]);
@@ -5893,7 +6080,7 @@ function onTileClick(row, col, tile) {
     return;
   }
   if (dictFatalError.value) return;
-  if (transitionBusy.value || showShop.value || showSettlement.value) return;
+  if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value || gridRefillAnimating.value) return;
   if (tile.selected) return;
   if (isTileFlying(row, col)) return;
@@ -5915,7 +6102,7 @@ function cancelAllFlyingIn() {
 
 async function onRemoveClick() {
   if (dictFatalError.value) return;
-  if (transitionBusy.value || showShop.value || showSettlement.value) return;
+  if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (!canRemove.value) return;
   if (flyingLetters.value.length > 0) {
     cancelAllFlyingIn();
@@ -5981,14 +6168,23 @@ async function onRemoveClick() {
 
   await nextTick();
   await runGridDropAnimation(prevFlip);
-  applyCeruleanBellAfterGridStable();
+  tryCeruleanBellFlyInAfterGridStable();
   gridRefillAnimating.value = false;
   nextTick(() => updateSlotPositions(true));
 }
 
-function startOneMoveIn(row, col, tile) {
-  if (transitionBusy.value || showShop.value || showSettlement.value) return;
-  if (gridRefillAnimating.value) return;
+/** 青铃锁：棋盘稳定后从格内飞入词槽（与玩家点选同一套飞字） */
+function tryCeruleanBellFlyInAfterGridStable() {
+  const pick = prepareCeruleanBellPickAfterGridStable();
+  if (!pick) return;
+  const tile = grid.value[pick.row]?.[pick.col];
+  if (!tile?.letter) return;
+  startOneMoveIn(pick.row, pick.col, tile, { ceruleanBell: true });
+}
+
+function startOneMoveIn(row, col, tile, options = {}) {
+  if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
+  if (gridRefillAnimating.value && !options.ceruleanBell) return;
   const index = row * COLS + col;
   const fromEl = gridTileRefs.value[index] ?? getGridTileElByIndex(index);
   if (!fromEl) return;
@@ -6016,6 +6212,7 @@ function startOneMoveIn(row, col, tile) {
       accessoryId: tile.accessoryId ?? null,
       treasureAccessoryId: tile.treasureAccessoryId ?? null,
       bossTileDebuffed: tile.bossTileDebuffed === true,
+      ceruleanBell: options.ceruleanBell === true,
       pendingRow: row,
       pendingCol: col,
     },
@@ -6028,7 +6225,7 @@ function onSlotClick(i) {
     return;
   }
   if (dictFatalError.value) return;
-  if (transitionBusy.value || showShop.value || showSettlement.value) return;
+  if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value) return;
   const order = selectedOrder.value;
   if (i < 0 || i >= order.length) return;
@@ -6142,7 +6339,7 @@ async function runLastSubmitVipDiamondRarityFxIfApplicable(tiles, isLastSubmitCh
     
 async function submitWord() {
   if (dictFatalError.value) return;
-  if (transitionBusy.value || showShop.value || showSettlement.value) return;
+  if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value) return;
   if (!dictionaryReady.value) return;
   let selectedEntries = selectedTiles.value;
@@ -6297,8 +6494,11 @@ async function submitWord() {
         true,
       );
     }
+    // 用尽次数但本手已达标 → 过关（含「最后一手刚好达标」）
     if (currentScore.value >= targetScore.value) {
       await openStageSettlement();
+    } else if (remainingWords.value <= 0 && currentScore.value < targetScore.value) {
+      await openRunEnd("fail");
     }
   } catch (e) {
     console.error(e);
@@ -6325,16 +6525,296 @@ watch(
 );
 
 let gamePanelAlive = true;
+/** @type {(() => void) | null} */
+let disposeE2eHarness = null;
+
+/** @param {object} t 商店货架 offer 槽 */
+function e2eCanBuyShopOffer(t) {
+  if (!t || t.kind !== "offer") return false;
+  const w = money.value;
+  const p0 = Number(t.price);
+  if (!Number.isFinite(w) || !Number.isFinite(p0)) return false;
+  const p = shopPriceForOffer(p0);
+  if (t.offerType === "voucher") {
+    const vid = String(t.voucherId ?? "");
+    if (vid === "v_glyph_1" || vid === "v_glyph_2") {
+      if (getGlyphPurchaseTargetLevelIndex(levelIndex.value, vid === "v_glyph_2") == null) return false;
+    }
+    return w >= p;
+  }
+  if (t.offerType === "bundlePack") return w >= p;
+  if (t.offerType === "spell") {
+    const sid = String(t.spellId ?? "");
+    if (sid === "restart" && !lastReplayableSpellId.value) return false;
+    return w >= p;
+  }
+  if (t.offerType === "upgrade") return w >= p;
+  if (t.offerType === "deckLetter" || t.offerType === "deckTile") return w >= p;
+  if (t.offerType === "treasure") {
+    return w >= p && ownedTreasures.value.some((s) => s == null);
+  }
+  return w >= p;
+}
+
+/** @param {number} offerInstanceId */
+function findShopOfferById(offerInstanceId) {
+  const pid = Number(offerInstanceId);
+  if (!Number.isFinite(pid)) return null;
+  const sources = [
+    ...shopOffers.value,
+    ...packOffers.value,
+    shopVoucherShelf.value,
+  ];
+  for (const s of sources) {
+    if (s?.kind === "offer" && Number(s.offerInstanceId) === pid) return s;
+  }
+  return null;
+}
+
+function getE2eShopSnapshot() {
+  /** @param {object | null | undefined} slot @param {string} source */
+  const view = (slot, source) => {
+    if (!slot || slot.kind !== "offer") return null;
+    return {
+      offerInstanceId: slot.offerInstanceId,
+      offerType: slot.offerType,
+      price: shopPriceForOffer(Number(slot.price) || 0),
+      name: slot.name ?? slot.emoji ?? slot.offerType,
+      treasureId: slot.treasureId ?? null,
+      spellId: slot.spellId ?? null,
+      voucherId: slot.voucherId ?? null,
+      upgradeKind: slot.upgradeKind ?? null,
+      source,
+      canBuy: e2eCanBuyShopOffer(slot),
+    };
+  };
+  /** @type {object[]} */
+  const offers = [];
+  for (const s of shopOffers.value) {
+    const v = view(s, "shelf");
+    if (v) offers.push(v);
+  }
+  for (const s of packOffers.value) {
+    const v = view(s, "pack");
+    if (v) offers.push(v);
+  }
+  const v = view(shopVoucherShelf.value, "voucher");
+  if (v) offers.push(v);
+  return {
+    money: money.value,
+    offers,
+    hasTreasureSlot: ownedTreasures.value.some((s) => s == null),
+    canReroll: shopCanReroll.value,
+  };
+}
+
+/** @param {number} offerInstanceId */
+async function e2eBuyShopOfferById(offerInstanceId) {
+  if (transitionBusy.value || shopUpgradeAnimating.value || packPickBusy.value) {
+    return { ok: false, reason: "busy" };
+  }
+  const t = findShopOfferById(offerInstanceId);
+  if (!t) return { ok: false, reason: "not_found" };
+  treasureDetail.value = { kind: "offer", treasure: t, originRect: null };
+  await nextTick();
+  if (!treasureCanBuyOffer.value) {
+    treasureDetail.value = null;
+    return { ok: false, reason: "cannot_buy" };
+  }
+  try {
+    await onTreasurePurchase();
+    return { ok: true };
+  } catch (e) {
+    console.error("[E2E] 购买失败", e);
+    return { ok: false, reason: "error" };
+  }
+}
+
+async function e2eAutoSpellTarget() {
+  const s = spellTargetSession.value;
+  if (!s) return { ok: false, reason: "no_session" };
+  const n = Math.max(0, Math.floor(Number(s.pickCount)) || 0);
+  /** @type {{ row: number, col: number }[]} */
+  const ordered = [];
+  const g = grid.value;
+  for (let r = 0; r < ROWS && ordered.length < n; r++) {
+    for (let c = 0; c < COLS && ordered.length < n; c++) {
+      const t = g[r]?.[c];
+      if (t?.letter && !t.bossGridBlocked) ordered.push({ row: r, col: c });
+    }
+  }
+  if (ordered.length < n && n > 0) {
+    return { ok: false, reason: "not_enough_tiles" };
+  }
+  const indices = ordered.map((_, i) => i);
+  await onSpellTargetConfirm(ordered, indices);
+  return { ok: true, picked: ordered.length };
+}
+
+async function e2eAutoPackPickOnce() {
+  const sess = packPickSession.value;
+  if (!sess || packPickBusy.value) return { ok: false, reason: "no_session" };
+  const claimed = sess.claimedKeys ?? [];
+  if (claimed.length >= packPickRequiredPicks(sess)) return { ok: false, reason: "done" };
+  const opt = (sess.options ?? []).find((o) => {
+    const key = packPickOptionKeyOf(o);
+    if (claimed.includes(key)) return false;
+    if (o.offerType === "treasure" && !ownedTreasures.value.some((s) => s == null)) return false;
+    if (o.offerType === "spell") {
+      const sid = String(o.spellId ?? "");
+      if (sid === "restart" && !lastReplayableSpellId.value) return false;
+    }
+    return true;
+  });
+  if (!opt) return { ok: false, reason: "no_option" };
+  treasureDetail.value = {
+    kind: "pack-inner",
+    treasure: opt,
+    packOptionKey: packPickOptionKeyOf(opt),
+    originRect: null,
+  };
+  await nextTick();
+  if (!treasureCanBuyOffer.value) {
+    treasureDetail.value = null;
+    return { ok: false, reason: "cannot_claim" };
+  }
+  await onPackInnerClaim();
+  return { ok: true, name: opt.name ?? opt.offerType };
+}
+
+function getBossPlayContextForE2e() {
+  return {
+    slug: activeBossSlug.value || "",
+    usedLengthsThisBoss: usedWordLengthsThisBoss.value,
+    mouthLockedLength: mouthLockedLengthBoss.value,
+    clubRequiredKey: clubRequiredKeyBoss.value || null,
+    getWordDefinition,
+    getJudgedLength: (rawLen) =>
+      getJudgedLengthTableLenForOwnedVouchers(rawLen, ownedVoucherIds.value),
+  };
+}
+
+function mountE2eHarnessIfNeeded() {
+  if (!isE2eMode() || disposeE2eHarness) return;
+  const L = getRunLevelAtIndex(levelIndex.value);
+  resetLevel(L, buildLevelResetRunOpts(L));
+  disposeE2eHarness = registerGameTestHarness({
+      getGridSnapshot() {
+        const g = grid.value;
+        /** @type {import('../e2e/gridWordFinder.js').GridCell[]} */
+        const cells = [];
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            const t = g[r]?.[c];
+            if (!t?.letter) continue;
+            cells.push({
+              row: r,
+              col: c,
+              letter: t.letter,
+              rarity: String(t.rarity ?? "common"),
+              isWildcard: isWildcardMaterialTile(t),
+              blocked: !!t.bossGridBlocked,
+              bossDebuffed: !!t.bossTileDebuffed,
+            });
+          }
+        }
+        return cells;
+      },
+      selectTile,
+      clearCurrentWord,
+      submitWord,
+      resolveWordPattern,
+      getDictCandidatesByLength: getCandidateWordsByLength,
+      getTileAt(row, col) {
+        const t = grid.value[row]?.[col];
+        if (!t?.letter) return null;
+        return { rarity: String(t.rarity ?? "common"), letter: t.letter };
+      },
+      getBossPlayContext: getBossPlayContextForE2e,
+      getShopSnapshot: getE2eShopSnapshot,
+      buyOffer: e2eBuyShopOfferById,
+      autoPackPick: e2eAutoPackPickOnce,
+      autoSpellTarget: e2eAutoSpellTarget,
+      shopReroll: onShopReroll,
+      canShopReroll: () => shopCanReroll.value,
+      getRng: runRandom,
+      getPreviewScoreForPick(path) {
+        const tiles = path.map(({ row, col }) => grid.value[row][col]);
+        const lengthJb = getWordLengthJudgmentBonus(ownedVoucherIds.value ?? []);
+        const flintOpts =
+          activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
+        flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;
+        return computeWordScore(
+          tiles,
+          1,
+          lengthLevelsByLength.value,
+          rarityLevelsByRarity.value,
+          lengthJb,
+          flintOpts,
+        );
+      },
+      getStateSnapshot() {
+        return {
+          idle:
+            !transitionBusy.value &&
+            !scoringAnimating.value &&
+            !gridRefillAnimating.value &&
+            flyingLetters.value.length === 0,
+          levelId: currentLevel.value?.id ?? "1-1",
+          levelIndex: levelIndex.value,
+          currentScore: currentScore.value,
+          targetScore: targetScore.value,
+          remainingWords: remainingWords.value,
+          remainingRemovals: remainingRemovals.value,
+          money: money.value,
+          canSubmit: canSubmit.value,
+          showShop: showShop.value,
+          showSettlement: showSettlement.value,
+          showRunEnd: showRunEnd.value,
+          runEndOutcome: runEndOutcome.value,
+          isEndlessRun: isEndlessRun.value,
+          bossBlindOpen: !!bossRerollSession.value,
+          packPickOpen: !!packPickSession.value,
+          treasureDetailOpen: !!treasureDetail.value,
+          spellTargetOpen: !!spellTargetSession.value,
+          activeBoss: activeBossSlug.value || "",
+          ownedTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null),
+        };
+      },
+      dismissOverlays() {
+        treasureDetail.value = null;
+        if (spellTargetSession.value) spellTargetSession.value = null;
+      },
+      shopNextLevel: onShopNextLevel,
+      settlementContinue: onSettlementContinue,
+      bossBlindContinue: onBossBlindRerollContinue,
+    });
+}
 
 onMounted(async () => {
   await loadDictionary({ shouldAbort: () => !gamePanelAlive });
   if (!gamePanelAlive) return;
+  mountE2eHarnessIfNeeded();
   slotRafLastTime = performance.now();
   slotRafId = requestAnimationFrame(slotRafLoop);
   if (!gamePanelAlive) return;
-  await runGridIntroAfterReset();
+  if (isE2eMode()) {
+    await nextTick();
+    gridIntroDone.value = true;
+    gridRefillAnimating.value = false;
+    for (let i = 0; i < ROWS * COLS; i++) {
+      const el = gridTileRefs.value[i];
+      if (el) gsap.set(el, { x: 0, y: 0, opacity: 1 });
+    }
+    tryCeruleanBellFlyInAfterGridStable();
+    updateSlotPositions(true);
+  } else {
+    await runGridIntroAfterReset();
+  }
 });
 onUnmounted(() => {
+  disposeE2eHarness?.();
+  disposeE2eHarness = null;
   gamePanelAlive = false;
   if (settlementTl) {
     settlementTl.kill();
