@@ -187,8 +187,8 @@
       "treasureId": "random_0_26_mult",
       "price": 4,
       "rarity": "rare",
-      "name": "骰子",
-      "emoji": "🎲",
+      "name": "靶心",
+      "emoji": "🎯",
       "description": "随机+0-26倍率"
     },
     {
@@ -205,8 +205,8 @@
       "treasureId": "top_rarity_score_to_mult",
       "price": 5,
       "rarity": "rare",
-      "name": "望远镜",
-      "emoji": "🔭",
+      "name": "算盘",
+      "emoji": "🧮",
       "description": "会将棋盘中最高的稀有度对应的奖励分数添加至倍率"
     },
     {

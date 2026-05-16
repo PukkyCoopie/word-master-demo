@@ -1,11 +1,25 @@
 <template>
   <div class="game-wrap">
     <div class="game-scaler">
-      <div class="game-surface" :class="{ 'game-surface--menu': screen === 'menu' }">
+      <div class="game-surface" :class="{ 'game-surface--menu': showMenu }">
         <!-- 须始终在 DOM 中且早于 GamePanel，避免 Teleport 挂载时 querySelector 找不到目标 -->
         <div id="game-view-portal" class="game-view-portal" />
-        <MainMenu v-if="screen === 'menu'" @start="onMenuStart" />
-        <div v-else class="game-session-stack">
+        <div v-if="dictGate" class="dict-boot-gate">
+          <div
+            class="dict-boot-bar"
+            :class="{ 'dict-boot-bar--error': dictBootError, 'dict-boot-bar--clickable': dictBootError }"
+            :title="dictBootError ? '点击重试' : undefined"
+            role="progressbar"
+            :aria-valuenow="dictBarPct"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            @click="onDictBootBarClick"
+          >
+            <div class="dict-boot-bar-fill" :style="{ width: dictBarPct + '%' }" />
+          </div>
+        </div>
+        <MainMenu v-if="showMenu" @start="onMenuStart" />
+        <div v-else-if="showGame" class="game-session-stack">
           <GamePanel :key="gameSessionKey" />
         </div>
         <IrisTransition ref="irisFxRef" :color="IRIS_COLOR" />
@@ -15,13 +29,16 @@
 </template>
 
 <script setup>
-import { provide, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, provide, ref } from "vue";
 import MainMenu from "./components/MainMenu.vue";
 import GamePanel from "./components/GamePanel.vue";
 import { useScale } from "./composables/useScale";
+import { useDictionary } from "./composables/useDictionary";
 import IrisTransition from "./components/IrisTransition.vue";
 
 useScale();
+
+const { loadDictionary, dictionaryReady, loading: dictLoading, error: dictError, loadProgress } = useDictionary();
 
 const screen = ref("menu");
 const gameSessionKey = ref(0);
@@ -34,6 +51,29 @@ const transitionBusy = ref(false);
 provide("irisTransition", {
   play: (event, opts) => irisFxRef.value?.play(event, opts),
 });
+
+const showMenu = computed(() => dictionaryReady.value && screen.value === "menu");
+const showGame = computed(() => dictionaryReady.value && screen.value === "game");
+const dictGate = computed(() => !dictionaryReady.value);
+const dictBootError = computed(() => !dictLoading.value && !!dictError.value);
+const dictBarPct = computed(() =>
+  Math.round((dictBootError.value ? 1 : loadProgress.value) * 100),
+);
+
+let appAlive = true;
+
+onMounted(() => {
+  loadDictionary({ shouldAbort: () => !appAlive });
+});
+
+onBeforeUnmount(() => {
+  appAlive = false;
+});
+
+function onDictBootBarClick() {
+  if (!dictBootError.value) return;
+  loadDictionary({ shouldAbort: () => !appAlive });
+}
 
 async function onMenuStart(event) {
   if (transitionBusy.value) return;
@@ -63,5 +103,41 @@ async function onMenuStart(event) {
   width: 100%;
   height: 100%;
   border-radius: inherit;
+}
+
+.dict-boot-gate {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.dict-boot-bar {
+  width: min(78%, calc(560 * var(--rpx)));
+  height: calc(14 * var(--rpx));
+  border-radius: calc(7 * var(--rpx));
+  background: var(--card-bright);
+  box-shadow: inset 0 calc(1 * var(--rpx)) 0 rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.dict-boot-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: #5a8fb8;
+  transition: width 0.12s ease-out, background 0.2s ease;
+}
+
+.dict-boot-bar--error .dict-boot-bar-fill {
+  background: var(--btn-red);
+}
+
+.dict-boot-bar--clickable {
+  pointer-events: auto;
+  cursor: pointer;
 }
 </style>

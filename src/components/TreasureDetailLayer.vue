@@ -44,6 +44,7 @@
                 class="shop-treasure-frame shop-treasure-frame--detail"
                 :class="{
                   'shop-treasure-frame--owned': isOwnedMode,
+                  'shop-treasure-frame--bundle-pack-detail': isBundlePack,
                   'shop-treasure-frame--length-offer':
                     treasure?.offerType === 'upgrade' && treasure?.upgradeKind !== 'rarity',
                   'shop-treasure-frame--pack-rarity':
@@ -72,6 +73,11 @@
                     }}</span>
                   </div>
                 </template>
+                <template v-else-if="isVoucherOffer">
+                  <span ref="emojiRef" class="shop-treasure-emoji shop-treasure-emoji--detail" role="img">{{
+                    treasure.emoji
+                  }}</span>
+                </template>
                 <template v-else-if="isSpellOffer">
                   <i
                     v-if="treasure.iconClass"
@@ -80,6 +86,14 @@
                     :class="treasure.iconClass"
                     aria-hidden="true"
                   ></i>
+                </template>
+                <template v-else-if="isBundlePack">
+                  <i
+                    ref="emojiRef"
+                    class="shop-treasure-emoji shop-treasure-emoji--detail shop-treasure-emoji--icon ri-gift-2-line"
+                    aria-hidden="true"
+                  ></i>
+                  <span class="shop-bundle-pack-caption-detail">{{ bundlePackTypeLabel }}</span>
                 </template>
                 <template v-else>
                   <span class="letter-gem" :class="`gem-${gemRarityKey}`" aria-hidden="true" />
@@ -122,7 +136,7 @@
               </div>
               <div class="shop-treasure-price" :aria-label="mode === 'offer' ? '售价' : '回收价'">
                 <div class="shop-treasure-price-inner">
-                  <template v-if="mode === 'offer'">${{ treasure.price }}</template>
+                  <template v-if="mode === 'offer'">${{ offerPriceDisplayed }}</template>
                   <template v-else>${{ sellRefund }}</template>
                 </div>
               </div>
@@ -239,6 +253,7 @@
           class="shop-treasure-frame shop-treasure-frame--detail"
           :class="{
             'shop-treasure-frame--owned': isOwnedMode,
+            'shop-treasure-frame--bundle-pack-detail': isBundlePack,
             'shop-treasure-frame--length-offer':
               treasure?.offerType === 'upgrade' && treasure?.upgradeKind !== 'rarity',
             'shop-treasure-frame--pack-rarity':
@@ -264,6 +279,9 @@
               }}</span>
             </div>
           </template>
+          <template v-else-if="isVoucherOffer">
+            <span class="shop-treasure-emoji shop-treasure-emoji--detail">{{ treasure.emoji }}</span>
+          </template>
           <template v-else-if="isSpellOffer">
             <i
               v-if="treasure.iconClass"
@@ -271,6 +289,13 @@
               :class="treasure.iconClass"
               aria-hidden="true"
             ></i>
+          </template>
+          <template v-else-if="isBundlePack">
+            <i
+              class="shop-treasure-emoji shop-treasure-emoji--detail shop-treasure-emoji--icon ri-gift-2-line"
+              aria-hidden="true"
+            ></i>
+            <span class="shop-bundle-pack-caption-detail">{{ bundlePackTypeLabel }}</span>
           </template>
           <template v-else>
             <span class="letter-gem" :class="`gem-${gemRarityKey}`" aria-hidden="true" />
@@ -310,7 +335,7 @@
         </div>
         <div class="shop-treasure-price">
           <div class="shop-treasure-price-inner">
-            <template v-if="mode === 'offer'">${{ treasure.price }}</template>
+            <template v-if="mode === 'offer'">${{ offerPriceDisplayed }}</template>
             <template v-else>${{ sellRefund }}</template>
           </div>
         </div>
@@ -332,6 +357,7 @@ import { resolveTreasureDetailGainPanel } from "../treasures/treasureRegistry.js
 import { getSpellGainPanel } from "../spells/spellGainPanel.js";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
 
 const props = defineProps({
   treasure: { type: Object, required: true },
@@ -349,7 +375,13 @@ const props = defineProps({
   originRect: { type: Object, default: null },
   /** 法术「重播」预览用：上一张可重播法术 id */
   spellReplayTargetSpellId: { type: String, default: null },
+  /** 已拥有优惠券 id（商店内标价折扣用） */
+  ownedVoucherIds: { type: Array, default: () => [] },
 });
+
+const offerPriceDisplayed = computed(() =>
+  applyShopDiscountPrice(Number(props.treasure?.price) || 0, props.ownedVoucherIds ?? []),
+);
 
 const hasTreasureDescBody = computed(() => {
   const raw = props.descriptionOverride ?? props.treasure?.description;
@@ -401,15 +433,37 @@ const isPackRarityUpgrade = computed(
 
 const isSpellOffer = computed(() => props.treasure?.offerType === "spell");
 
+const isBundlePack = computed(() => props.treasure?.offerType === "bundlePack");
+
+const isVoucherOffer = computed(() => props.treasure?.offerType === "voucher");
+
+const bundlePackTypeLabel = computed(() => {
+  if (!isBundlePack.value) return "";
+  const k = String(props.treasure?.bundleKind ?? "");
+  if (k === "spell") return "法术";
+  if (k === "upgrade") return "升级";
+  if (k === "treasure") return "宝藏";
+  if (k === "letter") return "字母";
+  if (k === "tile") return "字母";
+  return "组合包";
+});
+
 /** 与法术选格层、商店货架详情一致：名称上一行淡淡分类 */
 const detailKindCaption = computed(() => {
+  if (isBundlePack.value) return "组合包";
+  if (isVoucherOffer.value) return "优惠券";
   if (isSpellOffer.value) return "法术卡";
   if (props.treasure?.offerType === "upgrade") return "升级卡";
   return "宝藏";
 });
 
 /** 牌包「升级卡」无宝藏稀有度，描述框不展示价签式稀有度 tag */
-const showDetailRarityTag = computed(() => props.treasure?.offerType !== "upgrade");
+const showDetailRarityTag = computed(
+  () =>
+    props.treasure?.offerType !== "upgrade" &&
+    props.treasure?.offerType !== "bundlePack" &&
+    props.treasure?.offerType !== "voucher",
+);
 
 const accessoryChipVisual = computed(() => getTreasureAccessoryChipVisual(props.treasure?.treasureAccessoryId));
 
@@ -433,6 +487,8 @@ const showSpellGainPanel = computed(() => Boolean(String(spellGainPanelContent.v
 const treasureGainPanelContent = computed(() => {
   if (isSpellOffer.value) return null;
   if (props.treasure?.offerType === "upgrade") return null;
+  if (props.treasure?.offerType === "bundlePack") return null;
+  if (isVoucherOffer.value) return null;
   const tid = String(props.treasure?.treasureId ?? "").trim();
   if (!tid) return null;
   return resolveTreasureDetailGainPanel(tid);

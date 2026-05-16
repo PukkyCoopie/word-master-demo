@@ -28,10 +28,26 @@ export const ECONOMY_INTEREST_CAP = 5;
  * @param {number} walletBeforeSettlement 结算前持有金额（未加本关奖励）
  * @returns {number} 本关结算可获得的利息（元）
  */
-export function computeWalletInterest(walletBeforeSettlement) {
+export function computeWalletInterest(walletBeforeSettlement, capOverride = null) {
   const w = Math.max(0, Math.floor(Number(walletBeforeSettlement) || 0));
-  return Math.min(ECONOMY_INTEREST_CAP, Math.floor(w / ECONOMY_INTEREST_PER_5));
+  const cap =
+    capOverride != null && Number.isFinite(Number(capOverride))
+      ? Math.max(0, Math.floor(Number(capOverride)))
+      : ECONOMY_INTEREST_CAP;
+  return Math.min(cap, Math.floor(w / ECONOMY_INTEREST_PER_5));
 }
 
-/** 商店刷新当前货架的费用（效果类「免费刷新」尚未接入时统一用此价） */
-export const SHOP_REROLL_COST = 4;
+/**
+ * Balatro 商店刷新：起价 $5，每在本店多刷一次 +$1；下次进店由 GamePanel 将「本店已刷次数」清零，等价于进店重置为 $5。
+ * @param {number} rerollsAlreadyDoneThisVisit 本段商店停留内已成功刷新的次数（0 表示尚未刷过）
+ */
+export function computeShopRerollCost(rerollsAlreadyDoneThisVisit) {
+  const n = Math.max(0, Math.floor(Number(rerollsAlreadyDoneThisVisit) || 0));
+  return SHOP_REROLL_BASE_COST + n * SHOP_REROLL_COST_INCREMENT_PER_USE;
+}
+
+export const SHOP_REROLL_BASE_COST = 5;
+export const SHOP_REROLL_COST_INCREMENT_PER_USE = 1;
+
+/** @deprecated 使用 `computeShopRerollCost(0)` 或进店动态费用 */
+export const SHOP_REROLL_COST = SHOP_REROLL_BASE_COST;

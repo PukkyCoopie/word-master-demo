@@ -48,44 +48,57 @@
                     <div
                       class="shop-treasure-frame"
                       :class="{
+                        'shop-treasure-frame--bundle-pack': slot.offerType === 'bundlePack',
                         'shop-treasure-frame--length-offer':
                           slot.offerType !== 'spell' &&
+                          slot.offerType !== 'bundlePack' &&
                           slot.upgradeKind !== 'rarity' &&
                           (slot.lengthBadgeLabel || slot.lengthLabel),
-                        'shop-treasure-frame--pack-rarity': slot.upgradeKind === 'rarity',
-                        'shop-treasure-frame--spell-offer': slot.offerType === 'spell',
+                        'shop-treasure-frame--pack-rarity':
+                          slot.offerType !== 'bundlePack' && slot.upgradeKind === 'rarity',
+                        'shop-treasure-frame--spell-offer':
+                          slot.offerType === 'spell',
                       }"
                     >
-                      <i
-                        v-if="slot.iconClass"
-                        class="shop-treasure-emoji shop-treasure-emoji--icon"
-                        :class="slot.iconClass"
-                        aria-hidden="true"
-                      ></i>
-                      <span v-else class="shop-treasure-emoji" role="img">{{ slot.emoji }}</span>
-                      <div v-if="slot.upgradeKind === 'rarity'" class="shop-pack-rarity-caption-row">
-                        <span
-                          class="letter-gem shop-pack-rarity-gem"
-                          :class="gemClassForTreasureRarity(slot.letterRarity ?? 'common')"
+                      <template v-if="slot.offerType === 'bundlePack'">
+                        <i
+                          class="shop-treasure-emoji shop-treasure-emoji--icon ri-gift-2-line"
                           aria-hidden="true"
-                        />
-                        <span class="shop-pack-rarity-caption">{{
-                          slot.lengthBadgeLabel || slot.lengthLabel
-                        }}</span>
-                      </div>
-                      <span
-                        v-else-if="slot.lengthBadgeLabel || slot.lengthLabel"
-                        class="shop-upgrade-length"
-                        :class="{
-                          'shop-upgrade-length--single-digit': isSingleDigitLabel(
-                            slot.lengthBadgeLabel || slot.lengthLabel,
-                          ),
-                        }"
-                        >{{ slot.lengthBadgeLabel || slot.lengthLabel }}</span
-                      >
+                        ></i>
+                        <span class="shop-bundle-pack-caption">{{ bundlePackCaption(slot) }}</span>
+                      </template>
+                      <template v-else>
+                        <i
+                          v-if="slot.iconClass"
+                          class="shop-treasure-emoji shop-treasure-emoji--icon"
+                          :class="slot.iconClass"
+                          aria-hidden="true"
+                        ></i>
+                        <span v-else class="shop-treasure-emoji" role="img">{{ slot.emoji }}</span>
+                        <div v-if="slot.upgradeKind === 'rarity'" class="shop-pack-rarity-caption-row">
+                          <span
+                            class="letter-gem shop-pack-rarity-gem"
+                            :class="gemClassForTreasureRarity(slot.letterRarity ?? 'common')"
+                            aria-hidden="true"
+                          />
+                          <span class="shop-pack-rarity-caption">{{
+                            slot.lengthBadgeLabel || slot.lengthLabel
+                          }}</span>
+                        </div>
+                        <span
+                          v-else-if="slot.lengthBadgeLabel || slot.lengthLabel"
+                          class="shop-upgrade-length"
+                          :class="{
+                            'shop-upgrade-length--single-digit': isSingleDigitLabel(
+                              slot.lengthBadgeLabel || slot.lengthLabel,
+                            ),
+                          }"
+                          >{{ slot.lengthBadgeLabel || slot.lengthLabel }}</span
+                        >
+                      </template>
                     </div>
                     <div class="shop-treasure-price" aria-label="售价">
-                      <div class="shop-treasure-price-inner">${{ slot.price }}</div>
+                      <div class="shop-treasure-price-inner">${{ shopMarkPrice(slot.price) }}</div>
                     </div>
                   </div>
                   <div v-else class="shop-treasure-visual shop-treasure-visual--slot-empty" aria-hidden="true">
@@ -97,15 +110,40 @@
                 </div>
               </div>
             </div>
-            <div class="shop-future-subpanel shop-section">
-              <span class="shop-future-label">优惠券（预留）</span>
+            <div class="shop-future-subpanel shop-section shop-voucher-panel">
+              <span class="shop-future-label">优惠券</span>
+              <div class="shop-voucher-offers" aria-label="优惠券商品">
+                <div
+                  :key="
+                    voucherSlot.kind === 'offer'
+                      ? 'vo-' + voucherSlot.offerInstanceId
+                      : 've-' + voucherSlot.emptySlotId
+                  "
+                  class="shop-treasure-product"
+                >
+                  <div
+                    v-if="voucherSlot.kind === 'offer'"
+                    class="shop-treasure-visual"
+                    @pointerdown.stop="!interactionsDisabled && onSelectVoucher(voucherSlot, $event)"
+                  >
+                    <VoucherStamp
+                      :emoji="voucherSlot.emoji"
+                      :display-name="voucherSlot.name"
+                      :price="shopMarkPrice(voucherSlot.price)"
+                    />
+                  </div>
+                  <div v-else class="shop-treasure-visual shop-treasure-visual--slot-empty" aria-hidden="true">
+                    <VoucherStamp empty reserve-price-slot />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         <div class="shop-offers-panel">
           <div class="shop-offers-row">
-            <div class="shop-treasure-panel shop-section" aria-label="可购宝藏">
+            <div class="shop-treasure-panel shop-section" aria-label="商店随机卡栏">
               <div class="shop-treasure-offers">
                 <div
                   v-for="slot in shopOffers"
@@ -117,29 +155,78 @@
                     class="shop-treasure-visual"
                     @pointerdown.stop="!interactionsDisabled && onSelectOffer(slot, $event)"
                   >
-                    <div class="shop-treasure-frame">
-                      <span
-                        class="letter-gem"
-                        :class="gemClassForTreasureRarity(slot.letterRarity ?? slot.rarity)"
-                        aria-hidden="true"
-                      />
-                      <span class="shop-treasure-emoji" role="img">{{ slot.emoji }}</span>
-                      <span
-                        v-if="shopOfferTreasureAccessoryChip(slot)"
-                        class="treasure-accessory-chip"
-                        :class="shopOfferTreasureAccessoryChip(slot).chipClass"
-                        aria-hidden="true"
-                      >
-                        <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+                    <div
+                      class="shop-treasure-frame"
+                      :class="{
+                        'shop-treasure-frame--length-offer':
+                          slot.offerType === 'upgrade' &&
+                          slot.upgradeKind !== 'rarity' &&
+                          (slot.lengthBadgeLabel || slot.lengthLabel),
+                        'shop-treasure-frame--pack-rarity':
+                          slot.offerType === 'upgrade' && slot.upgradeKind === 'rarity',
+                        'shop-treasure-frame--spell-offer': slot.offerType === 'spell',
+                      }"
+                    >
+                      <template v-if="slot.offerType === 'spell'">
                         <i
-                          class="treasure-accessory-chip-icon"
-                          :class="shopOfferTreasureAccessoryChip(slot).iconClass"
+                          v-if="slot.iconClass"
+                          class="shop-treasure-emoji shop-treasure-emoji--icon"
+                          :class="slot.iconClass"
+                          aria-hidden="true"
+                        ></i>
+                      </template>
+                      <template v-else-if="slot.offerType === 'upgrade'">
+                        <i
+                          v-if="slot.iconClass"
+                          class="shop-treasure-emoji shop-treasure-emoji--icon"
+                          :class="slot.iconClass"
+                          aria-hidden="true"
+                        ></i>
+                        <div v-if="slot.upgradeKind === 'rarity'" class="shop-pack-rarity-caption-row">
+                          <span
+                            class="letter-gem shop-pack-rarity-gem"
+                            :class="gemClassForTreasureRarity(slot.letterRarity ?? 'common')"
+                            aria-hidden="true"
+                          />
+                          <span class="shop-pack-rarity-caption">{{
+                            slot.lengthBadgeLabel || slot.lengthLabel
+                          }}</span>
+                        </div>
+                        <span
+                          v-else-if="slot.lengthBadgeLabel || slot.lengthLabel"
+                          class="shop-upgrade-length"
+                          :class="{
+                            'shop-upgrade-length--single-digit': isSingleDigitLabel(
+                              slot.lengthBadgeLabel || slot.lengthLabel,
+                            ),
+                          }"
+                          >{{ slot.lengthBadgeLabel || slot.lengthLabel }}</span
+                        >
+                      </template>
+                      <template v-else>
+                        <span
+                          class="letter-gem"
+                          :class="gemClassForTreasureRarity(slot.letterRarity ?? slot.rarity)"
                           aria-hidden="true"
                         />
-                      </span>
+                        <span class="shop-treasure-emoji" role="img">{{ slot.emoji }}</span>
+                        <span
+                          v-if="shopOfferTreasureAccessoryChip(slot)"
+                          class="treasure-accessory-chip"
+                          :class="shopOfferTreasureAccessoryChip(slot).chipClass"
+                          aria-hidden="true"
+                        >
+                          <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+                          <i
+                            class="treasure-accessory-chip-icon"
+                            :class="shopOfferTreasureAccessoryChip(slot).iconClass"
+                            aria-hidden="true"
+                          />
+                        </span>
+                      </template>
                     </div>
                     <div class="shop-treasure-price" aria-label="售价">
-                      <div class="shop-treasure-price-inner">${{ slot.price }}</div>
+                      <div class="shop-treasure-price-inner">${{ shopMarkPrice(slot.price) }}</div>
                     </div>
                   </div>
                   <div v-else class="shop-treasure-visual shop-treasure-visual--slot-empty" aria-hidden="true">
@@ -188,7 +275,13 @@
           <i class="ri-information-line deck-btn-icon" aria-hidden="true"></i>
           <span>本轮信息</span>
         </button>
-        <button type="button" class="deck-btn shop-footer-action-btn" :disabled="interactionsDisabled" @click="emit('view-deck')">
+        <button
+          ref="deckViewBtnRef"
+          type="button"
+          class="deck-btn shop-footer-action-btn"
+          :disabled="interactionsDisabled"
+          @click="emit('view-deck')"
+        >
           <i class="ri-stack-line deck-btn-icon" aria-hidden="true"></i>
           <span>查看牌库</span>
         </button>
@@ -230,6 +323,7 @@ import gsap from "gsap";
 import TileLetterShowcase from "./TileLetterShowcase.vue";
 import TreasureSlot from "./TreasureSlot.vue";
 import ResultArea from "./ResultArea.vue";
+import VoucherStamp from "./VoucherStamp.vue";
 import {
   getBaseScorePerLetterForWordLength,
   getLengthMultiplier,
@@ -239,11 +333,18 @@ import {
   RARITY_UPGRADE_BALANCE,
 } from "../composables/useScoring";
 import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories.js";
+import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
 
 const props = defineProps({
   walletAmount: { type: Number, default: 0 },
   shopOffers: { type: Array, required: true },
   packOffers: { type: Array, default: () => [] },
+  /** 单槽优惠券行：与 pack slot 同构 `{ kind:'offer'|'empty', ... }` */
+  voucherSlot: {
+    type: Object,
+    default: () => ({ kind: "empty", emptySlotId: 0 }),
+  },
+  ownedVoucherIds: { type: Array, default: () => [] },
   /** 动态长度（默认 5；装备裁剪配饰时可扩栏）：(Treasure | null)[] */
   ownedTreasures: { type: Array, required: true },
   /** 与 ownedTreasures 同索引：null=无充能皮、inactive=未就绪、active=就绪（仅 footer 已拥有格） */
@@ -256,7 +357,7 @@ const props = defineProps({
     type: Array,
     default: () => [0, 0, 0, 0, 0],
   },
-  shopRerollCost: { type: Number, default: 4 },
+  shopRerollCost: { type: Number, default: 5 },
   canShopReroll: { type: Boolean, default: false },
   interactionsDisabled: { type: Boolean, default: false },
 });
@@ -267,15 +368,21 @@ const emit = defineEmits([
   "next-level",
   "select-offer",
   "select-pack-offer",
+  "select-voucher",
   "select-owned",
   "shop-reroll",
   "reorder-owned",
   "upgrade-interaction-unlock",
 ]);
 
+/** 货架标价（含清仓/半价券） */
+function shopMarkPrice(base) {
+  return applyShopDiscountPrice(Number(base) || 0, props.ownedVoucherIds ?? []);
+}
+
 /** @param {object} slot shopOffers 项 */
 function shopOfferTreasureAccessoryChip(slot) {
-  if (!slot || slot.kind !== "offer" || slot.offerType === "upgrade") return null;
+  if (!slot || slot.kind !== "offer" || slot.offerType === "upgrade" || slot.offerType === "spell") return null;
   return getTreasureAccessoryChipVisual(slot.treasureAccessoryId);
 }
 
@@ -289,6 +396,7 @@ const shopTitleRows = [
 ];
 
 const shopWalletBoxRef = ref(null);
+const deckViewBtnRef = ref(null);
 const shopResultAreaRef = ref(null);
 /** @type {(HTMLElement | undefined)[]} */
 const ownedCellEls = [];
@@ -598,6 +706,17 @@ function isSingleDigitLabel(label) {
   return /^\d$/.test(String(label ?? "").trim());
 }
 
+/** 牌包区组合包角标：类型简称（与详情层一致） */
+function bundlePackCaption(slot) {
+  const k = String(slot?.bundleKind ?? "");
+  if (k === "spell") return "法术";
+  if (k === "upgrade") return "升级";
+  if (k === "treasure") return "宝藏";
+  if (k === "letter") return "字母";
+  if (k === "tile") return "字母";
+  return "组合包";
+}
+
 /** 与棋盘 / TreasureDetailLayer letter-gem 的 gem-* 一致 */
 function gemClassForTreasureRarity(rarity) {
   if (rarity === "epic") return "gem-epic";
@@ -616,6 +735,12 @@ function onSelectPackOffer(slot, e) {
   if (props.interactionsDisabled) return;
   const root = e.currentTarget;
   emit("select-pack-offer", { treasure: slot, originEl: root });
+}
+
+function onSelectVoucher(slot, e) {
+  if (props.interactionsDisabled) return;
+  const root = e.currentTarget;
+  emit("select-voucher", { treasure: slot, originEl: root });
 }
 
 function onSelectOwned(index, treasure, e) {
@@ -750,6 +875,7 @@ function onShopOwnedDragEnd() {
 defineExpose({
   getWalletEl: () => shopWalletBoxRef.value,
   getOwnedSlotEl: (i) => ownedCellEls[i] ?? null,
+  getDeckViewBtnEl: () => deckViewBtnRef.value ?? null,
   playUpgradeResult,
 });
 </script>

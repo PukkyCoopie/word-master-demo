@@ -1,12 +1,14 @@
 /**
- * 关卡难度与经济奖励。
+ * 关卡与经济奖励。
  *
  * `id`：关卡名（如 "1-1"）。
- * `targetScore`：累计得分达到即通关。
- * `rewardYuan`：通关基础奖励（元）；规则：同一大关下小关 1→3、2→4、3→5。
+ * 通关目标分由 `resolveLevelTargetScore`（章底 B × 1×/1.5×/Boss 2×m）按 Balatro 曲线计算，见 `game/levelTargetScore.js`。
+ * `rewardYuan`：通关基础奖励（元）；同一大关下小关 1→3、2→4、3→5。
  */
 
-/** @typedef {{ id: string, targetScore: number, rewardYuan: number }} LevelDefinition */
+import { resolveLevelTargetScore } from "./game/levelTargetScore.js";
+
+/** @typedef {{ id: string, rewardYuan: number }} LevelDefinition */
 
 /**
  * @param {string} id
@@ -21,47 +23,39 @@ export function rewardYuanForLevelId(id) {
   return 3;
 }
 
-const LEVELS_BASE = [
-  { id: "1-1", targetScore: 100 },
-  { id: "1-2", targetScore: 200 },
-  { id: "1-3", targetScore: 400 },
-  { id: "2-1", targetScore: 800 },
-  { id: "2-2", targetScore: 1200 },
-  { id: "2-3", targetScore: 2000 },
-  { id: "3-1", targetScore: 3000 },
-  { id: "3-2", targetScore: 4500 },
-  { id: "3-3", targetScore: 6000 },
-  { id: "4-1", targetScore: 9000 },
-  { id: "4-2", targetScore: 12000 },
-  { id: "4-3", targetScore: 18000 },
-  { id: "5-1", targetScore: 24000 },
-  { id: "5-2", targetScore: 36000 },
-  { id: "5-3", targetScore: 48000 },
-  { id: "6-1", targetScore: 72000 },
-  { id: "6-2", targetScore: 108000 },
-  { id: "6-3", targetScore: 150000 },
-  { id: "7-1", targetScore: 200000 },
-  { id: "7-2", targetScore: 300000 },
-  { id: "7-3", targetScore: 400000 },
-  { id: "8-1", targetScore: 500000 },
-  { id: "8-2", targetScore: 750000 },
-  { id: "8-3", targetScore: 1000000 },
-];
+/** @type {readonly string[]} 1-1 … 8-3 */
+const LEVEL_IDS = Object.freeze(
+  Array.from({ length: 8 * 3 }, (_, i) => {
+    const chapter = Math.floor(i / 3) + 1;
+    const sub = (i % 3) + 1;
+    return `${chapter}-${sub}`;
+  }),
+);
 
 /** @type {readonly LevelDefinition[]} 按通关顺序排列 */
 export const LEVELS = Object.freeze(
-  LEVELS_BASE.map((l) => ({
-    ...l,
-    rewardYuan: rewardYuanForLevelId(l.id),
+  LEVEL_IDS.map((id) => ({
+    id,
+    rewardYuan: rewardYuanForLevelId(id),
   })),
 );
 
 export const LEVEL_COUNT = LEVELS.length;
 
-/** 关卡 id → 目标分（便于 O(1) 查询） */
+/**
+ * 关卡 id → 目标分（Boss 关未传 slug 时按 m=1）
+ * @type {Readonly<Record<string, number>>}
+ */
 export const LEVEL_TARGET_BY_ID = Object.freeze(
-  Object.fromEntries(LEVELS.map((l) => [l.id, l.targetScore])),
+  Object.fromEntries(LEVELS.map((l) => [l.id, resolveLevelTargetScore(l.id, "")])),
 );
+
+/**
+ * @param {string} id
+ * @param {string} [bossSlugForSub3=""]
+ * @returns {number}
+ */
+export { resolveLevelTargetScore } from "./game/levelTargetScore.js";
 
 /**
  * @param {string} id

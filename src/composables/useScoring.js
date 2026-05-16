@@ -282,11 +282,18 @@ export function computeWordScoreDetailed(
   treasureMultiplier = 1,
   lengthLevelsByLength = null,
   rarityLevelsByRarity = null,
+  lengthMultFactor = 1,
+  lengthJudgmentBonus = 0,
+  opts = {},
 ) {
 
-  const len = tiles.length;
+  const tileCount = tiles.length;
+  const jb = Math.max(0, Math.floor(Number(lengthJudgmentBonus) || 0));
+  const rawLen = tileCount + jb;
+  const len = rawLen <= 0 ? 3 : rawLen < 3 ? 3 : rawLen > 16 ? 16 : rawLen;
 
-  const lengthMult = getLengthMultiplier(len, lengthLevelsByLength);
+  const lm = Math.max(0, Number(lengthMultFactor) || 1);
+  const lengthMult = getLengthMultiplier(len, lengthLevelsByLength) * lm;
 
   const basePerLetter = getBaseScorePerLetterForWordLength(len, lengthLevelsByLength);
 
@@ -338,23 +345,32 @@ export function computeWordScoreDetailed(
 
   const multTotal = lengthMult + letterMultSum;
 
-  const finalScore = Math.round(scoreSum * multTotal * treasureMultiplier);
+  const fq = opts?.bossFlintQuarter === true;
+  const scoreSumAdj = fq ? scoreSum * 0.5 : scoreSum;
+  const multTotalAdj = fq ? multTotal * 0.5 : multTotal;
+
+  const finalScore = Math.round(scoreSumAdj * multTotalAdj * treasureMultiplier);
 
   return {
 
     letterParts,
 
-    scoreSum,
+    scoreSum: scoreSumAdj,
 
     lengthMultiplier: lengthMult,
 
     letterMultSum,
 
-    multTotal,
+    multTotal: multTotalAdj,
 
     treasureMultiplier,
 
     finalScore,
+
+    /** 用于长度倍率与每字基础分的等效词长（已 clamp）；字母块数仍为 `letterParts.length` */
+    lengthTableLen: len,
+
+    lengthJudgmentBonus: jb,
 
   };
 
@@ -362,9 +378,24 @@ export function computeWordScoreDetailed(
 
 
 
-export function computeWordScore(tiles, treasureMultiplier = 1, lengthLevelsByLength = null, rarityLevelsByRarity = null) {
+export function computeWordScore(
+  tiles,
+  treasureMultiplier = 1,
+  lengthLevelsByLength = null,
+  rarityLevelsByRarity = null,
+  lengthJudgmentBonus = 0,
+  opts = {},
+) {
 
-  const d = computeWordScoreDetailed(tiles, treasureMultiplier, lengthLevelsByLength, rarityLevelsByRarity);
+  const d = computeWordScoreDetailed(
+    tiles,
+    treasureMultiplier,
+    lengthLevelsByLength,
+    rarityLevelsByRarity,
+    1,
+    lengthJudgmentBonus,
+    opts,
+  );
 
   return {
 

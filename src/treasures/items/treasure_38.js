@@ -10,7 +10,7 @@ export default {
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   buildPostLetterStep(ctx) {
-    const len = Math.max(0, Number(ctx.tiles?.length) || 0);
+    const len = Math.max(0, Number(ctx.lengthTableLen ?? ctx.tiles?.length) || 0);
     if (len <= 0) return null;
     const byLen = ctx.spellCountsByLength ?? {};
     const spelledBefore = Math.max(0, Number(byLen[String(len)]) || 0);

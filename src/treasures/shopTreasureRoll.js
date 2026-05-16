@@ -1,5 +1,6 @@
 /**
- * 商店按稀有度加权抽取：rare 65%、epic 30%、legendary 5%；某档池空则权重落到其余档。
+ * 商店按稀有度加权抽取（对齐 Balatro 小丑生成：Common 70% / Uncommon 25% / Rare 5%，
+ * 映射到本项目的 rare / epic / legendary）；某档池空则权重落到其余档。
  *
  * @param {import('./treasureTypes.js').TreasureDef[]} pool
  * @param {() => number} rng 返回 [0,1)
@@ -9,8 +10,8 @@ export function pickWeightedTreasureFromPool(pool, rng = Math.random) {
   const rare = pool.filter((t) => t.rarity === "rare");
   const epic = pool.filter((t) => t.rarity === "epic");
   const leg = pool.filter((t) => t.rarity === "legendary");
-  const wR = rare.length > 0 ? 65 : 0;
-  const wE = epic.length > 0 ? 30 : 0;
+  const wR = rare.length > 0 ? 70 : 0;
+  const wE = epic.length > 0 ? 25 : 0;
   const wL = leg.length > 0 ? 5 : 0;
   const total = wR + wE + wL;
   if (total <= 0) return pool[Math.floor(rng() * pool.length)];

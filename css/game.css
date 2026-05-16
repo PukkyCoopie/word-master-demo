@@ -329,19 +329,6 @@ body {
 	letter-spacing: 0.02em;
 }
 
-.header-box-dict-loading {
-	flex: 1.15;
-	font-size: calc(22 * var(--rpx));
-	color: var(--text-soft);
-	animation: dict-loading-pulse 1.1s ease-in-out infinite;
-}
-
-@keyframes dict-loading-pulse {
-	50% {
-		opacity: 0.55;
-	}
-}
-
 /* ----- 目标/回合分数 ----- */
 .scores {
 	display: flex;
@@ -367,6 +354,87 @@ body {
 	font-size: calc(48 * var(--rpx));
 	font-weight: 700;
 	color: var(--text);
+}
+
+/* ----- Boss 条（.scores 与 ResultArea 之间） ----- */
+.boss-tape {
+	width: 100%;
+	flex: 0 0 auto;
+	box-sizing: border-box;
+	background: var(--card-bright);
+	border-radius: var(--radius);
+	padding: calc(10 * var(--rpx)) calc(14 * var(--rpx));
+	box-shadow: var(--shadow);
+	border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.06);
+}
+
+.boss-tape-title {
+	font-size: calc(26 * var(--rpx));
+	font-weight: 800;
+	color: var(--text);
+	line-height: 1.15;
+}
+
+.boss-tape-desc {
+	margin-top: calc(4 * var(--rpx));
+	font-size: calc(22 * var(--rpx));
+	color: var(--text-soft);
+	line-height: 1.25;
+}
+
+.boss-tape--attention {
+	animation: boss-tape-attention 0.85s ease-out 1;
+}
+
+/* 软规则预览：当前串将违规时持续轻脉冲（与一次性 --attention 区分） */
+.boss-tape--soft-preview {
+	animation: boss-tape-soft-preview 1.35s ease-in-out infinite;
+	border-color: rgba(91, 155, 213, 0.38);
+}
+
+.boss-tape--wobble {
+	animation: boss-tape-wobble 0.52s ease-out 1;
+}
+
+@keyframes boss-tape-attention {
+	0% {
+		box-shadow: var(--shadow);
+	}
+	40% {
+		box-shadow: 0 0 0 calc(4 * var(--rpx)) rgba(91, 155, 213, 0.35);
+	}
+	100% {
+		box-shadow: var(--shadow);
+	}
+}
+
+@keyframes boss-tape-soft-preview {
+	0%,
+	100% {
+		box-shadow: var(--shadow);
+	}
+	50% {
+		box-shadow: 0 0 0 calc(3 * var(--rpx)) rgba(91, 155, 213, 0.26);
+	}
+}
+
+@keyframes boss-tape-wobble {
+	0%,
+	100% {
+		transform: translateX(0);
+	}
+	20% {
+		transform: translateX(calc(-6 * var(--rpx)));
+	}
+	40% {
+		transform: translateX(calc(5 * var(--rpx)));
+	}
+	60% {
+		transform: translateX(calc(-3 * var(--rpx)));
+	}
+	80% {
+		transform: translateX(calc(2 * var(--rpx)));
+	}
 }
 
 /* ----- 相乘结果区域（宽:高 = 4:1） ----- */
@@ -571,6 +639,11 @@ body {
 /* 关底黄金 +$：与 +分 气泡同形，仅底色区分 */
 .score-popup-bubble--money {
 	background: #d4a84a;
+}
+/* 废格 / 软违规：跳过计分 */
+.score-popup-bubble--skip {
+	background: #8a939c;
+	font-weight: 700;
 }
 /* 额外整轮字母计分：与 +分气泡同形，底色为橙 */
 .score-popup-bubble--replay-again {
@@ -829,6 +902,52 @@ body {
 	gap: calc(6 * var(--rpx));
 	width: var(--letter-grid-inner);
 	height: var(--letter-grid-inner);
+}
+
+.letter-grid--manacle {
+	grid-template-rows: auto repeat(3, 1fr);
+}
+
+.grid-tile.letter-tile-boss-blocked {
+	opacity: 0.55;
+	border-style: dashed;
+	border-width: calc(2 * var(--rpx));
+	border-color: rgba(0, 0, 0, 0.22);
+	pointer-events: none;
+}
+
+.grid-tile.letter-tile-boss-debuff {
+	filter: brightness(0.72) saturate(0.85);
+}
+
+.grid-tile .letter-tile-boss-x {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: calc(56 * var(--rpx));
+	font-weight: 900;
+	color: rgba(200, 48, 48, 0.88);
+	pointer-events: none;
+	z-index: 6;
+	text-shadow: 0 calc(2 * var(--rpx)) 0 rgba(0, 0, 0, 0.18);
+}
+
+.grid-tile.letter-tile-cerulean-lock,
+.word-slot-content.letter-tile-cerulean-lock {
+	position: relative;
+}
+
+.grid-tile .letter-tile-cerulean-lock-icon,
+.word-slots .letter-tile-cerulean-lock-icon {
+	position: absolute;
+	right: calc(4 * var(--rpx));
+	top: calc(4 * var(--rpx));
+	font-size: calc(18 * var(--rpx));
+	color: rgba(28, 110, 168, 0.92);
+	pointer-events: none;
+	z-index: 7;
 }
 
 /* 关内结束后顶部不落新块：仅占网格位，不露空字母块样式 */
@@ -1684,6 +1803,20 @@ body {
 	opacity: 0.45;
 }
 
+.treasure-slot.filled.treasure-slot--boss-hand-disabled {
+	filter: brightness(0.68) saturate(0.82);
+}
+
+.treasure-slot.filled.treasure-slot--boss-hand-disabled .treasure-boss-hand-lock {
+	position: absolute;
+	left: calc(5 * var(--rpx));
+	top: calc(5 * var(--rpx));
+	font-size: calc(18 * var(--rpx));
+	color: rgba(180, 72, 88, 0.95);
+	z-index: 4;
+	pointer-events: none;
+}
+
 /* 拼词记分：宝藏效果触发时与 word-slot 记分高光同款 */
 .treasure-slot.filled.treasure-slot--scoring-highlight {
 	filter: brightness(1.06);
@@ -2218,6 +2351,128 @@ body {
 	padding: calc(5 * var(--rpx)) calc(8 * var(--rpx));
 }
 
+/* 优惠券邮票：商店货架 / 对局信息 共用（与 ShopPanel 货架价签 `.shop-treasure-price` 衔接） */
+.voucher-stamp {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: flex-start;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.voucher-stamp__frame {
+	border-radius: calc(4 * var(--rpx));
+	clip-path: polygon(
+		0% calc(6 * var(--rpx)),
+		calc(6 * var(--rpx)) 0%,
+		calc(100% - 6 * var(--rpx)) 0%,
+		100% calc(6 * var(--rpx)),
+		100% calc(100% - 6 * var(--rpx)),
+		calc(100% - 6 * var(--rpx)) 100%,
+		calc(6 * var(--rpx)) 100%,
+		0% calc(100% - 6 * var(--rpx))
+	);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: calc(4 * var(--rpx));
+	padding: calc(8 * var(--rpx)) calc(6 * var(--rpx));
+	background: var(--card-bright);
+	border: calc(1 * var(--rpx)) solid rgba(89, 79, 70, 0.18);
+	box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.06);
+	min-height: calc(76 * var(--rpx));
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.voucher-stamp__frame--placeholder {
+	min-height: calc(76 * var(--rpx));
+	opacity: 0.35;
+}
+
+.voucher-stamp__emoji {
+	font-size: calc(36 * var(--rpx));
+	line-height: 1;
+}
+
+.voucher-stamp__name {
+	font-size: calc(20 * var(--rpx));
+	font-weight: 600;
+	color: var(--text);
+	text-align: center;
+	line-height: 1.15;
+	max-width: 100%;
+	word-break: break-all;
+}
+
+.voucher-stamp--compact .voucher-stamp__frame {
+	min-height: calc(64 * var(--rpx));
+	padding: calc(6 * var(--rpx)) calc(4 * var(--rpx));
+	gap: calc(3 * var(--rpx));
+}
+
+.voucher-stamp--compact .voucher-stamp__frame--placeholder {
+	min-height: calc(64 * var(--rpx));
+}
+
+.voucher-stamp--compact .voucher-stamp__emoji {
+	font-size: calc(30 * var(--rpx));
+}
+
+.voucher-stamp--compact .voucher-stamp__name {
+	font-size: calc(17 * var(--rpx));
+}
+
+/* 对局信息：已购优惠券网格（InfoModal） */
+.info-voucher-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: calc(12 * var(--rpx));
+	padding: calc(16 * var(--rpx));
+	align-content: flex-start;
+	justify-content: center;
+	align-items: flex-start;
+	overflow: auto;
+	box-sizing: border-box;
+	max-height: 100%;
+}
+
+.info-voucher-cell {
+	flex: 0 0 var(--shop-shelf-cell-size);
+	max-width: var(--shop-shelf-cell-size);
+	min-width: 0;
+}
+
+.info-voucher-empty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: calc(24 * var(--rpx)) calc(16 * var(--rpx));
+	font-size: calc(24 * var(--rpx));
+	color: #8f7a66;
+	text-align: center;
+}
+
+.info-tab-layer--vouchers {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+/* 商店：优惠券区与牌包区同排时的外层 */
+.shop-voucher-panel {
+	min-width: 0;
+}
+
+.shop-voucher-offers {
+	display: flex;
+	flex-direction: row;
+	gap: calc(8 * var(--rpx));
+	justify-content: center;
+}
+
 .td-price-stack-line {
 	display: block;
 }
@@ -2734,6 +2989,226 @@ body {
 	max-width: calc(260 * var(--rpx));
 	font-size: calc(26 * var(--rpx));
 	padding: calc(18 * var(--rpx)) calc(16 * var(--rpx));
+}
+
+/* ----- 商店组合包：多选确认层（Teleport → #game-view-portal） ----- */
+.pack-pick-backdrop {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: flex-start;
+	padding: 0;
+	box-sizing: border-box;
+	border-radius: calc(12 * var(--rpx));
+	overflow: hidden;
+	background: rgba(42, 38, 48, 0.82);
+}
+
+.pack-pick-header-panel {
+	flex-shrink: 0;
+	width: 100%;
+	box-sizing: border-box;
+	padding: calc(14 * var(--rpx)) calc(14 * var(--rpx));
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: calc(12 * var(--rpx));
+}
+
+.pack-pick-body {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: calc(10 * var(--rpx)) calc(16 * var(--rpx)) calc(22 * var(--rpx));
+	box-sizing: border-box;
+}
+
+.pack-pick-stack {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	gap: calc(14 * var(--rpx));
+	max-width: calc(560 * var(--rpx));
+	width: 100%;
+}
+
+.pack-pick-title-block {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: calc(6 * var(--rpx));
+	width: 100%;
+}
+
+.pack-pick-subtitle {
+	margin: 0;
+	font-size: calc(24 * var(--rpx));
+	line-height: 1.45;
+	color: rgba(250, 247, 242, 0.82);
+	font-weight: 500;
+}
+
+.pack-pick-price-line {
+	margin: 0;
+	font-size: calc(22 * var(--rpx));
+	color: rgba(250, 247, 242, 0.55);
+}
+
+.pack-pick-price {
+	font-weight: 800;
+	color: #f4e6c8;
+}
+
+.pack-pick-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: calc(10 * var(--rpx));
+	width: 100%;
+	max-width: calc(520 * var(--rpx));
+}
+
+.pack-pick-cell {
+	border: none;
+	padding: calc(8 * var(--rpx));
+	margin: 0;
+	border-radius: calc(10 * var(--rpx));
+	background: rgba(32, 30, 36, 0.65);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+	cursor: pointer;
+	text-align: center;
+	transition:
+		background 0.14s ease,
+		box-shadow 0.14s ease,
+		transform 0.14s ease;
+}
+
+.pack-pick-cell:hover {
+	background: rgba(44, 40, 50, 0.88);
+}
+
+.pack-pick-cell--selected {
+	box-shadow:
+		inset 0 0 0 2px rgba(244, 200, 120, 0.95),
+		0 calc(4 * var(--rpx)) calc(14 * var(--rpx)) rgba(0, 0, 0, 0.35);
+	transform: translateY(calc(-2 * var(--rpx)));
+}
+
+.pack-pick-face {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: calc(6 * var(--rpx));
+	min-height: calc(108 * var(--rpx));
+}
+
+.pack-pick-face--spell .shop-treasure-emoji--icon {
+	font-size: calc(44 * var(--rpx));
+	color: #c8e6ff;
+}
+
+.pack-pick-face--upgrade .shop-treasure-emoji--icon {
+	font-size: calc(36 * var(--rpx));
+	color: #e8f0c8;
+}
+
+.pack-pick-face--upgrade .shop-upgrade-length {
+	font-size: calc(26 * var(--rpx));
+	font-weight: 800;
+	color: #faf7f2;
+}
+
+.pack-pick-mini-rarity {
+	margin-top: calc(2 * var(--rpx));
+}
+
+.pack-pick-face--treasure .shop-treasure-emoji {
+	font-size: calc(40 * var(--rpx));
+	line-height: 1;
+}
+
+.pack-pick-cell-label {
+	font-size: calc(20 * var(--rpx));
+	font-weight: 700;
+	color: rgba(250, 247, 242, 0.92);
+	line-height: 1.2;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pack-pick-fly-source {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.pack-pick-fly-source > .shop-treasure-frame {
+	width: calc(72 * var(--rpx));
+	height: calc(72 * var(--rpx));
+	box-sizing: border-box;
+}
+
+.pack-pick-treasure-fly-mini {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: calc(2 * var(--rpx));
+}
+
+.pack-pick-fly-source--tile .pack-pick-letter-tile {
+	width: calc(56 * var(--rpx));
+	height: calc(56 * var(--rpx));
+}
+
+.pack-tile-purchase-fly-clone {
+	pointer-events: none;
+	overflow: hidden;
+	border-radius: calc(8 * var(--rpx));
+}
+
+/* 详情层：组合包 */
+.shop-treasure-frame--bundle-pack-detail {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: calc(6 * var(--rpx));
+}
+
+.shop-bundle-pack-caption-detail {
+	font-size: calc(22 * var(--rpx));
+	font-weight: 800;
+	color: var(--text-soft);
+	line-height: 1.2;
+}
+
+.pack-pick-actions.pack-pick-actions {
+	margin-top: calc(4 * var(--rpx));
+}
+
+/* 商店牌包：组合包（礼物图标 + 类型简称） */
+.shop-treasure-frame--bundle-pack {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: calc(4 * var(--rpx));
+}
+
+.shop-bundle-pack-caption {
+	font-size: calc(20 * var(--rpx));
+	font-weight: 800;
+	color: var(--text-soft);
+	line-height: 1.15;
 }
 
 /* 商店牌包：法术卡（仅图标，与升级卡同框） */

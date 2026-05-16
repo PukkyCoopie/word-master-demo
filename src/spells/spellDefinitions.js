@@ -3,7 +3,7 @@ import {
   getTileMaterialBlockTitle,
 } from "../game/gameConceptCopy.js";
 
-/** 商店法术卡单价 */
+/** 商店法术卡单价（与 `src/shop/shopPackEconomy.js` 的 `SHOP_SINGLE_ROW_PRICES.spell` 保持一致） */
 export const SPELL_SHOP_PRICE = 3;
 
 /** 法术目标候选格上限（有字母的格子中随机） */

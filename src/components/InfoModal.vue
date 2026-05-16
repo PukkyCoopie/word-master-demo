@@ -147,8 +147,18 @@
         <div v-show="activeTab === 'stage'" class="info-placeholder info-tab-layer" role="tabpanel">
           关卡信息稍后补充
         </div>
-        <div v-show="activeTab === 'coupon'" class="info-placeholder info-tab-layer" role="tabpanel">
-          优惠券稍后补充
+        <div
+          v-show="activeTab === 'coupon'"
+          class="info-tab-layer info-tab-layer--vouchers"
+          role="tabpanel"
+          aria-label="已购买优惠券"
+        >
+          <div v-if="ownedVoucherDisplayRows.length === 0" class="info-voucher-empty">暂无已购优惠券</div>
+          <div v-else class="info-voucher-grid">
+            <div v-for="row in ownedVoucherDisplayRows" :key="row.id" class="info-voucher-cell">
+              <VoucherStamp :emoji="row.emoji" :display-name="row.displayName" compact />
+            </div>
+          </div>
         </div>
         </div>
       </div>
@@ -168,6 +178,10 @@ import {
   getRarityMultBonusForRarity,
 } from "../composables/useScoring";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { formatVoucherDisplayName } from "../vouchers/voucherDisplay.js";
+import { pairHasTier2Owned } from "../vouchers/voucherDefinitions.js";
+import { getVoucherDefOrNull } from "../vouchers/voucherRuntime.js";
+import VoucherStamp from "./VoucherStamp.vue";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -179,6 +193,8 @@ const props = defineProps({
   /** common / rare / epic / legendary → 等级 */
   /** @type {import('vue').PropType<Record<string, number>>} */
   rarityLevels: { type: Object, default: () => ({}) },
+  /** 本局已购买的优惠券 id 列表 */
+  ownedVoucherIds: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -303,6 +319,23 @@ const rarityRows = computed(() => {
     scoreBonus: getRarityBonusForRarity(k, levels),
     multBonus: getRarityMultBonusForRarity(k, levels),
   }));
+});
+
+const ownedVoucherDisplayRows = computed(() => {
+  const ids = Array.isArray(props.ownedVoucherIds) ? props.ownedVoucherIds.map(String) : [];
+  return ids.map((id) => {
+    const def = getVoucherDefOrNull(id);
+    if (!def) {
+      return { id, emoji: "❔", displayName: id };
+    }
+    return {
+      id,
+      emoji: def.emoji,
+      displayName: formatVoucherDisplayName(def, {
+        pairHasTier2Owned: pairHasTier2Owned(def.pairId, ids),
+      }),
+    };
+  });
 });
 
 function formatMult(m) {

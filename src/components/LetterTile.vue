@@ -36,6 +36,12 @@ const props = defineProps({
   materialId: { type: String, default: null },
   /** 配饰 id，如 level_upgrade */
   accessoryId: { type: String, default: null },
+  /** Boss 镣铐顶行禁位 */
+  bossGridBlocked: { type: Boolean, default: false },
+  /** Boss tile 废 */
+  bossTileDebuffed: { type: Boolean, default: false },
+  /** 青铃锁：强制入词且不可点回棋盘 */
+  ceruleanBellLocked: { type: Boolean, default: false },
 });
 
 const attrs = useAttrs();
@@ -103,7 +109,15 @@ const mergedClass = computed(() => {
               : showLuckyMaterial.value
                 ? "tile-material-lucky"
       : "";
-  return [variantClass.value, props.letter === "Qu" ? "letter-qu" : "", matClass, attrs.class].filter(
+  const bossClass =
+    props.variant === "grid" && props.bossGridBlocked
+      ? "letter-tile-boss-blocked"
+      : props.variant === "grid" && props.bossTileDebuffed
+        ? "letter-tile-boss-debuff"
+        : props.ceruleanBellLocked && (props.variant === "grid" || props.variant === "wordSlotContent")
+          ? "letter-tile-cerulean-lock"
+          : "";
+  return [variantClass.value, props.letter === "Qu" ? "letter-qu" : "", matClass, bossClass, attrs.class].filter(
     Boolean,
   );
 });
@@ -163,6 +177,17 @@ const accessoryChipVisual = computed(() => {
     </template>
     <span class="letter-gem" :class="`gem-${rarity}`" aria-hidden="true" />
     <span class="letter-tile-char">{{ letter }}</span>
+    <span
+      v-if="variant === 'grid' && bossTileDebuffed"
+      class="letter-tile-boss-x"
+      aria-hidden="true"
+      >×</span
+    >
+    <i
+      v-if="ceruleanBellLocked && (variant === 'grid' || variant === 'wordSlotContent')"
+      class="letter-tile-cerulean-lock-icon ri-lock-fill"
+      aria-hidden="true"
+    />
     <span
       v-if="accessoryChipVisual"
       class="tile-accessory-chip"

@@ -19,10 +19,12 @@ export function countTreasureCropSlotBonus(ownedSlots) {
 /**
  * 目标栏位数：基础 + 裁剪加成，且不少于当前已占用格数。
  * @param {readonly (null | unknown)[]} ownedSlots
+ * @param {number} [voucherExtraSlots=0] 优惠券等额外栏位（如白方块·二级 +1）
  */
-export function computeOwnedTreasureSlotTargetLength(ownedSlots) {
+export function computeOwnedTreasureSlotTargetLength(ownedSlots, voucherExtraSlots = 0) {
   const arr = Array.isArray(ownedSlots) ? ownedSlots : [];
   const filled = arr.filter(Boolean).length;
   const bonus = countTreasureCropSlotBonus(arr);
-  return Math.max(BASE_TREASURE_SLOT_COUNT + bonus, filled);
+  const vx = Math.max(0, Math.floor(Number(voucherExtraSlots) || 0));
+  return Math.max(BASE_TREASURE_SLOT_COUNT + bonus + vx, filled);
 }

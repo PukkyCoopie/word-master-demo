@@ -40,6 +40,7 @@
  * @property {(string | null | undefined)[]} [ownedSlotTreasureIds]
  * @property {number} [remainingRemovals]
  * @property {Record<string, number>} [spellCountsByLength]
+ * @property {number} [lengthTableLen] 与计分词长表一致的等效词长（用于按长度统计的钩子，可与 `tiles.length` 不同）
  * @property {number} [remainingDeckCount]
  * @property {boolean} [isLastSubmitChance] 本手是否消耗本关内最后一次出牌（拼写）机会
  * @property {number} [baseLetterScoreSum]

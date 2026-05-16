@@ -1,6 +1,6 @@
 import { ref, computed, shallowRef, triggerRef } from "vue";
 
-import { LEVELS } from "../levelDefinitions";
+import { LEVELS, resolveLevelTargetScore } from "../levelDefinitions";
 
 import {
 
@@ -23,6 +23,7 @@ import {
   previewGridPresenceMultProduct,
 } from "../game/gridOnlyMaterialScoring.js";
 import { snapshotMaxIntrinsicGainsFromTile, applyIntrinsicGainsToTileAndLinkedCard } from "../game/tileIntrinsicGains.js";
+import { getWordLengthJudgmentBonus } from "../vouchers/voucherRuntime.js";
 
 const VOWEL_LETTERS = new Set(["a", "e", "i", "o", "u"]);
 
@@ -197,6 +198,13 @@ function emptyTile(idGen) {
     selected: false,
     isWildcard: false,
 
+    bossGridBlocked: false,
+
+    bossTileDebuffed: false,
+
+    /** 青铃锁：该格被 Boss 强制选入词槽后不可点回棋盘 */
+    ceruleanBellLocked: false,
+
   };
 
 }
@@ -236,6 +244,10 @@ function createTileFromLetter(raw, idGen, rarityLevelsSnapshot = null) {
     selected: false,
     isWildcard: false,
 
+    bossGridBlocked: false,
+    bossTileDebuffed: false,
+    ceruleanBellLocked: false,
+
   };
 
 }
@@ -269,6 +281,9 @@ function createTileFromDeckCard(card, idGen, rarityLevelsSnapshot = null) {
     accessoryId: card.accessoryId ?? null,
     selected: false,
     isWildcard: useWildcard,
+    bossGridBlocked: false,
+    bossTileDebuffed: false,
+    ceruleanBellLocked: false,
     _deckCard: card,
   };
 }
@@ -350,7 +365,11 @@ export const MAX_LETTERS_PER_REMOVAL = 8;
 
 
 
-export function useGameState() {
+/**
+ * @param {{ ownedVoucherIdsRef?: import("vue").Ref<readonly string[]> | import("vue").Ref<string[]> | null }} [gameOpts]
+ */
+export function useGameState(gameOpts = {}) {
+  const ownedVoucherIdsRef = gameOpts?.ownedVoucherIdsRef ?? null;
 
   let idCounter = 0;
 
@@ -361,6 +380,12 @@ export function useGameState() {
   const initialDeckSnapshot = ref(initialCards);
   const deck = ref([...initialCards]);
   shuffleArrayInPlace(deck.value);
+
+  /** 当前小关 Boss slug（x-3 / 8-3）；非 Boss 小关为空串） */
+  const activeBossSlug = ref("");
+
+  /** 青铃锁：被锁字母在 `selectedOrder` 中的下标；不可 `removeFromSlot` 清到该位之前 */
+  const ceruleanBellSlotIndex = ref(/** @type {number | null} */ (null));
 
   const deckCount = computed(() => deck.value.length);
 
@@ -512,7 +537,7 @@ export function useGameState() {
 
   const currentScore = ref(0);
 
-  const targetScore = ref(LEVELS[0]?.targetScore ?? 100);
+  const targetScore = ref(resolveLevelTargetScore(LEVELS[0]?.id ?? "1-1", ""));
 
   const lastWordInfo = ref(null);
 
@@ -571,16 +596,25 @@ export function useGameState() {
   function buildGrid() {
     const d = deck.value;
 
+    const manacle = activeBossSlug.value === "the_manacle";
+
     const rows = [];
 
     for (let r = 0; r < ROWS; r++) {
       const row = [];
 
       for (let c = 0; c < COLS; c++) {
-        const card = drawFromDeck(d);
-        row.push(
-          card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
-        );
+        if (manacle && r === 0) {
+          const ph = emptyTile(nextId);
+          ph.bossGridBlocked = true;
+          ph.letter = "";
+          row.push(ph);
+        } else {
+          const card = drawFromDeck(d);
+          row.push(
+            card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
+          );
+        }
       }
 
       rows.push(row);
@@ -627,7 +661,10 @@ export function useGameState() {
 
     if (tiles.length === 0) return null;
 
-    const base = computeWordScore(tiles, 1, lengthLevelsByLength.value, rarityLevelsByRarity.value);
+    const lengthJb =
+      ownedVoucherIdsRef != null ? getWordLengthJudgmentBonus(ownedVoucherIdsRef.value ?? []) : 0;
+    const flintOpts = activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
+    const base = computeWordScore(tiles, 1, lengthLevelsByLength.value, rarityLevelsByRarity.value, lengthJb, flintOpts);
     const g = grid.value;
     const excludedKeys = gridSelectedPositionKeySet(selectedTiles.value);
     const gridPresenceMul = previewGridPresenceMultProduct(g, ROWS, COLS, excludedKeys);
@@ -653,6 +690,8 @@ export function useGameState() {
 
     if (!tile) return;
 
+    if (tile.bossGridBlocked || tile.bossTileDebuffed) return;
+
     if (tile.selected) return;
 
     tile.selected = true;
@@ -671,6 +710,8 @@ export function useGameState() {
     const order = selectedOrder.value;
 
     if (index < 0 || index >= order.length) return;
+
+    if (ceruleanBellSlotIndex.value != null && index <= ceruleanBellSlotIndex.value) return;
 
     const g = grid.value;
 
@@ -724,6 +765,66 @@ export function useGameState() {
 
 
 
+  function clearCeruleanBellFlagsOnGrid() {
+    ceruleanBellSlotIndex.value = null;
+    const g = grid.value;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const t = g[r]?.[c];
+        if (t && typeof t === "object") t.ceruleanBellLocked = false;
+      }
+    }
+  }
+
+  /** 在棋盘稳定后调用：青铃锁 Boss 随机选一格并入词槽 */
+  function applyCeruleanBellAfterGridStable() {
+    if (activeBossSlug.value !== "cerulean_bell") return;
+    clearCeruleanBellFlagsOnGrid();
+    const g = grid.value;
+    const top = activeBossSlug.value === "the_manacle" ? 1 : 0;
+    /** @type {{ r: number, c: number }[]} */
+    const opts = [];
+    for (let r = top; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const t = g[r][c];
+        if (t?.letter && !t.bossGridBlocked && !t.bossTileDebuffed && !t.selected) opts.push({ r, c });
+      }
+    }
+    if (!opts.length) return;
+    const { r, c } = opts[Math.floor(Math.random() * opts.length)];
+    const t = g[r][c];
+    if (t && typeof t === "object") t.ceruleanBellLocked = true;
+    selectTile(r, c);
+    ceruleanBellSlotIndex.value = Math.max(0, selectedOrder.value.length - 1);
+    triggerRef(grid);
+  }
+
+  function applySerpentBonusFillIfNeeded(skipNewFromDeck) {
+    if (skipNewFromDeck) return;
+    if (activeBossSlug.value !== "the_serpent") return;
+    const g = grid.value;
+    const d = deck.value;
+    const top = activeBossSlug.value === "the_manacle" ? 1 : 0;
+    let placed = 0;
+    while (placed < 4 && d.length > 0) {
+      let progressed = false;
+      outer: for (let r = top; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cell = g[r][c];
+          if (cell && !cell.bossGridBlocked && (!cell.letter || String(cell.letter).trim() === "")) {
+            const card = drawFromDeck(d);
+            if (!card) break outer;
+            g[r][c] = createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value);
+            placed += 1;
+            progressed = true;
+            if (placed >= 4) break outer;
+          }
+        }
+      }
+      if (!progressed) break;
+    }
+  }
+
   /**
    * 下落补牌、清空选字；不修改分数与 lastWordInfo。出牌次数在点击提交时扣减，或由 finalizeSubmitAfterAnimation 扣减。
    * @param {{ skipNewFromDeck?: boolean }} [options] skipNewFromDeck：本关已结束（通关或用尽出牌仍未达标）时 true，已有字母下落到底部，顶部用 null 占位（不补牌库、不生成空字母块）。
@@ -735,7 +836,37 @@ export function useGameState() {
 
     const d = deck.value;
 
+    const manacle = activeBossSlug.value === "the_manacle";
+
     for (const col of [...Array(COLS).keys()]) {
+      if (manacle) {
+        const blocked = g[0][col];
+        const columnTiles = [];
+        for (let r = 1; r < ROWS; r++) {
+          const cell = g[r][col];
+          if (cell && !cell.selected) columnTiles.push(cloneGridTileShallowForColumn(cell));
+          else if (cell?.selected) returnDeckCardForConsumedGridTile(d, cell);
+        }
+        const playableRows = ROWS - 1;
+        const removeCount = playableRows - columnTiles.length;
+        const newColumn = [];
+        for (let i = 0; i < removeCount; i++) {
+          if (skipNewFromDeck) {
+            newColumn.push(null);
+          } else {
+            const card = drawFromDeck(d);
+            newColumn.push(
+              card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
+            );
+          }
+        }
+        newColumn.push(...columnTiles);
+        g[0][col] = blocked;
+        for (let r = 1; r < ROWS; r++) {
+          g[r][col] = newColumn[r - 1];
+        }
+        continue;
+      }
 
       const columnTiles = [];
 
@@ -775,6 +906,8 @@ export function useGameState() {
 
     }
 
+    applySerpentBonusFillIfNeeded(skipNewFromDeck);
+
     triggerRef(grid);
 
     selectedOrder.value = [];
@@ -787,11 +920,15 @@ export function useGameState() {
 
   function buildLastWordPayload(getDefinition, tilesSnapshot) {
     const word = tilesSnapshot.map((c) => c.letter.toLowerCase()).join("");
+    const flintOpts = activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
     const scoreInfo = computeWordScoreDetailed(
       tilesSnapshot,
       1,
       lengthLevelsByLength.value,
       rarityLevelsByRarity.value,
+      1,
+      0,
+      flintOpts,
     );
     const definition = getDefinition ? getDefinition(word) : null;
     return { word, scoreInfo, definition };
@@ -807,10 +944,11 @@ export function useGameState() {
     const resolvedWord = String(options?.resolvedWord ?? "").toLowerCase().trim();
     const word = resolvedWord || fallbackWord;
     const definition = getDefinition ? getDefinition(word) : null;
+    const flintOpts = activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
     const scoreInfo =
       scoreInfoOverride != null
         ? scoreInfoOverride
-        : computeWordScoreDetailed(tilesSnapshot, 1, lengthLevelsByLength.value, rarityLevelsByRarity.value);
+        : computeWordScoreDetailed(tilesSnapshot, 1, lengthLevelsByLength.value, rarityLevelsByRarity.value, 1, 0, flintOpts);
     lastWordInfo.value = { word, scoreInfo, definition };
     return lastWordInfo.value;
   }
@@ -860,6 +998,12 @@ export function useGameState() {
    *        若传入与 `captureGridRectsByTileId()` 同时刻拍的 `prevCells`，可与提交路径一样保证 rect/cell 快照严格对齐。
    */
   function removeSelectedLetters(options = {}) {
+    const cap = Math.max(
+      1,
+      Math.floor(
+        Number(options?.maxRemovalLetters) >= 1 ? Number(options.maxRemovalLetters) : MAX_LETTERS_PER_REMOVAL,
+      ),
+    );
 
     const order = selectedOrder.value;
 
@@ -867,8 +1011,8 @@ export function useGameState() {
 
     if (n === 0) return { success: false, error: "请先选择要移除的字母", prevCells: null };
 
-    if (n > MAX_LETTERS_PER_REMOVAL)
-      return { success: false, error: `最多移除 ${MAX_LETTERS_PER_REMOVAL} 个字母`, prevCells: null };
+    if (n > cap)
+      return { success: false, error: `最多移除 ${cap} 个字母`, prevCells: null };
 
     if (remainingRemovals.value <= 0) return { success: false, error: "移除次数已用完", prevCells: null };
 
@@ -880,7 +1024,36 @@ export function useGameState() {
 
     const removeSet = new Set(order.map(({ row, col }) => `${row},${col}`));
 
+    const manacleRm = activeBossSlug.value === "the_manacle";
+
     for (let col = 0; col < COLS; col++) {
+
+      if (manacleRm) {
+        const blocked = g[0][col];
+        const columnTiles = [];
+        for (let r = 1; r < ROWS; r++) {
+          if (!removeSet.has(`${r},${col}`)) {
+            columnTiles.push(cloneGridTileShallowForColumn(g[r][col]));
+          } else {
+            returnDeckCardForConsumedGridTile(d, g[r][col]);
+          }
+        }
+        const playableRows = ROWS - 1;
+        const removeCount = playableRows - columnTiles.length;
+        const newColumn = [];
+        for (let i = 0; i < removeCount; i++) {
+          const card = drawFromDeck(d);
+          newColumn.push(
+            card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
+          );
+        }
+        newColumn.push(...columnTiles);
+        g[0][col] = blocked;
+        for (let r = 1; r < ROWS; r++) {
+          g[r][col] = newColumn[r - 1];
+        }
+        continue;
+      }
 
       const columnTiles = [];
 
@@ -958,6 +1131,31 @@ export function useGameState() {
 
     const d = deck.value;
     returnDeckCardForConsumedGridTile(d, g[targetRow][targetCol]);
+    const manacleIce = activeBossSlug.value === "the_manacle";
+    if (manacleIce) {
+      const blocked = g[0][targetCol];
+      const columnTiles = [];
+      for (let r = 1; r < ROWS; r++) {
+        if (r === targetRow) continue;
+        columnTiles.push(cloneGridTileShallowForColumn(g[r][targetCol]));
+      }
+      const playableRows = ROWS - 1;
+      const removeCount = playableRows - columnTiles.length;
+      const newColumn = [];
+      for (let i = 0; i < removeCount; i++) {
+        const card = drawFromDeck(d);
+        newColumn.push(
+          card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
+        );
+      }
+      newColumn.push(...columnTiles);
+      g[0][targetCol] = blocked;
+      for (let r = 1; r < ROWS; r++) {
+        g[r][targetCol] = newColumn[r - 1];
+      }
+      triggerRef(grid);
+      return true;
+    }
     const columnTiles = [];
     for (let r = 0; r < ROWS; r++) {
       if (r === targetRow) continue;
@@ -1128,10 +1326,17 @@ export function useGameState() {
 
   /**
    * 进入下一小关：重洗牌库与棋盘，重置分数与出牌/移除次数（保留本局累计拼出次数）。
-   * @param {{ targetScore: number }} levelDef
+   * @param {{ id: string }} levelDef
+   * @param {{ remainingWords?: number, remainingRemovals?: number, targetScore?: number, bossSlug?: string, postGridBuild?: (g: unknown[][]) => void }} [runOpts]
    */
-  function resetLevel(levelDef) {
-    const ts = Number(levelDef?.targetScore);
+  function resetLevel(levelDef, runOpts = {}) {
+    activeBossSlug.value = String(runOpts.bossSlug ?? "");
+    const tsOpt = runOpts.targetScore;
+    const lid = levelDef?.id ?? "1-1";
+    const ts =
+      tsOpt != null && Number.isFinite(Number(tsOpt))
+        ? Number(tsOpt)
+        : resolveLevelTargetScore(lid, activeBossSlug.value);
     /** @type {ReturnType<typeof createDeckCard>[]} */
     const pool = [];
     const g0 = grid.value;
@@ -1174,12 +1379,24 @@ export function useGameState() {
     }
     // #endregion
     grid.value = buildGrid();
-    remainingWords.value = 4;
-    remainingRemovals.value = 3;
+    const bh =
+      runOpts?.remainingWords != null && Number.isFinite(Number(runOpts.remainingWords))
+        ? Math.max(0, Math.floor(Number(runOpts.remainingWords)))
+        : 4;
+    const br =
+      runOpts?.remainingRemovals != null && Number.isFinite(Number(runOpts.remainingRemovals))
+        ? Math.max(0, Math.floor(Number(runOpts.remainingRemovals)))
+        : 3;
+    remainingWords.value = bh;
+    remainingRemovals.value = br;
     currentScore.value = 0;
     targetScore.value = Number.isFinite(ts) ? ts : 100;
     selectedOrder.value = [];
+    clearCeruleanBellFlagsOnGrid();
     lastWordInfo.value = null;
+    if (typeof runOpts.postGridBuild === "function") {
+      runOpts.postGridBuild(grid.value);
+    }
   }
 
   function touchGrid() {
@@ -1260,6 +1477,36 @@ export function useGameState() {
     triggerRef(grid);
   }
 
+  /**
+   * 商店购入：向 multiset 追加新牌张并进入抽牌堆（与初始建库同构的 `createDeckCard`）。
+   * @param {{ raw: string, materialId?: string | null, accessoryId?: string | null }[]} entries `raw` 小写单字母，`q` 表示 Qu。
+   */
+  function appendShopDeckEntries(entries) {
+    if (!Array.isArray(entries) || entries.length === 0) return;
+    const snap = [...initialDeckSnapshot.value];
+    const d = [...deck.value];
+    for (const e of entries) {
+      let raw = String(e?.raw ?? "e").toLowerCase();
+      if (raw === "qu") raw = "q";
+      if (!/^[a-z]$/.test(raw)) raw = "e";
+      const card = createDeckCard(raw);
+      const mat = e?.materialId != null ? String(e.materialId).trim() : "";
+      if (mat && mat !== "wildcard") {
+        card.materialId = mat;
+        card.materialScoreBonus = 0;
+        card.materialMultBonus = 0;
+        if (mat === "water") card.materialScoreBonus = WATER_MATERIAL_SCORE_BONUS;
+        if (mat === "fire") card.materialMultBonus = FIRE_MATERIAL_MULT_BONUS;
+      }
+      const acc = e?.accessoryId != null ? String(e.accessoryId).trim() : "";
+      if (acc) card.accessoryId = acc;
+      snap.push(card);
+      d.push(card);
+    }
+    initialDeckSnapshot.value = snap;
+    deck.value = d;
+  }
+
   return {
 
     grid,
@@ -1299,9 +1546,13 @@ export function useGameState() {
 
     targetScore,
 
+    activeBossSlug,
+
     lastWordInfo,
 
     selectedOrder,
+
+    ceruleanBellSlotIndex,
 
     selectedTiles,
 
@@ -1318,6 +1569,8 @@ export function useGameState() {
     consumeAndRefill,
 
     applySubmitRefill,
+
+    applyCeruleanBellAfterGridStable,
 
     finalizeSubmitAfterAnimation,
 
@@ -1343,6 +1596,8 @@ export function useGameState() {
     markTileAsWildcard,
 
     refreshGridTileBaseScoresFromLevels,
+
+    appendShopDeckEntries,
 
   };
 

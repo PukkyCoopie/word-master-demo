@@ -10,7 +10,7 @@ import {
 import { buildTreasureAccessoryPostLetterSteps } from "./treasureAccessoryScoring.js";
 
 /** 新宝藏接入后请同步 `treasureCatalog.js` 的 implemented 字段；具体效果写在对应 `items/treasure_*.js`（本文件不出现具体 treasureId）。 */
-/** 拼词中公式区预览用 `useScoring` 的 `computeWordScore`（无宝藏）；提交结算用 `computeWordScoreDetailedForSubmit`（棋盘光环类材质倍率由「盘上且未入本手词」的格决定，见 `gridOnlyMaterialScoring.js`；冰为入词格 ×2）。 */
+/** 拼词中公式区预览用 `useScoring` 的 `computeWordScore`（无宝藏）；提交结算用 `computeWordScoreDetailedForSubmit`（棋盘光环类材质倍率由 `gridOnlyMaterialScoring.js` 的 `buildGridPresencePostLetterSteps` 提供字后乘法步；冰为入词格 ×2）。 */
 
 /**
  * 所有字母结算完成后再触发的宝藏，按槽位从左到右排列。
@@ -23,6 +23,7 @@ import { buildTreasureAccessoryPostLetterSteps } from "./treasureAccessoryScorin
  * @param {number} remainingDeckCount 提交时牌库剩余字母数
  * @param {boolean} isLastSubmitChance 本手是否消耗本关内最后一次出牌机会
  * @param {number} baseLetterScoreSum 本词字母分（不含 post-letter 宝藏）
+ * @param {number} lengthTableLen 与计分词长表一致的等效词长（含优惠券判定加成；与 `letterParts.length` 可不同）
  * @returns {{ treasureId: string, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, moneyAdd?: number }[]}
  */
 function buildPostLetterTreasureSteps(
@@ -35,9 +36,11 @@ function buildPostLetterTreasureSteps(
   remainingDeckCount,
   isLastSubmitChance,
   baseLetterScoreSum,
+  lengthTableLen,
 ) {
   const slots = ownedSlotTreasureIds ?? [];
   const conditions = buildTreasureLogicConditions(tiles, letterParts);
+  const lenKey = Math.max(0, Math.round(Number(lengthTableLen)) || 0) || Math.max(0, tiles?.length || 0);
 
   /** @type {{ treasureId: string, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, moneyAdd?: number }[]} */
   const steps = [];
@@ -57,6 +60,7 @@ function buildPostLetterTreasureSteps(
       remainingDeckCount,
       isLastSubmitChance,
       baseLetterScoreSum,
+      lengthTableLen: lenKey,
     });
     if (step) steps.push({ treasureId: tid, slotIndex: si, ...step });
   }
@@ -110,9 +114,11 @@ const LUCKY_MATERIAL_MONEY_CHANCE = 1 / 15;
  * @param {number} [remainingDeckCount=0] 提交本词时牌库剩余字母数
  * @param {boolean} [isLastSubmitChance=false] 本手是否消耗本关内最后一次出牌机会
  * @param {Record<string, number> | null} [rarityLevelsByRarity=null] 各字母稀有度等级（common/rare/epic/legendary）
- * @param {number | null} [steelFxGridTileIndex=null] 棋盘上存在「未进入本手拼词」的不锈钢格时，用于字后动效锚点的格索引 `row * cols + col`；否则 null（本手用掉全部钢格则不触发 ×1.5）
- * @param {number} [steelFxExtraTriggerCount=0] 上述 eligible 钢格上 steel 效果的额外触发次数（由外部按触发性质计算；如重播配饰可 +1）
+ * @param {readonly { treasureId: null, slotIndex: number, multMul: number, scoreFxGridTileIndex: number, accessoryTriggered?: boolean }[] | null} [gridPresencePostLetterSteps=null] 棋盘光环类字后倍率步（见 `gridOnlyMaterialScoring.js` 的 `buildGridPresencePostLetterSteps`）
  * @param {(string | null | undefined)[] | null} [ownedSlotTreasureAccessoryIds=null] 与槽位同索引的具名配饰 id（`treasureAccessories.js`）；空位忽略
+ * @param {number} [lengthMultFactor=1] 词长倍率额外乘数（如天文台 ×1.5）
+ * @param {number} [lengthJudgmentBonus=0] 计分时词长表上的额外长度（直尺券）
+ * @param {{ disabledTreasureSlotIndices?: Set<number> | readonly number[], bossFlintQuarter?: boolean }} [submitOptions={}]
  */
 export function computeWordScoreDetailedForSubmit(
   tiles,
@@ -124,12 +130,32 @@ export function computeWordScoreDetailedForSubmit(
   isLastSubmitChance = false,
   lengthLevelsByLength = null,
   rarityLevelsByRarity = null,
-  steelFxGridTileIndex = null,
-  steelFxExtraTriggerCount = 0,
+  gridPresencePostLetterSteps = null,
   ownedSlotTreasureAccessoryIds = null,
+  lengthMultFactor = 1,
+  lengthJudgmentBonus = 0,
+  submitOptions = {},
 ) {
-  const base = computeWordScoreDetailed(tiles, 1, lengthLevelsByLength, rarityLevelsByRarity);
-  const slots = ownedSlotTreasureIds ?? [];
+  const rawSlots = ownedSlotTreasureIds ?? [];
+  const dis = submitOptions?.disabledTreasureSlotIndices;
+  const disabledSet =
+    dis instanceof Set
+      ? dis
+      : Array.isArray(dis)
+        ? new Set(dis.map((x) => Math.floor(Number(x))).filter((i) => i >= 0))
+        : null;
+  const slots = rawSlots.map((tid, si) => (disabledSet?.has(si) ? null : tid));
+  const bossFlintQuarter = submitOptions?.bossFlintQuarter === true;
+
+  const base = computeWordScoreDetailed(
+    tiles,
+    1,
+    lengthLevelsByLength,
+    rarityLevelsByRarity,
+    lengthMultFactor,
+    lengthJudgmentBonus,
+    { bossFlintQuarter },
+  );
   const conditions = buildTreasureLogicConditions(tiles, base.letterParts);
   let postLetterTreasureSteps = buildPostLetterTreasureSteps(
     tiles,
@@ -141,11 +167,12 @@ export function computeWordScoreDetailedForSubmit(
     remainingDeckCount,
     isLastSubmitChance,
     base.scoreSum,
+    base.lengthTableLen ?? tiles.length,
   );
   const accessoryRow =
     ownedSlotTreasureAccessoryIds == null
       ? slots.map(() => null)
-      : slots.map((_, i) => ownedSlotTreasureAccessoryIds[i] ?? null);
+      : slots.map((_, i) => (disabledSet?.has(i) ? null : (ownedSlotTreasureAccessoryIds[i] ?? null)));
   postLetterTreasureSteps.push(...buildTreasureAccessoryPostLetterSteps(slots, accessoryRow));
 
   const baseHookCtx = {
@@ -159,6 +186,7 @@ export function computeWordScoreDetailedForSubmit(
     remainingDeckCount,
     isLastSubmitChance,
     baseLetterScoreSum: base.scoreSum,
+    lengthTableLen: base.lengthTableLen ?? tiles.length,
   };
   const letterRarityTreasureMultAddTotal = sumLetterRarityMultAddFromSlots(baseHookCtx);
 
@@ -232,17 +260,18 @@ export function computeWordScoreDetailedForSubmit(
       replayCounts,
     });
 
-  if (steelFxGridTileIndex != null && Number.isFinite(steelFxGridTileIndex) && steelFxGridTileIndex >= 0) {
-    const triggerCount = 1 + Math.max(0, Math.floor(Number(steelFxExtraTriggerCount) || 0));
-    for (let i = 0; i < triggerCount; i++) {
-      postLetterTreasureSteps.push({
-        treasureId: null,
-        slotIndex: -1,
-        multMul: 1.5,
-        scoreFxGridTileIndex: Math.floor(steelFxGridTileIndex),
-        accessoryTriggered: i > 0,
-      });
-    }
+  const gridPresenceSteps = gridPresencePostLetterSteps ?? [];
+  for (const st of gridPresenceSteps) {
+    const idx = st?.scoreFxGridTileIndex;
+    const mm = Number(st?.multMul) || 0;
+    if (idx == null || !Number.isFinite(idx) || idx < 0 || mm <= 1) continue;
+    postLetterTreasureSteps.push({
+      treasureId: null,
+      slotIndex: -1,
+      multMul: mm,
+      scoreFxGridTileIndex: Math.floor(idx),
+      accessoryTriggered: !!st.accessoryTriggered,
+    });
   }
 
   // 冰材质：仅当该字母位于本次提交单词中并被计分时，才触发 x2（含 replay 轮次）。

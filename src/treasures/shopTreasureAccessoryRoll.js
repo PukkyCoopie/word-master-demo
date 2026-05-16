@@ -23,11 +23,15 @@ export function getShopTreasureAccessoryPriceAdd(accessoryId) {
 /**
  * 15% 带配饰；条件于带配饰时 fire 30%、drop 30%、wrench 25%、crop 15%。
  * @param {() => number} [rng=Math.random] 返回 [0,1)
+ * @param {number} [chanceMult=1] 优惠券「宝石」等倍率，上限 1
  * @returns {string | null}
  */
-export function rollShopTreasureAccessoryId(rng = Math.random) {
-  if (typeof rng !== "function" || rng() >= SHOP_TREASURE_ACCESSORY_CHANCE) return null;
-  const u = rng();
+export function rollShopTreasureAccessoryId(rng = Math.random, chanceMult = 1) {
+  const rnd = typeof rng === "function" ? rng : Math.random;
+  const mult = Math.max(0, Number(chanceMult) || 1);
+  const p = Math.min(1, SHOP_TREASURE_ACCESSORY_CHANCE * mult);
+  if (rnd() >= p) return null;
+  const u = rnd();
   const t = u * 100;
   if (t < 30) return TREASURE_ACCESSORY_FIRE;
   if (t < 60) return TREASURE_ACCESSORY_DROP;
