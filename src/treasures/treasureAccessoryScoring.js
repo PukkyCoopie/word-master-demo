@@ -10,6 +10,49 @@ import {
  * @param {(string | null | undefined)[]} ownedSlotTreasureAccessoryIds 与槽位同索引
  * @returns {{ treasureId: null, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number }[]}
  */
+/**
+ * 字母块上的通用宝藏配饰（火焰/水滴/扳手）：在字后步中按词槽下标结算。
+ * @param {readonly { treasureAccessoryId?: string | null, bossTileDebuffed?: boolean }[]} tiles
+ * @returns {{ treasureId: null, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, scoreFxWordSlotIndex: number, accessoryTriggered: boolean }[]}
+ */
+export function buildTileTreasureAccessoryPostLetterSteps(tiles) {
+  const list = Array.isArray(tiles) ? tiles : [];
+  /** @type {{ treasureId: null, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, scoreFxWordSlotIndex: number, accessoryTriggered: boolean }[]} */
+  const steps = [];
+  for (let i = 0; i < list.length; i += 1) {
+    const tile = list[i];
+    if (!tile || tile.bossTileDebuffed === true) continue;
+    const aid = String(tile.treasureAccessoryId ?? "").trim();
+    if (!aid) continue;
+    if (aid === TREASURE_ACCESSORY_FIRE) {
+      steps.push({
+        treasureId: null,
+        slotIndex: -1,
+        multAdd: 10,
+        scoreFxWordSlotIndex: i,
+        accessoryTriggered: true,
+      });
+    } else if (aid === TREASURE_ACCESSORY_DROP) {
+      steps.push({
+        treasureId: null,
+        slotIndex: -1,
+        scoreAdd: 50,
+        scoreFxWordSlotIndex: i,
+        accessoryTriggered: true,
+      });
+    } else if (aid === TREASURE_ACCESSORY_WRENCH) {
+      steps.push({
+        treasureId: null,
+        slotIndex: -1,
+        multMul: 1.5,
+        scoreFxWordSlotIndex: i,
+        accessoryTriggered: true,
+      });
+    }
+  }
+  return steps;
+}
+
 export function buildTreasureAccessoryPostLetterSteps(ownedSlotTreasureIds, ownedSlotTreasureAccessoryIds) {
   const ids = Array.isArray(ownedSlotTreasureIds) ? ownedSlotTreasureIds : [];
   const aids = Array.isArray(ownedSlotTreasureAccessoryIds) ? ownedSlotTreasureAccessoryIds : [];

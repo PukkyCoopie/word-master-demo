@@ -23,12 +23,17 @@ export function applyShopDiscountPrice(price, owned) {
   return Math.max(0, Math.floor(p * getShopDiscountMultiplier(owned)));
 }
 
-/** @param {Iterable<string>} owned */
-export function getPackOfferSlotBonus(owned) {
+/** 纸箱券：单卡区额外槽位（对齐 Balatro Overstock / Overstock Plus）。 */
+export function getShopRandomCardSlotBonus(owned) {
   let n = 0;
   if (has(owned, "v_overstock_1")) n += 1;
   if (has(owned, "v_overstock_2")) n += 1;
   return n;
+}
+
+/** @deprecated 纸箱加成已迁至单卡区；牌包区固定槽位 */
+export function getPackOfferSlotBonus(owned) {
+  return 0;
 }
 
 /** @param {Iterable<string>} owned */
@@ -91,13 +96,13 @@ export function getBaseHandsPerLevel(owned) {
 }
 
 /**
- * 「直尺」券：计分时用于词长表（长度倍率、每字基础分）的额外长度，与棋盘格数无关。
+ * 「画笔」券：计分时用于词长表（长度倍率、每字基础分）的额外长度，与棋盘格数无关。
  * @param {Iterable<string>} owned
  * @returns {0|1|2}
  */
 export function getWordLengthJudgmentBonus(owned) {
-  if (has(owned, "v_ruler_2")) return 2;
-  if (has(owned, "v_ruler_1")) return 1;
+  if (has(owned, "v_paint_2")) return 2;
+  if (has(owned, "v_paint_1")) return 1;
   return 0;
 }
 
@@ -159,14 +164,6 @@ export function getGlyphPurchaseTargetLevelIndex(currentLevelIndex, tier2) {
 }
 
 /** @param {Iterable<string>} owned */
-export function getRemovalLetterCapBonus(owned) {
-  let b = 0;
-  if (has(owned, "v_paint_2")) b += 2;
-  else if (has(owned, "v_paint_1")) b += 1;
-  return b;
-}
-
-/** @param {Iterable<string>} owned */
 export function hasTelescopeVoucher(owned) {
   return has(owned, "v_telescope_1") || has(owned, "v_telescope_2");
 }
@@ -206,16 +203,18 @@ export function getMostPlayedWordLength(spellCountsByLength) {
 }
 
 /**
+ * 望远镜二级：本次升级是否对该词长应用 1.5 倍升级步（分数/倍率增量向下取整）。
  * @param {Iterable<string>} owned
- * @param {number} wordLen
- * @param {number} maxSubmittedBeforeThisWord 本词提交前，已成功提交中的最大词长
+ * @param {number} len 3–16
+ * @param {Record<string, number> | null | undefined} spellCountsByLength
  */
-export function getObservatoryLengthMultFactor(owned, wordLen, maxSubmittedBeforeThisWord) {
-  if (!hasObservatoryVoucher(owned)) return 1;
-  const L = Math.max(0, Math.round(Number(wordLen)) || 0);
-  const prev = Math.max(0, Math.round(Number(maxSubmittedBeforeThisWord)) || 0);
-  if (L <= 0) return 1;
-  return L >= prev ? 1.5 : 1;
+export function isLengthObservatoryBoosted(owned, len, spellCountsByLength) {
+  if (!hasObservatoryVoucher(owned)) return false;
+  const most = getMostPlayedWordLength(spellCountsByLength);
+  if (most < 3) return false;
+  const L = Math.max(0, Math.round(Number(len)) || 0);
+  const clamped = L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
+  return clamped === most;
 }
 
 /** @param {string} levelId 如 "3-1" */
@@ -225,7 +224,59 @@ export function parseMajorFromLevelId(levelId) {
   return m;
 }
 
+/** @param {string} levelId 如 "2-3" */
+export function parseLevelSubFromId(levelId) {
+  const p = String(levelId ?? "").split("-");
+  return Math.max(1, Math.min(3, Math.floor(Number(p[1])) || 1));
+}
+
+/**
+ * 商店优惠券货架代数：同一代内未购买则保持同一商品；过关 x-3 后进店进入下一代。
+ * @param {string} levelId
+ */
+export function getVoucherShelfGeneration(levelId) {
+  const major = parseMajorFromLevelId(levelId);
+  const sub = parseLevelSubFromId(levelId);
+  return sub >= 3 ? major + 1 : major;
+}
+
 /** @param {string} voucherId */
 export function getVoucherDefOrNull(voucherId) {
   return VOUCHERS_BY_ID.get(String(voucherId ?? "")) ?? null;
+}
+
+/** 场记板券：Boss 关离开商店前的单次重掷费用 */
+export const BOSS_BLIND_REROLL_COST_DOLLARS = 10;
+
+/** @param {Iterable<string>} owned */
+export function hasBossBlindRerollVoucher(owned) {
+  return has(owned, "v_director_1") || has(owned, "v_director_2");
+}
+
+/** @param {Iterable<string>} owned */
+export function hasUnlimitedBossBlindRerolls(owned) {
+  return has(owned, "v_director_2");
+}
+
+/**
+ * @param {Iterable<string>} owned
+ * @param {number} rerollsUsed 本场 Boss 入场预览中已付费重掷次数
+ * @returns {number | null} 剩余次数；`null` 表示无限
+ */
+export function getBossBlindRerollsRemaining(owned, rerollsUsed) {
+  if (hasUnlimitedBossBlindRerolls(owned)) return null;
+  if (!has(owned, "v_director_1")) return 0;
+  const used = Math.max(0, Math.floor(Number(rerollsUsed) || 0));
+  return Math.max(0, 1 - used);
+}
+
+/**
+ * @param {Iterable<string>} owned
+ * @param {number} rerollsUsed
+ * @param {number} money
+ */
+export function canPayBossBlindReroll(owned, rerollsUsed, money) {
+  const remaining = getBossBlindRerollsRemaining(owned, rerollsUsed);
+  if (remaining !== null && remaining <= 0) return false;
+  return Math.floor(Number(money) || 0) >= BOSS_BLIND_REROLL_COST_DOLLARS;
 }

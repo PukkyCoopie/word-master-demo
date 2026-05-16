@@ -4,7 +4,10 @@
       v-if="session"
       ref="backdropRef"
       class="spell-target-backdrop spell-target-backdrop--boot"
-      :class="{ 'spell-target-backdrop--closing': closing }"
+      :class="{
+        'spell-target-backdrop--closing': closing,
+        'portal-overlay--shop-upgrade-suppressed': overlaySuppressed,
+      }"
       :style="backdropStackStyle"
       role="dialog"
       aria-modal="true"
@@ -156,6 +159,7 @@ import { bumpOverlayZ } from "../game/overlayStack.js";
 
 const props = defineProps({
   session: { type: Object, default: null },
+  overlaySuppressed: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["confirm", "cancel"]);

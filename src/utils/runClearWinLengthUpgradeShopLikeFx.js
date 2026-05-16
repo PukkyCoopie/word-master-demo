@@ -6,7 +6,8 @@ import gsap from "gsap";
 import {
   getBaseScorePerLetterForWordLength,
   getLengthMultiplier,
-  WORD_LENGTH_BALANCE,
+  getObservatoryBoostedLengthUpgradeStepAdds,
+  getLengthUpgradeStepAdds,
 } from "../composables/useScoring.js";
 
 function sleep(ms) {
@@ -119,11 +120,13 @@ async function tweenResultValues(model, toScore, toMult, durationS = 0.44) {
  *   waitNextTick: () => Promise<void>,
  *   len: number,
  *   beforeLevel: number,
+ *   observatoryBoost?: boolean,
  *   speed?: number,
  * }} opts
  */
 export async function runClearWinLengthUpgradeShopLikeFx(opts) {
-  const { areaRef, model, fxActive, waitNextTick, len, beforeLevel, speed = 1 } = opts;
+  const { areaRef, model, fxActive, waitNextTick, len, beforeLevel, observatoryBoost = false, speed = 1 } =
+    opts;
   const s = Math.max(0.01, Number(speed) || 1);
   const lenClamped = Math.max(3, Math.min(16, Math.round(Number(len) || 3)));
   const lenLabel = `${lenClamped}字母`;
@@ -131,8 +134,11 @@ export async function runClearWinLengthUpgradeShopLikeFx(opts) {
   const levelMap = { [lenClamped]: beforeLevel };
   const scoreBefore = getBaseScorePerLetterForWordLength(lenClamped, levelMap);
   const multBefore = getLengthMultiplier(lenClamped, levelMap);
-  const scoreAdd = Number(WORD_LENGTH_BALANCE[lenClamped]?.upgrade?.[0]) || 1;
-  const multAdd = Number(WORD_LENGTH_BALANCE[lenClamped]?.upgrade?.[1]) || 1;
+  const stepAdds = observatoryBoost
+    ? getObservatoryBoostedLengthUpgradeStepAdds(lenClamped)
+    : getLengthUpgradeStepAdds(lenClamped);
+  const scoreAdd = stepAdds.scoreAdd;
+  const multAdd = stepAdds.multAdd;
   const scoreAfter = scoreBefore + scoreAdd;
   const multAfter = multBefore + multAdd;
 

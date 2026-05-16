@@ -55,3 +55,22 @@ export function rollDistinctShopTreasures(all, ownedTreasureIds, excludeTreasure
 export function countShopPoolSize(all, ownedTreasureIds) {
   return all.filter((t) => !ownedTreasureIds.has(t.treasureId)).length;
 }
+
+/**
+ * 将已展示在商店货架上的宝藏 id 写入同次进店互斥集（单卡区 + 牌包宝藏包选项）。
+ *
+ * @param {Set<string>} exclude
+ * @param {object[]} offers
+ */
+export function addShopShelfTreasureIdsToExclude(exclude, offers) {
+  if (!exclude || !Array.isArray(offers)) return;
+  for (const o of offers) {
+    if (!o || o.kind !== "offer") continue;
+    if (o.offerType === "treasure" && o.treasureId) exclude.add(String(o.treasureId));
+    if (o.offerType === "bundlePack" && o.bundleKind === "treasure") {
+      for (const opt of o.bundleOptions ?? []) {
+        if (opt?.offerType === "treasure" && opt.treasureId) exclude.add(String(opt.treasureId));
+      }
+    }
+  }
+}

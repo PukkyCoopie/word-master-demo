@@ -4,18 +4,18 @@ import { describe, mult, rarity } from "../treasureDescription.js";
 export default {
   price: 5,
   rarity: "rare",
-  description: describe("拼写的", rarity("稀有"), "字母在记分时给予", mult("+3"), "倍率"),
+  description: describe("拼写的", rarity("稀有"), "字母在记分时给予", mult("+4"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   getLetterRarityMultAdd(ctx) {
-    return ctx.letterParts.filter((p) => p.rarity === "rare").length * 3;
+    return ctx.letterParts.filter((p) => p.rarity === "rare").length * 4;
   },
   getLetterRarityMultDeltaForLetterPart(part) {
-    return part?.rarity === "rare" ? 3 : 0;
+    return part?.rarity === "rare" ? 4 : 0;
   },
   getLetterRarityMultAnimConfig() {
-    return { targetRarity: "rare", multDelta: 3, bubbleLabel: "+3" };
+    return { targetRarity: "rare", multDelta: 4, bubbleLabel: "+4" };
   },
 };

@@ -72,7 +72,7 @@ function getLevelForLetterRarity(rarity, rarityLevelsByRarity) {
 
 /**
  * 历史兼容：棋盘格子上仍用「3 + 稀有度」写入 tile（实际结算以整词长度为准）。
- * 公式区「分数」列起始值用 getBaseScorePerLetterForWordLength(词长)×字数。
+ * 公式区「分数」列起始值用 getWordLengthScoreForTableLen(判定词长)（每字基础×判定词长，含画笔加成）。
  */
 export const BASE_SCORE_PER_LETTER = 3;
 
@@ -133,13 +133,69 @@ function cumulativeUpgradeForLength(len, level, upgradeIndex) {
   return Math.max(0, lv - 1) * perLevelAdd;
 }
 
-export function getBaseScorePerLetterForWordLength(len, lengthLevelsByLength = null) {
+/** @param {Record<number, { score?: number, mult?: number }> | null | undefined} extra */
+function observatoryExtraForLen(extra, len) {
+  if (!extra || typeof extra !== "object") return { score: 0, mult: 0 };
+  const row = extra[len];
+  if (!row || typeof row !== "object") return { score: 0, mult: 0 };
+  return {
+    score: Math.max(0, Math.floor(Number(row.score) || 0)),
+    mult: Math.max(0, Math.floor(Number(row.mult) || 0)),
+  };
+}
+
+/** @param {number} len 3–16 */
+export function getLengthUpgradeStepAdds(len) {
+  const L = Math.max(0, Math.round(Number(len)) || 0);
+  const clamped = L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
+  const u = WORD_LENGTH_BALANCE[clamped]?.upgrade;
+  return {
+    scoreAdd: Math.max(0, Math.floor(Number(u?.[0]) || 1)),
+    multAdd: Math.max(0, Math.floor(Number(u?.[1]) || 1)),
+  };
+}
+
+/** 望远镜二级：单次升级步的分数/倍率增量 ×1.5（向下取整） */
+export function getObservatoryBoostedLengthUpgradeStepAdds(len) {
+  const { scoreAdd, multAdd } = getLengthUpgradeStepAdds(len);
+  return {
+    scoreAdd: Math.floor(scoreAdd * 1.5),
+    multAdd: Math.floor(multAdd * 1.5),
+  };
+}
+
+export function getBaseScorePerLetterForWordLength(
+  len,
+  lengthLevelsByLength = null,
+  lengthUpgradeObservatoryExtra = null,
+) {
   const L = Math.max(0, Math.round(Number(len)) || 0);
   const clamped = L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
   const base = BASE_SCORE_PER_LETTER_BY_LENGTH[clamped] ?? DEFAULT_BASE_PER_LETTER;
   const level = getLevelForWordLength(clamped, lengthLevelsByLength);
-  return base + cumulativeUpgradeForLength(clamped, level, 0);
+  const obs = observatoryExtraForLen(lengthUpgradeObservatoryExtra, clamped);
+  return base + cumulativeUpgradeForLength(clamped, level, 0) + obs.score;
 }
+
+/**
+ * 词长分数段：查表每字基础 × **判定词长**（含画笔等；与棋盘格数可不同）。
+ * @param {number} judgedLen 等效词长（已 clamp 的 3–16）
+ */
+export function getWordLengthScoreForTableLen(
+  judgedLen,
+  lengthLevelsByLength = null,
+  lengthUpgradeObservatoryExtra = null,
+) {
+  const L = Math.max(0, Math.round(Number(judgedLen)) || 0);
+  const clamped = L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
+  return (
+    clamped *
+    getBaseScorePerLetterForWordLength(clamped, lengthLevelsByLength, lengthUpgradeObservatoryExtra)
+  );
+}
+
+/** 与 {@link getBaseScorePerLetterForWordLength} 相同，供新代码引用 */
+export const getBaseScoreForWordLength = getBaseScorePerLetterForWordLength;
 
 
 
@@ -256,12 +312,17 @@ export function getWordLength(tiles) {
 
 
 
-export function getLengthMultiplier(len, lengthLevelsByLength = null) {
+export function getLengthMultiplier(
+  len,
+  lengthLevelsByLength = null,
+  lengthUpgradeObservatoryExtra = null,
+) {
   const L = Math.max(0, Math.round(Number(len)) || 0);
   const clamped = L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
   const base = LENGTH_MULTIPLIER[clamped] ?? DEFAULT_LENGTH_MULT;
   const level = getLevelForWordLength(clamped, lengthLevelsByLength);
-  return base + cumulativeUpgradeForLength(clamped, level, 1);
+  const obs = observatoryExtraForLen(lengthUpgradeObservatoryExtra, clamped);
+  return base + cumulativeUpgradeForLength(clamped, level, 1) + obs.mult;
 }
 
 
@@ -270,7 +331,7 @@ export function getLengthMultiplier(len, lengthLevelsByLength = null) {
 
  * 详细计分：
 
- * 分数部分 = Σ baseScore（含 tile.tileScoreBonus + tile.materialScoreBonus）；
+ * 分数部分 = 判定词长×每字基础分 + Σ 单字母 baseScore（稀有度/材质/角标等，不含词长每字基础）；
  * 倍率部分 = 长度倍率 + Σ(tile.letterMultBonus + tile.materialMultBonus + 稀有度倍率)；
 
  * 最终 = round(分数部分 × 倍率部分 × 宝藏倍率)
@@ -293,11 +354,27 @@ export function computeWordScoreDetailed(
   const len = rawLen <= 0 ? 3 : rawLen < 3 ? 3 : rawLen > 16 ? 16 : rawLen;
 
   const lm = Math.max(0, Number(lengthMultFactor) || 1);
-  const lengthMult = getLengthMultiplier(len, lengthLevelsByLength) * lm;
+  const lengthUpgradeExtra = opts?.lengthUpgradeObservatoryExtra ?? null;
+  const lengthMult = getLengthMultiplier(len, lengthLevelsByLength, lengthUpgradeExtra) * lm;
 
-  const basePerLetter = getBaseScorePerLetterForWordLength(len, lengthLevelsByLength);
+  const wordLengthScore = getWordLengthScoreForTableLen(len, lengthLevelsByLength, lengthUpgradeExtra);
 
   const letterParts = tiles.map((c) => {
+
+    if (c?.bossTileDebuffed) {
+      return {
+        letter: c.letter,
+        baseScore: 0,
+        rarityBonus: 0,
+        tileScoreBonus: 0,
+        materialScoreBonus: 0,
+        rarity: c.rarity ?? "common",
+        rarityMultBonus: 0,
+        tileLetterMultBonus: 0,
+        materialMultBonus: 0,
+        letterMultBonus: 0,
+      };
+    }
 
     const rarity = c.rarity ?? "common";
 
@@ -317,7 +394,7 @@ export function computeWordScoreDetailed(
 
       letter: c.letter,
 
-      baseScore: basePerLetter + rarityBonus + tileScoreBonus + materialScoreBonus,
+      baseScore: rarityBonus + tileScoreBonus + materialScoreBonus,
 
       rarityBonus,
 
@@ -339,7 +416,8 @@ export function computeWordScoreDetailed(
 
   });
 
-  const scoreSum = letterParts.reduce((s, p) => s + p.baseScore, 0);
+  const letterScoreSum = letterParts.reduce((s, p) => s + p.baseScore, 0);
+  const scoreSum = wordLengthScore + letterScoreSum;
 
   const letterMultSum = letterParts.reduce((s, p) => s + p.letterMultBonus, 0);
 
@@ -354,6 +432,10 @@ export function computeWordScoreDetailed(
   return {
 
     letterParts,
+
+    wordLengthScore,
+
+    letterScoreSum,
 
     scoreSum: scoreSumAdj,
 

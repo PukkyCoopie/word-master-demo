@@ -1,4 +1,7 @@
-/** 字母块配饰 id（与 tile.accessoryId 对应） */
+/**
+ * 字母块专用配饰 id（`tile.accessoryId`；与宝藏通用配饰 `treasureAccessoryId` 可并存）。
+ * 通用配饰见 `treasureAccessories.js`。
+ */
 export const TILE_ACCESSORY_LEVEL_UPGRADE = "level_upgrade";
 /** 最后一手：首格佩戴时，该格稀有度对应的全局稀有度等级 +1 */
 export const TILE_ACCESSORY_VIP_DIAMOND = "vip_diamond";

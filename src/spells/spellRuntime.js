@@ -3,6 +3,7 @@ import { snapshotMaxIntrinsicGainsFromTile, applyIntrinsicGainsToTileAndLinkedCa
 import { getBaseScoreForRarity, getRarityForLetter, LETTER_RARITY_ORDER, RARITY_BY_LETTER } from "../composables/useScoring.js";
 import { SPELL_DEFINITIONS, SPELL_IDS_EXCLUDED_FROM_DICE, getSpellDefinition } from "./spellDefinitions.js";
 import { ALL_TREASURE_ACCESSORY_IDS } from "../game/treasureAccessories.js";
+import { applyRandomUpgradePick, rollRandomUpgradePicks } from "../shop/randomUpgradeRoll.js";
 
 const WATER_MATERIAL_SCORE_BONUS = 30;
 const FIRE_MATERIAL_MULT_BONUS = 4;
@@ -245,6 +246,8 @@ function buildTileSurfaceFromDeckCard(card, rarityLevelsByRarity) {
     materialId: useWildcard ? WILDCARD_MATERIAL_ID : card.materialId != null ? String(card.materialId) : null,
     materialMultBonus: Number(card.materialMultBonus) || 0,
     accessoryId: card.accessoryId != null ? String(card.accessoryId) : null,
+    treasureAccessoryId:
+      card.treasureAccessoryId != null ? String(card.treasureAccessoryId) : null,
     isWildcard: useWildcard,
   };
 }
@@ -274,6 +277,8 @@ function copyTileOntoPreserveId(dst, src, rarityLevelsByRarity) {
     dstCard.letterMultBonus = Math.max(0, Math.round(Number(srcCard.letterMultBonus) || 0));
     dstCard.isWildcard = srcCard.isWildcard === true;
     dstCard.accessoryId = srcCard.accessoryId != null ? String(srcCard.accessoryId) : null;
+    dstCard.treasureAccessoryId =
+      srcCard.treasureAccessoryId != null ? String(srcCard.treasureAccessoryId) : null;
     if (dstCard.isWildcard === true) dstCard.materialId = WILDCARD_MATERIAL_ID;
     dstCard._dcUid = uid;
     Object.assign(dst, buildTileSurfaceFromDeckCard(dstCard, rarityLevelsByRarity));
@@ -296,6 +301,8 @@ function copyTileOntoPreserveId(dst, src, rarityLevelsByRarity) {
           materialId: src.materialId != null ? String(src.materialId) : null,
           materialMultBonus: Number(src.materialMultBonus) || 0,
           accessoryId: src.accessoryId != null ? String(src.accessoryId) : null,
+          treasureAccessoryId:
+            src.treasureAccessoryId != null ? String(src.treasureAccessoryId) : null,
           isWildcard: !!src.isWildcard,
         };
   Object.assign(dst, patch);
@@ -313,6 +320,7 @@ function copyTileOntoPreserveId(dst, src, rarityLevelsByRarity) {
  *   lengthLevelsByLength: import("vue").Ref<Record<number, number>>,
  *   setRarityLevel: (rarity: string, level: number) => void,
  *   setWordLengthLevel: (len: number, level: number) => void,
+ *   bumpWordLengthLevel?: (len: number) => void,
  *   markTileAsWildcard: (tile: Record<string, unknown>) => void,
  *   touchGrid: () => void,
  *   removeDeckLetterInstancesByRaws: (raws: string[]) => void,
@@ -510,24 +518,8 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "arrow_up": {
-      const lengthOpts = ctx.upgradeLengthGroups.map((g) => ({ kind: "length", g }));
-      const rarityOpts = LETTER_RARITY_ORDER.map((rk) => ({ kind: "rarity", rk }));
-      const pool = [...lengthOpts, ...rarityOpts];
-      shuffleInPlace(pool, rng);
-      const picks = pool.slice(0, 2);
-      for (const p of picks) {
-        if (p.kind === "rarity") {
-          const rk = String(p.rk);
-          const cur = Math.max(1, Math.round(Number(ctx.rarityLevelsByRarity.value?.[rk])) || 1);
-          ctx.setRarityLevel(rk, cur + 1);
-        } else {
-          const { minLen, maxLen } = p.g;
-          for (let len = minLen; len <= maxLen; len++) {
-            const cur = Math.max(1, Math.round(Number(ctx.lengthLevelsByLength.value?.[len])) || 1);
-            ctx.setWordLengthLevel(len, cur + 1);
-          }
-        }
-      }
+      const picks = rollRandomUpgradePicks(ctx.upgradeLengthGroups, 2, rng);
+      for (const p of picks) applyRandomUpgradePick(p, ctx);
       break;
     }
     case "dice": {

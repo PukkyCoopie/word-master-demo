@@ -1,12 +1,11 @@
 /**
- * 商店单格商品行：牌包区与「随机卡」栏共用（法术单卡、升级、宝藏）。
+ * 商店单格商品行：单卡区（宝藏/法术/升级/字母块）与牌包区内选项共用。
  */
 import { getSpellDefinition } from "../spells/spellDefinitions.js";
 import { LETTER_RARITY_ORDER, getRarityForLetter } from "../composables/useScoring.js";
 import { getShopTreasureAccessoryPriceAdd, rollShopTreasureAccessoryId } from "../treasures/shopTreasureAccessoryRoll.js";
 import { SHOP_SINGLE_ROW_PRICES, SHOP_TILE_PACK_MATERIAL_IDS } from "./shopPackEconomy.js";
-import { getTileMaterialBlockTitle } from "../game/gameConceptCopy.js";
-import { rollShopDeckTileAccessoryId } from "./shopTileAccessoryRoll.js";
+import { buildDeckTileOfferDisplay, rollDeckTileModifiers } from "./rollDeckTileModifiers.js";
 
 export const UPGRADE_ICON_CLASS = "ri-arrow-up-box-fill";
 
@@ -139,33 +138,33 @@ export function buildTreasureShopRowFromDef(nextOfferInstanceId, def, rng, acces
  * @param {() => number} nextOfferInstanceId
  * @param {string} raw 小写单字母，q 表示 Qu
  * @param {() => number} rng
- * @param {boolean} illusionOwned
+ * @param {number} [honeAccessoryMult=1]
  */
-export function buildDeckTileShopRow(nextOfferInstanceId, raw, rng, illusionOwned) {
+export function buildDeckTileShopRow(nextOfferInstanceId, raw, rng, honeAccessoryMult = 1) {
   const r = String(raw ?? "e").toLowerCase() === "qu" ? "q" : String(raw ?? "e").toLowerCase();
-  const mats = [...SHOP_TILE_PACK_MATERIAL_IDS];
-  const mat = mats.length ? mats[Math.floor(rng() * mats.length)] : null;
+  const mods = rollDeckTileModifiers(rng, { honeAccessoryMult, materialIds: SHOP_TILE_PACK_MATERIAL_IDS });
   const rarity = getRarityForLetter(r);
   const letterDisp = r === "q" ? "Qu" : r.toUpperCase();
-  const matTitle = mat ? getTileMaterialBlockTitle(mat) || mat : "";
-  const accessoryId = rollShopDeckTileAccessoryId(rng, illusionOwned);
+  const copy = buildDeckTileOfferDisplay(letterDisp, {
+    ...mods,
+    rarityLabel: UPGRADE_RARITY_LETTER_LABEL[rarity] ?? rarity,
+  });
   const oid = nextOfferInstanceId();
   return {
     kind: "offer",
     offerType: "deckTile",
     offerInstanceId: oid,
-    treasureId: `deck_tile_shop_${r}_${mat ?? "x"}_${oid}`,
+    treasureId: `deck_tile_shop_${r}_${mods.materialId ?? "x"}_${oid}`,
     price: SHOP_SINGLE_ROW_PRICES.deckTile,
     rarity,
     letterRarity: rarity,
-    name: mat ? `${matTitle} · ${letterDisp}` : `字母 ${letterDisp}`,
+    name: copy.name,
     emoji: "",
-    description: mat
-      ? `「${matTitle}」材质的「${letterDisp}」加入牌库。`
-      : `「${letterDisp}」加入牌库（${UPGRADE_RARITY_LETTER_LABEL[rarity] ?? rarity}）。`,
+    description: copy.description,
     deckLetterRaw: r,
-    deckTileMaterialId: mat,
-    deckTileAccessoryId: accessoryId,
+    deckTileMaterialId: mods.materialId,
+    deckTileAccessoryId: mods.accessoryId,
+    deckTileTreasureAccessoryId: mods.treasureAccessoryId,
   };
 }
 
@@ -188,7 +187,7 @@ export function buildDeckLetterShopRow(nextOfferInstanceId, raw) {
     letterRarity: rarity,
     name: `字母 ${letterDisp}`,
     emoji: "",
-    description: `「${letterDisp}」加入牌库（${UPGRADE_RARITY_LETTER_LABEL[rarity] ?? rarity}）。`,
+    description: `「${letterDisp}」加入牌库（${UPGRADE_RARITY_LETTER_LABEL[rarity] ?? rarity}）`,
     deckLetterRaw: r,
   };
 }

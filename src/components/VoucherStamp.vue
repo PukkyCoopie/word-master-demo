@@ -9,10 +9,12 @@
     <div
       class="voucher-stamp__frame"
       :class="{ 'voucher-stamp__frame--placeholder': empty }"
+      :role="empty ? undefined : 'img'"
+      :aria-label="empty ? undefined : stampAriaLabel"
+      :aria-hidden="empty ? true : undefined"
     >
       <template v-if="!empty">
-        <span class="voucher-stamp__emoji" role="img">{{ emoji }}</span>
-        <span class="voucher-stamp__name">{{ displayName }}</span>
+        <span class="voucher-stamp__emoji" aria-hidden="true">{{ emoji }}</span>
       </template>
     </div>
     <div v-if="showPrice" class="shop-treasure-price">
@@ -48,4 +50,12 @@ const showPrice = computed(
 );
 
 const priceText = computed(() => String(Math.max(0, Math.floor(Number(props.price) || 0))));
+
+const stampAriaLabel = computed(() => {
+  if (props.empty) return undefined;
+  const name = String(props.displayName ?? "").trim();
+  if (name) return name;
+  const e = String(props.emoji ?? "").trim();
+  return e || "优惠券";
+});
 </script>

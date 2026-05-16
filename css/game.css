@@ -59,14 +59,22 @@
 	--btn-green: #7cb342;
 	/* 商店「刷新」按钮上的价格字：同色相、更高饱和与明度，叠在 --btn-green 上可读 */
 	--shop-reroll-price-green: #daf56f;
-	/* 商店货架：牌包区需并排 3 格，宝藏区/底部已拥有格与之统一（108 为宝藏格比例基准） */
+	/* 商店货架：牌包区并排 2 格，单卡区/底部已拥有格与之统一（108 为格比例基准） */
 	--shop-shelf-cell-size: calc(108 * var(--rpx));
 	/* 与 @container treasure-cell 内 emoji 比例一致，供无容器上下文回退 */
 	--shop-shelf-emoji-size: calc(42 * var(--rpx));
 	/* 牌包法术格 Remix 图标：相对 108 单元格边长；与 TreasureDetailLayer 法术飞入字号比例同步 */
 	--shop-shelf-spell-icon-units: 40;
+	/* 优惠券四角内凹圆角（相对 100×100 视图，与货架格同比缩放） */
+	--voucher-stamp-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cmask id='vsm'%3E%3Crect width='100' height='100' fill='white'/%3E%3Ccircle cx='0' cy='0' r='10.8' fill='black'/%3E%3Ccircle cx='100' cy='0' r='10.8' fill='black'/%3E%3Ccircle cx='100' cy='100' r='10.8' fill='black'/%3E%3Ccircle cx='0' cy='100' r='10.8' fill='black'/%3E%3C/mask%3E%3C/defs%3E%3Crect width='100' height='100' fill='white' mask='url(%23vsm)'/%3E%3C/svg%3E");
 	--btn-orange: #ea580c;
 	--btn-red: #c85a54;
+	/* Boss 条：略偏红的危险提醒（与 --card-bright 块面风格一致） */
+	--boss-tape-bg: #f6ebe8;
+	--boss-tape-border: rgba(176, 78, 68, 0.28);
+	--boss-tape-title: #8f423c;
+	--boss-tape-desc: #a85a52;
+	--boss-tape-glow: rgba(200, 82, 72, 0.34);
 	/* 网格与 hand-slot 统一尺寸 */
 	--grid-size: calc(540 * var(--rpx));
 	--tile-size: calc(132 * var(--rpx));
@@ -182,6 +190,12 @@ body {
 	pointer-events: auto;
 	min-height: 0;
 	min-width: 0;
+}
+
+/* 商店升级动效播放时暂隐其它 portal 浮层，露出后方 ShopPanel 顶栏动画 */
+.portal-overlay--shop-upgrade-suppressed {
+	visibility: hidden;
+	pointer-events: none;
 }
 
 /* 与 .game-container 同内边距：商店 Teleport 到 .game-view-portal，不在带 padding 的容器内 */
@@ -361,24 +375,24 @@ body {
 	width: 100%;
 	flex: 0 0 auto;
 	box-sizing: border-box;
-	background: var(--card-bright);
+	background: var(--boss-tape-bg);
 	border-radius: var(--radius);
 	padding: calc(10 * var(--rpx)) calc(14 * var(--rpx));
 	box-shadow: var(--shadow);
-	border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.06);
+	border: calc(2 * var(--rpx)) solid var(--boss-tape-border);
 }
 
 .boss-tape-title {
 	font-size: calc(26 * var(--rpx));
 	font-weight: 800;
-	color: var(--text);
+	color: var(--boss-tape-title);
 	line-height: 1.15;
 }
 
 .boss-tape-desc {
 	margin-top: calc(4 * var(--rpx));
 	font-size: calc(22 * var(--rpx));
-	color: var(--text-soft);
+	color: var(--boss-tape-desc);
 	line-height: 1.25;
 }
 
@@ -389,7 +403,7 @@ body {
 /* 软规则预览：当前串将违规时持续轻脉冲（与一次性 --attention 区分） */
 .boss-tape--soft-preview {
 	animation: boss-tape-soft-preview 1.35s ease-in-out infinite;
-	border-color: rgba(91, 155, 213, 0.38);
+	border-color: rgba(200, 82, 72, 0.42);
 }
 
 .boss-tape--wobble {
@@ -401,7 +415,7 @@ body {
 		box-shadow: var(--shadow);
 	}
 	40% {
-		box-shadow: 0 0 0 calc(4 * var(--rpx)) rgba(91, 155, 213, 0.35);
+		box-shadow: 0 0 0 calc(4 * var(--rpx)) var(--boss-tape-glow);
 	}
 	100% {
 		box-shadow: var(--shadow);
@@ -414,7 +428,7 @@ body {
 		box-shadow: var(--shadow);
 	}
 	50% {
-		box-shadow: 0 0 0 calc(3 * var(--rpx)) rgba(91, 155, 213, 0.26);
+		box-shadow: 0 0 0 calc(3 * var(--rpx)) rgba(200, 82, 72, 0.26);
 	}
 }
 
@@ -435,6 +449,33 @@ body {
 	80% {
 		transform: translateX(calc(2 * var(--rpx)));
 	}
+}
+
+/* ----- Boss 盲注重掷（场记板券，离开商店进 x-3 前） ----- */
+.boss-blind-reroll-backdrop .treasure-detail-stack {
+	gap: calc(20 * var(--rpx));
+}
+
+.boss-blind-reroll-remaining {
+	margin: calc(6 * var(--rpx)) 0 0;
+	font-size: calc(26 * var(--rpx));
+	font-weight: 600;
+	color: var(--text-muted, #5a6a7a);
+	text-align: center;
+}
+
+.boss-blind-reroll-voucher-name {
+	margin: calc(10 * var(--rpx)) 0 0;
+	font-size: calc(28 * var(--rpx));
+	font-weight: 700;
+	text-align: center;
+}
+
+.boss-blind-reroll-boss-name {
+	margin: 0 0 calc(8 * var(--rpx));
+	font-size: calc(30 * var(--rpx));
+	font-weight: 700;
+	color: var(--text-primary, #2a3540);
 }
 
 /* ----- 相乘结果区域（宽:高 = 4:1） ----- */
@@ -668,9 +709,13 @@ body {
 	letter-spacing: 0.02em;
 }
 
-/* word-slot 记分高光与占位 */
-.word-slots .word-slot-tile.word-slot-scoring-highlight {
+/* word-slot 记分高光与占位（削弱格见 .letter-tile-boss-debuff 与 :has 规则，避免父级 filter 盖掉变暗） */
+.word-slots .word-slot-tile.word-slot-scoring-highlight:not(:has(.letter-tile-boss-debuff)) {
 	filter: brightness(1.06);
+	z-index: 5;
+}
+
+.word-slots .word-slot-tile.word-slot-scoring-highlight:has(.letter-tile-boss-debuff) {
 	z-index: 5;
 }
 .word-slot-placeholder {
@@ -916,11 +961,62 @@ body {
 	pointer-events: none;
 }
 
-.grid-tile.letter-tile-boss-debuff {
+.grid-tile.letter-tile-boss-debuff,
+.word-slots .word-slot-content.letter-tile-boss-debuff,
+.word-slots .word-slot-tile--boss-debuff .word-slot-content,
+.fly-letter.letter-tile-boss-debuff,
+.fly-letter-back.letter-tile-boss-debuff {
 	filter: brightness(0.72) saturate(0.85);
 }
 
-.grid-tile .letter-tile-boss-x {
+/* 材质 Regl canvas 不参与父级 filter 时：父级不滤、canvas 与字/宝石分别压暗 */
+.letter-tile-boss-debuff:has(.tile-material-gold-canvas),
+.letter-tile-boss-debuff:has(.tile-material-steel-canvas),
+.letter-tile-boss-debuff:has(.tile-material-ice-canvas),
+.letter-tile-boss-debuff:has(.tile-material-water-canvas),
+.letter-tile-boss-debuff:has(.tile-material-fire-canvas),
+.letter-tile-boss-debuff:has(.tile-material-wildcard-canvas),
+.letter-tile-boss-debuff:has(.tile-material-lucky-canvas) {
+	filter: none;
+}
+
+.letter-tile-boss-debuff .tile-material-gold-canvas,
+.letter-tile-boss-debuff .tile-material-steel-canvas,
+.letter-tile-boss-debuff .tile-material-ice-canvas,
+.letter-tile-boss-debuff .tile-material-water-canvas,
+.letter-tile-boss-debuff .tile-material-fire-canvas,
+.letter-tile-boss-debuff .tile-material-wildcard-canvas,
+.letter-tile-boss-debuff .tile-material-lucky-canvas,
+.letter-tile-boss-debuff:has(.tile-material-gold-canvas) .letter-gem,
+.letter-tile-boss-debuff:has(.tile-material-steel-canvas) .letter-gem,
+.letter-tile-boss-debuff:has(.tile-material-ice-canvas) .letter-gem,
+.letter-tile-boss-debuff:has(.tile-material-water-canvas) .letter-gem,
+.letter-tile-boss-debuff:has(.tile-material-fire-canvas) .letter-gem,
+.letter-tile-boss-debuff:has(.tile-material-wildcard-canvas) .letter-gem,
+.letter-tile-boss-debuff:has(.tile-material-lucky-canvas) .letter-gem,
+.letter-tile-boss-debuff:has(.tile-material-gold-canvas) .letter-tile-char,
+.letter-tile-boss-debuff:has(.tile-material-steel-canvas) .letter-tile-char,
+.letter-tile-boss-debuff:has(.tile-material-ice-canvas) .letter-tile-char,
+.letter-tile-boss-debuff:has(.tile-material-water-canvas) .letter-tile-char,
+.letter-tile-boss-debuff:has(.tile-material-fire-canvas) .letter-tile-char,
+.letter-tile-boss-debuff:has(.tile-material-wildcard-canvas) .letter-tile-char,
+.letter-tile-boss-debuff:has(.tile-material-lucky-canvas) .letter-tile-char {
+	filter: brightness(0.72) saturate(0.85);
+}
+
+/* 记分高光在槽位父级；削弱格改在内容层叠亮，避免 filter 被父级覆盖 */
+.word-slots .word-slot-tile.word-slot-scoring-highlight:has(.letter-tile-boss-debuff) {
+	filter: none;
+}
+
+.word-slots .word-slot-tile.word-slot-scoring-highlight .word-slot-content.letter-tile-boss-debuff {
+	filter: brightness(0.76) saturate(0.85);
+}
+
+.grid-tile .letter-tile-boss-x,
+.word-slots .word-slot-content .letter-tile-boss-x,
+.fly-letter .letter-tile-boss-x,
+.fly-letter-back .letter-tile-boss-x {
 	position: absolute;
 	inset: 0;
 	display: flex;
@@ -928,10 +1024,28 @@ body {
 	justify-content: center;
 	font-size: calc(56 * var(--rpx));
 	font-weight: 900;
-	color: rgba(200, 48, 48, 0.88);
+	color: #c83030;
+	opacity: 0.2;
 	pointer-events: none;
-	z-index: 6;
-	text-shadow: 0 calc(2 * var(--rpx)) 0 rgba(0, 0, 0, 0.18);
+	z-index: 0;
+	transform: scale(1.75);
+	transform-origin: 50% 50%;
+	text-shadow: none;
+}
+
+.grid-tile .letter-gem,
+.word-slots .word-slot-content.letter-tile-boss-debuff .letter-gem,
+.fly-letter.letter-tile-boss-debuff .letter-gem,
+.fly-letter-back.letter-tile-boss-debuff .letter-gem {
+	z-index: 1;
+}
+
+.grid-tile .letter-tile-char,
+.word-slots .word-slot-content.letter-tile-boss-debuff .letter-tile-char,
+.fly-letter.letter-tile-boss-debuff .letter-tile-char,
+.fly-letter-back.letter-tile-boss-debuff .letter-tile-char {
+	position: relative;
+	z-index: 1;
 }
 
 .grid-tile.letter-tile-cerulean-lock,
@@ -1543,6 +1657,29 @@ body {
 }
 
 /* 字母块配饰：LetterTile + tileImperativeChrome（飞回等）共用类名；--slot-scale 在词槽/飞字上随槽缩放 */
+.grid-tile .tile-treasure-accessory-chip,
+.word-slots .word-slot-content .tile-treasure-accessory-chip,
+.fly-letter .tile-treasure-accessory-chip,
+.fly-letter-back .tile-treasure-accessory-chip,
+.deck-expand-face-tile .tile-treasure-accessory-chip,
+.shop-shelf-letter-tile .tile-treasure-accessory-chip {
+	position: absolute;
+	z-index: 4;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	overflow: hidden;
+	left: calc(3 * var(--rpx) * var(--slot-scale, 1));
+	top: calc(3 * var(--rpx) * var(--slot-scale, 1));
+	right: auto;
+	bottom: auto;
+	width: calc(24 * var(--rpx) * var(--slot-scale, 1));
+	height: calc(24 * var(--rpx) * var(--slot-scale, 1));
+	border-radius: calc(6 * var(--rpx) * var(--slot-scale, 1));
+	pointer-events: none;
+}
+
 .grid-tile .tile-accessory-chip,
 .word-slots .word-slot-content .tile-accessory-chip,
 .fly-letter .tile-accessory-chip,
@@ -2056,7 +2193,7 @@ body {
 	transform: none;
 }
 
-/* 牌包「稀有度升级」：图标下为「宝石 + 全名」，宝石不再贴左下角 */
+/* 牌包「稀有度升级」：图标下为稀有度全名（不展示 letter-gem） */
 .shop-treasure-frame--pack-rarity {
 	flex-direction: column;
 	gap: calc(6 * var(--rpx));
@@ -2107,6 +2244,19 @@ body {
 	width: calc(156 * var(--rpx));
 	height: calc(156 * var(--rpx));
 	flex-shrink: 0;
+}
+
+/* 优惠券：与货架宝藏格同基准尺寸，四角邮票式内凹圆角；阴影随轮廓（mask 后不用矩形 box-shadow） */
+.shop-treasure-frame--voucher-stamp {
+	box-shadow: none;
+	border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.06);
+	-webkit-mask-image: var(--voucher-stamp-mask);
+	mask-image: var(--voucher-stamp-mask);
+	-webkit-mask-size: 100% 100%;
+	mask-size: 100% 100%;
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+	filter: drop-shadow(0 calc(2 * var(--rpx)) calc(8 * var(--rpx)) rgba(0, 0, 0, 0.08));
 }
 
 /* 已拥有宝藏详情 / 飞入克隆：去掉方框与宝石描边，与槽位满格一致 */
@@ -2206,7 +2356,8 @@ body {
 @container treasure-cell (min-width: 0px) {
 	.shop-treasure-emoji,
 	.shop-treasure-emoji--detail,
-	.treasure-slot-emoji {
+	.treasure-slot-emoji,
+	.voucher-stamp__frame .voucher-stamp__emoji {
 		font-size: calc(100cqmin * 42 / 108);
 	}
 
@@ -2351,7 +2502,7 @@ body {
 	padding: calc(5 * var(--rpx)) calc(8 * var(--rpx));
 }
 
-/* 优惠券邮票：商店货架 / 对局信息 共用（与 ShopPanel 货架价签 `.shop-treasure-price` 衔接） */
+/* 优惠券：与 `.shop-treasure-frame` 同格高/比例；四角邮票式内凹圆角；卡面仅 emoji（名称见详情层 / aria-label） */
 .voucher-stamp {
 	display: flex;
 	flex-direction: column;
@@ -2362,67 +2513,38 @@ body {
 }
 
 .voucher-stamp__frame {
-	border-radius: calc(4 * var(--rpx));
-	clip-path: polygon(
-		0% calc(6 * var(--rpx)),
-		calc(6 * var(--rpx)) 0%,
-		calc(100% - 6 * var(--rpx)) 0%,
-		100% calc(6 * var(--rpx)),
-		100% calc(100% - 6 * var(--rpx)),
-		calc(100% - 6 * var(--rpx)) 100%,
-		calc(6 * var(--rpx)) 100%,
-		0% calc(100% - 6 * var(--rpx))
-	);
+	position: relative;
+	z-index: 2;
+	width: 100%;
+	height: var(--shop-shelf-cell-size);
+	box-sizing: border-box;
 	display: flex;
-	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: calc(4 * var(--rpx));
-	padding: calc(8 * var(--rpx)) calc(6 * var(--rpx));
+	padding: 0;
 	background: var(--card-bright);
-	border: calc(1 * var(--rpx)) solid rgba(89, 79, 70, 0.18);
-	box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.06);
-	min-height: calc(76 * var(--rpx));
-	width: 100%;
-	box-sizing: border-box;
+	border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.06);
+	box-shadow: none;
+	-webkit-mask-image: var(--voucher-stamp-mask);
+	mask-image: var(--voucher-stamp-mask);
+	-webkit-mask-size: 100% 100%;
+	mask-size: 100% 100%;
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+	filter: drop-shadow(0 calc(2 * var(--rpx)) calc(8 * var(--rpx)) rgba(0, 0, 0, 0.08));
+	container-type: size;
+	container-name: treasure-cell;
 }
 
 .voucher-stamp__frame--placeholder {
-	min-height: calc(76 * var(--rpx));
 	opacity: 0.35;
 }
 
 .voucher-stamp__emoji {
-	font-size: calc(36 * var(--rpx));
+	position: relative;
+	z-index: 1;
 	line-height: 1;
-}
-
-.voucher-stamp__name {
-	font-size: calc(20 * var(--rpx));
-	font-weight: 600;
-	color: var(--text);
-	text-align: center;
-	line-height: 1.15;
-	max-width: 100%;
-	word-break: break-all;
-}
-
-.voucher-stamp--compact .voucher-stamp__frame {
-	min-height: calc(64 * var(--rpx));
-	padding: calc(6 * var(--rpx)) calc(4 * var(--rpx));
-	gap: calc(3 * var(--rpx));
-}
-
-.voucher-stamp--compact .voucher-stamp__frame--placeholder {
-	min-height: calc(64 * var(--rpx));
-}
-
-.voucher-stamp--compact .voucher-stamp__emoji {
-	font-size: calc(30 * var(--rpx));
-}
-
-.voucher-stamp--compact .voucher-stamp__name {
-	font-size: calc(17 * var(--rpx));
+	font-size: var(--shop-shelf-emoji-size);
 }
 
 /* 对局信息：已购优惠券网格（InfoModal） */
@@ -2461,7 +2583,7 @@ body {
 	overflow: hidden;
 }
 
-/* 商店：优惠券区与牌包区同排时的外层 */
+/* 商店：优惠券区（第二行左栏；单卡区见 ShopPanel .shop-row--single-card-actions） */
 .shop-voucher-panel {
 	min-width: 0;
 }
@@ -2899,15 +3021,17 @@ body {
 	background: #8f7a66;
 }
 
-/* 字母块详情：稀有度下「分数×倍率」与信息弹窗「字母块」表内同款 */
-.tile-detail-layer .tile-detail-rarity-score-mult {
+/* 字母块详情 / 商店字母块预览：稀有度下「分数×倍率」 */
+.tile-detail-layer .tile-detail-rarity-score-mult,
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult {
 	display: flex;
 	justify-content: center;
 	margin-top: calc(10 * var(--rpx));
 }
 
 /* 外圈：略浅底 + 细线，不抢内层色块 */
-.tile-detail-layer .tile-detail-rarity-score-mult .tile-detail-score-mult-frame {
+.tile-detail-layer .tile-detail-rarity-score-mult .tile-detail-score-mult-frame,
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .tile-detail-score-mult-frame {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -2918,7 +3042,8 @@ body {
 	box-sizing: border-box;
 }
 
-.tile-detail-layer .tile-detail-rarity-score-mult .info-score-mult {
+.tile-detail-layer .tile-detail-rarity-score-mult .info-score-mult,
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-score-mult {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -2926,7 +3051,8 @@ body {
 	flex-wrap: nowrap;
 }
 
-.tile-detail-layer .tile-detail-rarity-score-mult .tile-detail-score-mult-side-label {
+.tile-detail-layer .tile-detail-rarity-score-mult .tile-detail-score-mult-side-label,
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .tile-detail-score-mult-side-label {
 	flex-shrink: 0;
 	font-size: calc(24 * var(--rpx));
 	font-weight: 700;
@@ -2942,7 +3068,8 @@ body {
 	line-height: 1;
 }
 
-.tile-detail-layer .tile-detail-rarity-score-mult .info-mini-box {
+.tile-detail-layer .tile-detail-rarity-score-mult .info-mini-box,
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-mini-box {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -2955,15 +3082,18 @@ body {
 	line-height: 1;
 }
 
-.tile-detail-layer .tile-detail-rarity-score-mult .info-mini-box--score {
+.tile-detail-layer .tile-detail-rarity-score-mult .info-mini-box--score,
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-mini-box--score {
 	background: #6ec4f0;
 }
 
-.tile-detail-layer .tile-detail-rarity-score-mult .info-mini-box--mult {
+.tile-detail-layer .tile-detail-rarity-score-mult .info-mini-box--mult,
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-mini-box--mult {
 	background: var(--mult-accent);
 }
 
-.tile-detail-layer .tile-detail-rarity-score-mult .info-mini-times {
+.tile-detail-layer .tile-detail-rarity-score-mult .info-mini-times,
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-mini-times {
 	font-size: calc(30 * var(--rpx));
 	font-weight: 800;
 	color: #8f7a66;
@@ -3045,128 +3175,192 @@ body {
 	width: 100%;
 }
 
-.pack-pick-subtitle {
-	margin: 0;
-	font-size: calc(24 * var(--rpx));
-	line-height: 1.45;
-	color: rgba(250, 247, 242, 0.82);
-	font-weight: 500;
-}
-
-.pack-pick-price-line {
+.pack-pick-instruction {
 	margin: 0;
 	font-size: calc(22 * var(--rpx));
-	color: rgba(250, 247, 242, 0.55);
+	line-height: 1.45;
+	color: rgba(250, 247, 242, 0.72);
+	font-weight: 600;
 }
 
-.pack-pick-price {
-	font-weight: 800;
-	color: #f4e6c8;
+.pack-pick-offers-panel {
+	width: 100%;
+	box-sizing: border-box;
+	padding: calc(14 * var(--rpx)) calc(12 * var(--rpx));
+	background: #3a3532;
+	border-radius: var(--radius);
+	border: calc(2 * var(--rpx)) solid rgba(255, 255, 255, 0.08);
+	box-shadow: inset 0 calc(1 * var(--rpx)) calc(4 * var(--rpx)) rgba(0, 0, 0, 0.22);
+}
+
+/* 5 项：5×货架格 + 4×间距 + 面板左右内边距（12×2） */
+.pack-pick-stack--wide {
+	max-width: min(100%, calc(620 * var(--rpx)));
+}
+
+.pack-pick-offers-panel--wide {
+	/* 5 格 + 4×gap8 + 左右 padding12×2 */
+	min-width: min(100%, calc(5 * var(--shop-shelf-cell-size) + 56 * var(--rpx)));
+}
+
+.pack-pick-offers-panel--wide .pack-pick-grid {
+	flex-wrap: nowrap;
+}
+
+.shop-treasure-price-inner--pack-struck {
+	opacity: 0.45;
+	text-decoration: line-through;
 }
 
 .pack-pick-grid {
-	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: calc(10 * var(--rpx));
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	align-items: center;
+	gap: calc(8 * var(--rpx));
 	width: 100%;
-	max-width: calc(520 * var(--rpx));
 }
 
-.pack-pick-cell {
-	border: none;
-	padding: calc(8 * var(--rpx));
-	margin: 0;
-	border-radius: calc(10 * var(--rpx));
-	background: rgba(32, 30, 36, 0.65);
-	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-	cursor: pointer;
-	text-align: center;
-	transition:
-		background 0.14s ease,
-		box-shadow 0.14s ease,
-		transform 0.14s ease;
-}
-
-.pack-pick-cell:hover {
-	background: rgba(44, 40, 50, 0.88);
-}
-
-.pack-pick-cell--selected {
-	box-shadow:
-		inset 0 0 0 2px rgba(244, 200, 120, 0.95),
-		0 calc(4 * var(--rpx)) calc(14 * var(--rpx)) rgba(0, 0, 0, 0.35);
-	transform: translateY(calc(-2 * var(--rpx)));
-}
-
-.pack-pick-face {
+/* 与 ShopPanel 货架格同宽：方框 width=height=--shop-shelf-cell-size，避免被 grid 列拉扁 */
+.pack-pick-offer-product.shop-treasure-product {
+	position: relative;
+	width: var(--shop-shelf-cell-size);
+	flex: 0 0 var(--shop-shelf-cell-size);
+	max-width: var(--shop-shelf-cell-size);
+	min-width: 0;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: calc(6 * var(--rpx));
-	min-height: calc(108 * var(--rpx));
+	overflow: visible;
 }
 
-.pack-pick-face--spell .shop-treasure-emoji--icon {
-	font-size: calc(44 * var(--rpx));
-	color: #c8e6ff;
+/* 货架字母块：LetterTile 即商品本体（无外层 shop-treasure-frame） */
+.shop-shelf-letter-tile.grid-tile {
+	width: var(--shop-shelf-cell-size);
+	height: var(--shop-shelf-cell-size);
+	flex-shrink: 0;
+	z-index: 2;
+	box-sizing: border-box;
+	container-type: size;
+	container-name: treasure-cell;
 }
 
-.pack-pick-face--upgrade .shop-treasure-emoji--icon {
-	font-size: calc(36 * var(--rpx));
-	color: #e8f0c8;
+.shop-shelf-letter-tile--detail {
+	width: calc(156 * var(--rpx));
+	height: calc(156 * var(--rpx));
 }
 
-.pack-pick-face--upgrade .shop-upgrade-length {
-	font-size: calc(26 * var(--rpx));
-	font-weight: 800;
-	color: #faf7f2;
-}
-
-.pack-pick-mini-rarity {
-	margin-top: calc(2 * var(--rpx));
-}
-
-.pack-pick-face--treasure .shop-treasure-emoji {
-	font-size: calc(40 * var(--rpx));
-	line-height: 1;
-}
-
-.pack-pick-cell-label {
-	font-size: calc(20 * var(--rpx));
-	font-weight: 700;
-	color: rgba(250, 247, 242, 0.92);
-	line-height: 1.2;
+.shop-treasure-visual.shop-treasure-visual--detail.shop-treasure-visual--deck-offer {
+	width: calc(156 * var(--rpx));
 	max-width: 100%;
-	overflow: hidden;
-	text-overflow: ellipsis;
+	align-items: stretch;
+	box-sizing: border-box;
+}
+
+.shop-treasure-visual--deck-offer .shop-shelf-letter-tile {
+	flex-shrink: 0;
+	align-self: center;
+}
+
+.shop-treasure-visual--deck-offer .shop-treasure-price {
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
+	align-self: stretch;
+	box-sizing: border-box;
+}
+
+.shop-treasure-visual--deck-offer .shop-treasure-price-inner {
+	min-width: 0;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+.treasure-detail-fly-clone-root .shop-shelf-letter-tile--detail {
+	width: 100%;
+	height: auto;
+	aspect-ratio: 1;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+/* 字母块飞入：克隆用货架类 + GSAP scale，内块铺满逻辑格，避免 --detail 固定 156 导致飞行中偏大 */
+.treasure-detail-fly-clone-root--deck-tile {
+	display: flex;
+	align-items: stretch;
+	justify-content: stretch;
+	overflow: visible;
+}
+
+.treasure-detail-fly-clone-root--deck-tile .shop-shelf-letter-tile {
+	width: 100%;
+	height: 100%;
+	flex: 1 1 auto;
+	max-width: none;
+	box-sizing: border-box;
+}
+
+@container treasure-cell (min-width: 0px) {
+	.shop-shelf-letter-tile.grid-tile .letter-tile-char {
+		font-size: calc(100cqmin * 38 / 108);
+	}
+
+	.shop-shelf-letter-tile.grid-tile .letter-gem {
+		left: calc(100cqmin * 6 / 108);
+		bottom: calc(100cqmin * 6 / 108);
+		width: calc(100cqmin * 14 / 108);
+		height: calc(100cqmin * 14 / 108);
+	}
+
+	.shop-shelf-letter-tile.grid-tile .letter-gem.gem-common {
+		border: calc(100cqmin * 1 / 108) solid #9c8b7a;
+	}
+
+	.shop-shelf-letter-tile.grid-tile .tile-accessory-chip {
+		top: calc(100cqmin * 4 / 108);
+		right: calc(100cqmin * 4 / 108);
+		width: calc(100cqmin * 22 / 108);
+		height: calc(100cqmin * 22 / 108);
+		border-radius: calc(100cqmin * 5 / 108);
+	}
+
+	.shop-shelf-letter-tile.grid-tile .tile-accessory-chip-icon {
+		font-size: calc(100cqmin * 13 / 108);
+	}
+}
+
+.pack-pick-offer-product .shop-treasure-visual {
+	cursor: pointer;
+}
+
+.pack-pick-offer-product--claimed .shop-treasure-frame,
+.pack-pick-offer-product--claimed .shop-shelf-letter-tile {
+	opacity: 0.55;
+}
+
+.pack-pick-offer-product--claimed .shop-treasure-visual {
+	cursor: pointer;
+}
+
+.pack-pick-claimed-badge {
+	position: absolute;
+	left: 50%;
+	bottom: calc(2 * var(--rpx));
+	transform: translateX(-50%);
+	font-size: calc(18 * var(--rpx));
+	font-weight: 800;
+	color: rgba(244, 220, 160, 0.95);
+	pointer-events: none;
 	white-space: nowrap;
+}
+
+.pack-pick-offer-product .shop-treasure-visual {
+	position: relative;
 }
 
 .pack-pick-fly-source {
 	flex-shrink: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.pack-pick-fly-source > .shop-treasure-frame {
-	width: calc(72 * var(--rpx));
-	height: calc(72 * var(--rpx));
-	box-sizing: border-box;
-}
-
-.pack-pick-treasure-fly-mini {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: calc(2 * var(--rpx));
-}
-
-.pack-pick-fly-source--tile .pack-pick-letter-tile {
-	width: calc(56 * var(--rpx));
-	height: calc(56 * var(--rpx));
 }
 
 .pack-tile-purchase-fly-clone {

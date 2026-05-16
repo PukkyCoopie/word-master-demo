@@ -14,6 +14,10 @@ import {
 
   computeWordScoreDetailed,
 
+  getLengthUpgradeStepAdds,
+
+  getObservatoryBoostedLengthUpgradeStepAdds,
+
   LETTER_RARITY_ORDER,
 
 } from "./useScoring";
@@ -79,6 +83,7 @@ function createDeckCard(raw0) {
     letterMultBonus: 0,
     isWildcard: false,
     accessoryId: /** @type {string | null} */ (null),
+    treasureAccessoryId: /** @type {string | null} */ (null),
   };
 }
 
@@ -132,6 +137,8 @@ export function syncTileStateToDeckCard(tile) {
   c.tileScoreBonus = Math.max(0, Math.floor(Number(tile?.tileScoreBonus) || 0));
   c.letterMultBonus = Math.max(0, Math.round(Number(tile?.letterMultBonus) || 0));
   c.accessoryId = tile?.accessoryId != null ? String(tile.accessoryId) : null;
+  c.treasureAccessoryId =
+    tile?.treasureAccessoryId != null ? String(tile.treasureAccessoryId) : null;
 }
 
 function shuffleArrayInPlace(arr, rng = Math.random) {
@@ -194,6 +201,7 @@ function emptyTile(idGen) {
 
     /** 配饰 id，如 level_upgrade；无则为 null */
     accessoryId: null,
+    treasureAccessoryId: null,
 
     selected: false,
     isWildcard: false,
@@ -240,6 +248,7 @@ function createTileFromLetter(raw, idGen, rarityLevelsSnapshot = null) {
     materialMultBonus: 0,
 
     accessoryId: null,
+    treasureAccessoryId: null,
 
     selected: false,
     isWildcard: false,
@@ -279,6 +288,7 @@ function createTileFromDeckCard(card, idGen, rarityLevelsSnapshot = null) {
     materialId: useWildcard ? WILDCARD_MATERIAL_ID : card.materialId ?? null,
     materialMultBonus: Number(card.materialMultBonus) || 0,
     accessoryId: card.accessoryId ?? null,
+    treasureAccessoryId: card.treasureAccessoryId ?? null,
     selected: false,
     isWildcard: useWildcard,
     bossGridBlocked: false,
@@ -559,6 +569,11 @@ export function useGameState(gameOpts = {}) {
   }
   const lengthLevelsByLength = shallowRef(buildDefaultLengthLevels());
 
+  /** 望远镜二级：超出整数等级表的额外每字分数/倍率（按次升级累加） */
+  const lengthUpgradeObservatoryExtra = shallowRef(
+    /** @type {Record<number, { score: number, mult: number }>} */ ({}),
+  );
+
   /** 供后续升级系统调用 */
   function setWordLengthLevel(len, level) {
     const L = Math.max(0, Math.round(Number(len)) || 0);
@@ -566,6 +581,30 @@ export function useGameState(gameOpts = {}) {
     const lv = Math.max(1, Math.round(Number(level)) || 1);
     const cur = lengthLevelsByLength.value;
     lengthLevelsByLength.value = { ...cur, [L]: lv };
+  }
+
+  /**
+   * 词长等级 +1；`observatoryBoost` 时本步增量按 1.5 倍（向下取整）写入 `lengthUpgradeObservatoryExtra`。
+   * @param {number} len
+   * @param {{ observatoryBoost?: boolean }} [opts]
+   */
+  function bumpWordLengthLevel(len, opts = {}) {
+    const L = Math.max(0, Math.round(Number(len)) || 0);
+    if (L < 3 || L > 16) return;
+    const curLv = Math.max(1, Math.round(Number(lengthLevelsByLength.value[L])) || 1);
+    setWordLengthLevel(L, curLv + 1);
+    if (!opts.observatoryBoost) return;
+    const base = getLengthUpgradeStepAdds(L);
+    const boosted = getObservatoryBoostedLengthUpgradeStepAdds(L);
+    const scoreDelta = boosted.scoreAdd - base.scoreAdd;
+    const multDelta = boosted.multAdd - base.multAdd;
+    if (scoreDelta <= 0 && multDelta <= 0) return;
+    const prevAll = lengthUpgradeObservatoryExtra.value;
+    const prev = prevAll[L] ?? { score: 0, mult: 0 };
+    lengthUpgradeObservatoryExtra.value = {
+      ...prevAll,
+      [L]: { score: prev.score + scoreDelta, mult: prev.mult + multDelta },
+    };
   }
 
   function recordSpellWordLength(tileCount) {
@@ -664,6 +703,7 @@ export function useGameState(gameOpts = {}) {
     const lengthJb =
       ownedVoucherIdsRef != null ? getWordLengthJudgmentBonus(ownedVoucherIdsRef.value ?? []) : 0;
     const flintOpts = activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
+    flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;
     const base = computeWordScore(tiles, 1, lengthLevelsByLength.value, rarityLevelsByRarity.value, lengthJb, flintOpts);
     const g = grid.value;
     const excludedKeys = gridSelectedPositionKeySet(selectedTiles.value);
@@ -690,7 +730,7 @@ export function useGameState(gameOpts = {}) {
 
     if (!tile) return;
 
-    if (tile.bossGridBlocked || tile.bossTileDebuffed) return;
+    if (tile.bossGridBlocked) return;
 
     if (tile.selected) return;
 
@@ -921,6 +961,7 @@ export function useGameState(gameOpts = {}) {
   function buildLastWordPayload(getDefinition, tilesSnapshot) {
     const word = tilesSnapshot.map((c) => c.letter.toLowerCase()).join("");
     const flintOpts = activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
+    flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;
     const scoreInfo = computeWordScoreDetailed(
       tilesSnapshot,
       1,
@@ -945,6 +986,7 @@ export function useGameState(gameOpts = {}) {
     const word = resolvedWord || fallbackWord;
     const definition = getDefinition ? getDefinition(word) : null;
     const flintOpts = activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
+    flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;
     const scoreInfo =
       scoreInfoOverride != null
         ? scoreInfoOverride
@@ -1189,100 +1231,29 @@ export function useGameState(gameOpts = {}) {
    */
   function resetDeckAfterStageEnd() {
     const g = grid.value;
-    // #region agent log
-    {
-      let cells = 0;
-      let gridSb = 0;
-      let gridMb = 0;
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          const t = g[r]?.[c];
-          if (!t?.letter) continue;
-          cells++;
-          gridSb += Math.max(0, Math.floor(Number(t.tileScoreBonus) || 0));
-          gridMb += Math.max(0, Math.round(Number(t.letterMultBonus) || 0));
-        }
-      }
-      fetch("http://127.0.0.1:7623/ingest/3382c565-2350-4795-bc82-3716661b9aea", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "487bb4" },
-        body: JSON.stringify({
-          sessionId: "487bb4",
-          runId: "pre-fix",
-          hypothesisId: "H4",
-          location: "useGameState.js:resetDeckAfterStageEnd:entry",
-          message: "grid bonuses before rebind",
-          data: { letterCells: cells, sumTileScoreBonus: gridSb, sumLetterMultBonus: gridMb },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
     const template = buildInitialDeckCards();
     const live = collectLiveDeckCardsFromGridAndDeck(g, deck.value);
     const cards = reconcileMultisetPreserveLiveWithTemplate(live, template);
     const pool = [...cards];
     initialDeckSnapshot.value = cards;
-    // #region agent log
-    {
-      let lb = 0;
-      let sb = 0;
-      for (const c of live) {
-        if (!c || typeof c !== "object") continue;
-        lb += Math.max(0, Math.round(Number(/** @type {{ letterMultBonus?: number }} */ (c).letterMultBonus) || 0));
-        sb += Math.max(0, Math.floor(Number(/** @type {{ tileScoreBonus?: number }} */ (c).tileScoreBonus) || 0));
-      }
-      fetch("http://127.0.0.1:7623/ingest/3382c565-2350-4795-bc82-3716661b9aea", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "487bb4" },
-        body: JSON.stringify({
-          sessionId: "487bb4",
-          runId: "post-fix",
-          hypothesisId: "H6",
-          location: "useGameState.js:resetDeckAfterStageEnd:multiset",
-          message: "preserve live multiset + reconcile",
-          data: {
-            liveN: live.length,
-            templateN: template.length,
-            outN: cards.length,
-            liveSumMult: lb,
-            liveSumScore: sb,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
-    let rebindOk = 0;
-    let rebindMiss = 0;
-    let skipNoRaw = 0;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const t = g[r]?.[c];
         if (!t?.letter) continue;
         const bindRaw = gridTileBindingRawForStageEnd(t);
-        if (!bindRaw) {
-          skipNoRaw++;
-          continue;
-        }
+        if (!bindRaw) continue;
         const wantWildcard = t.isWildcard === true;
         if (wantWildcard) {
           const p2 = pool.findIndex((card) => deckCardRaw(card) === bindRaw && !card.isWildcard);
           if (p2 >= 0) {
             const [card] = pool.splice(p2, 1);
             t._deckCard = card;
-            rebindOk++;
-          } else {
-            rebindMiss++;
           }
         } else {
           const pi = pool.findIndex((card) => deckCardRaw(card) === bindRaw && !card.isWildcard);
           if (pi >= 0) {
             const [card] = pool.splice(pi, 1);
             t._deckCard = card;
-            rebindOk++;
-          } else {
-            rebindMiss++;
           }
         }
         // 重绑失败时仍保留原 _deckCard：必须把格上角标/材质等写回牌张，否则下一关 buildGrid 从牌张读会丢剪贴板等持久化。
@@ -1291,37 +1262,6 @@ export function useGameState(gameOpts = {}) {
     }
     shuffleArrayInPlace(pool);
     deck.value = pool;
-    // #region agent log
-    {
-      let dSb = 0;
-      let dMb = 0;
-      for (const c of deck.value) {
-        if (!c || typeof c !== "object") continue;
-        dSb += Math.max(0, Math.floor(Number(c.tileScoreBonus) || 0));
-        dMb += Math.max(0, Math.round(Number(c.letterMultBonus) || 0));
-      }
-      fetch("http://127.0.0.1:7623/ingest/3382c565-2350-4795-bc82-3716661b9aea", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "487bb4" },
-        body: JSON.stringify({
-          sessionId: "487bb4",
-          runId: "pre-fix",
-          hypothesisId: "H2",
-          location: "useGameState.js:resetDeckAfterStageEnd:exit",
-          message: "rebind summary and deck bonus sums",
-          data: {
-            rebindOk,
-            rebindMiss,
-            skipNoRaw,
-            deckLen: deck.value.length,
-            deckSumTileScoreBonus: dSb,
-            deckSumLetterMultBonus: dMb,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
   }
 
   /**
@@ -1352,32 +1292,6 @@ export function useGameState(gameOpts = {}) {
     for (const c of deck.value) pool.push(c);
     shuffleArrayInPlace(pool);
     deck.value = pool;
-    // #region agent log
-    {
-      let nCard = 0;
-      let sumSb = 0;
-      let sumMb = 0;
-      for (const c of pool) {
-        if (!c || typeof c !== "object") continue;
-        nCard++;
-        sumSb += Math.max(0, Math.floor(Number(c.tileScoreBonus) || 0));
-        sumMb += Math.max(0, Math.round(Number(c.letterMultBonus) || 0));
-      }
-      fetch("http://127.0.0.1:7623/ingest/3382c565-2350-4795-bc82-3716661b9aea", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "487bb4" },
-        body: JSON.stringify({
-          sessionId: "487bb4",
-          runId: "pre-fix",
-          hypothesisId: "H3",
-          location: "useGameState.js:resetLevel:preBuildGrid",
-          message: "full multiset before buildGrid",
-          data: { poolCards: nCard, sumTileScoreBonus: sumSb, sumLetterMultBonus: sumMb },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
     grid.value = buildGrid();
     const bh =
       runOpts?.remainingWords != null && Number.isFinite(Number(runOpts.remainingWords))
@@ -1479,7 +1393,7 @@ export function useGameState(gameOpts = {}) {
 
   /**
    * 商店购入：向 multiset 追加新牌张并进入抽牌堆（与初始建库同构的 `createDeckCard`）。
-   * @param {{ raw: string, materialId?: string | null, accessoryId?: string | null }[]} entries `raw` 小写单字母，`q` 表示 Qu。
+   * @param {{ raw: string, materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null }[]} entries `raw` 小写单字母，`q` 表示 Qu。
    */
   function appendShopDeckEntries(entries) {
     if (!Array.isArray(entries) || entries.length === 0) return;
@@ -1500,6 +1414,8 @@ export function useGameState(gameOpts = {}) {
       }
       const acc = e?.accessoryId != null ? String(e.accessoryId).trim() : "";
       if (acc) card.accessoryId = acc;
+      const tAcc = e?.treasureAccessoryId != null ? String(e.treasureAccessoryId).trim() : "";
+      if (tAcc) card.treasureAccessoryId = tAcc;
       snap.push(card);
       d.push(card);
     }
@@ -1521,7 +1437,11 @@ export function useGameState(gameOpts = {}) {
 
     lengthLevelsByLength,
 
+    lengthUpgradeObservatoryExtra,
+
     setWordLengthLevel,
+
+    bumpWordLengthLevel,
 
     rarityLevelsByRarity,
 

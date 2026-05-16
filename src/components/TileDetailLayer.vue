@@ -4,7 +4,10 @@
       v-if="payload"
       ref="backdropRef"
       class="treasure-detail-backdrop tile-detail-layer"
-      :class="{ 'tile-detail-backdrop--boot': bootMask }"
+      :class="{
+        'tile-detail-backdrop--boot': bootMask,
+        'portal-overlay--shop-upgrade-suppressed': overlaySuppressed,
+      }"
       :style="backdropStackStyle"
       role="dialog"
       aria-modal="true"
@@ -27,6 +30,7 @@
                   :rarity="payload.rarity"
                   :material-id="payload.materialId"
                   :accessory-id="payload.accessoryId"
+                  :treasure-accessory-id="payload.treasureAccessoryId"
                   :tile-score-bonus="Number(payload.tileScoreBonus) || 0"
                   :tile-mult-bonus="Number(payload.tileMultBonus) || 0"
                 />
@@ -63,6 +67,33 @@
               <TreasureDescRichText
                 class="treasure-detail-desc-panel-rich"
                 :description="materialEffectText"
+                :panel-body="true"
+              />
+            </div>
+
+            <div
+              v-if="showTreasureAccessoryRegion"
+              class="treasure-detail-desc-card tile-detail-entry tile-detail-stagger-el"
+            >
+              <div class="treasure-detail-desc-panel-title-row">
+                <span
+                  v-if="treasureAccessoryChipVisual"
+                  class="treasure-accessory-chip detail-panel-accessory-chip-inline"
+                  :class="treasureAccessoryChipVisual.chipClass"
+                  aria-hidden="true"
+                >
+                  <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+                  <i
+                    class="treasure-accessory-chip-icon"
+                    :class="treasureAccessoryChipVisual.iconClass"
+                    aria-hidden="true"
+                  />
+                </span>
+                <span class="treasure-detail-desc-panel-title-text">{{ treasureAccessoryTitle }}</span>
+              </div>
+              <TreasureDescRichText
+                class="treasure-detail-desc-panel-rich"
+                :description="treasureAccessoryDesc"
                 :panel-body="true"
               />
             </div>
@@ -116,6 +147,7 @@
                 :rarity="payload.rarity"
                 :material-id="payload.materialId"
                 :accessory-id="payload.accessoryId"
+                :treasure-accessory-id="payload.treasureAccessoryId"
                 :tile-score-bonus="Number(payload.tileScoreBonus) || 0"
                 :tile-mult-bonus="Number(payload.tileMultBonus) || 0"
               />
@@ -136,6 +168,11 @@ import { getTileMaterialEffectDescription, getTileAccessoryEffectDescription } f
 import TreasureDescRichText from "./TreasureDescRichText.vue";
 import { getTileAccessoryChipVisual } from "../game/tileAccessories";
 import {
+  getTreasureAccessoryChipVisual,
+  getTreasureAccessoryPanelDescription,
+  getTreasureAccessoryPanelTitle,
+} from "../game/treasureAccessories";
+import {
   tileDetailLayerCopy,
   getTileDetailRarityTierLabel,
   getTileDetailMaterialTitle,
@@ -151,6 +188,7 @@ const props = defineProps({
   originRect: { type: Object, default: null },
   /** 各稀有度等级（与局内 `rarityLevelsByRarity` 一致） */
   rarityLevelsByRarity: { type: Object, default: null },
+  overlaySuppressed: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["close"]);
@@ -674,6 +712,24 @@ const accessoryTitle = computed(() => getTileDetailAccessoryTitle(props.payload?
 const tileAccessoryChipVisual = computed(() => getTileAccessoryChipVisual(props.payload?.accessoryId));
 
 const showAccessoryRegion = computed(() => Boolean(accessoryIdNorm.value && accessoryDesc.value));
+
+const treasureAccessoryIdNorm = computed(() => String(props.payload?.treasureAccessoryId ?? "").trim());
+
+const treasureAccessoryTitle = computed(() =>
+  getTreasureAccessoryPanelTitle(props.payload?.treasureAccessoryId),
+);
+
+const treasureAccessoryDesc = computed(() =>
+  getTreasureAccessoryPanelDescription(props.payload?.treasureAccessoryId),
+);
+
+const treasureAccessoryChipVisual = computed(() =>
+  getTreasureAccessoryChipVisual(props.payload?.treasureAccessoryId),
+);
+
+const showTreasureAccessoryRegion = computed(
+  () => Boolean(treasureAccessoryIdNorm.value && treasureAccessoryDesc.value),
+);
 </script>
 
 <style scoped>

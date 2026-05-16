@@ -133,6 +133,13 @@ export const BOSS_BY_SLUG = Object.freeze({
     uiDescription: "词长和稀有度提供的基础分数和倍率减半",
     kind: "normal",
   },
+  the_noble_end: {
+    slug: "the_noble_end",
+    nameZh: "末贵",
+    m: 1,
+    uiDescription: "不允许以普通稀有度的字母结尾",
+    kind: "normal",
+  },
   amber_acorn: {
     slug: "amber_acorn",
     nameZh: "琥珀橡子",

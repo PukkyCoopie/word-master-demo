@@ -47,6 +47,7 @@ export function createFlyBackTileElement(item) {
   if (item.materialId === "fire") cls += " tile-material-fire";
   if (item.materialId === "wildcard") cls += " tile-material-wildcard";
   if (item.materialId === "lucky") cls += " tile-material-lucky";
+  if (item.bossTileDebuffed === true) cls += " letter-tile-boss-debuff";
   el.className = cls;
   const r = item.fromRect;
   const scale = item.startSlotScale ?? 1;
@@ -89,6 +90,14 @@ export function createFlyBackTileElement(item) {
                   ? attachWildcardRegl
                   : attachLuckyRegl;
     pushDispose(el, attach(canvas, reglOpts));
+  }
+
+  if (item.bossTileDebuffed === true) {
+    const bossX = document.createElement("span");
+    bossX.className = "letter-tile-boss-x";
+    bossX.setAttribute("aria-hidden", "true");
+    bossX.textContent = "×";
+    el.appendChild(bossX);
   }
 
   const gem = document.createElement("span");

@@ -1,5 +1,12 @@
 <template>
-  <div class="info-layer" role="dialog" aria-modal="true" aria-label="信息" :style="layerStackStyle">
+  <div
+    class="info-layer"
+    :class="{ 'portal-overlay--shop-upgrade-suppressed': overlaySuppressed }"
+    role="dialog"
+    aria-modal="true"
+    aria-label="信息"
+    :style="layerStackStyle"
+  >
     <div class="info-layer-inner" @click.stop>
       <div class="info-tabs-outer">
         <div class="info-tabs" role="tablist">
@@ -60,7 +67,15 @@
               <tr>
                 <th scope="col">单词长度</th>
                 <th scope="col">等级</th>
-                <th scope="col">分数×倍率</th>
+                <th scope="col" class="info-th-level-score-mult" aria-label="分数（每字母）×倍率">
+                  <div class="info-th-score-mult-head">
+                    <span class="info-th-score-mult-head__a"
+                      >分数<span class="info-th-score-mult-head__per-letter">（每字母）</span></span
+                    >
+                    <span class="info-th-score-mult-head__x" aria-hidden="true">×</span>
+                    <span class="info-th-score-mult-head__b">倍率</span>
+                  </div>
+                </th>
                 <th scope="col">拼出次数</th>
               </tr>
             </thead>
@@ -190,11 +205,15 @@ const props = defineProps({
   /** 各单词长度（3–16）的等级，默认可由父级初始化为 1，后续可升级 */
   /** @type {import('vue').PropType<Record<number, number>>} */
   lengthLevels: { type: Object, default: () => ({}) },
+  /** 望远镜二级：超出整数等级的额外每字分数/倍率 */
+  /** @type {import('vue').PropType<Record<number, { score?: number, mult?: number }>>} */
+  lengthUpgradeObservatoryExtra: { type: Object, default: () => ({}) },
   /** common / rare / epic / legendary → 等级 */
   /** @type {import('vue').PropType<Record<string, number>>} */
   rarityLevels: { type: Object, default: () => ({}) },
   /** 本局已购买的优惠券 id 列表 */
   ownedVoucherIds: { type: Array, default: () => [] },
+  overlaySuppressed: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -279,7 +298,7 @@ watch(activeTab, (tab) => {
 });
 
 watch(
-  () => [props.lengthLevels, props.spellCounts],
+  () => [props.lengthLevels, props.spellCounts, props.lengthUpgradeObservatoryExtra],
   () => {
     if (activeTab.value === "level") scheduleMeasureLevelTab();
   },
@@ -289,14 +308,15 @@ watch(
 const lengthRows = computed(() => {
   const counts = props.spellCounts || {};
   const levels = props.lengthLevels || {};
+  const obsExtra = props.lengthUpgradeObservatoryExtra || {};
   const rows = [];
   for (let len = 3; len <= 16; len++) {
     const lv = levels[len];
     rows.push({
       len,
       level: Math.max(1, Math.round(Number(lv)) || 1),
-      baseScore: getBaseScorePerLetterForWordLength(len, levels),
-      mult: getLengthMultiplier(len, levels),
+      baseScore: getBaseScorePerLetterForWordLength(len, levels, obsExtra),
+      mult: getLengthMultiplier(len, levels, obsExtra),
       count: Math.max(0, Math.round(Number(counts[len]) || 0)),
     });
   }
@@ -523,6 +543,17 @@ function close() {
   font-weight: 800;
   color: rgba(250, 248, 239, 0.88);
   flex-shrink: 0;
+}
+
+.info-th-score-mult-head__per-letter {
+  font-size: calc(14 * var(--rpx));
+  font-weight: 700;
+  color: rgba(250, 248, 239, 0.48);
+  letter-spacing: 0;
+}
+
+.info-th-level-score-mult {
+  padding: calc(8 * var(--rpx)) calc(4 * var(--rpx));
 }
 
 /* 字母块 Tab：在固定高度槽内垂直居中，整体更疏、更大 */

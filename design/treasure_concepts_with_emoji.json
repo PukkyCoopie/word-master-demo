@@ -18,7 +18,7 @@
       "rarity": "rare",
       "name": "绘图铅笔",
       "emoji": "✏️",
-      "description": "拼写的普通字母在记分时给予+1倍率"
+      "description": "拼写的普通字母在记分时给予+2倍率"
     },
     {
       "index": 3,
@@ -27,7 +27,7 @@
       "rarity": "rare",
       "name": "钢笔",
       "emoji": "🖋️",
-      "description": "拼写的稀有字母在记分时给予+3倍率"
+      "description": "拼写的稀有字母在记分时给予+4倍率"
     },
     {
       "index": 4,
@@ -36,7 +36,7 @@
       "rarity": "rare",
       "name": "蘸水羽毛笔",
       "emoji": "🪶",
-      "description": "拼写的史诗字母在记分时给予+6倍率"
+      "description": "拼写的史诗字母在记分时给予+8倍率"
     },
     {
       "index": 5,
@@ -45,7 +45,7 @@
       "rarity": "rare",
       "name": "冠军奖杯",
       "emoji": "🏆",
-      "description": "拼写的传说字母在记分时给予+10倍率"
+      "description": "拼写的传说字母在记分时给予+16倍率"
     },
     {
       "index": 6,

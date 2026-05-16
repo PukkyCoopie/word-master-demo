@@ -24,7 +24,17 @@ export function dictionaryPosMatchesClubKey(dictPos, requiredKey) {
 }
 
 /**
- * @param {{ slug: string, wordLen: number, resolvedWord: string, getWordDefinition: (w: string) => { pos?: string } | null | undefined, usedLengthsThisLevel: Set<number>, mouthLockedLength: number | null, clubRequiredKey: string | null }} ctx
+ * @param {Array<{ rarity?: string }> | null | undefined} tiles 按拼词顺序的字母块
+ * @returns {string} common | rare | epic | legendary
+ */
+export function getEndingLetterRarityFromTiles(tiles) {
+  const list = Array.isArray(tiles) ? tiles : [];
+  if (!list.length) return "common";
+  return String(list[list.length - 1]?.rarity ?? "common");
+}
+
+/**
+ * @param {{ slug: string, wordLen: number, resolvedWord: string, endingLetterRarity?: string, getWordDefinition: (w: string) => { pos?: string } | null | undefined, usedLengthsThisLevel: Set<number>, mouthLockedLength: number | null, clubRequiredKey: string | null }} ctx
  * @returns {{ violated: boolean, reason: string }}
  */
 export function evaluateBossSoftWordViolation(ctx) {
@@ -58,6 +68,12 @@ export function evaluateBossSoftWordViolation(ctx) {
     const def = ctx.getWordDefinition ? ctx.getWordDefinition(w) : null;
     const pos = def?.pos;
     if (!dictionaryPosMatchesClubKey(pos, key)) return { violated: true, reason: "棘梅：词性不符" };
+    return { violated: false, reason: "" };
+  }
+
+  if (slug === "the_noble_end") {
+    const endRarity = String(ctx.endingLetterRarity ?? "common");
+    if (endRarity === "common") return { violated: true, reason: "末贵：不允许以普通稀有度的字母结尾" };
     return { violated: false, reason: "" };
   }
 

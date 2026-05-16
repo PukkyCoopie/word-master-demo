@@ -12,6 +12,7 @@ import TileSteelRegl from "./TileSteelRegl.vue";
 import TileWildcardRegl from "./TileWildcardRegl.vue";
 import TileWaterRegl from "./TileWaterRegl.vue";
 import { getTileAccessoryChipVisual } from "../game/tileAccessories";
+import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories";
 
 defineOptions({ inheritAttrs: false });
 
@@ -34,8 +35,10 @@ const props = defineProps({
   menuCycleSec: { type: Number, default: null },
   /** 材质，如 "gold" */
   materialId: { type: String, default: null },
-  /** 配饰 id，如 level_upgrade */
+  /** 棋盘专用配饰 id，如 level_upgrade */
   accessoryId: { type: String, default: null },
+  /** 通用宝藏配饰 id（火焰/水滴/扳手；与 accessoryId 可并存） */
+  treasureAccessoryId: { type: String, default: null },
   /** Boss 镣铐顶行禁位 */
   bossGridBlocked: { type: Boolean, default: false },
   /** Boss tile 废 */
@@ -93,6 +96,10 @@ const showLuckyMaterial = computed(
   () => props.materialId === "lucky" && ["grid", "wordSlotContent", "fly", "deck"].includes(props.variant),
 );
 
+const showBossDebuffVisual = computed(
+  () => props.bossTileDebuffed && ["grid", "wordSlotContent", "fly"].includes(props.variant),
+);
+
 const mergedClass = computed(() => {
   const matClass = showGoldMaterial.value
     ? "tile-material-gold"
@@ -112,7 +119,7 @@ const mergedClass = computed(() => {
   const bossClass =
     props.variant === "grid" && props.bossGridBlocked
       ? "letter-tile-boss-blocked"
-      : props.variant === "grid" && props.bossTileDebuffed
+      : showBossDebuffVisual.value
         ? "letter-tile-boss-debuff"
         : props.ceruleanBellLocked && (props.variant === "grid" || props.variant === "wordSlotContent")
           ? "letter-tile-cerulean-lock"
@@ -156,6 +163,12 @@ const accessoryChipVisual = computed(() => {
   if (!["grid", "wordSlotContent", "fly", "deck"].includes(v)) return null;
   return getTileAccessoryChipVisual(props.accessoryId);
 });
+
+const treasureAccessoryChipVisual = computed(() => {
+  const v = props.variant;
+  if (!["grid", "wordSlotContent", "fly", "deck"].includes(v)) return null;
+  return getTreasureAccessoryChipVisual(props.treasureAccessoryId);
+});
 </script>
 
 <template>
@@ -175,19 +188,23 @@ const accessoryChipVisual = computed(() => {
         >+{{ multBadge }}</span
       >
     </template>
+    <span v-if="showBossDebuffVisual" class="letter-tile-boss-x" aria-hidden="true">×</span>
     <span class="letter-gem" :class="`gem-${rarity}`" aria-hidden="true" />
     <span class="letter-tile-char">{{ letter }}</span>
-    <span
-      v-if="variant === 'grid' && bossTileDebuffed"
-      class="letter-tile-boss-x"
-      aria-hidden="true"
-      >×</span
-    >
     <i
       v-if="ceruleanBellLocked && (variant === 'grid' || variant === 'wordSlotContent')"
       class="letter-tile-cerulean-lock-icon ri-lock-fill"
       aria-hidden="true"
     />
+    <span
+      v-if="treasureAccessoryChipVisual"
+      class="treasure-accessory-chip tile-treasure-accessory-chip"
+      :class="treasureAccessoryChipVisual.chipClass"
+      aria-hidden="true"
+    >
+      <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+      <i class="treasure-accessory-chip-icon" :class="treasureAccessoryChipVisual.iconClass" aria-hidden="true" />
+    </span>
     <span
       v-if="accessoryChipVisual"
       class="tile-accessory-chip"

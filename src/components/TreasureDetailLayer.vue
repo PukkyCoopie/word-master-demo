@@ -3,11 +3,16 @@
     <div
       ref="backdropRef"
       class="treasure-detail-backdrop"
-      :class="{ 'treasure-detail-backdrop--boot': bootMask }"
+      :class="{
+        'treasure-detail-backdrop--boot': bootMask,
+        'treasure-detail-backdrop--deck-offer': isDeckOffer,
+        'portal-overlay--shop-upgrade-suppressed': overlaySuppressed,
+      }"
+      :aria-label="isDeckOffer ? tileDetailLayerCopy.ariaLabelDialog : undefined"
       :style="backdropStackStyle"
       role="dialog"
       aria-modal="true"
-      :aria-labelledby="titleId"
+      :aria-labelledby="isDeckOffer ? undefined : titleId"
       @click.self="requestClose"
     >
       <!-- 与 ShopPanel.shop-header-panel 同款：左上占位宽度对齐 SHOP 招牌；右上钱包仅在商店内打开详情时显示 -->
@@ -30,7 +35,11 @@
 
       <div class="treasure-detail-body" @click.self="requestClose">
         <div class="treasure-detail-stack" @click.self="requestClose">
-          <div ref="titleGroupRef" class="treasure-detail-title-group treasure-detail-stagger-el">
+          <div
+            v-if="!isDeckOffer"
+            ref="titleGroupRef"
+            class="treasure-detail-title-group treasure-detail-stagger-el"
+          >
             <p class="treasure-detail-kind-caption">{{ detailKindCaption }}</p>
             <h2 :id="titleId" ref="nameRef" class="treasure-detail-name">
               {{ displayTreasureName }}
@@ -38,8 +47,26 @@
           </div>
 
           <div class="treasure-detail-icon-column">
-            <div ref="targetVisualRef" class="shop-treasure-visual shop-treasure-visual--detail">
+            <div
+              ref="targetVisualRef"
+              class="shop-treasure-visual shop-treasure-visual--detail"
+              :class="{ 'shop-treasure-visual--deck-offer': isDeckOffer }"
+            >
+              <LetterTile
+                v-if="isDeckOffer"
+                ref="detailFlyFrameRef"
+                variant="grid"
+                class="shop-shelf-letter-tile shop-shelf-letter-tile--detail"
+                :letter="deckOfferLetter"
+                :rarity="treasure.letterRarity ?? treasure.rarity ?? 'common'"
+                :material-id="treasure.offerType === 'deckTile' ? treasure.deckTileMaterialId : undefined"
+                :accessory-id="deckOfferAccessoryId"
+                :treasure-accessory-id="deckOfferTreasureAccessoryId"
+                :tile-score-bonus="0"
+                :tile-mult-bonus="0"
+              />
               <div
+                v-else
                 ref="detailFlyFrameRef"
                 class="shop-treasure-frame shop-treasure-frame--detail"
                 :class="{
@@ -50,12 +77,13 @@
                   'shop-treasure-frame--pack-rarity':
                     treasure?.offerType === 'upgrade' && treasure?.upgradeKind === 'rarity',
                   'shop-treasure-frame--spell-offer': isSpellOffer,
+                  'shop-treasure-frame--voucher-stamp': isVoucherOffer,
                   'treasure-detail-frame--charge-inactive': chargeVisualState === 'inactive',
                   'treasure-detail-frame--charge-active': chargeVisualState === 'active',
                 }"
                 :style="{ '--charge-progress': String(chargeProgress ?? 0) }"
               >
-                <template v-if="isPackRarityUpgrade">
+                <template v-if="isUpgradeOffer">
                   <i
                     v-if="treasure.iconClass"
                     ref="emojiRef"
@@ -66,12 +94,21 @@
                   <span v-else ref="emojiRef" class="shop-treasure-emoji shop-treasure-emoji--detail" role="img">{{
                     treasure.emoji
                   }}</span>
-                  <div class="shop-pack-rarity-caption-row shop-pack-rarity-caption-row--detail">
-                    <span class="letter-gem shop-pack-rarity-gem" :class="`gem-${packLetterRarityKey}`" aria-hidden="true" />
-                    <span class="shop-pack-rarity-caption shop-upgrade-length--detail">{{
-                      treasure.lengthBadgeLabel || treasure.lengthLabel
-                    }}</span>
-                  </div>
+                  <span
+                    v-if="isPackRarityUpgrade && (treasure.lengthBadgeLabel || treasure.lengthLabel)"
+                    class="shop-pack-rarity-caption shop-upgrade-length--detail"
+                    >{{ treasure.lengthBadgeLabel || treasure.lengthLabel }}</span
+                  >
+                  <span
+                    v-else-if="treasure.lengthBadgeLabel || treasure.lengthLabel"
+                    class="shop-upgrade-length shop-upgrade-length--detail"
+                    :class="{
+                      'shop-upgrade-length--single-digit': isSingleDigitLabel(
+                        treasure.lengthBadgeLabel || treasure.lengthLabel,
+                      ),
+                    }"
+                    >{{ treasure.lengthBadgeLabel || treasure.lengthLabel }}</span
+                  >
                 </template>
                 <template v-else-if="isVoucherOffer">
                   <span ref="emojiRef" class="shop-treasure-emoji shop-treasure-emoji--detail" role="img">{{
@@ -134,9 +171,13 @@
                   aria-hidden="true"
                 ></i>
               </div>
-              <div class="shop-treasure-price" :aria-label="mode === 'offer' ? '售价' : '回收价'">
-                <div class="shop-treasure-price-inner">
+              <div class="shop-treasure-price" :aria-label="mode === 'pack-inner' ? '参考售价' : mode === 'offer' ? '售价' : '回收价'">
+                <div
+                  class="shop-treasure-price-inner"
+                  :class="{ 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' }"
+                >
                   <template v-if="mode === 'offer'">${{ offerPriceDisplayed }}</template>
+                  <template v-else-if="mode === 'pack-inner'">${{ offerPriceDisplayed }}</template>
                   <template v-else>${{ sellRefund }}</template>
                 </div>
               </div>
@@ -144,21 +185,47 @@
           </div>
 
           <div ref="descRef" class="treasure-detail-desc-card treasure-detail-stagger-el">
-            <div v-if="showDetailRarityTag" class="treasure-detail-rarity-row">
-              <span
-                class="treasure-rarity-tag"
-                :class="'treasure-rarity-tag--' + (treasure.rarity || 'rare')"
-                >{{ rarityTagLabel }}</span
-              >
-            </div>
-            <TreasureDescRichText
-              v-if="hasTreasureDescBody"
-              :description="descriptionOverride ?? treasure.description"
-            />
+            <template v-if="isDeckOffer">
+              <div v-if="showDetailRarityTag" class="treasure-detail-rarity-row">
+                <span
+                  class="treasure-rarity-tag"
+                  :class="'treasure-rarity-tag--' + deckOfferRarityKey"
+                  >{{ deckOfferRarityTagLabel }}</span
+                >
+              </div>
+              <div class="tile-detail-rarity-score-mult">
+                <div class="tile-detail-score-mult-frame">
+                  <div class="info-score-mult" role="group" :aria-label="deckOfferScoreMultAria">
+                    <span class="tile-detail-score-mult-side-label">{{
+                      tileDetailLayerCopy.rarity.scoreLabel
+                    }}</span>
+                    <span class="info-mini-box info-mini-box--score">{{ deckOfferScoreDisplay }}</span>
+                    <span class="info-mini-times" aria-hidden="true">×</span>
+                    <span class="info-mini-box info-mini-box--mult">{{ deckOfferMultDisplay }}</span>
+                    <span class="tile-detail-score-mult-side-label">{{
+                      tileDetailLayerCopy.rarity.multLabel
+                    }}</span>
+                  </div>
+                </div>
+              </div>
+            </template>
+            <template v-else>
+              <div v-if="showDetailRarityTag" class="treasure-detail-rarity-row">
+                <span
+                  class="treasure-rarity-tag"
+                  :class="'treasure-rarity-tag--' + (treasure.rarity || 'rare')"
+                  >{{ rarityTagLabel }}</span
+                >
+              </div>
+              <TreasureDescRichText
+                v-if="hasTreasureDescBody"
+                :description="descriptionOverride ?? treasure.description"
+              />
+            </template>
           </div>
 
           <div
-            v-if="showTreasureGainPanel"
+            v-if="showTreasureGainPanel && !isDeckOffer"
             ref="treasureGainPanelRef"
             class="treasure-detail-extra-regions treasure-detail-stagger-el"
           >
@@ -175,7 +242,7 @@
           </div>
 
           <div
-            v-if="showSpellGainPanel"
+            v-if="showSpellGainPanel && !isDeckOffer"
             ref="spellGainPanelRef"
             class="treasure-detail-extra-regions treasure-detail-stagger-el"
           >
@@ -192,7 +259,7 @@
           </div>
 
           <div
-            v-if="showTreasureAccessoryPanel"
+            v-if="showTreasureAccessoryPanel && !isDeckOffer"
             ref="accessoryPanelRef"
             class="treasure-detail-extra-regions treasure-detail-stagger-el"
           >
@@ -228,6 +295,15 @@
               购买
             </button>
             <button
+              v-if="mode === 'pack-inner'"
+              type="button"
+              class="shop-btn shop-btn--buy"
+              :disabled="!canBuyOffer"
+              @click="emit('purchase')"
+            >
+              {{ packInnerPrimaryLabel }}
+            </button>
+            <button
               v-if="isOwnedMode"
               type="button"
               class="shop-btn shop-btn--reroll"
@@ -245,11 +321,29 @@
       <div
         v-if="originRect && flyCloneActive"
         ref="flyCloneRef"
-        class="shop-treasure-visual shop-treasure-visual--detail treasure-detail-fly-clone-root"
-        :style="flyCloneFixedStyle"
+        class="treasure-detail-fly-clone-root"
+        :class="
+          isDeckOffer
+            ? 'treasure-detail-fly-clone-root--deck-tile'
+            : 'shop-treasure-visual shop-treasure-visual--detail'
+        "
+        :style="flyCloneStyle"
         aria-hidden="true"
       >
+        <LetterTile
+          v-if="isDeckOffer"
+          variant="grid"
+          class="shop-shelf-letter-tile"
+          :letter="deckOfferLetter"
+          :rarity="treasure.letterRarity ?? treasure.rarity ?? 'common'"
+          :material-id="treasure.offerType === 'deckTile' ? treasure.deckTileMaterialId : undefined"
+          :accessory-id="deckOfferAccessoryId"
+          :treasure-accessory-id="deckOfferTreasureAccessoryId"
+          :tile-score-bonus="0"
+          :tile-mult-bonus="0"
+        />
         <div
+          v-else
           class="shop-treasure-frame shop-treasure-frame--detail"
           :class="{
             'shop-treasure-frame--owned': isOwnedMode,
@@ -259,12 +353,13 @@
             'shop-treasure-frame--pack-rarity':
               treasure?.offerType === 'upgrade' && treasure?.upgradeKind === 'rarity',
             'shop-treasure-frame--spell-offer': isSpellOffer,
+            'shop-treasure-frame--voucher-stamp': isVoucherOffer,
             'treasure-detail-frame--charge-inactive': chargeVisualState === 'inactive',
             'treasure-detail-frame--charge-active': chargeVisualState === 'active',
           }"
           :style="{ '--charge-progress': String(chargeProgress ?? 0) }"
         >
-          <template v-if="isPackRarityUpgrade">
+          <template v-if="isUpgradeOffer">
             <i
               v-if="treasure.iconClass"
               class="shop-treasure-emoji shop-treasure-emoji--detail shop-treasure-emoji--icon"
@@ -272,12 +367,21 @@
               aria-hidden="true"
             ></i>
             <span v-else class="shop-treasure-emoji shop-treasure-emoji--detail">{{ treasure.emoji }}</span>
-            <div class="shop-pack-rarity-caption-row shop-pack-rarity-caption-row--detail">
-              <span class="letter-gem shop-pack-rarity-gem" :class="`gem-${packLetterRarityKey}`" aria-hidden="true" />
-              <span class="shop-pack-rarity-caption shop-upgrade-length--detail">{{
-                treasure.lengthBadgeLabel || treasure.lengthLabel
-              }}</span>
-            </div>
+            <span
+              v-if="isPackRarityUpgrade && (treasure.lengthBadgeLabel || treasure.lengthLabel)"
+              class="shop-pack-rarity-caption shop-upgrade-length--detail"
+              >{{ treasure.lengthBadgeLabel || treasure.lengthLabel }}</span
+            >
+            <span
+              v-else-if="treasure.lengthBadgeLabel || treasure.lengthLabel"
+              class="shop-upgrade-length shop-upgrade-length--detail"
+              :class="{
+                'shop-upgrade-length--single-digit': isSingleDigitLabel(
+                  treasure.lengthBadgeLabel || treasure.lengthLabel,
+                ),
+              }"
+              >{{ treasure.lengthBadgeLabel || treasure.lengthLabel }}</span
+            >
           </template>
           <template v-else-if="isVoucherOffer">
             <span class="shop-treasure-emoji shop-treasure-emoji--detail">{{ treasure.emoji }}</span>
@@ -333,9 +437,12 @@
             aria-hidden="true"
           ></i>
         </div>
-        <div class="shop-treasure-price">
-          <div class="shop-treasure-price-inner">
-            <template v-if="mode === 'offer'">${{ offerPriceDisplayed }}</template>
+        <div v-if="!isDeckOffer" class="shop-treasure-price">
+          <div
+            class="shop-treasure-price-inner"
+            :class="{ 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' }"
+          >
+            <template v-if="mode === 'offer' || mode === 'pack-inner'">${{ offerPriceDisplayed }}</template>
             <template v-else>${{ sellRefund }}</template>
           </div>
         </div>
@@ -356,8 +463,11 @@ import {
 import { resolveTreasureDetailGainPanel } from "../treasures/treasureRegistry.js";
 import { getSpellGainPanel } from "../spells/spellGainPanel.js";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
+import LetterTile from "./LetterTile.vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
+import { getBaseScoreForRarity, getRarityMultBonusForRarity } from "../composables/useScoring.js";
+import { tileDetailLayerCopy, getTileDetailRarityTierLabel } from "../game/tileDetailLayerCopy.js";
 
 const props = defineProps({
   treasure: { type: Object, required: true },
@@ -371,12 +481,16 @@ const props = defineProps({
   walletAmount: { type: Number, default: 0 },
   sellRefund: { type: Number, default: 0 },
   canBuyOffer: { type: Boolean, default: false },
+  packInnerAlreadyClaimed: { type: Boolean, default: false },
   /** @type {{ left: number, top: number, width: number, height: number } | null} */
   originRect: { type: Object, default: null },
   /** 法术「重播」预览用：上一张可重播法术 id */
   spellReplayTargetSpellId: { type: String, default: null },
   /** 已拥有优惠券 id（商店内标价折扣用） */
   ownedVoucherIds: { type: Array, default: () => [] },
+  overlaySuppressed: { type: Boolean, default: false },
+  /** 字母块预览：分数×倍率与 TileDetailLayer 一致 */
+  rarityLevelsByRarity: { type: Object, default: null },
 });
 
 const offerPriceDisplayed = computed(() =>
@@ -390,11 +504,80 @@ const hasTreasureDescBody = computed(() => {
   return String(raw).trim().length > 0;
 });
 
-const isOwnedMode = computed(() => props.mode !== "offer");
-const sellEnabled = computed(() => props.mode !== "offer");
+const isOwnedMode = computed(() => props.mode === "owned-shop" || props.mode === "owned-game");
+const sellEnabled = computed(() => isOwnedMode.value);
 
 /** 局内棋盘打开宝藏详情（owned-game）不重复显示余额，与主界面顶栏一致 */
-const showHeaderWallet = computed(() => props.mode === "offer" || props.mode === "owned-shop");
+const showHeaderWallet = computed(
+  () => props.mode === "offer" || props.mode === "owned-shop" || props.mode === "pack-inner",
+);
+
+const isDeckOffer = computed(
+  () => props.treasure?.offerType === "deckLetter" || props.treasure?.offerType === "deckTile",
+);
+
+const deckOfferLetter = computed(() => {
+  const raw = String(props.treasure?.deckLetterRaw ?? "a").toLowerCase();
+  return raw === "q" ? "Qu" : raw.toUpperCase();
+});
+
+const deckOfferAccessoryId = computed(() => {
+  if (props.treasure?.offerType !== "deckTile") return undefined;
+  const id = props.treasure?.deckTileAccessoryId;
+  const s = id != null ? String(id).trim() : "";
+  return s || undefined;
+});
+
+const deckOfferTreasureAccessoryId = computed(() => {
+  if (props.treasure?.offerType !== "deckTile") return undefined;
+  const id = props.treasure?.deckTileTreasureAccessoryId;
+  const s = id != null ? String(id).trim() : "";
+  return s || undefined;
+});
+
+const offerTreasureAccessoryId = computed(() => {
+  if (props.treasure?.offerType === "deckTile") return deckOfferTreasureAccessoryId.value ?? null;
+  return props.treasure?.treasureAccessoryId ?? null;
+});
+
+const deckOfferRarityKey = computed(() => {
+  const r = String(props.treasure?.letterRarity ?? props.treasure?.rarity ?? "common");
+  if (r === "rare" || r === "epic" || r === "legendary") return r;
+  return "common";
+});
+
+const deckOfferRarityTagLabel = computed(() => getTileDetailRarityTierLabel(deckOfferRarityKey.value));
+
+function formatDeckOfferMultDisplay(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return "0";
+  if (Math.abs(x - Math.round(x)) < 1e-6) return String(Math.round(x));
+  const s = x.toFixed(1);
+  return s.endsWith(".0") ? String(Math.round(x)) : s;
+}
+
+const deckOfferScoreDisplay = computed(() => {
+  const base = Math.max(
+    0,
+    Math.round(Number(getBaseScoreForRarity(deckOfferRarityKey.value, props.rarityLevelsByRarity)) || 0),
+  );
+  return String(base);
+});
+
+const deckOfferMultDisplay = computed(() => {
+  const m = Number(getRarityMultBonusForRarity(deckOfferRarityKey.value, props.rarityLevelsByRarity));
+  return formatDeckOfferMultDisplay(Number.isFinite(m) ? m : 0);
+});
+
+const deckOfferScoreMultAria = computed(() =>
+  tileDetailLayerCopy.rarity.formatTotalPerLetterAria(deckOfferScoreDisplay.value, deckOfferMultDisplay.value),
+);
+
+const packInnerPrimaryLabel = computed(() => {
+  if (props.packInnerAlreadyClaimed) return "已获取";
+  if (props.treasure?.offerType === "upgrade") return "使用";
+  return "获取";
+});
 
 const rarityTagLabel = computed(() => {
   const lr = props.treasure?.letterRarity;
@@ -427,8 +610,10 @@ const gemRarityKey = computed(() => {
   return "rare";
 });
 
+const isUpgradeOffer = computed(() => props.treasure?.offerType === "upgrade");
+
 const isPackRarityUpgrade = computed(
-  () => props.treasure?.offerType === "upgrade" && props.treasure?.upgradeKind === "rarity",
+  () => isUpgradeOffer.value && props.treasure?.upgradeKind === "rarity",
 );
 
 const isSpellOffer = computed(() => props.treasure?.offerType === "spell");
@@ -453,6 +638,7 @@ const detailKindCaption = computed(() => {
   if (isBundlePack.value) return "组合包";
   if (isVoucherOffer.value) return "优惠券";
   if (isSpellOffer.value) return "法术卡";
+  if (isDeckOffer.value) return "字母块";
   if (props.treasure?.offerType === "upgrade") return "升级卡";
   return "宝藏";
 });
@@ -465,13 +651,13 @@ const showDetailRarityTag = computed(
     props.treasure?.offerType !== "voucher",
 );
 
-const accessoryChipVisual = computed(() => getTreasureAccessoryChipVisual(props.treasure?.treasureAccessoryId));
+const accessoryChipVisual = computed(() => getTreasureAccessoryChipVisual(offerTreasureAccessoryId.value));
 
 const treasureAccessoryPanelTitle = computed(() =>
-  getTreasureAccessoryPanelTitle(props.treasure?.treasureAccessoryId),
+  getTreasureAccessoryPanelTitle(offerTreasureAccessoryId.value),
 );
 const treasureAccessoryPanelBody = computed(() =>
-  getTreasureAccessoryPanelDescription(props.treasure?.treasureAccessoryId),
+  getTreasureAccessoryPanelDescription(offerTreasureAccessoryId.value),
 );
 const showTreasureAccessoryPanel = computed(() => Boolean(String(treasureAccessoryPanelBody.value ?? "").trim()));
 
@@ -505,13 +691,6 @@ const showTreasureGainPanel = computed(
     Boolean(treasureGainPanelContent.value?.title) &&
     treasureGainDescriptionNonEmpty(treasureGainPanelContent.value?.description),
 );
-
-/** 稀有度升级卡：宝石颜色按字母稀有度，而非货架「稀有」价签色 */
-const packLetterRarityKey = computed(() => {
-  const lr = props.treasure?.letterRarity;
-  if (lr === "epic" || lr === "legendary" || lr === "common" || lr === "rare") return lr;
-  return "common";
-});
 
 const emit = defineEmits(["close", "purchase", "sell"]);
 
@@ -579,12 +758,56 @@ function validOrigin(r) {
   );
 }
 
+/** @param {DOMRect | { left: number, top: number, width: number, height: number }} r */
+function rectToFlyBox(r) {
+  return { left: r.left, top: r.top, width: r.width, height: r.height };
+}
+
+/** @param {{ left: number, top: number, width: number, height: number }} r */
+function rectCenter(r) {
+  return { x: r.left + r.width * 0.5, y: r.top + r.height * 0.5 };
+}
+
+/** @param {unknown} refVal */
+function refToFlyFrameEl(refVal) {
+  if (!refVal) return null;
+  if (refVal instanceof HTMLElement) return refVal;
+  const el = /** @type {{ $el?: unknown }} */ (refVal).$el;
+  return el instanceof HTMLElement ? el : null;
+}
+
+/** 货架字母块飞入：只量 LetterTile 框，不含价签列高度 */
+function resolveDeckOfferFlyTargetRect() {
+  const frame = refToFlyFrameEl(detailFlyFrameRef.value);
+  const r = frame?.getBoundingClientRect?.();
+  if (r && r.width > 2 && r.height > 2) return rectToFlyBox(r);
+  const visual = targetVisualRef.value;
+  const vr = visual?.getBoundingClientRect?.();
+  if (vr && vr.width > 2 && vr.height > 2) return rectToFlyBox(vr);
+  return null;
+}
+
 const flyCloneActive = ref(validOrigin(props.originRect));
 
 /** 首帧即落在起点，避免未定位前露在错误位置；显隐由 CSS visibility + RAF 内 GSAP 接管 */
-const flyCloneFixedStyle = computed(() => {
+const flyCloneStyle = computed(() => {
   const r = props.originRect;
   if (!validOrigin(r)) return {};
+  if (isDeckOffer.value) {
+    const cx = r.left + r.width * 0.5;
+    const cy = r.top + r.height * 0.5;
+    return {
+      position: "fixed",
+      left: `${cx}px`,
+      top: `${cy}px`,
+      width: `${r.width}px`,
+      height: `${r.height}px`,
+      marginLeft: `${-r.width / 2}px`,
+      marginTop: `${-r.height / 2}px`,
+      zIndex: 9999,
+      boxSizing: "border-box",
+    };
+  }
   return {
     position: "fixed",
     left: `${r.left}px`,
@@ -654,41 +877,106 @@ function runEnterAnimation() {
 
       if (hasFly) {
         void backdrop.offsetHeight;
-        flyTo = targetVisual.getBoundingClientRect();
         flyFrom = props.originRect;
+        flyTo = isDeckOffer.value
+          ? resolveDeckOfferFlyTargetRect()
+          : rectToFlyBox(targetVisual.getBoundingClientRect());
+
+        if (!flyTo) {
+          flyCloneActive.value = false;
+          gsap.set(targetVisual, {
+            opacity: 1,
+            pointerEvents: "auto",
+            clearProps: "opacity,pointerEvents",
+          });
+          enterTl = gsap.timeline();
+          enterTl.to(
+            staggerEls,
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.18,
+              stagger: 0.038,
+              ease: EASE_TRANSFORM,
+              clearProps: "opacity,transform",
+            },
+            0.05,
+          );
+          return;
+        }
 
         gsap.killTweensOf(clone);
-        gsap.set(clone, { clearProps: "transform" });
-        gsap.set(clone, {
-          visibility: "visible",
-          opacity: 1,
-          left: flyFrom.left,
-          top: flyFrom.top,
-          width: flyFrom.width,
-          height: flyFrom.height,
-          pointerEvents: "none",
-        });
+        const deckTileFly = isDeckOffer.value;
+        if (deckTileFly) {
+          const fc = rectCenter(flyFrom);
+          gsap.set(clone, {
+            clearProps: "transform",
+            visibility: "visible",
+            opacity: 1,
+            left: fc.x,
+            top: fc.y,
+            width: flyFrom.width,
+            height: flyFrom.height,
+            marginLeft: -flyFrom.width / 2,
+            marginTop: -flyFrom.height / 2,
+            x: 0,
+            y: 0,
+            scale: 1,
+            rotation: 0,
+            transformOrigin: "50% 50%",
+            force3D: true,
+            pointerEvents: "none",
+          });
+        } else {
+          gsap.set(clone, { clearProps: "transform" });
+          gsap.set(clone, {
+            visibility: "visible",
+            opacity: 1,
+            left: flyFrom.left,
+            top: flyFrom.top,
+            width: flyFrom.width,
+            height: flyFrom.height,
+            pointerEvents: "none",
+          });
+        }
       }
 
       enterTl = gsap.timeline();
 
       if (hasFly) {
-        enterTl.to(
-          clone,
-          {
-            left: flyTo.left,
-            top: flyTo.top,
-            width: flyTo.width,
-            height: flyTo.height,
-            duration: 0.36,
-            ease: EASE_TRANSFORM,
-          },
-          0,
-        );
+        if (isDeckOffer.value) {
+          const fc = rectCenter(flyFrom);
+          const tc = rectCenter(flyTo);
+          const scaleEnd = Math.min(32, Math.max(0.06, flyTo.width / Math.max(2, flyFrom.width)));
+          enterTl.to(
+            clone,
+            {
+              x: tc.x - fc.x,
+              y: tc.y - fc.y,
+              scale: scaleEnd,
+              duration: 0.36,
+              ease: EASE_TRANSFORM,
+            },
+            0,
+          );
+        } else {
+          enterTl.to(
+            clone,
+            {
+              left: flyTo.left,
+              top: flyTo.top,
+              width: flyTo.width,
+              height: flyTo.height,
+              duration: 0.36,
+              ease: EASE_TRANSFORM,
+            },
+            0,
+          );
+        }
 
         const cloneEmoji = clone.querySelector(".shop-treasure-emoji");
         const wStart = flyFrom.width;
-        const wEndFrame = detailFlyFrameRef.value?.getBoundingClientRect?.()?.width;
+        const wEndFrame = refToFlyFrameEl(detailFlyFrameRef.value)?.getBoundingClientRect?.()?.width;
         const wEnd = wEndFrame && wEndFrame > 2 ? wEndFrame : flyTo.width;
         /** 法术格 Remix 图标与 `--shop-shelf-spell-icon-units`/108；宝藏格 emoji 约 42/108 */
         const isSpellFly = props.treasure?.offerType === "spell";
