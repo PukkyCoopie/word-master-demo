@@ -11,7 +11,7 @@ import { getEndlessChapterBaseB } from "./endlessAnteScore.js";
 /** Ante 1..8 的 base chip requirement（List of Antes，普通难度） */
 export const WIKI_ANTE_BASE_CHIPS = Object.freeze([300, 800, 2000, 5000, 11000, 20000, 35000, 50000]);
 
-/** Ante ≤0 的 base（Wiki）；本游戏 8 章流程未使用 */
+/** Ante 0（卷轴券回退大关）章底，见 Balatro Wiki */
 export const WIKI_ANTE0_BASE_CHIPS = 100;
 
 /** @see https://balatrowiki.org/w/Blinds_and_Antes — Small Blind */
@@ -28,7 +28,8 @@ export const BLIND_MULT_BOSS_DEFAULT = BOSS_SCORE_BASE_MULT_DEFAULT;
  * @returns {number} 该 Ante 的 base chip requirement
  */
 export function getChapterBaseB(chapter) {
-  const n = Math.max(1, Math.floor(Number(chapter)) || 1);
+  const n = Math.floor(Number(chapter)) || 0;
+  if (n <= 0) return WIKI_ANTE0_BASE_CHIPS;
   if (n <= 8) return WIKI_ANTE_BASE_CHIPS[n - 1];
   return getEndlessChapterBaseB(n);
 }
@@ -39,7 +40,7 @@ export function getChapterBaseB(chapter) {
  */
 export function parseLevelId(levelId) {
   const parts = String(levelId ?? "").split("-");
-  const chapter = Math.max(1, Math.floor(Number(parts[0])) || 1);
+  const chapter = Math.max(0, Math.floor(Number(parts[0])) || 0);
   const sub = Math.max(1, Math.min(3, Math.floor(Number(parts[1])) || 1));
   return { chapter, sub };
 }
@@ -71,11 +72,22 @@ export function computeTargetScoreForLevel(levelId, bossScoreBaseMult = BLIND_MU
 }
 
 /**
+ * 临时覆盖过关分（如 `{ "1-1": 3000 }`）；删键或置 0 即恢复 Balatro 公式。
+ * @type {Readonly<Record<string, number>>}
+ */
+export const TEMP_OVERRIDE_TARGET_BY_LEVEL_ID = Object.freeze({});
+
+/**
  * @param {string} levelId
  * @param {string} [bossSlugForSub3=""] x-3 关的 Boss slug；非第三小关忽略
  * @returns {number}
  */
 export function resolveLevelTargetScore(levelId, bossSlugForSub3 = "") {
+  const id = String(levelId ?? "");
+  const forced = TEMP_OVERRIDE_TARGET_BY_LEVEL_ID[id];
+  if (forced != null && Number.isFinite(Number(forced)) && Number(forced) > 0) {
+    return Math.floor(Number(forced));
+  }
   const { sub } = parseLevelId(levelId);
   const mult = sub === 3 ? getBossScoreBaseMult(bossSlugForSub3) : BLIND_MULT_BOSS_DEFAULT;
   return computeTargetScoreForLevel(levelId, mult);

@@ -140,16 +140,31 @@ export function getSpellTileAppearanceTargets(effectiveSpellId, ordered, g, ROWS
  * 法术确认动效 / 快照用：与玩家 `ordered` 点选顺序一致，**保留重复棋盘坐标**（多点同一格时每一步仍占一项）。
  * `getSpellTileAppearanceTargets` 会去重坐标，不能用于此类「每点一格一条动效」的序列。
  *
- * @param {{ row: unknown, col: unknown }[]} ordered
+ * @param {{ row?: unknown, col?: unknown, deckCardUid?: number | null }[]} ordered
  * @param {Record<string, unknown>[][]} g
  * @returns {{ row: number, col: number }[]}
  */
 export function buildSpellAnimPickTargetsFromOrdered(ordered, g) {
   const list = Array.isArray(ordered) ? ordered : [];
+  const rows = g.length;
+  const cols = g[0]?.length ?? 0;
   /** @type {{ row: number, col: number }[]} */
   const out = [];
   for (const p of list) {
     if (!p) continue;
+    const uid = p.deckCardUid;
+    if (uid != null) {
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const t = g[r]?.[c];
+          if (t?._deckCard?._dcUid === uid) {
+            out.push({ row: r, col: c });
+            break;
+          }
+        }
+      }
+      continue;
+    }
     const r = Number(p.row);
     const c = Number(p.col);
     if (!Number.isFinite(r) || !Number.isFinite(c)) continue;
@@ -164,9 +179,18 @@ export function buildSpellAnimPickTargetsFromOrdered(ordered, g) {
 function clearMaterialEconomy(tile) {
   tile.materialScoreBonus = 0;
   tile.materialMultBonus = 0;
+  const c = tile._deckCard;
+  if (c && typeof c === "object") {
+    c.materialScoreBonus = 0;
+    c.materialMultBonus = 0;
+  }
 }
 
-/** @param {Record<string, unknown>} tile */
+/**
+ * 仅改材质经济（materialId / materialScoreBonus / materialMultBonus / 非万能 isWildcard），
+ * 保留 tileScoreBonus、letterMultBonus、配饰等其它持久增益。
+ * @param {Record<string, unknown>} tile
+ */
 function applyPlainMaterial(tile, materialId) {
   const gains = snapshotMaxIntrinsicGainsFromTile(tile);
   clearMaterialEconomy(tile);
@@ -312,8 +336,77 @@ function copyTileOntoPreserveId(dst, src, rarityLevelsByRarity) {
 }
 
 /**
+ * @param {Record<string, unknown>} card
+ */
+function deckCardToSpellTargetProxy(card) {
+  const raw = deckCardRaw(card);
+  const isWc = card.isWildcard === true;
+  const letter = isWc ? "?" : raw === "q" ? "Qu" : String(raw || "e").toUpperCase();
+  return {
+    letter,
+    rarity: String(card.rarity || "common"),
+    tileScoreBonus: Math.max(0, Math.floor(Number(card.tileScoreBonus) || 0)),
+    letterMultBonus: Math.max(0, Math.round(Number(card.letterMultBonus) || 0)),
+    materialScoreBonus: Math.max(0, Math.floor(Number(card.materialScoreBonus) || 0)),
+    materialMultBonus: Number(card.materialMultBonus) || 0,
+    materialId: isWc ? "wildcard" : card.materialId ?? null,
+    accessoryId: card.accessoryId ?? null,
+    isWildcard: isWc,
+    _deckCard: card,
+    _spellDeckOnlyProxy: true,
+  };
+}
+
+/**
+ * @param {SpellRuntimeContext} ctx
+ * @param {{ row?: number, col?: number, deckCardUid?: number | null }} p
+ * @returns {Record<string, unknown> | null}
+ */
+function resolveSpellTargetTile(ctx, p) {
+  const g = ctx.grid.value;
+  const { ROWS, COLS } = ctx;
+  const uid = p?.deckCardUid;
+  if (uid != null) {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const t = g[r]?.[c];
+        if (t?._deckCard?._dcUid === uid) return /** @type {Record<string, unknown>} */ (t);
+      }
+    }
+    const snap = ctx.initialDeckSnapshot?.value;
+    if (Array.isArray(snap)) {
+      const card0 = snap.find(
+        (c) =>
+          c &&
+          typeof c === "object" &&
+          /** @type {{ _dcUid?: number }} */ (c)._dcUid === uid,
+      );
+      if (card0) return deckCardToSpellTargetProxy(/** @type {Record<string, unknown>} */ (card0));
+    }
+    const deckArr = ctx.deck?.value;
+    if (Array.isArray(deckArr)) {
+      const card = deckArr.find(
+        (c) =>
+          c &&
+          typeof c === "object" &&
+          /** @type {{ _dcUid?: number }} */ (c)._dcUid === uid,
+      );
+      if (card) return deckCardToSpellTargetProxy(/** @type {Record<string, unknown>} */ (card));
+    }
+    return null;
+  }
+  const row = Number(p?.row);
+  const col = Number(p?.col);
+  if (!Number.isFinite(row) || !Number.isFinite(col)) return null;
+  const t = g[Math.trunc(row)]?.[Math.trunc(col)];
+  return t?.letter ? /** @type {Record<string, unknown>} */ (t) : null;
+}
+
+/**
  * @typedef {{
  *   grid: import("vue").ShallowRef<Record<string, unknown>[][]>,
+ *   deck?: import("vue").Ref<unknown[]>,
+ *   initialDeckSnapshot?: import("vue").Ref<unknown[]>,
  *   ROWS: number,
  *   COLS: number,
  *   rarityLevelsByRarity: import("vue").Ref<Record<string, number>>,
@@ -338,7 +431,7 @@ function copyTileOntoPreserveId(dst, src, rarityLevelsByRarity) {
  * @param {SpellRuntimeContext} ctx
  * @param {string} purchasedSpellId 玩家购买的法术 id（用于更新「重播」锚点）
  * @param {string} effectiveSpellId 实际执行的逻辑 id（重播时为上一张）
- * @param {{ row: number, col: number }[]} ordered
+ * @param {{ row?: number, col?: number, deckCardUid?: number | null }[]} ordered
  * @param {{ nested?: boolean, rng?: () => number }} opts
  */
 export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opts = {}) {
@@ -348,9 +441,24 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
   const { ROWS, COLS } = ctx;
 
   const sid = String(effectiveSpellId ?? "");
-  let tileAppearanceTargets = getSpellTileAppearanceTargets(sid, ordered, g, ROWS, COLS);
+  const gridOrdered = ordered
+    .map((p) => {
+      const row = Number(p?.row);
+      const col = Number(p?.col);
+      if (Number.isFinite(row) && Number.isFinite(col)) return { row: Math.trunc(row), col: Math.trunc(col) };
+      const uid = p?.deckCardUid;
+      if (uid == null) return null;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (g[r]?.[c]?._deckCard?._dcUid === uid) return { row: r, col: c };
+        }
+      }
+      return null;
+    })
+    .filter(Boolean);
+  let tileAppearanceTargets = getSpellTileAppearanceTargets(sid, gridOrdered, g, ROWS, COLS);
 
-  const tileAt = (p) => g[p.row]?.[p.col];
+  const tileAt = (p) => resolveSpellTargetTile(ctx, p);
 
   const after = () => {
     ctx.touchGrid();

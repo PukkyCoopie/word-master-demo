@@ -1,5 +1,9 @@
 import gsap from "gsap";
 import { syncTileStateToDeckCard } from "../composables/useGameState.js";
+import {
+  snapshotMaxIntrinsicGainsFromTile,
+  applyIntrinsicGainsToTileAndLinkedCard,
+} from "./tileIntrinsicGains.js";
 
 const SHRINK = 0.26;
 const STAGGER = 0.1;
@@ -91,10 +95,16 @@ function assignCellFromSnap(dest, snap) {
   const prevDeck = dest._deckCard;
   const plain = cloneSnap(snap);
   if (plain == null || typeof plain !== "object") return;
+  const keptGains = snapshotMaxIntrinsicGainsFromTile(dest);
+  const snapGains = snapshotMaxIntrinsicGainsFromTile(plain);
   /* 合并写入，避免先删光 key 再 assign 与 Vue 响应式/局部字段打架 */
   Object.assign(dest, plain);
   /* JSON 克隆会把 `_deckCard` 变成脱离 multiset 的副本；后续 `createTileFromDeckCard` 等从牌张读角标会盖掉格上增益 */
   if (prevDeck && typeof prevDeck === "object") dest._deckCard = prevDeck;
+  applyIntrinsicGainsToTileAndLinkedCard(dest, {
+    sb: Math.max(keptGains.sb, snapGains.sb),
+    mb: Math.max(keptGains.mb, snapGains.mb),
+  });
   syncTileStateToDeckCard(dest);
 }
 
@@ -117,7 +127,8 @@ function assignTargetsFromSnaps(grid, targets, snaps) {
  *   spellId: string,
  *   targets: { row: number, col: number }[],
  *   oldSnaps: unknown[],
- *   newSnaps: unknown[],
+ *   newSnaps?: unknown[],
+ *   getNewSnapsAtMid?: () => unknown[],
  *   grid: import("vue").ShallowRef<Record<string, unknown>[][]>,
  *   touchGrid: () => void,
  *   getTileEl: (row: number, col: number) => HTMLElement | undefined,
@@ -125,7 +136,8 @@ function assignTargetsFromSnaps(grid, targets, snaps) {
  * }} opts
  */
 export async function runSpellTileAppearanceAnim(opts) {
-  const { spellId, targets, oldSnaps, newSnaps, grid, touchGrid, getTileEl, nextTick } = opts;
+  const { spellId, targets, oldSnaps, newSnaps, getNewSnapsAtMid, grid, touchGrid, getTileEl, nextTick } =
+    opts;
   if (!targets.length) return;
 
   const sid = String(spellId ?? "");
@@ -133,9 +145,21 @@ export async function runSpellTileAppearanceAnim(opts) {
   touchGrid();
   await nextTick();
 
-  /* 生长：交换需同一时刻写回两格；骰子：多段随机法术在同一套 diff 上避免逐格写回破坏中间态 */
-  if (sid === "seedling" || sid === "dice") {
-    await runBundledTileAppearanceAnim({ targets, newSnaps, grid, touchGrid, getTileEl });
+  const useBundled =
+    sid === "seedling" ||
+    sid === "dice" ||
+    typeof getNewSnapsAtMid === "function";
+
+  /* 生长/骰子/延后施法：多格同步缩至谷底再写回，避免提前读到已施法状态 */
+  if (useBundled) {
+    await runBundledTileAppearanceAnim({
+      targets,
+      newSnaps,
+      getNewSnapsAtMid,
+      grid,
+      touchGrid,
+      getTileEl,
+    });
     return;
   }
 
@@ -157,14 +181,15 @@ export async function runSpellTileAppearanceAnim(opts) {
 /**
  * @param {{
  *   targets: { row: number, col: number }[],
- *   newSnaps: unknown[],
+ *   newSnaps?: unknown[],
+ *   getNewSnapsAtMid?: () => unknown[],
  *   grid: import("vue").ShallowRef<Record<string, unknown>[][]>,
  *   touchGrid: () => void,
  *   getTileEl: (row: number, col: number) => HTMLElement | undefined,
  * }} p
  */
 function runBundledTileAppearanceAnim(p) {
-  const { targets, newSnaps, grid, touchGrid, getTileEl } = p;
+  const { targets, newSnaps, getNewSnapsAtMid, grid, touchGrid, getTileEl } = p;
   const g = grid.value;
   const shrinkEnd = Math.max(0, (targets.length - 1) * STAGGER) + SHRINK;
 
@@ -188,10 +213,12 @@ function runBundledTileAppearanceAnim(p) {
     });
 
     tl.add(() => {
+      const snaps =
+        typeof getNewSnapsAtMid === "function" ? getNewSnapsAtMid() : newSnaps;
       for (let i = 0; i < targets.length; i++) {
         const { row, col } = targets[i];
         const cell = g[row]?.[col];
-        if (cell && typeof cell === "object") assignCellFromSnap(cell, newSnaps[i]);
+        if (cell && typeof cell === "object") assignCellFromSnap(cell, snaps[i]);
       }
       touchGrid();
     }, shrinkEnd);
@@ -420,7 +447,8 @@ export async function runDetachedSpellTileAppearanceAnim(opts) {
   if (targetCount <= 0) return;
   await nextTick();
   const sid = String(spellId ?? "");
-  if (sid === "seedling" || sid === "dice") {
+  /** 材质类确认：多格同步缩至谷底再换图，避免逐格错峰时提前读到已施法状态 */
+  if (sid === "seedling" || sid === "dice" || typeof onMidShrinkAll === "function") {
     await runDetachedBundledTimeline({
       getTileEl,
       targetCount,

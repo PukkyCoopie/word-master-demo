@@ -59,6 +59,7 @@
                     v-for="(entry, idx) in stack.entries"
                     :key="deckEntryKey(entry, idx)"
                     class="deck-stack-pile-cell"
+                    :class="{ 'deck-stack-pile-cell--dimmed': entry.dimmed }"
                     :style="deckStackPileCellStyle(stack, idx)"
                   >
                     <LetterTile
@@ -98,6 +99,7 @@
                   <div
                     v-if="deckEntryTileProps(entry)"
                     class="deck-expand-tile-hit"
+                    :class="{ 'deck-expand-tile-hit--dimmed': entry.dimmed }"
                     @click.stop="onDeckExpandedTileClick(entry, $event)"
                     @contextmenu.prevent.stop="onDeckExpandedTileContextMenu($event, entry)"
                     @pointerdown="onDeckExpandedTileDetailPointerDown($event, entry)"
@@ -576,6 +578,7 @@ import { getShopTreasureAccessoryPriceAdd, rollShopTreasureAccessoryId } from ".
 import {
   LEVELS,
   LEVEL_COUNT,
+  RUN_START_LEVEL_INDEX,
   resolveLevelTargetScore,
   getRunLevelAtIndex,
   isStandardRunFinalLevelIndex,
@@ -591,7 +594,16 @@ import {
   getEndingLetterRarityFromTiles,
   nextMouthLockedLengthAfterSubmit,
 } from "../game/bossWordViolation.js";
-import { useGameState, MAX_LETTERS_PER_REMOVAL, deckCardRaw } from "../composables/useGameState";
+import {
+  useGameState,
+  MAX_LETTERS_PER_REMOVAL,
+  deckCardRaw,
+  syncTileStateToDeckCard,
+} from "../composables/useGameState";
+import {
+  snapshotMaxIntrinsicGainsFromTile,
+  applyIntrinsicGainsToTileAndLinkedCard,
+} from "../game/tileIntrinsicGains.js";
 import {
   applySpell,
   tileLetterToRaw,
@@ -887,6 +899,7 @@ async function scoringSleep(ms, speed) {
 const {
   grid,
   deck,
+  initialDeckSnapshot,
   deckCount,
   deckStacksView,
   remainingWords,
@@ -974,7 +987,7 @@ const tileDetailPayload = ref(null);
 const tileDetailOriginRect = ref(/** @type {{ left: number, top: number, width: number, height: number } | null} */ (null));
 const suppressTilePrimaryClick = ref(false);
 
-const levelIndex = ref(0);
+const levelIndex = ref(RUN_START_LEVEL_INDEX);
 /** 通关 8-3 后进入 Ante 9+ 无尽流程 */
 const isEndlessRun = ref(false);
 /** 卷轴券购买后已写入「下一关」下标；离店时不再 +1 */
@@ -1272,6 +1285,16 @@ function deckStackPileCellStyle(stack, idx) {
   };
 }
 
+/** 展开列表中单块：已上场过的牌张 resting 透明度（与 `.deck-expand-tile-hit--dimmed` 一致） */
+function deckExpandHitRestingOpacity(hitEl) {
+  return hitEl?.classList?.contains("deck-expand-tile-hit--dimmed") ? 0.42 : 1;
+}
+
+function applyDeckExpandHitRestingOpacity(hitEl) {
+  if (!(hitEl instanceof HTMLElement)) return;
+  gsap.set(hitEl, { opacity: deckExpandHitRestingOpacity(hitEl) });
+}
+
 function runDeckExpandEnterFlip() {
   const scrollEl = deckExpandScrollRef.value;
   const from = deckExpandFlipFromRects.value;
@@ -1279,6 +1302,7 @@ function runDeckExpandEnterFlip() {
   const hits = scrollEl.querySelectorAll(".deck-expand-tile-hit");
   if (hits.length !== from.length) {
     deckExpandFlipFromRects.value = null;
+    for (const h of hits) applyDeckExpandHitRestingOpacity(h);
     return;
   }
   deckExpandFlipTl?.kill();
@@ -1286,7 +1310,10 @@ function runDeckExpandEnterFlip() {
   const tl = gsap.timeline({
     onComplete: () => {
       deckExpandFlipTl = null;
-      for (const h of hitArr) gsap.set(h, { clearProps: "transform" });
+      for (const h of hitArr) {
+        gsap.set(h, { clearProps: "transform" });
+        applyDeckExpandHitRestingOpacity(h);
+      }
     },
   });
   deckExpandFlipTl = tl;
@@ -1300,11 +1327,12 @@ function runDeckExpandEnterFlip() {
     const sy = fr.height / Math.max(1e-6, tr.height);
     const s = Math.min(sx, sy);
     const fromRot = deckStackPileRotationDeg(nFlip, i);
+    const restingOp = deckExpandHitRestingOpacity(hit);
     gsap.set(hit, { transformOrigin: "50% 50%" });
     tl.fromTo(
       hit,
-      { x: dx, y: dy, scale: s, rotation: fromRot, opacity: 0.88 },
-      { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1, duration: 0.4, ease: "expo.out" },
+      { x: dx, y: dy, scale: s, rotation: fromRot, opacity: restingOp * 0.88 },
+      { x: 0, y: 0, scale: 1, rotation: 0, opacity: restingOp, duration: 0.4, ease: "expo.out" },
       i * 0.006,
     );
   });
@@ -1803,7 +1831,8 @@ async function fulfillSpellAfterPackPayment(t, { restoreLayersAfter = false } = 
     spellDescription: t.description ?? def?.description ?? "",
     spellRarity: t.rarity ?? "rare",
     pickCount,
-    offerSlots: buildSpellOfferSlots(runRandom),
+    offerSlots: prepareSpellOfferSlots(runRandom),
+    getOfferTileSnapshot: getSpellOfferTileSnapshotForCell,
     purchasedSpellId: spellId,
     effectiveSpellId,
   };
@@ -3132,7 +3161,9 @@ function closeDeckStackDetail() {
 
 function deckEntryKey(entry, idx) {
   if (entry.kind === "grid") return `g-${entry.row}-${entry.col}-${idx}`;
-  return `d-${entry.raw}-${idx}`;
+  const uid = entry.card?._dcUid;
+  if (entry.kind === "spent") return `s-${uid ?? entry.raw}-${idx}`;
+  return `d-${uid ?? entry.raw}-${idx}`;
 }
 
 function deckEntryTileProps(entry) {
@@ -3158,8 +3189,8 @@ function deckEntryTileProps(entry) {
       tileMultBonus: Math.max(0, Math.round(Number(t.letterMultBonus) || 0)),
     };
   }
-  const card = entry.card;
-  if (card && typeof card === "object") {
+  if ((entry.kind === "deck" || entry.kind === "spent") && entry.card && typeof entry.card === "object") {
+    const card = entry.card;
     const raw = deckCardRaw(card);
     const isWc = card.isWildcard === true;
     const letter = isWc ? "?" : raw === "q" ? "Qu" : String(raw || "e").toUpperCase();
@@ -3211,7 +3242,11 @@ function resolveDeckStackEntryDetail(entry) {
     if (!t?.letter) return null;
     return buildTileDetailPayloadFromTile(t);
   }
-  if (entry.kind === "deck" && entry.card && typeof entry.card === "object") {
+  if (
+    (entry.kind === "deck" || entry.kind === "spent") &&
+    entry.card &&
+    typeof entry.card === "object"
+  ) {
     return buildTileDetailPayloadFromDeckCard(entry.card);
   }
   return buildDeckMultisetTileDetailPayload(entry.raw);
@@ -3451,7 +3486,7 @@ async function onRunEndEndless() {
 
   const playFx = irisTransition?.play;
   if (typeof playFx === "function") {
-    await playFx(null, { onCovered: enterEndless });
+    await playFx({ onCovered: enterEndless });
   } else {
     enterEndless();
   }
@@ -3737,7 +3772,7 @@ async function onSettlementContinue(event) {
 
   const playFx = irisTransition?.play;
   if (typeof playFx === "function") {
-    await playFx(event, {
+    await playFx({
       onCovered: () => {
         showSettlement.value = false;
         settlementSnapshot.value = null;
@@ -4036,6 +4071,8 @@ function grantRandomShopTreasure() {
 function buildSpellRuntimeContext() {
   return {
     grid,
+    deck,
+    initialDeckSnapshot,
     ROWS,
     COLS,
     rarityLevelsByRarity,
@@ -4075,117 +4112,196 @@ function cloneGridTileSnapshot(tile) {
 }
 
 /**
- * 法术候选格从抽牌堆抽样时，展示格可能落在「同字母的另一枚棋盘块」上；剪贴板/回形针等写在牌张上的**平面分/倍率角标**
- * 需从抽中的 `_deckCard` 盖到快照上。**不要**盖 `rarity` / `materialId` / 配饰等——否则会把牌堆里另一张同字母牌的外观套到当前格上（例如盘面 common i、候选却显示传说 i）。
+ * 法术候选展示：角标以该 `(row,col)` 棋盘格及其 `_deckCard` 为准（与施法目标一致），不读随机抽中的牌张。
  * @param {Record<string, unknown> | null} snap
- * @param {unknown} card
+ * @param {unknown} liveTile
  */
-function mergeDeckCardOntoSpellOfferTileSnapshot(snap, card) {
-  if (!snap || !card || typeof card !== "object") return snap;
-  const c = /** @type {Record<string, unknown>} */ (card);
-  snap.tileScoreBonus = Math.max(0, Math.floor(Number(c.tileScoreBonus) || 0));
-  snap.letterMultBonus = Math.max(0, Math.round(Number(c.letterMultBonus) || 0));
-  if (c.isWildcard === true) {
-    snap.isWildcard = true;
-    snap.materialId = "wildcard";
-    snap.letter = "?";
-    snap.rarity = "common";
-  }
+function syncSpellOfferIntrinsicGainsOntoSnapshot(snap, liveTile) {
+  if (!snap || !liveTile || typeof liveTile !== "object") return snap;
+  const { sb, mb } = snapshotMaxIntrinsicGainsFromTile(liveTile);
+  snap.tileScoreBonus = sb;
+  snap.letterMultBonus = mb;
   return snap;
 }
 
-/**
- * 10 格候选：从**当前抽牌堆** `deck`（玩家增强/调整后的 multiset）均匀随机（有放回）抽 10 枚牌张；
- * 每格落到棋盘上「字母 raw 与该牌张一致」的格子（随机其一，**优先尚未被其它候选格占用的棋盘格**，减少多格同坐标带来的歧义）。
- */
-function buildSpellOfferSlots(rng = Math.random) {
+/** @param {number} row @param {number} col */
+function buildSpellOfferSnapshotForGridCell(row, col) {
+  const live = grid.value[row]?.[col];
+  if (!live?.letter) return null;
+  const snap = cloneGridTileSnapshot(live);
+  if (!snap) return null;
+  return syncSpellOfferIntrinsicGainsOntoSnapshot(snap, live);
+}
+
+/** @param {Record<string, unknown>} card */
+function buildSpellOfferSnapshotFromDeckCard(card) {
+  const p = buildTileDetailPayloadFromDeckCard(card);
+  if (!p) return null;
+  return {
+    letter: p.letter,
+    rarity: p.rarity,
+    materialId: p.materialId ?? null,
+    accessoryId: p.accessoryId ?? null,
+    tileScoreBonus: p.tileScoreBonus,
+    letterMultBonus: p.tileMultBonus,
+    materialScoreBonus: p.materialScoreBonus,
+    materialMultBonus: p.materialMultBonus,
+    isWildcard: card.isWildcard === true,
+  };
+}
+
+/** 开法术目标层前：场上格状态写回绑定的牌张（含剪贴板/回形针等平面角标） */
+function syncGridTilesToLinkedDeckCards() {
   const g = grid.value;
-  const CAP = SPELL_CANDIDATE_TILE_CAP;
-  const d = Array.isArray(deck.value) ? deck.value : [];
-  /** @type {{ row: number, col: number }[]} */
-  const anyLetter = [];
-  /** @type {Map<string, { row: number, col: number }[]>} */
-  const byRaw = new Map();
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
-      const t = g[r][c];
-      if (!t?.letter) continue;
-      const pos = { row: r, col: c };
-      anyLetter.push(pos);
-      const raw = String(tileLetterToRaw(t) ?? "").toLowerCase();
-      if (!raw) continue;
-      if (!byRaw.has(raw)) byRaw.set(raw, []);
-      byRaw.get(raw).push(pos);
+      const t = g[r]?.[c];
+      if (t?.letter) syncTileStateToDeckCard(t);
     }
   }
-  const usedCell = new Set();
-  /**
-   * @param {{ row: number, col: number }[]} candidates
-   * @returns {{ row: number, col: number } | null}
-   */
-  const pickPosPreferUnused = (candidates) => {
-    if (!Array.isArray(candidates) || !candidates.length) return null;
-    const unused = candidates.filter((p) => p && !usedCell.has(`${p.row},${p.col}`));
-    const pool = unused.length ? unused : candidates;
-    const pick = pool[Math.floor(rng() * pool.length)];
-    usedCell.add(`${pick.row},${pick.col}`);
-    return pick;
-  };
+}
 
-  /** @type {Array<{ key: string, row?: number, col?: number, tile?: unknown, empty?: boolean }>} */
+function prepareSpellOfferSlots(rng = Math.random) {
+  syncGridTilesToLinkedDeckCards();
+  return buildSpellOfferSlots(rng);
+}
+
+/**
+ * 法术候选 / 施法目标：优先绑定到 `deckCardUid` 所在棋盘格，避免同字母多格误伤。
+ * @param {Record<string, unknown>[][]} g
+ * @param {{ row?: number, col?: number, deckCardUid?: number | null }} slot
+ */
+function resolveSpellOfferTargetOnGrid(g, slot) {
+  const uid = slot?.deckCardUid;
+  if (uid != null) {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const t = g[r]?.[c];
+        if (t?._deckCard?._dcUid === uid) return { row: r, col: c };
+      }
+    }
+  }
+  const row = Number(slot?.row);
+  const col = Number(slot?.col);
+  if (Number.isFinite(row) && Number.isFinite(col) && g[Math.trunc(row)]?.[Math.trunc(col)]?.letter) {
+    return { row: Math.trunc(row), col: Math.trunc(col) };
+  }
+  return null;
+}
+
+/** @param {number | null | undefined} deckCardUid */
+function findDeckCardByUid(deckCardUid) {
+  if (deckCardUid == null) return null;
+  const multiset = Array.isArray(initialDeckSnapshot.value) ? initialDeckSnapshot.value : [];
+  let card = multiset.find(
+    (c) => c && typeof c === "object" && /** @type {{ _dcUid?: number }} */ (c)._dcUid === deckCardUid,
+  );
+  if (card) return /** @type {Record<string, unknown>} */ (card);
+  const d = Array.isArray(deck.value) ? deck.value : [];
+  card = d.find(
+    (c) => c && typeof c === "object" && /** @type {{ _dcUid?: number }} */ (c)._dcUid === deckCardUid,
+  );
+  if (card) return /** @type {Record<string, unknown>} */ (card);
+  const g = grid.value;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const t = g[r]?.[c];
+      if (t?._deckCard?._dcUid === deckCardUid) {
+        return /** @type {Record<string, unknown>} */ (t._deckCard);
+      }
+    }
+  }
+  return null;
+}
+
+/** @param {number} _row @param {number} _col @param {number | null | undefined} [deckCardUid] */
+function getSpellOfferTileSnapshotForCell(_row, _col, deckCardUid) {
+  const card = findDeckCardByUid(deckCardUid);
+  return card ? buildSpellOfferSnapshotFromDeckCard(card) : null;
+}
+
+/** @param {{ deckCardUid?: number | null, tile?: unknown } | null | undefined} slot */
+function buildSpellOfferSnapFromSlot(slot) {
+  if (!slot) return null;
+  const uid = slot.deckCardUid;
+  if (uid != null) {
+    const card = findDeckCardByUid(uid);
+    if (card) return buildSpellOfferSnapshotFromDeckCard(card);
+  }
+  return cloneGridTileSnapshot(
+    slot.tile && typeof slot.tile === "object" ? /** @type {Record<string, unknown>} */ (slot.tile) : null,
+  );
+}
+
+/**
+ * 候选层确认动效：缩至谷底时再施法并换图（用于目标不在棋盘、无棋盘 DOM 时）。
+ * @param {string} sid
+ * @param {number[]} slotIndices
+ * @param {unknown[]} oldSnaps
+ * @param {() => void} applySpellFn
+ * @param {() => unknown[]} buildNewSnapsAfterApply
+ */
+async function playSpellConfirmAnimOnOfferSlots(
+  sid,
+  slotIndices,
+  oldSnaps,
+  applySpellFn,
+  buildNewSnapsAfterApply,
+) {
+  if (!slotIndices.length || oldSnaps.length !== slotIndices.length) return false;
+  return (
+    (await spellTargetLayerRef.value?.playConfirmAppearanceAnim?.({
+      spellId: sid,
+      offerSlotIndices: slotIndices,
+      oldSnaps,
+      onMidApply: () => {
+        applySpellFn();
+        return buildNewSnapsAfterApply();
+      },
+    })) === true
+  );
+}
+
+/**
+ * 10 格候选：从本局完整牌库 multiset（`initialDeckSnapshot`）均匀随机抽牌张；
+ * 牌库不足 10 张时允许重复，不出现空槽。展示与施法均按 `deckCardUid` 绑定具体牌张。
+ */
+function buildSpellOfferSlots(rng = Math.random) {
+  const CAP = SPELL_CANDIDATE_TILE_CAP;
+  const rnd = typeof rng === "function" ? rng : Math.random;
+  const pool = Array.isArray(initialDeckSnapshot.value)
+    ? initialDeckSnapshot.value.filter((c) => c && typeof c === "object")
+    : [];
+
+  if (!pool.length) {
+    return Array.from({ length: CAP }, (_, i) => ({ key: `sp-${i}`, empty: true }));
+  }
+
+  const allowReuse = pool.length < CAP;
+  const usedUid = new Set();
+
+  /** @type {Array<{ key: string, deckOnly: true, deckCardUid: number | null, tile?: unknown, empty?: boolean }>} */
   const slots = [];
   for (let i = 0; i < CAP; i++) {
-    let row;
-    let col;
-    /** @type {unknown} */
-    let deckCardForDisplay = null;
-    if (d.length) {
-      deckCardForDisplay = d[Math.floor(rng() * d.length)];
-      const raw = String(deckCardRaw(deckCardForDisplay) ?? "").toLowerCase();
-      const matches = raw && byRaw.has(raw) ? byRaw.get(raw) ?? [] : [];
-      if (matches.length) {
-        const pick = pickPosPreferUnused(matches);
-        if (pick) {
-          row = pick.row;
-          col = pick.col;
-        }
-      }
-      if (row == null && anyLetter.length) {
-        const pick = pickPosPreferUnused(anyLetter);
-        if (pick) {
-          row = pick.row;
-          col = pick.col;
-        }
-      }
-      if (row == null) {
-        slots.push({ key: `sp-${i}`, empty: true });
-        continue;
-      }
-    } else if (anyLetter.length) {
-      const pick = pickPosPreferUnused(anyLetter);
-      if (!pick) {
-        slots.push({ key: `sp-${i}`, empty: true });
-        continue;
-      }
-      row = pick.row;
-      col = pick.col;
-    } else {
+    let candidates = allowReuse
+      ? pool
+      : pool.filter((c) => {
+          const uid = /** @type {{ _dcUid?: number }} */ (c)._dcUid;
+          return uid == null || !usedUid.has(uid);
+        });
+    if (!candidates.length) candidates = pool;
+    const card = candidates[Math.floor(rnd() * candidates.length)];
+    const uid = /** @type {{ _dcUid?: number }} */ (card)._dcUid ?? null;
+    if (!allowReuse && uid != null) usedUid.add(uid);
+    const tile = buildSpellOfferSnapshotFromDeckCard(/** @type {Record<string, unknown>} */ (card));
+    if (!tile) {
       slots.push({ key: `sp-${i}`, empty: true });
       continue;
     }
-    const base = cloneGridTileSnapshot(g[row][col]);
-    if (!base) {
-      slots.push({ key: `sp-${i}`, empty: true });
-      continue;
-    }
-    const tile =
-      deckCardForDisplay && typeof deckCardForDisplay === "object"
-        ? mergeDeckCardOntoSpellOfferTileSnapshot(base, deckCardForDisplay)
-        : base;
     slots.push({
       key: `sp-${i}`,
-      row,
-      col,
+      deckOnly: true,
+      deckCardUid: uid,
       tile,
     });
   }
@@ -4219,6 +4335,17 @@ async function onSpellTargetCancel() {
 async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
   const s = spellTargetSession.value;
   if (!s) return;
+  const offerSlotsList = Array.isArray(s.offerSlots) ? s.offerSlots : [];
+  const resolvedOrdered = Array.isArray(selectionSlotIndices)
+    ? selectionSlotIndices.map((ix) => {
+        const sl = offerSlotsList[ix];
+        if (!sl || sl.empty) return null;
+        const pos = resolveSpellOfferTargetOnGrid(grid.value, sl);
+        if (pos) return { ...pos, deckCardUid: sl.deckCardUid ?? undefined };
+        if (sl.deckOnly && sl.deckCardUid != null) return { deckCardUid: sl.deckCardUid };
+        return { row: sl.row, col: sl.col, deckCardUid: sl.deckCardUid ?? undefined };
+      }).filter(Boolean)
+    : ordered;
   const ctx = buildSpellRuntimeContext();
   const sid = String(s.effectiveSpellId ?? "");
   const g = grid.value;
@@ -4237,16 +4364,18 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
     sid === "phone" ||
     sid === "delete_back";
   const targets = usePickSequenceAnim
-    ? buildSpellAnimPickTargetsFromOrdered(ordered, g)
-    : getSpellTileAppearanceTargets(sid, ordered, g, ROWS, COLS);
-  /** 与 `targets` 逐项对齐的候选槽下标（供弹层动效绑定），与 `ordered` 同步过滤 */
+    ? buildSpellAnimPickTargetsFromOrdered(resolvedOrdered, g)
+    : getSpellTileAppearanceTargets(sid, resolvedOrdered, g, ROWS, COLS);
+  /** 与 `targets` 逐项对齐的候选槽下标（供弹层动效绑定），与 `resolvedOrdered` 同步过滤 */
   const animSelectionSlotIndices =
-    usePickSequenceAnim && Array.isArray(selectionSlotIndices) && selectionSlotIndices.length === ordered.length
+    usePickSequenceAnim &&
+    Array.isArray(selectionSlotIndices) &&
+    selectionSlotIndices.length === resolvedOrdered.length
       ? (() => {
           /** @type {number[]} */
           const ix = [];
-          for (let i = 0; i < ordered.length; i++) {
-            const p = ordered[i];
+          for (let i = 0; i < resolvedOrdered.length; i++) {
+            const p = resolvedOrdered[i];
             const r = Number(p?.row);
             const c = Number(p?.col);
             if (!Number.isFinite(r) || !Number.isFinite(c)) continue;
@@ -4260,60 +4389,90 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
           return ix;
         })()
       : selectionSlotIndices;
-  const animOrderedForLayer = usePickSequenceAnim ? targets : ordered;
+  const animOrderedForLayer = usePickSequenceAnim ? targets : resolvedOrdered;
 
   if (!targets.length) {
+    const slotIxs = Array.isArray(selectionSlotIndices)
+      ? selectionSlotIndices.filter((ix) => {
+          const sl = offerSlotsList[ix];
+          return typeof ix === "number" && ix >= 0 && sl && !sl.empty && sl.tile;
+        })
+      : [];
+    const oldOfferSnaps =
+      slotIxs.length > 0 ? slotIxs.map((ix) => buildSpellOfferSnapFromSlot(offerSlotsList[ix])) : [];
     const beforeGrid = cloneGridDeep(g, ROWS, COLS);
-    applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, ordered, { rng: runRandom });
-    const afterGrid = cloneGridDeep(grid.value, ROWS, COLS);
-    const animTargets = diffGridAppearanceTargets(beforeGrid, afterGrid, ROWS, COLS);
-    if (!animTargets.length) {
-      await dismissSpellTargetLayer();
-      return;
+    const applySpellNow = () => {
+      applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, resolvedOrdered, { rng: runRandom });
+    };
+    let playedOnOffer = false;
+    if (slotIxs.length > 0 && oldOfferSnaps.every(Boolean)) {
+      playedOnOffer = await playSpellConfirmAnimOnOfferSlots(
+        sid,
+        slotIxs,
+        oldOfferSnaps,
+        applySpellNow,
+        () => slotIxs.map((ix) => buildSpellOfferSnapFromSlot(offerSlotsList[ix])).filter(Boolean),
+      );
     }
-    restoreGridFromDeepClone(grid, beforeGrid, ROWS, COLS);
-    touchGrid();
-    await nextTick();
-    const oldSnaps0 = animTargets.map(({ row, col }) => cloneGridTileSnapshot(beforeGrid[row][col]));
-    const newSnaps0 = animTargets.map(({ row, col }) => cloneGridTileSnapshot(afterGrid[row][col]));
-    await queueOrRunSpellTileAppearanceAnim({
-      spellId: sid,
-      targets: animTargets,
-      oldSnaps: oldSnaps0,
-      newSnaps: newSnaps0,
-      grid,
-      touchGrid,
-      getTileEl: (row, col) => getGridTileElByIndex(row * COLS + col),
-      nextTick,
-    });
-    await sleep(500);
+    if (!playedOnOffer) {
+      const animTargets = buildSpellAnimPickTargetsFromOrdered(resolvedOrdered, g);
+      if (animTargets.length) {
+        const oldSnaps0 = animTargets.map(({ row, col }) => cloneGridTileSnapshot(g[row][col]));
+        await queueOrRunSpellTileAppearanceAnim({
+          spellId: sid,
+          targets: animTargets,
+          oldSnaps: oldSnaps0,
+          grid,
+          touchGrid,
+          getTileEl: (row, col) => getGridTileElByIndex(row * COLS + col),
+          nextTick,
+          getNewSnapsAtMid: () => {
+            applySpellNow();
+            touchGrid();
+            return animTargets.map(({ row, col }) => cloneGridTileSnapshot(grid.value[row][col]));
+          },
+        });
+      } else {
+        applySpellNow();
+      }
+    }
+    await sleep(playedOnOffer ? 500 : 0);
     await dismissSpellTargetLayer();
     return;
   }
 
   const oldSnaps = targets.map(({ row, col }) => cloneGridTileSnapshot(g[row][col]));
-  applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, ordered, { rng: runRandom });
-  const newSnaps = targets.map(({ row, col }) => cloneGridTileSnapshot(g[row][col]));
+  const applySpellNow = () => {
+    applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, resolvedOrdered, { rng: runRandom });
+  };
   await nextTick();
   const playedOnOffer =
     (await spellTargetLayerRef.value?.playConfirmAppearanceAnim?.({
       spellId: sid,
       targets,
       oldSnaps,
-      newSnaps,
       ordered: animOrderedForLayer,
       selectionSlotIndices: animSelectionSlotIndices,
+      onMidApply: () => {
+        applySpellNow();
+        touchGrid();
+        return targets.map(({ row, col }) => cloneGridTileSnapshot(grid.value[row][col]));
+      },
     })) === true;
   if (!playedOnOffer) {
     await queueOrRunSpellTileAppearanceAnim({
       spellId: sid,
       targets,
       oldSnaps,
-      newSnaps,
       grid,
       touchGrid,
       getTileEl: (row, col) => getGridTileElByIndex(row * COLS + col),
       nextTick,
+      getNewSnapsAtMid: () => {
+        applySpellNow();
+        touchGrid();
+        return targets.map(({ row, col }) => cloneGridTileSnapshot(grid.value[row][col]));
+      },
     });
   }
   await sleep(500);
@@ -4466,7 +4625,8 @@ async function onTreasurePurchase() {
       spellDescription: t.description ?? def?.description ?? "",
       spellRarity: t.rarity ?? "rare",
       pickCount,
-      offerSlots: buildSpellOfferSlots(runRandom),
+      offerSlots: prepareSpellOfferSlots(runRandom),
+      getOfferTileSnapshot: getSpellOfferTileSnapshotForCell,
       purchasedSpellId: spellId,
       effectiveSpellId,
     };
@@ -4611,7 +4771,7 @@ async function executeShopLeaveToNextLevel(event) {
 
   const playFx = irisTransition?.play;
   if (typeof playFx === "function") {
-    await playFx(event, { onCovered: nextLevel });
+    await playFx({ onCovered: nextLevel });
   } else {
     nextLevel();
   }
@@ -7155,6 +7315,12 @@ onUnmounted(() => {
   justify-content: center;
   pointer-events: none;
   transform-origin: 50% 50%;
+}
+.deck-stack-pile-cell--dimmed {
+  opacity: 0.42;
+}
+.deck-expand-tile-hit--dimmed {
+  opacity: 0.42;
 }
 .deck-layer-stacks :deep(.deck-stack-pile-tile.grid-tile) {
   position: relative;

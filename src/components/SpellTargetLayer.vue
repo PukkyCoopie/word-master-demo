@@ -283,7 +283,12 @@ function displaySlotTile(slot, idx) {
     const t = o[idx];
     return t != null && typeof t === "object" ? t : null;
   }
-  return slot.tile ?? null;
+  const s = props.session;
+  if (s && typeof s.getOfferTileSnapshot === "function" && slot?.deckCardUid != null) {
+    const live = s.getOfferTileSnapshot(-1, -1, slot.deckCardUid);
+    if (live != null && typeof live === "object") return live;
+  }
+  return slot?.tile && typeof slot.tile === "object" ? slot.tile : null;
 }
 
 function pickOrderForSlot(slotIndex) {
@@ -380,12 +385,42 @@ function resolveOfferSlotIndicesForAnim(targets, ordered, selectionSlotIndices, 
  * @returns {Promise<boolean>} 是否在弹层上完整播放（可回退到棋盘动效）
  */
 async function playConfirmAppearanceAnim(payload) {
-  const { spellId, targets, newSnaps, ordered, selectionSlotIndices } = payload;
-  if (!Array.isArray(targets) || !targets.length || !Array.isArray(newSnaps) || newSnaps.length !== targets.length) {
+  const {
+    spellId,
+    targets,
+    newSnaps,
+    oldSnaps: oldSnapsPayload,
+    ordered,
+    selectionSlotIndices,
+    offerSlotIndices,
+  } = payload;
+
+  const slots = offerSlots.value;
+
+  if (
+    Array.isArray(offerSlotIndices) &&
+    offerSlotIndices.length > 0 &&
+    Array.isArray(oldSnapsPayload) &&
+    oldSnapsPayload.length === offerSlotIndices.length &&
+    typeof payload.onMidApply === "function"
+  ) {
+    const slotIndices = offerSlotIndices.filter((ix) => typeof ix === "number" && ix >= 0);
+    if (slotIndices.length !== offerSlotIndices.length || slotIndices.some((ix) => !slots[ix]?.tile)) {
+      return false;
+    }
+    return playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnapsPayload, payload.onMidApply);
+  }
+
+  if (
+    !Array.isArray(targets) ||
+    !targets.length ||
+    !Array.isArray(oldSnapsPayload) ||
+    oldSnapsPayload.length !== targets.length ||
+    typeof payload.onMidApply !== "function"
+  ) {
     return false;
   }
 
-  const slots = offerSlots.value;
   let slotIndices =
     Array.isArray(ordered) &&
     Array.isArray(selectionSlotIndices) &&
@@ -417,19 +452,29 @@ async function playConfirmAppearanceAnim(payload) {
 
   if (slotIndices.some((ix) => ix < 0)) return false;
 
-  surfaceOverrides.value = null;
+  return playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnapsPayload, payload.onMidApply);
+}
+
+/**
+ * @param {string} spellId
+ * @param {number[]} slotIndices
+ * @param {unknown[]} oldSnaps
+ * @param {() => unknown[] | Promise<unknown[]>} onMidApply 缩至谷底时执行（施法 + 返回新快照）
+ */
+async function playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnaps, onMidApply) {
+  const lockOld = {};
+  for (let i = 0; i < slotIndices.length; i++) {
+    lockOld[slotIndices[i]] = cloneSpellTileSnapshot(oldSnaps[i]);
+  }
+  surfaceOverrides.value = lockOld;
   await nextTick();
 
-  const applySurface = (i) => {
-    const ix = slotIndices[i];
-    const snap = cloneSpellTileSnapshot(newSnaps[i]);
-    surfaceOverrides.value = { ...(surfaceOverrides.value ?? {}), [ix]: snap };
-  };
-
-  const applyAll = () => {
-    const o = { ...(surfaceOverrides.value ?? {}) };
+  const applyAllAtValley = async () => {
+    const raw = await onMidApply();
+    const newSnaps = Array.isArray(raw) ? raw : [];
+    const o = {};
     for (let i = 0; i < slotIndices.length; i++) {
-      o[slotIndices[i]] = cloneSpellTileSnapshot(newSnaps[i]);
+      o[slotIndices[i]] = cloneSpellTileSnapshot(newSnaps[i] ?? oldSnaps[i]);
     }
     surfaceOverrides.value = o;
   };
@@ -437,18 +482,18 @@ async function playConfirmAppearanceAnim(payload) {
   const sid = String(spellId ?? "");
   try {
     if (sid === "delete_back") {
+      await applyAllAtValley();
       await runDetachedDeleteBackConfirmAnim({
-        targetCount: targets.length,
+        targetCount: slotIndices.length,
         getTileEl: (i) => offerTileElList[slotIndices[i]],
         nextTick,
       });
     } else {
       await runDetachedSpellTileAppearanceAnim({
         spellId: sid,
-        targetCount: targets.length,
+        targetCount: slotIndices.length,
         getTileEl: (i) => offerTileElList[slotIndices[i]],
-        onMidAtIndex: applySurface,
-        onMidShrinkAll: applyAll,
+        onMidShrinkAll: applyAllAtValley,
         nextTick,
       });
     }
@@ -456,17 +501,7 @@ async function playConfirmAppearanceAnim(payload) {
     surfaceOverrides.value = null;
     throw e;
   }
-  /* 保持施法后外观直到父级关层；勿在 finally 清空，否则关层前会闪回 session 里的旧快照 */
-  const finalO = {};
-  if (sid === "delete_back") {
-    for (let i = 0; i < slotIndices.length; i++) {
-      finalO[slotIndices[i]] = null;
-    }
-  } else {
-    for (let i = 0; i < slotIndices.length; i++) {
-      finalO[slotIndices[i]] = cloneSpellTileSnapshot(newSnaps[i]);
-    }
-  }
+  const finalO = { ...(surfaceOverrides.value ?? {}) };
   surfaceOverrides.value = finalO;
   return true;
 }

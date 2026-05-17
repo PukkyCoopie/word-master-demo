@@ -23,14 +23,20 @@ export function rewardYuanForLevelId(id) {
   return 3;
 }
 
-/** @type {readonly string[]} 1-1 … 8-3 */
-const LEVEL_IDS = Object.freeze(
-  Array.from({ length: 8 * 3 }, (_, i) => {
+/** @type {readonly string[]} 0-1 … 0-3（卷轴券回退大关）+ 1-1 … 8-3 */
+const LEVEL_IDS = Object.freeze([
+  "0-1",
+  "0-2",
+  "0-3",
+  ...Array.from({ length: 8 * 3 }, (_, i) => {
     const chapter = Math.floor(i / 3) + 1;
     const sub = (i % 3) + 1;
     return `${chapter}-${sub}`;
   }),
-);
+]);
+
+/** 新局 `levelIndex`：从 1-1 起，跳过 Ante 0 */
+export const RUN_START_LEVEL_INDEX = 3;
 
 /** @type {readonly LevelDefinition[]} 按通关顺序排列 */
 export const LEVELS = Object.freeze(
@@ -83,8 +89,9 @@ export const STANDARD_RUN_FINAL_LEVEL_INDEX = LEVEL_COUNT - 1;
 export function getRunLevelAtIndex(index) {
   const i = Math.max(0, Math.floor(Number(index)) || 0);
   if (i < LEVEL_COUNT) return LEVELS[i];
-  const chapter = Math.floor(i / 3) + 1;
-  const sub = (i % 3) + 1;
+  const effective = i - RUN_START_LEVEL_INDEX;
+  const chapter = Math.floor(effective / 3) + 1;
+  const sub = (effective % 3) + 1;
   const id = `${chapter}-${sub}`;
   return { id, rewardYuan: rewardYuanForLevelId(id) };
 }

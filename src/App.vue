@@ -65,14 +65,13 @@ const sessionRunSeed = ref(0);
 const sessionRunSeedDisplay = ref("");
 /** 失败「再来一局」时预填上一局种子 */
 const runStartPrefillSeed = ref("");
-
 /** 与「开始游戏」按钮一致的转场色 */
 const IRIS_COLOR = "#5a8fb8";
 const irisFxRef = ref(null);
 const transitionBusy = ref(false);
 
 provide("irisTransition", {
-  play: (event, opts) => irisFxRef.value?.play(event, opts),
+  play: (opts) => irisFxRef.value?.play(opts),
 });
 
 /** 暂停菜单「重新开始」等：打开同一开局弹层（暂停 UI 未做时亦可 inject 调用） */
@@ -139,7 +138,7 @@ async function onRunStartConfirm(payload) {
 
   transitionBusy.value = true;
   const mode = runStartMode.value;
-  await irisFxRef.value?.play(null, {
+  await irisFxRef.value?.play({
     onCovered: () => {
       gameSessionKey.value += 1;
       if (mode === "menu") screen.value = "game";
@@ -164,7 +163,7 @@ function onGameRequestRestart(payload) {
 async function onGameExitToMenu() {
   if (transitionBusy.value) return;
   transitionBusy.value = true;
-  await irisFxRef.value?.play(null, {
+  await irisFxRef.value?.play({
     onCovered: () => {
       screen.value = "menu";
     },

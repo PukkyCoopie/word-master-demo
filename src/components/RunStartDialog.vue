@@ -46,7 +46,11 @@
       </div>
 
       <div class="run-start-dialog-footer">
-        <button type="button" class="run-start-dialog-btn run-start-dialog-btn--primary" @click="onConfirm">
+        <button
+          type="button"
+          class="run-start-dialog-btn run-start-dialog-btn--primary"
+          @click="onConfirm"
+        >
           开始游戏
         </button>
         <button type="button" class="run-start-dialog-btn run-start-dialog-btn--secondary" @click="onCancel">

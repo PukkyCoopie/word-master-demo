@@ -8,7 +8,8 @@
 </template>
 
 <script setup>
-import { computed, nextTick, reactive, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from "vue";
+import { attachLastPointerClientTracking, getLastPointerClientPoint } from "../game/lastPointerClient.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 
 const props = defineProps({
@@ -49,6 +50,30 @@ const irisStyle = computed(() => {
     maskImage: mask,
   };
 });
+
+/** 视口坐标 → overlay 内像素 */
+function clientPointToOverlayLocal(overlayEl, point) {
+  const rect = overlayEl.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
+  if (w <= 0 || h <= 0) {
+    return { x: w / 2, y: h / 2, w, h, xPct: 50, yPct: 50 };
+  }
+  const x = point.clientX - rect.left;
+  const y = point.clientY - rect.top;
+  return {
+    x,
+    y,
+    w,
+    h,
+    xPct: (x / w) * 100,
+    yPct: (y / h) * 100,
+  };
+}
+
+function localFromPercent(w, h, xPct, yPct) {
+  return { x: (xPct / 100) * w, y: (yPct / 100) * h };
+}
 
 function maxCoverRadiusPx(cx, cy, w, h) {
   const corners = [
@@ -96,24 +121,30 @@ function animateIrisR(from, to, durationMs) {
   });
 }
 
+/** @param {{ onCovered?: () => void } | undefined} opts */
+function resolvePlayOpts(arg1, arg2) {
+  if (arg2 && typeof arg2 === "object") return arg2;
+  if (arg1 && typeof arg1 === "object" && "onCovered" in arg1) return arg1;
+  return undefined;
+}
+
 /**
- * @param {MouseEvent | PointerEvent | null | undefined} event
- * @param {{ onCovered?: () => void } | undefined} opts
+ * 圆心始终取播放瞬间的当前指针位置（见 lastPointerClient.js），忽略历史入参 event。
+ * @param {unknown} [_ignored]
+ * @param {{ onCovered?: () => void } | undefined} [opts]
  */
-async function play(event, opts) {
+async function play(_ignored, opts) {
   const overlayEl = overlayRef.value;
   if (!overlayEl) return;
 
-  const rect = overlayEl.getBoundingClientRect();
-  const w = rect.width;
-  const h = rect.height;
-  const e = event && "clientX" in event ? event : null;
-  const cx = e ? e.clientX - rect.left : w / 2;
-  const cy = e ? e.clientY - rect.top : h / 2;
+  const resolvedOpts = resolvePlayOpts(_ignored, opts);
+  const coverLocal = clientPointToOverlayLocal(overlayEl, getLastPointerClientPoint());
+  const originXPct = coverLocal.xPct;
+  const originYPct = coverLocal.yPct;
 
-  iris.x = cx;
-  iris.y = cy;
-  iris.maxR = maxCoverRadiusPx(cx, cy, w, h);
+  iris.x = coverLocal.x;
+  iris.y = coverLocal.y;
+  iris.maxR = maxCoverRadiusPx(coverLocal.x, coverLocal.y, coverLocal.w, coverLocal.h);
   iris.phase = "cover";
   iris.r = 0;
   iris.active = true;
@@ -123,18 +154,19 @@ async function play(event, opts) {
   await nextTick();
   await animateIrisR(0, iris.maxR, props.coverMs);
 
-  await opts?.onCovered?.();
+  await resolvedOpts?.onCovered?.();
 
   await nextTick();
   await waitRaf(2);
 
-  // 第二阶段：镂空圆从中心扩大（相对 overlayRef 坐标）
+  // 第二阶段：镂空圆从同一圆心扩大（onCovered 后布局可能变化，用百分比还原圆心）
   const rect2 = overlayEl.getBoundingClientRect();
   const w2 = rect2.width;
   const h2 = rect2.height;
-  iris.x = w2 / 2;
-  iris.y = h2 / 2;
-  iris.maxR = maxCoverRadiusPx(iris.x, iris.y, w2, h2);
+  const origin = localFromPercent(w2, h2, originXPct, originYPct);
+  iris.x = origin.x;
+  iris.y = origin.y;
+  iris.maxR = maxCoverRadiusPx(origin.x, origin.y, w2, h2);
   iris.phase = "reveal";
   iris.r = 0;
   await animateIrisR(0, iris.maxR, props.revealMs);
@@ -142,6 +174,17 @@ async function play(event, opts) {
   iris.active = false;
   overlayEl.style.zIndex = "";
 }
+
+let detachPointerTracking = () => {};
+
+onMounted(() => {
+  detachPointerTracking = attachLastPointerClientTracking();
+});
+
+onUnmounted(() => {
+  detachPointerTracking();
+  detachPointerTracking = () => {};
+});
 
 defineExpose({ play });
 </script>

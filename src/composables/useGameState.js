@@ -1,6 +1,6 @@
 import { ref, computed, shallowRef, triggerRef } from "vue";
 
-import { LEVELS, resolveLevelTargetScore } from "../levelDefinitions";
+import { LEVELS, RUN_START_LEVEL_INDEX, resolveLevelTargetScore } from "../levelDefinitions";
 
 import {
 
@@ -51,9 +51,9 @@ function tileRawForDeckStack(tile) {
 
 /** 元音张数按英文频率大致分层：E 最高，U 最低（较基础版略多，便于组词） */
 const VOWEL_DECK_COUNT = Object.freeze({
-  e: 9,
-  a: 8,
-  o: 7,
+  e: 8,
+  a: 7,
+  o: 6,
   i: 6,
   u: 5,
 });
@@ -94,6 +94,8 @@ function createDeckCard(raw0) {
     isWildcard: false,
     accessoryId: /** @type {string | null} */ (null),
     treasureAccessoryId: /** @type {string | null} */ (null),
+    /** 曾离开抽牌堆上场（在棋盘消耗后亦不再回库）；牌库预览用半透明展示 */
+    everLeftDrawPile: false,
   };
 }
 
@@ -162,18 +164,28 @@ function shuffleArrayInPlace(arr, rng = Math.random) {
   return arr;
 }
 
+/** @param {unknown} card */
+function markDeckCardLeftDrawPile(card) {
+  if (card && typeof card === "object") {
+    /** @type {{ everLeftDrawPile?: boolean }} */ (card).everLeftDrawPile = true;
+  }
+}
+
 function drawFromDeck(deckArr, rng = defaultRng) {
   if (!deckArr.length) return null;
   const rnd = typeof rng === "function" ? rng : defaultRng;
   const idx = Math.floor(rnd() * deckArr.length);
   const [card] = deckArr.splice(idx, 1);
+  markDeckCardLeftDrawPile(card);
   return card;
 }
 
-/** 棋盘格被消耗前：将其绑定的牌张放回抽牌堆，保持 multiset 守恒（提交补牌、移除、冰块自毁等）。 */
-function returnDeckCardForConsumedGridTile(deckArr, tile) {
-  const c = /** @type {unknown} */ (tile?._deckCard);
-  if (c && typeof c === "object") deckArr.push(c);
+/**
+ * 棋盘格被消耗（拼词、移除、冰块等）：状态写回牌张，但**不**放回 `deck` 抽牌堆。
+ * @param {Record<string, unknown> | null | undefined} tile
+ */
+function finalizeConsumedGridTileDeckCard(tile) {
+  if (tile?.letter) syncTileStateToDeckCard(tile);
 }
 
 /** @param {Record<string, unknown> | null | undefined} tile */
@@ -400,7 +412,7 @@ export function useGameState(gameOpts = {}) {
   const nextId = () => `t-${++idCounter}-${Date.now()}`;
 
   const initialCards = buildInitialDeckCards();
-  /** 本局 multiset 中全部牌张（稳定引用）；`deck` 为尚未抽到棋盘上的子集 */
+  /** 本局 multiset 全部牌张（稳定引用）；`deck` 为尚未抽上场、仍可被抽到的抽牌堆 */
   const initialDeckSnapshot = ref(initialCards);
   const deck = ref([...initialCards]);
   shuffleArrayInPlace(deck.value, getRng);
@@ -413,37 +425,40 @@ export function useGameState(gameOpts = {}) {
 
   const deckCount = computed(() => deck.value.length);
 
+  /** @param {Record<string, unknown>[][]} g @param {unknown} card */
+  function findDeckCardOnGrid(g, card) {
+    const uid = /** @type {{ _dcUid?: number }} */ (card)._dcUid;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const t = g[r]?.[c];
+        if (!t?.letter) continue;
+        const dc = t._deckCard;
+        if (dc === card || (uid != null && dc?._dcUid === uid)) return { row: r, col: c };
+      }
+    }
+    return null;
+  }
+
   /**
-   * 牌库界面：按字母 raw 分堆（通配符「?」单独一堆），含数量、顶牌展示字段与展开用条目。
-   * entries：先棋盘（行主序），再 multiset 中仍在库的枚（每张 `{ kind:'deck', raw, card }` 绑定真实牌张引用）；
-   * 顺序自下而上：数组最后一项为「顶牌」（与 deck.find 的 peek 一致）。
+   * 牌库界面：按字母 raw 分堆；`entries` 为本局 multiset 中**该字母每一枚牌张**（含场上、抽牌堆、已消耗离堆）。
+   * `dimmed`：曾上场（`everLeftDrawPile`）——半透明。`count` 为全集张数；`inDrawPile` 为仍在抽牌堆可抽的张数。
    */
   const deckStacksView = computed(() => {
     const snap = initialDeckSnapshot.value;
     const d = deck.value;
     const g = grid.value;
 
-    const totalByRaw = new Map();
+    const cardsByRaw = new Map();
     for (const entry of snap) {
-      const e = /** @type {{ raw?: string, isWildcard?: boolean }} */ (entry);
-      const key = e.isWildcard === true ? WILDCARD_STACK_RAW : deckCardRaw(e);
+      if (!entry || typeof entry !== "object") continue;
+      const e = /** @type {{ isWildcard?: boolean }} */ (entry);
+      const key = e.isWildcard === true ? WILDCARD_STACK_RAW : deckCardRaw(entry);
       if (!key) continue;
-      totalByRaw.set(key, (totalByRaw.get(key) || 0) + 1);
+      if (!cardsByRaw.has(key)) cardsByRaw.set(key, []);
+      cardsByRaw.get(key).push(entry);
     }
 
-    const gridCellsByRaw = new Map();
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const t = g[r]?.[c];
-        if (!t?.letter) continue;
-        const raw = tileRawForDeckStack(t);
-        if (!raw) continue;
-        if (!gridCellsByRaw.has(raw)) gridCellsByRaw.set(raw, []);
-        gridCellsByRaw.get(raw).push({ row: r, col: c });
-      }
-    }
-
-    const sortedRaws = [...totalByRaw.keys()].sort((a, b) => a.localeCompare(b, "en"));
+    const sortedRaws = [...cardsByRaw.keys()].sort((a, b) => a.localeCompare(b, "en"));
     const stackRaws = sortedRaws.includes(WILDCARD_STACK_RAW)
       ? sortedRaws
       : [...sortedRaws, WILDCARD_STACK_RAW];
@@ -453,33 +468,25 @@ export function useGameState(gameOpts = {}) {
     for (const raw of stackRaws) {
       const displayLetter =
         raw === "q" ? "Qu" : raw === WILDCARD_STACK_RAW ? "?" : String(raw).toUpperCase();
-      const inDeck =
-        raw === WILDCARD_STACK_RAW
-          ? d.filter((c) => c && typeof c === "object" && c.isWildcard === true).length
-          : d.filter((c) => c && typeof c === "object" && !c.isWildcard && deckCardRaw(c) === raw).length;
-      const gridCells = gridCellsByRaw.get(raw) ?? [];
-      const count = inDeck + gridCells.length;
+      const cardsForRaw = cardsByRaw.get(raw) ?? [];
+      const count = cardsForRaw.length;
       const isGhost = count <= 0;
+      let inDrawPile = 0;
 
-      /** @type {{ kind: string, row?: number, col?: number, raw?: string, card?: unknown }[]} */
+      /** @type {{ kind: string, row?: number, col?: number, raw?: string, card?: unknown, dimmed?: boolean }[]} */
       const entries = [];
-      for (const cell of gridCells) {
-        entries.push({ kind: "grid", row: cell.row, col: cell.col });
-      }
-      /** @type {unknown[]} */
-      const deckMatches = [];
-      for (const c of d) {
-        if (!c || typeof c !== "object") continue;
-        const key =
-          /** @type {{ isWildcard?: boolean }} */ (c).isWildcard === true
-            ? WILDCARD_STACK_RAW
-            : deckCardRaw(c);
-        if (key !== raw) continue;
-        deckMatches.push(c);
-      }
-      // 自下而上叠放：先 push 的在下层；最后一枚与 deck.find 顶牌一致
-      for (let i = deckMatches.length - 1; i >= 0; i--) {
-        entries.push({ kind: "deck", raw, card: deckMatches[i] });
+      for (const card of cardsForRaw) {
+        const pos = findDeckCardOnGrid(g, /** @type {Record<string, unknown>} */ (card));
+        const inDeck = d.indexOf(card) >= 0;
+        const dimmed = /** @type {{ everLeftDrawPile?: boolean }} */ (card).everLeftDrawPile === true;
+        if (inDeck) inDrawPile += 1;
+        if (pos) {
+          entries.push({ kind: "grid", row: pos.row, col: pos.col, card, dimmed: true });
+        } else if (inDeck) {
+          entries.push({ kind: "deck", raw, card, dimmed: false });
+        } else {
+          entries.push({ kind: "spent", raw, card, dimmed: true });
+        }
       }
 
       let topLetter = displayLetter;
@@ -490,32 +497,25 @@ export function useGameState(gameOpts = {}) {
       let topTileMultBonus = 0;
 
       if (!isGhost) {
-        if (inDeck > 0) {
-          const peek =
-            raw === WILDCARD_STACK_RAW
-              ? d.find((c) => c && typeof c === "object" && c.isWildcard === true)
-              : d.find((c) => c && typeof c === "object" && !c.isWildcard && deckCardRaw(c) === raw);
-          topLetter =
-            raw === WILDCARD_STACK_RAW && peek?.isWildcard
-              ? WILDCARD_TILE_LETTER
-              : displayLetter;
+        const peekInDeck =
+          raw === WILDCARD_STACK_RAW
+            ? d.find((c) => c && typeof c === "object" && c.isWildcard === true)
+            : d.find((c) => c && typeof c === "object" && !c.isWildcard && deckCardRaw(c) === raw);
+        const peekCard =
+          peekInDeck ??
+          cardsForRaw.find((c) => d.indexOf(c) < 0 && !findDeckCardOnGrid(g, /** @type {Record<string, unknown>} */ (c))) ??
+          cardsForRaw[cardsForRaw.length - 1];
+        if (peekCard && typeof peekCard === "object") {
+          const isWc = peekCard.isWildcard === true;
+          topLetter = isWc ? WILDCARD_TILE_LETTER : displayLetter;
           topRarity =
-            peek?.rarity != null && String(peek.rarity).trim() !== ""
-              ? String(peek.rarity)
+            peekCard.rarity != null && String(peekCard.rarity).trim() !== ""
+              ? String(peekCard.rarity)
               : getRarityForLetter(raw === WILDCARD_STACK_RAW ? "e" : raw);
-          topMaterialId = peek?.materialId ?? null;
-          topAccessoryId = peek?.accessoryId ?? null;
-          topTileScoreBonus = Math.max(0, Math.floor(Number(peek?.tileScoreBonus) || 0));
-          topTileMultBonus = Math.max(0, Math.round(Number(peek?.letterMultBonus) || 0));
-        } else {
-          const last = gridCells[gridCells.length - 1];
-          const tile = g[last.row][last.col];
-          topLetter = tile.letter ?? displayLetter;
-          topRarity = String(tile.rarity || "common");
-          topMaterialId = tile.materialId ?? null;
-          topAccessoryId = tile.accessoryId ?? null;
-          topTileScoreBonus = Math.max(0, Math.floor(Number(tile.tileScoreBonus) || 0));
-          topTileMultBonus = Math.max(0, Math.round(Number(tile.letterMultBonus) || 0));
+          topMaterialId = isWc ? WILDCARD_MATERIAL_ID : peekCard.materialId ?? null;
+          topAccessoryId = peekCard.accessoryId ?? null;
+          topTileScoreBonus = Math.max(0, Math.floor(Number(peekCard.tileScoreBonus) || 0));
+          topTileMultBonus = Math.max(0, Math.round(Number(peekCard.letterMultBonus) || 0));
         }
       }
 
@@ -523,6 +523,7 @@ export function useGameState(gameOpts = {}) {
         raw,
         displayLetter,
         count,
+        inDrawPile,
         isGhost,
         topLetter,
         topRarity,
@@ -561,7 +562,9 @@ export function useGameState(gameOpts = {}) {
 
   const currentScore = ref(0);
 
-  const targetScore = ref(resolveLevelTargetScore(LEVELS[0]?.id ?? "1-1", ""));
+  const targetScore = ref(
+    resolveLevelTargetScore(LEVELS[RUN_START_LEVEL_INDEX]?.id ?? "1-1", ""),
+  );
 
   const lastWordInfo = ref(null);
 
@@ -905,7 +908,7 @@ export function useGameState(gameOpts = {}) {
         for (let r = 1; r < ROWS; r++) {
           const cell = g[r][col];
           if (cell && !cell.selected) columnTiles.push(cloneGridTileShallowForColumn(cell));
-          else if (cell?.selected) returnDeckCardForConsumedGridTile(d, cell);
+          else if (cell?.selected) finalizeConsumedGridTileDeckCard(cell);
         }
         const playableRows = ROWS - 1;
         const removeCount = playableRows - columnTiles.length;
@@ -934,7 +937,7 @@ export function useGameState(gameOpts = {}) {
 
         const cell = g[r][col];
         if (cell && !cell.selected) columnTiles.push(cloneGridTileShallowForColumn(cell));
-        else if (cell?.selected) returnDeckCardForConsumedGridTile(d, cell);
+        else if (cell?.selected) finalizeConsumedGridTileDeckCard(cell);
 
       }
 
@@ -1097,7 +1100,7 @@ export function useGameState(gameOpts = {}) {
           if (!removeSet.has(`${r},${col}`)) {
             columnTiles.push(cloneGridTileShallowForColumn(g[r][col]));
           } else {
-            returnDeckCardForConsumedGridTile(d, g[r][col]);
+            finalizeConsumedGridTileDeckCard(g[r][col]);
           }
         }
         const playableRows = ROWS - 1;
@@ -1127,7 +1130,7 @@ export function useGameState(gameOpts = {}) {
 
         } else {
 
-          returnDeckCardForConsumedGridTile(d, g[r][col]);
+          finalizeConsumedGridTileDeckCard(g[r][col]);
 
         }
 
@@ -1192,7 +1195,7 @@ export function useGameState(gameOpts = {}) {
     if (targetRow < 0 || targetCol < 0) return false;
 
     const d = deck.value;
-    returnDeckCardForConsumedGridTile(d, g[targetRow][targetCol]);
+    finalizeConsumedGridTileDeckCard(g[targetRow][targetCol]);
     const manacleIce = activeBossSlug.value === "the_manacle";
     if (manacleIce) {
       const blocked = g[0][targetCol];
@@ -1252,8 +1255,11 @@ export function useGameState(gameOpts = {}) {
   function resetDeckAfterStageEnd() {
     const g = grid.value;
     const template = buildInitialDeckCards();
-    const live = collectLiveDeckCardsFromGridAndDeck(g, deck.value);
+    const live = initialDeckSnapshot.value.filter((c) => c && typeof c === "object");
     const cards = reconcileMultisetPreserveLiveWithTemplate(live, template);
+    for (const c of cards) {
+      if (c && typeof c === "object") /** @type {{ everLeftDrawPile?: boolean }} */ (c).everLeftDrawPile = false;
+    }
     const pool = [...cards];
     initialDeckSnapshot.value = cards;
     for (let r = 0; r < ROWS; r++) {
@@ -1297,21 +1303,12 @@ export function useGameState(gameOpts = {}) {
       tsOpt != null && Number.isFinite(Number(tsOpt))
         ? Number(tsOpt)
         : resolveLevelTargetScore(lid, activeBossSlug.value);
-    /** @type {ReturnType<typeof createDeckCard>[]} */
-    const pool = [];
-    const g0 = grid.value;
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const t = g0[r]?.[c];
-        if (t?._deckCard) {
-          syncTileStateToDeckCard(t);
-          pool.push(t._deckCard);
-        }
-      }
+    const snap = initialDeckSnapshot.value.filter((c) => c && typeof c === "object");
+    for (const c of snap) {
+      /** @type {{ everLeftDrawPile?: boolean }} */ (c).everLeftDrawPile = false;
     }
-    for (const c of deck.value) pool.push(c);
-    shuffleArrayInPlace(pool, getRng);
-    deck.value = pool;
+    shuffleArrayInPlace(snap, getRng);
+    deck.value = [...snap];
     grid.value = buildGrid();
     const bh =
       runOpts?.remainingWords != null && Number.isFinite(Number(runOpts.remainingWords))
@@ -1473,8 +1470,11 @@ export function useGameState(gameOpts = {}) {
 
     deckCount,
 
-    /** 当前牌库抽牌堆：牌张对象 multiset（`raw` 小写，`q` 表示 Qu）；法术候选等可从中抽样 */
+    /** 当前牌库抽牌堆：牌张对象 multiset（`raw` 小写，`q` 表示 Qu） */
     deck,
+
+    /** 本局完整牌库 multiset（含场上绑定 + 抽牌堆）；法术候选从此全集随机抽 */
+    initialDeckSnapshot,
 
     deckStacksView,
 
