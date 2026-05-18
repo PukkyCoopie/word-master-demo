@@ -315,7 +315,12 @@ import {
 } from "../vouchers/voucherOwnedDisplay.js";
 import VoucherStampStack from "./VoucherStampStack.vue";
 import gsap from "gsap";
-import { playInfoCouponTabEnter, playInfoGridTabEnter } from "../game/infoModalTabEnterAnim.js";
+import {
+  playInfoCouponTabEnter,
+  playInfoGridTabEnter,
+  prepareInfoCouponTabEnter,
+  prepareInfoGridTabEnter,
+} from "../game/infoModalTabEnterAnim.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -497,6 +502,16 @@ function collectActiveTabStaggerTargets() {
   return [...panel.querySelectorAll(".info-stagger-el")];
 }
 
+function prepareActiveTabEnterHidden() {
+  const tab = activeTab.value;
+  const targets = collectActiveTabStaggerTargets();
+  if (tab === "coupon") {
+    prepareInfoCouponTabEnter(targets);
+  } else {
+    prepareInfoGridTabEnter(targets);
+  }
+}
+
 function runActiveTabEnterAnim() {
   if (!props.modelValue) return;
   const tab = activeTab.value;
@@ -540,15 +555,16 @@ onBeforeUnmount(() => {
 
 const VALID_INFO_TABS = new Set(["level", "rarity", "stage", "coupon"]);
 
-/** 打开弹窗：设 Tab、量高、播当前 Tab 入场（v-if 挂载时 watch 不会触发，onMounted 也需调用） */
+/** 打开弹窗：设 Tab、量高、与外壳同时播当前 Tab 入场（v-if 挂载时 watch 不会触发，onMounted 也需调用） */
 function applyInfoModalOpenState() {
   skipTabSwitchAnim = true;
   const tab = String(props.initialTab ?? "level");
   activeTab.value = VALID_INFO_TABS.has(tab) ? tab : "level";
   scheduleMeasureLevelTabHeight();
   scheduleMeasureLevelTabHeight({ delay: 340 });
-  scheduleActiveTabEnterAnim({ delay: 320 });
   nextTick(() => {
+    prepareActiveTabEnterHidden();
+    runActiveTabEnterAnim();
     skipTabSwitchAnim = false;
   });
 }
@@ -705,6 +721,11 @@ function close() {
 .info-stagger-el {
   display: inline-block;
   vertical-align: middle;
+}
+
+/* 外壳 CSS 入场期间先藏住内容，避免首帧全显再等 GSAP */
+.info-layer-enter-active .info-stagger-el {
+  opacity: 0;
 }
 
 .info-score-mult.info-stagger-el,

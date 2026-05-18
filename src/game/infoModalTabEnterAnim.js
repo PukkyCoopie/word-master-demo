@@ -21,10 +21,27 @@ function evenStagger(count, totalSpread) {
 /**
  * @param {HTMLElement[]} targets
  */
-export function playInfoGridTabEnter(targets) {
+export function prepareInfoGridTabEnter(targets) {
   if (!targets.length) return;
   gsap.killTweensOf(targets);
   gsap.set(targets, { opacity: 0, y: TABLE_Y, scale: 1 });
+}
+
+/**
+ * @param {HTMLElement[]} targets
+ */
+export function prepareInfoCouponTabEnter(targets) {
+  if (!targets.length) return;
+  gsap.killTweensOf(targets);
+  gsap.set(targets, { opacity: 0, scale: 0.68, y: 0 });
+}
+
+/**
+ * @param {HTMLElement[]} targets
+ */
+export function playInfoGridTabEnter(targets) {
+  if (!targets.length) return;
+  prepareInfoGridTabEnter(targets);
   gsap.to(targets, {
     opacity: 1,
     y: 0,
@@ -39,8 +56,7 @@ export function playInfoGridTabEnter(targets) {
  */
 export function playInfoCouponTabEnter(targets) {
   if (!targets.length) return;
-  gsap.killTweensOf(targets);
-  gsap.set(targets, { opacity: 0, scale: 0.68, y: 0 });
+  prepareInfoCouponTabEnter(targets);
   gsap.to(targets, {
     opacity: 1,
     scale: 1,
