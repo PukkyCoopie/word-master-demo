@@ -8,7 +8,7 @@ Built by vibe coding.
 | Platform | URL |
 |----------|-----|
 | GitHub Pages | [pukkycoopie.github.io/word-master-demo](https://pukkycoopie.github.io/word-master-demo/) |
-| 腾讯云 CloudBase (static hosting) | [test-d4gs4qjyl7a9f9d99-1434123598.tcloudbaseapp.com](https://test-d4gs4qjyl7a9f9d99-1434123598.tcloudbaseapp.com/) |
+| 腾讯云 CloudBase| [test-d4gs4qjyl7a9f9d99-1434123598.tcloudbaseapp.com](https://test-d4gs4qjyl7a9f9d99-1434123598.tcloudbaseapp.com/) |
 
 Pushes to `main` deploy both URLs via [`.github/workflows/deploy-static.yml`](.github/workflows/deploy-static.yml).
 
@@ -20,4 +20,4 @@ npm install && npm run dev
 ```
 
 
-MIT — See [LICENSE](./LICENSE)。
+MIT — See [LICENSE](./LICENSE)

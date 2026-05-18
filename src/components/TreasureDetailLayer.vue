@@ -82,6 +82,27 @@
                 </div>
               </template>
               <div
+                v-else-if="isVoucherOffer && voucherDetailStacked"
+                ref="detailFlyFrameRef"
+                class="voucher-detail-stamp-stack"
+              >
+                <div
+                  class="shop-treasure-frame shop-treasure-frame--detail shop-treasure-frame--voucher-stamp voucher-detail-stamp-stack__back"
+                  aria-hidden="true"
+                >
+                  <span class="shop-treasure-emoji shop-treasure-emoji--detail" role="img">{{
+                    voucherOwnedTierPanels[0]?.emoji ?? treasure.emoji
+                  }}</span>
+                </div>
+                <div
+                  class="shop-treasure-frame shop-treasure-frame--detail shop-treasure-frame--voucher-stamp voucher-detail-stamp-stack__front"
+                >
+                  <span ref="emojiRef" class="shop-treasure-emoji shop-treasure-emoji--detail" role="img">{{
+                    voucherOwnedTierPanels[1]?.emoji ?? treasure.emoji
+                  }}</span>
+                </div>
+              </div>
+              <div
                 v-else
                 ref="detailFlyFrameRef"
                 class="shop-treasure-frame shop-treasure-frame--detail"
@@ -188,7 +209,7 @@
                 ></i>
               </div>
               <div
-                v-if="!isDeckOffer"
+                v-if="!isDeckOffer && !isVoucherOwnedMode"
                 class="shop-treasure-price"
                 :aria-label="mode === 'pack-inner' ? '参考售价' : mode === 'offer' ? '售价' : '回收价'"
               >
@@ -238,10 +259,26 @@
                 >
               </div>
               <TreasureDescRichText
-                v-if="hasTreasureDescBody"
+                v-if="hasTreasureDescBody && showMainVoucherDesc"
                 :description="descriptionOverride ?? treasure.description"
               />
             </template>
+          </div>
+
+          <div
+            v-for="(panel, tierPanelIdx) in voucherOwnedTierPanels"
+            :key="'voucher-tier-' + panel.tier"
+            :ref="(el) => setVoucherTierPanelRef(tierPanelIdx, el)"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span class="treasure-detail-desc-panel-title-text">{{ panel.title }}</span>
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="panel.description"
+              :panel-body="true"
+            />
           </div>
 
           <div
@@ -785,6 +822,32 @@ const isBundlePack = computed(() => props.treasure?.offerType === "bundlePack");
 
 const isVoucherOffer = computed(() => props.treasure?.offerType === "voucher");
 
+const isVoucherOwnedMode = computed(() => props.mode === "voucher-owned");
+
+/** @type {import('vue').Ref<(HTMLElement | null)[]>} */
+const voucherTierPanelRefs = ref([]);
+
+/** @param {number} i @param {unknown} el */
+function setVoucherTierPanelRef(i, el) {
+  const node = el instanceof HTMLElement ? el : null;
+  const arr = [...voucherTierPanelRefs.value];
+  arr[i] = node;
+  voucherTierPanelRefs.value = arr;
+}
+
+const voucherOwnedTierPanels = computed(() => {
+  if (!isVoucherOffer.value) return [];
+  const tiers = props.treasure?.ownedVoucherTiers;
+  if (!Array.isArray(tiers) || tiers.length < 2) return [];
+  return tiers;
+});
+
+const voucherDetailStacked = computed(() => voucherOwnedTierPanels.value.length >= 2);
+
+const showVoucherTierPanels = computed(() => voucherOwnedTierPanels.value.length >= 2);
+
+const showMainVoucherDesc = computed(() => !showVoucherTierPanels.value);
+
 const bundlePackTypeLabel = computed(() => {
   if (!isBundlePack.value) return "";
   const k = String(props.treasure?.bundleKind ?? "");
@@ -905,6 +968,7 @@ function staggerTargets() {
   return [
     titleGroupRef.value,
     descRef.value,
+    ...voucherTierPanelRefs.value.filter((el) => el instanceof HTMLElement),
     deckOfferMaterialRef.value,
     deckOfferAccessoryRef.value,
     deckOfferTreasureAccessoryRef.value,

@@ -32,7 +32,7 @@
 | mic | 麦克风 | ri-mic-fill | 2 | 选择2个字母块，使其变为随机的辅音块 |
 | notification | 铃铛 | ri-notification-3-fill | 2 | 选择2个字母块，使其变为随机的元音块 |
 | phone | 电话 | ri-phone-fill | 3 | 选择3个字母块，使其变为随机的任意块 |
-| treasure_map | 藏宝图 | ri-treasure-map-fill | 0 | 获取一个随机宝藏。 |
+| treasure_map | 藏宝图 | ri-treasure-map-fill | 0 | 获取一个随机宝藏 |
 
 ## 实现备忘（勿写入 description）
 

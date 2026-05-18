@@ -2589,25 +2589,41 @@ body {
 
 /* 对局信息：已购优惠券网格（InfoModal） */
 .info-voucher-grid {
-	display: flex;
-	flex-wrap: wrap;
+	display: grid;
+	grid-template-columns: repeat(3, var(--shop-shelf-cell-size));
 	gap: calc(12 * var(--rpx));
 	padding: calc(16 * var(--rpx));
-	align-content: flex-start;
 	justify-content: center;
-	align-items: flex-start;
+	align-content: flex-start;
 	overflow: auto;
 	box-sizing: border-box;
 	max-height: 100%;
 }
 
 .info-voucher-cell {
-	flex: 0 0 var(--shop-shelf-cell-size);
-	max-width: var(--shop-shelf-cell-size);
+	display: block;
+	width: 100%;
 	min-width: 0;
+	padding: 0;
+	border: none;
+	background: transparent;
+	cursor: pointer;
+	font: inherit;
+	border-radius: calc(4 * var(--rpx));
+	transition: filter 0.1s ease;
+}
+
+.info-voucher-cell:hover {
+	filter: brightness(1.04);
+}
+
+.info-voucher-cell:active {
+	filter: brightness(0.96);
 }
 
 .info-voucher-empty {
+	flex: 1;
+	min-height: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -2615,12 +2631,69 @@ body {
 	font-size: calc(24 * var(--rpx));
 	color: #8f7a66;
 	text-align: center;
+	background: transparent;
 }
 
 .info-tab-layer--vouchers {
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+	background: transparent;
+}
+
+/* 已购优惠券：同 pair 两级叠放（后层略旋转） */
+.voucher-stamp-stack {
+	position: relative;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.voucher-stamp-stack--stacked {
+	height: var(--shop-shelf-cell-size);
+}
+
+.voucher-stamp-stack--stacked .voucher-stamp-stack__back,
+.voucher-stamp-stack--stacked .voucher-stamp-stack__front {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+}
+
+.voucher-stamp-stack--stacked .voucher-stamp-stack__back {
+	z-index: 1;
+	transform: rotate(-9deg);
+	transform-origin: 42% 58%;
+}
+
+.voucher-stamp-stack--stacked .voucher-stamp-stack__front {
+	z-index: 2;
+}
+
+/* 详情层：两级优惠券叠放（与货架邮票圆角一致） */
+.voucher-detail-stamp-stack {
+	position: relative;
+	width: calc(156 * var(--rpx));
+	height: calc(156 * var(--rpx));
+	flex-shrink: 0;
+}
+
+.voucher-detail-stamp-stack__back,
+.voucher-detail-stamp-stack__front {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+}
+
+.voucher-detail-stamp-stack__back {
+	z-index: 1;
+	transform: rotate(-9deg);
+	transform-origin: 42% 58%;
+}
+
+.voucher-detail-stamp-stack__front {
+	z-index: 2;
 }
 
 /* 商店：优惠券区（第二行左栏；单卡区见 ShopPanel .shop-row--single-card-actions） */

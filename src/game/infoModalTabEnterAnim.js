@@ -1,0 +1,51 @@
+import gsap from "gsap";
+import { EASE_TRANSFORM } from "../constants.js";
+
+/** 各元素 stagger 均分的时间窗（单元素 duration 另计） */
+const GRID_STAGGER_SPREAD = 0.52;
+const TABLE_DURATION = 0.26;
+const TABLE_Y = 9;
+
+const COUPON_STAGGER_SPREAD = 0.36;
+const COUPON_DURATION = 0.4;
+
+/**
+ * @param {number} count
+ * @param {number} totalSpread
+ */
+function evenStagger(count, totalSpread) {
+  if (count <= 1) return 0;
+  return totalSpread / (count - 1);
+}
+
+/**
+ * @param {HTMLElement[]} targets
+ */
+export function playInfoGridTabEnter(targets) {
+  if (!targets.length) return;
+  gsap.killTweensOf(targets);
+  gsap.set(targets, { opacity: 0, y: TABLE_Y, scale: 1 });
+  gsap.to(targets, {
+    opacity: 1,
+    y: 0,
+    duration: TABLE_DURATION,
+    ease: EASE_TRANSFORM,
+    stagger: evenStagger(targets.length, GRID_STAGGER_SPREAD),
+  });
+}
+
+/**
+ * @param {HTMLElement[]} targets
+ */
+export function playInfoCouponTabEnter(targets) {
+  if (!targets.length) return;
+  gsap.killTweensOf(targets);
+  gsap.set(targets, { opacity: 0, scale: 0.68, y: 0 });
+  gsap.to(targets, {
+    opacity: 1,
+    scale: 1,
+    duration: COUPON_DURATION,
+    ease: "back.out(1.42)",
+    stagger: evenStagger(targets.length, COUPON_STAGGER_SPREAD),
+  });
+}

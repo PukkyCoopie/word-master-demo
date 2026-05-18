@@ -120,7 +120,7 @@ async function main() {
     if (result.r.phase === "stuck" || (result.r.ok === false && result.r.phase === "play")) {
       stuckCount += 1;
       if (stuckCount >= 3) {
-        console.warn("\n连续卡住，停止自动游玩。");
+        console.warn("\n连续卡住，停止自动游玩");
         break;
       }
     } else {
@@ -128,7 +128,7 @@ async function main() {
     }
 
     if (s.levelIndex >= 7 && s.levelId?.startsWith("8-")) {
-      console.log("\n已推进到第 8 章，冒烟结束。");
+      console.log("\n已推进到第 8 章，冒烟结束");
       break;
     }
 
@@ -164,8 +164,8 @@ async function main() {
   console.log(`报告: ${reportPath}`);
   console.log(
     HEADLESS
-      ? "\n浏览器已关闭。"
-      : "\n浏览器保持打开 — 可继续手动试玩；关闭窗口或 Ctrl+C 结束。\n",
+      ? "\n浏览器已关闭"
+      : "\n浏览器保持打开 — 可继续手动试玩；关闭窗口或 Ctrl+C 结束\n",
   );
 
   if (!HEADLESS) {

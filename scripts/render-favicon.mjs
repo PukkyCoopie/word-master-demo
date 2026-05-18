@@ -33,7 +33,7 @@ function resolveArialPath() {
     if (existsSync(p)) return p;
   }
   throw new Error(
-    "未找到 Arial 字体。请在 Windows 保留 arialbd.ttf，或设置环境变量 ARIAL_FONT 为 .ttf 路径。",
+    "未找到 Arial 字体。请在 Windows 保留 arialbd.ttf，或设置环境变量 ARIAL_FONT 为 .ttf 路径",
   );
 }
 

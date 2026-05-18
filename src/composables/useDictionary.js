@@ -1,10 +1,45 @@
 import { ref, shallowRef, computed } from "vue";
+import { getAllowSpellingAbbreviations } from "../settings/gameSettings.js";
 
 /** 词典条目 [word, pos, translation_zh] → 小写 word 为 key 的 Map */
 const wordSet = shallowRef(null);
 const wordInfoMap = shallowRef(null);
 /** 小写单词按长度分桶，便于 ? 通配符快速匹配 */
 const wordsByLength = shallowRef(null);
+/** 小写词 → 词性 token 集（pos 字段按 | 拆分，与 build_word_filtered_csv 一致） */
+const posTagsByWord = shallowRef(/** @type {Map<string, Set<string>> | null} */ (null));
+
+/** 视为「正常词性」的 token；含 abbr 但同时含其一则关闭缩写开关时仍可拼写 */
+const NORMAL_POS_TOKENS = new Set([
+  "n",
+  "v",
+  "vi",
+  "vt",
+  "adj",
+  "adv",
+  "prep",
+  "conj",
+  "pron",
+  "num",
+  "art",
+  "interj",
+  "aux",
+  "det",
+  "a",
+]);
+
+/**
+ * @param {string} posField
+ * @returns {string[]}
+ */
+function splitPosFieldTokens(posField) {
+  return String(posField ?? "")
+    .trim()
+    .toLowerCase()
+    .split("|")
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
 
 /** 全局共享：App 预加载与 GamePanel 共用 */
 const dictLoaded = ref(false);
@@ -122,6 +157,8 @@ async function loadOnce(options = {}) {
   const set = new Set();
   const map = new Map();
   const byLength = new Map();
+  /** @type {Map<string, Set<string>>} */
+  const posTagsLocal = new Map();
   const n = raw.length;
   const chunk = Math.max(4000, Math.ceil(n / 96));
   const indexSpan = PROGRESS_BEFORE_DONE - PROGRESS_AFTER_JSON;
@@ -133,6 +170,10 @@ async function loadOnce(options = {}) {
     const w = word.toLowerCase();
     set.add(w);
     if (!map.has(w)) map.set(w, { word: w, pos, translation_zh });
+    for (const token of splitPosFieldTokens(pos)) {
+      if (!posTagsLocal.has(w)) posTagsLocal.set(w, new Set());
+      posTagsLocal.get(w).add(token);
+    }
     const len = w.length;
     if (!byLength.has(len)) byLength.set(len, []);
     byLength.get(len).push(w);
@@ -148,8 +189,28 @@ async function loadOnce(options = {}) {
   wordSet.value = set;
   wordInfoMap.value = map;
   wordsByLength.value = byLength;
+  posTagsByWord.value = posTagsLocal;
   dictLoaded.value = true;
   bumpLoadProgress(1);
+}
+
+/**
+ * 关闭「允许拼写缩写」时：仅屏蔽词性里**只有** abbr、没有正常词性的词；
+ * 同时带 abbr 与 n/v/adj 等的词仍可拼写。
+ * @param {string} word
+ */
+function isWordAllowedByAbbrevSetting(word) {
+  const w = String(word).toLowerCase().trim();
+  if (!w) return false;
+  if (getAllowSpellingAbbreviations()) return true;
+  const tagsMap = posTagsByWord.value;
+  if (!(tagsMap instanceof Map)) return true;
+  const tags = tagsMap.get(w);
+  if (!tags || !tags.has("abbr")) return true;
+  for (const token of tags) {
+    if (NORMAL_POS_TOKENS.has(token)) return true;
+  }
+  return false;
 }
 
 export function useDictionary() {
@@ -182,6 +243,7 @@ export function useDictionary() {
         wordSet.value = null;
         wordInfoMap.value = null;
         wordsByLength.value = null;
+        posTagsByWord.value = null;
         dictLoaded.value = false;
         resetLoadProgress();
       } finally {
@@ -201,7 +263,7 @@ export function useDictionary() {
     if (!w) return false;
     const set = wordSet.value;
     if (!(set instanceof Set)) return false;
-    return set.has(w);
+    return set.has(w) && isWordAllowedByAbbrevSetting(w);
   }
 
   /**
@@ -214,12 +276,13 @@ export function useDictionary() {
     const set = wordSet.value;
     if (!(set instanceof Set)) return null;
     if (!raw.includes(wildcardChar)) {
-      return set.has(raw) ? raw : null;
+      return set.has(raw) && isWordAllowedByAbbrevSetting(raw) ? raw : null;
     }
     const byLength = wordsByLength.value;
     const candidates = byLength instanceof Map ? byLength.get(raw.length) : null;
     if (!Array.isArray(candidates) || candidates.length === 0) return null;
     outer: for (const candidate of candidates) {
+      if (!isWordAllowedByAbbrevSetting(candidate)) continue;
       for (let i = 0; i < raw.length; i++) {
         const ch = raw[i];
         if (ch !== wildcardChar && ch !== candidate[i]) continue outer;

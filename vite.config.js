@@ -38,7 +38,7 @@ function dictionaryFromDataDir() {
     closeBundle() {
       if (!fs.existsSync(DICT_SRC)) {
         console.warn(
-          "[vite] 未找到 data/dictionary/dict.json，dist 可能不包含完整词典。"
+          "[vite] 未找到 data/dictionary/dict.json，dist 可能不包含完整词典"
         );
         return;
       }

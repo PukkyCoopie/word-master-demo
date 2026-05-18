@@ -653,7 +653,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
     }
     case "treasure_map": {
       const ok = ctx.grantRandomShopTreasure?.() === true;
-      if (!ok) ctx.showToast?.("没有空宝藏槽或无可售宝藏。");
+      if (!ok) ctx.showToast?.("没有空宝藏槽或无可售宝藏");
       break;
     }
     default:

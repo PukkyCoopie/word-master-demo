@@ -13,6 +13,21 @@
         <h2 :id="titleId" class="run-end-title">{{ titleText }}</h2>
         <p v-if="subtitleText" class="run-end-sub">{{ subtitleText }}</p>
 
+        <div
+          v-if="statsRows.length"
+          class="run-end-stats-list"
+        >
+          <div
+            v-for="(row, index) in statsRows"
+            :key="row.label"
+            class="run-end-stat-card"
+            :class="{ 'run-end-stat-card--wide': index === 0 }"
+          >
+            <span class="run-end-stat-label">{{ row.label }}</span>
+            <span class="run-end-stat-value">{{ row.value }}</span>
+          </div>
+        </div>
+
         <div class="run-end-actions">
           <button
             v-if="outcome === 'win' && showEndless"
@@ -44,6 +59,8 @@ const props = defineProps({
   /** 胜利时是否展示无尽模式入口 */
   showEndless: { type: Boolean, default: true },
   portalStackStyle: { type: Object, default: () => ({}) },
+  /** @type {{ label: string, value: string }[]} */
+  statsRows: { type: Array, default: () => [] },
 });
 
 defineEmits(["retry", "main-menu", "endless"]);
@@ -52,10 +69,8 @@ const titleId = "run-end-title";
 
 const titleText = computed(() => (props.outcome === "win" ? "通关！" : "游戏结束"));
 const subtitleText = computed(() => {
-  if (props.outcome === "win") {
-    return "你已完成 8-3，可进入无尽模式继续挑战更高目标分。";
-  }
-  return "出牌次数已用尽，未能达到本关目标分。";
+  if (props.outcome === "win") return "";
+  return "出牌次数已用尽，未能达到本关目标分";
 });
 </script>
 
@@ -90,7 +105,7 @@ const subtitleText = computed(() => {
 }
 
 .run-end-title {
-  margin: 0 0 calc(10 * var(--rpx));
+  margin: 0 0 calc(18 * var(--rpx));
   font-size: calc(40 * var(--rpx));
   font-weight: 800;
   color: var(--text-dark, #3c3a32);
@@ -98,12 +113,48 @@ const subtitleText = computed(() => {
 }
 
 .run-end-sub {
-  margin: 0 0 calc(26 * var(--rpx));
+  margin: 0 0 calc(18 * var(--rpx));
   font-size: calc(24 * var(--rpx));
   font-weight: 600;
   color: var(--text-soft);
   text-align: center;
   line-height: 1.45;
+}
+
+.run-end-stats-list {
+  margin: 0 0 calc(22 * var(--rpx));
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(10 * var(--rpx));
+}
+
+.run-end-stat-card {
+  min-width: 0;
+  padding: calc(14 * var(--rpx)) calc(16 * var(--rpx));
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: calc(10 * var(--rpx));
+  box-sizing: border-box;
+}
+
+.run-end-stat-card--wide {
+  grid-column: 1 / -1;
+}
+
+.run-end-stat-label {
+  display: block;
+  margin: 0 0 calc(4 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.run-end-stat-value {
+  display: block;
+  font-size: calc(28 * var(--rpx));
+  font-weight: 700;
+  color: var(--text-dark, #3c3a32);
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 .run-end-actions {

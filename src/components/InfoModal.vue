@@ -7,7 +7,12 @@
     aria-label="信息"
     :style="layerStackStyle"
   >
-    <div class="info-layer-inner" @click.stop>
+    <div
+      ref="layerInnerRef"
+      class="info-layer-inner"
+      @click.stop
+      @transitionend="onLayerInnerTransitionEnd"
+    >
       <div class="info-tabs-outer">
         <div class="info-tabs" role="tablist">
           <button
@@ -55,7 +60,12 @@
 
       <div class="info-panel" :style="panelMinStyle">
         <div class="info-panel-slot">
-        <div v-show="activeTab === 'level'" class="info-table-panel info-tab-layer" role="tabpanel">
+        <div
+          v-show="activeTab === 'level'"
+          ref="levelTabRef"
+          class="info-table-panel info-tab-layer"
+          role="tabpanel"
+        >
           <table ref="levelTableRef" class="info-table" aria-label="等级与长度倍率">
             <colgroup>
               <col class="info-col-20" />
@@ -65,10 +75,10 @@
             </colgroup>
             <thead>
               <tr>
-                <th scope="col">单词长度</th>
-                <th scope="col">等级</th>
+                <th scope="col"><span class="info-stagger-el">单词长度</span></th>
+                <th scope="col"><span class="info-stagger-el">等级</span></th>
                 <th scope="col" class="info-th-level-score-mult" aria-label="分数（每字母）×倍率">
-                  <div class="info-th-score-mult-head">
+                  <div class="info-th-score-mult-head info-stagger-el">
                     <span class="info-th-score-mult-head__a"
                       >分数<span class="info-th-score-mult-head__per-letter">（每字母）</span></span
                     >
@@ -76,7 +86,7 @@
                     <span class="info-th-score-mult-head__b">倍率</span>
                   </div>
                 </th>
-                <th scope="col">拼出次数</th>
+                <th scope="col"><span class="info-stagger-el">拼出次数</span></th>
               </tr>
             </thead>
             <tbody>
@@ -85,28 +95,33 @@
                 :key="row.len"
                 :class="idx % 2 === 0 ? 'info-row--even' : 'info-row--odd'"
               >
-                <td class="info-td-len">{{ row.len }}</td>
+                <td class="info-td-len"><span class="info-stagger-el">{{ row.len }}</span></td>
                 <td>
-                  <span
-                    class="info-pill info-pill--white"
-                    :class="{ 'info-pill--default-level': row.level <= 1 }"
-                    >{{ row.level }}</span
-                  >
+                  <span class="info-stagger-el info-stagger-el--pill">
+                    <span
+                      class="info-pill info-pill--white"
+                      :class="{ 'info-pill--default-level': row.level <= 1 }"
+                      >{{ row.level }}</span
+                    >
+                  </span>
                 </td>
                 <td class="info-td-score-mult">
-                  <div class="info-score-mult">
+                  <div class="info-score-mult info-stagger-el">
                     <span class="info-mini-box info-mini-box--score">{{ row.baseScore }}</span>
                     <span class="info-mini-times" aria-hidden="true">×</span>
                     <span class="info-mini-box info-mini-box--mult">{{ formatMult(row.mult) }}</span>
                   </div>
                 </td>
-                <td class="info-td-count" :class="{ 'info-td-count--zero': row.count === 0 }">{{ row.count }}</td>
+                <td class="info-td-count" :class="{ 'info-td-count--zero': row.count === 0 }">
+                  <span class="info-stagger-el">{{ row.count }}</span>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
         <div
           v-show="activeTab === 'rarity'"
+          ref="rarityTabRef"
           class="info-table-panel info-tab-layer info-tab-layer--rarity"
           role="tabpanel"
         >
@@ -118,10 +133,10 @@
             </colgroup>
             <thead>
               <tr>
-                <th scope="col">稀有度</th>
-                <th scope="col">等级</th>
+                <th scope="col"><span class="info-stagger-el">稀有度</span></th>
+                <th scope="col"><span class="info-stagger-el">等级</span></th>
                 <th scope="col" class="info-th-rarity-gain" aria-label="分数与倍率（每字母）">
-                  <div class="info-th-score-mult-head">
+                  <div class="info-th-score-mult-head info-stagger-el">
                     <span class="info-th-score-mult-head__a">分数</span>
                     <span class="info-th-score-mult-head__x">×</span>
                     <span class="info-th-score-mult-head__b">倍率</span>
@@ -136,20 +151,22 @@
                 :class="idx % 2 === 0 ? 'info-row--even' : 'info-row--odd'"
               >
                 <td class="info-td-rarity-name">
-                  <div class="info-rarity-name-row">
+                  <div class="info-rarity-name-row info-stagger-el">
                     <span class="info-rarity-gem" :class="'gem-' + row.key" aria-hidden="true" />
                     <span>{{ row.label }}</span>
                   </div>
                 </td>
                 <td>
-                  <span
-                    class="info-pill info-pill--white"
-                    :class="{ 'info-pill--default-level': row.level <= 1 }"
-                    >{{ row.level }}</span
-                  >
+                  <span class="info-stagger-el info-stagger-el--pill">
+                    <span
+                      class="info-pill info-pill--white"
+                      :class="{ 'info-pill--default-level': row.level <= 1 }"
+                      >{{ row.level }}</span
+                    >
+                  </span>
                 </td>
                 <td class="info-td-score-mult">
-                  <div class="info-score-mult">
+                  <div class="info-score-mult info-stagger-el">
                     <span class="info-mini-box info-mini-box--score">{{ row.scoreBonus }}</span>
                     <span class="info-mini-times" aria-hidden="true">×</span>
                     <span class="info-mini-box info-mini-box--mult">{{ formatMult(row.multBonus) }}</span>
@@ -159,26 +176,110 @@
             </tbody>
           </table>
         </div>
-        <div v-show="activeTab === 'stage'" class="info-placeholder info-tab-layer" role="tabpanel">
-          <template v-if="runSeedDisplay">
-            <p class="info-run-seed">
-              <span class="info-run-seed-label">本局种子</span>
-              <span class="info-run-seed-value">{{ runSeedDisplay }}</span>
-            </p>
-          </template>
-          <template v-else>关卡信息稍后补充</template>
+        <div
+          v-show="activeTab === 'stage'"
+          ref="stageTabRef"
+          class="info-tab-layer info-tab-layer--stage"
+          role="tabpanel"
+          aria-label="关卡进度"
+        >
+          <div v-if="runSeedDisplay" class="info-stage-seed-bar info-stagger-el">
+            <div class="info-stage-seed-main">
+              <span class="info-stage-seed-label">本局种子</span>
+              <span class="info-stage-seed-value">{{ runSeedDisplay }}</span>
+            </div>
+            <button
+              type="button"
+              class="info-stage-seed-copy"
+              :title="seedCopyDone ? '已复制' : '复制种子'"
+              :aria-label="seedCopyDone ? '已复制' : '复制本局种子'"
+              @click="copyRunSeed"
+            >
+              <i :class="seedCopyDone ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i>
+            </button>
+          </div>
+
+          <div v-if="stageProgressRows.length" class="info-stage-progress">
+            <template v-for="(row, rowIdx) in stageProgressRows" :key="row.rowKey">
+              <div
+                v-if="rowIdx > 0 && !stageProgressRows[rowIdx - 1]?.empty"
+                class="info-stage-v-connector info-stagger-el"
+                :class="{ 'info-stage-v-connector--active': vConnectorActiveForRow(row) }"
+                aria-hidden="true"
+              >
+                <i class="ri-arrow-down-s-line"></i>
+              </div>
+              <div
+                class="info-stage-progress-slot"
+                :class="{ 'info-stage-progress-slot--empty': row.empty }"
+              >
+              <div
+                class="info-stage-chapter-row"
+                :class="{
+                  'info-stage-chapter-row--fade-up': row.fadeMask === 'up',
+                  'info-stage-chapter-row--fade-down': row.fadeMask === 'down',
+                  'info-stage-chapter-row--empty': row.empty,
+                }"
+              >
+                <template v-if="!row.empty">
+                  <template v-for="(block, blockIdx) in row.blocks" :key="block.id">
+                  <span
+                    v-if="blockIdx > 0"
+                    class="info-stage-inline-connector info-stagger-el"
+                    :class="{ 'info-stage-inline-connector--active': inlineConnectorActiveBefore(block.id) }"
+                    aria-hidden="true"
+                  >
+                    <i class="ri-arrow-right-s-line"></i>
+                  </span>
+                  <div
+                    class="info-stage-block info-stage-block--tile info-stagger-el"
+                    :class="{ 'info-stage-block--current': block.isCurrent }"
+                  >
+                    <div class="info-stage-block-inner">
+                      <div class="info-stage-block-id">{{ block.id }}</div>
+                      <div class="info-stage-block-score">
+                        <span class="info-stage-block-score-label">至少得分</span>
+                        <span class="info-stage-block-score-value">{{
+                          formatStageTargetScore(block.targetScore)
+                        }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  </template>
+                  <div
+                    class="info-stage-row-desc info-stagger-el"
+                    :class="{ 'info-stage-row-desc--empty': !row.blocks[2]?.bossName }"
+                  >
+                    <template v-if="row.blocks[2]?.bossName">
+                      <div class="info-stage-block-boss-name">{{ row.blocks[2].bossName }}</div>
+                      <div class="info-stage-block-boss-req">{{ row.blocks[2].bossRequirement }}</div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+              </div>
+            </template>
+          </div>
+          <div v-else class="info-stage-empty info-stagger-el">关卡信息稍后补充</div>
         </div>
         <div
           v-show="activeTab === 'coupon'"
+          ref="couponTabRef"
           class="info-tab-layer info-tab-layer--vouchers"
           role="tabpanel"
           aria-label="已购买优惠券"
         >
-          <div v-if="ownedVoucherDisplayRows.length === 0" class="info-voucher-empty">暂无已购优惠券</div>
+          <div v-if="ownedVoucherPairGroups.length === 0" class="info-voucher-empty info-stagger-el">暂无已购优惠券</div>
           <div v-else class="info-voucher-grid">
-            <div v-for="row in ownedVoucherDisplayRows" :key="row.id" class="info-voucher-cell">
-              <VoucherStamp :emoji="row.emoji" :display-name="row.displayName" compact />
-            </div>
+            <button
+              v-for="group in ownedVoucherPairGroups"
+              :key="group.pairId"
+              type="button"
+              class="info-voucher-cell info-stagger-el"
+              @click="onOwnedVoucherClick(group, $event)"
+            >
+              <VoucherStampStack :stamps="voucherStampsForGroup(group)" />
+            </button>
           </div>
         </div>
         </div>
@@ -198,11 +299,21 @@ import {
   getRarityBonusForRarity,
   getRarityMultBonusForRarity,
 } from "../composables/useScoring";
+import {
+  buildInfoStageProgressRows,
+  formatStageTargetScore,
+  isInfoStageInlineConnectorActive,
+  isInfoStageVConnectorActive,
+  resolveInfoStageShopConnector,
+} from "../game/infoStageProgress.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
-import { formatVoucherDisplayName } from "../vouchers/voucherDisplay.js";
-import { pairHasTier2Owned } from "../vouchers/voucherDefinitions.js";
-import { getVoucherDefOrNull } from "../vouchers/voucherRuntime.js";
-import VoucherStamp from "./VoucherStamp.vue";
+import {
+  buildOwnedVoucherPairGroups,
+  voucherStampsForOwnedGroup,
+} from "../vouchers/voucherOwnedDisplay.js";
+import VoucherStampStack from "./VoucherStampStack.vue";
+import gsap from "gsap";
+import { playInfoCouponTabEnter, playInfoGridTabEnter } from "../game/infoModalTabEnterAnim.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -222,9 +333,21 @@ const props = defineProps({
   overlaySuppressed: { type: Boolean, default: false },
   /** 本局种子显示串（只读） */
   runSeedDisplay: { type: String, default: "" },
+  /** 当前关卡 id（如 1-2） */
+  currentLevelId: { type: String, default: "" },
+  /** 局种子数值（Boss 预览等） */
+  runSeedNumeric: { type: Number, default: 0 },
+  /** 当前 Boss 关 slug（非 Boss 关可空） */
+  activeBossSlug: { type: String, default: "" },
+  /** 打开弹窗时默认 Tab：level | rarity | stage | coupon */
+  initialTab: { type: String, default: "level" },
+  /** 处于商店：进度高亮在关卡间箭头上，而非方块 */
+  inShop: { type: Boolean, default: false },
+  /** 商店内下一小关 id（与 GamePanel getNextLevelDefAfterShop 一致） */
+  nextLevelId: { type: String, default: "" },
 });
 
-const emit = defineEmits(["update:modelValue"]);
+const emit = defineEmits(["update:modelValue", "select-owned-voucher"]);
 
 const stackZ = ref(0);
 const layerStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
@@ -243,40 +366,116 @@ watch(
 
 const activeTab = ref("level");
 
-/** 等级 Tab 内表格（默认首屏、四 Tab 中最高），用于撑开中间区，避免固定 rpx 裁切 */
+const levelTabRef = ref(null);
+const rarityTabRef = ref(null);
+const stageTabRef = ref(null);
+const couponTabRef = ref(null);
+
+/** @type {Record<string, import('vue').Ref<HTMLElement | null>>} */
+const INFO_TAB_PANEL_REF = {
+  level: levelTabRef,
+  rarity: rarityTabRef,
+  stage: stageTabRef,
+  coupon: couponTabRef,
+};
+
+
+/** 等级 Tab 内表格（四 Tab 中最高），用于固定中间区高度，切换 Tab 不伸缩 */
 const levelTableRef = ref(null);
+const layerInnerRef = ref(null);
 const panelMinHeightPx = ref(0);
+/** @type {ReturnType<typeof setTimeout> | null} */
+let measureLevelTabTimer = null;
+const seedCopyDone = ref(false);
+let seedCopyResetTimer = /** @type {ReturnType<typeof setTimeout> | null} */ (null);
 
-const panelMinStyle = computed(() =>
-  panelMinHeightPx.value > 0 ? { minHeight: `${panelMinHeightPx.value}px` } : undefined,
-);
+const panelMinStyle = computed(() => {
+  const h = panelMinHeightPx.value;
+  if (h <= 0) return undefined;
+  return { minHeight: `${h}px`, height: `${h}px` };
+});
 
-function measureLevelTabHeight() {
-  if (activeTab.value !== "level") return;
-  const el = levelTableRef.value;
-  if (!el) return;
-  const h = el.getBoundingClientRect().height || el.offsetHeight;
-  const next = Math.ceil(h);
-  if (next > 0) panelMinHeightPx.value = next;
+/**
+ * 布局高度（不受祖先 transform 缩放影响）
+ * @param {HTMLElement} el
+ */
+function readLayoutHeight(el) {
+  return Math.ceil(Math.max(el.offsetHeight, el.scrollHeight) || 0);
 }
 
-function scheduleMeasureLevelTab() {
-  nextTick(() => {
-    measureLevelTabHeight();
-    requestAnimationFrame(() => {
+/**
+ * 等级表在其它 Tab 激活时会被 v-show 隐藏，用离屏克隆量高。
+ * @param {HTMLTableElement} table
+ * @returns {number}
+ */
+function measureLevelTableCloneHeight(table) {
+  const slot = table.closest(".info-panel-slot");
+  const panel = slot?.parentElement;
+  const w = panel?.offsetWidth ?? table.offsetWidth;
+  if (!w || w <= 0) return 0;
+
+  const holder = document.createElement("div");
+  holder.style.cssText = `position:absolute;left:-9999px;top:0;width:${w}px;visibility:hidden;pointer-events:none;`;
+  const clone = /** @type {HTMLTableElement} */ (table.cloneNode(true));
+  holder.appendChild(clone);
+  document.body.appendChild(holder);
+  const h = readLayoutHeight(clone);
+  document.body.removeChild(holder);
+  return h;
+}
+
+function measureLevelTabHeight() {
+  const table = levelTableRef.value;
+  if (!table) return;
+
+  const layer = table.closest(".info-tab-layer");
+  const layerVisible = layer && getComputedStyle(layer).display !== "none";
+  let h = 0;
+  if (layerVisible) {
+    h = readLayoutHeight(table);
+  }
+  if (h <= 0) {
+    h = measureLevelTableCloneHeight(table);
+  }
+  if (h > 0) panelMinHeightPx.value = h;
+}
+
+/** @param {{ delay?: number }} [opts] */
+function scheduleMeasureLevelTabHeight(opts = {}) {
+  const delay = opts.delay ?? 0;
+  const run = () => {
+    nextTick(() => {
       measureLevelTabHeight();
+      requestAnimationFrame(() => measureLevelTabHeight());
     });
-  });
+  };
+  if (measureLevelTabTimer) clearTimeout(measureLevelTabTimer);
+  if (delay > 0) {
+    measureLevelTabTimer = setTimeout(() => {
+      measureLevelTabTimer = null;
+      run();
+    }, delay);
+  } else {
+    run();
+  }
+}
+
+/** 外壳 transform 入场结束后补量（与 CSS 0.32s 对齐） */
+function onLayerInnerTransitionEnd(ev) {
+  if (ev.target !== layerInnerRef.value) return;
+  if (ev.propertyName !== "transform") return;
+  if (!props.modelValue) return;
+  measureLevelTabHeight();
 }
 
 let levelTableResizeObserver = null;
 
 function onWindowResizeForInfoModal() {
-  scheduleMeasureLevelTab();
+  scheduleMeasureLevelTabHeight();
 }
 
 onMounted(() => {
-  scheduleMeasureLevelTab();
+  scheduleMeasureLevelTabHeight();
   const el = levelTableRef.value;
   if (el && typeof ResizeObserver !== "undefined") {
     levelTableResizeObserver = new ResizeObserver(() => {
@@ -287,31 +486,141 @@ onMounted(() => {
   window.addEventListener("resize", onWindowResizeForInfoModal);
 });
 
+function collectActiveTabStaggerTargets() {
+  const panel = INFO_TAB_PANEL_REF[activeTab.value]?.value;
+  if (!panel) return [];
+  return [...panel.querySelectorAll(".info-stagger-el")];
+}
+
+function runActiveTabEnterAnim() {
+  if (!props.modelValue) return;
+  const tab = activeTab.value;
+  const targets = collectActiveTabStaggerTargets();
+  if (tab === "coupon") {
+    playInfoCouponTabEnter(targets);
+  } else {
+    playInfoGridTabEnter(targets);
+  }
+}
+
+/** @type {ReturnType<typeof setTimeout> | null} */
+let tabEnterAnimTimer = null;
+let skipTabSwitchAnim = false;
+
+/** @param {{ delay?: number }} [opts] */
+function scheduleActiveTabEnterAnim(opts = {}) {
+  if (!props.modelValue) return;
+  const delay = opts.delay ?? 0;
+  if (tabEnterAnimTimer) clearTimeout(tabEnterAnimTimer);
+  tabEnterAnimTimer = setTimeout(() => {
+    tabEnterAnimTimer = null;
+    nextTick(() => runActiveTabEnterAnim());
+  }, delay);
+}
+
 onBeforeUnmount(() => {
+  if (measureLevelTabTimer) clearTimeout(measureLevelTabTimer);
+  measureLevelTabTimer = null;
+  if (tabEnterAnimTimer) clearTimeout(tabEnterAnimTimer);
+  tabEnterAnimTimer = null;
+  for (const panelRef of Object.values(INFO_TAB_PANEL_REF)) {
+    const panel = panelRef.value;
+    if (panel) gsap.killTweensOf(panel.querySelectorAll(".info-stagger-el"));
+  }
   levelTableResizeObserver?.disconnect();
   levelTableResizeObserver = null;
   window.removeEventListener("resize", onWindowResizeForInfoModal);
+  if (seedCopyResetTimer) clearTimeout(seedCopyResetTimer);
 });
+
+const VALID_INFO_TABS = new Set(["level", "rarity", "stage", "coupon"]);
 
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) activeTab.value = "level";
-    if (open) scheduleMeasureLevelTab();
+    if (open) {
+      skipTabSwitchAnim = true;
+      const tab = String(props.initialTab ?? "level");
+      activeTab.value = VALID_INFO_TABS.has(tab) ? tab : "level";
+      scheduleMeasureLevelTabHeight();
+      scheduleMeasureLevelTabHeight({ delay: 340 });
+      scheduleActiveTabEnterAnim({ delay: 320 });
+      nextTick(() => {
+        skipTabSwitchAnim = false;
+      });
+    } else {
+      panelMinHeightPx.value = 0;
+    }
   },
 );
 
-watch(activeTab, (tab) => {
-  if (tab === "level") scheduleMeasureLevelTab();
+watch(activeTab, () => {
+  if (!props.modelValue || skipTabSwitchAnim) return;
+  scheduleActiveTabEnterAnim({ delay: 0 });
 });
 
 watch(
   () => [props.lengthLevels, props.spellCounts, props.lengthUpgradeObservatoryExtra],
   () => {
-    if (activeTab.value === "level") scheduleMeasureLevelTab();
+    scheduleMeasureLevelTabHeight();
   },
   { deep: true },
 );
+
+const stageProgressRows = computed(() => {
+  const id = String(props.currentLevelId ?? "").trim();
+  if (!id) return [];
+  return buildInfoStageProgressRows({
+    currentLevelId: id,
+    activeBossSlug: props.activeBossSlug,
+    runSeedNumeric: props.runSeedNumeric,
+    inShop: props.inShop,
+  });
+});
+
+const stageShopConnector = computed(() =>
+  props.inShop
+    ? resolveInfoStageShopConnector(props.currentLevelId, props.nextLevelId)
+    : { vBeforeChapter: null, inlineBeforeLevelId: null },
+);
+
+/** @param {import('../game/infoStageProgress.js').InfoStageChapterRow} row */
+function vConnectorActiveForRow(row) {
+  return isInfoStageVConnectorActive(row, stageShopConnector.value.vBeforeChapter);
+}
+
+/** @param {string} levelId */
+function inlineConnectorActiveBefore(levelId) {
+  return isInfoStageInlineConnectorActive(levelId, stageShopConnector.value.inlineBeforeLevelId);
+}
+
+async function copyRunSeed() {
+  const text = String(props.runSeedDisplay ?? "").trim();
+  if (!text) return;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    seedCopyDone.value = true;
+    if (seedCopyResetTimer) clearTimeout(seedCopyResetTimer);
+    seedCopyResetTimer = setTimeout(() => {
+      seedCopyDone.value = false;
+      seedCopyResetTimer = null;
+    }, 2000);
+  } catch {
+    /* 忽略复制失败 */
+  }
+}
 
 const lengthRows = computed(() => {
   const counts = props.spellCounts || {};
@@ -349,22 +658,24 @@ const rarityRows = computed(() => {
   }));
 });
 
-const ownedVoucherDisplayRows = computed(() => {
-  const ids = Array.isArray(props.ownedVoucherIds) ? props.ownedVoucherIds.map(String) : [];
-  return ids.map((id) => {
-    const def = getVoucherDefOrNull(id);
-    if (!def) {
-      return { id, emoji: "❔", displayName: id };
-    }
-    return {
-      id,
-      emoji: def.emoji,
-      displayName: formatVoucherDisplayName(def, {
-        pairHasTier2Owned: pairHasTier2Owned(def.pairId, ids),
-      }),
-    };
-  });
+const ownedVoucherPairGroups = computed(() => {
+  const ids = Array.isArray(props.ownedVoucherIds) ? props.ownedVoucherIds : [];
+  return buildOwnedVoucherPairGroups(ids);
 });
+
+/** @param {ReturnType<typeof buildOwnedVoucherPairGroups>[number]} group */
+function voucherStampsForGroup(group) {
+  return voucherStampsForOwnedGroup(group);
+}
+
+/** @param {ReturnType<typeof buildOwnedVoucherPairGroups>[number]} group @param {MouseEvent} event */
+function onOwnedVoucherClick(group, event) {
+  const el = event.currentTarget;
+  emit("select-owned-voucher", {
+    pairId: group.pairId,
+    originEl: el instanceof HTMLElement ? el : null,
+  });
+}
 
 function formatMult(m) {
   const n = Number(m);
@@ -381,6 +692,26 @@ function close() {
 
 <style scoped>
 /* 扁平化：少阴影、纯色块，参考 2048 式简洁面板 */
+.info-stagger-el {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.info-score-mult.info-stagger-el,
+.info-th-score-mult-head.info-stagger-el {
+  display: flex;
+}
+
+.info-rarity-name-row.info-stagger-el,
+.info-stagger-el--pill {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.info-voucher-cell.info-stagger-el {
+  transform-origin: center center;
+}
+
 .info-layer {
   position: absolute;
   inset: 0;
@@ -498,6 +829,10 @@ function close() {
   overflow: hidden;
   border-radius: calc(6 * var(--rpx));
   background: #eee4da;
+}
+
+.info-tab-layer--vouchers {
+  background: transparent;
 }
 
 .info-table-panel {
@@ -773,29 +1108,324 @@ function close() {
   line-height: 1;
 }
 
-.info-placeholder {
+.info-tab-layer--stage {
+  --info-stage-gap-v: calc(14 * var(--rpx));
+  --info-stage-gap-h: calc(3 * var(--rpx));
+  --info-stage-connector-w: calc(18 * var(--rpx));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--info-stage-gap-v);
+  height: 100%;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.info-stage-seed-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--rpx));
+  width: 100%;
+  box-sizing: border-box;
+  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
+  border-radius: calc(10 * var(--rpx));
+  background: #eee4da;
+}
+
+.info-stage-seed-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--rpx));
+  text-align: left;
+}
+
+.info-stage-seed-label {
+  font-size: calc(22 * var(--rpx));
+  font-weight: 700;
+  color: #8f7a66;
+}
+
+.info-stage-seed-value {
+  font-size: calc(34 * var(--rpx));
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #3c3a32;
+  word-break: break-all;
+  line-height: 1.2;
+}
+
+.info-stage-seed-copy {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(50 * var(--rpx));
+  height: calc(50 * var(--rpx));
+  border: none;
+  border-radius: calc(8 * var(--rpx));
+  background: #faf8ef;
+  color: #5c534c;
+  font-size: calc(28 * var(--rpx));
+  cursor: pointer;
+  transition: filter 0.1s ease;
+}
+
+.info-stage-seed-copy:hover {
+  filter: brightness(1.04);
+}
+
+.info-stage-seed-copy:active {
+  filter: brightness(0.94);
+}
+
+.info-stage-progress {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--info-stage-gap-v);
+  width: 100%;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 夹在两行槽位之间，由父级 gap 均分，箭头位于两关正中 */
+.info-stage-v-connector {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(24 * var(--rpx));
+  width: 100%;
+  margin: 0;
   color: #8f7a66;
+  font-size: calc(30 * var(--rpx));
+  line-height: 1;
 }
 
-.info-run-seed {
-  margin: 0;
+.info-stage-v-connector--active {
+  width: auto;
+  min-width: calc(40 * var(--rpx));
+  height: calc(36 * var(--rpx));
+  margin-inline: auto;
+  padding: 0 calc(10 * var(--rpx));
+  border-radius: calc(8 * var(--rpx));
+  background: var(--btn-yellow, #edc22e);
+  color: #faf8ef;
+  box-shadow: 0 calc(2 * var(--rpx)) calc(6 * var(--rpx)) rgba(237, 194, 46, 0.28);
+}
+
+.info-stage-progress-slot {
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: calc(10 * var(--rpx));
-  font-size: calc(24 * var(--rpx));
-  color: #8f7a66;
+  justify-content: flex-start;
 }
 
-.info-run-seed-value {
-  font-size: calc(30 * var(--rpx));
+.info-stage-progress-slot:not(.info-stage-progress-slot--empty) {
+  justify-content: center;
+}
+
+.info-stage-progress-slot:not(.info-stage-progress-slot--empty) .info-stage-chapter-row:not(.info-stage-chapter-row--empty) {
+  flex: 0 0 auto;
+  width: 100%;
+  height: auto;
+  margin-block: auto;
+}
+
+.info-stage-chapter-row:not(.info-stage-chapter-row--empty) {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    var(--info-stage-connector-w)
+    minmax(0, 1fr)
+    var(--info-stage-connector-w)
+    minmax(0, 1fr)
+    minmax(0, 1.18fr);
+  align-items: stretch;
+  column-gap: var(--info-stage-gap-h);
+  width: 100%;
+}
+
+/* 非当前行：mask 渐变淡出（50% 可见 → 透明），不用整体 opacity */
+.info-stage-chapter-row--fade-up {
+  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 100%);
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 100%);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.info-stage-chapter-row--fade-down {
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 100%);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 100%);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.info-stage-chapter-row--empty {
+  flex: 1 1 auto;
+  min-height: 0;
+  pointer-events: none;
+}
+
+.info-stage-inline-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: var(--info-stage-connector-w);
+  min-width: 0;
+  max-width: var(--info-stage-connector-w);
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  color: #a39489;
+  font-size: calc(22 * var(--rpx));
+  line-height: 1;
+}
+
+.info-stage-inline-connector--active {
+  width: calc(32 * var(--rpx));
+  max-width: calc(32 * var(--rpx));
+  height: calc(32 * var(--rpx));
+  border-radius: calc(8 * var(--rpx));
+  background: var(--btn-yellow, #edc22e);
+  color: #faf8ef;
+  font-size: calc(24 * var(--rpx));
+  box-shadow: 0 calc(2 * var(--rpx)) calc(6 * var(--rpx)) rgba(237, 194, 46, 0.28);
+}
+
+.info-stage-block {
+  box-sizing: border-box;
+  border-radius: calc(10 * var(--rpx));
+  background: #eee4da;
+  overflow: hidden;
+}
+
+.info-stage-block-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: calc(11 * var(--rpx)) calc(12 * var(--rpx));
+  box-sizing: border-box;
+  text-align: left;
+}
+
+/* [方] > [方] > [方] [说明]：三格正方形；说明区与方块同高（行高由方块撑开） */
+.info-stage-block--tile {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  justify-self: center;
+  align-self: start;
+}
+
+.info-stage-row-desc {
+  align-self: stretch;
+  height: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: calc(6 * var(--rpx));
+  padding: calc(11 * var(--rpx)) calc(12 * var(--rpx));
+  border-radius: calc(10 * var(--rpx));
+  background: #e4d9ce;
+  box-sizing: border-box;
+  text-align: left;
+  overflow: visible;
+}
+
+.info-stage-row-desc--empty {
+  background: transparent;
+  pointer-events: none;
+}
+
+.info-stage-block--current {
+  outline: calc(2 * var(--rpx)) solid #edc22e;
+  outline-offset: calc(-1 * var(--rpx));
+  box-shadow: 0 calc(2 * var(--rpx)) calc(6 * var(--rpx)) rgba(237, 194, 46, 0.28);
+}
+
+.info-stage-block-id {
+  font-size: calc(26 * var(--rpx));
+  font-weight: 700;
+  color: #8f7a66;
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+}
+
+.info-stage-block-score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: calc(5 * var(--rpx));
+  width: 100%;
+  margin-top: calc(10 * var(--rpx));
+  line-height: 1.15;
+}
+
+.info-stage-block-score-label {
+  font-size: calc(18 * var(--rpx));
+  font-weight: 600;
+  color: #a39489;
+}
+
+.info-stage-block-score-value {
+  font-size: calc(34 * var(--rpx));
   font-weight: 800;
-  letter-spacing: 0.08em;
   color: #3c3a32;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.info-stage-block-boss-name {
+  font-size: calc(22 * var(--rpx));
+  font-weight: 800;
+  color: #5c534c;
+  line-height: 1.2;
+  width: 100%;
+}
+
+.info-stage-block-boss-req {
+  font-size: calc(18 * var(--rpx));
+  font-weight: 600;
+  color: #8f7a66;
+  line-height: 1.3;
+  width: 100%;
+}
+
+.info-stage-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(16 * var(--rpx));
+  border-radius: calc(10 * var(--rpx));
+  background: #eee4da;
+  font-size: calc(24 * var(--rpx));
+  color: #8f7a66;
+  text-align: center;
 }
 
 .info-back-btn {
@@ -819,5 +1449,29 @@ function close() {
 
 .info-back-btn:active {
   filter: brightness(0.95);
+}
+
+/* 开闭：与 PauseOptionsLayer 同款蒙层淡入 + 卡片缩放 */
+.info-layer-enter-active,
+.info-layer-leave-active {
+  transition: opacity 0.28s var(--ease-expo-out, ease-out);
+}
+
+.info-layer-enter-active .info-layer-inner,
+.info-layer-leave-active .info-layer-inner {
+  transition:
+    opacity 0.32s var(--ease-expo-out, ease-out),
+    transform 0.32s var(--ease-expo-out, ease-out);
+}
+
+.info-layer-enter-from,
+.info-layer-leave-to {
+  opacity: 0;
+}
+
+.info-layer-enter-from .info-layer-inner,
+.info-layer-leave-to .info-layer-inner {
+  opacity: 0;
+  transform: scale(0.94) translateY(calc(12 * var(--rpx)));
 }
 </style>

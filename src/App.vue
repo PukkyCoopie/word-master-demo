@@ -24,7 +24,11 @@
             <div class="dict-boot-bar-fill" :style="{ width: dictBarPct + '%' }" />
           </div>
         </div>
-        <MainMenu v-if="showMenu" @request-start="onMenuRequestStart" />
+        <MainMenu
+          v-if="showMenu"
+          @request-start="onMenuRequestStart"
+          @open-settings="openSettings"
+        />
         <div v-else-if="showGame" class="game-session-stack">
           <GamePanel
             :key="gameSessionKey"
@@ -41,6 +45,7 @@
           @confirm="onRunStartConfirm"
           @cancel="onRunStartCancel"
         />
+        <SettingsLayer :open="showSettings" @close="closeSettings" />
       </div>
     </div>
   </div>
@@ -51,6 +56,8 @@ import { computed, onBeforeUnmount, onMounted, provide, ref } from "vue";
 import MainMenu from "./components/MainMenu.vue";
 import GamePanel from "./components/GamePanel.vue";
 import RunStartDialog from "./components/RunStartDialog.vue";
+import SettingsLayer from "./components/SettingsLayer.vue";
+import { loadGameSettings } from "./settings/gameSettings.js";
 import { useScale } from "./composables/useScale";
 import { useDictionary } from "./composables/useDictionary";
 import IrisTransition from "./components/IrisTransition.vue";
@@ -65,6 +72,7 @@ const { loadDictionary, dictionaryReady, loading: dictLoading, error: dictError,
 const screen = ref("menu");
 const gameSessionKey = ref(0);
 const showRunStartDialog = ref(false);
+const showSettings = ref(false);
 /** @type {import('vue').Ref<'menu' | 'restart'>} */
 const runStartMode = ref("menu");
 const sessionRunSeed = ref(0);
@@ -91,6 +99,17 @@ provide("requestNewRun", (opts = {}) => {
   showRunStartDialog.value = true;
 });
 
+function openSettings() {
+  showSettings.value = true;
+}
+
+function closeSettings() {
+  showSettings.value = false;
+}
+
+provide("openSettings", openSettings);
+provide("closeSettings", closeSettings);
+
 const showMenu = computed(() => dictionaryReady.value && screen.value === "menu");
 const showGame = computed(() => dictionaryReady.value && screen.value === "game");
 const dictGate = computed(() => !dictionaryReady.value);
@@ -104,6 +123,7 @@ let appAlive = true;
 let disposeAppE2eHarness = null;
 
 onMounted(() => {
+  loadGameSettings();
   loadDictionary({ shouldAbort: () => !appAlive });
   if (isE2eMode()) {
     disposeAppE2eHarness = registerAppTestHarness({

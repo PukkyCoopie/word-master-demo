@@ -124,7 +124,8 @@ function onCancel() {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgba(0, 0, 0, 0.42);
+  /* 偏蓝深灰，与选项/结算层同色阶透明度（约 0.88） */
+  background: rgba(48, 62, 78, 0.88);
   pointer-events: none;
 }
 

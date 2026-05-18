@@ -171,7 +171,7 @@ function buildSpellDefinitions() {
       name: "藏宝图",
       iconClass: "ri-treasure-map-fill",
       pickCount: 0,
-      description: "获取一个随机宝藏。",
+      description: "获取一个随机宝藏",
     },
   ];
 }

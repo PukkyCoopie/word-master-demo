@@ -82,6 +82,12 @@ export function getLevelByIndex(index) {
 /** 标准流程最后一关下标（8-3） */
 export const STANDARD_RUN_FINAL_LEVEL_INDEX = LEVEL_COUNT - 1;
 
+/** TODO(测试)：true = 通关 1-3 后整局胜利（下标 5）；测完改回 false */
+const DEBUG_RUN_END_AFTER_CHAPTER_1 = false;
+
+/** 1-3 在 LEVELS 中的下标（RUN_START_LEVEL_INDEX 起为 1-1） */
+const CHAPTER_1_FINAL_LEVEL_INDEX = RUN_START_LEVEL_INDEX + 2;
+
 /**
  * @param {number} index 0-based 通关顺序下标（可超过 LEVEL_COUNT−1 表示无尽后续关）
  * @returns {LevelDefinition}
@@ -101,5 +107,7 @@ export function getRunLevelAtIndex(index) {
  * @returns {boolean}
  */
 export function isStandardRunFinalLevelIndex(index) {
-  return Math.floor(Number(index)) === STANDARD_RUN_FINAL_LEVEL_INDEX;
+  const i = Math.floor(Number(index)) || 0;
+  if (DEBUG_RUN_END_AFTER_CHAPTER_1) return i === CHAPTER_1_FINAL_LEVEL_INDEX;
+  return i === STANDARD_RUN_FINAL_LEVEL_INDEX;
 }

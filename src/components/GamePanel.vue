@@ -16,7 +16,7 @@
           :treasure-charge-by-slot="treasureChargeVisualBySlot"
           :treasure-charge-progress-by-slot="treasureChargeProgressBySlot"
           @view-deck="showDeckLayer = true"
-          @view-round-info="showInfoLayer = true"
+          @view-round-info="openInfoModal('level')"
           @next-level="onShopNextLevel"
           @shop-reroll="onShopReroll"
           @select-offer="onShopSelectOffer"
@@ -179,7 +179,7 @@
       <div v-if="dictFatalError" class="dict-fatal-layer portal-overlay-fill" :style="dictFatalPortalStackStyle">
         <div class="dict-fatal-card">
           <div class="dict-fatal-title">词典加载失败</div>
-          <div class="dict-fatal-message">{{ dictError || "无法加载词典，请检查资源后重试。" }}</div>
+          <div class="dict-fatal-message">{{ dictError || "无法加载词典，请检查资源后重试" }}</div>
           <button type="button" class="dict-fatal-btn" @click="reloadPage">刷新重试</button>
         </div>
       </div>
@@ -188,7 +188,16 @@
     <template v-if="!showShop">
     <div class="top-area">
       <div class="header">
-        <div ref="levelTitleBoxRef" class="header-box header-box-level-title">{{ levelTitleLabel }}</div>
+        <div ref="levelTitleBoxRef" class="header-box header-box-level-title header-box-level-title--clickable"
+          role="button"
+          tabindex="0"
+          title="查看关卡进度"
+          :aria-label="`${levelTitleLabel}，点击查看关卡进度`"
+          @click="openInfoModal('stage')"
+          @keydown.enter.prevent="openInfoModal('stage')"
+          @keydown.space.prevent="openInfoModal('stage')"
+        >
+          {{ levelTitleLabel }}</div>
         <div
           class="header-box header-box-split header-box-reward-dollars"
           :title="`本关通关基础奖励 ${stageRewardYuan} 元`"
@@ -336,11 +345,18 @@
             title="信息"
             aria-label="信息"
             :disabled="isRunFlowOverlayOpen()"
-            @click="!isRunFlowOverlayOpen() && (showInfoLayer = true)"
+            @click="!isRunFlowOverlayOpen() && openInfoModal('level')"
           >
             <i class="ri-information-line"></i>
           </button>
-          <button type="button" class="icon-btn icon-btn-yellow" title="设置" aria-label="设置">
+          <button
+            type="button"
+            class="icon-btn icon-btn-yellow"
+            title="选项"
+            aria-label="选项"
+            :disabled="transitionBusy || showShop || isBlockingPauseOpen()"
+            @click="openPauseOptions"
+          >
             <i class="ri-settings-3-line"></i>
           </button>
         </div>
@@ -456,10 +472,22 @@
       <RunEndLayer
         :open="showRunEnd"
         :outcome="runEndOutcome"
+        :stats-rows="runEndStatsRows"
         :portal-stack-style="runEndPortalStackStyle"
         @retry="onRunEndRetry"
         @main-menu="onRunEndMainMenu"
         @endless="onRunEndEndless"
+      />
+    </Teleport>
+
+    <Teleport defer to="#game-view-portal">
+      <PauseOptionsLayer
+        :open="showPauseOptions"
+        :portal-stack-style="pauseOptionsPortalStackStyle"
+        @continue="onPauseContinue"
+        @new-run="onPauseNewRun"
+        @settings="onPauseSettings"
+        @main-menu="onPauseMainMenu"
       />
     </Teleport>
 
@@ -530,17 +558,26 @@
     </Teleport>
 
     <Teleport defer to="#game-view-portal">
+      <Transition name="info-layer" :css="true">
       <InfoModal
         v-if="showInfoLayer"
         :overlay-suppressed="shopOverlayLayersSuppressed"
         v-model="showInfoLayer"
+        :initial-tab="infoModalInitialTab"
         :spell-counts="spellCountsByLength"
         :length-levels="lengthLevelsByLength"
         :length-upgrade-observatory-extra="lengthUpgradeObservatoryExtra"
         :rarity-levels="rarityLevelsByRarity"
         :owned-voucher-ids="ownedVoucherIds"
         :run-seed-display="props.runSeedDisplay"
+        :current-level-id="currentLevel?.id ?? ''"
+        :in-shop="showShop"
+        :next-level-id="infoModalNextLevelId"
+        :run-seed-numeric="getRunSeedNumeric()"
+        :active-boss-slug="activeBossSlug"
+        @select-owned-voucher="onInfoSelectOwnedVoucher"
       />
+      </Transition>
     </Teleport>
   </div>
 </template>
@@ -587,9 +624,18 @@ import {
   isStandardRunFinalLevelIndex,
 } from "../levelDefinitions";
 import RunEndLayer from "./RunEndLayer.vue";
+import PauseOptionsLayer from "./PauseOptionsLayer.vue";
 import { pickBossSlugForLevel } from "../game/bossRoll.js";
 import { applyBossTileDebuffState, applyBossTileDebuffToGrid } from "../game/bossTileDebuff.js";
 import { coerceRunSeedNumeric, createRunRng } from "../game/runRng.js";
+import {
+  createRunMatchStats,
+  getRunMatchStatsRows,
+  recordLettersDiscarded,
+  recordReroll,
+  recordShopPurchase,
+  recordWordSubmit,
+} from "../game/runMatchStats.js";
 import BossBlindRerollLayer from "./BossBlindRerollLayer.vue";
 import { getBossDef } from "../game/bossBlindDefinitions.js";
 import {
@@ -636,6 +682,10 @@ import {
 } from "../shop/randomUpgradeRoll.js";
 import { formatVoucherDisplayName } from "../vouchers/voucherDisplay.js";
 import { pairHasTier2Owned } from "../vouchers/voucherDefinitions.js";
+import {
+  buildOwnedVoucherDetailTreasure,
+  buildOwnedVoucherPairGroups,
+} from "../vouchers/voucherOwnedDisplay.js";
 import { rollShopVoucherOfferDef } from "../vouchers/voucherRegistry.js";
 import {
   applyShopDiscountPrice,
@@ -731,6 +781,7 @@ const deckExpandPortalZ = ref(0);
 const dictFatalPortalZ = ref(0);
 const settlementPortalZ = ref(0);
 const runEndPortalZ = ref(0);
+const pauseOptionsPortalZ = ref(0);
 const toastPortalZ = ref(0);
 
 const shopPortalStackStyle = computed(() => (shopPortalZ.value > 0 ? { zIndex: shopPortalZ.value } : undefined));
@@ -747,9 +798,18 @@ const settlementPortalStackStyle = computed(() =>
 const runEndPortalStackStyle = computed(() =>
   runEndPortalZ.value > 0 ? { zIndex: runEndPortalZ.value } : undefined,
 );
+const pauseOptionsPortalStackStyle = computed(() =>
+  pauseOptionsPortalZ.value > 0 ? { zIndex: pauseOptionsPortalZ.value } : undefined,
+);
 const toastPortalStackStyle = computed(() => (toastPortalZ.value > 0 ? { zIndex: toastPortalZ.value } : undefined));
 
+/** 小关结算 / 整局结束 / 暂停选项 */
 function isRunFlowOverlayOpen() {
+  return showSettlement.value || showRunEnd.value || showPauseOptions.value;
+}
+
+/** 与暂停选项互斥的局内流程层（不含选项层本身） */
+function isBlockingPauseOpen() {
   return showSettlement.value || showRunEnd.value;
 }
 
@@ -994,6 +1054,14 @@ async function mutateRandomNonWildcardLetterTileToWildcard() {
 }
 
 const showInfoLayer = ref(false);
+const infoModalInitialTab = ref("level");
+
+/** @param {'level' | 'rarity' | 'stage' | 'coupon'} [tab='level'] */
+function openInfoModal(tab = "level") {
+  if (isRunFlowOverlayOpen()) return;
+  infoModalInitialTab.value = tab;
+  showInfoLayer.value = true;
+}
 
 /** 字母块详情（右键 / 长按） */
 const tileDetailPayload = ref(null);
@@ -1186,6 +1254,11 @@ function dollarMarks(n) {
 }
 const currentLevel = computed(() => getRunLevelAtIndex(levelIndex.value));
 /** 左上角关卡标题，如「关卡 1-1」 */
+const infoModalNextLevelId = computed(() => {
+  if (!showShop.value) return "";
+  return getNextLevelDefAfterShop()?.id ?? "";
+});
+
 const levelTitleLabel = computed(() => {
   const id = currentLevel.value?.id ?? "1-1";
   return `关卡 ${id}`;
@@ -1723,6 +1796,21 @@ function onShopSelectOwned(payload) {
   };
 }
 
+/** @param {{ pairId: string, originEl?: HTMLElement | null }} payload */
+function onInfoSelectOwnedVoucher(payload) {
+  const pairId = String(payload?.pairId ?? "").trim();
+  if (!pairId) return;
+  const group = buildOwnedVoucherPairGroups(ownedVoucherIds.value).find((g) => g.pairId === pairId);
+  if (!group) return;
+  const treasure = buildOwnedVoucherDetailTreasure(group);
+  if (!treasure) return;
+  treasureDetail.value = {
+    kind: "voucher-owned",
+    treasure,
+    originRect: treasureOriginRectFromEl(payload.originEl),
+  };
+}
+
 function buildPackPickSessionFromBundle(bundle) {
   const opts = Array.isArray(bundle.bundleOptions) ? bundle.bundleOptions : [];
   const pickCount = Math.max(1, Math.floor(Number(bundle.pickCount) || 1));
@@ -1982,6 +2070,7 @@ const treasureDetailMode = computed(() => {
   const d = treasureDetail.value;
   if (!d) return "offer";
   if (d.kind === "pack-inner") return "pack-inner";
+  if (d.kind === "voucher-owned") return "voucher-owned";
   if (d.kind === "offer") return "offer";
   return showShop.value ? "owned-shop" : "owned-game";
 });
@@ -2157,11 +2246,27 @@ const treasureCanBuyOffer = computed(() => {
 
 /** 与 App.vue 共用的 Iris 转场组件（注入由上层提供） */
 const irisTransition = inject("irisTransition", null);
+/** 开局弹层（菜单 / 暂停「开始新的一局」） */
+const requestNewRun = inject("requestNewRun", null);
+const openSettings = inject("openSettings", null);
+
+/** 暂停选项层 */
+const showPauseOptions = ref(false);
 
 /** 整局结束层（失败 / 通关 8-3） */
 const showRunEnd = ref(false);
 /** @type {import('vue').Ref<'fail' | 'win'>} */
 const runEndOutcome = ref("fail");
+const runMatchStats = ref(createRunMatchStats());
+const runEndStatsRows = computed(() => getRunMatchStatsRows(runMatchStats.value));
+
+function noteRunShopPurchase() {
+  recordShopPurchase(runMatchStats.value);
+}
+
+function noteRunReroll() {
+  recordReroll(runMatchStats.value);
+}
 
 /** 小关结算层 */
 const showSettlement = ref(false);
@@ -3436,41 +3541,55 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function openStageSettlement() {
-  disableSettlementLayerAnim.value = false;
+function buildSettlementSnapshot() {
   const moneyBefore = money.value;
   const clearReward = stageRewardYuan.value;
   const spareMoves = remainingWords.value;
   const cap = getEconomyInterestCap(ownedVoucherIds.value);
   const interest = computeWalletInterest(moneyBefore, cap);
   const total = clearReward + spareMoves + interest;
-  settlementSnapshot.value = {
+  return {
     moneyBefore,
     clearReward,
     spareMoves,
     interest,
     total,
   };
+}
+
+function resetSettlementAnimValues() {
   animSettleClear.value = 0;
   animSettleSpare.value = 0;
   animSettleInterest.value = 0;
   animSettleTotal.value = 0;
   settlementIntroResolve = null;
+}
+
+async function openStageSettlement() {
+  disableSettlementLayerAnim.value = false;
+  settlementSnapshot.value = buildSettlementSnapshot();
+  resetSettlementAnimValues();
   showDeckLayer.value = false;
+  showPauseOptions.value = false;
   showSettlement.value = true;
   await nextTick();
   await runSettlementIntro();
 }
 
-async function openRunEnd(outcome) {
+/**
+ * @param {'fail' | 'win'} outcome
+ * @param {{ preserveSettlement?: boolean }} [opts] 标准通关最后一关：保留结算快照供「无尽模式」接续
+ */
+async function openRunEnd(outcome, opts = {}) {
   runEndOutcome.value = outcome === "win" ? "win" : "fail";
   showDeckLayer.value = false;
   showInfoLayer.value = false;
   treasureDetail.value = null;
   tileDetailPayload.value = null;
   showShop.value = false;
+  showPauseOptions.value = false;
   showSettlement.value = false;
-  settlementSnapshot.value = null;
+  if (!opts.preserveSettlement) settlementSnapshot.value = null;
   runEndPortalZ.value = bumpOverlayZ();
   showRunEnd.value = true;
   await nextTick();
@@ -3484,31 +3603,52 @@ function onRunEndMainMenu() {
   emit("exit-to-menu");
 }
 
+function openPauseOptions() {
+  if (transitionBusy.value || showShop.value || isBlockingPauseOpen()) return;
+  showDeckLayer.value = false;
+  showInfoLayer.value = false;
+  treasureDetail.value = null;
+  tileDetailPayload.value = null;
+  pauseOptionsPortalZ.value = bumpOverlayZ();
+  showPauseOptions.value = true;
+}
+
+function closePauseOptions() {
+  showPauseOptions.value = false;
+}
+
+function onPauseContinue() {
+  closePauseOptions();
+}
+
+function onPauseNewRun() {
+  closePauseOptions();
+  requestNewRun?.();
+}
+
+function onPauseSettings() {
+  openSettings?.();
+}
+
+function onPauseMainMenu() {
+  closePauseOptions();
+  emit("exit-to-menu");
+}
+
 async function onRunEndEndless() {
   if (transitionBusy.value) return;
   showRunEnd.value = false;
   isEndlessRun.value = true;
-  transitionBusy.value = true;
-
-  const enterEndless = () => {
-    levelIndex.value = LEVEL_COUNT;
-    gridIntroDone.value = false;
-    const L = getRunLevelAtIndex(levelIndex.value);
-    resetLevel(L, buildLevelResetRunOpts(L));
-    pendingBossSlugOverride.value = "";
-    showShop.value = false;
-  };
-
-  const playFx = irisTransition?.play;
-  if (typeof playFx === "function") {
-    await playFx({ onCovered: enterEndless });
-  } else {
-    enterEndless();
+  if (!settlementSnapshot.value) {
+    settlementSnapshot.value = buildSettlementSnapshot();
   }
-
+  disableSettlementLayerAnim.value = false;
+  resetSettlementAnimValues();
+  showDeckLayer.value = false;
+  showPauseOptions.value = false;
+  showSettlement.value = true;
   await nextTick();
-  await Promise.all([runGridIntroAfterReset(), playLevelAdvanceHeaderFx()]);
-  transitionBusy.value = false;
+  await runSettlementIntro();
 }
 
 function runSettlementIntro() {
@@ -4535,6 +4675,7 @@ async function onTreasurePurchase() {
     const layer = treasureDetailLayerRef.value;
     await layer?.playClose?.();
     money.value -= pay;
+    noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
     treasureDetail.value = null;
     packPickSession.value = buildPackPickSessionFromBundle(t);
@@ -4549,6 +4690,7 @@ async function onTreasurePurchase() {
     const layer = treasureDetailLayerRef.value;
     await layer?.playClose?.();
     money.value -= pay;
+    noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
     ownedVoucherIds.value = [...ownedVoucherIds.value, vid];
     if (vid === "v_glyph_1" || vid === "v_glyph_2") {
@@ -4577,6 +4719,7 @@ async function onTreasurePurchase() {
     const fromEl = layer?.getFlyFrameEl?.();
     await layer?.playClose?.();
     money.value -= pay;
+    noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
     treasureDetail.value = null;
     await fulfillPackInnerPurchase(t, fromEl ?? null);
@@ -4598,6 +4741,7 @@ async function onTreasurePurchase() {
       const layer = treasureDetailLayerRef.value;
       await layer?.playClose?.();
       money.value -= pay;
+      noteRunShopPurchase();
       clearOfferSlotAfterPurchase(t);
       treasureDetail.value = null;
       if (effectiveSpellId === "arrow_up" && showShop.value) {
@@ -4632,6 +4776,7 @@ async function onTreasurePurchase() {
     const layer = treasureDetailLayerRef.value;
     await layer?.playClose?.();
     money.value -= pay;
+    noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
     treasureDetail.value = null;
 
@@ -4654,6 +4799,7 @@ async function onTreasurePurchase() {
     const layer = treasureDetailLayerRef.value;
     await layer?.playClose?.();
     money.value -= pay;
+    noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
     treasureDetail.value = null;
     const payload = buildUpgradeAnimPayloadFromOffer(t);
@@ -4685,6 +4831,7 @@ async function onTreasurePurchase() {
   await Promise.all([closePromise, flyPromise]);
 
   money.value -= pay;
+  noteRunShopPurchase();
   ownedTreasures.value[ix] = {
     treasureId: t.treasureId,
     price: pay,
@@ -4720,6 +4867,7 @@ async function onShopReroll() {
   if (!shopCanReroll.value) return;
   const cost = shopNextRerollCostDisplay.value;
   money.value -= cost;
+  noteRunReroll();
   shopRerollsThisVisit.value += 1;
   const sessionExclude = new Set();
   addShopShelfTreasureIdsToExclude(sessionExclude, shopOffers.value);
@@ -4749,6 +4897,7 @@ function onBossBlindRerollPaid() {
   if (!s) return;
   if (!canPayBossBlindReroll(ownedVoucherIds.value, s.rerollsUsed, money.value)) return;
   money.value -= BOSS_BLIND_REROLL_COST_DOLLARS;
+  noteRunReroll();
   const rerollNonce = s.rerollNonce + 1;
   const rerollsUsed = s.rerollsUsed + 1;
   const slug = pickBossSlugForLevel(s.levelId, getRunSeedNumeric(), rerollNonce);
@@ -4775,8 +4924,6 @@ async function executeShopLeaveToNextLevel(event) {
       glyphShopSkipLevelAdvance.value = false;
       const cur = getRunLevelAtIndex(levelIndex.value);
       resetLevel(cur, buildLevelResetRunOpts(cur));
-    } else if (!isEndlessRun.value && isStandardRunFinalLevelIndex(levelIndex.value)) {
-      void openRunEnd("win");
     } else {
       levelIndex.value += 1;
       const next = getRunLevelAtIndex(levelIndex.value);
@@ -6377,6 +6524,8 @@ async function onRemoveClick() {
     return;
   }
 
+  recordLettersDiscarded(runMatchStats.value, nSel);
+
   await nextTick();
   await runGridDropAnimation(prevFlip);
   tryCeruleanBellFlyInAfterGridStable();
@@ -6659,6 +6808,11 @@ async function submitWord() {
       bossSoftViolation: true,
     };
   }
+  recordWordSubmit(runMatchStats.value, {
+    word: resolvedWord,
+    score: detailed.finalScore,
+    length: judgedLenTable,
+  });
   flashSubmitCountDelta();
   remainingWords.value = Math.max(0, remainingWords.value - 1);
   await nextTick();
@@ -6712,7 +6866,14 @@ async function submitWord() {
     }
     // 用尽次数但本手已达标 → 过关（含「最后一手刚好达标」）
     if (currentScore.value >= targetScore.value) {
-      await openStageSettlement();
+      const isFinalStandardWin =
+        !isEndlessRun.value && isStandardRunFinalLevelIndex(levelIndex.value);
+      if (isFinalStandardWin) {
+        settlementSnapshot.value = buildSettlementSnapshot();
+        await openRunEnd("win", { preserveSettlement: true });
+      } else {
+        await openStageSettlement();
+      }
     } else if (remainingWords.value <= 0 && currentScore.value < targetScore.value) {
       await openRunEnd("fail");
     }
@@ -7073,6 +7234,24 @@ onUnmounted(() => {
 /* 关卡标题：进关动效用 GSAP 写 scale/阴影，此处保证变换原点 */
 .header-box-level-title {
   transform-origin: 50% 50%;
+}
+
+.header-box-level-title--clickable {
+  cursor: pointer;
+  transition: filter 0.1s ease;
+}
+
+.header-box-level-title--clickable:hover {
+  filter: brightness(1.04);
+}
+
+.header-box-level-title--clickable:active {
+  filter: brightness(0.96);
+}
+
+.header-box-level-title--clickable:focus-visible {
+  outline: calc(2 * var(--rpx)) solid #edc22e;
+  outline-offset: calc(2 * var(--rpx));
 }
 
 .action-label-wrap {

@@ -54,7 +54,7 @@ export const BOSS_BY_SLUG = Object.freeze({
     slug: "the_water",
     nameZh: "死水",
     scoreBaseMult: 2,
-    uiDescription: "本关不能移除字母。",
+    uiDescription: "本关不能移除字母",
     kind: "normal",
   },
   the_manacle: {

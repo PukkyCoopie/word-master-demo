@@ -12,13 +12,13 @@
           <i class="ri-play-fill menu-btn-icon" aria-hidden="true"></i>
           <span>开始游戏</span>
         </button>
-        <button type="button" class="menu-btn menu-btn--options" @click.prevent>
+        <button type="button" class="menu-btn menu-btn--settings" @click="$emit('open-settings')">
           <i class="ri-settings-3-line menu-btn-icon" aria-hidden="true"></i>
-          <span>选项</span>
+          <span>设置</span>
         </button>
-        <button type="button" class="menu-btn menu-btn--favorites" @click.prevent>
-          <i class="ri-star-line menu-btn-icon" aria-hidden="true"></i>
-          <span>收藏</span>
+        <button type="button" class="menu-btn menu-btn--about" @click.prevent>
+          <i class="ri-information-line menu-btn-icon" aria-hidden="true"></i>
+          <span>关于</span>
         </button>
       </nav>
     </div>
@@ -28,7 +28,7 @@
 <script setup>
 import TileLetterShowcase from "./TileLetterShowcase.vue";
 
-defineEmits(["request-start"]);
+defineEmits(["request-start", "open-settings"]);
 
 const showcaseRows = [
   [
@@ -127,11 +127,11 @@ const showcaseRows = [
   background: #5a8fb8;
 }
 
-.menu-btn--options {
+.menu-btn--settings {
   background: #d4954a;
 }
 
-.menu-btn--favorites {
+.menu-btn--about {
   background: var(--btn-green);
 }
 </style>
