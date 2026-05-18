@@ -1,7 +1,13 @@
 <template>
   <div class="game-wrap">
     <div class="game-scaler">
-      <div class="game-surface" :class="{ 'game-surface--menu': showMenu }">
+      <div
+        class="game-surface"
+        :class="{
+          'game-surface--menu': showMenu,
+          'game-surface--run-start-open': showRunStartDialog,
+        }"
+      >
         <!-- 须始终在 DOM 中且早于 GamePanel，避免 Teleport 挂载时 querySelector 找不到目标 -->
         <div id="game-view-portal" class="game-view-portal" />
         <div v-if="dictGate" class="dict-boot-gate">
@@ -180,6 +186,10 @@ async function onGameExitToMenu() {
   height: 100%;
   overflow: hidden;
   border-radius: calc(12 * var(--rpx));
+}
+
+.game-surface--run-start-open {
+  overflow: visible;
 }
 
 .game-session-stack {

@@ -28,6 +28,7 @@ import {
 } from "../game/gridOnlyMaterialScoring.js";
 import { snapshotMaxIntrinsicGainsFromTile, applyIntrinsicGainsToTileAndLinkedCard } from "../game/tileIntrinsicGains.js";
 import { getWordLengthJudgmentBonus } from "../vouchers/voucherRuntime.js";
+import { applyBossTileDebuffState } from "../game/bossTileDebuff.js";
 
 const VOWEL_LETTERS = new Set(["a", "e", "i", "o", "u"]);
 
@@ -399,10 +400,18 @@ export const MAX_LETTERS_PER_REMOVAL = 8;
 
 
 /**
- * @param {{ ownedVoucherIdsRef?: import("vue").Ref<readonly string[]> | import("vue").Ref<string[]> | null, getRng?: () => number, runSeedNumeric?: number }} [gameOpts]
+ * @param {{
+ *   ownedVoucherIdsRef?: import("vue").Ref<readonly string[]> | import("vue").Ref<string[]> | null,
+ *   getRng?: () => number,
+ *   runSeedNumeric?: number,
+ *   pillarUsedDeckUidsRef?: import("vue").Ref<Set<number>>,
+ *   verdantTreasureSoldRef?: import("vue").Ref<boolean>,
+ * }} [gameOpts]
  */
 export function useGameState(gameOpts = {}) {
   const ownedVoucherIdsRef = gameOpts?.ownedVoucherIdsRef ?? null;
+  const pillarUsedDeckUidsRef = gameOpts?.pillarUsedDeckUidsRef ?? null;
+  const verdantTreasureSoldRef = gameOpts?.verdantTreasureSoldRef ?? null;
   const getRng =
     typeof gameOpts?.getRng === "function" ? gameOpts.getRng : defaultRng;
   resetDeckCardUidSeqForRun(gameOpts?.runSeedNumeric ?? 0);
@@ -419,6 +428,30 @@ export function useGameState(gameOpts = {}) {
 
   /** 当前小关 Boss slug（x-3 / 8-3）；非 Boss 小关为空串） */
   const activeBossSlug = ref("");
+
+  function getBossTileDebuffContext() {
+    return {
+      pillarUsedDeckUids: pillarUsedDeckUidsRef?.value,
+      verdantTreasureSold: verdantTreasureSoldRef?.value === true,
+    };
+  }
+
+  /** 新入盘或改字母后，按当前 Boss 刷新格上削弱标记 */
+  function stampBossTileDebuffIfNeeded(tile) {
+    if (!tile?.letter || String(tile.letter).trim() === "") return;
+    applyBossTileDebuffState(tile, activeBossSlug.value, getBossTileDebuffContext());
+  }
+
+  /**
+   * @param {ReturnType<typeof createDeckCard> | null | undefined} card
+   */
+  function createGridTileFromDeckCard(card) {
+    const tile = card
+      ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value)
+      : emptyTile(nextId);
+    stampBossTileDebuffIfNeeded(tile);
+    return tile;
+  }
 
   /** 青铃锁：被锁字母在 `selectedOrder` 中的下标；不可 `removeFromSlot` 清到该位之前 */
   const ceruleanBellSlotIndex = ref(/** @type {number | null} */ (null));
@@ -647,6 +680,7 @@ export function useGameState(gameOpts = {}) {
     }
     applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
     syncTileStateToDeckCard(tile);
+    stampBossTileDebuffIfNeeded(tile);
   }
 
   function buildGrid() {
@@ -667,9 +701,7 @@ export function useGameState(gameOpts = {}) {
           row.push(ph);
         } else {
           const card = drawFromDeck(d, getRng);
-          row.push(
-            card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
-          );
+          row.push(createGridTileFromDeckCard(card));
         }
       }
 
@@ -877,7 +909,7 @@ export function useGameState(gameOpts = {}) {
           if (cell && !cell.bossGridBlocked && (!cell.letter || String(cell.letter).trim() === "")) {
             const card = drawFromDeck(d, getRng);
             if (!card) break outer;
-            g[r][c] = createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value);
+            g[r][c] = createGridTileFromDeckCard(card);
             placed += 1;
             progressed = true;
             if (placed >= 4) break outer;
@@ -918,9 +950,7 @@ export function useGameState(gameOpts = {}) {
             newColumn.push(null);
           } else {
             const card = drawFromDeck(d, getRng);
-            newColumn.push(
-              card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
-            );
+            newColumn.push(createGridTileFromDeckCard(card));
           }
         }
         newColumn.push(...columnTiles);
@@ -951,10 +981,7 @@ export function useGameState(gameOpts = {}) {
           newColumn.push(null);
         } else {
           const card = drawFromDeck(d, getRng);
-
-          newColumn.push(
-            card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
-          );
+          newColumn.push(createGridTileFromDeckCard(card));
         }
 
       }
@@ -1108,9 +1135,7 @@ export function useGameState(gameOpts = {}) {
         const newColumn = [];
         for (let i = 0; i < removeCount; i++) {
           const card = drawFromDeck(d, getRng);
-          newColumn.push(
-            card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
-          );
+          newColumn.push(createGridTileFromDeckCard(card));
         }
         newColumn.push(...columnTiles);
         g[0][col] = blocked;
@@ -1143,10 +1168,7 @@ export function useGameState(gameOpts = {}) {
       for (let i = 0; i < removeCount; i++) {
 
         const card = drawFromDeck(d, getRng);
-
-        newColumn.push(
-          card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
-        );
+        newColumn.push(createGridTileFromDeckCard(card));
 
       }
 
@@ -1209,9 +1231,7 @@ export function useGameState(gameOpts = {}) {
       const newColumn = [];
       for (let i = 0; i < removeCount; i++) {
         const card = drawFromDeck(d, getRng);
-        newColumn.push(
-          card ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value) : emptyTile(nextId),
-        );
+        newColumn.push(createGridTileFromDeckCard(card));
       }
       newColumn.push(...columnTiles);
       g[0][targetCol] = blocked;
@@ -1227,9 +1247,7 @@ export function useGameState(gameOpts = {}) {
       columnTiles.push(cloneGridTileShallowForColumn(g[r][targetCol]));
     }
     const card = drawFromDeck(d, getRng);
-    const topTile = card
-      ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value)
-      : emptyTile(nextId);
+    const topTile = createGridTileFromDeckCard(card);
     const newColumn = [topTile, ...columnTiles];
     for (let r = 0; r < ROWS; r++) {
       g[r][targetCol] = newColumn[r];
@@ -1383,6 +1401,7 @@ export function useGameState(gameOpts = {}) {
       card.accessoryId = prev.accessoryId;
       applyIntrinsicGainsToTileAndLinkedCard(prev, gains);
       syncTileStateToDeckCard(prev);
+      stampBossTileDebuffIfNeeded(prev);
     } else {
       const nt = createTileFromLetter(r, nextId, rarityLevelsByRarity.value);
       Object.assign(prev, nt);
@@ -1390,6 +1409,7 @@ export function useGameState(gameOpts = {}) {
       prev.accessoryId = acc ?? null;
       applyIntrinsicGainsToTileAndLinkedCard(prev, gains);
     }
+    stampBossTileDebuffIfNeeded(prev);
     triggerRef(grid);
   }
 

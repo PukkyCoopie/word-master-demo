@@ -1,0 +1,70 @@
+# 推送 main 时构建并同时发布：GitHub Pages + 腾讯云 CloudBase 静态托管。
+# GitHub Pages：仓库 Settings → Pages → Source 选「GitHub Actions」。
+# CloudBase：在仓库 Secrets 配置 TCB_SECRET_ID、TCB_SECRET_KEY、TCB_ENV_ID（勿写入代码）。
+name: Deploy static (GitHub Pages + CloudBase)
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: static-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # https://<用户>.github.io/<仓库名>/ 须与子路径 base 一致
+      - name: Build (GitHub Pages)
+        run: npm run build -- --base=/${{ github.event.repository.name }}/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      # CloudBase 根路径访问，使用默认 base /
+      - name: Build (CloudBase)
+        run: npm run build
+
+      - name: Install CloudBase CLI
+        run: npm install -g @cloudbase/cli
+
+      - name: Deploy to CloudBase Static Hosting
+        env:
+          TCB_SECRET_ID: ${{ secrets.TCB_SECRET_ID }}
+          TCB_SECRET_KEY: ${{ secrets.TCB_SECRET_KEY }}
+          TCB_ENV_ID: ${{ secrets.TCB_ENV_ID }}
+        run: |
+          if [ -z "$TCB_SECRET_ID" ] || [ -z "$TCB_SECRET_KEY" ] || [ -z "$TCB_ENV_ID" ]; then
+            echo "::error::请在仓库 Settings → Secrets and variables → Actions 中配置 TCB_SECRET_ID、TCB_SECRET_KEY、TCB_ENV_ID"
+            exit 1
+          fi
+          tcb login --apiKeyId "$TCB_SECRET_ID" --apiKey "$TCB_SECRET_KEY"
+          tcb hosting deploy ./dist / -e "$TCB_ENV_ID"
+
+  deploy-github-pages:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

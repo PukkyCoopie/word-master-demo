@@ -142,7 +142,7 @@
     <PackPickLayer
       v-if="packPickSession"
       ref="packPickLayerRef"
-      :overlay-suppressed="shopOverlayLayersSuppressed"
+      :overlay-suppressed="shopOverlayLayersSuppressed || packPickOverlaySuppressed"
       :session="packPickSession"
       :wallet-amount="walletHeaderShown"
       :owned-voucher-ids="ownedVoucherIds"
@@ -568,7 +568,10 @@ import {
 } from "../treasures/treasureRegistry.js";
 import { IMPLEMENTED_TREASURE_ID_SET } from "../treasures/treasureCatalog.js";
 import { computeOwnedTreasureSlotTargetLength } from "../game/treasureSlotCapacity.js";
-import { computeWordScoreDetailedForSubmit } from "../treasures/treasureScoring.js";
+import {
+  computeWordScoreDetailedForSubmit,
+  isBossDebuffedSubmitTile,
+} from "../treasures/treasureScoring.js";
 import { normalizeTreasureDescription } from "../treasures/treasureDescription.js";
 import {
   addShopShelfTreasureIdsToExclude,
@@ -585,6 +588,7 @@ import {
 } from "../levelDefinitions";
 import RunEndLayer from "./RunEndLayer.vue";
 import { pickBossSlugForLevel } from "../game/bossRoll.js";
+import { applyBossTileDebuffState, applyBossTileDebuffToGrid } from "../game/bossTileDebuff.js";
 import { coerceRunSeedNumeric, createRunRng } from "../game/runRng.js";
 import BossBlindRerollLayer from "./BossBlindRerollLayer.vue";
 import { getBossDef } from "../game/bossBlindDefinitions.js";
@@ -804,6 +808,9 @@ const SCORING_BUBBLE_POP_DELAY_MS = Math.round(
 
 /** 小 +n / +分 气泡：scale 50%→100% 入场；淡出前多停一会（不延长各步 await） */
 const PLUS_BUBBLE_ENTER_DURATION_S = 0.14;
+/** 「跳过」气泡：yPercent 30→-5（circ.out）→0（circ.in），与开始弹窗一致 */
+const SKIP_BUBBLE_RISE_S = 0.2;
+const SKIP_BUBBLE_SETTLE_S = 0.22;
 const PLUS_BUBBLE_OUTRO_DELAY_S = 0.48;
 const PLUS_BUBBLE_OUTRO_DURATION_S = 0.42;
 const PLUS_BUBBLE_OUTRO_SCALE = 0.5;
@@ -896,6 +903,10 @@ async function scoringSleep(ms, speed) {
   return sleep(Math.max(1, Math.round(ms / s)));
 }
 
+/** Boss 关：残柱牌张 uid、苍翠是否已卖藏（须在 `useGameState` 之前，供补牌削弱判定） */
+const pillarUsedDeckUids = ref(/** @type {Set<number>} */ (new Set()));
+const verdantTreasureSold = ref(false);
+
 const {
   grid,
   deck,
@@ -944,6 +955,8 @@ const {
   ownedVoucherIdsRef: ownedVoucherIds,
   getRng: runRandom,
   runSeedNumeric: coerceRunSeedNumeric(props.runSeed),
+  pillarUsedDeckUidsRef: pillarUsedDeckUids,
+  verdantTreasureSoldRef: verdantTreasureSold,
 });
 
 /**
@@ -997,8 +1010,6 @@ const glyphShopSkipLevelAdvance = ref(false);
 const usedWordLengthsThisBoss = ref(/** @type {Set<number>} */ (new Set()));
 const mouthLockedLengthBoss = ref(/** @type {number | null} */ (null));
 const clubRequiredKeyBoss = ref(/** @type {string | null} */ (null));
-const pillarUsedDeckUids = ref(/** @type {Set<number>} */ (new Set()));
-const verdantTreasureSold = ref(false);
 function getRunSeedNumeric() {
   return coerceRunSeedNumeric(props.runSeed);
 }
@@ -1035,13 +1046,16 @@ function pickClubRequiredKey() {
   return opts[Math.floor(runRandom() * opts.length)]?.key ?? "n";
 }
 
-function gridTileRawLower(tile) {
-  const L = String(tile?.letter ?? "").trim().toLowerCase();
-  if (!L) return "";
-  return L === "qu" ? "q" : L.charAt(0);
+function getBossTileDebuffContext() {
+  return {
+    pillarUsedDeckUids: pillarUsedDeckUids.value,
+    verdantTreasureSold: verdantTreasureSold.value,
+  };
 }
 
-const BOSS_VOWELS = new Set(["a", "e", "i", "o", "u"]);
+function refreshBossTileDebuffOnTile(tile) {
+  applyBossTileDebuffState(tile, activeBossSlug.value, getBossTileDebuffContext());
+}
 
 function getNextLevelDefAfterShop() {
   if (glyphShopSkipLevelAdvance.value) {
@@ -1096,27 +1110,7 @@ function buildLevelResetRunOpts(levelDef) {
 }
 
 function applyBossPostGridBuild(g, slug) {
-  if (!g || !slug) return;
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const t = g[r][c];
-      if (!t || t.bossGridBlocked) continue;
-      if (slug === "the_plant" && String(t.rarity ?? "") === "rare") t.bossTileDebuffed = true;
-      if (slug === "the_vowel") {
-        const raw = gridTileRawLower(t);
-        if (raw && BOSS_VOWELS.has(raw)) t.bossTileDebuffed = true;
-      }
-      if (slug === "the_consonant") {
-        const raw = gridTileRawLower(t);
-        if (raw && !BOSS_VOWELS.has(raw)) t.bossTileDebuffed = true;
-      }
-      if (slug === "the_pillar") {
-        const uid = t._deckCard && typeof t._deckCard === "object" ? Number(t._deckCard._dcUid) : NaN;
-        if (Number.isFinite(uid) && pillarUsedDeckUids.value.has(uid)) t.bossTileDebuffed = true;
-      }
-      if (slug === "verdant_leaf" && !verdantTreasureSold.value) t.bossTileDebuffed = true;
-    }
-  }
+  applyBossTileDebuffToGrid(g, slug, getBossTileDebuffContext(), ROWS, COLS);
 }
 
 function clearVerdantDebuffsOnGrid() {
@@ -1422,6 +1416,8 @@ const ownedUpgrades = ref([]);
 const shopUpgradeAnimating = ref(false);
 /** 商店升级顶栏动效播放时暂隐其它 portal 浮层（包内多选未完成时动效后再显示） */
 const shopOverlayLayersSuppressed = ref(false);
+/** 仅暂隐开包层（法术选格时仍显示 SpellTargetLayer） */
+const packPickOverlaySuppressed = ref(false);
 
 const UPGRADE_ICON_CLASS = "ri-arrow-up-box-fill";
 const UPGRADE_LENGTH_GROUPS = Object.freeze([
@@ -1591,9 +1587,9 @@ function applyUpgradeFromOffer(t, { price = 0 } = {}) {
 
 /**
  * @param {{ apply?: () => void, payload: object }[]} steps
- * @param {{ restoreLayersAfter?: boolean }} [opts]
+ * @param {{ restoreLayersAfter?: boolean }} [opts] 包内尚须再选时为 true（动效结束后恢复 portal 浮层）；仅作调用方语义标记
  */
-async function runShopUpgradePlaybackSteps(steps, { restoreLayersAfter = false } = {}) {
+async function runShopUpgradePlaybackSteps(steps, { restoreLayersAfter: _restoreLayersAfter = false } = {}) {
   if (!showShop.value || shopUpgradeAnimating.value) return;
   shopUpgradeAnimating.value = true;
   shopOverlayLayersSuppressed.value = true;
@@ -1605,11 +1601,11 @@ async function runShopUpgradePlaybackSteps(steps, { restoreLayersAfter = false }
     }
   } catch (e) {
     shopUpgradeAnimating.value = false;
-    shopOverlayLayersSuppressed.value = restoreLayersAfter;
+    shopOverlayLayersSuppressed.value = false;
     throw e;
   }
   shopUpgradeAnimating.value = false;
-  shopOverlayLayersSuppressed.value = restoreLayersAfter;
+  shopOverlayLayersSuppressed.value = false;
 }
 
 function onShopUpgradeInteractionUnlock() {
@@ -1770,6 +1766,7 @@ function onPackPickOpenItem(payload) {
 function onPackPickSkip() {
   if (packPickBusy.value) return;
   packPickSession.value = null;
+  packPickOverlaySuppressed.value = false;
   treasureDetail.value = null;
 }
 
@@ -1780,6 +1777,15 @@ function maybeAutoClosePackPickSession() {
   const claimed = sess.claimedKeys ?? [];
   if (claimed.length >= packPickRequiredPicks(sess)) {
     packPickSession.value = null;
+    packPickOverlaySuppressed.value = false;
+  }
+}
+
+/** 包内多选未完成时：恢复开包层（升级动效与法术选格结束后） */
+function ensurePackPickOverlayVisible() {
+  packPickOverlaySuppressed.value = false;
+  if (packPickSession.value) {
+    shopOverlayLayersSuppressed.value = false;
   }
 }
 
@@ -1797,6 +1803,7 @@ async function fulfillSpellAfterPackPayment(t, { restoreLayersAfter = false } = 
   if (pickCount <= 0) {
     if (effectiveSpellId === "arrow_up" && showShop.value) {
       await playArrowUpShopUpgradeSequence({ restoreLayersAfter });
+      ensurePackPickOverlayVisible();
       return;
     }
     const ctx0 = buildSpellRuntimeContext();
@@ -1821,10 +1828,15 @@ async function fulfillSpellAfterPackPayment(t, { restoreLayersAfter = false } = 
         nextTick,
       });
     }
+    ensurePackPickOverlayVisible();
     return;
   }
 
   const def = getSpellDefinition(spellId);
+  if (restoreLayersAfter) {
+    packPickOverlaySuppressed.value = true;
+    await nextTick();
+  }
   spellTargetSession.value = {
     spellName: def?.name ?? t.name ?? "法术",
     spellIconClass: def?.iconClass ?? t.iconClass ?? "ri-magic-fill",
@@ -1839,6 +1851,7 @@ async function fulfillSpellAfterPackPayment(t, { restoreLayersAfter = false } = 
   await new Promise((resolve) => {
     spellPackFulfillmentResolve = resolve;
   });
+  ensurePackPickOverlayVisible();
 }
 
 async function fulfillUpgradeAfterPackPayment(t, { restoreLayersAfter = false } = {}) {
@@ -1959,6 +1972,7 @@ async function onPackInnerClaim() {
     await fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter: willNeedMorePicks });
     sess.claimedKeys = [...claimed, key];
     maybeAutoClosePackPickSession();
+    ensurePackPickOverlayVisible();
   } finally {
     packPickBusy.value = false;
   }
@@ -2373,6 +2387,7 @@ watch(showRunEnd, (open) => {
 watch(showShop, (open) => {
   if (!open) {
     shopOverlayLayersSuppressed.value = false;
+    packPickOverlaySuppressed.value = false;
     return;
   }
   shopPortalZ.value = bumpOverlayZ();
@@ -4099,6 +4114,7 @@ function buildSpellRuntimeContext() {
     setLastReplayableSpellId: (id) => {
       lastReplayableSpellId.value = id;
     },
+    refreshBossTileDebuffOnTile: refreshBossTileDebuffOnTile,
   };
 }
 
@@ -4326,6 +4342,7 @@ async function dismissSpellTargetLayer() {
   const r = spellPackFulfillmentResolve;
   spellPackFulfillmentResolve = null;
   r?.();
+  ensurePackPickOverlayVisible();
 }
 
 async function onSpellTargetCancel() {
@@ -5266,7 +5283,11 @@ function innerScrollHeight(wrap) {
 
 function showScoreBubble(slotEl, text, kind, speed = 1) {
   const s = Math.max(0.01, Number(speed) || 1);
-  const rect = slotEl.getBoundingClientRect();
+  const anchorEl =
+    slotEl instanceof HTMLElement
+      ? slotEl.querySelector(".word-slot-content") ?? slotEl
+      : slotEl;
+  const rect = (anchorEl ?? slotEl).getBoundingClientRect();
   const div = document.createElement("div");
   div.className =
     kind === "mult"
@@ -5279,19 +5300,40 @@ function showScoreBubble(slotEl, text, kind, speed = 1) {
             ? "score-popup-bubble score-popup-bubble--skip"
             : "score-popup-bubble";
   div.textContent = text;
-  document.body.appendChild(div);
   const rpx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
   /** 气泡底边与字母块顶边的间距，整块在槽位上方、槽外 */
   const gapAboveSlotPx = 12 * rpx;
-  gsap.set(div, {
+  const anchor = kind === "skip" ? /** @type {HTMLDivElement} */ (document.createElement("div")) : div;
+  if (kind === "skip") {
+    anchor.appendChild(div);
+    document.body.appendChild(anchor);
+  } else {
+    document.body.appendChild(div);
+  }
+  const mountEl = kind === "skip" ? anchor : div;
+  gsap.set(mountEl, {
     position: "fixed",
     left: rect.left + rect.width / 2,
     top: rect.top - gapAboveSlotPx,
     xPercent: -50,
     yPercent: -100,
     transformOrigin: "50% 100%",
+    zIndex: 350,
+    pointerEvents: "none",
     force3D: true,
   });
+  if (kind === "skip") {
+    gsap.set(div, { opacity: 1, scale: 1, yPercent: 30 });
+    gsap
+      .timeline()
+      .to(div, {
+        yPercent: -5,
+        duration: SKIP_BUBBLE_RISE_S / s,
+        ease: "circ.out",
+      })
+      .to(div, { yPercent: 0, duration: SKIP_BUBBLE_SETTLE_S / s, ease: "circ.in" });
+    return anchor;
+  }
   gsap.fromTo(
     div,
     { opacity: 0, y: 18, scale: 0.5 },
@@ -5313,6 +5355,24 @@ function scheduleSmallPlusBubbleOutro(el, speed = 1) {
     ease: EASE_TRANSFORM,
     onComplete: () => el.remove(),
   });
+}
+
+/** Boss debuff / 软违规：弹出「跳过」后与单步 +分 气泡相同的步间、切下一字母间隔 */
+async function runLetterScoringSkipStep(slotEl, speed = 1, slotIndex = -1) {
+  if (!slotEl) return;
+  const sp = Math.max(0.01, Number(speed) || 1);
+  if (slotIndex >= 0) {
+    scoringLetterIndex.value = slotIndex;
+    await nextTick();
+    await new Promise((r) => requestAnimationFrame(r));
+  }
+  wobbleScoreSlot(slotEl, sp);
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  const bubble = showScoreBubble(slotEl, "跳过", "skip", sp);
+  scheduleSmallPlusBubbleOutro(bubble, sp);
+  await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+  if (slotIndex >= 0) scoringLetterIndex.value = -1;
+  await scoringSleep(SCORING_LETTER_GAP_MS, sp);
 }
 
 /**
@@ -5513,6 +5573,12 @@ async function runLetterAccessoryCoinMoneyBurst(tile, slotEl, speed = 1) {
  */
 async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVisitIndex = 0) {
   const sp = Math.max(0.01, Number(speed) || 1);
+  const slotEl = wordSlotRefs.value[i];
+  if (!slotEl) return;
+  if (isBossDebuffedSubmitTile(tile)) {
+    await runLetterScoringSkipStep(slotEl, sp, i);
+    return;
+  }
   const part = detailed.letterParts[i];
   const luckyRoll = detailed.luckyMaterialRollsByLetter?.[i]?.[luckyVisitIndex] ?? null;
   /** 本字母本轮是否已播过词槽「逐字」缩放 wobble（用于幸运金币：尽量与已有分/倍率步同拍，避免单独再晃一格） */
@@ -5520,8 +5586,6 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   scoringLetterIndex.value = i;
   await nextTick();
   await new Promise((r) => requestAnimationFrame(r));
-  const slotEl = wordSlotRefs.value[i];
-  if (!slotEl) return;
 
   if (activeBossSlug.value === "the_tooth" && detailed.bossSoftViolation !== true && luckyVisitIndex === 0) {
     wobbleScoreSlot(slotEl, sp);
@@ -5893,13 +5957,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
   if (skipLetters) {
     const spSkip = 1.05;
     for (let i = 0; i < n; i++) {
-      const slotEl = wordSlotRefs.value[i];
-      if (!slotEl) continue;
-      wobbleScoreSlot(slotEl, spSkip);
-      await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, spSkip);
-      const b = showScoreBubble(slotEl, "跳过", "skip", spSkip);
-      scheduleSmallPlusBubbleOutro(b, spSkip);
-      await scoringSleep(SCORING_STEP_BEAT_MS * 0.42, spSkip);
+      await runLetterScoringSkipStep(wordSlotRefs.value[i], spSkip, i);
     }
   } else {
     for (let pass = 0; pass < letterPassCount; pass++) {
@@ -5910,15 +5968,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
       }
       for (let i = 0; i < n; i++) {
         const spLetter = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
-        if (tiles[i]?.bossTileDebuffed) {
-          const slotEl = wordSlotRefs.value[i];
-          if (slotEl) {
-            wobbleScoreSlot(slotEl, spLetter);
-            await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, spLetter);
-            const b = showScoreBubble(slotEl, "跳过", "skip", spLetter);
-            scheduleSmallPlusBubbleOutro(b, spLetter);
-            await scoringSleep(SCORING_STEP_BEAT_MS * 0.42, spLetter);
-          }
+        if (isBossDebuffedSubmitTile(tiles[i])) {
+          await runLetterScoringSkipStep(wordSlotRefs.value[i], spLetter, i);
           scoringBeat += 1;
           continue;
         }
@@ -6516,6 +6567,11 @@ async function submitWord() {
     resolvedWord,
     rarityLevelsByRarity.value,
   );
+  const debuffCtx = getBossTileDebuffContext();
+  const bossSlugSubmit = activeBossSlug.value;
+  for (const t of tiles) {
+    if (t?.letter) applyBossTileDebuffState(t, bossSlugSubmit, debuffCtx);
+  }
   const submittedIceTileIds = tiles
     .filter((t) => t?.materialId === "ice")
     .map((t) => String(t?.id ?? ""))

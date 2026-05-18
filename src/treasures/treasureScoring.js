@@ -105,7 +105,7 @@ function hasRewindAccessory(tile) {
   return tile?.accessoryId === TILE_ACCESSORY_REWIND;
 }
 
-function isBossDebuffedSubmitTile(tile) {
+export function isBossDebuffedSubmitTile(tile) {
   return tile?.bossTileDebuffed === true;
 }
 

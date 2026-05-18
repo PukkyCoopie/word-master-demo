@@ -14,14 +14,59 @@ const dictError = ref(null);
 const dictLoadProgress = ref(0);
 
 let inFlightLoad = null;
+/** 单次加载内单调递增，避免进度回跳 */
+let loadProgressFloor = 0;
 
 function clamp01(x) {
   return Math.min(1, Math.max(0, x));
 }
 
-function setDictProgress(p) {
-  dictLoadProgress.value = clamp01(p);
+function resetLoadProgress() {
+  loadProgressFloor = 0;
+  dictLoadProgress.value = 0;
 }
+
+function bumpLoadProgress(p) {
+  const next = clamp01(p);
+  if (next <= loadProgressFloor) return;
+  loadProgressFloor = next;
+  dictLoadProgress.value = next;
+}
+
+function raf() {
+  return new Promise((resolve) => requestAnimationFrame(resolve));
+}
+
+/**
+ * 推断解压后体积：Content-Length 在 gzip/br 下多为压缩大小，不可直接当 fetch 累计字节的分母。
+ * @param {Response} res
+ */
+function estimateDecompressedBytes(res) {
+  const enc = (res.headers.get("Content-Encoding") || "").toLowerCase();
+  const cl = Number(res.headers.get("Content-Length") || 0) || 0;
+  if (cl <= 0) return 0;
+  if (!enc) return cl;
+  return Math.round(cl * 4);
+}
+
+/**
+ * @param {Response} res
+ * @param {number} received
+ * @param {number} prevTarget
+ */
+function resolveDownloadByteTarget(res, received, prevTarget) {
+  const fromHeader = estimateDecompressedBytes(res);
+  let target = Math.max(prevTarget, fromHeader, received);
+  if (received > 0 && target <= received) {
+    target = Math.max(target, Math.ceil(received * 1.12));
+  }
+  return target;
+}
+
+/** 下载阶段在总进度中的上限（留余量给 JSON.parse 与建索引） */
+const PROGRESS_AFTER_DOWNLOAD = 0.68;
+const PROGRESS_AFTER_JSON = 0.78;
+const PROGRESS_BEFORE_DONE = 0.99;
 
 /**
  * @param {{ shouldAbort?: () => boolean }} [options]
@@ -32,8 +77,8 @@ async function loadOnce(options = {}) {
   const res = await fetch(dictUrl);
   if (!res.ok) throw new Error("词典加载失败");
 
-  const totalBytes = Number(res.headers.get("Content-Length") || 0) || 0;
-  const DOWNLOAD_SHARE = 0.55;
+  let downloadByteTarget = estimateDecompressedBytes(res);
+  const hasByteEstimate = downloadByteTarget > 0;
 
   let text = "";
   if (res.body) {
@@ -45,32 +90,41 @@ async function loadOnce(options = {}) {
       const { done, value } = await reader.read();
       if (done) break;
       received += value.length;
-      if (totalBytes > 0) {
-        setDictProgress((received / totalBytes) * DOWNLOAD_SHARE);
+      if (hasByteEstimate) {
+        downloadByteTarget = resolveDownloadByteTarget(res, received, downloadByteTarget);
+        const ratio = Math.min(1, received / downloadByteTarget);
+        bumpLoadProgress(ratio * PROGRESS_AFTER_DOWNLOAD);
       } else {
-        setDictProgress(DOWNLOAD_SHARE * (1 - Math.exp(-received / (384 * 1024))));
+        bumpLoadProgress(
+          PROGRESS_AFTER_DOWNLOAD * (1 - Math.exp(-received / (4 * 1024 * 1024))),
+        );
       }
       text += decoder.decode(value, { stream: true });
     }
     text += decoder.decode();
   } else {
     text = await res.text();
-    setDictProgress(DOWNLOAD_SHARE * 0.92);
+    bumpLoadProgress(PROGRESS_AFTER_DOWNLOAD * 0.92);
   }
 
   if (shouldAbort?.()) return;
-  setDictProgress(DOWNLOAD_SHARE);
+  bumpLoadProgress(PROGRESS_AFTER_DOWNLOAD);
+
+  await raf();
+  bumpLoadProgress(PROGRESS_AFTER_DOWNLOAD + 0.04);
 
   const raw = JSON.parse(text);
   if (!Array.isArray(raw)) throw new Error("词典格式错误");
 
   if (shouldAbort?.()) return;
+  bumpLoadProgress(PROGRESS_AFTER_JSON);
+
   const set = new Set();
   const map = new Map();
   const byLength = new Map();
   const n = raw.length;
-  const PARSE_SHARE = 1 - DOWNLOAD_SHARE;
   const chunk = Math.max(4000, Math.ceil(n / 96));
+  const indexSpan = PROGRESS_BEFORE_DONE - PROGRESS_AFTER_JSON;
 
   for (let i = 0; i < n; i++) {
     const row = raw[i];
@@ -84,9 +138,9 @@ async function loadOnce(options = {}) {
     byLength.get(len).push(w);
 
     if (i % chunk === 0) {
-      setDictProgress(DOWNLOAD_SHARE + (i / Math.max(1, n)) * PARSE_SHARE);
+      bumpLoadProgress(PROGRESS_AFTER_JSON + (i / Math.max(1, n)) * indexSpan);
       if (shouldAbort?.()) return;
-      await new Promise((r) => requestAnimationFrame(r));
+      await raf();
     }
   }
 
@@ -95,7 +149,7 @@ async function loadOnce(options = {}) {
   wordInfoMap.value = map;
   wordsByLength.value = byLength;
   dictLoaded.value = true;
-  setDictProgress(1);
+  bumpLoadProgress(1);
 }
 
 export function useDictionary() {
@@ -111,7 +165,8 @@ export function useDictionary() {
       dictLoaded.value = true;
       dictLoading.value = false;
       dictError.value = null;
-      setDictProgress(1);
+      loadProgressFloor = 1;
+      dictLoadProgress.value = 1;
       return;
     }
     if (inFlightLoad) return inFlightLoad;
@@ -119,7 +174,7 @@ export function useDictionary() {
     inFlightLoad = (async () => {
       dictLoading.value = true;
       dictError.value = null;
-      setDictProgress(0);
+      resetLoadProgress();
       try {
         await loadOnce(options);
       } catch (e) {
@@ -128,7 +183,7 @@ export function useDictionary() {
         wordInfoMap.value = null;
         wordsByLength.value = null;
         dictLoaded.value = false;
-        setDictProgress(0);
+        resetLoadProgress();
       } finally {
         dictLoading.value = false;
       }

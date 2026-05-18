@@ -88,6 +88,9 @@
 	--letter-grid-cell-size: calc((var(--letter-grid-inner) - 3 * var(--letter-grid-gap)) / 4);
 	/* 与 GSAP ease: "expo.out" 对齐；凡涉及 transform/尺寸的 transition 优先用此变量 */
 	--ease-expo-out: cubic-bezier(0.16, 1, 0.3, 1);
+	/* 与 GSAP circ.out / circ.in 对齐；短促过冲回弹（记分晃、弹窗等） */
+	--ease-circ-out: cubic-bezier(0.075, 0.82, 0.165, 1);
+	--ease-circ-in: cubic-bezier(0.6, 0.04, 0.98, 0.335);
 }
 
 * {

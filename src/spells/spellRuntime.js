@@ -424,6 +424,7 @@ function resolveSpellTargetTile(ctx, p) {
  *   grantRandomShopTreasure: () => boolean,
  *   showToast: (msg: string) => void,
  *   setLastReplayableSpellId?: (id: string) => void,
+ *   refreshBossTileDebuffOnTile?: (tile: Record<string, unknown>) => void,
  * }} SpellRuntimeContext
  */
 
@@ -461,6 +462,12 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
   const tileAt = (p) => resolveSpellTargetTile(ctx, p);
 
   const after = () => {
+    if (typeof ctx.refreshBossTileDebuffOnTile === "function") {
+      for (const p of tileAppearanceTargets) {
+        const t = g[p.row]?.[p.col];
+        if (t?.letter) ctx.refreshBossTileDebuffOnTile(t);
+      }
+    }
     ctx.touchGrid();
     if (!nested && String(purchasedSpellId ?? "") !== "restart") {
       ctx.setLastReplayableSpellId?.(String(purchasedSpellId ?? ""));

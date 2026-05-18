@@ -1,10 +1,12 @@
 <template>
+  <Transition name="run-start-dialog">
   <div
     v-if="open"
     class="run-start-dialog-backdrop"
     role="presentation"
     @click.self="onCancel"
   >
+    <div class="run-start-dialog-scrim" aria-hidden="true" />
     <div
       class="run-start-dialog-card"
       role="dialog"
@@ -59,6 +61,7 @@
       </div>
     </div>
   </div>
+  </Transition>
 </template>
 
 <script setup>
@@ -114,16 +117,102 @@ function onCancel() {
   padding: calc(24 * var(--rpx));
   box-sizing: border-box;
   border-radius: inherit;
+  overflow: visible;
+}
+
+.run-start-dialog-scrim {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   background: rgba(0, 0, 0, 0.42);
+  pointer-events: none;
 }
 
 .run-start-dialog-card {
+  position: relative;
+  z-index: 1;
   width: min(100%, calc(520 * var(--rpx)));
   background: var(--card-bright, #faf8ef);
   border-radius: calc(12 * var(--rpx));
   box-shadow: var(--shadow);
   padding: calc(28 * var(--rpx)) calc(24 * var(--rpx)) calc(22 * var(--rpx));
   box-sizing: border-box;
+  transform-origin: center bottom;
+}
+
+.run-start-dialog-enter-active {
+  transition: opacity 0.42s step-end;
+}
+
+.run-start-dialog-leave-active {
+  transition: opacity 0.24s step-end;
+}
+
+.run-start-dialog-enter-from,
+.run-start-dialog-enter-to,
+.run-start-dialog-leave-from,
+.run-start-dialog-leave-to {
+  opacity: 1;
+}
+
+.run-start-dialog-enter-active .run-start-dialog-scrim {
+  animation: run-start-dialog-scrim-in 0.26s var(--ease-expo-out, ease-out) both;
+}
+
+/* 回正段勿用 both：延迟时 backwards 会在 0s 套用 -5%，盖住上升段 30%→-5% */
+.run-start-dialog-enter-active .run-start-dialog-card {
+  animation:
+    run-start-dialog-card-rise 0.2s var(--ease-circ-out) both,
+    run-start-dialog-card-settle 0.22s var(--ease-circ-in) 0.2s forwards;
+}
+
+.run-start-dialog-leave-active .run-start-dialog-scrim {
+  transition: opacity 0.22s var(--ease-expo-out, ease-out);
+}
+
+.run-start-dialog-leave-active .run-start-dialog-card {
+  transition:
+    opacity 0.18s ease-out,
+    transform 0.18s ease-out;
+}
+
+.run-start-dialog-leave-to .run-start-dialog-scrim {
+  opacity: 0;
+}
+
+.run-start-dialog-leave-to .run-start-dialog-card {
+  opacity: 0;
+  transform: translateY(calc(16 * var(--rpx)));
+}
+
+@keyframes run-start-dialog-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes run-start-dialog-card-rise {
+  from {
+    opacity: 1;
+    transform: translateY(30%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-5%);
+  }
+}
+
+@keyframes run-start-dialog-card-settle {
+  from {
+    transform: translateY(-5%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .run-start-dialog-title {
