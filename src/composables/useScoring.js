@@ -448,9 +448,10 @@ export function computeWordScoreDetailed(
 
   const multTotal = lengthMult + letterMultSum;
 
+  /** 燧石 Boss：仅词长段的分数与长度倍率减半，字母稀有度/材质等不加减。 */
   const fq = opts?.bossFlintQuarter === true;
-  const scoreSumAdj = fq ? scoreSum * 0.5 : scoreSum;
-  const multTotalAdj = fq ? multTotal * 0.5 : multTotal;
+  const scoreSumAdj = fq ? wordLengthScore * 0.5 + letterScoreSum : scoreSum;
+  const multTotalAdj = fq ? lengthMult * 0.5 + letterMultSum : multTotal;
 
   const finalScore = Math.round(scoreSumAdj * multTotalAdj * treasureMultiplier);
 

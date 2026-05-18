@@ -4,7 +4,7 @@ import { describe, score } from "../treasureDescription.js";
 export default {
   price: 5,
   rarity: "rare",
-  description: describe("你每剩余一次移除机会，", score("+40"), "分数"),
+  description: describe("你每剩余一次丢弃机会，", score("+40"), "分数"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

@@ -565,7 +565,7 @@
             aria-hidden="true"
           ></i>
         </div>
-        <div v-if="!isDeckOffer" class="shop-treasure-price">
+        <div v-if="!isDeckOffer && !isVoucherOwnedMode" class="shop-treasure-price">
           <div
             class="shop-treasure-price-inner"
             :class="{ 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' }"

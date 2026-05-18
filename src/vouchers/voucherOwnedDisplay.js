@@ -62,6 +62,18 @@ export function voucherStampsForOwnedGroup(group) {
 }
 
 /**
+ * 对局信息 · 优惠券 Tab：单格展示名（与详情标题一致）。
+ * @param {{ pairId: string, tier1: import("./voucherTypes.js").VoucherDef | null, tier2: import("./voucherTypes.js").VoucherDef | null }} group
+ */
+export function ownedVoucherGroupDisplayName(group) {
+  const { tier1, tier2 } = group;
+  const top = tier2 ?? tier1;
+  if (!top) return "";
+  const hasT2 = Boolean(tier2);
+  return formatVoucherDisplayName(top, { pairHasTier2Owned: hasT2 });
+}
+
+/**
  * TreasureDetailLayer 用：已拥有优惠券详情 payload。
  * @param {{ pairId: string, tier1: import("./voucherTypes.js").VoucherDef | null, tier2: import("./voucherTypes.js").VoucherDef | null }} group
  */

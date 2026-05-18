@@ -428,9 +428,12 @@
             <button
               type="button"
               class="action-btn action-btn-red"
-              :class="{ 'action-btn-disabled': !canRemove }"
-              title="移除选中的字母（先选字再点）"
-              @click="canRemove ? onRemoveClick() : null"
+              :class="{
+                'action-btn-disabled': !canRemove,
+                'action-btn-disabled--interactive': discardBtnOverLimit,
+              }"
+              title="丢弃选中的字母（先选字再点）"
+              @click="onDiscardBtnClick"
             >
               <i class="ri-delete-bin-line action-icon"></i>
             </button>
@@ -3503,12 +3506,19 @@ const canSubmit = computed(() => {
   );
 });
 
-const canRemove = computed(() => {
+/** 与提交按钮一致：飞回中的槽位视为已离开拼词槽，即时参与可用态判断 */
+const effectiveSelectedCount = computed(() => {
   const nSelRaw = selectedOrder.value.length;
   const batches = flyingBackBatches.value;
-  // 与提交按钮一致：飞回中的槽位视为“已移除”，即时参与可用态判断
-  const nSelEffective =
-    batches.length > 0 ? Math.min(...batches.map((b) => b.slotIndex)) : nSelRaw;
+  return batches.length > 0 ? Math.min(...batches.map((b) => b.slotIndex)) : nSelRaw;
+});
+
+const discardBtnOverLimit = computed(
+  () => effectiveSelectedCount.value > MAX_LETTERS_PER_REMOVAL,
+);
+
+const canRemove = computed(() => {
+  const nSelEffective = effectiveSelectedCount.value;
   const hasFlying = flyingLetters.value.length > 0;
   const cap = MAX_LETTERS_PER_REMOVAL;
   return (
@@ -3522,6 +3532,17 @@ const canRemove = computed(() => {
     nSelEffective <= cap
   );
 });
+
+function onDiscardBtnClick() {
+  if (dictFatalError.value) return;
+  if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
+  if (scoringAnimating.value || gridRefillAnimating.value) return;
+  if (discardBtnOverLimit.value) {
+    showToast(`一次至多丢弃 ${MAX_LETTERS_PER_REMOVAL} 个字母`);
+    return;
+  }
+  void onRemoveClick();
+}
 
 let toastClearTimer = null;
 function showToast(msg, ms = 2000) {
@@ -6520,7 +6541,7 @@ async function onRemoveClick() {
     }
     gsap.set(slotTileEls, { opacity: 1, scale: 1, y: 0 });
     gridRefillAnimating.value = false;
-    showToast(result.error ?? "无法移除");
+    showToast(result.error ?? "无法丢弃");
     return;
   }
 

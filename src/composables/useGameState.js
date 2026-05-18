@@ -1101,12 +1101,12 @@ export function useGameState(gameOpts = {}) {
 
     const n = order.length;
 
-    if (n === 0) return { success: false, error: "请先选择要移除的字母", prevCells: null };
+    if (n === 0) return { success: false, error: "请先选择要丢弃的字母", prevCells: null };
 
     if (n > cap)
-      return { success: false, error: `最多移除 ${cap} 个字母`, prevCells: null };
+      return { success: false, error: `一次至多丢弃 ${cap} 个字母`, prevCells: null };
 
-    if (remainingRemovals.value <= 0) return { success: false, error: "移除次数已用完", prevCells: null };
+    if (remainingRemovals.value <= 0) return { success: false, error: "丢弃次数已用完", prevCells: null };
 
     const prevCells = options.prevCells ?? snapshotGridCellsByTileId();
 

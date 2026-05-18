@@ -1921,6 +1921,10 @@ body {
 .action-btn-disabled:active {
 	filter: saturate(0.4) brightness(0.85);
 }
+.action-btn-disabled.action-btn-disabled--interactive {
+	pointer-events: auto;
+	cursor: default;
+}
 
 .action-btn-red {
 	background: var(--btn-red);
@@ -2601,7 +2605,9 @@ body {
 }
 
 .info-voucher-cell {
-	display: block;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
 	width: 100%;
 	min-width: 0;
 	padding: 0;
@@ -2611,6 +2617,17 @@ body {
 	font: inherit;
 	border-radius: calc(4 * var(--rpx));
 	transition: filter 0.1s ease;
+}
+
+.info-voucher-name {
+	margin: calc(8 * var(--rpx)) 0 0;
+	max-width: var(--shop-shelf-cell-size);
+	font-size: calc(18 * var(--rpx));
+	font-weight: 700;
+	line-height: 1.25;
+	color: #776e65;
+	text-align: center;
+	word-break: break-word;
 }
 
 .info-voucher-cell:hover {

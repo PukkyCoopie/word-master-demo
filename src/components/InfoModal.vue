@@ -278,7 +278,8 @@
               class="info-voucher-cell info-stagger-el"
               @click="onOwnedVoucherClick(group, $event)"
             >
-              <VoucherStampStack :stamps="voucherStampsForGroup(group)" />
+              <VoucherStampStack :stamps="voucherStampsForGroup(group)" compact />
+              <p class="info-voucher-name">{{ ownedVoucherGroupDisplayName(group) }}</p>
             </button>
           </div>
         </div>
@@ -309,6 +310,7 @@ import {
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import {
   buildOwnedVoucherPairGroups,
+  ownedVoucherGroupDisplayName,
   voucherStampsForOwnedGroup,
 } from "../vouchers/voucherOwnedDisplay.js";
 import VoucherStampStack from "./VoucherStampStack.vue";
@@ -484,6 +486,9 @@ onMounted(() => {
     levelTableResizeObserver.observe(el);
   }
   window.addEventListener("resize", onWindowResizeForInfoModal);
+  if (props.modelValue) {
+    applyInfoModalOpenState();
+  }
 });
 
 function collectActiveTabStaggerTargets() {
@@ -535,19 +540,24 @@ onBeforeUnmount(() => {
 
 const VALID_INFO_TABS = new Set(["level", "rarity", "stage", "coupon"]);
 
+/** 打开弹窗：设 Tab、量高、播当前 Tab 入场（v-if 挂载时 watch 不会触发，onMounted 也需调用） */
+function applyInfoModalOpenState() {
+  skipTabSwitchAnim = true;
+  const tab = String(props.initialTab ?? "level");
+  activeTab.value = VALID_INFO_TABS.has(tab) ? tab : "level";
+  scheduleMeasureLevelTabHeight();
+  scheduleMeasureLevelTabHeight({ delay: 340 });
+  scheduleActiveTabEnterAnim({ delay: 320 });
+  nextTick(() => {
+    skipTabSwitchAnim = false;
+  });
+}
+
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
-      skipTabSwitchAnim = true;
-      const tab = String(props.initialTab ?? "level");
-      activeTab.value = VALID_INFO_TABS.has(tab) ? tab : "level";
-      scheduleMeasureLevelTabHeight();
-      scheduleMeasureLevelTabHeight({ delay: 340 });
-      scheduleActiveTabEnterAnim({ delay: 320 });
-      nextTick(() => {
-        skipTabSwitchAnim = false;
-      });
+      applyInfoModalOpenState();
     } else {
       panelMinHeightPx.value = 0;
     }
