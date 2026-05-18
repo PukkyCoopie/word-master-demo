@@ -716,6 +716,7 @@ import {
   getWordLengthScoreForTableLen,
   getLengthMultiplier,
   getRarityForLetter,
+  getWordLetterCount,
   isWildcardMaterialTile,
   LETTER_RARITY_ORDER,
   withWildcardsResolvedForScoring,
@@ -2629,9 +2630,12 @@ const showResultWordLength = computed(() => {
   if (suppressResultWordLengthUntilScoringEnd.value) return false;
   return dictionaryReady.value && resolvedWordForSubmit.value != null;
 });
-/** 结果区词长/公式预览：棋盘格数 + 画笔等判定加成后的查表词长 */
+/** 结果区词长/公式预览：单词实际字母数 + 画笔等判定加成后的查表词长 */
 const resultAreaJudgedWordLength = computed(() => {
-  const n = effectiveWordForSubmit.value.length;
+  const n = getWordLetterCount(
+    effectiveFormulaTiles.value,
+    resolvedWordForSubmit.value,
+  );
   if (n < 1) return 0;
   return getJudgedLengthTableLenForOwnedVouchers(n, ownedVoucherIds.value);
 });
@@ -2952,7 +2956,10 @@ const bossTapeSoftPreview = computed(() => {
   if (res == null) return false;
   const eff = effectiveWordForSubmit.value;
   if (!eff || eff.length < 1) return false;
-  const judgedLen = getJudgedLengthTableLenForOwnedVouchers(eff.length, ownedVoucherIds.value);
+  const judgedLen = getJudgedLengthTableLenForOwnedVouchers(
+    getWordLetterCount(effectiveFormulaTiles.value, res),
+    ownedVoucherIds.value,
+  );
   const soft = evaluateBossSoftWordViolation({
     slug,
     wordLen: judgedLen,
@@ -5999,7 +6006,7 @@ const CLEAR_WIN_TILE_EFFECT_KIND_ORDER = Object.freeze({ gold: 0, length_upgrade
 /**
  * 通关当手、补牌前：按格子入场顺序（gridTileEntranceDelay）交错触发黄金与「升级配饰」；
  * 同 delay 时黄金优先。
- * @param {number} lastWordLen 本手最后提交单词的字母块数（Qu 算 1 格）
+ * @param {number} lastWordLen 本手最后提交单词的判定词长（实际字母数 + 画笔等）
  */
 function buildClearWinTileEffectQueue() {
   const g = grid.value;
@@ -6759,7 +6766,10 @@ async function submitWord() {
     getGridEffectTriggerCount,
   );
   const lengthJb = getWordLengthJudgmentBonus(ownedVoucherIds.value);
-  const judgedLenTable = getJudgedLengthTableLenForOwnedVouchers(tiles.length, ownedVoucherIds.value);
+  const judgedLenTable = getJudgedLengthTableLenForOwnedVouchers(
+    resolvedWord.length,
+    ownedVoucherIds.value,
+  );
   const soft = evaluateBossSoftWordViolation({
     slug: activeBossSlug.value,
     wordLen: judgedLenTable,
@@ -6805,6 +6815,7 @@ async function submitWord() {
       bossFlintQuarter: activeBossSlug.value === "the_flint",
       lengthUpgradeObservatoryExtra: lengthUpgradeObservatoryExtra.value,
       rng: runRandom,
+      resolvedWord,
     },
   );
   if (submitViolated) {
@@ -7138,10 +7149,13 @@ function mountE2eHarnessIfNeeded() {
       getRng: runRandom,
       getPreviewScoreForPick(path) {
         const tiles = path.map(({ row, col }) => grid.value[row][col]);
+        const pattern = tiles.map((t) => String(t?.letter ?? "").toLowerCase()).join("");
+        const resolved = resolveWordPattern(pattern, "?");
         const lengthJb = getWordLengthJudgmentBonus(ownedVoucherIds.value ?? []);
         const flintOpts =
           activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
         flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;
+        if (resolved) flintOpts.resolvedWord = resolved;
         return computeWordScore(
           tiles,
           1,

@@ -98,7 +98,7 @@ export const WORD_LENGTH_BALANCE = {
   16: { base: [150, 50], upgrade: [75, 30] },
 };
 
-/** 单词长度（Qu 算 1 格）→ 每个字母的基础分（不含稀有度加成） */
+/** 单词实际字母数 → 每个字母的基础分（不含稀有度加成） */
 const BASE_SCORE_PER_LETTER_BY_LENGTH = Object.fromEntries(
   Object.entries(WORD_LENGTH_BALANCE).map(([len, cfg]) => [len, Number(cfg.base?.[0]) || 0]),
 );
@@ -119,7 +119,7 @@ const DEFAULT_BASE_PER_LETTER = 3;
 const DEFAULT_WORD_LEVEL = 1;
 
 /**
- * @param {number} len 单词字母块数量（含 Qu 为 1 块）
+ * @param {number} len 单词实际字母数（3–16；Qu 块计 2 字母）
  */
 function getLevelForWordLength(len, lengthLevelsByLength) {
   if (!lengthLevelsByLength || typeof lengthLevelsByLength !== "object") return DEFAULT_WORD_LEVEL;
@@ -229,7 +229,7 @@ const LETTER_TO_RARITY = (() => {
 
 
 
-/** 单词长度（Qu 算一个字母块）→ 倍率 */
+/** 单词实际字母数 → 倍率 */
 export const LENGTH_MULTIPLIER = Object.fromEntries(
   Object.entries(WORD_LENGTH_BALANCE).map(([len, cfg]) => [len, Number(cfg.base?.[1]) || 0]),
 );
@@ -329,10 +329,21 @@ export function sumLetterScores(tiles) {
 
 
 
-export function getWordLength(tiles) {
+/**
+ * 单词实际字母数（非棋盘格数）：`Qu` 块计 2 字母；有词典解析词时用整词长度。
+ * @param {object[]} tiles
+ * @param {string | null | undefined} [resolvedWord]
+ */
+export function getWordLetterCount(tiles, resolvedWord = null) {
+  const resolved = String(resolvedWord ?? "").toLowerCase().trim();
+  if (resolved) return resolved.length;
+  if (!Array.isArray(tiles) || tiles.length === 0) return 0;
+  return tiles.map((c) => String(c?.letter ?? "").toLowerCase()).join("").length;
+}
 
-  return tiles.length;
-
+/** @deprecated 使用 {@link getWordLetterCount} */
+export function getWordLength(tiles, resolvedWord = null) {
+  return getWordLetterCount(tiles, resolvedWord);
 }
 
 
@@ -373,9 +384,12 @@ export function computeWordScoreDetailed(
   opts = {},
 ) {
 
-  const tileCount = tiles.length;
+  const wordLetterCount =
+    opts?.wordLetterCount != null && Number.isFinite(Number(opts.wordLetterCount))
+      ? Math.max(0, Math.round(Number(opts.wordLetterCount)))
+      : getWordLetterCount(tiles, opts?.resolvedWord);
   const jb = Math.max(0, Math.floor(Number(lengthJudgmentBonus) || 0));
-  const rawLen = tileCount + jb;
+  const rawLen = wordLetterCount + jb;
   const len = rawLen <= 0 ? 3 : rawLen < 3 ? 3 : rawLen > 16 ? 16 : rawLen;
 
   const lm = Math.max(0, Number(lengthMultFactor) || 1);
@@ -475,7 +489,7 @@ export function computeWordScoreDetailed(
 
     finalScore,
 
-    /** 用于长度倍率与每字基础分的等效词长（已 clamp）；字母块数仍为 `letterParts.length` */
+    /** 用于长度倍率与每字基础分的等效词长（已 clamp）；`letterParts.length` 仍为棋盘格数 */
     lengthTableLen: len,
 
     lengthJudgmentBonus: jb,

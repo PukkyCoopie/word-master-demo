@@ -4,7 +4,7 @@ import { describe, mult } from "../treasureDescription.js";
 export default {
   price: 5,
   rarity: "rare",
-  description: describe("当没有丢弃机会时，", mult("+20"), "倍率"),
+  description: describe("当没有丢弃次数时，", mult("+20"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

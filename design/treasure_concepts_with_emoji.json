@@ -162,7 +162,7 @@
       "rarity": "rare",
       "name": "餐刀",
       "emoji": "🔪",
-      "description": "你每剩余一次丢弃机会，+40分数"
+      "description": "你每剩余一次丢弃次数，+40分数"
     },
     {
       "index": 19,
@@ -171,7 +171,7 @@
       "rarity": "rare",
       "name": "挂锁",
       "emoji": "🔒",
-      "description": "当没有丢弃机会时，+20倍率"
+      "description": "当没有丢弃次数时，+20倍率"
     },
     {
       "index": 20,
@@ -243,7 +243,7 @@
       "rarity": "rare",
       "name": "存钱罐",
       "emoji": "🐷",
-      "description": "在关卡完成时，如果你没有使用过丢弃，则每个丢弃机会会给予你$2"
+      "description": "在关卡完成时，如果你没有使用过丢弃，则每个丢弃次数会给予你$2"
     },
     {
       "index": 28,
@@ -378,7 +378,7 @@
       "rarity": "epic",
       "name": "礼帽",
       "emoji": "🎩",
-      "description": "开局时候将你的所有丢弃机会转换为拼写机会"
+      "description": "开局时候将你的所有丢弃次数转换为拼写次数"
     },
     {
       "index": 43,

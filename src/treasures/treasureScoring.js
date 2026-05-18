@@ -128,7 +128,7 @@ const LUCKY_MATERIAL_MONEY_CHANCE = 1 / 15;
  * @param {(string | null | undefined)[] | null} [ownedSlotTreasureAccessoryIds=null] 与槽位同索引的具名配饰 id（`treasureAccessories.js`）；空位忽略
  * @param {number} [lengthMultFactor=1] 词长倍率额外乘数（保留参数；望远镜二级在升级步生效，见 `lengthUpgradeObservatoryExtra`）
  * @param {number} [lengthJudgmentBonus=0] 计分时词长表上的额外长度（直尺券）
- * @param {{ disabledTreasureSlotIndices?: Set<number> | readonly number[], bossFlintQuarter?: boolean, lengthUpgradeObservatoryExtra?: Record<number, { score?: number, mult?: number }> | null, rng?: () => number }} [submitOptions={}]
+ * @param {{ disabledTreasureSlotIndices?: Set<number> | readonly number[], bossFlintQuarter?: boolean, lengthUpgradeObservatoryExtra?: Record<number, { score?: number, mult?: number }> | null, rng?: () => number, resolvedWord?: string | null }} [submitOptions={}]
  */
 export function computeWordScoreDetailedForSubmit(
   tiles,
@@ -166,7 +166,11 @@ export function computeWordScoreDetailedForSubmit(
     rarityLevelsByRarity,
     lengthMultFactor,
     lengthJudgmentBonus,
-    { bossFlintQuarter, lengthUpgradeObservatoryExtra: lengthUpgradeExtra },
+    {
+      bossFlintQuarter,
+      lengthUpgradeObservatoryExtra: lengthUpgradeExtra,
+      resolvedWord: submitOptions?.resolvedWord ?? null,
+    },
   );
   const conditions = buildTreasureLogicConditions(tiles, base.letterParts);
   let postLetterTreasureSteps = buildPostLetterTreasureSteps(
@@ -179,7 +183,7 @@ export function computeWordScoreDetailedForSubmit(
     remainingDeckCount,
     isLastSubmitChance,
     base.scoreSum,
-    base.lengthTableLen ?? tiles.length,
+    base.lengthTableLen ?? base.letterParts?.length ?? tiles.length,
     rnd,
   );
   const accessoryRow =
@@ -200,7 +204,7 @@ export function computeWordScoreDetailedForSubmit(
     remainingDeckCount,
     isLastSubmitChance,
     baseLetterScoreSum: base.scoreSum,
-    lengthTableLen: base.lengthTableLen ?? tiles.length,
+    lengthTableLen: base.lengthTableLen ?? base.letterParts?.length ?? tiles.length,
   };
   const letterRarityTreasureMultAddTotal = sumLetterRarityMultAddFromSlots(baseHookCtx);
 

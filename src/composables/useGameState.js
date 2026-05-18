@@ -52,11 +52,11 @@ function tileRawForDeckStack(tile) {
 
 /** 元音张数按英文频率大致分层：E 最高，U 最低（较基础版略多，便于组词） */
 const VOWEL_DECK_COUNT = Object.freeze({
-  e: 8,
+  e: 9,
   a: 7,
-  o: 6,
-  i: 6,
-  u: 5,
+  o: 7,
+  i: 7,
+  u: 6,
 });
 
 const WILDCARD_MATERIAL_ID = "wildcard";
@@ -601,7 +601,7 @@ export function useGameState(gameOpts = {}) {
 
   const lastWordInfo = ref(null);
 
-  /** 本局内各「单词长度」（Qu 算 1 格，与 tiles.length 一致）成功拼出次数；跨关保留 */
+  /** 本局内各「判定词长」（实际字母数 + 画笔等）成功拼出次数；跨关保留 */
   const spellCountsByLength = shallowRef(/** @type {Record<number, number>} */ ({}));
 
   /** 本局已成功结算的拼词次数（篮球宝藏简介进度；跨关卡保留） */
@@ -657,8 +657,8 @@ export function useGameState(gameOpts = {}) {
     };
   }
 
-  function recordSpellWordLength(tileCount) {
-    const len = Math.max(0, Math.round(Number(tileCount)) || 0);
+  function recordSpellWordLength(judgedWordLength) {
+    const len = Math.max(0, Math.round(Number(judgedWordLength)) || 0);
     if (len <= 0) return;
     const cur = spellCountsByLength.value;
     spellCountsByLength.value = { ...cur, [len]: (cur[len] || 0) + 1 };
@@ -1012,6 +1012,7 @@ export function useGameState(gameOpts = {}) {
     const word = tilesSnapshot.map((c) => c.letter.toLowerCase()).join("");
     const flintOpts = activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
     flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;
+    const patternWord = tilesSnapshot.map((c) => c.letter.toLowerCase()).join("");
     const scoreInfo = computeWordScoreDetailed(
       tilesSnapshot,
       1,
@@ -1019,7 +1020,7 @@ export function useGameState(gameOpts = {}) {
       rarityLevelsByRarity.value,
       1,
       0,
-      flintOpts,
+      { ...flintOpts, resolvedWord: patternWord || null },
     );
     const definition = getDefinition ? getDefinition(word) : null;
     return { word, scoreInfo, definition };
@@ -1040,7 +1041,10 @@ export function useGameState(gameOpts = {}) {
     const scoreInfo =
       scoreInfoOverride != null
         ? scoreInfoOverride
-        : computeWordScoreDetailed(tilesSnapshot, 1, lengthLevelsByLength.value, rarityLevelsByRarity.value, 1, 0, flintOpts);
+        : computeWordScoreDetailed(tilesSnapshot, 1, lengthLevelsByLength.value, rarityLevelsByRarity.value, 1, 0, {
+            ...flintOpts,
+            resolvedWord: word || null,
+          });
     lastWordInfo.value = { word, scoreInfo, definition };
     return lastWordInfo.value;
   }

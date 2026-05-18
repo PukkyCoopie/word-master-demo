@@ -108,23 +108,23 @@ export function getWordLengthJudgmentBonus(owned) {
 }
 
 /**
- * 与 `getLengthMultiplier` 内对词长的 clamp 一致：用于「格数 + 判定加成」后的等效词长。
- * @param {number} tileCount 入词字母块数（Qu 算 1）
+ * 与 `getLengthMultiplier` 内对词长的 clamp 一致：用于「实际字母数 + 判定加成」后的等效词长。
+ * @param {number} wordLetterCount 单词实际字母数（`Qu` 块计 2，非棋盘格数）
  * @param {number} judgmentBonus 优惠券等给出的非负整数加成
  */
-export function getLengthTableLenFromTileCountAndBonus(tileCount, judgmentBonus) {
-  const t = Math.max(0, Math.round(Number(tileCount)) || 0);
+export function getLengthTableLenFromTileCountAndBonus(wordLetterCount, judgmentBonus) {
+  const t = Math.max(0, Math.round(Number(wordLetterCount)) || 0);
   const b = Math.max(0, Math.floor(Number(judgmentBonus) || 0));
   const L = t + b;
   return L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
 }
 
 /**
- * @param {number} tileCount
+ * @param {number} wordLetterCount 单词实际字母数
  * @param {Iterable<string>} owned
  */
-export function getJudgedLengthTableLenForOwnedVouchers(tileCount, owned) {
-  return getLengthTableLenFromTileCountAndBonus(tileCount, getWordLengthJudgmentBonus(owned));
+export function getJudgedLengthTableLenForOwnedVouchers(wordLetterCount, owned) {
+  return getLengthTableLenFromTileCountAndBonus(wordLetterCount, getWordLengthJudgmentBonus(owned));
 }
 
 /** @param {Iterable<string>} owned */
