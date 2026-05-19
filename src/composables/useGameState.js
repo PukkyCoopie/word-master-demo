@@ -29,6 +29,7 @@ import {
 import { snapshotMaxIntrinsicGainsFromTile, applyIntrinsicGainsToTileAndLinkedCard } from "../game/tileIntrinsicGains.js";
 import { getWordLengthJudgmentBonus } from "../vouchers/voucherRuntime.js";
 import { applyBossTileDebuffState } from "../game/bossTileDebuff.js";
+import { vowelDisplayLetter } from "../game/vowelNeighborSubstitute.js";
 
 const VOWEL_LETTERS = new Set(["a", "e", "i", "o", "u"]);
 
@@ -182,6 +183,23 @@ function drawFromDeck(deckArr, rng = defaultRng) {
 }
 
 /**
+ * @param {unknown[]} deckArr
+ * @param {number} uid
+ * @returns {ReturnType<typeof createDeckCard> | null}
+ */
+function drawDeckCardByUid(deckArr, uid) {
+  const target = Math.floor(Number(uid));
+  if (!Number.isFinite(target)) return null;
+  const idx = deckArr.findIndex(
+    (c) => c && typeof c === "object" && /** @type {{ _dcUid?: number }} */ (c)._dcUid === target,
+  );
+  if (idx < 0) return null;
+  const [card] = deckArr.splice(idx, 1);
+  markDeckCardLeftDrawPile(card);
+  return card;
+}
+
+/**
  * 棋盘格被消耗（拼词、移除、冰块等）：状态写回牌张，但**不**放回 `deck` 抽牌堆。
  * @param {Record<string, unknown> | null | undefined} tile
  */
@@ -292,7 +310,10 @@ function createTileFromLetter(raw, idGen, rarityLevelsSnapshot = null) {
  * @param {Record<string, number> | null} [rarityLevelsSnapshot]
  */
 function createTileFromDeckCard(card, idGen, rarityLevelsSnapshot = null) {
-  const raw = deckCardRaw(card);
+  let raw = deckCardRaw(card);
+  if (card && typeof card === "object" && card.vowelDisplayShift) {
+    raw = vowelDisplayLetter(raw, card.vowelDisplayShift);
+  }
   const useWildcard = card.isWildcard === true;
   const rarity = useWildcard
     ? "common"
@@ -611,6 +632,13 @@ export function useGameState(gameOpts = {}) {
     basketballWordsSubmitted.value += 1;
   }
 
+  /** 幻灵「烛台」等：之后拼词判定词长在券加成后再 -N（整局保留） */
+  const runWordLengthJudgmentPenalty = ref(0);
+
+  function setRunWordLengthJudgmentPenalty(n) {
+    runWordLengthJudgmentPenalty.value = Math.max(0, Math.floor(Number(n) || 0));
+  }
+
   /** 各单词长度对应的「等级」（可升级，初始 1）；跨小关保留，新开一局随 composable 重建恢复为 1 */
   function buildDefaultLengthLevels() {
     const o = /** @type {Record<number, number>} */ ({});
@@ -683,8 +711,13 @@ export function useGameState(gameOpts = {}) {
     stampBossTileDebuffIfNeeded(tile);
   }
 
-  function buildGrid() {
+  /**
+   * @param {{ forcedJokerDrawUid?: number | null }} [opts]
+   */
+  function buildGrid(opts = {}) {
     const d = deck.value;
+    const forcedUid = opts.forcedJokerDrawUid ?? null;
+    let forcedUsed = false;
 
     const manacle = activeBossSlug.value === "the_manacle";
 
@@ -700,7 +733,12 @@ export function useGameState(gameOpts = {}) {
           ph.letter = "";
           row.push(ph);
         } else {
-          const card = drawFromDeck(d, getRng);
+          let card = null;
+          if (!forcedUsed && forcedUid != null) {
+            card = drawDeckCardByUid(d, forcedUid);
+            if (card) forcedUsed = true;
+          }
+          if (!card) card = drawFromDeck(d, getRng);
           row.push(createGridTileFromDeckCard(card));
         }
       }
@@ -1317,6 +1355,22 @@ export function useGameState(gameOpts = {}) {
    * @param {{ id: string }} levelDef
    * @param {{ remainingWords?: number, remainingRemovals?: number, targetScore?: number, bossSlug?: string, postGridBuild?: (g: unknown[][]) => void }} [runOpts]
    */
+  /**
+   * 进关前向 multiset 追加牌张（如鬼牌）；`resetLevel` 会复制该快照。
+   * @param {{ raw: string, accessoryId?: string | null, tileScoreBonus?: number, letterMultBonus?: number, materialId?: string | null }} spec
+   * @returns {ReturnType<typeof createDeckCard>}
+   */
+  function appendDeckCardSpecToInitialSnapshot(spec) {
+    const raw = String(spec?.raw ?? "e").toLowerCase();
+    const card = createDeckCard(raw);
+    if (spec.accessoryId) card.accessoryId = spec.accessoryId;
+    if (spec.tileScoreBonus) card.tileScoreBonus = Math.max(0, Math.floor(Number(spec.tileScoreBonus) || 0));
+    if (spec.letterMultBonus) card.letterMultBonus = Math.max(0, Math.floor(Number(spec.letterMultBonus) || 0));
+    if (spec.materialId) card.materialId = spec.materialId;
+    initialDeckSnapshot.value = [...initialDeckSnapshot.value, card];
+    return card;
+  }
+
   function resetLevel(levelDef, runOpts = {}) {
     activeBossSlug.value = String(runOpts.bossSlug ?? "");
     const tsOpt = runOpts.targetScore;
@@ -1331,7 +1385,8 @@ export function useGameState(gameOpts = {}) {
     }
     shuffleArrayInPlace(snap, getRng);
     deck.value = [...snap];
-    grid.value = buildGrid();
+    const forcedUid = runOpts.forcedJokerDrawUid ?? null;
+    grid.value = buildGrid({ forcedJokerDrawUid: forcedUid });
     const bh =
       runOpts?.remainingWords != null && Number.isFinite(Number(runOpts.remainingWords))
         ? Math.max(0, Math.floor(Number(runOpts.remainingWords)))
@@ -1376,6 +1431,38 @@ export function useGameState(gameOpts = {}) {
     }
     deck.value = d;
     initialDeckSnapshot.value = snap;
+  }
+
+  /**
+   * 从牌库 multiset 移除指定 `_dcUid` 的牌张；同步抽牌堆，并清空棋盘上绑定该牌张的格。
+   * @param {number} uid
+   * @returns {boolean}
+   */
+  function removeDeckCardByUid(uid) {
+    if (uid == null) return false;
+    const snap = [...initialDeckSnapshot.value];
+    const si = snap.findIndex(
+      (c) => c && typeof c === "object" && /** @type {{ _dcUid?: number }} */ (c)._dcUid === uid,
+    );
+    if (si < 0) return false;
+    const removed = snap[si];
+    snap.splice(si, 1);
+    const d = [...deck.value];
+    const di = d.indexOf(removed);
+    if (di >= 0) d.splice(di, 1);
+    const g = grid.value;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const t = g[r]?.[c];
+        if (t?._deckCard?._dcUid === uid) {
+          g[r][c] = emptyTile(nextId);
+        }
+      }
+    }
+    deck.value = d;
+    initialDeckSnapshot.value = snap;
+    triggerRef(grid);
+    return true;
   }
 
   /**
@@ -1474,6 +1561,10 @@ export function useGameState(gameOpts = {}) {
 
     bumpBasketballWordSubmitted,
 
+    runWordLengthJudgmentPenalty,
+
+    setRunWordLengthJudgmentPenalty,
+
     recordSpellWordLength,
 
     lengthLevelsByLength,
@@ -1556,6 +1647,8 @@ export function useGameState(gameOpts = {}) {
 
     removeDeckLetterInstancesByRaws,
 
+    removeDeckCardByUid,
+
     remapTileFromRawLetter,
 
     markTileAsWildcard,
@@ -1563,6 +1656,8 @@ export function useGameState(gameOpts = {}) {
     refreshGridTileBaseScoresFromLevels,
 
     appendShopDeckEntries,
+
+    appendDeckCardSpecToInitialSnapshot,
 
   };
 

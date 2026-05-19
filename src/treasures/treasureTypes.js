@@ -46,6 +46,13 @@
  * @property {number} [baseLetterScoreSum]
  * @property {number[]} [letterReplayCounts]
  * @property {() => number} [rng] 局内确定性随机 [0,1)，未传时宝藏逻辑可回退 Math.random
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun] 整局运行时状态（银行、关卡计数等）
+ * @property {number} [money] 提交计分时钱包余额
+ * @property {string} [resolvedWord] 本词（小写）
+ * @property {readonly { rarity?: string }[]} [gridTiles] 提交时棋盘上全部有字格（含本手拼词格）
+ * @property {readonly { rarity?: string }[]} [remainingGridTiles] 提交后仍将留在棋盘上的有字格（不含本手拼词格）
+ * @property {Record<string, number> | null} [rarityLevelsByRarity] 各字母稀有度等级
+ * @property {(word: string) => { pos?: string } | null | undefined} [getWordDefinition]
  */
 
 /**
@@ -59,8 +66,40 @@
  * @typedef {Object} TreasureSubmitSuccessContext
  * @property {(string | null | undefined)[]} ownedSlotTreasureIds
  * @property {() => void} incrementChargeWordSubmissionCount 当前用于篮球类「每 N 词充能」计数；仅应由需要该计数的宝藏钩子调用
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {string} [resolvedWord]
+ * @property {number} [judgedWordLength]
+ * @property {number} [targetScore]
+ * @property {number} [currentScore]
+ * @property {number} [remainingWordsAfterSubmit]
+ * @property {{ letter?: string, rarity?: string, materialId?: string | null }[]} [submittedLetters]
+ * @property {(n: number) => void} [addRemainingWords]
+ * @property {(amount: number) => void} [addMoney]
+ * @property {(raws: string[]) => void} [removeDeckLettersByRaws]
+ * @property {() => void} [destroySelf]
+ * @property {object[]} [ownedTreasureInstances]
+ * @property {() => number} [rng]
  * @property {{ materialId?: string | null }[] | null | undefined} [submittedScoringTiles] 本词参与记分的字母块快照（补牌前）；用于材质类结算后效果
  * @property {() => void | Promise<void>} [mutateRandomNonWildcardLetterTileToWildcard] 将当前棋盘上随机一枚非万能的有字格变为万能块（棋盘缩放回弹与法术「点亮」一致）
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {string} [resolvedWord] 本词词典解析结果（小写）
+ * @property {boolean} [bossRestrictionTriggered] 本词触发 Boss 软限制（计 0 分）
+ * @property {number} [judgedWordLength] 计分用词长
+ * @property {number} [targetScore] 本关目标分
+ * @property {number} [currentScore] 提交前累计分
+ * @property {(n: number) => void} [addRemainingWords] 增加拼写次数
+ * @property {(raws: string[]) => void} [removeDeckLettersByRaws] 从牌库移除字母
+ * @property {() => number} [rng]
+ * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
+ * @property {() => string | null} [pickRandomInRunSpellId]
+ * @property {(opts?: { spellId?: string, treasureSlotIndex?: number, treasureId?: string }) => Promise<void>} [requestInRunSpellGrant]
+ * @property {(opts?: { bundle?: object | null, treasureSlotIndex?: number, treasureId?: string }) => Promise<void>} [requestInRunPackOpen]
+ * @property {(opts?: { offer?: object, treasureSlotIndex?: number, treasureId?: string }) => Promise<void>} [requestInRunUpgrade]
+ * @property {number} [moneyAfterSubmit] 本词计分动画结束后的钱包余额（释法/低余额判定用）
+ * @property {(word: string) => { pos?: string } | null | undefined} [getWordDefinition]
+ * @property {(opts?: { kind?: 'spell' | 'treasure' | 'upgrade' | 'letter', treasureSlotIndex?: number, treasureId?: string }) => Promise<void>} [requestInRunPackOpenOfKind]
+ * @property {() => string | null} [rollRandomBigram]
+ * @property {(len: number, opts?: { observatoryBoost?: boolean }) => void} [bumpWordLengthLevel]
  */
 
 /**
@@ -83,7 +122,8 @@
  * @property {(ctx: TreasureLogicContext) => TreasurePostStep | null | undefined} [buildPostLetterStep]
  * @property {(ctx: TreasureLogicContext) => number} [getLetterRarityMultAdd]
  * @property {(part: { letter?: string, rarity?: string }) => number} [getLetterRarityMultDeltaForLetterPart] replay 时该字母上本宝藏贡献的倍率加量（与 `getLetterRarityMultAdd` 规则一致）
- * @property {() => { targetRarity: string, multDelta: number, bubbleLabel: string }} [getLetterRarityMultAnimConfig] 记分动画：与 `runLetterRarityTreasureMultStep` 对齐
+ * @property {(part: { letter?: string, rarity?: string }, ctx: TreasureLogicContext) => number} [getLetterRarityMultMulForLetterPart] 该字母计分（含 replay 轮）时乘上的倍率因子（>1 才生效；与 `getLetterRarityMultAnimConfig` 的 `multMul` 对齐）
+ * @property {(ctx?: import('./treasureTypes.js').TreasureLogicContext) => { targetRarity: string, multDelta?: number, multMul?: number, bubbleLabel: string }} [getLetterRarityMultAnimConfig] 记分动画：与 `runLetterRarityTreasureMultStep` 对齐；`multMul` 为逐字乘法，`multDelta` 为加法
  * @property {(ctx: TreasureLogicContext) => number} [getExtraLetterScoringPasses] - 整词额外几轮逐字母 replay（每轮每字母 +1，与动画轮数一致）
  * @property {(ctx: TreasureLogicContext, part: { letter?: string, rarity?: string }, letterIndex: number) => number} [getLetterReplayCountForLetter]
  * @property {(ctx: TreasureLogicContext) => TreasurePostStep | null | undefined} [buildPostLetterReplayStep]
@@ -98,6 +138,114 @@
  * @property {(ctx: TreasureSubmitSuccessContext) => void | Promise<void>} [onSuccessfulWordSubmit] 本词结算动画成功后调用（每词每宝藏 id 至多一次）
  * @property {(ctx: TreasureChargeVisualContext) => 'inactive' | 'active'} [getChargeVisualState] 若实现则 footer 显示充能态；未实现则无充能条
  * @property {(ctx: TreasureChargeVisualContext) => number} [getChargeProgress] 0~1，与 `getChargeVisualState` 成对实现
+ * @property {(ctx: import('./treasureTypes.js').TreasurePatchDescriptionContext) => import('./treasureDescription.js').TreasureDescSegment[] | null | undefined} [patchDescription] 替换简介中「（当前…）」动态段；若 `replaceDescriptionWithPatch` 为 true 则整段简介由 patch 提供
+ * @property {boolean} [replaceDescriptionWithPatch]
+ * @property {(ctx: TreasureDiscardContext) => void | Promise<void>} [onDiscardBatch] 单次丢弃成功之后
+ * @property {(ctx: TreasureLevelEnterContext) => void | Promise<void>} [prepareLevelEnter] 进入新小关、`resetLevel` 建盘之前
+ * @property {(ctx: TreasureLevelEnterContext) => void | Promise<void>} [onLevelEnter] 进入新小关之后
+ * @property {(ctx: TreasureLevelCompleteContext) => void | Promise<void>} [onLevelComplete] 小关达标即将结算
+ * @property {(ctx: TreasureChapterEnterContext) => void} [onChapterEnter] 进入新大关（章号变化）
+ * @property {(ctx: TreasureShopEnterContext) => void} [onShopEnter] 进入商店（本段停留开始）
+ * @property {(ctx: TreasureShopRerollContext) => void} [onShopReroll] 商店刷新
+ * @property {(ctx: TreasurePackSkippedContext) => void} [onPackSkipped] 跳过组合包
+ * @property {(ctx: TreasureSoldContext) => void} [onTreasureSold] 卖出宝藏
+ * @property {(ctx: TreasureIceBreakContext) => void} [onIceMaterialBreak] 碎冰块碎裂
+ * @property {(ctx: TreasureLogicContext) => number} [getSubmitLengthBonus] 等效词长加成（直尺券之外）
+ * @property {() => number} [getLengthJudgmentPenalty] 判定词长减益（视为更短）
+ * @property {(ctx: TreasureBossRestrictionContext) => void} [onBossRestrictionTriggered]
+ * @property {(ctx: TreasureDeckCardsAddedContext) => void} [onDeckCardsAdded]
+ */
+
+/**
+ * @typedef {Object} TreasurePatchDescriptionContext
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {number} [extraLetterScoreWordsRemaining]
+ * @property {string} [discardLetterGroup]
+ * @property {string | null} [levelPosTargetKey]
+ */
+
+/**
+ * @typedef {Object} TreasureDiscardContext
+ * @property {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @property {{ letter?: string }[]} discardedLetters
+ * @property {number} letterCount
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {() => number} [rng]
+ * @property {(amount: number) => void} [addMoney]
+ */
+
+/**
+ * @typedef {Object} TreasureLevelEnterContext
+ * @property {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {() => number} [rng]
+ * @property {string} [levelId]
+ * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
+ * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
+ * @property {(treasureId: string) => void} [clearTreasureSlotById]
+ * @property {(count?: number) => number} [grantRandomOwnedTreasure] 本关赠送随机宝藏次数，返回实际获得数
+ * @property {(n: number) => void} [addRemainingWords]
+ * @property {(n: number) => void} [addRemainingRemovals]
+ * @property {(tiles: object[]) => void} [stripEnhancementsFromScoringTiles]
+ * @property {(spec: { raw: string, accessoryId?: string | null, tileScoreBonus?: number, letterMultBonus?: number, materialId?: string | null }) => object | null} [appendDeckCardSpecToInitialSnapshot]
+ */
+
+/**
+ * @typedef {Object} TreasureLevelCompleteContext
+ * @property {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {() => number} [rng]
+ * @property {(treasureId: string) => void} [clearTreasureSlotById]
+ * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
+ * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
+ * @property {(amount: number) => void} [addMoney]
+ * @property {number} [remainingRemovals] 小关结束时剩余丢弃次数
+ * @property {(treasureId: string, amount: number) => void} [bumpOwnedTreasurePriceById] 提高已拥有实例的购入价（影响卖出价）
+ */
+
+/**
+ * @typedef {Object} TreasureChapterEnterContext
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ */
+
+/**
+ * @typedef {Object} TreasureShopEnterContext
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ */
+
+/**
+ * @typedef {Object} TreasureShopRerollContext
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ */
+
+/**
+ * @typedef {Object} TreasurePackSkippedContext
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ */
+
+/**
+ * @typedef {Object} TreasureSoldContext
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ */
+
+/**
+ * @typedef {Object} TreasureIceBreakContext
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ */
+
+/**
+ * @typedef {Object} TreasureBossRestrictionContext
+ * @property {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {string} [bossSlug]
+ * @property {(amount: number) => void} [addMoney]
+ */
+
+/**
+ * @typedef {Object} TreasureDeckCardsAddedContext
+ * @property {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {number} [count]
  */
 
 /**

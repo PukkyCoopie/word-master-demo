@@ -3,7 +3,7 @@ import { describe, mult } from "../treasureDescription.js";
 /** @type {import('../treasureTypes.js').TreasureBaseDef} */
 export default {
   price: 4,
-  rarity: "rare",
+  rarity: "common",
   description: describe("如果单词中包含至少3种稀有度，", mult("+16"), "倍率"),
 };
 

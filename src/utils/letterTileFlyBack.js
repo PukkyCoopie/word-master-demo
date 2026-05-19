@@ -104,10 +104,24 @@ export function createFlyBackTileElement(item) {
   gem.className = `letter-gem gem-${item.rarity}`;
   gem.setAttribute("aria-hidden", "true");
   el.appendChild(gem);
+  if (item.vowelGhostPrev) {
+    const prev = document.createElement("span");
+    prev.className = "vowel-ghost vowel-ghost--prev";
+    prev.setAttribute("aria-hidden", "true");
+    prev.textContent = item.vowelGhostPrev;
+    el.appendChild(prev);
+  }
   const char = document.createElement("span");
   char.className = "letter-tile-char";
   char.textContent = item.letter;
   el.appendChild(char);
+  if (item.vowelGhostNext) {
+    const next = document.createElement("span");
+    next.className = "vowel-ghost vowel-ghost--next";
+    next.setAttribute("aria-hidden", "true");
+    next.textContent = item.vowelGhostNext;
+    el.appendChild(next);
+  }
   appendImperativeTileChrome(el, item);
   return el;
 }

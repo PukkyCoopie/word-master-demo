@@ -3,7 +3,7 @@ import { describe } from "../treasureDescription.js";
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 5,
-  rarity: "rare",
+  rarity: "common",
   description: describe("将每种长度的单词在本轮游戏内被拼写过的次数添加至倍率"),
 };
 

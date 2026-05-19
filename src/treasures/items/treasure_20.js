@@ -4,7 +4,7 @@ import { getBasketballChargeProgress, getBasketballChargeVisualState } from "../
 /** @type {import('../treasureTypes.js').TreasureBaseDef} */
 export default {
   price: 5,
-  rarity: "epic",
+  rarity: "rare",
   description: describe("每拼写5个单词，具有一次", mult("x4"), "倍率"),
 };
 

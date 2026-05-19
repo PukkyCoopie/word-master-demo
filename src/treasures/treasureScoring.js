@@ -1,9 +1,11 @@
 import { computeWordScoreDetailed } from "../composables/useScoring.js";
 import { TILE_ACCESSORY_REWIND } from "../game/tileAccessories.js";
 import { TREASURE_HOOKS_BY_ID } from "./treasureRegistry.js";
+import { iterTreasureHookContributions } from "../game/treasureBlueprintMirror.js";
 import { buildTreasureLogicConditions } from "./treasureLogicShared.js";
 import {
   aggregateReplaySubmitAdjustments,
+  productLetterRarityMultMulFromSlots,
   sumLetterRarityMultAddFromSlots,
   sumLetterRarityMultDeltaForLetterPart,
 } from "./treasureReplaySubmitAggregate.js";
@@ -27,6 +29,12 @@ import {
  * @param {boolean} isLastSubmitChance 本手是否消耗本关内最后一次出牌机会
  * @param {number} baseLetterScoreSum 本词字母分（不含 post-letter 宝藏）
  * @param {number} lengthTableLen 与计分词长表一致的等效词长（含优惠券判定加成；与 `letterParts.length` 可不同）
+ * @param {import('./treasureRunState.js').TreasureRunState | null} [treasureRun]
+ * @param {number} [money]
+ * @param {object[] | null} [ownedTreasureInstances]
+ * @param {string} [resolvedWord]
+ * @param {{ gridTiles?: readonly object[], remainingGridTiles?: readonly object[], getWordDefinition?: (word: string) => object | null | undefined, treasureRun?: import('./treasureRunState.js').TreasureRunState, money?: number, ownedTreasureInstances?: object[], resolvedWord?: string | null }} [submitOptions]
+ * @param {Record<string, number> | null} [rarityLevelsByRarity]
  * @returns {{ treasureId: string, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, moneyAdd?: number }[]}
  */
 function buildPostLetterTreasureSteps(
@@ -41,18 +49,22 @@ function buildPostLetterTreasureSteps(
   baseLetterScoreSum,
   lengthTableLen,
   rng = Math.random,
+  treasureRun = null,
+  money = 0,
+  ownedTreasureInstances = null,
+  resolvedWord = "",
+  submitOptions = {},
+  rarityLevelsByRarity = null,
 ) {
   const rnd = typeof rng === "function" ? rng : Math.random;
   const slots = ownedSlotTreasureIds ?? [];
-  const conditions = buildTreasureLogicConditions(tiles, letterParts);
+  const conditions = buildTreasureLogicConditions(tiles, letterParts, slots);
   const lenKey = Math.max(0, Math.round(Number(lengthTableLen)) || 0) || Math.max(0, tiles?.length || 0);
 
   /** @type {{ treasureId: string, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, moneyAdd?: number }[]} */
   const steps = [];
 
-  for (let si = 0; si < slots.length; si++) {
-    const tid = slots[si];
-    if (tid == null || tid === "") continue;
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(slots)) {
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     const step = hooks?.buildPostLetterStep?.({
       tiles,
@@ -67,6 +79,14 @@ function buildPostLetterTreasureSteps(
       baseLetterScoreSum,
       lengthTableLen: lenKey,
       rng: rnd,
+      treasureRun: treasureRun ?? undefined,
+      money,
+      ownedTreasureInstances: ownedTreasureInstances ?? undefined,
+      resolvedWord: resolvedWord ? String(resolvedWord) : undefined,
+      gridTiles: submitOptions?.gridTiles ?? undefined,
+      remainingGridTiles: submitOptions?.remainingGridTiles ?? undefined,
+      rarityLevelsByRarity: rarityLevelsByRarity ?? undefined,
+      getWordDefinition: submitOptions?.getWordDefinition ?? undefined,
     });
     if (step) steps.push({ treasureId: tid, slotIndex: si, ...step });
   }
@@ -128,7 +148,7 @@ const LUCKY_MATERIAL_MONEY_CHANCE = 1 / 15;
  * @param {(string | null | undefined)[] | null} [ownedSlotTreasureAccessoryIds=null] 与槽位同索引的具名配饰 id（`treasureAccessories.js`）；空位忽略
  * @param {number} [lengthMultFactor=1] 词长倍率额外乘数（保留参数；望远镜二级在升级步生效，见 `lengthUpgradeObservatoryExtra`）
  * @param {number} [lengthJudgmentBonus=0] 计分时词长表上的额外长度（直尺券）
- * @param {{ disabledTreasureSlotIndices?: Set<number> | readonly number[], bossFlintQuarter?: boolean, lengthUpgradeObservatoryExtra?: Record<number, { score?: number, mult?: number }> | null, rng?: () => number, resolvedWord?: string | null }} [submitOptions={}]
+ * @param {{ disabledTreasureSlotIndices?: Set<number> | readonly number[], bossFlintQuarter?: boolean, lengthUpgradeObservatoryExtra?: Record<number, { score?: number, mult?: number }> | null, rng?: () => number, resolvedWord?: string | null, treasureRun?: import('./treasureRunState.js').TreasureRunState, money?: number, ownedTreasureInstances?: object[] }} [submitOptions={}]
  */
 export function computeWordScoreDetailedForSubmit(
   tiles,
@@ -172,7 +192,7 @@ export function computeWordScoreDetailedForSubmit(
       resolvedWord: submitOptions?.resolvedWord ?? null,
     },
   );
-  const conditions = buildTreasureLogicConditions(tiles, base.letterParts);
+  const conditions = buildTreasureLogicConditions(tiles, base.letterParts, slots);
   let postLetterTreasureSteps = buildPostLetterTreasureSteps(
     tiles,
     slots,
@@ -185,6 +205,12 @@ export function computeWordScoreDetailedForSubmit(
     base.scoreSum,
     base.lengthTableLen ?? base.letterParts?.length ?? tiles.length,
     rnd,
+    submitOptions?.treasureRun ?? null,
+    Number(submitOptions?.money) || 0,
+    submitOptions?.ownedTreasureInstances ?? null,
+    submitOptions?.resolvedWord != null ? String(submitOptions.resolvedWord) : "",
+    submitOptions,
+    rarityLevelsByRarity,
   );
   const accessoryRow =
     ownedSlotTreasureAccessoryIds == null
@@ -205,6 +231,15 @@ export function computeWordScoreDetailedForSubmit(
     isLastSubmitChance,
     baseLetterScoreSum: base.scoreSum,
     lengthTableLen: base.lengthTableLen ?? base.letterParts?.length ?? tiles.length,
+    treasureRun: submitOptions?.treasureRun ?? undefined,
+    money: Number(submitOptions?.money) || 0,
+    rng: rnd,
+    resolvedWord:
+      submitOptions?.resolvedWord != null ? String(submitOptions.resolvedWord) : undefined,
+    gridTiles: submitOptions?.gridTiles ?? undefined,
+    remainingGridTiles: submitOptions?.remainingGridTiles ?? undefined,
+    rarityLevelsByRarity: rarityLevelsByRarity ?? undefined,
+    getWordDefinition: submitOptions?.getWordDefinition ?? undefined,
   };
   const letterRarityTreasureMultAddTotal = sumLetterRarityMultAddFromSlots(baseHookCtx);
 
@@ -212,9 +247,7 @@ export function computeWordScoreDetailedForSubmit(
   /** 每多一轮逐字母记分前，在 UI 上对应播一次「触发宝藏」提示（与 getExtraLetterScoringPasses 次数、槽位顺序一致） */
   /** @type {{ treasureId: string, slotIndex: number }[]} */
   const extraLetterPassCueSteps = [];
-  for (let si = 0; si < slots.length; si++) {
-    const tid = slots[si];
-    if (!tid) continue;
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(slots)) {
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     const p = Math.max(0, Math.floor(Number(hooks?.getExtraLetterScoringPasses?.(baseHookCtx)) || 0));
     if (p <= 0) continue;
@@ -227,8 +260,7 @@ export function computeWordScoreDetailedForSubmit(
   const treasureReplayCounts = base.letterParts.map((_, i) =>
     isBossDebuffedSubmitTile(tiles[i]) ? 0 : extraLetterScoringPasses,
   );
-  for (const tid of slots) {
-    if (!tid) continue;
+  for (const { treasureId: tid } of iterTreasureHookContributions(slots)) {
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     if (!hooks?.getLetterReplayCountForLetter) continue;
     for (let i = 0; i < base.letterParts.length; i++) {
@@ -252,6 +284,10 @@ export function computeWordScoreDetailedForSubmit(
         : 0,
   );
   const replayCounts = treasureReplayCounts.map((v, i) => v + accessoryReplayCounts[i]);
+  const letterRarityTreasureMultMulProduct = productLetterRarityMultMulFromSlots(
+    baseHookCtx,
+    replayCounts,
+  );
 
   const letterReplayExtraCounts = replayCounts.map((v) =>
     Math.max(0, (Math.floor(Number(v) || 0) || 0) - extraLetterScoringPasses),
@@ -271,9 +307,7 @@ export function computeWordScoreDetailedForSubmit(
   }
 
   const replayCtx = { ...baseHookCtx, letterReplayCounts: replayCounts };
-  for (let si = 0; si < slots.length; si++) {
-    const tid = slots[si];
-    if (!tid) continue;
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(slots)) {
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     const step = hooks?.buildPostLetterReplayStep?.(replayCtx);
     if (step) postLetterTreasureSteps.push({ treasureId: tid, slotIndex: si, ...step });
@@ -363,8 +397,10 @@ export function computeWordScoreDetailedForSubmit(
   const scoreSumForSubmit = base.scoreSum + postLetterScoreAdd;
 
   const multTotal =
-    applyPostLetterMultPipeline(multBeforePostLetterTreasures, postLetterTreasureSteps) +
-    (hasPostLetterMultMul ? 0 : luckyMaterialMultAddTotal);
+    applyPostLetterMultPipeline(
+      multBeforePostLetterTreasures * letterRarityTreasureMultMulProduct,
+      postLetterTreasureSteps,
+    ) + (hasPostLetterMultMul ? 0 : luckyMaterialMultAddTotal);
   const finalScore = Math.round(scoreSumForSubmit * multTotal * base.treasureMultiplier);
 
   return {

@@ -2,6 +2,7 @@
  * 宝藏简介富文本片段（在数据里写死结构，由 TreasureDescRichText 渲染）。
  * 规范见同目录 treasureDescriptionSpec.md
  */
+import { getGameTermConceptPanel } from "../game/gameConceptCopy.js";
 
 /** @typedef {'普通' | '稀有' | '史诗' | '传说'} TreasureRarityLabel */
 
@@ -47,13 +48,19 @@
  */
 
 /**
+ * @typedef {Object} TreasureDescConcept
+ * @property {'concept'} type
+ * @property {string} v  须在 `gameConceptCopy.GAME_TERM_CONCEPT_BY_LABEL` 登记
+ */
+
+/**
  * @typedef {Object} TreasureDescGainBlock
  * @property {'gainBlock'} type
  * @property {TreasureDescSegment[]} parts
  */
 
 /**
- * @typedef {TreasureDescText | TreasureDescRarity | TreasureDescMult | TreasureDescScore | TreasureDescMoney | TreasureDescBreak | TreasureDescGain | TreasureDescGainBlock} TreasureDescSegment
+ * @typedef {TreasureDescText | TreasureDescRarity | TreasureDescMult | TreasureDescScore | TreasureDescMoney | TreasureDescBreak | TreasureDescGain | TreasureDescConcept | TreasureDescGainBlock} TreasureDescSegment
  * 导出类型供 JSDoc 引用（treasureTypes.js）
  */
 
@@ -108,6 +115,18 @@ export function gain(v) {
 }
 
 /**
+ * 机制词：加粗展示，并在详情层主描述下追加 `GAME_TERM_CONCEPT_BY_LABEL` 中的说明（须显式标记，不做全文匹配）。
+ * @param {string} label
+ */
+export function concept(label) {
+  const v = String(label ?? "").trim();
+  if (import.meta.env.DEV && v && !getGameTermConceptPanel(v)) {
+    console.warn(`[treasureDescription] concept('${v}') 未在 GAME_TERM_CONCEPT_BY_LABEL 登记`);
+  }
+  return /** @type {TreasureDescConcept} */ ({ type: "concept", v });
+}
+
+/**
  * @param {unknown} raw
  * @returns {TreasureDescSegment[]}
  */
@@ -130,7 +149,7 @@ export function injectLineBreaksBeforeParentheses(segments) {
   /** @type {TreasureDescSegment[]} */
   const out = [];
   for (const seg of segments) {
-    if (seg.type === "gain" || seg.type === "gainBlock") {
+    if (seg.type === "gain" || seg.type === "concept" || seg.type === "gainBlock") {
       out.push(seg);
       continue;
     }
@@ -300,6 +319,8 @@ export function expandEffectTokensInDescription(segments) {
       out.push(...parsePlainEffectCopyToSegments(seg.v));
     } else if (seg.type === "gainBlock") {
       out.push({ type: "gainBlock", parts: expandEffectTokensInDescription(seg.parts) });
+    } else if (seg.type === "concept" || seg.type === "gain") {
+      out.push(seg);
     } else {
       out.push(seg);
     }

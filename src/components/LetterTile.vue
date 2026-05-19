@@ -45,6 +45,9 @@ const props = defineProps({
   bossTileDebuffed: { type: Boolean, default: false },
   /** 青铃锁：强制入词且不可点回棋盘 */
   ceruleanBellLocked: { type: Boolean, default: false },
+  /** 元音邻位替换（宝藏 95）：左上/右下半透明邻元音 */
+  vowelGhostPrev: { type: String, default: null },
+  vowelGhostNext: { type: String, default: null },
 });
 
 const attrs = useAttrs();
@@ -103,6 +106,10 @@ const showBossDebuffVisual = computed(
 const showCeruleanLockVisual = computed(
   () =>
     props.ceruleanBellLocked && ["grid", "wordSlotContent", "fly"].includes(props.variant),
+);
+
+const showVowelGhost = computed(() =>
+  ["grid", "wordSlotContent", "fly"].includes(props.variant),
 );
 
 const mergedClass = computed(() => {
@@ -200,7 +207,19 @@ const treasureAccessoryChipVisual = computed(() => {
       aria-hidden="true"
     />
     <span class="letter-gem" :class="`gem-${rarity}`" aria-hidden="true" />
+    <span
+      v-if="vowelGhostPrev && showVowelGhost"
+      class="vowel-ghost vowel-ghost--prev"
+      aria-hidden="true"
+      >{{ vowelGhostPrev }}</span
+    >
     <span class="letter-tile-char">{{ letter }}</span>
+    <span
+      v-if="vowelGhostNext && showVowelGhost"
+      class="vowel-ghost vowel-ghost--next"
+      aria-hidden="true"
+      >{{ vowelGhostNext }}</span
+    >
     <span
       v-if="treasureAccessoryChipVisual"
       class="treasure-accessory-chip tile-treasure-accessory-chip"

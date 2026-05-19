@@ -3,7 +3,7 @@ import { describe, score } from "../treasureDescription.js";
 /** @type {import('../treasureTypes.js').TreasureBaseDef} */
 export default {
   price: 3,
-  rarity: "rare",
+  rarity: "common",
   description: describe("如果单词中不包含重复的字母，", score("+60"), "分数"),
 };
 

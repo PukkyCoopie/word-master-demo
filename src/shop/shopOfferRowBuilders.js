@@ -58,6 +58,7 @@ export function buildSpellShopRow(nextOfferInstanceId, def) {
     emoji: "",
     iconClass: def.iconClass,
     description: def.description,
+    spellTags: def.tags ? [...def.tags] : [],
   };
 }
 

@@ -1,3 +1,5 @@
+import { getMergedRarityTier, hasRarityTierMerge } from "../game/treasureRarityTierMerge.js";
+
 /** 相邻字母块是否为同一字母（小写比较，含 qu 一格） */
 export function hasConsecutiveDuplicateLetters(tiles) {
   if (!tiles || tiles.length < 2) return false;
@@ -28,28 +30,69 @@ export function hasAllUniqueLetters(tiles) {
   return letters.length > 0 && new Set(letters).size === letters.length;
 }
 
-export function distinctRarityCount(letterParts) {
+export function distinctRarityCount(letterParts, ownedSlotTreasureIds = null) {
   const s = new Set();
+  const merge = hasRarityTierMerge(ownedSlotTreasureIds);
   for (const p of letterParts ?? []) {
-    if (p?.rarity) s.add(p.rarity);
+    if (p?.rarity) s.add(merge ? getMergedRarityTier(p.rarity) : p.rarity);
   }
   return s.size;
 }
 
-export function allUniformRarity(letterParts) {
+export function allUniformRarity(letterParts, ownedSlotTreasureIds = null) {
   const parts = letterParts ?? [];
   if (parts.length === 0) return false;
+  const merge = hasRarityTierMerge(ownedSlotTreasureIds);
   const r0 = parts[0].rarity;
-  return parts.every((p) => p.rarity === r0);
+  if (!merge) return parts.every((p) => p.rarity === r0);
+  const t0 = getMergedRarityTier(r0);
+  return parts.every((p) => getMergedRarityTier(p.rarity) === t0);
 }
 
-export function buildTreasureLogicConditions(tiles, letterParts) {
+/**
+ * @param {unknown[][]} grid
+ * @param {number} rows
+ * @param {number} cols
+ * @param {Set<string> | null | undefined} excludedPositionKeys `"row,col"`；有则跳过这些格
+ * @returns {object[]}
+ */
+export function collectGridLetterTiles(grid, rows, cols, excludedPositionKeys = null) {
+  /** @type {object[]} */
+  const out = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (excludedPositionKeys?.has(`${r},${c}`)) continue;
+      const t = grid[r]?.[c];
+      if (t?.letter) out.push(t);
+    }
+  }
+  return out;
+}
+
+const RARITY_RANK = { common: 0, rare: 1, epic: 2, legendary: 3 };
+
+/** @param {readonly { rarity?: string }[]} tiles */
+export function highestRarityAmongTiles(tiles) {
+  let best = "common";
+  let bestRank = 0;
+  for (const t of tiles ?? []) {
+    const r = String(t?.rarity ?? "common");
+    const rank = RARITY_RANK[r] ?? 0;
+    if (rank > bestRank) {
+      bestRank = rank;
+      best = r;
+    }
+  }
+  return best;
+}
+
+export function buildTreasureLogicConditions(tiles, letterParts, ownedSlotTreasureIds = null) {
   return {
     streakOk: hasConsecutiveDuplicateLetters(tiles),
     tripleOk: hasTripleLetterCount(tiles),
     uniqueOk: hasAllUniqueLetters(tiles),
-    threeRaritiesOk: distinctRarityCount(letterParts) >= 3,
-    uniformOk: allUniformRarity(letterParts),
+    threeRaritiesOk: distinctRarityCount(letterParts, ownedSlotTreasureIds) >= 3,
+    uniformOk: allUniformRarity(letterParts, ownedSlotTreasureIds),
     shortWordOk: (tiles?.length ?? 0) > 0 && tiles.length <= 3,
   };
 }

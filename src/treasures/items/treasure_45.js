@@ -1,10 +1,17 @@
-import { describe } from "../treasureDescription.js";
+import { describe, mult } from "../treasureDescription.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 8,
-  rarity: "legendary",
-  description: describe(
-    "如果关卡中拼写的第一个单词只有3个字母或更少，则将第一个字母的一个相同的复制洗入牌库",
-  ),
+  price: 4,
+  rarity: "rare",
+  description: describe("所有列出的倍率翻倍"),
+  unlockPrerequisite: { type: "probabilityEffectTriggered" },
+};
+
+/** @type {import('../treasureTypes.js').TreasureHooks} */
+export const treasureHooks = {
+  buildPostLetterStep(ctx) {
+    if (!ctx.treasureRun?.probabilityEffectTriggered) return null;
+    return { multMul: 2 };
+  },
 };

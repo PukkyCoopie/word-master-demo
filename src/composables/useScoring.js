@@ -388,7 +388,7 @@ export function computeWordScoreDetailed(
     opts?.wordLetterCount != null && Number.isFinite(Number(opts.wordLetterCount))
       ? Math.max(0, Math.round(Number(opts.wordLetterCount)))
       : getWordLetterCount(tiles, opts?.resolvedWord);
-  const jb = Math.max(0, Math.floor(Number(lengthJudgmentBonus) || 0));
+  const jb = Math.floor(Number(lengthJudgmentBonus) || 0);
   const rawLen = wordLetterCount + jb;
   const len = rawLen <= 0 ? 3 : rawLen < 3 ? 3 : rawLen > 16 ? 16 : rawLen;
 

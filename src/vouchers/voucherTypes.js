@@ -7,7 +7,7 @@
  *   emoji: string,
  *   nameStem: string,
  *   price: number,
- *   description: string,
+ *   description: string | import("../treasures/treasureDescription.js").TreasureDescSegment[],
  *   effectKey: string,
  *   inShopPool: boolean,
  * }} VoucherDef

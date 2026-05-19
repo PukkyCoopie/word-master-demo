@@ -3,6 +3,7 @@
     <br v-if="seg.type === 'br'" />
     <span v-else-if="seg.type === 'text'">{{ seg.v }}</span>
     <span v-else-if="seg.type === 'gain'" class="td-desc-gain">{{ seg.v }}</span>
+    <span v-else-if="seg.type === 'concept'" class="td-desc-gain">{{ seg.v }}</span>
     <span v-else-if="seg.type === 'gainBlock'" class="td-desc-gain-block">
       <RecurseDescSegments :segments="seg.parts" />
     </span>

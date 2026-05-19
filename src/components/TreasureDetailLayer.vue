@@ -387,6 +387,22 @@
           </div>
 
           <div
+            v-for="(panel, conceptIdx) in descriptionConceptPanels"
+            :key="'desc-concept-' + panel.title"
+            :ref="(el) => setDescriptionConceptPanelRef(conceptIdx, el)"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span class="treasure-detail-desc-panel-title-text">{{ panel.title }}</span>
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="panel.effectDescription"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
             v-if="showTreasureAccessoryPanel && !isDeckOffer"
             ref="accessoryPanelRef"
             class="treasure-detail-extra-regions treasure-detail-stagger-el"
@@ -581,7 +597,7 @@
 
 <script setup>
 import gsap from "gsap";
-import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from "vue";
+import { computed, nextTick, onBeforeUpdate, onMounted, onUnmounted, ref, useId, watch } from "vue";
 import { EASE_TRANSFORM } from "../constants.js";
 import {
   getTreasureAccessoryChipVisual,
@@ -590,6 +606,7 @@ import {
 } from "../game/treasureAccessories.js";
 import { getTileAccessoryChipVisual } from "../game/tileAccessories.js";
 import { getTileMaterialEffectDescription, getTileAccessoryEffectDescription } from "../game/tileDetailDescriptions.js";
+import { collectExplicitDescriptionConceptPanelsFromMany } from "../game/gameConceptCopy.js";
 import { resolveTreasureDetailGainPanel } from "../treasures/treasureRegistry.js";
 import { getSpellGainPanel } from "../spells/spellGainPanel.js";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
@@ -824,15 +841,13 @@ const isVoucherOffer = computed(() => props.treasure?.offerType === "voucher");
 
 const isVoucherOwnedMode = computed(() => props.mode === "voucher-owned");
 
-/** @type {import('vue').Ref<(HTMLElement | null)[]>} */
-const voucherTierPanelRefs = ref([]);
+/** 入场 stagger 用；非响应式，避免模板 :ref 回调写 ref 触发无限重渲染 */
+/** @type {(HTMLElement | null)[]} */
+const voucherTierPanelRefs = [];
 
 /** @param {number} i @param {unknown} el */
 function setVoucherTierPanelRef(i, el) {
-  const node = el instanceof HTMLElement ? el : null;
-  const arr = [...voucherTierPanelRefs.value];
-  arr[i] = node;
-  voucherTierPanelRefs.value = arr;
+  voucherTierPanelRefs[i] = el instanceof HTMLElement ? el : null;
 }
 
 const voucherOwnedTierPanels = computed(() => {
@@ -918,6 +933,60 @@ const showTreasureGainPanel = computed(
     treasureGainDescriptionNonEmpty(treasureGainPanelContent.value?.description),
 );
 
+function descriptionConceptExcludeTitles() {
+  const exclude = new Set();
+  const tg = treasureGainPanelContent.value?.title;
+  if (tg) exclude.add(tg);
+  const sg = spellGainPanelContent.value?.title;
+  if (sg) exclude.add(sg);
+  const ta = treasureAccessoryPanelTitle.value;
+  if (ta) exclude.add(ta);
+  if (showDeckOfferMaterialRegion.value && deckOfferMaterialTitle.value) {
+    exclude.add(deckOfferMaterialTitle.value);
+  }
+  if (showDeckOfferAccessoryRegion.value && deckOfferAccessoryTitle.value) {
+    exclude.add(deckOfferAccessoryTitle.value);
+  }
+  if (showDeckOfferTreasureAccessoryRegion.value && deckOfferTreasureAccessoryTitle.value) {
+    exclude.add(deckOfferTreasureAccessoryTitle.value);
+  }
+  return exclude;
+}
+
+const descriptionConceptPanels = computed(() => {
+  if (isDeckOffer.value) return [];
+  /** @type {unknown[]} */
+  const sources = [];
+  if (isVoucherOffer.value) {
+    const tiers = voucherOwnedTierPanels.value;
+    if (tiers.length) {
+      for (const tier of tiers) {
+        if (tier?.description) sources.push(tier.description);
+      }
+    } else {
+      const d = props.descriptionOverride ?? props.treasure?.description;
+      if (d) sources.push(d);
+    }
+  } else {
+    const d = props.descriptionOverride ?? props.treasure?.description;
+    if (d) sources.push(d);
+  }
+  return collectExplicitDescriptionConceptPanelsFromMany(sources, descriptionConceptExcludeTitles());
+});
+
+/** @type {(HTMLElement | null)[]} */
+const descriptionConceptPanelRefs = [];
+
+/** @param {number} i @param {unknown} el */
+function setDescriptionConceptPanelRef(i, el) {
+  descriptionConceptPanelRefs[i] = el instanceof HTMLElement ? el : null;
+}
+
+onBeforeUpdate(() => {
+  voucherTierPanelRefs.length = 0;
+  descriptionConceptPanelRefs.length = 0;
+});
+
 const emit = defineEmits(["close", "purchase", "sell"]);
 
 const titleId = useId();
@@ -968,12 +1037,13 @@ function staggerTargets() {
   return [
     titleGroupRef.value,
     descRef.value,
-    ...voucherTierPanelRefs.value.filter((el) => el instanceof HTMLElement),
+    ...voucherTierPanelRefs.filter((el) => el instanceof HTMLElement),
     deckOfferMaterialRef.value,
     deckOfferAccessoryRef.value,
     deckOfferTreasureAccessoryRef.value,
     treasureGainPanelRef.value,
     spellGainPanelRef.value,
+    ...descriptionConceptPanelRefs.filter((el) => el instanceof HTMLElement),
     accessoryPanelRef.value,
     actionsRef.value,
   ].filter(Boolean);

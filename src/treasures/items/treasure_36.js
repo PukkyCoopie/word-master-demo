@@ -3,7 +3,7 @@ import { describe, mult, score } from "../treasureDescription.js";
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 4,
-  rarity: "rare",
+  rarity: "common",
   description: describe("字母E在记分时给予", score("+20"), "分数和", mult("+4"), "倍率"),
 };
 

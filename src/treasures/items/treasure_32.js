@@ -4,7 +4,7 @@ import { isVowelLetterWithMask } from "../treasureLetterClassify.js";
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 5,
-  rarity: "rare",
+  rarity: "common",
   description: describe("每一个拼写的元音字母给予", score("+40"), "分数"),
 };
 

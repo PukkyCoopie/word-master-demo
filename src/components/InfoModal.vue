@@ -278,7 +278,7 @@
               class="info-voucher-cell info-stagger-el"
               @click="onOwnedVoucherClick(group, $event)"
             >
-              <VoucherStampStack :stamps="voucherStampsForGroup(group)" compact />
+              <VoucherStampStack :stamps="voucherStampsForGroup(group)" />
               <p class="info-voucher-name">{{ ownedVoucherGroupDisplayName(group) }}</p>
             </button>
           </div>
@@ -752,6 +752,8 @@ function close() {
   justify-content: center;
   padding: calc(16 * var(--rpx));
   border-radius: calc(12 * var(--rpx));
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .info-layer-inner {
@@ -767,11 +769,11 @@ function close() {
   grid-template-columns: minmax(0, 1fr);
   padding: calc(14 * var(--rpx)) calc(16 * var(--rpx)) calc(14 * var(--rpx));
   row-gap: calc(12 * var(--rpx));
-  overflow: visible;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
-/* 勿用 overflow:hidden，否则激活 tab 下方小三角会被裁掉 */
+/* Tab 小三角在 .info-tabs-outer 内，勿对该层 overflow:hidden */
 .info-tabs-outer {
   grid-row: 1;
   position: relative;
@@ -860,6 +862,7 @@ function close() {
   overflow: hidden;
   border-radius: calc(6 * var(--rpx));
   background: #eee4da;
+  box-sizing: border-box;
 }
 
 .info-tab-layer--vouchers {
@@ -868,6 +871,9 @@ function close() {
 
 .info-table-panel {
   padding: 0;
+  height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .info-table {
@@ -937,6 +943,7 @@ function close() {
   justify-content: center;
   box-sizing: border-box;
   padding: calc(22 * var(--rpx)) calc(16 * var(--rpx));
+  overflow: hidden;
 }
 
 .info-tab-layer--rarity .info-table--rarity {
@@ -1149,8 +1156,7 @@ function close() {
   gap: var(--info-stage-gap-v);
   height: 100%;
   padding: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   background: transparent;
   box-sizing: border-box;
 }

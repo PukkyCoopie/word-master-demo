@@ -61,6 +61,8 @@
 	--shop-reroll-price-green: #daf56f;
 	/* 商店货架：牌包区并排 2 格，单卡区/底部已拥有格与之统一（108 为格比例基准） */
 	--shop-shelf-cell-size: calc(108 * var(--rpx));
+	/* 优惠券邮票格：略大于普通货架格，商店与对局信息共用 */
+	--shop-voucher-cell-size: calc(132 * var(--rpx));
 	/* 与 @container treasure-cell 内 emoji 比例一致，供无容器上下文回退 */
 	--shop-shelf-emoji-size: calc(42 * var(--rpx));
 	/* 牌包法术格 Remix 图标：相对 108 单元格边长；与 TreasureDetailLayer 法术飞入字号比例同步 */
@@ -75,6 +77,10 @@
 	--boss-tape-title: #8f423c;
 	--boss-tape-desc: #a85a52;
 	--boss-tape-glow: rgba(200, 82, 72, 0.34);
+	--boss-tape-ripple: rgba(210, 52, 48, 0.72);
+	--boss-tape-violate-bg: #fce8e6;
+	--boss-tape-violate-border: rgba(210, 56, 48, 0.78);
+	--boss-tape-violate-desc: #c43832;
 	/* 网格与 hand-slot 统一尺寸 */
 	--grid-size: calc(540 * var(--rpx));
 	--tile-size: calc(132 * var(--rpx));
@@ -374,7 +380,51 @@ body {
 }
 
 /* ----- Boss 条（.scores 与 ResultArea 之间） ----- */
+.boss-tape-wrap {
+	position: relative;
+	width: 100%;
+	flex: 0 0 auto;
+	overflow: visible;
+}
+
+.boss-tape-ripples {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	z-index: 0;
+}
+
+.boss-tape-ripple {
+	position: absolute;
+	inset: 0;
+	border-radius: var(--radius);
+	border: calc(2.5 * var(--rpx)) solid var(--boss-tape-ripple);
+	transform-origin: center;
+	animation: boss-tape-ripple-out 1.65s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+	opacity: 0;
+}
+
+.boss-tape-ripple:nth-child(2) {
+	animation-delay: 0.55s;
+}
+
+.boss-tape-ripple:nth-child(3) {
+	animation-delay: 1.1s;
+}
+
+.boss-tape-wrap--violate .boss-tape {
+	border-color: var(--boss-tape-violate-border);
+	background: var(--boss-tape-violate-bg);
+}
+
+.boss-tape-wrap--violate .boss-tape-desc {
+	color: var(--boss-tape-violate-desc);
+	font-weight: 700;
+}
+
 .boss-tape {
+	position: relative;
+	z-index: 1;
 	width: 100%;
 	flex: 0 0 auto;
 	box-sizing: border-box;
@@ -403,12 +453,6 @@ body {
 	animation: boss-tape-attention 0.85s ease-out 1;
 }
 
-/* 软规则预览：当前串将违规时持续轻脉冲（与一次性 --attention 区分） */
-.boss-tape--soft-preview {
-	animation: boss-tape-soft-preview 1.35s ease-in-out infinite;
-	border-color: rgba(200, 82, 72, 0.42);
-}
-
 .boss-tape--wobble {
 	animation: boss-tape-wobble 0.52s ease-out 1;
 }
@@ -425,13 +469,27 @@ body {
 	}
 }
 
-@keyframes boss-tape-soft-preview {
-	0%,
-	100% {
-		box-shadow: var(--shadow);
+@keyframes boss-tape-ripple-out {
+	0% {
+		transform: scale(1);
+		opacity: 0.82;
 	}
-	50% {
-		box-shadow: 0 0 0 calc(3 * var(--rpx)) rgba(200, 82, 72, 0.26);
+	75%,
+	100% {
+		transform: scale(1.28);
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.boss-tape-ripple {
+		animation: none;
+		opacity: 0.45;
+		transform: scale(1.06);
+	}
+
+	.boss-tape-wrap--violate .boss-tape {
+		box-shadow: 0 0 0 calc(3 * var(--rpx)) var(--boss-tape-glow);
 	}
 }
 
@@ -1069,6 +1127,39 @@ body {
 .fly-letter-back.letter-tile-boss-debuff .letter-tile-char {
 	position: relative;
 	z-index: 1;
+}
+
+.grid-tile .vowel-ghost,
+.word-slots .word-slot-content .vowel-ghost,
+.fly-letter .vowel-ghost,
+.fly-letter-back .vowel-ghost {
+	position: absolute;
+	width: 0.75em;
+	font-size: calc(24 * var(--rpx));
+	font-weight: 700;
+	line-height: 1;
+	text-align: center;
+	color: #2a2a2a;
+	opacity: 0.25;
+	pointer-events: none;
+	z-index: 0;
+	user-select: none;
+}
+
+.grid-tile .vowel-ghost--prev,
+.word-slots .word-slot-content .vowel-ghost--prev,
+.fly-letter .vowel-ghost--prev,
+.fly-letter-back .vowel-ghost--prev {
+	top: calc(20 * var(--rpx));
+	left: calc(24 * var(--rpx));
+}
+
+.grid-tile .vowel-ghost--next,
+.word-slots .word-slot-content .vowel-ghost--next,
+.fly-letter .vowel-ghost--next,
+.fly-letter-back .vowel-ghost--next {
+	right: calc(24 * var(--rpx));
+	bottom: calc(20 * var(--rpx));
 }
 
 .grid-tile .letter-tile-cerulean-lock-icon,
@@ -2594,12 +2685,12 @@ body {
 /* 对局信息：已购优惠券网格（InfoModal） */
 .info-voucher-grid {
 	display: grid;
-	grid-template-columns: repeat(3, var(--shop-shelf-cell-size));
-	gap: calc(12 * var(--rpx));
-	padding: calc(16 * var(--rpx));
+	grid-template-columns: repeat(3, var(--shop-voucher-cell-size));
+	gap: calc(20 * var(--rpx));
+	padding: calc(20 * var(--rpx));
 	justify-content: center;
 	align-content: flex-start;
-	overflow: auto;
+	overflow: hidden;
 	box-sizing: border-box;
 	max-height: 100%;
 }
@@ -2620,8 +2711,8 @@ body {
 }
 
 .info-voucher-name {
-	margin: calc(8 * var(--rpx)) 0 0;
-	max-width: var(--shop-shelf-cell-size);
+	margin: calc(10 * var(--rpx)) 0 0;
+	max-width: var(--shop-voucher-cell-size);
 	font-size: calc(18 * var(--rpx));
 	font-weight: 700;
 	line-height: 1.25;
@@ -2666,7 +2757,11 @@ body {
 }
 
 .voucher-stamp-stack--stacked {
-	height: var(--shop-shelf-cell-size);
+	height: var(--shop-voucher-cell-size);
+}
+
+.info-voucher-grid .voucher-stamp__frame {
+	height: var(--shop-voucher-cell-size);
 }
 
 .voucher-stamp-stack--stacked .voucher-stamp-stack__back,
@@ -2716,13 +2811,26 @@ body {
 /* 商店：优惠券区（第二行左栏；单卡区见 ShopPanel .shop-row--single-card-actions） */
 .shop-voucher-panel {
 	min-width: 0;
+	padding: calc(18 * var(--rpx)) calc(16 * var(--rpx));
 }
 
 .shop-voucher-offers {
 	display: flex;
 	flex-direction: row;
-	gap: calc(8 * var(--rpx));
+	flex-wrap: wrap;
+	gap: calc(18 * var(--rpx));
 	justify-content: center;
+	align-items: flex-start;
+}
+
+.shop-voucher-offers .shop-treasure-product {
+	width: var(--shop-voucher-cell-size);
+	flex: 0 0 var(--shop-voucher-cell-size);
+	max-width: var(--shop-voucher-cell-size);
+}
+
+.shop-voucher-offers .voucher-stamp__frame {
+	height: var(--shop-voucher-cell-size);
 }
 
 .td-price-stack-line {

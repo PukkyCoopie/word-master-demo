@@ -945,7 +945,7 @@ defineExpose({
   gap: calc(10 * var(--rpx));
   --shop-header-h: calc(110 * var(--rpx));
   --shop-row-single-card-actions-h: calc(215 * var(--rpx));
-  --shop-row-voucher-pack-h: calc(215 * var(--rpx));
+  --shop-row-voucher-pack-h: calc(232 * var(--rpx));
   --shop-footer-h: calc(185 * var(--rpx));
 }
 

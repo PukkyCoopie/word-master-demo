@@ -9,7 +9,7 @@ function chairTimesMultFromOwnedSlots(ownedSlotTreasureIds) {
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 8,
-  rarity: "epic",
+  rarity: "rare",
   description: describe("你每有一个空的宝藏槽位便获得", mult("x1"), "倍率"),
 };
 

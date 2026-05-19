@@ -114,7 +114,7 @@ export function getWordLengthJudgmentBonus(owned) {
  */
 export function getLengthTableLenFromTileCountAndBonus(wordLetterCount, judgmentBonus) {
   const t = Math.max(0, Math.round(Number(wordLetterCount)) || 0);
-  const b = Math.max(0, Math.floor(Number(judgmentBonus) || 0));
+  const b = Math.floor(Number(judgmentBonus) || 0);
   const L = t + b;
   return L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
 }
@@ -125,6 +125,18 @@ export function getLengthTableLenFromTileCountAndBonus(wordLetterCount, judgment
  */
 export function getJudgedLengthTableLenForOwnedVouchers(wordLetterCount, owned) {
   return getLengthTableLenFromTileCountAndBonus(wordLetterCount, getWordLengthJudgmentBonus(owned));
+}
+
+/**
+ * 在券加成判定词长后再施加整局减益（如幻灵烛台 -1 长度）。
+ * @param {number} wordLetterCount
+ * @param {Iterable<string>} owned
+ * @param {number} [extraPenalty=0]
+ */
+export function getJudgedLengthTableLenWithPenalty(wordLetterCount, owned, extraPenalty = 0) {
+  const p = Math.max(0, Math.floor(Number(extraPenalty) || 0));
+  const bonus = getWordLengthJudgmentBonus(owned) - p;
+  return getLengthTableLenFromTileCountAndBonus(wordLetterCount, bonus);
 }
 
 /** @param {Iterable<string>} owned */

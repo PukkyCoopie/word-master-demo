@@ -3,7 +3,7 @@ import { describe, mult } from "../treasureDescription.js";
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 4,
-  rarity: "rare",
+  rarity: "common",
   description: describe("随机", mult("+0-26"), "倍率"),
 };
 

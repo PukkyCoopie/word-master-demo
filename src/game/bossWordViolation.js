@@ -2,6 +2,16 @@
  * Boss 词长 / 词性「软规则」：不挡提交，违规时本手计 0 分（由调用方处理）。
  */
 
+/** 整词判定类 Boss（选词预览与 Boss 条波纹；格级削弱 Boss 不在此列） */
+export const BOSS_WHOLE_WORD_SOFT_SLUGS = Object.freeze(
+  new Set(["the_psychic", "the_eye", "the_mouth", "the_club", "the_noble_end"]),
+);
+
+/** @param {string | null | undefined} slug */
+export function bossHasWholeWordSoftRule(slug) {
+  return BOSS_WHOLE_WORD_SOFT_SLUGS.has(String(slug ?? ""));
+}
+
 /** @typedef {{ key: string, labelZh: string }} BossPosKey */
 
 /** 棘梅可抽取词性（与词典 `pos` 字段做宽松匹配） */

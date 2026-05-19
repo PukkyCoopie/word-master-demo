@@ -1,8 +1,11 @@
 /**
  * 游戏内「增益与概念」说明文案的**唯一事实源**。
  *
- * 材质 / 棋盘配饰 / 宝藏装备配饰等，凡面向玩家的**名称 + 效果说明**均集中在此；
+ * 材质 / 棋盘配饰 / 宝藏装备配饰 / 简介触发的机制词等，凡面向玩家的**名称 + 效果说明**均集中在此；
  * 其他模块（详情浮层、法术卡、商店等）只通过本文件导出的 getter 读取，避免同一机制多处手写分叉。
+ *
+ * - 材质、配饰：见下方 `TILE_*` / `TREASURE_ACCESSORY_*` 表。
+ * - 机制词：在 `GAME_TERM_CONCEPT_BY_LABEL` 登记后，简介里用 `concept('词')` 显式标记 → 详情/法术选格在主描述下补充分区（不做全文匹配）。
  *
  * @see `tileDetailDescriptions.js` 仅作向后兼容 re-export，新代码请直接 import 本文件。
  */
@@ -160,7 +163,83 @@ export function buildStarSpellRandomTreasureAccessoryDescription() {
   const titles = ids.map((id) => TREASURE_ACCESSORY_CONCEPT_BY_ID[id]?.title).filter(Boolean);
   if (titles.length === 0) return "";
   if (titles.length === 1) return titles[0];
-  const head = titles.slice(0, -1).join("、");
-  const last = titles[titles.length - 1];
   return `1/4 概率：为你的一个随机宝藏装备一个随机配饰`;
+}
+
+// ---------------------------------------------------------------------------
+// 机制词（须在简介中用 `concept('…')` 显式标记，详情层才会补充分区）
+// ---------------------------------------------------------------------------
+
+/**
+ * 机制词说明。键须与 `treasureDescription.concept(label)` 的 `label` 一致。
+ *
+ * @type {Readonly<Record<string, Readonly<{ title: string, effectDescription: string }>>>}
+ */
+export const GAME_TERM_CONCEPT_BY_LABEL = Object.freeze({
+  升级: Object.freeze({
+    title: "升级",
+    effectDescription: "提高长度或稀有度的等级，从而提高它们提供的分数和倍率。",
+  }),
+});
+
+/** @typedef {{ title: string, effectDescription: string }} DescriptionConceptPanel */
+
+/**
+ * @param {string} label
+ * @returns {DescriptionConceptPanel | null}
+ */
+export function getGameTermConceptPanel(label) {
+  const key = normId(label);
+  const c = GAME_TERM_CONCEPT_BY_LABEL[key];
+  if (!c?.title || !c?.effectDescription) return null;
+  return { title: c.title, effectDescription: c.effectDescription };
+}
+
+/**
+ * 从简介片段中收集 `concept(...)` 标记的机制词分区（不做全文匹配）。
+ *
+ * @param {unknown} description
+ * @param {Set<string> | Iterable<string>} [excludeTitles] 已单独展示的分区标题
+ * @returns {DescriptionConceptPanel[]}
+ */
+export function collectExplicitDescriptionConceptPanels(description, excludeTitles = new Set()) {
+  const seen = new Set([...excludeTitles].map((t) => String(t ?? "").trim()).filter(Boolean));
+  /** @type {DescriptionConceptPanel[]} */
+  const panels = [];
+  /** @param {unknown[]} segs */
+  function walk(segs) {
+    for (const seg of segs) {
+      if (!seg || typeof seg !== "object") continue;
+      if (seg.type === "concept") {
+        const entry = getGameTermConceptPanel(seg.v);
+        if (!entry || seen.has(entry.title)) continue;
+        seen.add(entry.title);
+        panels.push(entry);
+      } else if (seg.type === "gainBlock" && Array.isArray(seg.parts)) {
+        walk(seg.parts);
+      }
+    }
+  }
+  if (Array.isArray(description)) walk(description);
+  return panels;
+}
+
+/**
+ * 合并多段简介后收集显式 `concept` 分区（顺序保留、标题去重）。
+ *
+ * @param {unknown[]} descriptions
+ * @param {Set<string> | Iterable<string>} [excludeTitles]
+ * @returns {DescriptionConceptPanel[]}
+ */
+export function collectExplicitDescriptionConceptPanelsFromMany(descriptions, excludeTitles = new Set()) {
+  const seen = new Set([...excludeTitles].map((t) => String(t ?? "").trim()).filter(Boolean));
+  /** @type {DescriptionConceptPanel[]} */
+  const panels = [];
+  for (const desc of descriptions) {
+    for (const p of collectExplicitDescriptionConceptPanels(desc, seen)) {
+      panels.push(p);
+      seen.add(p.title);
+    }
+  }
+  return panels;
 }

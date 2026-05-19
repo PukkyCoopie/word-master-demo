@@ -7,10 +7,12 @@
  */
 export function pickWeightedTreasureFromPool(pool, rng = Math.random) {
   if (pool.length === 0) return null;
+  const common = pool.filter((t) => t.rarity === "common");
   const rare = pool.filter((t) => t.rarity === "rare");
   const epic = pool.filter((t) => t.rarity === "epic");
   const leg = pool.filter((t) => t.rarity === "legendary");
-  const wR = rare.length > 0 ? 70 : 0;
+  const shopCommonTier = [...common, ...rare];
+  const wR = shopCommonTier.length > 0 ? 70 : 0;
   const wE = epic.length > 0 ? 25 : 0;
   const wL = leg.length > 0 ? 5 : 0;
   const total = wR + wE + wL;
@@ -18,7 +20,7 @@ export function pickWeightedTreasureFromPool(pool, rng = Math.random) {
   const r = rng() * total;
   /** @type {import('./treasureTypes.js').TreasureDef[]} */
   let tier = leg;
-  if (r < wR) tier = rare;
+  if (r < wR) tier = shopCommonTier;
   else if (r < wR + wE) tier = epic;
   return tier[Math.floor(rng() * tier.length)];
 }

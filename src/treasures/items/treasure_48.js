@@ -2,7 +2,15 @@ import { describe, money } from "../treasureDescription.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 6,
-  rarity: "epic",
-  description: describe("如果关卡的第一次丢弃只有一个字母，则将其从牌库中永久移除并获得", money("3")),
+  price: 7,
+  rarity: "rare",
+  description: describe("当你触发boss的限制时，获得", money("8")),
+};
+
+/** @type {import('../treasureTypes.js').TreasureHooks} */
+export const treasureHooks = {
+  onBossRestrictionTriggered(ctx) {
+    if (!ctx.bossSlug) return;
+    ctx.addMoney?.(8);
+  },
 };

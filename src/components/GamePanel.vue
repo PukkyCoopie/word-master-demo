@@ -225,15 +225,24 @@
       </div>
       <div
         v-if="bossStripDef"
-        class="boss-tape"
-        :class="{
-          'boss-tape--soft-preview': bossTapeSoftPreview,
-          'boss-tape--attention': bossTapeAttentionPulse,
-          'boss-tape--wobble': bossTapeWobble,
-        }"
+        class="boss-tape-wrap"
+        :class="{ 'boss-tape-wrap--violate': bossTapeSoftPreview }"
       >
-        <div class="boss-tape-title">{{ bossStripDef.nameZh }}</div>
-        <div class="boss-tape-desc">{{ bossTapeSubLine }}</div>
+        <div v-if="bossTapeSoftPreview" class="boss-tape-ripples" aria-hidden="true">
+          <span class="boss-tape-ripple" />
+          <span class="boss-tape-ripple" />
+          <span class="boss-tape-ripple" />
+        </div>
+        <div
+          class="boss-tape"
+          :class="{
+            'boss-tape--attention': bossTapeAttentionPulse,
+            'boss-tape--wobble': bossTapeWobble,
+          }"
+        >
+          <div class="boss-tape-title">{{ bossStripDef.nameZh }}</div>
+          <div class="boss-tape-desc">{{ bossTapeSubLine }}</div>
+        </div>
       </div>
       <ResultArea
         ref="gameResultAreaRef"
@@ -281,6 +290,8 @@
               :content-hidden="isSlotContentHidden(i)"
               :boss-tile-debuffed="!!entry.bossTileDebuffed"
               :cerulean-bell-locked="entry.ceruleanBellLocked === true"
+              :vowel-ghost-prev="vowelGhostForTile(entry)?.prev ?? null"
+              :vowel-ghost-next="vowelGhostForTile(entry)?.next ?? null"
             />
           </div>
         </div>
@@ -377,6 +388,8 @@
                 :boss-grid-blocked="tile.bossGridBlocked === true"
                 :boss-tile-debuffed="tile.bossTileDebuffed === true"
                 :cerulean-bell-locked="tile.ceruleanBellLocked === true"
+                :vowel-ghost-prev="vowelGhostForTile(tile)?.prev ?? null"
+                :vowel-ghost-next="vowelGhostForTile(tile)?.next ?? null"
                 :ref="el => setGridTileRef(index, el)"
                 :class="{ selected: tile.selected, 'tile-flying': isTileFlying(Math.floor(index / COLS), index % COLS) }"
                 role="button"
@@ -392,6 +405,7 @@
           </div>
         </div>
         <button
+          ref="deckBtnRef"
           type="button"
           class="deck-btn"
           title="牌库"
@@ -458,7 +472,7 @@
       <LetterTile
         v-for="fly in flyingLetters"
         :key="fly.id"
-        v-memo="[fly.id, fly.bossTileDebuffed, fly.materialId]"
+        v-memo="[fly.id, fly.bossTileDebuffed, fly.materialId, fly.vowelGhostPrev, fly.vowelGhostNext]"
         variant="fly"
         :letter="fly.letter"
         :rarity="fly.rarity"
@@ -467,6 +481,8 @@
         :treasure-accessory-id="fly.treasureAccessoryId ?? null"
         :boss-tile-debuffed="fly.bossTileDebuffed === true"
         :cerulean-bell-locked="fly.ceruleanBell === true"
+        :vowel-ghost-prev="fly.vowelGhostPrev ?? null"
+        :vowel-ghost-next="fly.vowelGhostNext ?? null"
         :ref="el => setFlyingInRef(fly, el)"
       />
     </Teleport>
@@ -603,9 +619,45 @@ import {
   getTreasureDef,
   TREASURE_HOOKS_BY_ID,
   notifyOwnedTreasuresSuccessfulWordSubmit,
+  notifyOwnedTreasuresOnDiscardBatch,
+  notifyOwnedTreasuresOnChapterEnter,
+  notifyOwnedTreasuresOnIceBreak,
+  notifyOwnedTreasuresOnLevelComplete,
+  notifyOwnedTreasuresPrepareLevelEnter,
+  notifyOwnedTreasuresOnLevelEnter,
+  notifyOwnedTreasuresOnPackSkipped,
+  notifyOwnedTreasuresOnShopEnter,
+  notifyOwnedTreasuresOnShopReroll,
+  notifyOwnedTreasuresOnTreasureSold,
+  notifyOwnedTreasuresOnBossRestrictionTriggered,
+  notifyOwnedTreasuresOnDeckCardsAdded,
+  sumTreasureSubmitLengthBonus,
+  sumTreasureLengthJudgmentPenalty,
+  resolveTreasureDescriptionPatches,
+  treasureDescriptionPatchReplacesBase,
   resolveTreasureChargeProgress,
   resolveTreasureChargeVisualState,
 } from "../treasures/treasureRegistry.js";
+import { initTreasureBankOnAcquire } from "../treasures/treasureAcquireInit.js";
+import { collectGridLetterTiles } from "../treasures/treasureLogicShared.js";
+import { applyRarityLevelUpgrade } from "../game/treasureRarityTierMerge.js";
+import {
+  hasVowelNeighborSubstitute,
+  isSubstitutableVowel,
+  resolveWordPatternWithVowelSubstitutions,
+  vowelDisplayLetter,
+  vowelDisplayShiftForResolved,
+  vowelGhostSlotsForDisplay,
+} from "../game/vowelNeighborSubstitute.js";
+import { filterTreasureDefsForPool } from "../treasures/treasureAvailability.js";
+import {
+  createTreasureRunState,
+  currentDiscardLetterGroup,
+  resetTreasureLevelScopedState,
+  rollDiscardLetterGroupIndex,
+} from "../treasures/treasureRunState.js";
+import { parseChapterFromLevelId } from "../treasures/treasureLifecycleShared.js";
+import { rollRandomBigramFromDictionary } from "../game/treasureBigramRoll.js";
 import { IMPLEMENTED_TREASURE_ID_SET } from "../treasures/treasureCatalog.js";
 import { computeOwnedTreasureSlotTargetLength } from "../game/treasureSlotCapacity.js";
 import {
@@ -643,6 +695,7 @@ import BossBlindRerollLayer from "./BossBlindRerollLayer.vue";
 import { getBossDef } from "../game/bossBlindDefinitions.js";
 import {
   BOSS_CLUB_POS_OPTIONS,
+  bossHasWholeWordSoftRule,
   evaluateBossSoftWordViolation,
   getEndingLetterRarityFromTiles,
   nextMouthLockedLengthAfterSubmit,
@@ -673,9 +726,22 @@ import {
   SPELL_DEFINITIONS,
   SPELL_CANDIDATE_TILE_CAP,
   resolveSpellPickCount,
+  resolveSpellPickMode,
+  shouldOpenSpellTargetLayer,
+  shouldOpenInRunSpellPreview,
   getSpellDefinition,
 } from "../spells/spellDefinitions.js";
+import { buildSpellOfferSlotsFromPool } from "../spells/spellOfferSlots.js";
+import { pickDiceChainSpellIds, pickRandomInRunSpellId } from "../spells/spellInRunPool.js";
+import {
+  resolveRestartEffectiveSpellId,
+  resolveSpellFlowEffectiveId,
+} from "../game/inRunGrantFlow.js";
 import { rollPackOfferStock } from "../shop/rollPackStock.js";
+import {
+  rollInRunBundlePackOfKind,
+  rollOneRandomBundlePackOffer,
+} from "../shop/rollInRunBundlePack.js";
 import { rollShopRandomCardOffers } from "../shop/rollShopRandomCardStock.js";
 import {
   applyRandomUpgradePick,
@@ -699,6 +765,7 @@ import {
   getEffectiveShopRerollCost,
   getGlyphPurchaseTargetLevelIndex,
   getJudgedLengthTableLenForOwnedVouchers,
+  getJudgedLengthTableLenWithPenalty,
   isLengthObservatoryBoosted,
   getOwnedTreasureSlotBonusFromVouchers,
   getShopAccessoryChanceMultiplier,
@@ -999,10 +1066,12 @@ const {
   resetDeckAfterStageEnd,
   touchGrid,
   removeDeckLetterInstancesByRaws,
+  removeDeckCardByUid,
   remapTileFromRawLetter,
   markTileAsWildcard,
   refreshGridTileBaseScoresFromLevels,
   appendShopDeckEntries,
+  appendDeckCardSpecToInitialSnapshot,
   spellCountsByLength,
   recordSpellWordLength,
   lengthLevelsByLength,
@@ -1013,6 +1082,8 @@ const {
   setRarityLevel,
   basketballWordsSubmitted,
   bumpBasketballWordSubmitted,
+  runWordLengthJudgmentPenalty,
+  setRunWordLengthJudgmentPenalty,
   ROWS,
   COLS,
 } = useGameState({
@@ -1480,6 +1551,8 @@ const shopOffers = ref([]);
 const packOffers = ref([]);
 /** 用于「重播」法术：上一张成功结算的非重播法术 id */
 const lastReplayableSpellId = ref(/** @type {string | null} */ (null));
+/** 本局已成功预览确认的法术 id 序列（用于 restart 向前追溯） */
+const spellCastHistory = ref(/** @type {string[]} */ ([]));
 /** 非 null 时显示法术目标选择层 */
 const spellTargetSession = ref(null);
 /**
@@ -1513,8 +1586,23 @@ const UPGRADE_RARITY_LETTER_LABEL = Object.freeze({
   legendary: "传说",
 });
 
-/** 组合包多选层；链式法术确认完成后 resolve（见 `onSpellTargetConfirm`） */
-let spellPackFulfillmentResolve = /** @type {null | (() => void)} */ (null);
+/** 法术预览层关闭时 resolve（`runSpellPreviewChain`） */
+let spellPreviewFlowResolve =
+  /** @type {null | ((r: import("../game/inRunGrantFlow.js").SpellPreviewFlowResult) => void)} */ (null);
+/** 对局内/包内多选层关闭时 resolve（`runInRunPackPickFlow`） */
+let packPickFlowResolve = /** @type {null | (() => void)} */ (null);
+/** 对局内升级动效（顶栏计分板，与商店同款） */
+const inRunGrantUpgradeFxActive = ref(false);
+const inRunGrantUpgradeFxWordlenText = ref("");
+const inRunGrantUpgradeFxLevelShown = ref(1);
+const inRunGrantUpgradeFxScoreValue = ref(0);
+const inRunGrantUpgradeFxMultValue = ref(0);
+const inRunGrantUpgradeFxModel = {
+  wordlenText: inRunGrantUpgradeFxWordlenText,
+  levelShown: inRunGrantUpgradeFxLevelShown,
+  scoreValue: inRunGrantUpgradeFxScoreValue,
+  multValue: inRunGrantUpgradeFxMultValue,
+};
 /** @type {import('vue').Ref<null | object>} */
 const packPickSession = ref(null);
 const packPickBusy = ref(false);
@@ -1537,9 +1625,12 @@ const ownedTreasureIdSet = computed(() => {
   return s;
 });
 
-/** 商店可售：仅已接入逻辑的宝藏 */
-const shopTreasurePool = TREASURE_DEFINITIONS.filter((t) =>
-  IMPLEMENTED_TREASURE_ID_SET.has(t.treasureId),
+/** 商店可售：已接入且满足解锁/池条件的宝藏 */
+const shopTreasurePool = computed(() =>
+  filterTreasureDefsForPool(
+    TREASURE_DEFINITIONS.filter((t) => IMPLEMENTED_TREASURE_ID_SET.has(t.treasureId)),
+    buildTreasurePoolSnapshot(),
+  ),
 );
 
 const shopRerollsThisVisit = ref(0);
@@ -1550,12 +1641,13 @@ function shopPriceForOffer(basePrice) {
   return applyShopDiscountPrice(basePrice, ownedVoucherIds.value);
 }
 
-const shopNextRerollCostDisplay = computed(() =>
-  getEffectiveShopRerollCost(
+const shopNextRerollCostDisplay = computed(() => {
+  if ((treasureRunState.value.shopFreeRerollsRemaining ?? 0) > 0) return 0;
+  return getEffectiveShopRerollCost(
     ownedVoucherIds.value,
     computeShopRerollCost(shopRerollsThisVisit.value),
-  ),
-);
+  );
+});
 
 const shopCanReroll = computed(() => {
   if (transitionBusy.value) return false;
@@ -1637,7 +1729,7 @@ function applyUpgradeFromOffer(t, { price = 0 } = {}) {
       price,
     });
     const curLv = Math.max(1, Math.round(Number(rarityLevelsByRarity.value?.[rk])) || 1);
-    setRarityLevel(rk, curLv + 1);
+    setRarityLevelWithTreasurePairs(rk, curLv + 1);
     refreshGridTileBaseScoresFromLevels();
     return;
   }
@@ -1723,7 +1815,7 @@ function rollPackStock(rng = Math.random, sessionExcludeTreasureIds = null) {
     sessionExcludeTreasureIds: sessionExcludeTreasureIds ?? undefined,
     emptyTreasureSlots: ownedTreasures.value.filter((s) => s == null).length,
     lastReplayableSpellId: lastReplayableSpellId.value,
-    shopTreasurePool,
+    shopTreasurePool: shopTreasurePool.value,
     guaranteeBalatroFirstShopBuffoonSlot: guarantee,
     ownedVoucherIds: ownedVoucherIds.value,
     spellCountsByLength: spellCountsByLength.value,
@@ -1746,7 +1838,7 @@ function rollShopStock(rng = Math.random, sessionExcludeTreasureIds = null) {
     ownedTreasureIdSet: ownedTreasureIdSet.value,
     sessionExcludeTreasureIds: sessionExcludeTreasureIds ?? undefined,
     lastReplayableSpellId: lastReplayableSpellId.value,
-    shopTreasurePool,
+    shopTreasurePool: shopTreasurePool.value,
     ownedVoucherIds: ownedVoucherIds.value,
     honeAccessoryMult: getShopAccessoryChanceMultiplier(ownedVoucherIds.value),
   });
@@ -1764,6 +1856,7 @@ function rollShopVisitStock(rng = Math.random) {
 const treasureDetail = ref(null);
 const treasureDetailLayerRef = ref(null);
 const spellTargetLayerRef = ref(null);
+const deckBtnRef = ref(null);
 const packPickLayerRef = ref(null);
 
 function treasureOriginRectFromEl(el) {
@@ -1815,7 +1908,7 @@ function onInfoSelectOwnedVoucher(payload) {
   };
 }
 
-function buildPackPickSessionFromBundle(bundle) {
+function buildPackPickSessionFromBundle(bundle, grantContext = "shop") {
   const opts = Array.isArray(bundle.bundleOptions) ? bundle.bundleOptions : [];
   const pickCount = Math.max(1, Math.floor(Number(bundle.pickCount) || 1));
   const withKeys = opts.map((o, i) => ({
@@ -1829,7 +1922,132 @@ function buildPackPickSessionFromBundle(bundle) {
     pickCount,
     options: withKeys,
     claimedKeys: /** @type {string[]} */ ([]),
+    grantContext,
   };
+}
+
+function resolvePackPickFlow() {
+  const r = packPickFlowResolve;
+  packPickFlowResolve = null;
+  r?.();
+}
+
+function buildRollInRunBundlePackCtx() {
+  return {
+    rng: runRandom,
+    nextPackOfferInstanceId: () => nextOfferInstanceId.value++,
+    nextPackEmptySlotId: () => nextPackEmptySlotId.value++,
+    ownedTreasureIdSet: ownedTreasureIdSet.value,
+    emptyTreasureSlots: ownedTreasures.value.filter((s) => s == null).length,
+    lastReplayableSpellId: lastReplayableSpellId.value,
+    shopTreasurePool: shopTreasurePool.value,
+    guaranteeBalatroFirstShopBuffoonSlot: false,
+    ownedVoucherIds: ownedVoucherIds.value,
+    spellCountsByLength: spellCountsByLength.value,
+    honeAccessoryMult: getShopAccessoryChanceMultiplier(ownedVoucherIds.value),
+  };
+}
+
+function rollOneInRunBundlePack() {
+  return rollOneRandomBundlePackOffer(buildRollInRunBundlePackCtx());
+}
+
+/**
+ * @param {object | null | undefined} bundleRow
+ * @param {{ treasureSlotIndex?: number }} [opts]
+ */
+async function runInRunPackPickFlow(bundleRow, { treasureSlotIndex } = {}) {
+  let bundle = bundleRow;
+  if (!bundle || bundle.offerType !== "bundlePack") {
+    bundle = rollOneInRunBundlePack();
+    if (!bundle) return;
+  }
+  if (typeof treasureSlotIndex === "number" && treasureSlotIndex >= 0) {
+    shopOverlayLayersSuppressed.value = true;
+    await nextTick();
+    await wobbleGameTreasureSlot(treasureSlotIndex);
+    shopOverlayLayersSuppressed.value = false;
+  }
+  return new Promise((resolve) => {
+    packPickFlowResolve = resolve;
+    packPickOverlaySuppressed.value = false;
+    packPickSession.value = buildPackPickSessionFromBundle(bundle, "inRun");
+  });
+}
+
+/**
+ * @param {{ apply?: () => void, payload: object }[]} steps
+ */
+async function runInRunUpgradePlaybackSteps(steps) {
+  if (!steps.length) return;
+  inRunGrantUpgradeFxActive.value = true;
+  shopOverlayLayersSuppressed.value = true;
+  await nextTick();
+  try {
+    for (const step of steps) {
+      step.apply?.();
+      const p = step.payload;
+      if (p?.upgradeKind === "rarity") {
+        const rk = String(p.rarityKey ?? "common");
+        const beforeLevel = Math.max(1, Math.round(Number(p.beforeLevel) || 1));
+        await runInGameRarityUpgradeShopLikeFx({
+          areaRef: gameResultAreaRef,
+          model: inRunGrantUpgradeFxModel,
+          fxActive: inRunGrantUpgradeFxActive,
+          waitNextTick: () => nextTick(),
+          rarityKey: rk,
+          beforeLevel,
+          speed: 1,
+        });
+        continue;
+      }
+      const lenMin = Math.max(3, Math.min(16, Math.round(Number(p?.lengthMin) || 3)));
+      const lenMax = Math.max(lenMin, Math.min(16, Math.round(Number(p?.lengthMax) || lenMin)));
+      const beforeLevel = Math.max(1, Math.round(Number(p?.beforeLevel) || 1));
+      const obsFn =
+        typeof p?.isLengthObservatoryBoosted === "function"
+          ? p.isLengthObservatoryBoosted
+          : () => false;
+      for (let len = lenMin; len <= lenMax; len++) {
+        await runClearWinLengthUpgradeShopLikeFx({
+          areaRef: gameResultAreaRef,
+          model: inRunGrantUpgradeFxModel,
+          fxActive: inRunGrantUpgradeFxActive,
+          waitNextTick: () => nextTick(),
+          len,
+          beforeLevel,
+          observatoryBoost: obsFn(len),
+          speed: 1 + 0.3 * (len - lenMin),
+        });
+        if (len < lenMax) await sleep(30);
+      }
+    }
+  } finally {
+    inRunGrantUpgradeFxActive.value = false;
+    shopOverlayLayersSuppressed.value = false;
+  }
+}
+
+function getPackPickGrantContext() {
+  const ctx = packPickSession.value?.grantContext;
+  return ctx === "inRun" ? "inRun" : "shop";
+}
+
+function getInRunDeckFlyTargetEl() {
+  return deckBtnRef.value ?? null;
+}
+
+/**
+ * @param {Record<string, unknown>[][]} tiles
+ * @param {string} resolvedWord
+ * @param {number} judgedLenTable
+ * @param {number} scoreBeforeHand
+ */
+async function runPendingInRunGrantsAfterSubmit(tiles, resolvedWord, judgedLenTable, scoreBeforeHand) {
+  await notifyOwnedTreasuresSuccessfulWordSubmit(
+    ownedSlotTreasureIdList(),
+    buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand),
+  );
 }
 
 function packPickOptionKeyOf(opt) {
@@ -1857,9 +2075,13 @@ function onPackPickOpenItem(payload) {
 
 function onPackPickSkip() {
   if (packPickBusy.value) return;
+  notifyOwnedTreasuresOnPackSkipped(ownedSlotTreasureIdList(), {
+    treasureRun: treasureRunState.value,
+  });
   packPickSession.value = null;
   packPickOverlaySuppressed.value = false;
   treasureDetail.value = null;
+  resolvePackPickFlow();
 }
 
 /** 领取数已达包内上限（含法术选格结束后）时关闭开包层 */
@@ -1870,6 +2092,7 @@ function maybeAutoClosePackPickSession() {
   if (claimed.length >= packPickRequiredPicks(sess)) {
     packPickSession.value = null;
     packPickOverlaySuppressed.value = false;
+    resolvePackPickFlow();
   }
 }
 
@@ -1884,89 +2107,52 @@ function ensurePackPickOverlayVisible() {
 async function fulfillSpellAfterPackPayment(t, { restoreLayersAfter = false } = {}) {
   const spellId = String(t.spellId ?? "");
   if (!spellId) return;
-  if (spellId === "restart" && !lastReplayableSpellId.value) {
-    showToast("尚无可重播的法术");
-    return;
-  }
-  const effectiveSpellId =
-    spellId === "restart" ? String(lastReplayableSpellId.value) : spellId;
-  const pickCount = resolveSpellPickCount(spellId, lastReplayableSpellId.value);
-
-  if (pickCount <= 0) {
-    if (effectiveSpellId === "arrow_up" && showShop.value) {
-      await playArrowUpShopUpgradeSequence({ restoreLayersAfter });
-      ensurePackPickOverlayVisible();
-      return;
-    }
-    const ctx0 = buildSpellRuntimeContext();
-    const beforeGrid = cloneGridDeep(grid.value, ROWS, COLS);
-    applySpell(ctx0, spellId, effectiveSpellId, [], { rng: runRandom });
-    const afterGrid = cloneGridDeep(grid.value, ROWS, COLS);
-    const animTargets = diffGridAppearanceTargets(beforeGrid, afterGrid, ROWS, COLS);
-    if (animTargets.length > 0) {
-      restoreGridFromDeepClone(grid, beforeGrid, ROWS, COLS);
-      touchGrid();
-      await nextTick();
-      const oldSnaps0 = animTargets.map(({ row, col }) => beforeGrid[row][col]);
-      const newSnaps0 = animTargets.map(({ row, col }) => afterGrid[row][col]);
-      await queueOrRunSpellTileAppearanceAnim({
-        spellId: effectiveSpellId,
-        targets: animTargets,
-        oldSnaps: oldSnaps0,
-        newSnaps: newSnaps0,
-        grid,
-        touchGrid,
-        getTileEl: (row, col) => getGridTileElByIndex(row * COLS + col),
-        nextTick,
-      });
-    }
-    ensurePackPickOverlayVisible();
-    return;
-  }
-
-  const def = getSpellDefinition(spellId);
+  const grantCtx = getPackPickGrantContext();
+  const offerDeck = grantCtx === "inRun" ? "remainingDeck" : "fullDeck";
   if (restoreLayersAfter) {
     packPickOverlaySuppressed.value = true;
     await nextTick();
   }
-  spellTargetSession.value = {
-    spellName: def?.name ?? t.name ?? "法术",
-    spellIconClass: def?.iconClass ?? t.iconClass ?? "ri-magic-fill",
-    spellDescription: t.description ?? def?.description ?? "",
-    spellRarity: t.rarity ?? "rare",
-    pickCount,
-    offerSlots: prepareSpellOfferSlots(runRandom),
-    getOfferTileSnapshot: getSpellOfferTileSnapshotForCell,
-    purchasedSpellId: spellId,
-    effectiveSpellId,
-  };
-  await new Promise((resolve) => {
-    spellPackFulfillmentResolve = resolve;
+  await runSpellPreviewChain(spellId, grantCtx, offerDeck, {
+    spellDescription: t.description,
+    spellName: t.name,
+    spellIconClass: t.iconClass,
+    spellRarity: t.rarity,
   });
   ensurePackPickOverlayVisible();
 }
 
 async function fulfillUpgradeAfterPackPayment(t, { restoreLayersAfter = false } = {}) {
   const payload = buildUpgradeAnimPayloadFromOffer(t);
-  await runShopUpgradePlaybackSteps(
-    [
-      {
-        payload,
-        apply: () => applyUpgradeFromOffer(t, { price: 0 }),
-      },
-    ],
-    { restoreLayersAfter },
-  );
+  const step = {
+    payload,
+    apply: () => applyUpgradeFromOffer(t, { price: 0 }),
+  };
+  if (getPackPickGrantContext() === "inRun") {
+    if (restoreLayersAfter) {
+      packPickOverlaySuppressed.value = true;
+      await nextTick();
+    }
+    await runInRunUpgradePlaybackSteps([step]);
+    ensurePackPickOverlayVisible();
+    return;
+  }
+  await runShopUpgradePlaybackSteps([step], { restoreLayersAfter });
 }
 
 async function fulfillTreasureAfterPackPayment(t, fromEl) {
   const ix = ownedTreasures.value.findIndex((s) => s == null);
   if (ix < 0) return;
-  const shop = shopPanelRef.value;
   const frameEl =
     fromEl?.querySelector?.(".shop-treasure-frame") ??
     (fromEl?.classList?.contains?.("shop-treasure-frame") ? fromEl : null);
-  const toTarget = shop?.getOwnedSlotEl?.(ix) ?? null;
+  let toTarget = null;
+  if (getPackPickGrantContext() === "inRun") {
+    toTarget = gameTreasureSlotRefs[ix] ?? null;
+  } else {
+    const shop = shopPanelRef.value;
+    toTarget = shop?.getOwnedSlotEl?.(ix) ?? null;
+  }
   if (frameEl && toTarget) await animateTreasureFrameFly(frameEl, toTarget);
   ownedTreasures.value[ix] = {
     treasureId: t.treasureId,
@@ -1977,6 +2163,8 @@ async function fulfillTreasureAfterPackPayment(t, fromEl) {
     description: t.description,
     treasureAccessoryId: t.treasureAccessoryId ?? null,
   };
+  initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
+  applyTreasureAcquireSideEffects(t.treasureId);
 }
 
 async function fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter = false } = {}) {
@@ -1995,10 +2183,13 @@ async function fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter = false }
   }
   if (t.offerType === "deckLetter") {
     const raw = String(t.deckLetterRaw ?? "e").toLowerCase();
-    const deckBtn = shopPanelRef.value?.getDeckViewBtnEl?.() ?? null;
+    const deckBtn =
+      getPackPickGrantContext() === "inRun"
+        ? getInRunDeckFlyTargetEl()
+        : shopPanelRef.value?.getDeckViewBtnEl?.() ?? null;
     const flyRoot = flyEl ?? null;
     if (flyRoot && deckBtn) await animatePackTileFlyToDeck(flyRoot, deckBtn);
-    appendShopDeckEntries([{ raw, materialId: null }]);
+    appendShopDeckEntriesAndNotify([{ raw, materialId: null }]);
     showToast(`已加入牌库：${t.name}`);
     return;
   }
@@ -2008,10 +2199,13 @@ async function fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter = false }
     const acc = t.deckTileAccessoryId != null ? String(t.deckTileAccessoryId).trim() : "";
     const tAcc =
       t.deckTileTreasureAccessoryId != null ? String(t.deckTileTreasureAccessoryId).trim() : "";
-    const deckBtn = shopPanelRef.value?.getDeckViewBtnEl?.() ?? null;
+    const deckBtn =
+      getPackPickGrantContext() === "inRun"
+        ? getInRunDeckFlyTargetEl()
+        : shopPanelRef.value?.getDeckViewBtnEl?.() ?? null;
     const flyRoot = flyEl ?? null;
     if (flyRoot && deckBtn) await animatePackTileFlyToDeck(flyRoot, deckBtn);
-    appendShopDeckEntries([
+    appendShopDeckEntriesAndNotify([
       {
         raw,
         materialId: mat,
@@ -2046,14 +2240,6 @@ async function onPackInnerClaim() {
     }
   }
 
-  if (t.offerType === "spell") {
-    const sid = String(t.spellId ?? "");
-    if (sid === "restart" && !lastReplayableSpellId.value) {
-      showToast("尚无可重播的法术");
-      return;
-    }
-  }
-
   const willNeedMorePicks = claimed.length + 1 < requiredPicks;
   packPickBusy.value = true;
   try {
@@ -2079,19 +2265,29 @@ const treasureDetailMode = computed(() => {
   return showShop.value ? "owned-shop" : "owned-game";
 });
 
-/** 已拥有详情：静态简介 + 各宝藏 `buildOwnedDetailDescriptionSegments`（仅材质/配饰类追加；货架报价仍用静态简介） */
+/** 已拥有详情：静态简介 + 动态 patch + 材质/配饰追加 */
 const treasureDetailDescriptionOverride = computed(() => {
   const d = treasureDetail.value;
   if (!d?.treasure || d.kind === "offer") return null;
   const tid = d.treasure.treasureId;
+  const base = normalizeTreasureDescription(d.treasure.description);
+  const patch = resolveTreasureDescriptionPatches(tid, {
+    treasureRun: treasureRunState.value,
+    extraLetterScoreWordsRemaining: treasureRunState.value.extraLetterScoreWordsRemaining,
+    discardLetterGroup: currentDiscardLetterGroup(treasureRunState.value),
+    levelPosTargetKey: treasureRunState.value.levelPosTargetKey,
+  });
   const extra = TREASURE_HOOKS_BY_ID.get(tid)?.buildOwnedDetailDescriptionSegments?.({
     chargeWordsSubmitted: basketballWordsSubmitted.value,
     ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null),
     remainingDeckCount: deckCount.value,
   });
-  if (!extra?.length) return null;
-  const base = normalizeTreasureDescription(d.treasure.description);
-  return [...base, ...extra];
+  const replacesBase = treasureDescriptionPatchReplacesBase(tid);
+  const parts =
+    replacesBase && patch?.length ? [...patch] : [...base, ...(patch?.length ? patch : [])];
+  if (extra?.length) parts.push(...extra);
+  if (replacesBase && patch?.length) return parts;
+  return parts.length > base.length ? parts : null;
 });
 
 /** 当前详情中的充能可视状态：仅已拥有宝藏可有值（inactive/active） */
@@ -2217,10 +2413,6 @@ const treasureCanBuyOffer = computed(() => {
     if (t.offerType === "treasure") {
       return ownedTreasures.value.some((s) => s == null);
     }
-    if (t.offerType === "spell") {
-      const sid = String(t.spellId ?? "");
-      if (sid === "restart" && !lastReplayableSpellId.value) return false;
-    }
     return true;
   }
 
@@ -2239,7 +2431,6 @@ const treasureCanBuyOffer = computed(() => {
   if (t.offerType === "bundlePack") return w >= p;
   if (t.offerType === "spell") {
     const sid = String(t.spellId ?? "");
-    if (sid === "restart" && !lastReplayableSpellId.value) return false;
     return w >= p;
   }
   if (t.offerType === "upgrade") return w >= p;
@@ -2263,6 +2454,254 @@ const showRunEnd = ref(false);
 const runEndOutcome = ref("fail");
 const runMatchStats = ref(createRunMatchStats());
 const runEndStatsRows = computed(() => getRunMatchStatsRows(runMatchStats.value));
+const treasureRunState = ref(createTreasureRunState());
+
+function buildTreasurePoolSnapshot() {
+  return {
+    deck: deck.value,
+    isEndlessRun: isEndlessRun.value,
+    runState: treasureRunState.value,
+  };
+}
+
+function ownedSlotTreasureIdList() {
+  return ownedTreasures.value.map((s) => s?.treasureId ?? null);
+}
+
+function rollRandomBigramForTreasure() {
+  return rollRandomBigramFromDictionary(getCandidateWordsByLength, runRandom);
+}
+
+function applyTreasureAcquireSideEffects(treasureId) {
+  if (String(treasureId) === "42") remainingRemovals.value += 3;
+}
+
+/**
+ * @param {{ raw: string, materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null }[]} entries
+ */
+function appendShopDeckEntriesAndNotify(entries) {
+  const n = Array.isArray(entries) ? entries.length : 0;
+  if (!n) return;
+  appendShopDeckEntries(entries);
+  notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIdList(), {
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    treasureRun: treasureRunState.value,
+    count: n,
+  });
+}
+
+/** @param {number} [maxCount] */
+function grantRandomOwnedTreasuresInRun(maxCount = 1) {
+  const cap = Math.max(0, Math.floor(Number(maxCount) || 0));
+  let granted = 0;
+  for (let i = 0; i < cap; i += 1) {
+    if (grantRandomShopTreasure()) granted += 1;
+  }
+  return granted;
+}
+
+function noteDiscardExhaustedForChapterUnlock() {
+  if (remainingRemovals.value > 0) return;
+  const sub = parseLevelSubFromId(currentLevel.value?.id ?? "1-1");
+  const rs = treasureRunState.value;
+  if (!(rs.discardExhaustedSubsThisChapter instanceof Set)) {
+    rs.discardExhaustedSubsThisChapter = new Set();
+  }
+  rs.discardExhaustedSubsThisChapter.add(sub);
+  if (rs.discardExhaustedSubsThisChapter.has(1) && rs.discardExhaustedSubsThisChapter.has(2) && rs.discardExhaustedSubsThisChapter.has(3)) {
+    rs.chapterAllDiscardsExhausted = true;
+  }
+}
+
+function clearOwnedTreasureSlotById(treasureId) {
+  const tid = String(treasureId ?? "");
+  ownedTreasures.value = ownedTreasures.value.map((s) => (s?.treasureId === tid ? null : s));
+}
+
+async function resetLevelAfterTreasurePrep(levelDef) {
+  await notifyOwnedTreasuresPrepareLevelEnter(ownedSlotTreasureIdList(), {
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    treasureRun: treasureRunState.value,
+    rng: runRandom,
+    appendDeckCardSpecToInitialSnapshot,
+  });
+  const opts = buildLevelResetRunOpts(levelDef);
+  const forced = treasureRunState.value.jokerForcedDrawUid;
+  if (forced != null) opts.forcedJokerDrawUid = forced;
+  treasureRunState.value.jokerForcedDrawUid = null;
+  resetLevel(levelDef, opts);
+  await runTreasureLevelEnterHooks(levelDef?.id ?? "1-1");
+}
+
+async function runTreasureLevelEnterHooks(levelId) {
+  resetTreasureLevelScopedState(treasureRunState.value);
+  rollDiscardLetterGroupIndex(treasureRunState.value, runRandom);
+  const ch = parseChapterFromLevelId(levelId);
+  const prev = treasureRunState.value.lastChapterNumber;
+  if (ch !== prev) {
+    notifyOwnedTreasuresOnChapterEnter(ownedSlotTreasureIdList(), {
+      treasureRun: treasureRunState.value,
+    });
+    treasureRunState.value.lastChapterNumber = ch;
+    treasureRunState.value.discardExhaustedSubsThisChapter = new Set();
+  }
+  await notifyOwnedTreasuresOnLevelEnter(ownedSlotTreasureIdList(), {
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    treasureRun: treasureRunState.value,
+    rng: runRandom,
+    levelId,
+    findOwnedTreasureSlotIndex,
+    wobbleOwnedTreasureById,
+    clearTreasureSlotById: clearOwnedTreasureSlotById,
+    grantRandomOwnedTreasure: grantRandomOwnedTreasuresInRun,
+    addRemainingWords: (n) => {
+      remainingWords.value = Math.max(0, remainingWords.value + Math.floor(Number(n) || 0));
+    },
+    addRemainingRemovals: (n) => {
+      remainingRemovals.value = Math.max(0, remainingRemovals.value + Math.floor(Number(n) || 0));
+    },
+  });
+}
+
+async function wobbleOwnedTreasureById(treasureId) {
+  const ix = findOwnedTreasureSlotIndex(treasureId);
+  if (ix < 0) return;
+  shopOverlayLayersSuppressed.value = true;
+  await nextTick();
+  await wobbleGameTreasureSlot(ix);
+  shopOverlayLayersSuppressed.value = false;
+}
+
+async function runTreasureLevelCompleteHooks() {
+  await notifyOwnedTreasuresOnLevelComplete(ownedSlotTreasureIdList(), {
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    treasureRun: treasureRunState.value,
+    rng: runRandom,
+    clearTreasureSlotById: clearOwnedTreasureSlotById,
+    findOwnedTreasureSlotIndex,
+    wobbleOwnedTreasureById,
+    remainingRemovals: remainingRemovals.value,
+    addMoney: (n) => {
+      money.value += Math.max(0, Math.floor(Number(n) || 0));
+    },
+    bumpOwnedTreasurePriceById: (treasureId, amount) => {
+      const tid = String(treasureId ?? "");
+      const add = Math.floor(Number(amount) || 0);
+      if (!tid || add <= 0) return;
+      const ix = findOwnedTreasureSlotIndex(tid);
+      if (ix < 0) return;
+      const cur = ownedTreasures.value[ix];
+      if (!cur) return;
+      ownedTreasures.value[ix] = {
+        ...cur,
+        price: Math.max(0, Math.floor(Number(cur.price) || 0) + add),
+      };
+    },
+  });
+}
+
+function findOwnedTreasureSlotIndex(treasureId) {
+  const tid = String(treasureId ?? "");
+  if (!tid) return -1;
+  return ownedTreasures.value.findIndex((s) => s?.treasureId === tid);
+}
+
+function setRarityLevelWithTreasurePairs(rarity, level) {
+  applyRarityLevelUpgrade(rarity, level, setRarityLevel, ownedSlotTreasureIdList());
+}
+
+function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand) {
+  const owned = ownedTreasures.value.filter(Boolean);
+  return {
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    findOwnedTreasureSlotIndex,
+    pickRandomInRunSpellId: () => pickRandomInRunSpellId(runRandom),
+    requestInRunSpellGrant: async ({ spellId, treasureSlotIndex, treasureId } = {}) => {
+      const sid =
+        spellId != null && String(spellId).trim()
+          ? String(spellId)
+          : pickRandomInRunSpellId(runRandom);
+      if (!sid) return;
+      let slotIx = treasureSlotIndex;
+      if (slotIx == null && treasureId) slotIx = findOwnedTreasureSlotIndex(treasureId);
+      await runInRunSpellGrant(sid, { treasureSlotIndex: slotIx });
+    },
+    requestInRunPackOpen: async ({ bundle, treasureSlotIndex, treasureId } = {}) => {
+      let slotIx = treasureSlotIndex;
+      if (slotIx == null && treasureId) slotIx = findOwnedTreasureSlotIndex(treasureId);
+      await runInRunPackPickFlow(bundle ?? null, { treasureSlotIndex: slotIx });
+    },
+    requestInRunPackOpenOfKind: async ({ kind, treasureSlotIndex, treasureId } = {}) => {
+      let slotIx = treasureSlotIndex;
+      if (slotIx == null && treasureId) slotIx = findOwnedTreasureSlotIndex(treasureId);
+      const bundle = rollInRunBundlePackOfKind(kind, buildRollInRunBundlePackCtx());
+      if (!bundle) return;
+      await runInRunPackPickFlow(bundle, { treasureSlotIndex: slotIx });
+    },
+    getWordDefinition,
+    requestInRunUpgrade: async ({ offer, treasureSlotIndex, treasureId } = {}) => {
+      const row = offer;
+      if (!row || row.offerType !== "upgrade") return;
+      let slotIx = treasureSlotIndex;
+      if (slotIx == null && treasureId) slotIx = findOwnedTreasureSlotIndex(treasureId);
+      if (typeof slotIx === "number" && slotIx >= 0) {
+        shopOverlayLayersSuppressed.value = true;
+        await nextTick();
+        await wobbleGameTreasureSlot(slotIx);
+        shopOverlayLayersSuppressed.value = false;
+      }
+      const payload = buildUpgradeAnimPayloadFromOffer(row);
+      await runInRunUpgradePlaybackSteps([
+        {
+          payload,
+          apply: () => applyUpgradeFromOffer(row, { price: 0 }),
+        },
+      ]);
+    },
+    incrementChargeWordSubmissionCount: bumpBasketballWordSubmitted,
+    submittedScoringTiles: tiles.map((t) => ({
+      materialId: t?.materialId ?? null,
+      letter: t?.letter ?? "",
+      rarity: t?.rarity ?? "common",
+    })),
+    mutateRandomNonWildcardLetterTileToWildcard,
+    getWordDefinition,
+    rollRandomBigram: rollRandomBigramForTreasure,
+    treasureRun: treasureRunState.value,
+    resolvedWord,
+    judgedWordLength: judgedLenTable,
+    targetScore: targetScore.value,
+    currentScore: scoreBeforeHand,
+    remainingWordsAfterSubmit: remainingWords.value,
+    submittedLetters: tiles.map((t) => ({
+      letter: t?.letter ?? "",
+      rarity: t?.rarity ?? "common",
+      materialId: t?.materialId ?? null,
+    })),
+    addRemainingWords: (n) => {
+      remainingWords.value += Math.max(0, Math.floor(Number(n) || 0));
+    },
+    addMoney: (n) => {
+      money.value += Math.max(0, Math.floor(Number(n) || 0));
+    },
+    removeDeckLettersByRaws: (raws) => removeDeckLetterInstancesByRaws(raws),
+    destroySelf: () => {
+      const ix = ownedTreasures.value.findIndex((s) => s?.treasureId === "67");
+      if (ix >= 0) ownedTreasures.value[ix] = null;
+    },
+    ownedTreasureInstances: owned,
+    rng: runRandom,
+    moneyAfterSubmit: money.value,
+    bumpWordLengthLevel: (len) =>
+      bumpWordLengthLevel(len, {
+        observatoryBoost: isLengthObservatoryBoosted(
+          ownedVoucherIds.value,
+          len,
+          spellCountsByLength.value,
+        ),
+      }),
+  };
+}
 
 function noteRunShopPurchase() {
   recordShopPurchase(runMatchStats.value);
@@ -2506,6 +2945,9 @@ watch(showShop, (open) => {
   treasureDetail.value = null;
   packPickSession.value = null;
   shopRerollsThisVisit.value = 0;
+  notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIdList(), {
+    treasureRun: treasureRunState.value,
+  });
   const levelId = currentLevel.value?.id ?? "1-1";
   const shelfGen = getVoucherShelfGeneration(levelId);
   if (shopVoucherShelfGeneration.value !== shelfGen) {
@@ -2637,7 +3079,7 @@ const resultAreaJudgedWordLength = computed(() => {
     resolvedWordForSubmit.value,
   );
   if (n < 1) return 0;
-  return getJudgedLengthTableLenForOwnedVouchers(n, ownedVoucherIds.value);
+  return getJudgedLengthTableLenWithPenalty(n, ownedVoucherIds.value, runWordLengthJudgmentPenalty.value);
 });
 
 const resultWordLengthShown = computed(() => {
@@ -2930,35 +3372,293 @@ function getScaledSlotRect(wrapRect, numSlots, slotIndex) {
 }
 
 /** 用于提交按钮的「即将生效」单词：飞入中视为已加入，飞回中视为已移除，不等到动画结束 */
-const effectiveWordForSubmit = computed(() => {
-  let letters = selectedTiles.value.map(({ tile }) => tile.letter.toLowerCase());
+const effectiveWordForSubmit = computed(() => buildEffectiveWordPartsForSubmit().word);
+
+/** @returns {{ word: string, vowelAltMask: boolean[] }} */
+function buildEffectiveWordPartsForSubmit(opts = {}) {
+  /** @type {string[]} */
+  const chars = [];
+  /** @type {boolean[]} */
+  const vowelAltMask = [];
+  const vowelTreasure = hasVowelNeighborSubstitute(ownedSlotTreasureIdList());
+  const appendTile = opts.appendTile ?? null;
+
+  const pushFromTile = (tile) => {
+    if (!tile?.letter) return;
+    const card = tile._deckCard;
+    const natural = card && typeof card === "object" ? deckCardRaw(card) : String(tile.letter).toLowerCase();
+    const frag = String(tile.letter ?? "").toLowerCase();
+    for (const ch of frag) {
+      if (!ch) continue;
+      chars.push(ch);
+      vowelAltMask.push(vowelTreasure && isSubstitutableVowel(natural));
+    }
+  };
+
+  let slots = selectedTiles.value;
   const batches = flyingBackBatches.value;
   if (batches.length > 0) {
     const minSlot = Math.min(...batches.map((b) => b.slotIndex));
-    letters = letters.slice(0, minSlot);
+    slots = slots.slice(0, minSlot);
   }
-  flyingLetters.value.forEach((f) => {
-    letters.push(f.letter.toLowerCase());
-  });
-  return letters.join("");
-});
+  for (const { tile } of slots) pushFromTile(tile);
+  for (const f of flyingLetters.value) {
+    const t = grid.value[f.pendingRow]?.[f.pendingCol];
+    if (t) pushFromTile(t);
+    else {
+      const frag = String(f.letter ?? "").toLowerCase();
+      for (const ch of frag) {
+        chars.push(ch);
+        vowelAltMask.push(false);
+      }
+    }
+  }
+  if (appendTile) pushFromTile(appendTile);
+  return { word: chars.join(""), vowelAltMask };
+}
+
+/** @param {{ word: string, vowelAltMask: boolean[] }} parts */
+function resolveWordFromEffectiveParts(parts) {
+  const { word, vowelAltMask } = parts;
+  if (hasVowelNeighborSubstitute(ownedSlotTreasureIdList()) && vowelAltMask.some(Boolean)) {
+    return resolveWordPatternWithVowelSubstitutions(word, vowelAltMask, (p) => resolveWordPattern(p, "?"));
+  }
+  return resolveWordPattern(word, "?");
+}
+
+/** @param {object | null | undefined} extraTile 飞入启程时预追加的格 */
+function listEffectiveTilesForSubmit(extraTile = null) {
+  let tiles = selectedTiles.value.map(({ tile }) => tile);
+  const batches = flyingBackBatches.value;
+  if (batches.length > 0) {
+    const minSlot = Math.min(...batches.map((b) => b.slotIndex));
+    tiles = tiles.slice(0, minSlot);
+  }
+  for (const f of flyingLetters.value) {
+    const t = grid.value[f.pendingRow]?.[f.pendingCol];
+    if (t) tiles.push(t);
+  }
+  if (extraTile) tiles.push(extraTile);
+  return tiles;
+}
+
+/**
+ * 给定整词解析，计算单格在词槽/飞字上应展示的字母、稀有度与元音 ghost
+ * @param {object} tile
+ * @param {string | null} res
+ * @param {string} effWord
+ * @param {object | null | undefined} [extraTile]
+ */
+function tilePresentationInResolvedWord(tile, res, effWord, extraTile = null) {
+  const upGhost = (ch) => (ch ? (ch === "q" ? "Qu" : ch.toUpperCase()) : null);
+  if (!res || !effWord || effWord.length !== res.length) {
+    const g = vowelGhostForTile(tile);
+    return {
+      letter: tile.letter,
+      rarity: tile.rarity,
+      vowelGhostPrev: g?.prev ?? null,
+      vowelGhostNext: g?.next ?? null,
+    };
+  }
+  const vowelTreasure = hasVowelNeighborSubstitute(ownedSlotTreasureIdList());
+  let pos = 0;
+  for (const t of listEffectiveTilesForSubmit(extraTile)) {
+    const frag = String(t?.letter ?? "").toLowerCase();
+    const start = pos;
+    pos += frag.length;
+    if (t !== tile && t?.id !== tile?.id) continue;
+
+    let letter = tile.letter;
+    let rarity = tile.rarity;
+    let vowelGhostPrev = null;
+    let vowelGhostNext = null;
+
+    if (vowelTreasure) {
+      const card = tile._deckCard;
+      const natural =
+        card && typeof card === "object"
+          ? deckCardRaw(card)
+          : frag.replace(/^qu/, "q").charAt(0);
+      const naturalCh = natural.charAt(0) === "q" ? "q" : natural.charAt(0);
+      if (isSubstitutableVowel(naturalCh)) {
+        const resolvedCh = res[start];
+        if (resolvedCh >= "a" && resolvedCh <= "z") {
+          const shift = vowelDisplayShiftForResolved(naturalCh, resolvedCh);
+          const ghosts = vowelGhostSlotsForDisplay(naturalCh, shift);
+          vowelGhostPrev = upGhost(ghosts?.prev ?? null);
+          vowelGhostNext = upGhost(ghosts?.next ?? null);
+          if (resolvedCh !== naturalCh) {
+            letter = resolvedCh === "q" ? "Qu" : resolvedCh.toUpperCase();
+            rarity = getRarityForLetter(resolvedCh);
+          }
+        }
+      }
+    }
+
+    if (isWildcardMaterialTile(tile) && frag === "?") {
+      const ch = res[start];
+      if (ch >= "a" && ch <= "z") {
+        letter = ch === "q" ? "Qu" : ch.toUpperCase();
+        rarity = getRarityForLetter(ch);
+      }
+    }
+
+    return { letter, rarity, vowelGhostPrev, vowelGhostNext };
+  }
+  const g = vowelGhostForTile(tile);
+  return {
+    letter: tile.letter,
+    rarity: tile.rarity,
+    vowelGhostPrev: g?.prev ?? null,
+    vowelGhostNext: g?.next ?? null,
+  };
+}
+
+/** 飞入启程：按「该格已加入词串」预解析展示（字母与 ghost 同步变化） */
+function computeFlyInTilePresentation(tile) {
+  const parts = buildEffectiveWordPartsForSubmit({ appendTile: tile });
+  const res = resolveWordFromEffectiveParts(parts);
+  return tilePresentationInResolvedWord(tile, res, parts.word, tile);
+}
+
+/** 飞回棋盘：牌张自然展示（deck + vowelDisplayShift），不用词槽解析态 */
+function computeFlyBackTilePresentation(tile) {
+  const upGhost = (ch) => (ch ? (ch === "q" ? "Qu" : ch.toUpperCase()) : null);
+  if (!tile?.letter) {
+    return { letter: "", rarity: "common", vowelGhostPrev: null, vowelGhostNext: null };
+  }
+  if (isWildcardMaterialTile(tile)) {
+    return {
+      letter: tile.letter,
+      rarity: tile.rarity ?? "common",
+      vowelGhostPrev: null,
+      vowelGhostNext: null,
+    };
+  }
+  const card = tile._deckCard;
+  let rawLower = null;
+  if (card && typeof card === "object") {
+    const natural = deckCardRaw(card);
+    rawLower = natural.charAt(0) === "q" ? "q" : natural.charAt(0);
+  } else {
+    rawLower = String(tile.letter).toLowerCase().replace(/^qu/, "q").charAt(0);
+  }
+
+  let letter = tile.letter;
+  let rarity = tile.rarity ?? "common";
+  let vowelGhostPrev = null;
+  let vowelGhostNext = null;
+
+  if (hasVowelNeighborSubstitute(ownedSlotTreasureIdList()) && isSubstitutableVowel(rawLower)) {
+    const shift = card && typeof card === "object" ? Math.sign(Number(card.vowelDisplayShift) || 0) : 0;
+    const displayed = vowelDisplayLetter(rawLower, shift);
+    letter = displayed === "q" ? "Qu" : displayed.toUpperCase();
+    rarity =
+      card?.rarity != null && String(card.rarity).trim() !== "" && shift === 0
+        ? String(card.rarity)
+        : getRarityForLetter(displayed);
+    const ghosts = vowelGhostSlotsForDisplay(rawLower, shift);
+    vowelGhostPrev = upGhost(ghosts?.prev ?? null);
+    vowelGhostNext = upGhost(ghosts?.next ?? null);
+  } else if (card && typeof card === "object") {
+    const displayed = rawLower === "q" ? "q" : rawLower;
+    letter = displayed === "q" ? "Qu" : displayed.toUpperCase();
+    rarity =
+      card.rarity != null && String(card.rarity).trim() !== ""
+        ? String(card.rarity)
+        : getRarityForLetter(displayed);
+  }
+
+  return { letter, rarity, vowelGhostPrev, vowelGhostNext };
+}
 
 /** 若包含 `?`，返回首个可匹配的真实单词（小写）；无匹配则为 null。 */
-const resolvedWordForSubmit = computed(() => resolveWordPattern(effectiveWordForSubmit.value, "?"));
+const resolvedWordForSubmit = computed(() => resolveWordFromEffectiveParts(buildEffectiveWordPartsForSubmit()));
 
-/** 当前串若提交将触发 Boss 软违规时，Boss 条持续轻脉冲提示 */
+/** @param {object | null | undefined} tile */
+function selectedSlotIndexForTile(tile) {
+  if (!tile) return -1;
+  return selectedTiles.value.findIndex(
+    ({ tile: t }) => t === tile || (tile.id != null && t?.id === tile.id),
+  );
+}
+
+/** 该格是否正在从词槽飞回棋盘（含同批后续槽位） */
+function isTileInFlyingBackFromWord(tile) {
+  const idx = selectedSlotIndexForTile(tile);
+  if (idx < 0) return false;
+  return flyingBackBatches.value.some((b) => idx >= b.slotIndex);
+}
+
+/** 拼词中：按当前词典解析结果推算该格的元音展示偏移；无解析则 null */
+function resolveVowelDisplayShiftForTile(tile) {
+  const res = resolvedWordForSubmit.value;
+  const eff = effectiveWordForSubmit.value;
+  if (!res || !eff || eff.length !== res.length) return null;
+  if (!hasVowelNeighborSubstitute(ownedSlotTreasureIdList())) return null;
+  let pos = 0;
+  for (const t of effectiveFormulaTiles.value) {
+    const frag = String(t?.letter ?? "").toLowerCase();
+    if (t === tile || (tile?.id != null && t?.id === tile.id)) {
+      const card = tile._deckCard;
+      const natural =
+        card && typeof card === "object"
+          ? deckCardRaw(card)
+          : frag.replace(/^qu/, "q").charAt(0);
+      const naturalCh = natural.charAt(0) === "q" ? "q" : natural.charAt(0);
+      if (!isSubstitutableVowel(naturalCh)) return null;
+      const resolvedCh = res[pos];
+      if (!resolvedCh) return null;
+      return vowelDisplayShiftForResolved(naturalCh, resolvedCh);
+    }
+    pos += frag.length;
+  }
+  return null;
+}
+
+/** @param {object | null | undefined} tile */
+function vowelGhostForTile(tile) {
+  if (!hasVowelNeighborSubstitute(ownedSlotTreasureIdList()) || !tile?.letter) return null;
+  if (isTileInFlyingBackFromWord(tile)) {
+    const back = computeFlyBackTilePresentation(tile);
+    return { prev: back.vowelGhostPrev, next: back.vowelGhostNext };
+  }
+  const card = tile._deckCard;
+  let raw;
+  if (card && typeof card === "object") {
+    const natural = deckCardRaw(card);
+    raw = natural.charAt(0) === "q" ? "q" : natural.charAt(0);
+  } else {
+    raw = String(tile.letter).toLowerCase().replace(/^qu/, "q").charAt(0);
+  }
+  if (!isSubstitutableVowel(raw)) return null;
+  const liveShift = resolveVowelDisplayShiftForTile(tile);
+  const shift =
+    liveShift != null
+      ? liveShift
+      : card && typeof card === "object"
+        ? Math.sign(Number(card.vowelDisplayShift) || 0)
+        : 0;
+  const ghosts = vowelGhostSlotsForDisplay(raw, shift);
+  if (!ghosts) return null;
+  const up = (ch) => (ch ? (ch === "q" ? "Qu" : ch.toUpperCase()) : null);
+  return { prev: up(ghosts.prev), next: up(ghosts.next) };
+}
+
+/** 整词软规则：当前串若提交将违规时，Boss 条红色波纹持续提示（格级削弱仍走 tile） */
 const bossTapeSoftPreview = computed(() => {
   if (!dictionaryReady.value) return false;
   if (scoringAnimating.value) return false;
   const slug = activeBossSlug.value;
-  if (!slug) return false;
+  if (!bossHasWholeWordSoftRule(slug)) return false;
   const res = resolvedWordForSubmit.value;
   if (res == null) return false;
   const eff = effectiveWordForSubmit.value;
   if (!eff || eff.length < 1) return false;
-  const judgedLen = getJudgedLengthTableLenForOwnedVouchers(
+  const judgedLen = getJudgedLengthTableLenWithPenalty(
     getWordLetterCount(effectiveFormulaTiles.value, res),
     ownedVoucherIds.value,
+    runWordLengthJudgmentPenalty.value,
   );
   const soft = evaluateBossSoftWordViolation({
     slug,
@@ -3006,33 +3706,34 @@ const effectiveWordValid = computed(() => {
 });
 
 /**
- * 词槽与已选棋盘格展示：当前串在词典中有唯一解析时，把 `?` 万能格显示为解析字母，稀有度与同字母普通格一致。
- * 飞入中 pattern 与槽位不对齐，保持 `?`；飞回截断时用截断串的解析对齐前段槽位。
+ * 词槽与已选棋盘格展示：与 effectiveWordForSubmit 同步（含飞入在途格），解析出万能/元音替换字母。
+ * 飞回截断时仅对齐 minSlot 之前槽位。
  */
 const wordSlotTilePresentations = computed(() => {
   const orderTiles = selectedTiles.value.map(({ tile }) => tile);
-  if (flyingLetters.value.length > 0) return orderTiles.map(normalizeWordSlotPresentationTile);
   const batches = flyingBackBatches.value;
   const minSlot = batches.length > 0 ? Math.min(...batches.map((b) => b.slotIndex)) : orderTiles.length;
   const res = resolvedWordForSubmit.value;
   const eff = effectiveWordForSubmit.value;
-  if (!res || eff.length !== res.length) return orderTiles;
-  let pos = 0;
+  if (!res || eff.length !== res.length) {
+    return orderTiles.map(normalizeWordSlotPresentationTile);
+  }
   return orderTiles.map((tile, idx) => {
-    if (idx >= minSlot) return normalizeWordSlotPresentationTile(tile);
-    const frag = String(tile?.letter ?? "").toLowerCase();
-    const start = pos;
-    pos += frag.length;
-    if (!isWildcardMaterialTile(tile) || frag !== "?") return normalizeWordSlotPresentationTile(tile);
-    const ch = res[start];
-    if (!ch || ch < "a" || ch > "z") return normalizeWordSlotPresentationTile(tile);
-    const letter = ch === "q" ? "Qu" : ch.toUpperCase();
-    const rarity = getRarityForLetter(ch);
+    if (idx >= minSlot) {
+      const back = computeFlyBackTilePresentation(tile);
+      return normalizeWordSlotPresentationTile({
+        ...tile,
+        letter: back.letter,
+        rarity: back.rarity,
+        baseScore: getBaseScoreForRarity(back.rarity, rarityLevelsByRarity.value),
+      });
+    }
+    const pres = tilePresentationInResolvedWord(tile, res, eff);
     return normalizeWordSlotPresentationTile({
       ...tile,
-      letter,
-      rarity,
-      baseScore: getBaseScoreForRarity(rarity, rarityLevelsByRarity.value),
+      letter: pres.letter,
+      rarity: pres.rarity,
+      baseScore: getBaseScoreForRarity(pres.rarity, rarityLevelsByRarity.value),
     });
   });
 });
@@ -3594,6 +4295,7 @@ function resetSettlementAnimValues() {
 }
 
 async function openStageSettlement() {
+  await runTreasureLevelCompleteHooks();
   disableSettlementLayerAnim.value = false;
   settlementSnapshot.value = buildSettlementSnapshot();
   resetSettlementAnimValues();
@@ -4231,11 +4933,24 @@ async function animatePackTileFlyToDeck(fromEl, toTarget) {
 }
 
 function grantRandomShopTreasure() {
+  const r = grantRandomShopTreasureByRarity(null);
+  return r.ok;
+}
+
+/**
+ * @param {string | null} rarityFilter `epic` / `legendary`；null 为任意稀有度加权
+ * @returns {{ ok: boolean, slotIndex: number }}
+ */
+function grantRandomShopTreasureByRarity(rarityFilter) {
   const ix = ownedTreasures.value.findIndex((s) => s == null);
-  if (ix < 0) return false;
+  if (ix < 0) return { ok: false, slotIndex: -1 };
   const owned = ownedTreasureIdSet.value;
-  const picks = rollDistinctShopTreasures(shopTreasurePool, owned, new Set(), 1, runRandom);
-  if (!picks[0]) return false;
+  const pool = shopTreasurePool.value.filter(
+    (t) => !owned.has(t.treasureId) && (!rarityFilter || t.rarity === rarityFilter),
+  );
+  if (!pool.length) return { ok: false, slotIndex: -1 };
+  const picks = rollDistinctShopTreasures(pool, owned, new Set(), 1, runRandom);
+  if (!picks[0]) return { ok: false, slotIndex: -1 };
   const row = toShopOfferRows([picks[0]], runRandom)[0];
   const slots = [...ownedTreasures.value];
   slots[ix] = {
@@ -4248,7 +4963,174 @@ function grantRandomShopTreasure() {
     treasureAccessoryId: row.treasureAccessoryId ?? null,
   };
   ownedTreasures.value = slots;
-  return true;
+  initTreasureBankOnAcquire(row.treasureId, treasureRunState.value);
+  applyTreasureAcquireSideEffects(row.treasureId);
+  return { ok: true, slotIndex: ix };
+}
+
+/** @param {number} slotIndex */
+async function wobbleGameTreasureSlot(slotIndex) {
+  const el = gameTreasureSlotRefs[slotIndex];
+  if (el) wobbleScoreSlot(el, 1);
+}
+
+/** @param {number[]} slotIndices */
+async function wobbleGameTreasureSlots(slotIndices) {
+  shopOverlayLayersSuppressed.value = true;
+  await nextTick();
+  for (const ix of slotIndices) {
+    if (typeof ix === "number" && ix >= 0) await wobbleGameTreasureSlot(ix);
+    await sleep(SPELL_TREASURE_WOBBLE_GAP_MS);
+  }
+  shopOverlayLayersSuppressed.value = false;
+}
+
+const SPELL_TREASURE_WOBBLE_GAP_MS = 189;
+
+/**
+ * @param {number[]} slotIndices
+ * @param {number} flyCount
+ */
+async function animateSpellDeckAddsFromOfferSlots(slotIndices, flyCount) {
+  const deckBtn = deckBtnRef.value;
+  if (!deckBtn || !slotIndices.length || flyCount <= 0) return;
+  const layer = spellTargetLayerRef.value;
+  const n = Math.min(flyCount, slotIndices.length);
+  for (let i = 0; i < n; i++) {
+    const el = layer?.getOfferTileEl?.(slotIndices[i]) ?? null;
+    if (el) await animatePackTileFlyToDeck(el, deckBtn);
+  }
+}
+
+function buildEclipseLengthUpgradeSteps() {
+  const levelRefs = { rarityLevelsByRarity, lengthLevelsByLength };
+  const obsFn = (len) => isLengthObservatoryBoosted(ownedVoucherIds.value, len, spellCountsByLength.value);
+  return UPGRADE_LENGTH_GROUPS.map((g) => ({
+    payload: buildRandomUpgradeAnimPayload(
+      { kind: "length", g },
+      getBeforeLevelForRandomUpgradePick({ kind: "length", g }, levelRefs),
+      obsFn,
+    ),
+    apply: () => {
+      for (let len = g.minLen; len <= g.maxLen; len++) {
+        bumpWordLengthLevel(len, { observatoryBoost: obsFn(len) });
+      }
+    },
+  }));
+}
+
+function buildEclipseRarityUpgradeSteps() {
+  const levelRefs = { rarityLevelsByRarity, lengthLevelsByLength };
+  return LETTER_RARITY_ORDER.map((rk) => ({
+    payload: buildRandomUpgradeAnimPayload(
+      { kind: "rarity", rk },
+      getBeforeLevelForRandomUpgradePick({ kind: "rarity", rk }, levelRefs),
+      () => false,
+    ),
+    apply: () => {
+      const cur = Math.max(1, Math.round(Number(rarityLevelsByRarity.value?.[rk])) || 1);
+      setRarityLevelWithTreasurePairs(rk, cur + 1);
+    },
+  }));
+}
+
+async function playEclipseLengthUpgradeSequence() {
+  await runShopUpgradePlaybackSteps(buildEclipseLengthUpgradeSteps());
+  refreshGridTileBaseScoresFromLevels();
+}
+
+async function playEclipseRarityUpgradeSequence() {
+  await runShopUpgradePlaybackSteps(buildEclipseRarityUpgradeSteps());
+  refreshGridTileBaseScoresFromLevels();
+}
+
+/** 对局内无选格法术：在顶栏计分板播升级动效（与商店同款流程） */
+async function playInstantSpellInRunFx(effectiveSpellId) {
+  const sid = String(effectiveSpellId ?? "");
+  if (sid === "arrow_up") {
+    const levelRefs = { rarityLevelsByRarity, lengthLevelsByLength };
+    const obsFn = (len) => isLengthObservatoryBoosted(ownedVoucherIds.value, len, spellCountsByLength.value);
+    const picks = rollRandomUpgradePicks(UPGRADE_LENGTH_GROUPS, 2, runRandom);
+    const steps = picks.map((pick) => ({
+      payload: buildRandomUpgradeAnimPayload(
+        pick,
+        getBeforeLevelForRandomUpgradePick(pick, levelRefs),
+        obsFn,
+      ),
+      apply: () => {
+        applyRandomUpgradePick(pick, buildSpellRuntimeContext());
+        if (pick.kind === "rarity") refreshGridTileBaseScoresFromLevels();
+      },
+    }));
+    await runInRunUpgradePlaybackSteps(steps);
+    refreshGridTileBaseScoresFromLevels();
+    return;
+  }
+  if (sid === "eclipse_length") {
+    await runInRunUpgradePlaybackSteps(buildEclipseLengthUpgradeSteps());
+    refreshGridTileBaseScoresFromLevels();
+    return;
+  }
+  if (sid === "eclipse_rarity") {
+    await runInRunUpgradePlaybackSteps(buildEclipseRarityUpgradeSteps());
+    refreshGridTileBaseScoresFromLevels();
+  }
+}
+
+/**
+ * 无选格层的幻灵/升级类法术：在商店内播升级或宝藏动效。
+ * @param {string} effectiveSpellId
+ */
+async function playInstantSpellShopFx(effectiveSpellId) {
+  const sid = String(effectiveSpellId ?? "");
+  if (sid === "arrow_up") {
+    await playArrowUpShopUpgradeSequence({ restoreLayersAfter: false });
+    return;
+  }
+  if (sid === "eclipse_length") {
+    await playEclipseLengthUpgradeSequence();
+    return;
+  }
+  if (sid === "eclipse_rarity") {
+    await playEclipseRarityUpgradeSequence();
+    return;
+  }
+}
+
+/**
+ * @param {Record<string, unknown> | null} spellFx
+ * @param {string} effectiveSpellId
+ */
+async function playSpectralSpellResultFx(spellFx, effectiveSpellId) {
+  const sid = String(effectiveSpellId ?? "");
+  const fx = spellFx && typeof spellFx === "object" ? spellFx : null;
+  if (fx?.kind === "treasure_grant" && typeof fx.slotIndex === "number") {
+    await wobbleGameTreasureSlots([fx.slotIndex]);
+    return;
+  }
+  if (fx?.kind === "treasure_accessory" && typeof fx.slotIndex === "number") {
+    await wobbleGameTreasureSlots([fx.slotIndex]);
+    return;
+  }
+  if (fx?.kind === "ankh") {
+    const ixs = [fx.keptSlotIndex, fx.copySlotIndex].filter((i) => typeof i === "number" && i >= 0);
+    await wobbleGameTreasureSlots(ixs);
+    return;
+  }
+  if (fx?.kind === "deck_add" && typeof fx.count === "number") {
+    const layer = spellTargetLayerRef.value;
+    const slots = spellTargetSession.value?.offerSlots ?? [];
+    const slotIxs = slots.map((sl, ix) => (sl && !sl.empty && sl.tile ? ix : -1)).filter((ix) => ix >= 0);
+    const flyFrom =
+      typeof fx.removedDeckCardUid === "number"
+        ? slotIxs.slice(0, 1)
+        : slotIxs.slice(0, Math.min(slotIxs.length, fx.count));
+    await animateSpellDeckAddsFromOfferSlots(flyFrom, fx.count);
+    return;
+  }
+  if (sid === "immolate" || fx?.kind === "immolate") {
+    showToast("已获得 $20");
+  }
 }
 
 function buildSpellRuntimeContext() {
@@ -4260,7 +5142,8 @@ function buildSpellRuntimeContext() {
     COLS,
     rarityLevelsByRarity,
     lengthLevelsByLength,
-    setRarityLevel,
+    setRarityLevel: (rk, lv) => setRarityLevelWithTreasurePairs(rk, lv),
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     setWordLengthLevel,
     bumpWordLengthLevel: (len) =>
       bumpWordLengthLevel(len, {
@@ -4273,11 +5156,16 @@ function buildSpellRuntimeContext() {
     markTileAsWildcard,
     touchGrid,
     removeDeckLetterInstancesByRaws,
+    removeDeckCardByUid,
+    appendShopDeckEntries,
     remapTileFromRawLetter,
     money,
     ownedTreasures,
     upgradeLengthGroups: UPGRADE_LENGTH_GROUPS,
     grantRandomShopTreasure,
+    grantRandomShopTreasureByRarity,
+    setRunWordLengthJudgmentPenalty,
+    refreshGridTileBaseScoresFromLevels,
     showToast,
     setLastReplayableSpellId: (id) => {
       lastReplayableSpellId.value = id;
@@ -4350,6 +5238,12 @@ function prepareSpellOfferSlots(rng = Math.random) {
   return buildSpellOfferSlots(rng);
 }
 
+function prepareSpellOfferSlotsFromRemainingDeck(rng = Math.random) {
+  syncGridTilesToLinkedDeckCards();
+  const pool = Array.isArray(deck.value) ? deck.value.filter((c) => c && typeof c === "object") : [];
+  return buildSpellOfferSlotsFromPool(pool, buildSpellOfferSnapshotFromDeckCard, rng);
+}
+
 /**
  * 法术候选 / 施法目标：优先绑定到 `deckCardUid` 所在棋盘格，避免同字母多格误伤。
  * @param {Record<string, unknown>[][]} g
@@ -4373,34 +5267,62 @@ function resolveSpellOfferTargetOnGrid(g, slot) {
   return null;
 }
 
-/** @param {number | null | undefined} deckCardUid */
-function findDeckCardByUid(deckCardUid) {
+/**
+ * @param {number | null | undefined} deckCardUid
+ * @param {{ preferRemainingDeck?: boolean }} [opts]
+ */
+function findDeckCardByUid(deckCardUid, opts = {}) {
   if (deckCardUid == null) return null;
-  const multiset = Array.isArray(initialDeckSnapshot.value) ? initialDeckSnapshot.value : [];
-  let card = multiset.find(
-    (c) => c && typeof c === "object" && /** @type {{ _dcUid?: number }} */ (c)._dcUid === deckCardUid,
-  );
-  if (card) return /** @type {Record<string, unknown>} */ (card);
-  const d = Array.isArray(deck.value) ? deck.value : [];
-  card = d.find(
-    (c) => c && typeof c === "object" && /** @type {{ _dcUid?: number }} */ (c)._dcUid === deckCardUid,
-  );
-  if (card) return /** @type {Record<string, unknown>} */ (card);
-  const g = grid.value;
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const t = g[r]?.[c];
-      if (t?._deckCard?._dcUid === deckCardUid) {
-        return /** @type {Record<string, unknown>} */ (t._deckCard);
+  const preferRemaining = opts.preferRemainingDeck === true;
+  const lookupDeck = () => {
+    const d = Array.isArray(deck.value) ? deck.value : [];
+    return d.find(
+      (c) => c && typeof c === "object" && /** @type {{ _dcUid?: number }} */ (c)._dcUid === deckCardUid,
+    );
+  };
+  const lookupSnapshot = () => {
+    const multiset = Array.isArray(initialDeckSnapshot.value) ? initialDeckSnapshot.value : [];
+    return multiset.find(
+      (c) => c && typeof c === "object" && /** @type {{ _dcUid?: number }} */ (c)._dcUid === deckCardUid,
+    );
+  };
+  const lookupGrid = () => {
+    const g = grid.value;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const t = g[r]?.[c];
+        if (t?._deckCard?._dcUid === deckCardUid) {
+          return /** @type {Record<string, unknown>} */ (t._deckCard);
+        }
       }
     }
+    return null;
+  };
+
+  if (preferRemaining) {
+    let card = lookupDeck();
+    if (card) return /** @type {Record<string, unknown>} */ (card);
+    card = lookupGrid();
+    if (card) return card;
+    return null;
   }
-  return null;
+
+  let card = lookupSnapshot();
+  if (card) return /** @type {Record<string, unknown>} */ (card);
+  card = lookupDeck();
+  if (card) return /** @type {Record<string, unknown>} */ (card);
+  return lookupGrid();
 }
 
 /** @param {number} _row @param {number} _col @param {number | null | undefined} [deckCardUid] */
 function getSpellOfferTileSnapshotForCell(_row, _col, deckCardUid) {
   const card = findDeckCardByUid(deckCardUid);
+  return card ? buildSpellOfferSnapshotFromDeckCard(card) : null;
+}
+
+/** @param {number} _row @param {number} _col @param {number | null | undefined} [deckCardUid] */
+function getSpellOfferTileSnapshotForRemainingDeck(_row, _col, deckCardUid) {
+  const card = findDeckCardByUid(deckCardUid, { preferRemainingDeck: true });
   return card ? buildSpellOfferSnapshotFromDeckCard(card) : null;
 }
 
@@ -4446,50 +5368,217 @@ async function playSpellConfirmAnimOnOfferSlots(
   );
 }
 
-/**
- * 10 格候选：从本局完整牌库 multiset（`initialDeckSnapshot`）均匀随机抽牌张；
- * 牌库不足 10 张时允许重复，不出现空槽。展示与施法均按 `deckCardUid` 绑定具体牌张。
- */
+/** 10 格候选：从本局完整牌库 multiset 均匀随机抽牌张 */
 function buildSpellOfferSlots(rng = Math.random) {
-  const CAP = SPELL_CANDIDATE_TILE_CAP;
-  const rnd = typeof rng === "function" ? rng : Math.random;
   const pool = Array.isArray(initialDeckSnapshot.value)
     ? initialDeckSnapshot.value.filter((c) => c && typeof c === "object")
     : [];
+  return buildSpellOfferSlotsFromPool(pool, buildSpellOfferSnapshotFromDeckCard, rng);
+}
 
-  if (!pool.length) {
-    return Array.from({ length: CAP }, (_, i) => ({ key: `sp-${i}`, empty: true }));
+function noteSpellCastForReplay(purchasedSpellId) {
+  const sid = String(purchasedSpellId ?? "");
+  if (!sid || sid === "restart" || sid === "dice") return;
+  spellCastHistory.value = [...spellCastHistory.value, sid];
+}
+
+/**
+ * @param {string} purchasedSpellId
+ * @param {string} effectiveSpellId
+ * @param {'shop' | 'inRun'} context
+ * @param {'fullDeck' | 'remainingDeck'} offerDeckSource
+ * @param {{
+ *   confirmDisabled?: boolean,
+ *   spellDescription?: import('../treasures/treasureDescription.js').TreasureDescSegment[] | string,
+ *   spellName?: string,
+ *   spellIconClass?: string,
+ *   spellRarity?: string,
+ * }} [overrides]
+ */
+function buildSpellTargetSessionFields(
+  purchasedSpellId,
+  effectiveSpellId,
+  context,
+  offerDeckSource,
+  overrides = {},
+) {
+  const pid = String(purchasedSpellId ?? "");
+  const replayTarget = resolveRestartEffectiveSpellId(spellCastHistory.value, lastReplayableSpellId.value);
+  const eff =
+    pid === "restart"
+      ? replayTarget ?? String(effectiveSpellId ?? pid)
+      : resolveSpellFlowEffectiveId(pid, lastReplayableSpellId.value, spellCastHistory.value);
+  const def = getSpellDefinition(pid);
+  const pickSourceId = pid === "restart" && replayTarget ? replayTarget : pid;
+  let pickMode = resolveSpellPickMode(pickSourceId);
+  let pickCount = resolveSpellPickCount(pid, lastReplayableSpellId.value);
+  if (context === "inRun" && pickMode === "none") {
+    pickMode = "preview_only";
+    pickCount = 0;
   }
+  const preferRemaining = offerDeckSource === "remainingDeck";
+  const offerSlots = preferRemaining
+    ? prepareSpellOfferSlotsFromRemainingDeck(runRandom)
+    : prepareSpellOfferSlots(runRandom);
+  return {
+    spellName: overrides.spellName ?? def?.name ?? "法术",
+    spellIconClass: overrides.spellIconClass ?? def?.iconClass ?? "ri-magic-fill",
+    spellDescription: overrides.spellDescription ?? def?.description ?? "",
+    spellRarity: overrides.spellRarity ?? "rare",
+    pickCount,
+    pickMode,
+    offerSlots,
+    offerDeckSource,
+    context,
+    confirmDisabled: overrides.confirmDisabled === true,
+    purchasedSpellId: pid,
+    effectiveSpellId: eff,
+    getOfferTileSnapshot: preferRemaining
+      ? getSpellOfferTileSnapshotForRemainingDeck
+      : getSpellOfferTileSnapshotForCell,
+  };
+}
 
-  const allowReuse = pool.length < CAP;
-  const usedUid = new Set();
+/**
+ * @param {import('../game/inRunGrantFlow.js').SpellPreviewFlowResult} [previewResult]
+ */
+function resolveSpellPreviewFlow(previewResult) {
+  const r = spellPreviewFlowResolve;
+  spellPreviewFlowResolve = null;
+  r?.(previewResult ?? { confirmed: false, skipped: true });
+}
 
-  /** @type {Array<{ key: string, deckOnly: true, deckCardUid: number | null, tile?: unknown, empty?: boolean }>} */
-  const slots = [];
-  for (let i = 0; i < CAP; i++) {
-    let candidates = allowReuse
-      ? pool
-      : pool.filter((c) => {
-          const uid = /** @type {{ _dcUid?: number }} */ (c)._dcUid;
-          return uid == null || !usedUid.has(uid);
-        });
-    if (!candidates.length) candidates = pool;
-    const card = candidates[Math.floor(rnd() * candidates.length)];
-    const uid = /** @type {{ _dcUid?: number }} */ (card)._dcUid ?? null;
-    if (!allowReuse && uid != null) usedUid.add(uid);
-    const tile = buildSpellOfferSnapshotFromDeckCard(/** @type {Record<string, unknown>} */ (card));
-    if (!tile) {
-      slots.push({ key: `sp-${i}`, empty: true });
-      continue;
-    }
-    slots.push({
-      key: `sp-${i}`,
-      deckOnly: true,
-      deckCardUid: uid,
-      tile,
+/**
+ * @param {string} purchasedSpellId
+ * @param {'shop' | 'inRun'} context
+ * @param {'fullDeck' | 'remainingDeck'} offerDeckSource
+ * @param {Parameters<typeof buildSpellTargetSessionFields>[4]} [overrides]
+ */
+function openSingleSpellPreviewSession(purchasedSpellId, context, offerDeckSource, overrides = {}) {
+  return new Promise((resolve) => {
+    spellPreviewFlowResolve = resolve;
+    spellTargetSession.value = buildSpellTargetSessionFields(
+      purchasedSpellId,
+      purchasedSpellId,
+      context,
+      offerDeckSource,
+      overrides,
+    );
+  });
+}
+
+/**
+ * @param {string} purchasedSpellId
+ * @param {'shop' | 'inRun'} context
+ * @param {'fullDeck' | 'remainingDeck'} offerDeckSource
+ */
+async function applyInstantSpellWithoutPreview(purchasedSpellId, context, offerDeckSource) {
+  const pid = String(purchasedSpellId ?? "");
+  const effectiveSpellId = resolveSpellFlowEffectiveId(
+    pid,
+    lastReplayableSpellId.value,
+    spellCastHistory.value,
+  );
+  if (
+    effectiveSpellId === "arrow_up" ||
+    effectiveSpellId === "eclipse_length" ||
+    effectiveSpellId === "eclipse_rarity"
+  ) {
+    if (context === "inRun") await playInstantSpellInRunFx(effectiveSpellId);
+    else if (showShop.value) await playInstantSpellShopFx(effectiveSpellId);
+    noteSpellCastForReplay(pid);
+    return;
+  }
+  const ctx0 = buildSpellRuntimeContext();
+  const beforeGrid = cloneGridDeep(grid.value, ROWS, COLS);
+  const applyOpts =
+    pid === "dice" ? { rng: runRandom, skipDiceInline: true } : { rng: runRandom };
+  const spellResult = applySpell(ctx0, pid, effectiveSpellId, [], applyOpts);
+  if (showShop.value && context === "shop") {
+    await playInstantSpellShopFx(effectiveSpellId);
+  }
+  await playSpectralSpellResultFx(spellResult?.spellFx ?? null, effectiveSpellId);
+  const afterGrid = cloneGridDeep(grid.value, ROWS, COLS);
+  const animTargets = diffGridAppearanceTargets(beforeGrid, afterGrid, ROWS, COLS);
+  if (animTargets.length > 0) {
+    restoreGridFromDeepClone(grid, beforeGrid, ROWS, COLS);
+    touchGrid();
+    await nextTick();
+    const oldSnaps0 = animTargets.map(({ row, col }) => beforeGrid[row][col]);
+    const newSnaps0 = animTargets.map(({ row, col }) => afterGrid[row][col]);
+    await queueOrRunSpellTileAppearanceAnim({
+      spellId: effectiveSpellId,
+      targets: animTargets,
+      oldSnaps: oldSnaps0,
+      newSnaps: newSnaps0,
+      grid,
+      touchGrid,
+      getTileEl: (row, col) => getGridTileElByIndex(row * COLS + col),
+      nextTick,
     });
   }
-  return slots;
+  syncGridTilesToLinkedDeckCards();
+  noteSpellCastForReplay(pid);
+  void offerDeckSource;
+}
+
+/**
+ * @param {string} purchasedSpellId
+ * @param {'shop' | 'inRun'} context
+ * @param {'fullDeck' | 'remainingDeck'} offerDeckSource
+ * @param {Parameters<typeof buildSpellTargetSessionFields>[4]} [overrides]
+ * @returns {Promise<import('../game/inRunGrantFlow.js').SpellPreviewFlowResult>}
+ */
+async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, overrides = {}) {
+  const pid = String(purchasedSpellId ?? "");
+  if (!pid) return { confirmed: false, skipped: true };
+
+  if (pid === "restart") {
+    const replayTarget = resolveRestartEffectiveSpellId(
+      spellCastHistory.value,
+      lastReplayableSpellId.value,
+    );
+    const result = await openSingleSpellPreviewSession(pid, context, offerDeckSource, {
+      ...overrides,
+      confirmDisabled: !replayTarget,
+    });
+    if (!result.confirmed) return result;
+    if (!replayTarget) return result;
+    return runSpellPreviewChain(replayTarget, context, offerDeckSource, overrides);
+  }
+
+  if (pid === "dice") {
+    const result = await openSingleSpellPreviewSession(pid, context, offerDeckSource, overrides);
+    if (!result.confirmed) return result;
+    for (const subId of pickDiceChainSpellIds(runRandom)) {
+      await runSpellPreviewChain(subId, context, offerDeckSource, overrides);
+    }
+    return { confirmed: true, skipped: false };
+  }
+
+  const replayTarget = resolveRestartEffectiveSpellId(spellCastHistory.value, lastReplayableSpellId.value);
+  const openPreview =
+    context === "inRun"
+      ? shouldOpenInRunSpellPreview(pid)
+      : shouldOpenSpellTargetLayer(pid, replayTarget);
+
+  if (!openPreview) {
+    await applyInstantSpellWithoutPreview(pid, context, offerDeckSource);
+    return { confirmed: true, skipped: false };
+  }
+
+  return openSingleSpellPreviewSession(pid, context, offerDeckSource, overrides);
+}
+
+/** @param {string} spellId @param {{ treasureSlotIndex?: number }} [opts] */
+async function runInRunSpellGrant(spellId, { treasureSlotIndex } = {}) {
+  if (typeof treasureSlotIndex === "number" && treasureSlotIndex >= 0) {
+    shopOverlayLayersSuppressed.value = true;
+    await nextTick();
+    await wobbleGameTreasureSlot(treasureSlotIndex);
+    shopOverlayLayersSuppressed.value = false;
+  }
+  return runSpellPreviewChain(spellId, "inRun", "remainingDeck");
 }
 
 async function queueOrRunSpellTileAppearanceAnim(opts) {
@@ -4501,25 +5590,44 @@ async function queueOrRunSpellTileAppearanceAnim(opts) {
 }
 
 /** 先播法术目标层关闭动画，再卸载（与商店 `TreasureDetailLayer.playClose` 一致） */
-async function dismissSpellTargetLayer() {
+async function dismissSpellTargetLayer(previewResult) {
   const layer = spellTargetLayerRef.value;
   if (layer && typeof layer.playClose === "function") {
     await layer.playClose();
   }
   spellTargetSession.value = null;
-  const r = spellPackFulfillmentResolve;
-  spellPackFulfillmentResolve = null;
-  r?.();
+  resolveSpellPreviewFlow(previewResult);
   ensurePackPickOverlayVisible();
 }
 
 async function onSpellTargetCancel() {
-  await dismissSpellTargetLayer();
+  await dismissSpellTargetLayer({ confirmed: false, skipped: true });
 }
 
 async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
   const s = spellTargetSession.value;
   if (!s) return;
+
+  const purchasedId = String(s.purchasedSpellId ?? "");
+  if (purchasedId === "restart") {
+    await dismissSpellTargetLayer({ confirmed: true, skipped: false });
+    const replayTarget = resolveRestartEffectiveSpellId(
+      spellCastHistory.value,
+      lastReplayableSpellId.value,
+    );
+    if (!replayTarget) return;
+    await runSpellPreviewChain(replayTarget, s.context ?? "shop", s.offerDeckSource ?? "fullDeck");
+    return;
+  }
+  if (purchasedId === "dice") {
+    await dismissSpellTargetLayer({ confirmed: true, skipped: false });
+    const deckSrc = s.offerDeckSource ?? "fullDeck";
+    const ctx = s.context ?? "shop";
+    for (const subId of pickDiceChainSpellIds(runRandom)) {
+      await runSpellPreviewChain(subId, ctx, deckSrc);
+    }
+    return;
+  }
   const offerSlotsList = Array.isArray(s.offerSlots) ? s.offerSlots : [];
   const resolvedOrdered = Array.isArray(selectionSlotIndices)
     ? selectionSlotIndices.map((ix) => {
@@ -4533,6 +5641,10 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
     : ordered;
   const ctx = buildSpellRuntimeContext();
   const sid = String(s.effectiveSpellId ?? "");
+  const deferInRunUpgradeFxApply =
+    s.context === "inRun" &&
+    s.pickMode === "preview_only" &&
+    (sid === "arrow_up" || sid === "eclipse_length" || sid === "eclipse_rarity");
   const g = grid.value;
   /** 与点选 1:1、允许重复坐标（`getSpellTileAppearanceTargets` 会去重，导致少格动效/少格快照） */
   const usePickSequenceAnim =
@@ -4586,8 +5698,12 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
     const oldOfferSnaps =
       slotIxs.length > 0 ? slotIxs.map((ix) => buildSpellOfferSnapFromSlot(offerSlotsList[ix])) : [];
     const beforeGrid = cloneGridDeep(g, ROWS, COLS);
+    /** @type {Record<string, unknown> | null} */
+    let lastSpellFx = null;
     const applySpellNow = () => {
-      applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, resolvedOrdered, { rng: runRandom });
+      if (deferInRunUpgradeFxApply) return;
+      const r = applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, resolvedOrdered, { rng: runRandom });
+      lastSpellFx = r?.spellFx ?? null;
     };
     let playedOnOffer = false;
     if (slotIxs.length > 0 && oldOfferSnaps.every(Boolean)) {
@@ -4622,13 +5738,21 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
       }
     }
     await sleep(playedOnOffer ? 500 : 0);
-    await dismissSpellTargetLayer();
+    await playSpectralSpellResultFx(lastSpellFx, sid);
+    if (deferInRunUpgradeFxApply) await playInstantSpellInRunFx(sid);
+    syncGridTilesToLinkedDeckCards();
+    noteSpellCastForReplay(s.purchasedSpellId);
+    await dismissSpellTargetLayer({ confirmed: true, skipped: false });
     return;
   }
 
   const oldSnaps = targets.map(({ row, col }) => cloneGridTileSnapshot(g[row][col]));
+  /** @type {Record<string, unknown> | null} */
+  let lastSpellFx = null;
   const applySpellNow = () => {
-    applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, resolvedOrdered, { rng: runRandom });
+    if (deferInRunUpgradeFxApply) return;
+    const r = applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, resolvedOrdered, { rng: runRandom });
+    lastSpellFx = r?.spellFx ?? null;
   };
   await nextTick();
   const playedOnOffer =
@@ -4661,7 +5785,11 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
     });
   }
   await sleep(500);
-  await dismissSpellTargetLayer();
+  await playSpectralSpellResultFx(lastSpellFx, sid);
+  if (deferInRunUpgradeFxApply) await playInstantSpellInRunFx(sid);
+  syncGridTilesToLinkedDeckCards();
+  noteSpellCastForReplay(s.purchasedSpellId);
+  await dismissSpellTargetLayer({ confirmed: true, skipped: false });
 }
 
 function clearOfferSlotAfterPurchase(t) {
@@ -4757,69 +5885,18 @@ async function onTreasurePurchase() {
   if (t.offerType === "spell") {
     const spellId = String(t.spellId ?? "");
     if (!spellId) return;
-    if (spellId === "restart" && !lastReplayableSpellId.value) {
-      showToast("尚无可重播的法术");
-      return;
-    }
-    const effectiveSpellId =
-      spellId === "restart" ? String(lastReplayableSpellId.value) : spellId;
-    const pickCount = resolveSpellPickCount(spellId, lastReplayableSpellId.value);
-
-    if (pickCount <= 0) {
-      const layer = treasureDetailLayerRef.value;
-      await layer?.playClose?.();
-      money.value -= pay;
-      noteRunShopPurchase();
-      clearOfferSlotAfterPurchase(t);
-      treasureDetail.value = null;
-      if (effectiveSpellId === "arrow_up" && showShop.value) {
-        await playArrowUpShopUpgradeSequence({ restoreLayersAfter: false });
-        return;
-      }
-      const ctx0 = buildSpellRuntimeContext();
-      const beforeGrid = cloneGridDeep(grid.value, ROWS, COLS);
-      applySpell(ctx0, spellId, effectiveSpellId, [], { rng: runRandom });
-      const afterGrid = cloneGridDeep(grid.value, ROWS, COLS);
-      const animTargets = diffGridAppearanceTargets(beforeGrid, afterGrid, ROWS, COLS);
-      if (animTargets.length > 0) {
-        restoreGridFromDeepClone(grid, beforeGrid, ROWS, COLS);
-        touchGrid();
-        await nextTick();
-        const oldSnaps0 = animTargets.map(({ row, col }) => beforeGrid[row][col]);
-        const newSnaps0 = animTargets.map(({ row, col }) => afterGrid[row][col]);
-        await queueOrRunSpellTileAppearanceAnim({
-          spellId: effectiveSpellId,
-          targets: animTargets,
-          oldSnaps: oldSnaps0,
-          newSnaps: newSnaps0,
-          grid,
-          touchGrid,
-          getTileEl: (row, col) => getGridTileElByIndex(row * COLS + col),
-          nextTick,
-        });
-      }
-      return;
-    }
-
     const layer = treasureDetailLayerRef.value;
     await layer?.playClose?.();
     money.value -= pay;
     noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
     treasureDetail.value = null;
-
-    const def = getSpellDefinition(spellId);
-    spellTargetSession.value = {
-      spellName: def?.name ?? t.name ?? "法术",
-      spellIconClass: def?.iconClass ?? t.iconClass ?? "ri-magic-fill",
-      spellDescription: t.description ?? def?.description ?? "",
-      spellRarity: t.rarity ?? "rare",
-      pickCount,
-      offerSlots: prepareSpellOfferSlots(runRandom),
-      getOfferTileSnapshot: getSpellOfferTileSnapshotForCell,
-      purchasedSpellId: spellId,
-      effectiveSpellId,
-    };
+    await runSpellPreviewChain(spellId, "shop", "fullDeck", {
+      spellDescription: t.description,
+      spellName: t.name,
+      spellIconClass: t.iconClass,
+      spellRarity: t.rarity,
+    });
     return;
   }
 
@@ -4869,6 +5946,8 @@ async function onTreasurePurchase() {
     description: t.description,
     treasureAccessoryId: t.treasureAccessoryId ?? null,
   };
+  initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
+  applyTreasureAcquireSideEffects(t.treasureId);
   clearOfferSlotAfterPurchase(t);
   treasureDetail.value = null;
 }
@@ -4882,6 +5961,9 @@ async function onTreasureSell() {
 
   await treasureDetailLayerRef.value?.playClose?.();
   money.value += Math.floor(Number(cur.price) / 2);
+  notifyOwnedTreasuresOnTreasureSold(ownedSlotTreasureIdList(), {
+    treasureRun: treasureRunState.value,
+  });
   ownedTreasures.value[ix] = null;
   treasureDetail.value = null;
   if (activeBossSlug.value === "verdant_leaf") {
@@ -4894,8 +5976,16 @@ async function onShopReroll() {
   if (transitionBusy.value) return;
   if (!shopCanReroll.value) return;
   const cost = shopNextRerollCostDisplay.value;
-  money.value -= cost;
+  const rs = treasureRunState.value;
+  if (cost > 0) {
+    money.value -= cost;
+  } else if ((rs.shopFreeRerollsRemaining ?? 0) > 0) {
+    rs.shopFreeRerollsRemaining -= 1;
+  }
   noteRunReroll();
+  notifyOwnedTreasuresOnShopReroll(ownedSlotTreasureIdList(), {
+    treasureRun: treasureRunState.value,
+  });
   shopRerollsThisVisit.value += 1;
   const sessionExclude = new Set();
   addShopShelfTreasureIdsToExclude(sessionExclude, shopOffers.value);
@@ -4944,18 +6034,18 @@ async function executeShopLeaveToNextLevel(event) {
   if (transitionBusy.value) return;
   transitionBusy.value = true;
 
-  const nextLevel = () => {
+  const nextLevel = async () => {
     // 只在“覆盖阶段”做 grid 清空/重置：让新关的 grid 先处在 pre-intro 隐藏态；
     // 入场动画本身要在转场结束后再启动，才能保证你能看见。
     gridIntroDone.value = false;
     if (glyphShopSkipLevelAdvance.value) {
       glyphShopSkipLevelAdvance.value = false;
       const cur = getRunLevelAtIndex(levelIndex.value);
-      resetLevel(cur, buildLevelResetRunOpts(cur));
+      await resetLevelAfterTreasurePrep(cur);
     } else {
       levelIndex.value += 1;
       const next = getRunLevelAtIndex(levelIndex.value);
-      resetLevel(next, buildLevelResetRunOpts(next));
+      await resetLevelAfterTreasurePrep(next);
     }
     pendingBossSlugOverride.value = "";
     showShop.value = false;
@@ -5456,13 +6546,19 @@ function innerScrollHeight(wrap) {
   return inner ? inner.scrollHeight : 0;
 }
 
+/** 记分气泡锚点：用词槽外框（含 debuff 滤镜 / wobble 缩放），与棋盘格视觉一致 */
+function scoreBubbleAnchorRect(slotEl) {
+  const node = refToDom(slotEl) ?? (slotEl instanceof HTMLElement ? slotEl : null);
+  if (!node || typeof node.getBoundingClientRect !== "function") return null;
+  const r = node.getBoundingClientRect();
+  if (r.width < 1 || r.height < 1) return null;
+  return r;
+}
+
 function showScoreBubble(slotEl, text, kind, speed = 1) {
   const s = Math.max(0.01, Number(speed) || 1);
-  const anchorEl =
-    slotEl instanceof HTMLElement
-      ? slotEl.querySelector(".word-slot-content") ?? slotEl
-      : slotEl;
-  const rect = (anchorEl ?? slotEl).getBoundingClientRect();
+  const rect = scoreBubbleAnchorRect(slotEl);
+  if (!rect) return null;
   const div = document.createElement("div");
   div.className =
     kind === "mult"
@@ -5475,18 +6571,11 @@ function showScoreBubble(slotEl, text, kind, speed = 1) {
             ? "score-popup-bubble score-popup-bubble--skip"
             : "score-popup-bubble";
   div.textContent = text;
+  document.body.appendChild(div);
   const rpx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
   /** 气泡底边与字母块顶边的间距，整块在槽位上方、槽外 */
   const gapAboveSlotPx = 12 * rpx;
-  const anchor = kind === "skip" ? /** @type {HTMLDivElement} */ (document.createElement("div")) : div;
-  if (kind === "skip") {
-    anchor.appendChild(div);
-    document.body.appendChild(anchor);
-  } else {
-    document.body.appendChild(div);
-  }
-  const mountEl = kind === "skip" ? anchor : div;
-  gsap.set(mountEl, {
+  gsap.set(div, {
     position: "fixed",
     left: rect.left + rect.width / 2,
     top: rect.top - gapAboveSlotPx,
@@ -5498,16 +6587,17 @@ function showScoreBubble(slotEl, text, kind, speed = 1) {
     force3D: true,
   });
   if (kind === "skip") {
-    gsap.set(div, { opacity: 1, scale: 1, yPercent: 30 });
-    gsap
-      .timeline()
-      .to(div, {
-        yPercent: -5,
-        duration: SKIP_BUBBLE_RISE_S / s,
-        ease: "circ.out",
-      })
-      .to(div, { yPercent: 0, duration: SKIP_BUBBLE_SETTLE_S / s, ease: "circ.in" });
-    return anchor;
+    const risePx = Math.max(10 * rpx, rect.height * 0.2);
+    gsap.fromTo(
+      div,
+      { opacity: 1, scale: 1, y: risePx },
+      {
+        y: 0,
+        duration: (SKIP_BUBBLE_RISE_S + SKIP_BUBBLE_SETTLE_S) / s,
+        ease: EASE_TRANSFORM,
+      },
+    );
+    return div;
   }
   gsap.fromTo(
     div,
@@ -5917,15 +7007,20 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     if (didTreasureMult) wordSlotIntrinsicWobblePlayed = true;
   }
 
+  const ctxLetterRarityMult = {
+    ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null),
+    treasureRun: treasureRunState.value,
+  };
   for (let si = 0; si < nOwn; si++) {
     const tid = ownedTreasures.value[si]?.treasureId;
     if (!tid) continue;
-    const animCfg = TREASURE_HOOKS_BY_ID.get(tid)?.getLetterRarityMultAnimConfig?.();
+    const animCfg = TREASURE_HOOKS_BY_ID.get(tid)?.getLetterRarityMultAnimConfig?.(ctxLetterRarityMult);
     if (!animCfg) continue;
     const didRarity = await runLetterRarityTreasureMultStep(part, slotEl, {
       treasureId: tid,
       slotIndex: si,
       multDelta: animCfg.multDelta,
+      multMul: animCfg.multMul,
       bubbleLabel: animCfg.bubbleLabel,
       rarity: animCfg.targetRarity,
       active: true,
@@ -6293,6 +7388,17 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
   await nextTick();
   await new Promise((r) => requestAnimationFrame(r));
 
+  if (detailed.bossSoftViolation !== true) {
+    await runPendingInRunGrantsAfterSubmit(
+      tiles,
+      String(resolvedWord ?? "")
+        .toLowerCase()
+        .trim() || tiles.map((c) => c.letter.toLowerCase()).join(""),
+      lenTb,
+      currentScore.value,
+    );
+  }
+
   const startRound = currentScore.value;
   const endRound = startRound + detailed.finalScore;
   /** 整格依次消失（占位+字母一起），按槽位索引 0..n-1 */
@@ -6496,6 +7602,10 @@ async function onRemoveClick() {
   const nSel = selectedOrder.value.length;
   if (nSel === 0) return;
 
+  const discardedLettersForHooks = selectedTiles.value.map(({ tile }) => ({
+    letter: tile?.letter ?? "",
+  }));
+
   /** 与提交一致：先收集槽位 DOM，再播依次消失（此时 selectedOrder 仍在，槽位未卸载） */
   const slotTileEls = [];
   for (let i = 0; i < nSel; i++) {
@@ -6554,6 +7664,19 @@ async function onRemoveClick() {
 
   recordLettersDiscarded(runMatchStats.value, nSel);
 
+  treasureRunState.value.levelDiscardsUsed = true;
+  await notifyOwnedTreasuresOnDiscardBatch(ownedSlotTreasureIdList(), {
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    discardedLetters: discardedLettersForHooks,
+    letterCount: nSel,
+    treasureRun: treasureRunState.value,
+    rng: runRandom,
+    addMoney: (amount) => {
+      money.value += Math.max(0, Math.floor(Number(amount) || 0));
+    },
+  });
+  noteDiscardExhaustedForChapterUnlock();
+
   await nextTick();
   await runGridDropAnimation(prevFlip);
   tryCeruleanBellFlyInAfterGridStable();
@@ -6587,6 +7710,7 @@ function startOneMoveIn(row, col, tile, options = {}) {
   const numSlots = n + 1;
   const totalDesign = numSlots * SLOT_TILE_W + (numSlots - 1) * SLOT_GAP;
   const targetSlotScale = numSlots === 0 ? 1 : Math.min(1, MIDDLE_MAX_W / totalDesign);
+  const flyPres = computeFlyInTilePresentation(tile);
   flyingLetters.value = [
     ...flyingLetters.value,
     {
@@ -6594,13 +7718,15 @@ function startOneMoveIn(row, col, tile, options = {}) {
       fromRect,
       toRect,
       targetSlotScale,
-      letter: tile.letter,
-      rarity: tile.rarity,
+      letter: flyPres.letter,
+      rarity: flyPres.rarity,
       materialId: tile.materialId ?? null,
       accessoryId: tile.accessoryId ?? null,
       treasureAccessoryId: tile.treasureAccessoryId ?? null,
       bossTileDebuffed: tile.bossTileDebuffed === true,
       ceruleanBell: options.ceruleanBell === true,
+      vowelGhostPrev: flyPres.vowelGhostPrev,
+      vowelGhostNext: flyPres.vowelGhostNext,
       pendingRow: row,
       pendingCol: col,
     },
@@ -6626,7 +7752,6 @@ function startOneMoveOut(slotIndex) {
   if (ceruleanBellSlotIndex.value != null && slotIndex <= ceruleanBellSlotIndex.value) return;
   const batches = flyingBackBatches.value;
   const fromRefs = wordSlotRefs.value;
-  const pres = wordSlotTilePresentations.value;
   const list = [];
   for (let j = slotIndex; j < order.length; j++) {
     if (batches.some((b) => b.slotIndex <= j)) continue;
@@ -6635,15 +7760,17 @@ function startOneMoveOut(slotIndex) {
     const toEl = gridTileRefs.value[row * COLS + col];
     const tile = grid.value[row][col];
     if (!fromEl || !toEl) continue;
-    const pv = pres[j];
+    const backPres = computeFlyBackTilePresentation(tile);
     list.push({
       fromRect: fromEl.getBoundingClientRect(),
       toRect: toEl.getBoundingClientRect(),
-      letter: pv?.letter ?? tile.letter,
-      rarity: pv?.rarity ?? tile.rarity,
+      letter: backPres.letter,
+      rarity: backPres.rarity,
       materialId: tile.materialId ?? null,
       accessoryId: tile.accessoryId ?? null,
       bossTileDebuffed: tile.bossTileDebuffed === true,
+      vowelGhostPrev: backPres.vowelGhostPrev,
+      vowelGhostNext: backPres.vowelGhostNext,
     });
   }
   if (list.length === 0) return;
@@ -6712,7 +7839,7 @@ async function runLastSubmitVipDiamondRarityFxIfApplicable(tiles, isLastSubmitCh
   const rk = String(first.rarity ?? "common");
   if (!LETTER_RARITY_ORDER.includes(rk)) return;
   const beforeLevel = Math.max(1, Math.round(Number(rarityLevelsByRarity.value?.[rk])) || 1);
-  setRarityLevel(rk, beforeLevel + 1);
+  setRarityLevelWithTreasurePairs(rk, beforeLevel + 1);
   refreshGridTileBaseScoresFromLevels();
   await runInGameRarityUpgradeShopLikeFx({
     areaRef: gameResultAreaRef,
@@ -6758,6 +7885,13 @@ async function submitWord() {
   const isLastSubmitChance = remainingWords.value === 1;
   const gSubmit = grid.value;
   const submitExcludedGridKeys = gridSelectedPositionKeySet(selectedTiles.value);
+  const gridTilesForTreasures = collectGridLetterTiles(gSubmit, ROWS, COLS);
+  const remainingGridTilesForTreasures = collectGridLetterTiles(
+    gSubmit,
+    ROWS,
+    COLS,
+    submitExcludedGridKeys,
+  );
   const gridPresencePostLetterSteps = buildGridPresencePostLetterSteps(
     gSubmit,
     ROWS,
@@ -6765,10 +7899,18 @@ async function submitWord() {
     submitExcludedGridKeys,
     getGridEffectTriggerCount,
   );
-  const lengthJb = getWordLengthJudgmentBonus(ownedVoucherIds.value);
-  const judgedLenTable = getJudgedLengthTableLenForOwnedVouchers(
+  const ownedTids = ownedSlotTreasureIdList();
+  const lengthJb =
+    getWordLengthJudgmentBonus(ownedVoucherIds.value) -
+    runWordLengthJudgmentPenalty.value -
+    sumTreasureLengthJudgmentPenalty(ownedTids) +
+    sumTreasureSubmitLengthBonus(ownedTids);
+  const judgedLenTable = getJudgedLengthTableLenWithPenalty(
     resolvedWord.length,
     ownedVoucherIds.value,
+    runWordLengthJudgmentPenalty.value +
+      sumTreasureLengthJudgmentPenalty(ownedTids) -
+      sumTreasureSubmitLengthBonus(ownedTids),
   );
   const soft = evaluateBossSoftWordViolation({
     slug: activeBossSlug.value,
@@ -6816,9 +7958,25 @@ async function submitWord() {
       lengthUpgradeObservatoryExtra: lengthUpgradeObservatoryExtra.value,
       rng: runRandom,
       resolvedWord,
+      treasureRun: treasureRunState.value,
+      money: money.value,
+      ownedTreasureInstances: ownedTreasures.value.filter(Boolean),
+      getWordDefinition,
+      gridTiles: gridTilesForTreasures,
+      remainingGridTiles: remainingGridTilesForTreasures,
     },
   );
   if (submitViolated) {
+    if (activeBossSlug.value) {
+      notifyOwnedTreasuresOnBossRestrictionTriggered(ownedSlotTreasureIdList(), {
+        ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+        treasureRun: treasureRunState.value,
+        bossSlug: activeBossSlug.value,
+        addMoney: (n) => {
+          money.value += Math.max(0, Math.floor(Number(n) || 0));
+        },
+      });
+    }
     bossTapeWobble.value = true;
     setTimeout(() => {
       bossTapeWobble.value = false;
@@ -6840,6 +7998,7 @@ async function submitWord() {
       bossSoftViolation: true,
     };
   }
+  const scoreBeforeHand = currentScore.value;
   recordWordSubmit(runMatchStats.value, {
     word: resolvedWord,
     score: detailed.finalScore,
@@ -6856,16 +8015,25 @@ async function submitWord() {
     for (const iceTileId of submittedIceTileIds) {
       if (runRandom() < ICE_MATERIAL_SELF_DESTRUCT_CHANCE) {
         consumeIceTileOnGrid(iceTileId);
+        notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIdList(), {
+          treasureRun: treasureRunState.value,
+        });
       }
     }
     await runLastSubmitVipDiamondRarityFxIfApplicable(tiles, isLastSubmitChance);
     if (!submitViolated) {
-      await notifyOwnedTreasuresSuccessfulWordSubmit(ownedSlotTreasureIds, {
-        ownedSlotTreasureIds,
-        incrementChargeWordSubmissionCount: bumpBasketballWordSubmitted,
-        submittedScoringTiles: tiles.map((t) => ({ materialId: t?.materialId ?? null })),
-        mutateRandomNonWildcardLetterTileToWildcard,
-      });
+      if (
+        parseLevelSubFromId(currentLevel.value?.id ?? "1-1") === 3 &&
+        tiles.length > 0 &&
+        tiles.every((t) => String(t?.rarity ?? "common") === "common")
+      ) {
+        treasureRunState.value.allCommonBossClearRecorded = true;
+      }
+      const allGold =
+        !submitViolated &&
+        tiles.length > 0 &&
+        tiles.every((t) => t?.materialId === "gold");
+      if (allGold) treasureRunState.value.playedAllGoldWord = true;
       recordSpellWordLength(judgedLenTable);
       const sub = parseLevelSubFromId(currentLevel.value?.id ?? "1-1");
       if (sub <= 2) {
@@ -6954,7 +8122,6 @@ function e2eCanBuyShopOffer(t) {
   if (t.offerType === "bundlePack") return w >= p;
   if (t.offerType === "spell") {
     const sid = String(t.spellId ?? "");
-    if (sid === "restart" && !lastReplayableSpellId.value) return false;
     return w >= p;
   }
   if (t.offerType === "upgrade") return w >= p;
@@ -7071,7 +8238,6 @@ async function e2eAutoPackPickOnce() {
     if (o.offerType === "treasure" && !ownedTreasures.value.some((s) => s == null)) return false;
     if (o.offerType === "spell") {
       const sid = String(o.spellId ?? "");
-      if (sid === "restart" && !lastReplayableSpellId.value) return false;
     }
     return true;
   });
@@ -7099,14 +8265,12 @@ function getBossPlayContextForE2e() {
     clubRequiredKey: clubRequiredKeyBoss.value || null,
     getWordDefinition,
     getJudgedLength: (rawLen) =>
-      getJudgedLengthTableLenForOwnedVouchers(rawLen, ownedVoucherIds.value),
+      getJudgedLengthTableLenWithPenalty(rawLen, ownedVoucherIds.value, runWordLengthJudgmentPenalty.value),
   };
 }
 
 function mountE2eHarnessIfNeeded() {
   if (!isE2eMode() || disposeE2eHarness) return;
-  const L = getRunLevelAtIndex(levelIndex.value);
-  resetLevel(L, buildLevelResetRunOpts(L));
   disposeE2eHarness = registerGameTestHarness({
       getGridSnapshot() {
         const g = grid.value;
@@ -7151,7 +8315,9 @@ function mountE2eHarnessIfNeeded() {
         const tiles = path.map(({ row, col }) => grid.value[row][col]);
         const pattern = tiles.map((t) => String(t?.letter ?? "").toLowerCase()).join("");
         const resolved = resolveWordPattern(pattern, "?");
-        const lengthJb = getWordLengthJudgmentBonus(ownedVoucherIds.value ?? []);
+        const lengthJb =
+          getWordLengthJudgmentBonus(ownedVoucherIds.value ?? []) -
+          runWordLengthJudgmentPenalty.value;
         const flintOpts =
           activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
         flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;
@@ -7210,8 +8376,10 @@ onMounted(async () => {
   slotRafLastTime = performance.now();
   slotRafId = requestAnimationFrame(slotRafLoop);
   if (!gamePanelAlive) return;
+  const levelDef = currentLevel.value ?? getRunLevelAtIndex(levelIndex.value);
+  await resetLevelAfterTreasurePrep(levelDef);
+  await nextTick();
   if (isE2eMode()) {
-    await nextTick();
     gridIntroDone.value = true;
     gridRefillAnimating.value = false;
     for (let i = 0; i < ROWS * COLS; i++) {

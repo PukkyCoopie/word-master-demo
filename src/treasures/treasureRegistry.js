@@ -83,6 +83,207 @@ export async function notifyOwnedTreasuresSuccessfulWordSubmit(ownedSlotTreasure
     const fn = TREASURE_HOOKS_BY_ID.get(id)?.onSuccessfulWordSubmit;
     if (fn) await Promise.resolve(fn(ctx));
   }
+  const slots = ownedSlotTreasureIds ?? [];
+  for (let si = 0; si < slots.length; si++) {
+    if (slots[si] !== "98") continue;
+    const right = slots[si + 1];
+    if (!right || right === "98") continue;
+    const fn = TREASURE_HOOKS_BY_ID.get(right)?.onSuccessfulWordSubmit;
+    if (fn) await Promise.resolve(fn(ctx));
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureDiscardContext} ctx */
+export async function notifyOwnedTreasuresOnDiscardBatch(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const id of ownedSlotTreasureIds) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    const fn = TREASURE_HOOKS_BY_ID.get(id)?.onDiscardBatch;
+    if (fn) await Promise.resolve(fn(ctx));
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureLevelEnterContext} ctx */
+export async function notifyOwnedTreasuresPrepareLevelEnter(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const id of ownedSlotTreasureIds) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    const fn = TREASURE_HOOKS_BY_ID.get(id)?.prepareLevelEnter;
+    if (fn) await Promise.resolve(fn(ctx));
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureLevelEnterContext} ctx */
+export async function notifyOwnedTreasuresOnLevelEnter(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const id of ownedSlotTreasureIds) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    const fn = TREASURE_HOOKS_BY_ID.get(id)?.onLevelEnter;
+    if (fn) await Promise.resolve(fn(ctx));
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureLevelCompleteContext} ctx */
+export async function notifyOwnedTreasuresOnLevelComplete(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const id of ownedSlotTreasureIds) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    const fn = TREASURE_HOOKS_BY_ID.get(id)?.onLevelComplete;
+    if (fn) await Promise.resolve(fn(ctx));
+  }
+  const slots = ownedSlotTreasureIds ?? [];
+  for (let si = 0; si < slots.length; si++) {
+    if (slots[si] !== "98") continue;
+    const right = slots[si + 1];
+    if (!right || right === "98") continue;
+    const fn = TREASURE_HOOKS_BY_ID.get(right)?.onLevelComplete;
+    if (fn) await Promise.resolve(fn(ctx));
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureChapterEnterContext} ctx */
+export function notifyOwnedTreasuresOnChapterEnter(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const id of ownedSlotTreasureIds) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    TREASURE_HOOKS_BY_ID.get(id)?.onChapterEnter?.(ctx);
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureShopEnterContext} ctx */
+export function notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const id of ownedSlotTreasureIds) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    TREASURE_HOOKS_BY_ID.get(id)?.onShopEnter?.(ctx);
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureShopRerollContext} ctx */
+export function notifyOwnedTreasuresOnShopReroll(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const id of ownedSlotTreasureIds) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    TREASURE_HOOKS_BY_ID.get(id)?.onShopReroll?.(ctx);
+  }
+  const slots = ownedSlotTreasureIds ?? [];
+  for (let si = 0; si < slots.length; si++) {
+    if (slots[si] !== "98") continue;
+    const right = slots[si + 1];
+    if (!right || right === "98") continue;
+    TREASURE_HOOKS_BY_ID.get(right)?.onShopReroll?.(ctx);
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasurePackSkippedContext} ctx */
+export function notifyOwnedTreasuresOnPackSkipped(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const id of ownedSlotTreasureIds) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    TREASURE_HOOKS_BY_ID.get(id)?.onPackSkipped?.(ctx);
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureSoldContext} ctx */
+export function notifyOwnedTreasuresOnTreasureSold(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const id of ownedSlotTreasureIds) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    TREASURE_HOOKS_BY_ID.get(id)?.onTreasureSold?.(ctx);
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureIceBreakContext} ctx */
+export function notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const id of ownedSlotTreasureIds) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    TREASURE_HOOKS_BY_ID.get(id)?.onIceMaterialBreak?.(ctx);
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureBossRestrictionContext} ctx */
+export function notifyOwnedTreasuresOnBossRestrictionTriggered(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const id of ownedSlotTreasureIds) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    TREASURE_HOOKS_BY_ID.get(id)?.onBossRestrictionTriggered?.(ctx);
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureDeckCardsAddedContext} ctx */
+export function notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const id of ownedSlotTreasureIds) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    TREASURE_HOOKS_BY_ID.get(id)?.onDeckCardsAdded?.(ctx);
+  }
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
+export function sumTreasureSubmitLengthBonus(ownedSlotTreasureIds) {
+  const slots = ownedSlotTreasureIds ?? [];
+  let sum = 0;
+  const seen = new Set();
+  for (const id of slots) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    const fn = TREASURE_HOOKS_BY_ID.get(id)?.getSubmitLengthBonus;
+    if (!fn) continue;
+    sum += Math.max(0, Math.floor(Number(fn({ ownedSlotTreasureIds: slots })) || 0));
+  }
+  return sum;
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
+export function sumTreasureLengthJudgmentPenalty(ownedSlotTreasureIds) {
+  const slots = ownedSlotTreasureIds ?? [];
+  let sum = 0;
+  const seen = new Set();
+  for (const id of slots) {
+    if (id == null || id === "" || seen.has(id)) continue;
+    seen.add(id);
+    const fn = TREASURE_HOOKS_BY_ID.get(id)?.getLengthJudgmentPenalty;
+    if (!fn) continue;
+    sum += Math.max(0, Math.floor(Number(fn()) || 0));
+  }
+  return sum;
+}
+
+/**
+ * @param {string | null | undefined} treasureId
+ * @param {import('./treasureTypes.js').TreasurePatchDescriptionContext} ctx
+ */
+export function resolveTreasureDescriptionPatches(treasureId, ctx) {
+  const id = String(treasureId ?? "").trim();
+  if (!id) return null;
+  const fn = TREASURE_HOOKS_BY_ID.get(id)?.patchDescription;
+  if (!fn) return null;
+  try {
+    const out = fn(ctx);
+    return out?.length ? out : null;
+  } catch {
+    return null;
+  }
+}
+
+/** @param {string | null | undefined} treasureId */
+export function treasureDescriptionPatchReplacesBase(treasureId) {
+  const id = String(treasureId ?? "").trim();
+  if (!id) return false;
+  return TREASURE_HOOKS_BY_ID.get(id)?.replaceDescriptionWithPatch === true;
 }
 
 /**

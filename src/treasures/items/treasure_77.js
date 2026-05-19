@@ -4,7 +4,7 @@ import { describe, gain } from "../treasureDescription.js";
 /** @type {import('../treasureTypes.js').TreasureBaseDef} */
 export default {
   price: 6,
-  rarity: "epic",
+  rarity: "rare",
   description: describe(
     "当一次拼写中包含至少3种材质的字母块时，使棋盘上一个随机字母块变为",
     gain(getTileMaterialBlockTitle("wildcard")),

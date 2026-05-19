@@ -1,4 +1,5 @@
 import { LETTER_RARITY_ORDER } from "../composables/useScoring.js";
+import { applyRarityLevelUpgrade } from "../game/treasureRarityTierMerge.js";
 
 function shuffleInPlace(arr, rng = Math.random) {
   const rnd = typeof rng === "function" ? rng : Math.random;
@@ -33,7 +34,12 @@ export function applyRandomUpgradePick(pick, ctx) {
   if (pick.kind === "rarity") {
     const rk = String(pick.rk);
     const cur = Math.max(1, Math.round(Number(ctx.rarityLevelsByRarity.value?.[rk])) || 1);
-    ctx.setRarityLevel(rk, cur + 1);
+    const owned = ctx.ownedSlotTreasureIds ?? null;
+    if (owned && typeof ctx.setRarityLevel === "function") {
+      applyRarityLevelUpgrade(rk, cur + 1, ctx.setRarityLevel, owned);
+    } else {
+      ctx.setRarityLevel(rk, cur + 1);
+    }
     return;
   }
   const { minLen, maxLen } = pick.g;

@@ -67,14 +67,41 @@
               />
             </div>
           </div>
+
+          <div
+            v-for="(panel, conceptIdx) in descriptionConceptPanels"
+            :key="'spell-desc-concept-' + panel.title"
+            :ref="(el) => setDescriptionConceptPanelRef(conceptIdx, el)"
+            class="treasure-detail-desc-card spell-target-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span class="treasure-detail-desc-panel-title-text">{{ panel.title }}</span>
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="panel.effectDescription"
+              :panel-body="true"
+            />
+          </div>
         </div>
 
         <div ref="spellCardRef" class="spell-target-card spell-target-stagger-el">
           <p class="spell-target-hint">
-            在下方候选块中依次点选 {{ session.pickCount }} 个字母块
-            <span v-if="orderedSlotIndices.length">
-              （已选 {{ orderedSlotIndices.length }} / {{ session.pickCount }}）
-            </span>
+            <template v-if="session.offerDeckSource === 'remainingDeck'">
+              从剩余牌库中选取字母块（修改会立即同步至牌库）
+            </template>
+            <template v-else-if="session.pickMode === 'confirm_all'">
+              确认后对下方全部候选字母施放此法术
+            </template>
+            <template v-else-if="session.pickMode === 'preview_only'">
+              点击确定施放此法术，或选择跳过
+            </template>
+            <template v-else>
+              在下方候选块中依次点选 {{ session.pickCount }} 个字母块
+              <span v-if="orderedSlotIndices.length">
+                （已选 {{ orderedSlotIndices.length }} / {{ session.pickCount }}）
+              </span>
+            </template>
           </p>
 
           <div class="spell-target-letter-grid-wrap">
@@ -131,7 +158,7 @@
             <button
               type="button"
               class="shop-btn shop-btn--buy"
-              :disabled="tileAnimActive || orderedSlotIndices.length !== session.pickCount"
+              :disabled="tileAnimActive || !canConfirmSpell"
               @click="onConfirm"
             >
               确定
@@ -153,6 +180,7 @@ import {
   cloneSpellTileSnapshot,
 } from "../game/spellTileAppearanceAnim.js";
 import { getSpellGainPanel } from "../spells/spellGainPanel.js";
+import { collectExplicitDescriptionConceptPanels } from "../game/gameConceptCopy.js";
 import LetterTile from "./LetterTile.vue";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
@@ -244,6 +272,25 @@ const spellGainPanelContent = computed(() => {
   return panel && String(panel.description ?? "").trim() ? panel : null;
 });
 
+const descriptionConceptPanelRefs = ref([]);
+
+/** @param {number} i @param {unknown} el */
+function setDescriptionConceptPanelRef(i, el) {
+  if (!(el instanceof HTMLElement)) return;
+  const arr = [...descriptionConceptPanelRefs.value];
+  arr[i] = el;
+  descriptionConceptPanelRefs.value = arr;
+}
+
+const descriptionConceptPanels = computed(() => {
+  const s = props.session;
+  if (!s) return [];
+  const exclude = new Set();
+  const t = spellGainPanelContent.value?.title;
+  if (t) exclude.add(t);
+  return collectExplicitDescriptionConceptPanels(s.spellDescription, exclude);
+});
+
 const rarityTagLabel = computed(() => {
   const r = String(props.session?.spellRarity ?? "rare");
   if (r === "common") return "普通";
@@ -253,10 +300,23 @@ const rarityTagLabel = computed(() => {
   return "稀有";
 });
 
+const canConfirmSpell = computed(() => {
+  const s = props.session;
+  if (!s) return false;
+  if (s.confirmDisabled === true) return false;
+  if (s.pickMode === "confirm_all" || s.pickMode === "preview_only") return true;
+  return orderedSlotIndices.value.length === s.pickCount;
+});
+
 function staggerTargets() {
-  return [titleGroupRef.value, iconColumnRef.value, descRef.value, spellGainPanelRef.value, spellCardRef.value].filter(
-    Boolean,
-  );
+  return [
+    titleGroupRef.value,
+    iconColumnRef.value,
+    descRef.value,
+    spellGainPanelRef.value,
+    ...descriptionConceptPanelRefs.value.filter((el) => el instanceof HTMLElement),
+    spellCardRef.value,
+  ].filter(Boolean);
 }
 
 function refToDom(el) {
@@ -298,7 +358,8 @@ function pickOrderForSlot(slotIndex) {
 function onTapSlot(slotIndex) {
   const s = props.session;
   const slot = offerSlots.value[slotIndex];
-  if (!s || slot?.empty || !slot?.tile) return;
+  if (!s || s.pickMode === "confirm_all" || s.pickMode === "preview_only" || slot?.empty || !slot?.tile)
+    return;
 
   const cur = orderedSlotIndices.value;
   const existing = cur.indexOf(slotIndex);
@@ -312,11 +373,17 @@ function onTapSlot(slotIndex) {
 
 async function onConfirm() {
   const s = props.session;
-  if (!s || orderedSlotIndices.value.length !== s.pickCount) return;
+  if (!s || !canConfirmSpell.value) return;
   const slots = offerSlots.value;
-  const selectionSlotIndices = [...orderedSlotIndices.value];
+  const selectionSlotIndices =
+    s.pickMode === "confirm_all"
+      ? slots.map((sl, ix) => (sl && !sl.empty && sl.tile ? ix : -1)).filter((ix) => ix >= 0)
+      : s.pickMode === "preview_only"
+        ? []
+        : [...orderedSlotIndices.value];
   const ordered = selectionSlotIndices.map((ix) => {
     const c = slots[ix];
+    if (c?.deckCardUid != null) return { deckCardUid: c.deckCardUid };
     return { row: c.row, col: c.col };
   });
   tileAnimActive.value = true;
@@ -481,7 +548,7 @@ async function playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnaps,
 
   const sid = String(spellId ?? "");
   try {
-    if (sid === "delete_back") {
+    if (sid === "delete_back" || sid === "immolate") {
       await applyAllAtValley();
       await runDetachedDeleteBackConfirmAnim({
         targetCount: slotIndices.length,
@@ -571,7 +638,11 @@ function playClose() {
   });
 }
 
-defineExpose({ playConfirmAppearanceAnim, playClose });
+function getOfferTileEl(slotIndex) {
+  return offerTileElList[slotIndex] ?? null;
+}
+
+defineExpose({ playConfirmAppearanceAnim, playClose, getOfferTileEl });
 
 function runEnterAnimation() {
   const backdrop = backdropRef.value;

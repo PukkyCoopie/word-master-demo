@@ -2,8 +2,22 @@ import { deckCardRaw, syncTileStateToDeckCard } from "../composables/useGameStat
 import { snapshotMaxIntrinsicGainsFromTile, applyIntrinsicGainsToTileAndLinkedCard } from "../game/tileIntrinsicGains.js";
 import { getBaseScoreForRarity, getRarityForLetter, LETTER_RARITY_ORDER, RARITY_BY_LETTER } from "../composables/useScoring.js";
 import { SPELL_DEFINITIONS, SPELL_IDS_EXCLUDED_FROM_DICE, getSpellDefinition } from "./spellDefinitions.js";
-import { ALL_TREASURE_ACCESSORY_IDS } from "../game/treasureAccessories.js";
+import {
+  ALL_TREASURE_ACCESSORY_IDS,
+  TREASURE_ACCESSORY_CROP,
+  TREASURE_ACCESSORY_WRENCH,
+  TILE_ROLLABLE_TREASURE_ACCESSORY_IDS,
+} from "../game/treasureAccessories.js";
+import {
+  TILE_ACCESSORY_COIN,
+  TILE_ACCESSORY_LEVEL_UPGRADE,
+  TILE_ACCESSORY_REWIND,
+  TILE_ACCESSORY_VIP_DIAMOND,
+} from "../game/tileAccessories.js";
 import { applyRandomUpgradePick, rollRandomUpgradePicks } from "../shop/randomUpgradeRoll.js";
+import { SHOP_TILE_PACK_MATERIAL_IDS } from "../shop/shopPackEconomy.js";
+import { spellHasTag } from "./spellTags.js";
+import { SPELL_TAG_SPECTRAL } from "./spellTags.js";
 
 const WATER_MATERIAL_SCORE_BONUS = 30;
 const FIRE_MATERIAL_MULT_BONUS = 4;
@@ -130,6 +144,12 @@ export function getSpellTileAppearanceTargets(effectiveSpellId, ordered, g, ROWS
         if (g[dst.row]?.[dst.col]?.letter && g[src.row]?.[src.col]?.letter) add(dst.row, dst.col);
       }
       break;
+    case "aura":
+      for (const p of ord) add(p.row, p.col);
+      break;
+    case "ouija":
+      for (const p of ord) add(p.row, p.col);
+      break;
     default:
       break;
   }
@@ -242,6 +262,82 @@ function allLetterRaws() {
 function pickRandomRaw(pool, rng) {
   if (!pool.length) return "e";
   return pool[Math.floor(rngU(rng) * pool.length)];
+}
+
+/** @param {() => number} rng */
+function rollForcedEnhancedMaterialId(rng) {
+  const ids = SHOP_TILE_PACK_MATERIAL_IDS;
+  if (!ids.length) return "lucky";
+  return ids[Math.floor(rngU(rng) * ids.length)] ?? "lucky";
+}
+
+/**
+ * @param {string[]} raws
+ * @param {() => number} rng
+ */
+function buildEnhancedDeckEntries(raws, rng) {
+  return raws.map((raw) => ({
+    raw,
+    materialId: rollForcedEnhancedMaterialId(rng),
+  }));
+}
+
+const TILE_AURA_ACCESSORY_POOL = Object.freeze([
+  TILE_ACCESSORY_COIN,
+  TILE_ACCESSORY_REWIND,
+  TILE_ACCESSORY_VIP_DIAMOND,
+  TILE_ACCESSORY_LEVEL_UPGRADE,
+  ...TILE_ROLLABLE_TREASURE_ACCESSORY_IDS,
+]);
+
+/** @param {Record<string, unknown>} tile @param {string} accessoryId */
+function applyTileBoardAccessory(tile, accessoryId) {
+  const gains = snapshotMaxIntrinsicGainsFromTile(tile);
+  tile.accessoryId = accessoryId;
+  const c = tile._deckCard;
+  if (c && typeof c === "object") c.accessoryId = accessoryId;
+  applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
+  syncTileStateToDeckCard(tile);
+}
+
+/** @param {Record<string, unknown>} tile @param {string} treasureAccessoryId */
+function applyTileTreasureAccessory(tile, treasureAccessoryId) {
+  const gains = snapshotMaxIntrinsicGainsFromTile(tile);
+  tile.treasureAccessoryId = treasureAccessoryId;
+  const c = tile._deckCard;
+  if (c && typeof c === "object") c.treasureAccessoryId = treasureAccessoryId;
+  applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
+  syncTileStateToDeckCard(tile);
+}
+
+/**
+ * @param {Record<string, unknown>} tile
+ * @param {string} rarity
+ * @param {Record<string, number> | null | undefined} rarityLevelsByRarity
+ */
+function setTileRarityOnCard(tile, rarity, rarityLevelsByRarity) {
+  if (tile.isWildcard) return;
+  const gains = snapshotMaxIntrinsicGainsFromTile(tile);
+  tile.rarity = rarity;
+  tile.baseScore = getBaseScoreForRarity(rarity, rarityLevelsByRarity);
+  const c = tile._deckCard;
+  if (c && typeof c === "object" && c.isWildcard !== true) {
+    c.rarity = rarity;
+  }
+  applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
+  syncTileStateToDeckCard(tile);
+}
+
+/**
+ * @param {{ deckCardUid?: number | null }[]} ordered
+ * @param {() => number} rng
+ */
+function pickRandomOrderedDeckUid(ordered, rng) {
+  const uids = ordered
+    .map((p) => p?.deckCardUid)
+    .filter((uid) => uid != null);
+  if (!uids.length) return null;
+  return uids[Math.floor(rngU(rng) * uids.length)] ?? null;
 }
 
 const WILDCARD_MATERIAL_ID = "wildcard";
@@ -417,11 +513,16 @@ function resolveSpellTargetTile(ctx, p) {
  *   markTileAsWildcard: (tile: Record<string, unknown>) => void,
  *   touchGrid: () => void,
  *   removeDeckLetterInstancesByRaws: (raws: string[]) => void,
+ *   removeDeckCardByUid: (uid: number) => boolean,
+ *   appendShopDeckEntries: (entries: { raw: string, materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null }[]) => void,
  *   remapTileFromRawLetter: (row: number, col: number, raw: string, keepTileId?: boolean) => void,
  *   money: import("vue").Ref<number>,
  *   ownedTreasures: import("vue").Ref<(unknown | null)[]>,
  *   upgradeLengthGroups: readonly { key: string, minLen: number, maxLen: number }[],
  *   grantRandomShopTreasure: () => boolean,
+ *   grantRandomShopTreasureByRarity?: (rarity: string) => { ok: boolean, slotIndex: number },
+ *   setRunWordLengthJudgmentPenalty?: (n: number) => void,
+ *   refreshGridTileBaseScoresFromLevels?: () => void,
  *   showToast: (msg: string) => void,
  *   setLastReplayableSpellId?: (id: string) => void,
  *   refreshBossTileDebuffOnTile?: (tile: Record<string, unknown>) => void,
@@ -458,6 +559,9 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
     })
     .filter(Boolean);
   let tileAppearanceTargets = getSpellTileAppearanceTargets(sid, gridOrdered, g, ROWS, COLS);
+
+  /** @type {Record<string, unknown> | null} */
+  let spellFx = null;
 
   const tileAt = (p) => resolveSpellTargetTile(ctx, p);
 
@@ -637,18 +741,177 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of picks) applyRandomUpgradePick(p, ctx);
       break;
     }
-    case "dice": {
-      const pool = SPELL_DEFINITIONS.map((d) => d.id).filter((id) => !SPELL_IDS_EXCLUDED_FROM_DICE.includes(id));
-      const merged = [];
-      for (let k = 0; k < 2; k++) {
-        const sub = pool[Math.floor(rngU(rng) * pool.length)];
-        const def = getSpellDefinition(sub);
-        const n = def ? Math.max(0, def.pickCount) : 0;
-        const sel = n > 0 ? buildRandomSpellSelection(g, ROWS, COLS, n, rng) : [];
-        const r = applySpell(ctx, sub, sub, sel, { nested: true, rng });
-        merged.push(...(r?.tileAppearanceTargets ?? []));
+    case "familiar": {
+      const remUid = pickRandomOrderedDeckUid(ordered, rng);
+      if (remUid != null) ctx.removeDeckCardByUid?.(remUid);
+      const vowels = [];
+      for (let i = 0; i < 3; i++) vowels.push(pickRandomRaw(allVowelRaws(), rng));
+      const entries = buildEnhancedDeckEntries(vowels, rng);
+      ctx.appendShopDeckEntries?.(entries);
+      spellFx = { kind: "deck_add", count: entries.length, removedDeckCardUid: remUid };
+      break;
+    }
+    case "grim": {
+      const remUid = pickRandomOrderedDeckUid(ordered, rng);
+      if (remUid != null) ctx.removeDeckCardByUid?.(remUid);
+      const entries = buildEnhancedDeckEntries(["e", "e"], rng);
+      ctx.appendShopDeckEntries?.(entries);
+      spellFx = { kind: "deck_add", count: entries.length, removedDeckCardUid: remUid };
+      break;
+    }
+    case "incantation": {
+      const remUid = pickRandomOrderedDeckUid(ordered, rng);
+      if (remUid != null) ctx.removeDeckCardByUid?.(remUid);
+      const raws = [];
+      for (let i = 0; i < 4; i++) raws.push(pickRandomRaw(allConsonantRaws(), rng));
+      const entries = buildEnhancedDeckEntries(raws, rng);
+      ctx.appendShopDeckEntries?.(entries);
+      spellFx = { kind: "deck_add", count: entries.length, removedDeckCardUid: remUid };
+      break;
+    }
+    case "talisman": {
+      const pick = ordered.length ? [ordered[Math.floor(rngU(rng) * ordered.length)]] : [];
+      for (const p of pick) {
+        const t = tileAt(p);
+        if (!t?.letter) continue;
+        applyTileBoardAccessory(t, TILE_ACCESSORY_COIN);
       }
-      tileAppearanceTargets = dedupeAppearancePositions(merged);
+      break;
+    }
+    case "aura": {
+      for (const p of ordered) {
+        const t = tileAt(p);
+        if (!t?.letter) continue;
+        const acc = TILE_AURA_ACCESSORY_POOL[Math.floor(rngU(rng) * TILE_AURA_ACCESSORY_POOL.length)];
+        if (acc.startsWith("treasure_acc_")) applyTileTreasureAccessory(t, acc);
+        else applyTileBoardAccessory(t, acc);
+      }
+      break;
+    }
+    case "deja_vu": {
+      const pick = ordered.length ? [ordered[Math.floor(rngU(rng) * ordered.length)]] : [];
+      for (const p of pick) {
+        const t = tileAt(p);
+        if (!t?.letter) continue;
+        applyTileBoardAccessory(t, TILE_ACCESSORY_REWIND);
+      }
+      break;
+    }
+    case "wrench": {
+      const pick = ordered.length ? [ordered[Math.floor(rngU(rng) * ordered.length)]] : [];
+      for (const p of pick) {
+        const t = tileAt(p);
+        if (!t?.letter) continue;
+        applyTileTreasureAccessory(t, TREASURE_ACCESSORY_WRENCH);
+      }
+      break;
+    }
+    case "diamond": {
+      const pick = ordered.length ? [ordered[Math.floor(rngU(rng) * ordered.length)]] : [];
+      for (const p of pick) {
+        const t = tileAt(p);
+        if (!t?.letter) continue;
+        applyTileBoardAccessory(t, TILE_ACCESSORY_VIP_DIAMOND);
+      }
+      break;
+    }
+    case "cache": {
+      const r = ctx.grantRandomShopTreasureByRarity?.("epic");
+      if (!r?.ok) ctx.showToast?.("没有空宝藏槽或无可售史诗宝藏");
+      else spellFx = { kind: "treasure_grant", slotIndex: r.slotIndex };
+      break;
+    }
+    case "wraith": {
+      ctx.money.value = 0;
+      const r = ctx.grantRandomShopTreasureByRarity?.("legendary");
+      if (!r?.ok) ctx.showToast?.("没有空宝藏槽或无可售传说宝藏");
+      else spellFx = { kind: "treasure_grant", slotIndex: r.slotIndex };
+      break;
+    }
+    case "ouija": {
+      const rl = ctx.rarityLevelsByRarity.value;
+      const targetRarity = LETTER_RARITY_ORDER[Math.floor(rngU(rng) * LETTER_RARITY_ORDER.length)] ?? "common";
+      for (const p of ordered) {
+        const t = tileAt(p);
+        if (!t?.letter) continue;
+        setTileRarityOnCard(t, targetRarity, rl);
+      }
+      break;
+    }
+    case "ectoplasm": {
+      const slots = ctx.ownedTreasures.value;
+      const ixList = [];
+      for (let i = 0; i < slots.length; i++) {
+        if (slots[i] != null) ixList.push(i);
+      }
+      if (ixList.length === 0) break;
+      const ix = ixList[Math.floor(rngU(rng) * ixList.length)];
+      const cur = slots[ix];
+      if (cur && typeof cur === "object") {
+        const nextSlots = [...slots];
+        nextSlots[ix] = { ...cur, treasureAccessoryId: TREASURE_ACCESSORY_CROP };
+        ctx.ownedTreasures.value = nextSlots;
+        spellFx = { kind: "treasure_accessory", slotIndex: ix };
+      }
+      ctx.setRunWordLengthJudgmentPenalty?.(1);
+      break;
+    }
+    case "immolate": {
+      const uids = ordered.map((p) => p?.deckCardUid).filter((uid) => uid != null);
+      for (const uid of uids) {
+        if (uid != null) ctx.removeDeckCardByUid?.(uid);
+      }
+      ctx.money.value += 20;
+      spellFx = { kind: "immolate", removedCount: uids.length };
+      break;
+    }
+    case "ankh": {
+      const slots = [...ctx.ownedTreasures.value];
+      const owned = slots.map((t, i) => ({ t, i })).filter((x) => x.t != null);
+      if (!owned.length) break;
+      const pick = owned[Math.floor(rngU(rng) * owned.length)];
+      const proto = /** @type {Record<string, unknown>} */ (pick.t);
+      const kept = {
+        treasureId: proto.treasureId,
+        price: proto.price,
+        rarity: proto.rarity,
+        name: proto.name,
+        emoji: proto.emoji,
+        description: proto.description,
+        treasureAccessoryId: proto.treasureAccessoryId ?? null,
+      };
+      const newSlots = slots.map(() => null);
+      newSlots[pick.i] = { ...kept };
+      let copyIx = -1;
+      for (let j = 0; j < newSlots.length; j++) {
+        if (j !== pick.i && newSlots[j] == null) {
+          copyIx = j;
+          break;
+        }
+      }
+      if (copyIx >= 0) newSlots[copyIx] = { ...kept };
+      ctx.ownedTreasures.value = newSlots;
+      spellFx = { kind: "ankh", keptSlotIndex: pick.i, copySlotIndex: copyIx };
+      break;
+    }
+    case "dice": {
+      if (opts.skipDiceInline !== true) {
+        const pool = SPELL_DEFINITIONS.map((d) => d.id).filter(
+          (id) =>
+            !SPELL_IDS_EXCLUDED_FROM_DICE.includes(id) &&
+            !spellHasTag(getSpellDefinition(id), SPELL_TAG_SPECTRAL),
+        );
+        const merged = [];
+        for (let k = 0; k < 2; k++) {
+          const sub = pool[Math.floor(rngU(rng) * pool.length)];
+          const def = getSpellDefinition(sub);
+          const n = def ? Math.max(0, def.pickCount) : 0;
+          const sel = n > 0 ? buildRandomSpellSelection(g, ROWS, COLS, n, rng) : [];
+          const r = applySpell(ctx, sub, sub, sel, { nested: true, rng });
+          merged.push(...(r?.tileAppearanceTargets ?? []));
+        }
+        tileAppearanceTargets = dedupeAppearancePositions(merged);
+      }
       break;
     }
     case "treasure_map": {
@@ -661,5 +924,5 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
   }
 
   after();
-  return { tileAppearanceTargets };
+  return { tileAppearanceTargets, spellFx };
 }

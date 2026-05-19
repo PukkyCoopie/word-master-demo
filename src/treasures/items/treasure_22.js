@@ -3,7 +3,7 @@ import { describe } from "../treasureDescription.js";
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 5,
-  rarity: "epic",
+  rarity: "rare",
   description: describe("使用最后一次拼写次数拼写的单词会额外触发一次字母计分"),
 };
 

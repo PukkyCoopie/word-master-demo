@@ -6,7 +6,7 @@ const MEMO_MULT_LETTER_SET = new Set(["a", "b", "c", "e", "h", "m", "u"]);
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 8,
-  rarity: "epic",
+  rarity: "rare",
   description: describe("每一个拼写的A,B,C,E,H,M,U给予", mult("+4"), "倍率"),
 };
 

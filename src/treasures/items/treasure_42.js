@@ -3,6 +3,14 @@ import { describe } from "../treasureDescription.js";
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 7,
-  rarity: "epic",
-  description: describe("开局时候将你的所有丢弃次数转换为拼写次数"),
+  rarity: "rare",
+  description: describe("+3丢弃次数，你的单词被视为-1的长度"),
+  unlockPrerequisite: { type: "chapterAllDiscardsExhausted" },
+};
+
+/** @type {import('../treasureTypes.js').TreasureHooks} */
+export const treasureHooks = {
+  getLengthJudgmentPenalty() {
+    return 1;
+  },
 };
