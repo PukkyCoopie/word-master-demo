@@ -53,6 +53,30 @@ export function buildTileTreasureAccessoryPostLetterSteps(tiles) {
   return steps;
 }
 
+/**
+ * 单槽宝藏配饰字后步（无宝藏或裁剪配饰时返回 null）。
+ * @param {number} slotIndex
+ * @param {string | null | undefined} treasureId
+ * @param {string | null | undefined} accessoryId
+ * @returns {{ treasureId: null, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number } | null}
+ */
+export function buildTreasureAccessoryPostLetterStepForSlot(slotIndex, treasureId, accessoryId) {
+  const tid = treasureId != null && treasureId !== "" ? String(treasureId) : "";
+  const aid = String(accessoryId ?? "").trim();
+  if (!tid || aid === "") return null;
+  const si = Math.floor(Number(slotIndex)) || 0;
+  if (aid === TREASURE_ACCESSORY_FIRE) {
+    return { treasureId: null, slotIndex: si, multAdd: 10 };
+  }
+  if (aid === TREASURE_ACCESSORY_DROP) {
+    return { treasureId: null, slotIndex: si, scoreAdd: 50 };
+  }
+  if (aid === TREASURE_ACCESSORY_WRENCH) {
+    return { treasureId: null, slotIndex: si, multMul: 1.5 };
+  }
+  return null;
+}
+
 export function buildTreasureAccessoryPostLetterSteps(ownedSlotTreasureIds, ownedSlotTreasureAccessoryIds) {
   const ids = Array.isArray(ownedSlotTreasureIds) ? ownedSlotTreasureIds : [];
   const aids = Array.isArray(ownedSlotTreasureAccessoryIds) ? ownedSlotTreasureAccessoryIds : [];
@@ -60,16 +84,8 @@ export function buildTreasureAccessoryPostLetterSteps(ownedSlotTreasureIds, owne
   /** @type {{ treasureId: null, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number }[]} */
   const steps = [];
   for (let si = 0; si < n; si += 1) {
-    const tid = ids[si];
-    const aid = String(aids[si] ?? "").trim();
-    if (!tid || aid === "") continue;
-    if (aid === TREASURE_ACCESSORY_FIRE) {
-      steps.push({ treasureId: null, slotIndex: si, multAdd: 10 });
-    } else if (aid === TREASURE_ACCESSORY_DROP) {
-      steps.push({ treasureId: null, slotIndex: si, scoreAdd: 50 });
-    } else if (aid === TREASURE_ACCESSORY_WRENCH) {
-      steps.push({ treasureId: null, slotIndex: si, multMul: 1.5 });
-    }
+    const step = buildTreasureAccessoryPostLetterStepForSlot(si, ids[si], aids[si]);
+    if (step) steps.push(step);
   }
   return steps;
 }

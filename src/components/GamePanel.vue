@@ -742,7 +742,11 @@ import {
   rollInRunBundlePackOfKind,
   rollOneRandomBundlePackOffer,
 } from "../shop/rollInRunBundlePack.js";
-import { rollShopRandomCardOffers } from "../shop/rollShopRandomCardStock.js";
+import {
+  getShopRandomCardSlotCount,
+  rollExtraShopRandomCardOffers,
+  rollShopRandomCardOffers,
+} from "../shop/rollShopRandomCardStock.js";
 import {
   applyRandomUpgradePick,
   buildRandomUpgradeAnimPayload,
@@ -769,6 +773,7 @@ import {
   isLengthObservatoryBoosted,
   getOwnedTreasureSlotBonusFromVouchers,
   getShopAccessoryChanceMultiplier,
+  getShopRandomCardSlotBonus,
   getWordLengthJudgmentBonus,
   hasBossBlindRerollVoucher,
   BOSS_BLIND_REROLL_COST_DOLLARS,
@@ -999,7 +1004,11 @@ function getSubmitScoringTotalBeats(detailed) {
     (s, v) => s + Math.max(0, Math.floor(Number(v) || 0)),
     0,
   );
-  return letterPassCount * n + replayExtra + extraCues + post;
+  const perLetterTreasureReplayCues = (detailed.perLetterTreasureReplayCueSteps ?? []).reduce(
+    (s, steps) => s + (steps?.length ?? 0),
+    0,
+  );
+  return letterPassCount * n + replayExtra + perLetterTreasureReplayCues + extraCues + post;
 }
 
 function getSubmitScoringLengthBaseSpeed(totalBeats) {
@@ -1830,9 +1839,9 @@ function rollPackStock(rng = Math.random, sessionExcludeTreasureIds = null) {
  * @param {() => number} [rng=Math.random]
  * @param {Set<string>} [sessionExcludeTreasureIds]
  */
-function rollShopStock(rng = Math.random, sessionExcludeTreasureIds = null) {
-  return rollShopRandomCardOffers({
-    rng,
+function buildShopRandomCardRollCtx(sessionExcludeTreasureIds = null) {
+  return {
+    rng: runRandom,
     nextOfferInstanceId: () => nextOfferInstanceId.value++,
     nextShopEmptySlotId: () => nextShopEmptySlotId.value++,
     ownedTreasureIdSet: ownedTreasureIdSet.value,
@@ -1841,7 +1850,25 @@ function rollShopStock(rng = Math.random, sessionExcludeTreasureIds = null) {
     shopTreasurePool: shopTreasurePool.value,
     ownedVoucherIds: ownedVoucherIds.value,
     honeAccessoryMult: getShopAccessoryChanceMultiplier(ownedVoucherIds.value),
+  };
+}
+
+function rollShopStock(rng = Math.random, sessionExcludeTreasureIds = null) {
+  return rollShopRandomCardOffers({
+    ...buildShopRandomCardRollCtx(sessionExcludeTreasureIds),
+    rng,
   });
+}
+
+/** 购买纸箱券等同次进店加栏：单卡区末尾追加新格并掷货（与进店互斥集一致） */
+function appendShopRandomCardSlotsAfterPurchase(extraCount) {
+  const n = Math.max(0, Math.floor(Number(extraCount) || 0));
+  if (n <= 0 || !showShop.value) return;
+  const sessionExclude = new Set();
+  addShopShelfTreasureIdsToExclude(sessionExclude, shopOffers.value);
+  addShopShelfTreasureIdsToExclude(sessionExclude, packOffers.value);
+  const extra = rollExtraShopRandomCardOffers(n, buildShopRandomCardRollCtx(sessionExclude));
+  if (extra.length) shopOffers.value = [...shopOffers.value, ...extra];
 }
 
 /** 进店生成单卡区 + 牌包区，同次 visit 内宝藏 id 互不重复 */
@@ -5848,7 +5875,13 @@ async function onTreasurePurchase() {
     money.value -= pay;
     noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
+    const slotCountBefore = getShopRandomCardSlotCount(
+      getShopRandomCardSlotBonus(ownedVoucherIds.value),
+    );
     ownedVoucherIds.value = [...ownedVoucherIds.value, vid];
+    const slotsToAdd =
+      getShopRandomCardSlotCount(getShopRandomCardSlotBonus(ownedVoucherIds.value)) - slotCountBefore;
+    appendShopRandomCardSlotsAfterPurchase(slotsToAdd);
     if (vid === "v_glyph_1" || vid === "v_glyph_2") {
       const tix = getGlyphPurchaseTargetLevelIndex(levelIndex.value, vid === "v_glyph_2");
       if (tix != null) {
@@ -6641,13 +6674,16 @@ async function runLetterScoringSkipStep(slotEl, speed = 1, slotIndex = -1) {
 }
 
 /**
- * 按字母稀有度的宝藏倍率（铅笔 / 钢笔）：宝藏槽与词槽同时 wobble，无宝藏侧 +x 气泡，仅在字母上出倍率气泡。
+ * 按字母稀有度的宝藏倍率（铅笔/钢笔 +n；棱光等 ×n）：宝藏槽与词槽同时 wobble，字母上出倍率气泡。
  * @param {object} part letterParts[i]
  * @param {HTMLElement | null | undefined} slotEl
- * @param {{ treasureId: string, multDelta: number, bubbleLabel: string, rarity: string, active: boolean }} cfg
+ * @param {{ treasureId: string, multDelta?: number, multMul?: number, bubbleLabel: string, rarity: string, active: boolean, slotIndex?: number }} cfg
  */
 async function runLetterRarityTreasureMultStep(part, slotEl, cfg, speed = 1) {
   if (!cfg.active || part.rarity !== cfg.rarity || !slotEl) return false;
+  const multMul = Number(cfg.multMul) || 0;
+  const multDelta = Number(cfg.multDelta) || 0;
+  if (multMul <= 1 && multDelta <= 0) return false;
   const sp = Math.max(0.01, Number(speed) || 1);
   const ti =
     typeof cfg.slotIndex === "number" && cfg.slotIndex >= 0
@@ -6662,12 +6698,29 @@ async function runLetterRarityTreasureMultStep(part, slotEl, cfg, speed = 1) {
   }
   wobbleScoreSlot(slotEl, sp);
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-  animMultTotal.value += cfg.multDelta;
-  await nextTick();
-  const bubbleEl = showScoreBubble(slotEl, cfg.bubbleLabel, "mult", sp);
-  pulseFormulaPanelNum(getResultMultNumEl());
-  scheduleSmallPlusBubbleOutro(bubbleEl, sp);
-  await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+  if (multMul > 1) {
+    animMultTotal.value = Math.round(animMultTotal.value * multMul);
+    await nextTick();
+    const bubbleEl = showMultMultiplyBubble(slotEl, multMul, sp);
+    pulseFormulaMultMultiplyBurst(getResultMultNumEl());
+    gsap.to(bubbleEl, {
+      opacity: 0,
+      y: -22,
+      scale: 0.85,
+      duration: 0.22 / sp,
+      delay: 0.38 / sp,
+      ease: EASE_TRANSFORM,
+      onComplete: () => bubbleEl.remove(),
+    });
+    await scoringSleep(SCORING_STEP_BEAT_MS + 120, sp);
+  } else {
+    animMultTotal.value += multDelta;
+    await nextTick();
+    const bubbleEl = showScoreBubble(slotEl, cfg.bubbleLabel, "mult", sp);
+    pulseFormulaPanelNum(getResultMultNumEl());
+    scheduleSmallPlusBubbleOutro(bubbleEl, sp);
+    await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+  }
   scoringTreasureBarIndex.value = null;
   return true;
 }
@@ -7080,6 +7133,35 @@ async function runExtraLetterScoringPassCue(detailed, cueIndex, speed = 1) {
   await scoringSleep(SCORING_EXTRA_LETTER_PASS_GAP_MS, sp);
 }
 
+/**
+ * 单字母由宝藏 `getLetterReplayCountForLetter` 触发的重播前：对应宝藏槽 wobble（无气泡，字母步紧随其后）。
+ * @param {{ slotIndex: number, treasureId: string }} cue
+ */
+async function runPerLetterTreasureReplayCue(cue, speed = 1) {
+  const sp = Math.max(0.01, Number(speed) || 1);
+  const ti = cue?.slotIndex;
+  if (typeof ti !== "number" || ti < 0) return;
+  scoringTreasureBarIndex.value = ti;
+  await nextTick();
+  await new Promise((r) => requestAnimationFrame(r));
+  const tel = gameTreasureSlotRefs[ti];
+  if (tel) {
+    const tl = createWobbleScoreSlotTimeline(tel);
+    if (tl) {
+      tl.timeScale(sp);
+      tl.play(0);
+      await new Promise((resolve) => {
+        tl.eventCallback("onComplete", resolve);
+      });
+    } else {
+      await scoringSleep(SCORING_TREASURE_FALLBACK_MS, sp);
+    }
+  } else {
+    await scoringSleep(SCORING_TREASURE_FALLBACK_MS, sp);
+  }
+  scoringTreasureBarIndex.value = null;
+}
+
 /** 关卡通关时：棋盘上每个黄金材质字母块 wobble + 金币色 $ 气泡，金额直接进钱包（计入结算前利息基数，不在通关弹层单列） */
 const GOLD_MATERIAL_CLEAR_BONUS_DOLLARS = 3;
 /** 字母块钱币配饰：在该字母轮到计分时触发 +$3 */
@@ -7220,6 +7302,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
 
   const letterPassCount = Math.max(1, Math.round(Number(detailed.letterScoringPassCount)) || 1);
   const letterReplayExtraCounts = detailed.letterReplayExtraCounts ?? [];
+  const perLetterTreasureReplayCueSteps = detailed.perLetterTreasureReplayCueSteps ?? [];
+  const perLetterTreasureReplayCueCursor = perLetterTreasureReplayCueSteps.map(() => 0);
   /** 与 `luckyMaterialRollsByLetter[i]` 对齐：该字母第几次逐字结算（首遍 + replay + 整词额外轮） */
   const luckyVisitByLetter = detailed.letterParts.map(() => 0);
   const totalScoringBeats = getSubmitScoringTotalBeats(detailed);
@@ -7247,8 +7331,15 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
         scoringBeat += 1;
         if (pass === 0) {
           const replayExtra = Math.max(0, Math.floor(Number(letterReplayExtraCounts[i]) || 0));
+          const letterTreasureReplayCues = perLetterTreasureReplayCueSteps[i] ?? [];
           for (let r = 0; r < replayExtra; r++) {
-            if (tiles[i]?.accessoryId === TILE_ACCESSORY_REWIND) {
+            const cueIdx = perLetterTreasureReplayCueCursor[i] ?? 0;
+            if (cueIdx < letterTreasureReplayCues.length) {
+              perLetterTreasureReplayCueCursor[i] = cueIdx + 1;
+              const spTreasureCue = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
+              await runPerLetterTreasureReplayCue(letterTreasureReplayCues[cueIdx], spTreasureCue);
+              scoringBeat += 1;
+            } else if (tiles[i]?.accessoryId === TILE_ACCESSORY_REWIND) {
               triggerAccessoryChipRipple(wordSlotRefs.value?.[i], spLetter, true);
             }
             const spReplay = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
@@ -7857,17 +7948,25 @@ async function submitWord() {
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value) return;
   if (!dictionaryReady.value) return;
-  let selectedEntries = selectedTiles.value;
-  const wordPattern0 = selectedEntries.map(({ tile }) => tile.letter.toLowerCase()).join("");
+  const parts = buildEffectiveWordPartsForSubmit();
+  const wordPattern0 = parts.word;
   if (!wordPattern0) return;
-  let resolvedWord = resolveWordPattern(wordPattern0, "?");
+  const resolvedWord = resolveWordFromEffectiveParts(parts);
   if (!resolvedWord) {
     showToast("不是有效单词");
     return;
   }
   const ownedSlotTreasureIds = ownedTreasures.value.map((s) => s?.treasureId ?? null);
   const tiles = withWildcardsResolvedForScoring(
-    selectedEntries.map(({ tile }) => ({ ...tile })),
+    listEffectiveTilesForSubmit().map((tile) => {
+      const pres = tilePresentationInResolvedWord(tile, resolvedWord, wordPattern0);
+      return {
+        ...tile,
+        letter: pres.letter,
+        rarity: pres.rarity,
+        baseScore: getBaseScoreForRarity(pres.rarity, rarityLevelsByRarity.value),
+      };
+    }),
     resolvedWord,
     rarityLevelsByRarity.value,
   );

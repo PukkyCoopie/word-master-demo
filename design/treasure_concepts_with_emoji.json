@@ -1549,23 +1549,6 @@
       "notes": null
     },
     {
-      "treasureId": "90",
-      "price": 6,
-      "rarity": "rare",
-      "name": "算盘",
-      "emoji": "🧮",
-      "description": "你每有11个字母，+12分数",
-      "userBatchIndex": null,
-      "userOriginalText": null,
-      "userDevNotes": null,
-      "implemented": true,
-      "implementationStatus": "implemented",
-      "scriptPath": "src/treasures/items/treasure_90.js",
-      "unlockPrerequisite": null,
-      "poolPrerequisite": null,
-      "notes": null
-    },
-    {
       "treasureId": "91",
       "price": 5,
       "rarity": "common",

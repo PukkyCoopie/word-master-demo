@@ -17,7 +17,6 @@
  * @property {number} discardLetterGroupIndex
  * @property {number} lastChapterNumber
  * @property {string | null} levelPosTargetKey 词性宝藏：本小关目标词性 `n` | `v` | `adj`
- * @property {number} lettersScoredCount 整局累计计分字母数（每词按格数累加）
  * @property {number} rotatingRarityMultIndex 轮换稀有度倍率档位 0..3
  * @property {string | null} bigramTargetPair 两字母 bigram，如 "na"
  * @property {boolean} levelDiscardsUsed 本小关是否使用过丢弃
@@ -51,7 +50,6 @@ export function createTreasureRunState() {
     discardLetterGroupIndex: Math.floor(Math.random() * DISCARD_LETTER_GROUPS.length),
     lastChapterNumber: 1,
     levelPosTargetKey: null,
-    lettersScoredCount: 0,
     rotatingRarityMultIndex: 0,
     bigramTargetPair: null,
     levelDiscardsUsed: false,

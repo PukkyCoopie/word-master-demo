@@ -73,7 +73,10 @@ function pickWeightedCategory(keys, weights, rng) {
  *   honeAccessoryMult?: number,
  * }} ctx
  */
-export function rollShopRandomCardOffers(ctx) {
+/**
+ * @param {Parameters<typeof rollShopRandomCardOffers>[0]} ctx
+ */
+function createShopRandomCardRoller(ctx) {
   const rng = typeof ctx.rng === "function" ? ctx.rng : Math.random;
   const owned = ctx.ownedTreasureIdSet;
   const sessionExcluded = ctx.sessionExcludeTreasureIds ?? null;
@@ -86,7 +89,6 @@ export function rollShopRandomCardOffers(ctx) {
   const magicOwned = hasMagicTrick(ownedV);
   const illusionOwned = hasIllusion(ownedV);
   const letterRaws = allLetterRaws();
-  const slotCount = getShopRandomCardSlotCount(getShopRandomCardSlotBonus(ownedV));
 
   const spellDefsAll = filterSpellDefsForShop(lastReplay, SPELL_DEFINITIONS);
   const rarityKeys = letterRarityOrderKeys();
@@ -185,9 +187,33 @@ export function rollShopRandomCardOffers(ctx) {
     return makeEmpty();
   }
 
+  return { rollOneSlot };
+}
+
+export function rollShopRandomCardOffers(ctx) {
+  const ownedV = ctx.ownedVoucherIds != null ? new Set([...ctx.ownedVoucherIds]) : new Set();
+  const slotCount = getShopRandomCardSlotCount(getShopRandomCardSlotBonus(ownedV));
+  const { rollOneSlot } = createShopRandomCardRoller(ctx);
   /** @type {object[]} */
   const rows = [];
   for (let i = 0; i < slotCount; i += 1) {
+    rows.push(rollOneSlot());
+  }
+  return rows;
+}
+
+/**
+ * 纸箱券等同次进店即时加栏：在现有单卡区末尾追加若干新格并各掷一件商品。
+ * @param {number} extraCount
+ * @param {Parameters<typeof rollShopRandomCardOffers>[0]} ctx
+ */
+export function rollExtraShopRandomCardOffers(extraCount, ctx) {
+  const n = Math.max(0, Math.floor(Number(extraCount) || 0));
+  if (n <= 0) return [];
+  const { rollOneSlot } = createShopRandomCardRoller(ctx);
+  /** @type {object[]} */
+  const rows = [];
+  for (let i = 0; i < n; i += 1) {
     rows.push(rollOneSlot());
   }
   return rows;

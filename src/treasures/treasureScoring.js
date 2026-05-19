@@ -11,14 +11,14 @@ import {
 } from "./treasureReplaySubmitAggregate.js";
 import {
   buildTileTreasureAccessoryPostLetterSteps,
-  buildTreasureAccessoryPostLetterSteps,
+  buildTreasureAccessoryPostLetterStepForSlot,
 } from "./treasureAccessoryScoring.js";
 
 /** 新宝藏接入后请同步 `treasureCatalog.js` 的 implemented 字段；具体效果写在对应 `items/treasure_*.js`（本文件不出现具体 treasureId）。 */
 /** 拼词中公式区预览用 `useScoring` 的 `computeWordScore`（无宝藏）；提交结算用 `computeWordScoreDetailedForSubmit`（棋盘光环类材质倍率由 `gridOnlyMaterialScoring.js` 的 `buildGridPresencePostLetterSteps` 提供字后乘法步；冰为入词格 ×2）。 */
 
 /**
- * 所有字母结算完成后再触发的宝藏，按槽位从左到右排列。
+ * 所有字母结算完成后再触发的宝藏：按槽位从左到右，每槽先宝藏字后步（含蓝图复制）再该槽配饰。
  * @param {Array} tiles
  * @param {(string | null | undefined)[]} ownedSlotTreasureIds
  * @param {{ rarity?: string }[]} letterParts
@@ -35,6 +35,7 @@ import {
  * @param {string} [resolvedWord]
  * @param {{ gridTiles?: readonly object[], remainingGridTiles?: readonly object[], getWordDefinition?: (word: string) => object | null | undefined, treasureRun?: import('./treasureRunState.js').TreasureRunState, money?: number, ownedTreasureInstances?: object[], resolvedWord?: string | null }} [submitOptions]
  * @param {Record<string, number> | null} [rarityLevelsByRarity]
+ * @param {(string | null | undefined)[] | null} [ownedSlotTreasureAccessoryIds=null] 与槽位同索引的配饰 id
  * @returns {{ treasureId: string, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, moneyAdd?: number }[]}
  */
 function buildPostLetterTreasureSteps(
@@ -55,40 +56,62 @@ function buildPostLetterTreasureSteps(
   resolvedWord = "",
   submitOptions = {},
   rarityLevelsByRarity = null,
+  ownedSlotTreasureAccessoryIds = null,
 ) {
   const rnd = typeof rng === "function" ? rng : Math.random;
   const slots = ownedSlotTreasureIds ?? [];
+  const accessoryRow =
+    ownedSlotTreasureAccessoryIds == null ? slots.map(() => null) : ownedSlotTreasureAccessoryIds;
   const conditions = buildTreasureLogicConditions(tiles, letterParts, slots);
   const lenKey = Math.max(0, Math.round(Number(lengthTableLen)) || 0) || Math.max(0, tiles?.length || 0);
 
   /** @type {{ treasureId: string, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, moneyAdd?: number }[]} */
   const steps = [];
 
+  const hookCtxBase = {
+    tiles,
+    letterParts,
+    conditions,
+    basketballWordsSubmitted,
+    ownedSlotTreasureIds: slots,
+    remainingRemovals,
+    spellCountsByLength: spellCountsByLength ?? undefined,
+    remainingDeckCount,
+    isLastSubmitChance,
+    baseLetterScoreSum,
+    lengthTableLen: lenKey,
+    rng: rnd,
+    treasureRun: treasureRun ?? undefined,
+    money,
+    ownedTreasureInstances: ownedTreasureInstances ?? undefined,
+    resolvedWord: resolvedWord ? String(resolvedWord) : undefined,
+    gridTiles: submitOptions?.gridTiles ?? undefined,
+    remainingGridTiles: submitOptions?.remainingGridTiles ?? undefined,
+    rarityLevelsByRarity: rarityLevelsByRarity ?? undefined,
+    getWordDefinition: submitOptions?.getWordDefinition ?? undefined,
+  };
+
+  const pushAccessoryForSlot = (si) => {
+    const accStep = buildTreasureAccessoryPostLetterStepForSlot(
+      si,
+      slots[si],
+      accessoryRow[si],
+    );
+    if (accStep) steps.push(accStep);
+  };
+
+  let lastSlotIndex = -1;
   for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(slots)) {
+    if (lastSlotIndex >= 0 && si !== lastSlotIndex) {
+      pushAccessoryForSlot(lastSlotIndex);
+    }
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
-    const step = hooks?.buildPostLetterStep?.({
-      tiles,
-      letterParts,
-      conditions,
-      basketballWordsSubmitted,
-      ownedSlotTreasureIds: slots,
-      remainingRemovals,
-      spellCountsByLength: spellCountsByLength ?? undefined,
-      remainingDeckCount,
-      isLastSubmitChance,
-      baseLetterScoreSum,
-      lengthTableLen: lenKey,
-      rng: rnd,
-      treasureRun: treasureRun ?? undefined,
-      money,
-      ownedTreasureInstances: ownedTreasureInstances ?? undefined,
-      resolvedWord: resolvedWord ? String(resolvedWord) : undefined,
-      gridTiles: submitOptions?.gridTiles ?? undefined,
-      remainingGridTiles: submitOptions?.remainingGridTiles ?? undefined,
-      rarityLevelsByRarity: rarityLevelsByRarity ?? undefined,
-      getWordDefinition: submitOptions?.getWordDefinition ?? undefined,
-    });
+    const step = hooks?.buildPostLetterStep?.(hookCtxBase);
     if (step) steps.push({ treasureId: tid, slotIndex: si, ...step });
+    lastSlotIndex = si;
+  }
+  if (lastSlotIndex >= 0) {
+    pushAccessoryForSlot(lastSlotIndex);
   }
 
   return steps;
@@ -193,6 +216,10 @@ export function computeWordScoreDetailedForSubmit(
     },
   );
   const conditions = buildTreasureLogicConditions(tiles, base.letterParts, slots);
+  const accessoryRow =
+    ownedSlotTreasureAccessoryIds == null
+      ? slots.map(() => null)
+      : slots.map((_, i) => (disabledSet?.has(i) ? null : (ownedSlotTreasureAccessoryIds[i] ?? null)));
   let postLetterTreasureSteps = buildPostLetterTreasureSteps(
     tiles,
     slots,
@@ -211,12 +238,8 @@ export function computeWordScoreDetailedForSubmit(
     submitOptions?.resolvedWord != null ? String(submitOptions.resolvedWord) : "",
     submitOptions,
     rarityLevelsByRarity,
+    accessoryRow,
   );
-  const accessoryRow =
-    ownedSlotTreasureAccessoryIds == null
-      ? slots.map(() => null)
-      : slots.map((_, i) => (disabledSet?.has(i) ? null : (ownedSlotTreasureAccessoryIds[i] ?? null)));
-  postLetterTreasureSteps.push(...buildTreasureAccessoryPostLetterSteps(slots, accessoryRow));
   postLetterTreasureSteps.push(...buildTileTreasureAccessoryPostLetterSteps(tiles));
 
   const baseHookCtx = {
@@ -260,14 +283,22 @@ export function computeWordScoreDetailedForSubmit(
   const treasureReplayCounts = base.letterParts.map((_, i) =>
     isBossDebuffedSubmitTile(tiles[i]) ? 0 : extraLetterScoringPasses,
   );
-  for (const { treasureId: tid } of iterTreasureHookContributions(slots)) {
+  /** 按字母、宝藏槽顺序：该字母每次由 `getLetterReplayCountForLetter` 触发的重播前播宝藏 wobble */
+  /** @type {{ treasureId: string, slotIndex: number }[][]} */
+  const perLetterTreasureReplayCueSteps = base.letterParts.map(() => []);
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(slots)) {
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     if (!hooks?.getLetterReplayCountForLetter) continue;
     for (let i = 0; i < base.letterParts.length; i++) {
       if (isBossDebuffedSubmitTile(tiles[i])) continue;
       const part = base.letterParts[i];
       const n = Math.max(0, Math.floor(Number(hooks.getLetterReplayCountForLetter(baseHookCtx, part, i)) || 0));
-      if (n > 0) treasureReplayCounts[i] += n;
+      if (n > 0) {
+        treasureReplayCounts[i] += n;
+        for (let k = 0; k < n; k++) {
+          perLetterTreasureReplayCueSteps[i].push({ treasureId: tid, slotIndex: si });
+        }
+      }
     }
   }
   /**
@@ -412,6 +443,7 @@ export function computeWordScoreDetailedForSubmit(
     hasPostLetterMultMul,
     luckyMaterialRollsByLetter,
     letterReplayExtraCounts,
+    perLetterTreasureReplayCueSteps,
     /** 提交记分动画中逐字母高亮/加分的轮数（含首遍，至少为 1） */
     letterScoringPassCount: 1 + extraLetterScoringPasses,
     extraLetterPassCueSteps,
