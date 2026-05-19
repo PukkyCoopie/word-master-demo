@@ -4,7 +4,7 @@ import { describe, score } from "../treasureDescription.js";
 export default {
   price: 5,
   rarity: "common",
-  description: describe("每当你拼写的单词不包含重复的字母，获得", score("+20"), "分数"),
+  description: describe("如果你拼写的单词不包含重复的字母，获得", score("+20"), "分数"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

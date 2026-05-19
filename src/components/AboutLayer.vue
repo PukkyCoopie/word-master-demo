@@ -538,9 +538,8 @@ function splitSummary(summary) {
   font-weight: 700;
   line-height: 1.25;
   cursor: pointer;
-  color: #f9f6f2;
-  background: #8a9a7a;
-  box-shadow: var(--shadow);
+  color: var(--text-dark, #3c3a32);
+  background: var(--card, #eee4da);
   transition: filter 0.12s ease;
 }
 
@@ -549,8 +548,9 @@ function splitSummary(summary) {
 }
 
 .about-tab--active {
-  color: var(--text-dark, #3c3a32);
-  background: var(--card, #eee4da);
+  color: #f9f6f2;
+  background: #8a9a7a;
+  box-shadow: var(--shadow);
 }
 
 .about-scroll-outer {

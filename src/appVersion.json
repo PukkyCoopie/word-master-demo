@@ -1,12 +1,17 @@
 {
   "major": 0,
   "minor": 0,
-  "patch": 2,
+  "patch": 3,
   "changelog": [
+    {
+      "version": "0.0.3",
+      "date": "2026-05-19",
+      "summary": "__FROM_COMMIT_MSG__"
+    },
     {
       "version": "0.0.2",
       "date": "2026-05-19",
-      "summary": "__FROM_COMMIT_MSG__"
+      "summary": "- Bumped version to 0.0.1 and added automated versioning scripts for minor and major updates.\n- Introduced an AboutLayer component to provide game information and changelog access.\n- Updated MainMenu to include an option for opening the About section.\n- Enhanced CSS styles for improved visual feedback and responsiveness across components.\n- Refactored game mechanics to support new features and streamline user interactions."
     },
     {
       "version": "0.0.1",

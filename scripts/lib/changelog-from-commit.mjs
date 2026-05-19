@@ -4,10 +4,9 @@ import fs from "node:fs";
 export const CHANGELOG_FROM_COMMIT_MSG = "__FROM_COMMIT_MSG__";
 
 /**
- * @param {string} commitMsgPath
+ * @param {string} raw
  */
-export function parseCommitMessageFile(commitMsgPath) {
-  const raw = fs.readFileSync(commitMsgPath, "utf8");
+export function parseCommitMessageText(raw) {
   const lines = raw.split(/\r?\n/);
   const subject = (lines[0] ?? "").trim();
 
@@ -27,4 +26,11 @@ export function parseCommitMessageFile(commitMsgPath) {
   if (bodyText) return bodyText;
   if (subject) return subject;
   return "维护与修复。";
+}
+
+/**
+ * @param {string} commitMsgPath
+ */
+export function parseCommitMessageFile(commitMsgPath) {
+  return parseCommitMessageText(fs.readFileSync(commitMsgPath, "utf8"));
 }
