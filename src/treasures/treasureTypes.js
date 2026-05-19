@@ -162,6 +162,8 @@
  * @property {number} [extraLetterScoreWordsRemaining]
  * @property {string} [discardLetterGroup]
  * @property {string | null} [levelPosTargetKey]
+ * @property {() => string | null} [rollRandomBigram]
+ * @property {() => number} [rng]
  */
 
 /**
@@ -172,6 +174,7 @@
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
  * @property {() => number} [rng]
  * @property {(amount: number) => void} [addMoney]
+ * @property {boolean} [discardPotteryFxHandled] 陶罐弃牌动效已在逐字消失中结算（避免 onDiscardBatch 重复入银行）
  */
 
 /**

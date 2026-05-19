@@ -348,6 +348,18 @@ export function getWordLength(tiles, resolvedWord = null) {
 
 
 
+/** 燧石 Boss：词长段基础分与长度倍率乘以此系数。 */
+export const BOSS_FLINT_LENGTH_SCALE = 0.5;
+
+/**
+ * @param {number} value
+ * @param {boolean} [bossFlintQuarter]
+ */
+export function scaleLengthContributionForBoss(value, bossFlintQuarter) {
+  const n = Number(value) || 0;
+  return bossFlintQuarter === true ? n * BOSS_FLINT_LENGTH_SCALE : n;
+}
+
 export function getLengthMultiplier(
   len,
   lengthLevelsByLength = null,
@@ -464,8 +476,10 @@ export function computeWordScoreDetailed(
 
   /** 燧石 Boss：仅词长段的分数与长度倍率减半，字母稀有度/材质等不加减。 */
   const fq = opts?.bossFlintQuarter === true;
-  const scoreSumAdj = fq ? wordLengthScore * 0.5 + letterScoreSum : scoreSum;
-  const multTotalAdj = fq ? lengthMult * 0.5 + letterMultSum : multTotal;
+  const wordLengthScoreEffective = scaleLengthContributionForBoss(wordLengthScore, fq);
+  const lengthMultiplierEffective = scaleLengthContributionForBoss(lengthMult, fq);
+  const scoreSumAdj = wordLengthScoreEffective + letterScoreSum;
+  const multTotalAdj = lengthMultiplierEffective + letterMultSum;
 
   const finalScore = Math.round(scoreSumAdj * multTotalAdj * treasureMultiplier);
 
@@ -475,11 +489,15 @@ export function computeWordScoreDetailed(
 
     wordLengthScore,
 
+    wordLengthScoreEffective,
+
     letterScoreSum,
 
     scoreSum: scoreSumAdj,
 
     lengthMultiplier: lengthMult,
+
+    lengthMultiplierEffective,
 
     letterMultSum,
 

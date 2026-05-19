@@ -261,6 +261,7 @@
               <TreasureDescRichText
                 v-if="hasTreasureDescBody && showMainVoucherDesc"
                 :description="descriptionOverride ?? treasure.description"
+                polish-treasure-copy
               />
             </template>
           </div>

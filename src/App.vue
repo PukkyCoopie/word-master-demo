@@ -28,6 +28,7 @@
           v-if="showMenu"
           @request-start="onMenuRequestStart"
           @open-settings="openSettings"
+          @open-about="openAbout"
         />
         <div v-else-if="showGame" class="game-session-stack">
           <GamePanel
@@ -46,6 +47,7 @@
           @cancel="onRunStartCancel"
         />
         <SettingsLayer :open="showSettings" @close="closeSettings" />
+        <AboutLayer :open="showAbout" @close="closeAbout" />
       </div>
     </div>
   </div>
@@ -57,6 +59,7 @@ import MainMenu from "./components/MainMenu.vue";
 import GamePanel from "./components/GamePanel.vue";
 import RunStartDialog from "./components/RunStartDialog.vue";
 import SettingsLayer from "./components/SettingsLayer.vue";
+import AboutLayer from "./components/AboutLayer.vue";
 import { loadGameSettings } from "./settings/gameSettings.js";
 import { useScale } from "./composables/useScale";
 import { useDictionary } from "./composables/useDictionary";
@@ -73,6 +76,7 @@ const screen = ref("menu");
 const gameSessionKey = ref(0);
 const showRunStartDialog = ref(false);
 const showSettings = ref(false);
+const showAbout = ref(false);
 /** @type {import('vue').Ref<'menu' | 'restart'>} */
 const runStartMode = ref("menu");
 const sessionRunSeed = ref(0);
@@ -105,6 +109,14 @@ function openSettings() {
 
 function closeSettings() {
   showSettings.value = false;
+}
+
+function openAbout() {
+  showAbout.value = true;
+}
+
+function closeAbout() {
+  showAbout.value = false;
 }
 
 provide("openSettings", openSettings);

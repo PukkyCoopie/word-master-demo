@@ -33,3 +33,6 @@ pnpm-debug.log*
 
 # Local scratch (not versioned)
 tmp/
+
+# 下次 commit 使用的中/大版本标记（npm run version:minor/major）
+.version-bump-pending

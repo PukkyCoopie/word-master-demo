@@ -2,12 +2,12 @@ import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
 
 /** 各元素 stagger 均分的时间窗（单元素 duration 另计） */
-const GRID_STAGGER_SPREAD = 0.52;
-const TABLE_DURATION = 0.26;
+const GRID_STAGGER_SPREAD = 0.34;
+const TABLE_DURATION = 0.52;
 const TABLE_Y = 9;
 
-const COUPON_STAGGER_SPREAD = 0.36;
-const COUPON_DURATION = 0.4;
+const COUPON_STAGGER_SPREAD = 0.22;
+const COUPON_DURATION = 0.62;
 
 /**
  * @param {number} count

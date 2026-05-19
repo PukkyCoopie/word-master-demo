@@ -31,6 +31,40 @@
               </span>
             </button>
           </label>
+
+          <div class="settings-row settings-row--scale">
+            <span class="settings-row-label">界面缩放</span>
+            <div class="settings-scale-controls">
+              <input
+                type="range"
+                class="settings-scale-slider"
+                :min="UI_SCALE_MIN"
+                :max="UI_SCALE_MAX"
+                step="1"
+                :value="uiScalePercent"
+                :aria-valuemin="UI_SCALE_MIN"
+                :aria-valuemax="UI_SCALE_MAX"
+                :aria-valuenow="uiScalePercent"
+                aria-label="界面缩放百分比"
+                :style="scaleSliderStyle"
+                @input="onScaleSliderInput"
+              />
+              <div class="settings-scale-input-wrap">
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  class="settings-scale-input"
+                  :value="scaleInputText"
+                  aria-label="界面缩放百分比数值"
+                  @input="onScaleTextInput"
+                  @blur="commitScaleInput"
+                  @keydown.enter.prevent="onScaleInputEnter"
+                />
+                <span class="settings-scale-suffix" aria-hidden="true">%</span>
+              </div>
+            </div>
+          </div>
         </div>
         </div>
 
@@ -43,8 +77,15 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
-import { gameSettings, setAllowSpellingAbbreviations } from "../settings/gameSettings.js";
+import { computed, ref, watch } from "vue";
+import {
+  UI_SCALE_MAX,
+  UI_SCALE_MIN,
+  clampUiScalePercent,
+  gameSettings,
+  setAllowSpellingAbbreviations,
+  setUiScalePercent,
+} from "../settings/gameSettings.js";
 
 defineProps({
   open: { type: Boolean, default: false },
@@ -55,9 +96,46 @@ defineEmits(["close"]);
 const titleId = "settings-layer-title";
 
 const allowAbbrev = computed(() => gameSettings.allowSpellingAbbreviations === true);
+const uiScalePercent = computed(() => gameSettings.uiScalePercent);
+
+const scaleSliderStyle = computed(() => {
+  const t = (uiScalePercent.value - UI_SCALE_MIN) / (UI_SCALE_MAX - UI_SCALE_MIN);
+  return { "--scale-pct": `${Math.round(Math.min(1, Math.max(0, t)) * 100)}%` };
+});
+
+/** @type {import('vue').Ref<string>} */
+const scaleInputText = ref(String(gameSettings.uiScalePercent));
+
+watch(uiScalePercent, (v) => {
+  scaleInputText.value = String(v);
+});
 
 function onToggleAbbrev() {
   setAllowSpellingAbbreviations(!allowAbbrev.value);
+}
+
+/** @param {Event} e */
+function onScaleSliderInput(e) {
+  const raw = /** @type {HTMLInputElement} */ (e.target).value;
+  setUiScalePercent(Number(raw));
+  scaleInputText.value = String(gameSettings.uiScalePercent);
+}
+
+/** @param {Event} e */
+function onScaleTextInput(e) {
+  scaleInputText.value = /** @type {HTMLInputElement} */ (e.target).value.replace(/\D/g, "").slice(0, 3);
+}
+
+function commitScaleInput() {
+  const digits = scaleInputText.value.replace(/\D/g, "");
+  const next = digits === "" ? gameSettings.uiScalePercent : clampUiScalePercent(digits);
+  setUiScalePercent(next);
+  scaleInputText.value = String(gameSettings.uiScalePercent);
+}
+
+/** @param {KeyboardEvent} e */
+function onScaleInputEnter(e) {
+  /** @type {HTMLInputElement} */ (e.target).blur();
 }
 </script>
 
@@ -179,6 +257,121 @@ function onToggleAbbrev() {
 
 .settings-toggle-track--on .settings-toggle-thumb {
   transform: translateX(calc(24 * var(--rpx)));
+}
+
+.settings-row--scale {
+  flex-direction: column;
+  align-items: stretch;
+  gap: calc(12 * var(--rpx));
+  cursor: default;
+}
+
+.settings-scale-controls {
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--rpx));
+  min-width: 0;
+}
+
+.settings-scale-slider {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: calc(32 * var(--rpx));
+  margin: 0;
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.settings-scale-slider:focus-visible {
+  outline: calc(2 * var(--rpx)) solid #5a8fb8;
+  outline-offset: calc(2 * var(--rpx));
+  border-radius: calc(4 * var(--rpx));
+}
+
+.settings-scale-slider::-webkit-slider-runnable-track {
+  height: calc(10 * var(--rpx));
+  border-radius: calc(5 * var(--rpx));
+  background: linear-gradient(
+    to right,
+    #5a8fb8 0%,
+    #5a8fb8 var(--scale-pct, 50%),
+    rgba(0, 0, 0, 0.12) var(--scale-pct, 50%),
+    rgba(0, 0, 0, 0.12) 100%
+  );
+}
+
+.settings-scale-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: calc(26 * var(--rpx));
+  height: calc(26 * var(--rpx));
+  margin-top: calc(-8 * var(--rpx));
+  border: none;
+  border-radius: 50%;
+  background: #f9f6f2;
+  box-shadow: 0 calc(1 * var(--rpx)) calc(4 * var(--rpx)) rgba(0, 0, 0, 0.2);
+}
+
+.settings-scale-slider::-moz-range-track {
+  height: calc(10 * var(--rpx));
+  border-radius: calc(5 * var(--rpx));
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.settings-scale-slider::-moz-range-progress {
+  height: calc(10 * var(--rpx));
+  border-radius: calc(5 * var(--rpx));
+  background: #5a8fb8;
+}
+
+.settings-scale-slider::-moz-range-thumb {
+  width: calc(26 * var(--rpx));
+  height: calc(26 * var(--rpx));
+  border: none;
+  border-radius: 50%;
+  background: #f9f6f2;
+  box-shadow: 0 calc(1 * var(--rpx)) calc(4 * var(--rpx)) rgba(0, 0, 0, 0.2);
+}
+
+.settings-scale-input-wrap {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--rpx));
+}
+
+.settings-scale-input {
+  width: calc(52 * var(--rpx));
+  padding: calc(6 * var(--rpx)) calc(4 * var(--rpx));
+  border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.1);
+  border-radius: calc(6 * var(--rpx));
+  background: var(--card-bright, #f9f6f2);
+  font-family: inherit;
+  font-size: calc(24 * var(--rpx));
+  font-weight: 700;
+  color: var(--text-dark, #3c3a32);
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.settings-scale-input::-webkit-outer-spin-button,
+.settings-scale-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.settings-scale-input:focus {
+  outline: none;
+  border-color: #5a8fb8;
+}
+
+.settings-scale-suffix {
+  font-size: calc(22 * var(--rpx));
+  font-weight: 700;
+  color: var(--text-soft, #8f7a66);
+  line-height: 1;
 }
 
 .settings-back-btn {

@@ -1,6 +1,6 @@
 /** 整局宝藏运行时状态（计分银行、关卡内计数、解锁标志） */
 
-/** @typedef {{ multAdd: number, multMul: number, scoreAdd: number }} TreasureIdBank */
+/** @typedef {{ multAdd: number, multMul: number, scoreAdd: number, posPackProgress?: number }} TreasureIdBank */
 
 /** @typedef {Object} TreasureRunState
  * @property {Record<string, TreasureIdBank>} banks

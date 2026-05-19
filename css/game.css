@@ -61,7 +61,7 @@
 	--shop-reroll-price-green: #daf56f;
 	/* 商店货架：牌包区并排 2 格，单卡区/底部已拥有格与之统一（108 为格比例基准） */
 	--shop-shelf-cell-size: calc(108 * var(--rpx));
-	/* 优惠券邮票格：略大于普通货架格，商店与对局信息共用 */
+	/* 对局信息 · 优惠券 Tab 网格格（商店货架与 --shop-shelf-cell-size 一致） */
 	--shop-voucher-cell-size: calc(132 * var(--rpx));
 	/* 与 @container treasure-cell 内 emoji 比例一致，供无容器上下文回退 */
 	--shop-shelf-emoji-size: calc(42 * var(--rpx));
@@ -144,8 +144,7 @@ body {
 	width: var(--logic-w);
 	height: var(--logic-h);
 	flex-shrink: 0;
-	max-width: 100vw;
-	max-height: 100vh;
+	/* 默认 100% 时 contain 已适配视口；>100% 时允许超出边以避开异形屏遮挡 */
 }
 
 .game-container {
@@ -751,6 +750,30 @@ body {
 .score-popup-bubble--replay-again {
 	background: var(--btn-orange);
 }
+/* 宝藏触发开包：槽位上方礼物图标气泡（与 +分 气泡同锚点/动效） */
+.score-popup-bubble--bundle-pack {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: calc(2 * var(--rpx));
+	padding: calc(8 * var(--rpx)) calc(12 * var(--rpx));
+	min-width: calc(52 * var(--rpx));
+	background: #f0ebe4;
+	color: var(--text-soft);
+	box-shadow: 0 calc(4 * var(--rpx)) calc(14 * var(--rpx)) rgba(0, 0, 0, 0.18);
+}
+.score-popup-bubble--bundle-pack .score-popup-bubble__pack-icon {
+	font-size: calc(34 * var(--rpx));
+	line-height: 1;
+	color: #5a5248;
+}
+.score-popup-bubble--bundle-pack .score-popup-bubble__pack-caption {
+	font-size: calc(17 * var(--rpx));
+	font-weight: 800;
+	line-height: 1.1;
+	color: var(--text-soft);
+}
 .mult-popup-bubble {
 	background: var(--mult-accent);
 }
@@ -877,7 +900,7 @@ body {
 	justify-content: center;
 	gap: calc(8 * var(--rpx));
 	min-width: calc(160 * var(--rpx));
-	padding: calc(10 * var(--rpx)) calc(24 * var(--rpx));
+	padding: calc(10 * var(--rpx));
 	background: var(--btn-white);
 	color: var(--text);
 	border: none;
@@ -888,6 +911,47 @@ body {
 	box-shadow: var(--shadow);
 	transition: filter 0.15s;
 }
+.grid-deck-aux-row {
+	--grid-deck-aux-btn-size: calc(52 * var(--rpx));
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	gap: calc(8 * var(--rpx));
+	width: 100%;
+	box-sizing: border-box;
+}
+.grid-deck-aux-row .deck-btn--grid-row {
+	flex: 0 0 auto;
+	width: calc(180 * var(--rpx));
+	min-width: calc(180 * var(--rpx));
+	max-width: calc(180 * var(--rpx));
+	height: var(--grid-deck-aux-btn-size);
+	padding: calc(10 * var(--rpx));
+	box-sizing: border-box;
+	flex-direction: row;
+	justify-content: center;
+	align-items: center;
+	gap: calc(8 * var(--rpx));
+}
+.deck-btn-count {
+	opacity: 0.9;
+}
+.grid-deck-aux-row .action-aux-toolbar {
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: calc(8 * var(--rpx));
+	padding: 0;
+}
+.grid-deck-aux-row .action-aux-btn {
+	flex: 0 0 auto;
+	width: var(--grid-deck-aux-btn-size);
+	height: var(--grid-deck-aux-btn-size);
+	min-height: var(--grid-deck-aux-btn-size);
+	padding: 0;
+}
 .deck-btn:hover {
 	filter: brightness(1.08);
 }
@@ -896,9 +960,7 @@ body {
 }
 .deck-btn-icon {
 	font-size: calc(32 * var(--rpx));
-}
-.deck-btn-count {
-	opacity: 0.9;
+	flex-shrink: 0;
 }
 
 .bottom-bar {
@@ -926,6 +988,39 @@ body {
 	align-items: stretch;
 	gap: 0;
 	width: 100%;
+}
+.action-aux-btn {
+	flex: 0 0 auto;
+	min-height: calc(48 * var(--rpx));
+	padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
+	border: none;
+	border-radius: var(--radius);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: calc(28 * var(--rpx));
+	color: #fff;
+	cursor: pointer;
+	box-shadow: var(--shadow);
+	transition: filter 0.12s ease;
+}
+.action-aux-btn:hover:not(.action-aux-btn--disabled) {
+	filter: brightness(1.08);
+}
+.action-aux-btn:active:not(.action-aux-btn--disabled) {
+	filter: brightness(0.92);
+}
+.action-aux-btn--blue {
+	background: #5b9bd5;
+}
+.action-aux-btn--purple {
+	background: #9b59b6;
+}
+.action-aux-btn--disabled {
+	opacity: 0.42;
+	filter: saturate(0.45) brightness(0.88);
+	cursor: not-allowed;
+	pointer-events: none;
 }
 .action-buttons .action-bookmark .action-btn {
 	flex: 1;
@@ -1925,6 +2020,55 @@ body {
 	opacity: 0.1;
 }
 
+/* 玩家本关内标记：右上角折角；z-index 3 低于配饰角标(4)；由块圆角 + overflow 裁剪 */
+.grid-tile.player-marked:not(.selected),
+.word-slots .word-slot-content.player-marked {
+	overflow: hidden;
+}
+
+.grid-tile.player-marked:not(.selected)::after,
+.word-slots .word-slot-content.player-marked::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: calc(22 * var(--rpx));
+	height: calc(22 * var(--rpx));
+	background: #ffe566;
+	clip-path: polygon(100% 0, 0 0, 100% 100%);
+	pointer-events: none;
+	z-index: 3;
+}
+
+.word-slots .word-slot-content.player-marked {
+	border-radius: calc(var(--radius) * var(--slot-scale, 1));
+}
+
+.word-slots .word-slot-content.player-marked::after {
+	width: calc(22 * var(--rpx) * var(--slot-scale, 1));
+	height: calc(22 * var(--rpx) * var(--slot-scale, 1));
+}
+
+.fly-letter.player-marked,
+.fly-letter-back.player-marked {
+	overflow: hidden;
+	border-radius: calc(var(--radius) * var(--slot-scale, 1));
+}
+
+.fly-letter.player-marked::after,
+.fly-letter-back.player-marked::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: calc(22 * var(--rpx) * var(--slot-scale, 1));
+	height: calc(22 * var(--rpx) * var(--slot-scale, 1));
+	background: #ffe566;
+	clip-path: polygon(100% 0, 0 0, 100% 100%);
+	pointer-events: none;
+	z-index: 3;
+}
+
 /* 飞字：Teleport 到 body + JS 创建的 DOM，需全局样式（LetterTile variant=fly / letterTileFlyBack） */
 .fly-letter,
 .fly-letter-back {
@@ -2818,19 +2962,9 @@ body {
 	display: flex;
 	flex-direction: row;
 	flex-wrap: wrap;
-	gap: calc(18 * var(--rpx));
+	gap: calc(8 * var(--rpx));
 	justify-content: center;
-	align-items: flex-start;
-}
-
-.shop-voucher-offers .shop-treasure-product {
-	width: var(--shop-voucher-cell-size);
-	flex: 0 0 var(--shop-voucher-cell-size);
-	max-width: var(--shop-voucher-cell-size);
-}
-
-.shop-voucher-offers .voucher-stamp__frame {
-	height: var(--shop-voucher-cell-size);
+	align-items: center;
 }
 
 .td-price-stack-line {
@@ -3372,6 +3506,10 @@ body {
 	border-radius: calc(12 * var(--rpx));
 	overflow: hidden;
 	background: rgba(42, 38, 48, 0.82);
+}
+
+.pack-pick-backdrop.pack-pick-backdrop--boot {
+	background: rgba(42, 38, 48, 0);
 }
 
 .pack-pick-header-panel {

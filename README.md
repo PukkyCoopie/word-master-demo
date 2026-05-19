@@ -10,6 +10,12 @@ Completely built using vibe coding.
 npm install && npm run dev
 ```
 
+## 版本与更新日志
+
+- 展示版本：`src/appVersion.json`（关于弹窗读取 `src/appVersion.js`）。
+- **每次 `git commit`** 自动 **patch +1**；**更新日志正文 = 本次 git 提交说明**（优先正文，否则用标题）。
+- **中/大版本**：`npm run version:minor` / `version:major` 后再 `git commit`。
+- 跳过自动 bump：`SKIP_VERSION_BUMP=1 git commit …`
 
 MIT — See [LICENSE](./LICENSE)
 
@@ -20,5 +26,3 @@ MIT — See [LICENSE](./LICENSE)
 |----------|-----|
 | GitHub Pages | [pukkycoopie.github.io/word-master-demo](https://pukkycoopie.github.io/word-master-demo/) |
 | 腾讯云 CloudBase| [test-d4gs4qjyl7a9f9d99-1434123598.tcloudbaseapp.com](https://test-d4gs4qjyl7a9f9d99-1434123598.tcloudbaseapp.com/) |
-
-Pushes to `main` deploy both URLs via [`.github/workflows/deploy-static.yml`](.github/workflows/deploy-static.yml).

@@ -3,13 +3,16 @@
     <div
       ref="backdropRef"
       class="pack-pick-backdrop portal-overlay-fill"
-      :class="{ 'portal-overlay--shop-upgrade-suppressed': overlaySuppressed }"
+      :class="{
+        'portal-overlay--shop-upgrade-suppressed': overlaySuppressed,
+        'pack-pick-backdrop--boot': enterBoot,
+      }"
       :style="backdropStackStyle"
       role="dialog"
       aria-modal="true"
       :aria-labelledby="titleId"
     >
-      <div class="pack-pick-header-panel">
+      <div class="pack-pick-header-panel pack-pick-enter-stagger">
         <div class="treasure-detail-header-logo-sizer" aria-hidden="true"></div>
         <div
           class="header-box header-box-split header-box-wallet treasure-detail-wallet"
@@ -26,104 +29,107 @@
 
       <div class="pack-pick-body">
         <div class="pack-pick-stack" :class="{ 'pack-pick-stack--wide': isWideOfferRow }">
-          <div class="pack-pick-title-block">
+          <div class="pack-pick-title-block pack-pick-enter-stagger">
             <p class="treasure-detail-kind-caption">{{ kindCaption }}</p>
             <h2 :id="titleId" class="treasure-detail-name">{{ session.title }}</h2>
             <p class="pack-pick-instruction">{{ pickInstruction }}</p>
           </div>
 
-          <div class="pack-pick-offers-panel" :class="{ 'pack-pick-offers-panel--wide': isWideOfferRow }">
+          <div
+            class="pack-pick-offers-panel"
+            :class="{ 'pack-pick-offers-panel--wide': isWideOfferRow }"
+          >
             <div class="pack-pick-grid" role="list" aria-label="包内物品">
               <div
                 v-for="opt in session.options"
                 :key="opt.optionKey || opt.offerInstanceId"
-              class="shop-treasure-product pack-pick-offer-product"
-              :class="{ 'pack-pick-offer-product--claimed': isClaimed(opt) }"
-            >
-              <div
-                class="shop-treasure-visual"
-                :class="{ 'shop-treasure-visual--deck-offer': isDeckOffer(opt) }"
-                :ref="(el) => setCellRootRef(opt, el)"
-                @pointerdown.stop="!disabled && onOpenItem(opt, $event)"
+                class="shop-treasure-product pack-pick-offer-product pack-pick-enter-stagger"
+                :class="{ 'pack-pick-offer-product--claimed': isClaimed(opt) }"
               >
-                <LetterTile
-                  v-if="isDeckOffer(opt)"
-                  variant="grid"
-                  class="shop-shelf-letter-tile pack-pick-fly-source"
-                  :letter="displayLetter(opt)"
-                  :rarity="opt.letterRarity ?? opt.rarity ?? 'common'"
-                  :material-id="opt.offerType === 'deckTile' ? opt.deckTileMaterialId : undefined"
-                  :accessory-id="deckOfferAccessoryId(opt)"
-                  :treasure-accessory-id="deckOfferTreasureAccessoryId(opt)"
-                  :tile-score-bonus="0"
-                  :tile-mult-bonus="0"
-                />
-                <div v-else class="shop-treasure-frame pack-pick-fly-source" :class="frameClassFor(opt)">
-                  <template v-if="opt.offerType === 'spell'">
-                    <i
-                      v-if="opt.iconClass"
-                      class="shop-treasure-emoji shop-treasure-emoji--icon"
-                      :class="opt.iconClass"
-                      aria-hidden="true"
-                    ></i>
-                  </template>
-                  <template v-else-if="opt.offerType === 'upgrade'">
-                    <i
-                      v-if="opt.iconClass"
-                      class="shop-treasure-emoji shop-treasure-emoji--icon"
-                      :class="opt.iconClass"
-                      aria-hidden="true"
-                    ></i>
-                    <span
-                      v-if="opt.upgradeKind === 'rarity' && (opt.lengthBadgeLabel || opt.lengthLabel)"
-                      class="shop-pack-rarity-caption"
-                      >{{ opt.lengthBadgeLabel || opt.lengthLabel }}</span
-                    >
-                    <span
-                      v-else-if="opt.lengthBadgeLabel || opt.lengthLabel"
-                      class="shop-upgrade-length"
-                      :class="{
-                        'shop-upgrade-length--single-digit': isSingleDigitLabel(
-                          opt.lengthBadgeLabel || opt.lengthLabel,
-                        ),
-                      }"
-                      >{{ opt.lengthBadgeLabel || opt.lengthLabel }}</span
-                    >
-                  </template>
-                  <template v-else>
-                    <span
-                      class="letter-gem"
-                      :class="gemClassFor(opt.letterRarity ?? opt.rarity)"
-                      aria-hidden="true"
-                    />
-                    <span class="shop-treasure-emoji" role="img">{{ opt.emoji }}</span>
-                    <span
-                      v-if="treasureAccessoryChip(opt)"
-                      class="treasure-accessory-chip"
-                      :class="treasureAccessoryChip(opt).chipClass"
-                      aria-hidden="true"
-                    >
-                      <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+                <div
+                  class="shop-treasure-visual"
+                  :class="{ 'shop-treasure-visual--deck-offer': isDeckOffer(opt) }"
+                  :ref="(el) => setCellRootRef(opt, el)"
+                  @pointerdown.stop="!disabled && onOpenItem(opt, $event)"
+                >
+                  <LetterTile
+                    v-if="isDeckOffer(opt)"
+                    variant="grid"
+                    class="shop-shelf-letter-tile pack-pick-fly-source"
+                    :letter="displayLetter(opt)"
+                    :rarity="opt.letterRarity ?? opt.rarity ?? 'common'"
+                    :material-id="opt.offerType === 'deckTile' ? opt.deckTileMaterialId : undefined"
+                    :accessory-id="deckOfferAccessoryId(opt)"
+                    :treasure-accessory-id="deckOfferTreasureAccessoryId(opt)"
+                    :tile-score-bonus="0"
+                    :tile-mult-bonus="0"
+                  />
+                  <div v-else class="shop-treasure-frame pack-pick-fly-source" :class="frameClassFor(opt)">
+                    <template v-if="opt.offerType === 'spell'">
                       <i
-                        class="treasure-accessory-chip-icon"
-                        :class="treasureAccessoryChip(opt).iconClass"
+                        v-if="opt.iconClass"
+                        class="shop-treasure-emoji shop-treasure-emoji--icon"
+                        :class="opt.iconClass"
+                        aria-hidden="true"
+                      ></i>
+                    </template>
+                    <template v-else-if="opt.offerType === 'upgrade'">
+                      <i
+                        v-if="opt.iconClass"
+                        class="shop-treasure-emoji shop-treasure-emoji--icon"
+                        :class="opt.iconClass"
+                        aria-hidden="true"
+                      ></i>
+                      <span
+                        v-if="opt.upgradeKind === 'rarity' && (opt.lengthBadgeLabel || opt.lengthLabel)"
+                        class="shop-pack-rarity-caption"
+                        >{{ opt.lengthBadgeLabel || opt.lengthLabel }}</span
+                      >
+                      <span
+                        v-else-if="opt.lengthBadgeLabel || opt.lengthLabel"
+                        class="shop-upgrade-length"
+                        :class="{
+                          'shop-upgrade-length--single-digit': isSingleDigitLabel(
+                            opt.lengthBadgeLabel || opt.lengthLabel,
+                          ),
+                        }"
+                        >{{ opt.lengthBadgeLabel || opt.lengthLabel }}</span
+                      >
+                    </template>
+                    <template v-else>
+                      <span
+                        class="letter-gem"
+                        :class="gemClassFor(opt.letterRarity ?? opt.rarity)"
                         aria-hidden="true"
                       />
-                    </span>
-                  </template>
-                </div>
-                <div class="shop-treasure-price" aria-label="参考售价">
-                  <div class="shop-treasure-price-inner shop-treasure-price-inner--pack-struck">
-                    ${{ markPrice(opt.price) }}
+                      <span class="shop-treasure-emoji" role="img">{{ opt.emoji }}</span>
+                      <span
+                        v-if="treasureAccessoryChip(opt)"
+                        class="treasure-accessory-chip"
+                        :class="treasureAccessoryChip(opt).chipClass"
+                        aria-hidden="true"
+                      >
+                        <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+                        <i
+                          class="treasure-accessory-chip-icon"
+                          :class="treasureAccessoryChip(opt).iconClass"
+                          aria-hidden="true"
+                        />
+                      </span>
+                    </template>
                   </div>
+                  <div class="shop-treasure-price" aria-label="参考售价">
+                    <div class="shop-treasure-price-inner shop-treasure-price-inner--pack-struck">
+                      ${{ markPrice(opt.price) }}
+                    </div>
+                  </div>
+                  <span v-if="isClaimed(opt)" class="pack-pick-claimed-badge" aria-hidden="true">已获取</span>
                 </div>
-                <span v-if="isClaimed(opt)" class="pack-pick-claimed-badge" aria-hidden="true">已获取</span>
               </div>
-            </div>
             </div>
           </div>
 
-          <div class="treasure-detail-actions pack-pick-actions">
+          <div class="treasure-detail-actions pack-pick-actions pack-pick-enter-stagger">
             <button type="button" class="shop-btn shop-btn--next" :disabled="disabled" @click="onSkip">
               跳过
             </button>
@@ -135,11 +141,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, useId } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from "vue";
+import gsap from "gsap";
 import LetterTile from "./LetterTile.vue";
 import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { EASE_TRANSFORM } from "../constants.js";
 
 const props = defineProps({
   session: { type: Object, required: true },
@@ -155,7 +163,11 @@ const emit = defineEmits(["open-item", "skip"]);
 const titleId = useId();
 const backdropRef = ref(null);
 const stackZ = ref(0);
+const enterBoot = ref(true);
 const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
+
+/** @type {gsap.core.Timeline | null} */
+let enterTl = null;
 
 /** @type {Map<string, HTMLElement | null>} */
 const cellRoots = new Map();
@@ -177,7 +189,58 @@ function getFlySourceEl(opt) {
   return root?.querySelector?.(".pack-pick-fly-source") ?? root ?? null;
 }
 
-defineExpose({ getFlySourceEl });
+function collectEnterStaggerEls() {
+  const root = backdropRef.value;
+  if (!root) return [];
+  return Array.from(root.querySelectorAll(".pack-pick-enter-stagger"));
+}
+
+function killEnterTweens() {
+  if (enterTl) {
+    enterTl.kill();
+    enterTl = null;
+  }
+  const backdrop = backdropRef.value;
+  const staggerEls = collectEnterStaggerEls();
+  if (backdrop || staggerEls.length) {
+    gsap.killTweensOf([backdrop, ...staggerEls].filter(Boolean));
+  }
+}
+
+function runEnterAnimation() {
+  const backdrop = backdropRef.value;
+  if (!backdrop || props.overlaySuppressed) return;
+  killEnterTweens();
+  const staggerEls = collectEnterStaggerEls();
+  gsap.set(backdrop, { backgroundColor: "rgba(42, 38, 48, 0)" });
+  gsap.set(staggerEls, { opacity: 0, y: 10, scale: 0.96 });
+  enterBoot.value = false;
+  enterTl = gsap.timeline();
+  enterTl.to(
+    backdrop,
+    {
+      backgroundColor: "rgba(42, 38, 48, 0.82)",
+      duration: 0.42,
+      ease: EASE_TRANSFORM,
+    },
+    0,
+  );
+  enterTl.to(
+    staggerEls,
+    {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      duration: 0.2,
+      stagger: 0.045,
+      ease: EASE_TRANSFORM,
+      clearProps: "opacity,transform",
+    },
+    0.06,
+  );
+}
+
+defineExpose({ getFlySourceEl, playEnter: runEnterAnimation });
 
 const requiredPicks = computed(() => {
   const pc = Math.max(1, Math.floor(Number(props.session?.pickCount) || 1));
@@ -289,10 +352,24 @@ function onSkip() {
 
 onMounted(() => {
   stackZ.value = bumpOverlayZ();
+  void nextTick().then(() => {
+    requestAnimationFrame(() => runEnterAnimation());
+  });
 });
+
+watch(
+  () => props.overlaySuppressed,
+  (suppressed, was) => {
+    if (was && !suppressed) {
+      void nextTick().then(() => runEnterAnimation());
+    }
+  },
+);
 
 onUnmounted(() => {
   stackZ.value = 0;
   cellRoots.clear();
+  killEnterTweens();
+  enterBoot.value = true;
 });
 </script>

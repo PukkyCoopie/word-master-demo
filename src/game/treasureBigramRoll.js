@@ -32,6 +32,23 @@ export function rollRandomBigramFromDictionary(getCandidateWordsByLength, rng = 
  * @param {string} pair 两字母
  * @returns {number} 词中该相邻对出现次数
  */
+/**
+ * 本局证件（46）目标双字母：整局固定，未掷出时用 `rollFn` 掷一次（商店未购也可预览）。
+ * @param {import('../treasures/treasureRunState.js').TreasureRunState | null | undefined} runState
+ * @param {() => string | null | undefined} [rollFn]
+ * @returns {string | null}
+ */
+export function ensureBigramTargetPair(runState, rollFn) {
+  if (!runState) return null;
+  if (runState.bigramTargetPair) return runState.bigramTargetPair;
+  if (typeof rollFn !== "function") return null;
+  const rolled = rollFn();
+  if (typeof rolled === "string" && /^[a-z]{2}$/i.test(rolled)) {
+    runState.bigramTargetPair = rolled.toLowerCase();
+  }
+  return runState.bigramTargetPair;
+}
+
 export function countBigramOccurrencesInWord(word, pair) {
   const w = String(word ?? "").toLowerCase();
   const p = String(pair ?? "").toLowerCase();

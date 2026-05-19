@@ -14,6 +14,7 @@ import {
   expandEffectTokensInDescription,
   injectLineBreaksBeforeParentheses,
   normalizeTreasureDescription,
+  polishTreasureDescriptionSegments,
 } from "../treasures/treasureDescription.js";
 
 const props = defineProps({
@@ -21,11 +22,14 @@ const props = defineProps({
   description: { type: [Array, String], default: () => [] },
   /** 分节正文（配饰 / tile）：与 `.treasure-detail-desc-panel-body` 排版一致并居中 */
   panelBody: { type: Boolean, default: false },
+  /** 宝藏主简介：英文字母大写、文案内 xN → ×N chip */
+  polishTreasureCopy: { type: Boolean, default: false },
 });
 
 const segments = computed(() => {
   const norm = normalizeTreasureDescription(props.description);
-  const expanded = expandEffectTokensInDescription(norm);
+  const polished = props.polishTreasureCopy ? polishTreasureDescriptionSegments(norm) : norm;
+  const expanded = expandEffectTokensInDescription(polished);
   return injectLineBreaksBeforeParentheses(expanded);
 });
 </script>

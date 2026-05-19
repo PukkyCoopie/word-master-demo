@@ -39,15 +39,19 @@
           :style="deckPortalStackStyle"
           @click.self="onDeckLayerBackdropClick"
         >
-        <div class="deck-layer-inner">
-          <div class="deck-layer-title">牌库</div>
+        <div
+          ref="deckLayerInnerRef"
+          class="deck-layer-inner"
+          :class="{ 'deck-layer-inner--enter-boot': deckLayerEnterBoot }"
+        >
+          <div class="deck-layer-title deck-layer-enter-stagger">牌库</div>
           <div class="deck-layer-grid-slot">
             <div class="deck-layer-stacks">
               <button
                 v-for="stack in deckStacksView"
                 :key="stack.raw"
                 type="button"
-                class="deck-stack"
+                class="deck-stack deck-layer-enter-stagger"
                 :class="{ 'deck-stack--ghost': stack.isGhost }"
                 :disabled="stack.isGhost"
                 :aria-label="stack.isGhost ? `${stack.displayLetter} 无牌` : `${stack.displayLetter}，共 ${stack.count} 张`"
@@ -110,7 +114,11 @@
               </div>
             </div>
           </Transition>
-          <button type="button" class="shop-btn shop-btn--buy deck-layer-confirm" @click="showDeckLayer = false">
+          <button
+            type="button"
+            class="shop-btn shop-btn--buy deck-layer-confirm deck-layer-enter-stagger"
+            @click="showDeckLayer = false"
+          >
             确定
           </button>
         </div>
@@ -280,6 +288,7 @@
             <div class="word-slot-placeholder" aria-hidden="true"></div>
             <LetterTile
               variant="wordSlotContent"
+              :class="{ 'player-marked': entry.playerMarked === true }"
               :letter="entry.letter"
               :rarity="entry.rarity"
               :material-id="entry.materialId ?? null"
@@ -391,7 +400,11 @@
                 :vowel-ghost-prev="vowelGhostForTile(tile)?.prev ?? null"
                 :vowel-ghost-next="vowelGhostForTile(tile)?.next ?? null"
                 :ref="el => setGridTileRef(index, el)"
-                :class="{ selected: tile.selected, 'tile-flying': isTileFlying(Math.floor(index / COLS), index % COLS) }"
+                :class="{
+                  selected: tile.selected,
+                  'tile-flying': isTileFlying(Math.floor(index / COLS), index % COLS),
+                  'player-marked': tile.playerMarked === true,
+                }"
                 role="button"
                 tabindex="0"
                 @click="onTileClick(Math.floor(index / COLS), index % COLS, tile)"
@@ -404,18 +417,47 @@
             </template>
           </div>
         </div>
-        <button
-          ref="deckBtnRef"
-          type="button"
-          class="deck-btn"
-          title="牌库"
-          aria-label="牌库"
-          :disabled="isRunFlowOverlayOpen()"
-          @click="!isRunFlowOverlayOpen() && (showDeckLayer = true)"
-        >
-            <i class="ri-stack-line deck-btn-icon"></i>
+        <div class="grid-deck-aux-row">
+          <button
+            ref="deckBtnRef"
+            type="button"
+            class="deck-btn deck-btn--grid-row"
+            title="牌库"
+            aria-label="牌库"
+            :disabled="isRunFlowOverlayOpen()"
+            @click="!isRunFlowOverlayOpen() && (showDeckLayer = true)"
+          >
+            <i class="ri-stack-line deck-btn-icon" aria-hidden="true"></i>
+            <span class="deck-btn-label">牌库</span>
             <span class="deck-btn-count">{{ deckCount }}</span>
           </button>
+          <div
+            class="action-aux-toolbar"
+            role="group"
+            aria-label="拼词辅助"
+          >
+            <button
+              type="button"
+              class="action-aux-btn action-aux-btn--blue"
+              :class="{ 'action-aux-btn--disabled': !canUseWordAuxTools }"
+              title="标记当前拼词中的字母（仅本关提示，不进牌库）"
+              aria-label="标记当前拼词中的字母"
+              @click="onMarkSelectedTilesClick"
+            >
+              <i class="ri-bookmark-line" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="action-aux-btn action-aux-btn--purple"
+              :class="{ 'action-aux-btn--disabled': !canSwapWordSelection }"
+              title="将拼词中的字母送回棋盘，并选中原先未选的字母"
+              aria-label="互换拼词与棋盘选中"
+              @click="onSwapWordSelectionClick"
+            >
+              <i class="ri-arrow-left-right-line" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
         </div>
         <div class="action-buttons">
           <div class="action-bookmark">
@@ -472,8 +514,9 @@
       <LetterTile
         v-for="fly in flyingLetters"
         :key="fly.id"
-        v-memo="[fly.id, fly.bossTileDebuffed, fly.materialId, fly.vowelGhostPrev, fly.vowelGhostNext]"
+        v-memo="[fly.id, fly.bossTileDebuffed, fly.materialId, fly.vowelGhostPrev, fly.vowelGhostNext, fly.playerMarked]"
         variant="fly"
+        :class="{ 'player-marked': fly.playerMarked === true }"
         :letter="fly.letter"
         :rarity="fly.rarity"
         :material-id="fly.materialId ?? null"
@@ -653,11 +696,13 @@ import { filterTreasureDefsForPool } from "../treasures/treasureAvailability.js"
 import {
   createTreasureRunState,
   currentDiscardLetterGroup,
+  letterInCurrentDiscardGroup,
   resetTreasureLevelScopedState,
-  rollDiscardLetterGroupIndex,
 } from "../treasures/treasureRunState.js";
+import { addScoreAddBank } from "../treasures/treasureBankHelpers.js";
 import { parseChapterFromLevelId } from "../treasures/treasureLifecycleShared.js";
-import { rollRandomBigramFromDictionary } from "../game/treasureBigramRoll.js";
+import { bundlePackKindCaptionZh } from "../game/bundlePackCopy.js";
+import { ensureBigramTargetPair, rollRandomBigramFromDictionary } from "../game/treasureBigramRoll.js";
 import { IMPLEMENTED_TREASURE_ID_SET } from "../treasures/treasureCatalog.js";
 import { computeOwnedTreasureSlotTargetLength } from "../game/treasureSlotCapacity.js";
 import {
@@ -787,6 +832,7 @@ import {
   getBaseScoreForRarity,
   getWordLengthScoreForTableLen,
   getLengthMultiplier,
+  scaleLengthContributionForBoss,
   getRarityForLetter,
   getWordLetterCount,
   isWildcardMaterialTile,
@@ -817,6 +863,11 @@ import TreasureSlot from "./TreasureSlot.vue";
 import ResultArea from "./ResultArea.vue";
 import { createFlyBackTileElement, disposeFlyBackTileElement } from "../utils/letterTileFlyBack.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import {
+  killDeckLayerEnter,
+  playDeckLayerEnter,
+  prepareDeckLayerEnter,
+} from "../game/deckLayerEnterAnim.js";
 import { isE2eMode } from "../e2e/isE2eMode.js";
 import { registerGameTestHarness } from "../e2e/registerGameTestHarness.js";
 import { computeWordScore } from "../composables/useScoring.js";
@@ -1369,6 +1420,8 @@ const walletHeaderShown = computed(() => {
 let walletGainTl = null;
 
 const showDeckLayer = ref(false);
+const deckLayerInnerRef = ref(/** @type {HTMLElement | null} */ (null));
+const deckLayerEnterBoot = ref(false);
 /** 牌库内展开的字母 raw（与 `deckStacksView[].raw` 一致，含 `?` 通配符） */
 const deckStackExpandRaw = ref(/** @type {string | null} */ (null));
 const deckExpandScrollRef = ref(/** @type {HTMLElement | null} */ (null));
@@ -1399,9 +1452,19 @@ watch(deckStackExpandRaw, async (raw) => {
   });
 });
 
-watch(showDeckLayer, (open) => {
-  if (open) deckPortalZ.value = bumpOverlayZ();
-  else {
+watch(showDeckLayer, async (open) => {
+  if (open) {
+    deckPortalZ.value = bumpOverlayZ();
+    deckLayerEnterBoot.value = true;
+    await nextTick();
+    const inner = deckLayerInnerRef.value;
+    if (inner) prepareDeckLayerEnter(inner);
+    deckLayerEnterBoot.value = false;
+    requestAnimationFrame(() => {
+      if (deckLayerInnerRef.value) playDeckLayerEnter(deckLayerInnerRef.value);
+    });
+  } else {
+    killDeckLayerEnter(deckLayerInnerRef.value);
     deckExpandFlipTl?.kill();
     deckExpandFlipTl = null;
     deckStackExpandRaw.value = null;
@@ -1983,17 +2046,47 @@ function rollOneInRunBundlePack() {
  * @param {object | null | undefined} bundleRow
  * @param {{ treasureSlotIndex?: number }} [opts]
  */
+/**
+ * 宝藏触发开包前：槽位 wobble + 头上组合包图标气泡（节奏对齐记分气泡）。
+ * @param {number} slotIndex
+ * @param {string} [bundleKind]
+ */
+async function runTreasurePackOpenPrecursor(slotIndex, bundleKind = "") {
+  if (typeof slotIndex !== "number" || slotIndex < 0) return;
+  const el = gameTreasureSlotRefs[slotIndex];
+  if (!el) return;
+  const sp = 1;
+  shopOverlayLayersSuppressed.value = true;
+  await nextTick();
+  await new Promise((r) => requestAnimationFrame(r));
+  const wobbleTl = createWobbleScoreSlotTimeline(el);
+  if (wobbleTl) {
+    wobbleTl.timeScale(sp);
+    wobbleTl.play(0);
+  }
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  const bubble = showBundlePackBubble(el, bundleKind, sp);
+  scheduleSmallPlusBubbleOutro(bubble, sp);
+  if (wobbleTl) {
+    await new Promise((resolve) => {
+      wobbleTl.eventCallback("onComplete", () => resolve());
+    });
+  } else {
+    await scoringSleep(SCORING_TREASURE_FALLBACK_MS, sp);
+  }
+  await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+  shopOverlayLayersSuppressed.value = false;
+}
+
 async function runInRunPackPickFlow(bundleRow, { treasureSlotIndex } = {}) {
   let bundle = bundleRow;
   if (!bundle || bundle.offerType !== "bundlePack") {
     bundle = rollOneInRunBundlePack();
     if (!bundle) return;
   }
+  const bundleKind = String(bundle.bundleKind ?? "");
   if (typeof treasureSlotIndex === "number" && treasureSlotIndex >= 0) {
-    shopOverlayLayersSuppressed.value = true;
-    await nextTick();
-    await wobbleGameTreasureSlot(treasureSlotIndex);
-    shopOverlayLayersSuppressed.value = false;
+    await runTreasurePackOpenPrecursor(treasureSlotIndex, bundleKind);
   }
   return new Promise((resolve) => {
     packPickFlowResolve = resolve;
@@ -2292,24 +2385,34 @@ const treasureDetailMode = computed(() => {
   return showShop.value ? "owned-shop" : "owned-game";
 });
 
-/** 已拥有详情：静态简介 + 动态 patch + 材质/配饰追加 */
-const treasureDetailDescriptionOverride = computed(() => {
-  const d = treasureDetail.value;
-  if (!d?.treasure || d.kind === "offer") return null;
-  const tid = d.treasure.treasureId;
-  const base = normalizeTreasureDescription(d.treasure.description);
-  const patch = resolveTreasureDescriptionPatches(tid, {
+function buildTreasurePatchDescriptionContext() {
+  ensureBigramTargetPair(treasureRunState.value, rollRandomBigramForTreasure);
+  return {
     treasureRun: treasureRunState.value,
     extraLetterScoreWordsRemaining: treasureRunState.value.extraLetterScoreWordsRemaining,
     discardLetterGroup: currentDiscardLetterGroup(treasureRunState.value),
     levelPosTargetKey: treasureRunState.value.levelPosTargetKey,
-  });
+    rollRandomBigram: rollRandomBigramForTreasure,
+    rng: runRandom,
+  };
+}
+
+/** 宝藏详情简介：静态 + 动态 patch（含商店未购货架） */
+const treasureDetailDescriptionOverride = computed(() => {
+  const d = treasureDetail.value;
+  if (!d?.treasure) return null;
+  const tid = d.treasure.treasureId;
+  const base = normalizeTreasureDescription(d.treasure.description);
+  const patch = resolveTreasureDescriptionPatches(tid, buildTreasurePatchDescriptionContext());
+  const replacesBase = treasureDescriptionPatchReplacesBase(tid);
+  if (d.kind === "offer") {
+    return replacesBase && patch?.length ? patch : null;
+  }
   const extra = TREASURE_HOOKS_BY_ID.get(tid)?.buildOwnedDetailDescriptionSegments?.({
     chargeWordsSubmitted: basketballWordsSubmitted.value,
     ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null),
     remainingDeckCount: deckCount.value,
   });
-  const replacesBase = treasureDescriptionPatchReplacesBase(tid);
   const parts =
     replacesBase && patch?.length ? [...patch] : [...base, ...(patch?.length ? patch : [])];
   if (extra?.length) parts.push(...extra);
@@ -2562,7 +2665,6 @@ async function resetLevelAfterTreasurePrep(levelDef) {
 
 async function runTreasureLevelEnterHooks(levelId) {
   resetTreasureLevelScopedState(treasureRunState.value);
-  rollDiscardLetterGroupIndex(treasureRunState.value, runRandom);
   const ch = parseChapterFromLevelId(levelId);
   const prev = treasureRunState.value.lastChapterNumber;
   if (ch !== prev) {
@@ -3153,6 +3255,10 @@ let flyingInIdCounter = 0;
 /** fly.id -> 飞字 DOM，用于取消时 kill GSAP；不用下标，避免列表变长时 ref 与动画错位 */
 const flyingInElById = new Map();
 const flyingInAnimStarted = new Set();
+/** 飞入落地顺序缓冲：按 targetSlotIndex 依次 selectTile，避免快连点时乱序入槽 */
+const flyInPendingComplete = [];
+/** 互换拼词/棋盘选中进行中 */
+const wordSelectionSwapBusy = ref(false);
 /** 正在飞回网格的 batch 列表，支持多个同时飞回；每 batch { id, slotIndex, list } */
 const flyingBackBatches = ref([]);
 let flyingBackBatchIdCounter = 0;
@@ -3244,6 +3350,99 @@ function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
       });
     }
   });
+}
+
+const POTTERY_JAR_TREASURE_ID = "65";
+const DISCARD_POTTERY_EXTRA_GAP_MS = Math.round(90 * SCORING_GAP_SCALE);
+
+/**
+ * @param {HTMLElement | null | undefined} slotEl
+ * @param {HTMLElement | null | undefined} gridEl
+ * @param {number} duration
+ */
+function animateOneDiscardTileLeave(slotEl, gridEl, duration) {
+  return new Promise((resolve) => {
+    let done = 0;
+    const need = (slotEl ? 1 : 0) + (gridEl ? 1 : 0);
+    if (need === 0) {
+      resolve();
+      return;
+    }
+    const finish = () => {
+      done += 1;
+      if (done >= need) resolve();
+    };
+    if (slotEl) {
+      gsap.killTweensOf(slotEl);
+      gsap.fromTo(
+        slotEl,
+        { opacity: 1, scale: 1, y: 0 },
+        {
+          opacity: 0,
+          scale: 0.88,
+          y: -10,
+          duration,
+          ease: EASE_TRANSFORM,
+          onComplete: finish,
+        },
+      );
+    }
+    if (gridEl) {
+      gsap.killTweensOf(gridEl);
+      gsap.set(gridEl, { transformOrigin: "50% 50%", y: 0 });
+      gsap.to(gridEl, {
+        opacity: 0,
+        scale: 0.82,
+        y: 0,
+        duration,
+        ease: EASE_TRANSFORM,
+        onComplete: finish,
+      });
+    }
+  });
+}
+
+/**
+ * 弃牌消失：无陶罐结算时批量播；有陶罐则逐字与 tile 同步 wobble+气泡，并略推迟下一字。
+ * @param {HTMLElement[]} slotEls
+ * @param {HTMLElement[]} gridEls
+ * @param {{ letter?: string }[]} discardedLetters
+ * @param {{ duration?: number, stagger?: number }} [options]
+ * @returns {Promise<boolean>} 是否已在动画中处理陶罐（调用方勿在 onDiscardBatch 重复入银行）
+ */
+async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, options = {}) {
+  const duration = Number.isFinite(options.duration) ? options.duration : REMOVE_SLOT_FADE_DURATION;
+  const stagger = Number.isFinite(options.stagger) ? options.stagger : REMOVE_SLOT_STAGGER;
+  const rs = treasureRunState.value;
+  const potterySlotIx = findOwnedTreasureSlotIndex(POTTERY_JAR_TREASURE_ID);
+  /** @type {number[]} */
+  const potteryIndices = [];
+  if (potterySlotIx >= 0) {
+    for (let i = 0; i < discardedLetters.length; i++) {
+      if (letterInCurrentDiscardGroup(discardedLetters[i]?.letter, rs)) potteryIndices.push(i);
+    }
+  }
+  if (!potteryIndices.length) {
+    await runSlotAndGridLeaveAnimation(slotEls, gridEls, { duration, stagger });
+    return false;
+  }
+
+  const scorePerLetter = 3;
+  for (let i = 0; i < slotEls.length; i++) {
+    const slotEl = slotEls[i];
+    const gridEl = gridEls[i];
+    const triggersPottery = potteryIndices.includes(i);
+    const leaveP = animateOneDiscardTileLeave(slotEl, gridEl, duration);
+    if (triggersPottery) {
+      addScoreAddBank(rs, POTTERY_JAR_TREASURE_ID, scorePerLetter);
+      await Promise.all([leaveP, playTreasureSlotScoreBurstAtPeak(potterySlotIx, scorePerLetter)]);
+      if (i < slotEls.length - 1) await sleep(DISCARD_POTTERY_EXTRA_GAP_MS);
+    } else {
+      await leaveP;
+      if (i < slotEls.length - 1) await sleep(Math.round(stagger * 1000));
+    }
+  }
+  return true;
 }
 /** 飞回列表扁平化，用于渲染；每项含 batchId、slotIndex */
 const flyingBackList = computed(() =>
@@ -3396,6 +3595,136 @@ function getScaledSlotRect(wrapRect, numSlots, slotIndex) {
   const left = wrapRect.left + (wrapRect.width - totalVisualWidthPx) / 2 + slotIndex * (SLOT_TILE_W + SLOT_GAP) * scale * rpx;
   const top = wrapRect.top + (wrapRect.height - slotVisualSizePx) / 2;
   return { left, top, width: slotVisualSizePx, height: slotVisualSizePx };
+}
+
+/** 按最终词长同步所有在途飞入目标槽位，并刷新已在飞的 GSAP 终点 */
+function syncFlyingInTargets() {
+  const wrapEl = wordSlotsWrapRef.value;
+  if (!wrapEl) return;
+  const wrapRect = wrapEl.getBoundingClientRect();
+  if (wrapRect.width <= 0 || wrapRect.height <= 0) return;
+  const base = selectedOrder.value.length;
+  const list = flyingLetters.value;
+  const total = base + list.length;
+  if (total <= 0) return;
+  const totalDesign = total * SLOT_TILE_W + (total - 1) * SLOT_GAP;
+  const targetSlotScale = Math.min(1, MIDDLE_MAX_W / totalDesign);
+  list.forEach((fly, i) => {
+    const slotIndex = base + i;
+    const toRect = getScaledSlotRect(wrapRect, total, slotIndex);
+    if (!toRect) return;
+    fly.targetSlotIndex = slotIndex;
+    fly.layoutNumSlots = total;
+    fly.targetSlotScale = targetSlotScale;
+    fly.toRect = toRect;
+    const node = flyingInElById.get(fly.id);
+    if (!node || !flyingInAnimStarted.has(fly.id)) return;
+    gsap.to(node, {
+      left: toRect.left,
+      top: toRect.top,
+      scaleX: 1,
+      scaleY: 1,
+      "--slot-scale": targetSlotScale,
+      duration: 0.16,
+      ease: EASE_TRANSFORM,
+      overwrite: "auto",
+    });
+  });
+}
+
+function flushFlyInSelections() {
+  flyInPendingComplete.sort((a, b) => a.targetSlotIndex - b.targetSlotIndex);
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    for (let i = flyInPendingComplete.length - 1; i >= 0; i -= 1) {
+      const item = flyInPendingComplete[i];
+      if (item.targetSlotIndex !== selectedOrder.value.length) continue;
+      selectTile(item.pendingRow, item.pendingCol);
+      if (item.ceruleanBell) finalizeCeruleanBellSlotIndex();
+      flyInPendingComplete.splice(i, 1);
+      progressed = true;
+    }
+  }
+  syncFlyingInTargets();
+}
+
+function waitForFlyingBackIdle() {
+  return new Promise((resolve) => {
+    const tick = () => {
+      if (flyingBackBatches.value.length === 0) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+function waitForFlyingInIdle() {
+  return new Promise((resolve) => {
+    const tick = () => {
+      if (flyingLetters.value.length === 0 && flyInPendingComplete.length === 0) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+function collectWordAuxTargetTiles() {
+  /** @type {import('../composables/useGameState.js').GridTile[]} */
+  const tiles = [];
+  const seen = new Set();
+  const add = (row, col) => {
+    const key = `${row},${col}`;
+    if (seen.has(key)) return;
+    const tile = grid.value[row]?.[col];
+    if (!tile) return;
+    seen.add(key);
+    tiles.push(tile);
+  };
+  for (const { row, col } of selectedOrder.value) add(row, col);
+  for (const fly of flyingLetters.value) add(fly.pendingRow, fly.pendingCol);
+  return tiles;
+}
+
+/** 当前拼词槽（含飞入中）占用的棋盘格坐标，用于互换时取补集 */
+function buildWordSelectionPositionKeys() {
+  const keys = new Set();
+  for (const { row, col } of selectedOrder.value) {
+    keys.add(`${row},${col}`);
+  }
+  for (const fly of flyingLetters.value) {
+    keys.add(`${fly.pendingRow},${fly.pendingCol}`);
+  }
+  return keys;
+}
+
+/**
+ * @param {Set<string> | null} excludePositionKeys 互换前已在拼词中的格（`row,col`）；传 null 时仅排除 `tile.selected`
+ */
+function collectSwappableGridPositions(excludePositionKeys = null) {
+  /** @type {{ row: number, col: number, tile: object }[]} */
+  const list = [];
+  const g = grid.value;
+  for (let r = 0; r < ROWS; r += 1) {
+    for (let c = 0; c < COLS; c += 1) {
+      const tile = g[r]?.[c];
+      if (!tile?.letter) continue;
+      const key = `${r},${c}`;
+      if (excludePositionKeys?.has(key)) continue;
+      if (tile.selected) continue;
+      if (tile.bossGridBlocked) continue;
+      if (tile.bossTileDebuffed) continue;
+      if (isTileFlying(r, c)) continue;
+      list.push({ row: r, col: c, tile });
+    }
+  }
+  return list;
 }
 
 /** 用于提交按钮的「即将生效」单词：飞入中视为已加入，飞回中视为已移除，不等到动画结束 */
@@ -3768,8 +4097,9 @@ const wordSlotTilePresentations = computed(() => {
 /** 词槽展示用：保留棋盘格上的 boss 削弱标记，供整块槽位压暗 */
 function normalizeWordSlotPresentationTile(tile) {
   if (!tile || typeof tile !== "object") return tile;
-  if (!tile.bossTileDebuffed) return tile;
-  return { ...tile, bossTileDebuffed: true };
+  const next = tile.bossTileDebuffed ? { ...tile, bossTileDebuffed: true } : { ...tile };
+  if (tile.playerMarked === true) next.playerMarked = true;
+  return next;
 }
 
 /** 已选格在棋盘上与词槽同步展示解析后的字母/稀有度 */
@@ -4182,6 +4512,8 @@ function formatMultDisplay(m) {
   return s.endsWith(".0") ? String(Math.round(n)) : s;
 }
 
+const isFlintBossActive = computed(() => activeBossSlug.value === "the_flint");
+
 const displayFormulaScore = computed(() => {
   if (clearWinLengthUpgradeFxActive.value) {
     return String(Math.max(0, Math.round(clearWinFxScoreValue.value)));
@@ -4195,10 +4527,15 @@ const displayFormulaScore = computed(() => {
   if (tiles.length && resultFormulaBasePreviewActive.value) {
     const Ltb = resultAreaJudgedWordLength.value;
     return String(
-      getWordLengthScoreForTableLen(
-        Ltb,
-        lengthLevelsByLength.value,
-        lengthUpgradeObservatoryExtra.value,
+      Math.round(
+        scaleLengthContributionForBoss(
+          getWordLengthScoreForTableLen(
+            Ltb,
+            lengthLevelsByLength.value,
+            lengthUpgradeObservatoryExtra.value,
+          ),
+          isFlintBossActive.value,
+        ),
       ),
     );
   }
@@ -4222,7 +4559,10 @@ const displayFormulaMult = computed(() => {
   if (tiles.length && resultFormulaBasePreviewActive.value) {
     const Ltb = resultAreaJudgedWordLength.value;
     return formatMultDisplay(
-      getLengthMultiplier(Ltb, lengthLevelsByLength.value, lengthUpgradeObservatoryExtra.value),
+      scaleLengthContributionForBoss(
+        getLengthMultiplier(Ltb, lengthLevelsByLength.value, lengthUpgradeObservatoryExtra.value),
+        isFlintBossActive.value,
+      ),
     );
   }
   return "0";
@@ -4277,6 +4617,72 @@ function onDiscardBtnClick() {
     return;
   }
   void onRemoveClick();
+}
+
+const canUseWordAuxTools = computed(() => {
+  if (
+    dictFatalError.value ||
+    transitionBusy.value ||
+    showShop.value ||
+    isRunFlowOverlayOpen() ||
+    scoringAnimating.value ||
+    gridRefillAnimating.value ||
+    wordSelectionSwapBusy.value
+  ) {
+    return false;
+  }
+  return collectWordAuxTargetTiles().length > 0;
+});
+
+const canSwapWordSelection = computed(() => {
+  if (!canUseWordAuxTools.value) return false;
+  if (ceruleanBellSlotIndex.value != null) return false;
+  if (flyingBackBatches.value.length > 0) return false;
+  const hasInWord = effectiveSelectedCount.value > 0 || flyingLetters.value.length > 0;
+  const hasOnGrid = collectSwappableGridPositions(buildWordSelectionPositionKeys()).length > 0;
+  return hasInWord && hasOnGrid;
+});
+
+function onMarkSelectedTilesClick() {
+  if (!canUseWordAuxTools.value) return;
+  const tiles = collectWordAuxTargetTiles();
+  if (tiles.length === 0) return;
+  const shouldMark = tiles.some((t) => t.playerMarked !== true);
+  for (const tile of tiles) {
+    tile.playerMarked = shouldMark;
+  }
+  touchGrid();
+}
+
+async function onSwapWordSelectionClick() {
+  if (!canSwapWordSelection.value || wordSelectionSwapBusy.value) return;
+  wordSelectionSwapBusy.value = true;
+  /** 飞回会清空 `tile.selected`，须在清槽前记下「原先在拼词中」的格，再选补集 */
+  const previouslyInWord = buildWordSelectionPositionKeys();
+  try {
+    if (flyingLetters.value.length > 0) cancelAllFlyingIn();
+    if (flyingBackBatches.value.length > 0) await waitForFlyingBackIdle();
+
+    const inWordCount = selectedOrder.value.length;
+    if (inWordCount > 0) {
+      if (ceruleanBellSlotIndex.value != null) {
+        showToast("青铃锁生效时无法互换选中");
+        return;
+      }
+      startOneMoveOut(0);
+      await waitForFlyingBackIdle();
+    }
+
+    const toSelect = collectSwappableGridPositions(previouslyInWord);
+    if (toSelect.length === 0) return;
+    for (const { row, col, tile } of toSelect) {
+      startOneMoveIn(row, col, tile);
+    }
+    await waitForFlyingInIdle();
+    nextTick(() => updateSlotPositions(true));
+  } finally {
+    wordSelectionSwapBusy.value = false;
+  }
 }
 
 let toastClearTimer = null;
@@ -4998,7 +5404,81 @@ function grantRandomShopTreasureByRarity(rarityFilter) {
 /** @param {number} slotIndex */
 async function wobbleGameTreasureSlot(slotIndex) {
   const el = gameTreasureSlotRefs[slotIndex];
-  if (el) wobbleScoreSlot(el, 1);
+  if (!el) return;
+  const sp = 1;
+  const tl = createWobbleScoreSlotTimeline(el);
+  if (!tl) {
+    await scoringSleep(SCORING_TREASURE_FALLBACK_MS, sp);
+    return;
+  }
+  tl.timeScale(sp);
+  tl.play(0);
+  await new Promise((resolve) => {
+    tl.eventCallback("onComplete", () => resolve());
+  });
+}
+
+/** 宝藏槽 wobble 峰值弹出 +分气泡（与记分逐字宝藏同节拍，不等待 wobble 收束） */
+async function playTreasureSlotScoreBurstAtPeak(slotIndex, amount) {
+  const el = gameTreasureSlotRefs[slotIndex];
+  if (!el || slotIndex < 0) return;
+  const sp = 1;
+  const amt = Math.max(0, Math.round(Number(amount) || 0));
+  if (amt <= 0) return;
+  scoringTreasureBarIndex.value = slotIndex;
+  await nextTick();
+  await new Promise((r) => requestAnimationFrame(r));
+  wobbleScoreSlot(el, sp);
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  const bubble = showScoreBubble(el, `+${amt}`, "score", sp);
+  scheduleSmallPlusBubbleOutro(bubble, sp);
+  await scoringSleep(SCORING_LETTER_GAP_MS, sp);
+  scoringTreasureBarIndex.value = null;
+}
+
+/**
+ * 宝藏槽上方：组合包礼物图标气泡（锚点/进入动效与 showScoreBubble 一致）。
+ * @param {HTMLElement | null | undefined} slotEl
+ * @param {string} [bundleKind]
+ * @param {number} [speed]
+ */
+function showBundlePackBubble(slotEl, bundleKind, speed = 1) {
+  const s = Math.max(0.01, Number(speed) || 1);
+  const rect = scoreBubbleAnchorRect(slotEl);
+  if (!rect) return null;
+  const div = document.createElement("div");
+  div.className = "score-popup-bubble score-popup-bubble--bundle-pack";
+  const icon = document.createElement("i");
+  icon.className = "score-popup-bubble__pack-icon ri-gift-2-line";
+  icon.setAttribute("aria-hidden", "true");
+  div.appendChild(icon);
+  const caption = bundlePackKindCaptionZh(bundleKind);
+  if (caption) {
+    const cap = document.createElement("span");
+    cap.className = "score-popup-bubble__pack-caption";
+    cap.textContent = caption;
+    div.appendChild(cap);
+  }
+  document.body.appendChild(div);
+  const rpx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
+  const gapAboveSlotPx = 12 * rpx;
+  gsap.set(div, {
+    position: "fixed",
+    left: rect.left + rect.width / 2,
+    top: rect.top - gapAboveSlotPx,
+    xPercent: -50,
+    yPercent: -100,
+    transformOrigin: "50% 100%",
+    zIndex: 350,
+    pointerEvents: "none",
+    force3D: true,
+  });
+  gsap.fromTo(
+    div,
+    { opacity: 0, y: 18, scale: 0.5 },
+    { opacity: 1, y: 0, scale: 1, duration: PLUS_BUBBLE_ENTER_DURATION_S / s, ease: EASE_TRANSFORM },
+  );
+  return div;
 }
 
 /** @param {number[]} slotIndices */
@@ -7280,12 +7760,20 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
   /** 分数列从「判定词长×词长每字基础分」开始，逐字只加稀有度加成（气泡也只显示加成） */
   animScoreSum.value = skipLetters
     ? 0
-    : getWordLengthScoreForTableLen(
-        lenTb,
-        lengthLevelsByLength.value,
-        lengthUpgradeObservatoryExtra.value,
+    : Math.round(
+        detailed.wordLengthScoreEffective ??
+          scaleLengthContributionForBoss(
+            getWordLengthScoreForTableLen(
+              lenTb,
+              lengthLevelsByLength.value,
+              lengthUpgradeObservatoryExtra.value,
+            ),
+            activeBossSlug.value === "the_flint",
+          ),
       );
-  animMultTotal.value = detailed.lengthMultiplier;
+  animMultTotal.value =
+    detailed.lengthMultiplierEffective ??
+    scaleLengthContributionForBoss(detailed.lengthMultiplier, activeBossSlug.value === "the_flint");
   animResultTotal.value = 0;
 
   const wordStr =
@@ -7606,8 +8094,10 @@ function setFlyingInRef(fly, el) {
   flyingInAnimStarted.add(item.id);
   const r = item.fromRect;
   const t = item.toRect;
+  if (!t) return;
   const tw = Math.max(t.width, 1e-6);
   const th = Math.max(t.height, 1e-6);
+  const targetScale = item.targetSlotScale ?? 1;
   gsap.killTweensOf(node);
   /* 初始位只由 GSAP 写一次，避免模板 :style 在父级重渲染时覆盖正在飞的 left/top */
   /* 目标尺寸固定为词槽最终宽高，用 transform 缩放衔接棋盘格尺寸，飞行途中尺度与位移同步 */
@@ -7628,28 +8118,15 @@ function setFlyingInRef(fly, el) {
     top: t.top,
     scaleX: 1,
     scaleY: 1,
-    "--slot-scale": item.targetSlotScale,
+    "--slot-scale": targetScale,
     duration: FLY_DURATION,
     ease: EASE_TRANSFORM,
     onComplete: () => {
-      const flyCanvas = node?.querySelector?.("canvas");
-            flyingInAnimStarted.delete(item.id);
+      flyingInAnimStarted.delete(item.id);
       flyingInElById.delete(item.id);
-      selectTile(item.pendingRow, item.pendingCol);
-      if (item.ceruleanBell) finalizeCeruleanBellSlotIndex();
-      queueMicrotask(() => {
-        const slotIndex = Math.max(0, selectedOrder.value.length - 1);
-        const slotEl = refToDom(wordSlotRefs.value?.[slotIndex]);
-        const tileEl = slotEl?.querySelector?.(".word-slot-content");
-        const canvas = tileEl?.querySelector?.("canvas");
-              });
-      requestAnimationFrame(() => {
-        const slotIndex = Math.max(0, selectedOrder.value.length - 1);
-        const slotEl = refToDom(wordSlotRefs.value?.[slotIndex]);
-        const tileEl = slotEl?.querySelector?.(".word-slot-content");
-        const canvas = tileEl?.querySelector?.("canvas");
-              });
+      flyInPendingComplete.push(item);
       flyingLetters.value = flyingLetters.value.filter((f) => f.id !== item.id);
+      flushFlyInSelections();
     },
   });
 }
@@ -7665,6 +8142,7 @@ function onTileClick(row, col, tile) {
   if (dictFatalError.value) return;
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value || gridRefillAnimating.value) return;
+  if (wordSelectionSwapBusy.value) return;
   if (tile.selected) return;
   if (isTileFlying(row, col)) return;
   startOneMoveIn(row, col, tile);
@@ -7680,6 +8158,7 @@ function cancelAllFlyingIn() {
   });
   flyingInElById.clear();
   flyingLetters.value = [];
+  flyInPendingComplete.length = 0;
   nextTick(() => updateSlotPositions(true));
 }
 
@@ -7733,10 +8212,15 @@ async function onRemoveClick() {
     cells: snapshotGridCellsByTileId(),
   };
 
-  await runSlotAndGridLeaveAnimation(slotTileEls, removeGridLeaveEls, {
-    duration: REMOVE_SLOT_FADE_DURATION,
-    stagger: REMOVE_SLOT_STAGGER,
-  });
+  const discardPotteryFxHandled = await runDiscardLeaveAnimation(
+    slotTileEls,
+    removeGridLeaveEls,
+    discardedLettersForHooks,
+    {
+      duration: REMOVE_SLOT_FADE_DURATION,
+      stagger: REMOVE_SLOT_STAGGER,
+    },
+  );
   const result = removeSelectedLetters({
     prevCells: prevFlip.cells,
     maxRemovalLetters: MAX_LETTERS_PER_REMOVAL,
@@ -7762,6 +8246,7 @@ async function onRemoveClick() {
     letterCount: nSel,
     treasureRun: treasureRunState.value,
     rng: runRandom,
+    discardPotteryFxHandled,
     addMoney: (amount) => {
       money.value += Math.max(0, Math.floor(Number(amount) || 0));
     },
@@ -7791,24 +8276,21 @@ function startOneMoveIn(row, col, tile, options = {}) {
   const fromEl = gridTileRefs.value[index] ?? getGridTileElByIndex(index);
   if (!fromEl) return;
   const fromRect = fromEl.getBoundingClientRect();
-  const n = selectedOrder.value.length + flyingLetters.value.length;
   const wrapEl = wordSlotsWrapRef.value;
   if (!wrapEl) return;
   const wrapRect = wrapEl.getBoundingClientRect();
   if (wrapRect.width <= 0 || wrapRect.height <= 0) return;
-  const toRect = getScaledSlotRect(wrapRect, n + 1, n);
-  if (!toRect) return;
-  const numSlots = n + 1;
-  const totalDesign = numSlots * SLOT_TILE_W + (numSlots - 1) * SLOT_GAP;
-  const targetSlotScale = numSlots === 0 ? 1 : Math.min(1, MIDDLE_MAX_W / totalDesign);
   const flyPres = computeFlyInTilePresentation(tile);
+  const targetSlotIndex = selectedOrder.value.length + flyingLetters.value.length;
   flyingLetters.value = [
     ...flyingLetters.value,
     {
       id: `fly-in-${++flyingInIdCounter}-${Date.now()}`,
       fromRect,
-      toRect,
-      targetSlotScale,
+      toRect: null,
+      targetSlotIndex,
+      layoutNumSlots: 0,
+      targetSlotScale: 1,
       letter: flyPres.letter,
       rarity: flyPres.rarity,
       materialId: tile.materialId ?? null,
@@ -7818,10 +8300,12 @@ function startOneMoveIn(row, col, tile, options = {}) {
       ceruleanBell: options.ceruleanBell === true,
       vowelGhostPrev: flyPres.vowelGhostPrev,
       vowelGhostNext: flyPres.vowelGhostNext,
+      playerMarked: tile.playerMarked === true,
       pendingRow: row,
       pendingCol: col,
     },
   ];
+  syncFlyingInTargets();
 }
 
 function onSlotClick(i) {
@@ -7832,6 +8316,7 @@ function onSlotClick(i) {
   if (dictFatalError.value) return;
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value) return;
+  if (wordSelectionSwapBusy.value) return;
   const order = selectedOrder.value;
   if (i < 0 || i >= order.length) return;
   startOneMoveOut(i);
@@ -7862,6 +8347,7 @@ function startOneMoveOut(slotIndex) {
       bossTileDebuffed: tile.bossTileDebuffed === true,
       vowelGhostPrev: backPres.vowelGhostPrev,
       vowelGhostNext: backPres.vowelGhostNext,
+      playerMarked: tile.playerMarked === true,
     });
   }
   if (list.length === 0) return;
@@ -8471,6 +8957,7 @@ function mountE2eHarnessIfNeeded() {
 onMounted(async () => {
   await loadDictionary({ shouldAbort: () => !gamePanelAlive });
   if (!gamePanelAlive) return;
+  ensureBigramTargetPair(treasureRunState.value, rollRandomBigramForTreasure);
   mountE2eHarnessIfNeeded();
   slotRafLastTime = performance.now();
   slotRafId = requestAnimationFrame(slotRafLoop);
@@ -8681,6 +9168,10 @@ onUnmounted(() => {
   padding: calc(12 * var(--rpx));
   border-radius: calc(12 * var(--rpx));
 }
+.deck-layer-inner--enter-boot :deep(.deck-layer-enter-stagger) {
+  opacity: 0;
+}
+
 .deck-layer-inner {
   --deck-layer-tile-size: calc(72 * var(--rpx));
   position: relative;

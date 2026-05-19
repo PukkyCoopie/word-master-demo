@@ -1,0 +1,17 @@
+{
+  "major": 0,
+  "minor": 0,
+  "patch": 2,
+  "changelog": [
+    {
+      "version": "0.0.2",
+      "date": "2026-05-19",
+      "summary": "__FROM_COMMIT_MSG__"
+    },
+    {
+      "version": "0.0.1",
+      "date": "2026-05-19",
+      "summary": "初始公开版本；含关于弹窗与自动版本机制。"
+    }
+  ]
+}

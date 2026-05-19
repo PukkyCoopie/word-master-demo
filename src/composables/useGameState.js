@@ -255,6 +255,9 @@ function emptyTile(idGen) {
     /** 青铃锁：该格被 Boss 强制选入词槽后不可点回棋盘 */
     ceruleanBellLocked: false,
 
+    /** 玩家本关内标记（不进牌库、不写回牌张） */
+    playerMarked: false,
+
   };
 
 }
@@ -298,6 +301,7 @@ function createTileFromLetter(raw, idGen, rarityLevelsSnapshot = null) {
     bossGridBlocked: false,
     bossTileDebuffed: false,
     ceruleanBellLocked: false,
+    playerMarked: false,
 
   };
 
@@ -339,6 +343,7 @@ function createTileFromDeckCard(card, idGen, rarityLevelsSnapshot = null) {
     bossGridBlocked: false,
     bossTileDebuffed: false,
     ceruleanBellLocked: false,
+    playerMarked: false,
     _deckCard: card,
   };
 }
@@ -932,31 +937,40 @@ export function useGameState(gameOpts = {}) {
     ceruleanBellSlotIndex.value = Math.max(0, selectedOrder.value.length - 1);
   }
 
-  function applySerpentBonusFillIfNeeded(skipNewFromDeck) {
-    if (skipNewFromDeck) return;
+  /** 游蛇 Boss：每次拼词/丢弃后仅从牌库补入的字母数（不按空位数全额补牌） */
+  const SERPENT_BOSS_REFILL_COUNT = 3;
+
+  function isSerpentLimitedRefillActive(skipNewFromDeck = false) {
+    return activeBossSlug.value === "the_serpent" && skipNewFromDeck !== true;
+  }
+
+  /** 游蛇：在重力落定后的空位中，总共只从牌库放入 SERPENT_BOSS_REFILL_COUNT 枚 */
+  function applySerpentRefillFromDeck() {
     if (activeBossSlug.value !== "the_serpent") return;
     const g = grid.value;
     const d = deck.value;
     const top = activeBossSlug.value === "the_manacle" ? 1 : 0;
     let placed = 0;
-    while (placed < 4 && d.length > 0) {
+    while (placed < SERPENT_BOSS_REFILL_COUNT && d.length > 0) {
       let progressed = false;
       outer: for (let r = top; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           const cell = g[r][c];
-          if (cell && !cell.bossGridBlocked && (!cell.letter || String(cell.letter).trim() === "")) {
-            const card = drawFromDeck(d, getRng);
-            if (!card) break outer;
-            g[r][c] = createGridTileFromDeckCard(card);
-            placed += 1;
-            progressed = true;
-            if (placed >= 4) break outer;
-          }
+          if (cell?.bossGridBlocked) continue;
+          const isEmpty = !cell || !cell.letter || String(cell.letter).trim() === "";
+          if (!isEmpty) continue;
+          const card = drawFromDeck(d, getRng);
+          if (!card) break outer;
+          g[r][c] = createGridTileFromDeckCard(card);
+          placed += 1;
+          progressed = true;
+          if (placed >= SERPENT_BOSS_REFILL_COUNT) break outer;
         }
       }
       if (!progressed) break;
     }
   }
+
 
   /**
    * 下落补牌、清空选字；不修改分数与 lastWordInfo。出牌次数在点击提交时扣减，或由 finalizeSubmitAfterAnimation 扣减。
@@ -964,6 +978,7 @@ export function useGameState(gameOpts = {}) {
    */
   function applySubmitRefill(options = {}) {
     const skipNewFromDeck = options.skipNewFromDeck === true;
+    const serpentLimited = isSerpentLimitedRefillActive(skipNewFromDeck);
 
     const g = grid.value;
 
@@ -984,7 +999,7 @@ export function useGameState(gameOpts = {}) {
         const removeCount = playableRows - columnTiles.length;
         const newColumn = [];
         for (let i = 0; i < removeCount; i++) {
-          if (skipNewFromDeck) {
+          if (skipNewFromDeck || serpentLimited) {
             newColumn.push(null);
           } else {
             const card = drawFromDeck(d, getRng);
@@ -1015,7 +1030,7 @@ export function useGameState(gameOpts = {}) {
 
       for (let i = 0; i < removeCount; i++) {
 
-        if (skipNewFromDeck) {
+        if (skipNewFromDeck || serpentLimited) {
           newColumn.push(null);
         } else {
           const card = drawFromDeck(d, getRng);
@@ -1034,7 +1049,7 @@ export function useGameState(gameOpts = {}) {
 
     }
 
-    applySerpentBonusFillIfNeeded(skipNewFromDeck);
+    if (serpentLimited) applySerpentRefillFromDeck();
 
     triggerRef(grid);
 
@@ -1156,6 +1171,8 @@ export function useGameState(gameOpts = {}) {
 
     const d = deck.value;
 
+    const serpentLimited = isSerpentLimitedRefillActive();
+
     const removeSet = new Set(order.map(({ row, col }) => `${row},${col}`));
 
     const manacleRm = activeBossSlug.value === "the_manacle";
@@ -1176,8 +1193,12 @@ export function useGameState(gameOpts = {}) {
         const removeCount = playableRows - columnTiles.length;
         const newColumn = [];
         for (let i = 0; i < removeCount; i++) {
-          const card = drawFromDeck(d, getRng);
-          newColumn.push(createGridTileFromDeckCard(card));
+          if (serpentLimited) {
+            newColumn.push(null);
+          } else {
+            const card = drawFromDeck(d, getRng);
+            newColumn.push(createGridTileFromDeckCard(card));
+          }
         }
         newColumn.push(...columnTiles);
         g[0][col] = blocked;
@@ -1209,8 +1230,12 @@ export function useGameState(gameOpts = {}) {
 
       for (let i = 0; i < removeCount; i++) {
 
-        const card = drawFromDeck(d, getRng);
-        newColumn.push(createGridTileFromDeckCard(card));
+        if (serpentLimited) {
+          newColumn.push(null);
+        } else {
+          const card = drawFromDeck(d, getRng);
+          newColumn.push(createGridTileFromDeckCard(card));
+        }
 
       }
 
@@ -1223,6 +1248,8 @@ export function useGameState(gameOpts = {}) {
       }
 
     }
+
+    if (serpentLimited) applySerpentRefillFromDeck();
 
     triggerRef(grid);
 

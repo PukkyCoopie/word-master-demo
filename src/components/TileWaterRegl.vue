@@ -11,14 +11,11 @@ let dispose = null;
 onMounted(() => {
   const c = canvasRef.value;
   if (!c) return;
-  const ownerClass = c.parentElement?.className || "";
-    dispose = attachWaterRegl(c);
+  dispose = attachWaterRegl(c);
 });
 
 onUnmounted(() => {
-  const c = canvasRef.value;
-  const ownerClass = c?.parentElement?.className || "";
-    if (dispose) {
+  if (dispose) {
     dispose();
     dispose = null;
   }

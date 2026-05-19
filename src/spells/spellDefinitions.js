@@ -179,7 +179,7 @@ function buildSpellDefinitions() {
       name: "电话",
       iconClass: "ri-phone-fill",
       pickCount: 3,
-      description: "选择3个字母块，使其变为随机的任意字母",
+      description: "选择3个字母块，使其变为随机的字母",
     },
     {
       id: "treasure_map",

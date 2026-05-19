@@ -27,7 +27,6 @@ varying vec2 vUv;
 
 void main() {
   float time = iTime * 0.5 + 23.0;
-  // 缩到 tile 后将原图案进一步放大，避免过于细密。
   vec2 uv = (vUv - 0.5) * 0.56 + 0.5;
 
   vec2 p = mod(uv * TAU, TAU) - 250.0;

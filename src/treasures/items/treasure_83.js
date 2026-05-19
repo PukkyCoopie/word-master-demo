@@ -17,16 +17,17 @@ function ensureLevelPosTarget(rs, rng) {
 export default {
   price: 4,
   rarity: "common",
-  description: describe("拼写的是名词，获得", money("4"), "（词性每关都会变化）"),
+  description: describe("如果拼写的是名词，获得", money("4"), "（词性每关都会变化）"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription(ctx) {
+    ensureLevelPosTarget(ctx.treasureRun, ctx.rng ?? Math.random);
     const key = ctx.levelPosTargetKey ?? ctx.treasureRun?.levelPosTargetKey ?? "n";
     const label = getTreasureLevelPosLabelZh(key);
-    return describe(`拼写的是${label}，获得`, money("4"), "（词性每关都会变化）");
+    return describe(`如果拼写的是${label}，获得`, money("4"), "（词性每关都会变化）");
   },
   onLevelEnter(ctx) {
     const rs = ctx.treasureRun;

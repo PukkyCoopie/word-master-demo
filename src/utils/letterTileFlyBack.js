@@ -48,6 +48,7 @@ export function createFlyBackTileElement(item) {
   if (item.materialId === "wildcard") cls += " tile-material-wildcard";
   if (item.materialId === "lucky") cls += " tile-material-lucky";
   if (item.bossTileDebuffed === true) cls += " letter-tile-boss-debuff";
+  if (item.playerMarked === true) cls += " player-marked";
   el.className = cls;
   const r = item.fromRect;
   const scale = item.startSlotScale ?? 1;

@@ -16,7 +16,7 @@
           <i class="ri-settings-3-line menu-btn-icon" aria-hidden="true"></i>
           <span>设置</span>
         </button>
-        <button type="button" class="menu-btn menu-btn--about" @click.prevent>
+        <button type="button" class="menu-btn menu-btn--about" @click="$emit('open-about')">
           <i class="ri-information-line menu-btn-icon" aria-hidden="true"></i>
           <span>关于</span>
         </button>
@@ -28,7 +28,7 @@
 <script setup>
 import TileLetterShowcase from "./TileLetterShowcase.vue";
 
-defineEmits(["request-start", "open-settings"]);
+defineEmits(["request-start", "open-settings", "open-about"]);
 
 const showcaseRows = [
   [

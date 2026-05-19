@@ -1068,7 +1068,10 @@ defineExpose({
   overflow: visible;
 }
 
-.shop-treasure-product {
+/* 单卡区 / 优惠券 / 牌包区：与 --shop-shelf-cell-size 统一 */
+.shop-single-card-offers .shop-treasure-product,
+.shop-voucher-offers .shop-treasure-product,
+.shop-pack-offers .shop-treasure-product {
   position: relative;
   width: var(--shop-shelf-cell-size);
   flex: 0 0 var(--shop-shelf-cell-size);

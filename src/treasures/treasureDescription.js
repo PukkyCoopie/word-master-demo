@@ -145,6 +145,48 @@ export function normalizeTreasureDescription(raw) {
  * @param {TreasureDescSegment[]} segments
  * @returns {TreasureDescSegment[]}
  */
+/**
+ * 宝藏简介 text：英文字母大写（`x2` 等乘号写法里的 x 除外，留给 expand 解析为 × 倍率 chip）。
+ * @param {string} s
+ */
+export function normalizeTreasureDescTextContent(s) {
+  const str = String(s ?? "");
+  let out = "";
+  for (let i = 0; i < str.length; i += 1) {
+    const ch = str[i];
+    if (!/[a-zA-Z]/.test(ch)) {
+      out += ch;
+      continue;
+    }
+    if ((ch === "x" || ch === "X") && /^\s*\d/.test(str.slice(i + 1))) {
+      out += "x";
+      continue;
+    }
+    out += ch.toUpperCase();
+  }
+  return out;
+}
+
+/**
+ * 宝藏简介片段：text / gainBlock 内英文字母大写（乘号 xN 除外）。
+ * @param {TreasureDescSegment[]} segments
+ * @returns {TreasureDescSegment[]}
+ */
+export function polishTreasureDescriptionSegments(segments) {
+  /** @type {TreasureDescSegment[]} */
+  const out = [];
+  for (const seg of segments) {
+    if (seg.type === "text") {
+      out.push({ type: "text", v: normalizeTreasureDescTextContent(seg.v) });
+    } else if (seg.type === "gainBlock") {
+      out.push({ type: "gainBlock", parts: polishTreasureDescriptionSegments(seg.parts) });
+    } else {
+      out.push(seg);
+    }
+  }
+  return out;
+}
+
 export function injectLineBreaksBeforeParentheses(segments) {
   /** @type {TreasureDescSegment[]} */
   const out = [];

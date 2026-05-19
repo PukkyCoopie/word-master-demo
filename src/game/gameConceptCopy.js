@@ -178,7 +178,7 @@ export function buildStarSpellRandomTreasureAccessoryDescription() {
 export const GAME_TERM_CONCEPT_BY_LABEL = Object.freeze({
   升级: Object.freeze({
     title: "升级",
-    effectDescription: "提高长度或稀有度的等级，从而提高它们提供的分数和倍率。",
+    effectDescription: "提高长度或稀有度的等级，从而提高它们提供的分数和倍率",
   }),
 });
 

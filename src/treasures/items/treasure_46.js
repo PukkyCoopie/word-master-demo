@@ -1,18 +1,20 @@
 import { describe, mult } from "../treasureDescription.js";
-import { countBigramOccurrencesInWord } from "../../game/treasureBigramRoll.js";
+import { countBigramOccurrencesInWord, ensureBigramTargetPair } from "../../game/treasureBigramRoll.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 5,
   rarity: "rare",
-  description: describe("每一个拼出的xx提供", mult("x2"), "倍率"),
+  description: describe("每一个拼出的双字母组合提供", mult("x2"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription(ctx) {
-    const pair = String(ctx.treasureRun?.bigramTargetPair ?? "??").toUpperCase();
+    const pair = String(
+      ensureBigramTargetPair(ctx.treasureRun, ctx.rollRandomBigram) ?? "??",
+    ).toUpperCase();
     return describe(`每一个拼出的${pair}提供`, mult("x2"), "倍率");
   },
   buildPostLetterStep(ctx) {
@@ -36,9 +38,6 @@ export const treasureHooks = {
     return null;
   },
   onSuccessfulWordSubmit(ctx) {
-    const rs = ctx.treasureRun;
-    if (!rs || rs.bigramTargetPair) return;
-    const roll = ctx.rollRandomBigram;
-    if (typeof roll === "function") rs.bigramTargetPair = roll();
+    ensureBigramTargetPair(ctx.treasureRun, ctx.rollRandomBigram);
   },
 };

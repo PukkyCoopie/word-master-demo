@@ -103,7 +103,7 @@ export const BOSS_BY_SLUG = Object.freeze({
     slug: "the_serpent",
     nameZh: "游蛇",
     scoreBaseMult: 2,
-    uiDescription: "拼写或丢弃字母后，总是补充4个字母",
+    uiDescription: "拼写或丢弃字母后，总是补充3个字母",
     kind: "normal",
   },
   the_pillar: {
