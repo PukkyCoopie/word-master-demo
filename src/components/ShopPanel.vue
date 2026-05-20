@@ -439,26 +439,14 @@ const shopResultMultValue = ref(0);
 const shopResultScoreText = computed(() => String(Math.max(0, Math.round(shopResultScoreValue.value))));
 const shopResultMultText = computed(() => String(Math.max(0, Math.round(shopResultMultValue.value))));
 
-/** 尾部仅占位的空槽不渲染，避免 2 个实货 + 1 空槽时整体被拉成居左 */
-const packOffersLayoutSlots = computed(() => {
-  const slots = props.packOffers;
-  if (!Array.isArray(slots) || slots.length === 0) return [];
-  const out = [...slots];
-  while (out.length > 0 && out[out.length - 1]?.kind !== "offer") {
-    out.pop();
-  }
-  return out.length > 0 ? out : [...slots];
-});
+/** 已购格保留空槽占位（kind:'empty'），避免其它商品位移；空槽用 visibility 隐藏但仍占格 */
+const packOffersLayoutSlots = computed(() =>
+  Array.isArray(props.packOffers) ? props.packOffers : [],
+);
 
-const shopOffersLayoutSlots = computed(() => {
-  const slots = props.shopOffers;
-  if (!Array.isArray(slots) || slots.length === 0) return [];
-  const out = [...slots];
-  while (out.length > 0 && out[out.length - 1]?.kind !== "offer") {
-    out.pop();
-  }
-  return out.length > 0 ? out : [...slots];
-});
+const shopOffersLayoutSlots = computed(() =>
+  Array.isArray(props.shopOffers) ? props.shopOffers : [],
+);
 
 function setOwnedCellRef(i, el) {
   const node = toDom(el);

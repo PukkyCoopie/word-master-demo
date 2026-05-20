@@ -1,12 +1,17 @@
 {
   "major": 0,
   "minor": 0,
-  "patch": 3,
+  "patch": 4,
   "changelog": [
+    {
+      "version": "0.0.4",
+      "date": "2026-05-20",
+      "summary": "__FROM_COMMIT_MSG__"
+    },
     {
       "version": "0.0.3",
       "date": "2026-05-19",
-      "summary": "__FROM_COMMIT_MSG__"
+      "summary": "- Removed outdated versioning instructions from README.md for clarity.\n- Added a post-commit script to automatically update the changelog summary based on commit messages.\n- Enhanced changelog entry handling in appVersion.js to replace placeholders with default summaries.\n- Updated appVersion.json with the latest changelog entries reflecting recent changes.\n- Improved commit message parsing functionality in changelog-from-commit.mjs for better integration."
     },
     {
       "version": "0.0.2",

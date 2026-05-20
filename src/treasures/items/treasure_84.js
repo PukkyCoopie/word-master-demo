@@ -1,5 +1,4 @@
-import { concept, describe } from "../treasureDescription.js";
-import { getPosPackProgress } from "../treasureInRunPackProgress.js";
+import { concept, describe, prob } from "../treasureDescription.js";
 import { tryOpenInRunPackOnPosProgress } from "../treasureInRunPackTriggers.js";
 
 const ID = "84";
@@ -9,21 +8,11 @@ const REQUIRED = 2;
 export default {
   price: 6,
   rarity: "rare",
-  description: describe("你每拼写2个动词，打开一个", concept("升级"), "组合包", "（当前0/2）"),
+  description: describe("每次拼写动词有", prob("1/2"), "概率打开一个", concept("升级"), "组合包"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  replaceDescriptionWithPatch: true,
-  patchDescription(ctx) {
-    const cur = getPosPackProgress(ctx.treasureRun, ID);
-    return describe(
-      "你每拼写2个动词，打开一个",
-      concept("升级"),
-      "组合包",
-      `（当前${cur}/${REQUIRED}）`,
-    );
-  },
   async onSuccessfulWordSubmit(ctx) {
     await tryOpenInRunPackOnPosProgress(ctx, {
       treasureId: ID,

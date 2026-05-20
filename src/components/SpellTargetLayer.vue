@@ -91,7 +91,7 @@
               从剩余牌库中选取字母块（修改会立即同步至牌库）
             </template>
             <template v-else-if="session.pickMode === 'confirm_all'">
-              确认后对下方全部候选字母施放此法术
+              将会在下列字母中进行随机
             </template>
             <template v-else-if="session.pickMode === 'preview_only'">
               点击确定施放此法术，或选择跳过
@@ -104,7 +104,7 @@
             </template>
           </p>
 
-          <div class="spell-target-letter-grid-wrap">
+          <div ref="offerGridWrapRef" class="spell-target-letter-grid-wrap">
             <div class="spell-target-offer-grid-inner">
               <div
                 v-for="(slot, idx) in offerSlots"
@@ -179,6 +179,10 @@ import {
   runDetachedDeleteBackConfirmAnim,
   cloneSpellTileSnapshot,
 } from "../game/spellTileAppearanceAnim.js";
+import {
+  isRandomDeckRemoveSpell,
+  runSpellOfferRandomPickAnim,
+} from "../game/spellOfferRandomPickAnim.js";
 import { getSpellGainPanel } from "../spells/spellGainPanel.js";
 import { collectExplicitDescriptionConceptPanels } from "../game/gameConceptCopy.js";
 import LetterTile from "./LetterTile.vue";
@@ -202,6 +206,7 @@ const iconColumnRef = ref(null);
 const descRef = ref(null);
 const spellGainPanelRef = ref(null);
 const spellCardRef = ref(null);
+const offerGridWrapRef = ref(null);
 
 /** @type {gsap.core.Timeline | null} */
 let enterTl = null;
@@ -475,7 +480,9 @@ async function playConfirmAppearanceAnim(payload) {
     if (slotIndices.length !== offerSlotIndices.length || slotIndices.some((ix) => !slots[ix]?.tile)) {
       return false;
     }
-    return playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnapsPayload, payload.onMidApply);
+    return playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnapsPayload, payload.onMidApply, {
+      winnerOfferSlotIndex: payload.winnerOfferSlotIndex,
+    });
   }
 
   if (
@@ -519,7 +526,9 @@ async function playConfirmAppearanceAnim(payload) {
 
   if (slotIndices.some((ix) => ix < 0)) return false;
 
-  return playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnapsPayload, payload.onMidApply);
+  return playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnapsPayload, payload.onMidApply, {
+    winnerOfferSlotIndex: payload.winnerOfferSlotIndex,
+  });
 }
 
 /**
@@ -527,8 +536,9 @@ async function playConfirmAppearanceAnim(payload) {
  * @param {number[]} slotIndices
  * @param {unknown[]} oldSnaps
  * @param {() => unknown[] | Promise<unknown[]>} onMidApply 缩至谷底时执行（施法 + 返回新快照）
+ * @param {{ winnerOfferSlotIndex?: number }} [animOpts]
  */
-async function playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnaps, onMidApply) {
+async function playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnaps, onMidApply, animOpts = {}) {
   const lockOld = {};
   for (let i = 0; i < slotIndices.length; i++) {
     lockOld[slotIndices[i]] = cloneSpellTileSnapshot(oldSnaps[i]);
@@ -548,7 +558,19 @@ async function playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnaps,
 
   const sid = String(spellId ?? "");
   try {
-    if (sid === "delete_back" || sid === "immolate") {
+    if (isRandomDeckRemoveSpell(sid) && slotIndices.length > 1) {
+      const winnerSlotIndex =
+        typeof animOpts.winnerOfferSlotIndex === "number"
+          ? animOpts.winnerOfferSlotIndex
+          : slotIndices[Math.floor(Math.random() * slotIndices.length)];
+      await runSpellOfferRandomPickAnim({
+        slotIndices,
+        winnerSlotIndex,
+        getOfferWrapEl: (ix) => offerTileElList[ix]?.closest?.(".spell-target-offer-wrap") ?? offerTileElList[ix],
+        gridWrapEl: offerGridWrapRef.value,
+      });
+      await applyAllAtValley();
+    } else if (sid === "delete_back" || sid === "immolate") {
       await applyAllAtValley();
       await runDetachedDeleteBackConfirmAnim({
         targetCount: slotIndices.length,
@@ -642,7 +664,11 @@ function getOfferTileEl(slotIndex) {
   return offerTileElList[slotIndex] ?? null;
 }
 
-defineExpose({ playConfirmAppearanceAnim, playClose, getOfferTileEl });
+function getSpellIconEl() {
+  return iconColumnRef.value?.querySelector?.(".shop-treasure-frame") ?? iconColumnRef.value ?? null;
+}
+
+defineExpose({ playConfirmAppearanceAnim, playClose, getOfferTileEl, getSpellIconEl });
 
 function runEnterAnimation() {
   const backdrop = backdropRef.value;

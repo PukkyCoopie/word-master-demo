@@ -20,6 +20,7 @@
     <span v-else-if="seg.type === 'money'" class="td-desc-chip td-desc-money"
       ><span class="td-desc-money-dollar">$</span>{{ seg.v }}</span
     >
+    <span v-else-if="seg.type === 'prob'" class="td-desc-chip td-desc-prob">{{ seg.v }}</span>
   </template>
 </template>
 

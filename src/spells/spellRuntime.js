@@ -514,7 +514,7 @@ function resolveSpellTargetTile(ctx, p) {
  *   touchGrid: () => void,
  *   removeDeckLetterInstancesByRaws: (raws: string[]) => void,
  *   removeDeckCardByUid: (uid: number) => boolean,
- *   appendShopDeckEntries: (entries: { raw: string, materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null }[]) => void,
+ *   appendShopDeckEntries: (entries: { raw: string, materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null }[]) => object[],
  *   remapTileFromRawLetter: (row: number, col: number, raw: string, keepTileId?: boolean) => void,
  *   money: import("vue").Ref<number>,
  *   ownedTreasures: import("vue").Ref<(unknown | null)[]>,
@@ -742,7 +742,10 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "familiar": {
-      const remUid = pickRandomOrderedDeckUid(ordered, rng);
+      const remUid =
+        ctx.forcedRemoveDeckCardUid != null
+          ? ctx.forcedRemoveDeckCardUid
+          : pickRandomOrderedDeckUid(ordered, rng);
       if (remUid != null) ctx.removeDeckCardByUid?.(remUid);
       const vowels = [];
       for (let i = 0; i < 3; i++) vowels.push(pickRandomRaw(allVowelRaws(), rng));
@@ -752,15 +755,27 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "grim": {
-      const remUid = pickRandomOrderedDeckUid(ordered, rng);
+      const remUid =
+        ctx.forcedRemoveDeckCardUid != null
+          ? ctx.forcedRemoveDeckCardUid
+          : pickRandomOrderedDeckUid(ordered, rng);
       if (remUid != null) ctx.removeDeckCardByUid?.(remUid);
       const entries = buildEnhancedDeckEntries(["e", "e"], rng);
-      ctx.appendShopDeckEntries?.(entries);
-      spellFx = { kind: "deck_add", count: entries.length, removedDeckCardUid: remUid };
+      const addedDeckCards = ctx.appendShopDeckEntries?.(entries) ?? [];
+      spellFx = {
+        kind: "deck_add",
+        count: entries.length,
+        removedDeckCardUid: remUid,
+        source: "spell_icon",
+        addedDeckCards,
+      };
       break;
     }
     case "incantation": {
-      const remUid = pickRandomOrderedDeckUid(ordered, rng);
+      const remUid =
+        ctx.forcedRemoveDeckCardUid != null
+          ? ctx.forcedRemoveDeckCardUid
+          : pickRandomOrderedDeckUid(ordered, rng);
       if (remUid != null) ctx.removeDeckCardByUid?.(remUid);
       const raws = [];
       for (let i = 0; i < 4; i++) raws.push(pickRandomRaw(allConsonantRaws(), rng));

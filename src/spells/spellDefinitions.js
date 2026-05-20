@@ -20,7 +20,7 @@ export const SPELL_IDS_EXCLUDED_FROM_DICE = Object.freeze(["restart", "dice"]);
  * @typedef {'none' | 'pick' | 'confirm_all' | 'preview_only'} SpellPickMode
  * - `none`：无选格层，直接结算
  * - `pick`：在候选格中点选 `pickCount` 个
- * - `confirm_all`：展示候选格，点确定后对全部（或法术内随机）生效
+ * - `confirm_all`：展示候选格，点确定后将在下列字母中随机生效
  */
 
 /**
@@ -201,7 +201,7 @@ function buildSpellDefinitions() {
     {
       id: "grim",
       name: "铁锹",
-      iconClass: "ri-shovel-fill",
+      iconClass: "ri-hammer-fill",
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,

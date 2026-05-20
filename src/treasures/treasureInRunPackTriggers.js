@@ -2,7 +2,7 @@ import {
   dictionaryPosMatchesAdverb,
   dictionaryPosMatchesTreasureLevelKey,
 } from "../game/wordPosMatch.js";
-import { bumpPosPackProgress, setPosPackProgress } from "./treasureInRunPackProgress.js";
+import { rollProbabilitySuccess } from "./treasureProbability.js";
 
 /**
  * @param {import('./treasureTypes.js').TreasureSubmitSuccessContext} ctx
@@ -31,7 +31,7 @@ function wordMatchesPosRule(ctx, word, match) {
 }
 
 /**
- * 词性计数达标后打开对局内组合包（`requiredCount` 为 1 时每次匹配即开包，不记进度）。
+ * 词性匹配后按 1/requiredCount 概率打开对局内组合包（requiredCount 为 1 时每次匹配必开）。
  * @param {import('./treasureTypes.js').TreasureSubmitSuccessContext} ctx
  * @param {{ treasureId: string, posKey?: 'n' | 'v' | 'adj', requireAdverb?: boolean, packKind: import('../shop/rollInRunBundlePack.js').InRunBundlePackKind, requiredCount: number }} opts
  */
@@ -41,15 +41,10 @@ export async function tryOpenInRunPackOnPosProgress(ctx, opts) {
   if (!wordMatchesPosRule(ctx, word, opts)) return;
 
   const required = Math.max(1, Math.floor(Number(opts.requiredCount) || 1));
-  if (required <= 1) {
-    await requestInRunPackOpen(ctx, opts);
-    return;
+  if (required > 1) {
+    const rng = ctx.rng ?? Math.random;
+    if (!rollProbabilitySuccess(1, required, rng, ctx.ownedSlotTreasureIds)) return;
   }
 
-  const rs = ctx.treasureRun;
-  if (!rs) return;
-  const next = bumpPosPackProgress(rs, opts.treasureId);
-  if (next < required) return;
-  setPosPackProgress(rs, opts.treasureId, 0);
   await requestInRunPackOpen(ctx, opts);
 }

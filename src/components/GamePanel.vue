@@ -143,6 +143,7 @@
       :owned-voucher-ids="ownedVoucherIds"
       :spell-replay-target-spell-id="lastReplayableSpellId"
       :rarity-levels-by-rarity="rarityLevelsByRarity"
+      :probability-display-doubled="treasureProbabilityDisplayDoubled"
       @close="treasureDetail = null"
       @purchase="onTreasurePurchase"
       @sell="onTreasureSell"
@@ -454,7 +455,7 @@
               aria-label="互换拼词与棋盘选中"
               @click="onSwapWordSelectionClick"
             >
-              <i class="ri-arrow-left-right-line" aria-hidden="true"></i>
+              <i class="ri-arrow-up-down-line" aria-hidden="true"></i>
             </button>
           </div>
         </div>
@@ -681,6 +682,9 @@ import {
   resolveTreasureChargeProgress,
   resolveTreasureChargeVisualState,
 } from "../treasures/treasureRegistry.js";
+import { hasProbabilityDoubler } from "../treasures/treasureProbability.js";
+import { isRandomDeckRemoveSpell } from "../game/spellOfferRandomPickAnim.js";
+import { mountLetterTileClone } from "../game/mountLetterTileClone.js";
 import { initTreasureBankOnAcquire } from "../treasures/treasureAcquireInit.js";
 import { collectGridLetterTiles } from "../treasures/treasureLogicShared.js";
 import { applyRarityLevelUpgrade } from "../game/treasureRarityTierMerge.js";
@@ -703,8 +707,14 @@ import { addScoreAddBank } from "../treasures/treasureBankHelpers.js";
 import { parseChapterFromLevelId } from "../treasures/treasureLifecycleShared.js";
 import { bundlePackKindCaptionZh } from "../game/bundlePackCopy.js";
 import { ensureBigramTargetPair, rollRandomBigramFromDictionary } from "../game/treasureBigramRoll.js";
+import { iterTreasureHookContributions } from "../game/treasureBlueprintMirror.js";
 import { IMPLEMENTED_TREASURE_ID_SET } from "../treasures/treasureCatalog.js";
-import { computeOwnedTreasureSlotTargetLength } from "../game/treasureSlotCapacity.js";
+import {
+  canAcquireTreasureOffer,
+  compactOwnedSlotsAfterCropSell,
+  computeOwnedTreasureSlotTargetLength,
+  willCropAccessoryExpandSlots,
+} from "../game/treasureSlotCapacity.js";
 import {
   computeWordScoreDetailedForSubmit,
   isBossDebuffedSubmitTile,
@@ -2261,7 +2271,7 @@ async function fulfillUpgradeAfterPackPayment(t, { restoreLayersAfter = false } 
 }
 
 async function fulfillTreasureAfterPackPayment(t, fromEl) {
-  const ix = ownedTreasures.value.findIndex((s) => s == null);
+  const ix = findTreasurePlacementIndex(t);
   if (ix < 0) return;
   const frameEl =
     fromEl?.querySelector?.(".shop-treasure-frame") ??
@@ -2352,12 +2362,9 @@ async function onPackInnerClaim() {
     return;
   }
 
-  if (t.offerType === "treasure") {
-    const empty = ownedTreasures.value.filter((s) => s == null).length;
-    if (empty < 1) {
-      showToast("宝藏槽位不足");
-      return;
-    }
+  if (t.offerType === "treasure" && !canPlaceTreasureOffer(t)) {
+    showToast("宝藏槽位不足");
+    return;
   }
 
   const willNeedMorePicks = claimed.length + 1 < requiredPicks;
@@ -2518,6 +2525,10 @@ const treasureSellRefund = computed(() => {
   return Math.floor(Number(d.treasure.price) / 2);
 });
 
+const treasureProbabilityDisplayDoubled = computed(() =>
+  hasProbabilityDoubler(ownedSlotTreasureIdList()),
+);
+
 const treasurePackInnerAlreadyClaimed = computed(() => {
   const d = treasureDetail.value;
   if (d?.kind !== "pack-inner") return false;
@@ -2541,7 +2552,7 @@ const treasureCanBuyOffer = computed(() => {
     if (claimed.includes(key)) return false;
     if (claimed.length >= packPickRequiredPicks(sess)) return false;
     if (t.offerType === "treasure") {
-      return ownedTreasures.value.some((s) => s == null);
+      return canPlaceTreasureOffer(t);
     }
     return true;
   }
@@ -2565,8 +2576,8 @@ const treasureCanBuyOffer = computed(() => {
   }
   if (t.offerType === "upgrade") return w >= p;
   if (t.offerType === "deckLetter" || t.offerType === "deckTile") return w >= p;
-  const hasSlot = ownedTreasures.value.some((s) => s == null);
-  return w >= p && hasSlot;
+  if (t.offerType === "treasure") return w >= p && canPlaceTreasureOffer(t);
+  return w >= p;
 });
 
 /** 与 App.vue 共用的 Iris 转场组件（注入由上层提供） */
@@ -2596,6 +2607,35 @@ function buildTreasurePoolSnapshot() {
 
 function ownedSlotTreasureIdList() {
   return ownedTreasures.value.map((s) => s?.treasureId ?? null);
+}
+
+function treasureVoucherExtraSlots() {
+  return getOwnedTreasureSlotBonusFromVouchers(ownedVoucherIds.value);
+}
+
+/** @param {{ treasureAccessoryId?: string | null } | null | undefined} offer */
+function canPlaceTreasureOffer(offer) {
+  return canAcquireTreasureOffer(
+    ownedTreasures.value,
+    treasureVoucherExtraSlots(),
+    offer?.treasureAccessoryId ?? null,
+  );
+}
+
+/** @param {{ treasureAccessoryId?: string | null } | null | undefined} offer */
+function findTreasurePlacementIndex(offer) {
+  const slots = ownedTreasures.value;
+  const ix = slots.findIndex((s) => s == null);
+  if (ix >= 0) return ix;
+  if (willCropAccessoryExpandSlots(slots, treasureVoucherExtraSlots(), offer?.treasureAccessoryId ?? null)) {
+    const next = [...slots, null];
+    ownedTreasures.value = next;
+    const keys = [...gameOwnedKeyOrder.value];
+    while (keys.length < next.length) keys.push(`g-slot-${keys.length}`);
+    gameOwnedKeyOrder.value = keys;
+    return next.length - 1;
+  }
+  return -1;
 }
 
 function rollRandomBigramForTreasure() {
@@ -2646,6 +2686,44 @@ function noteDiscardExhaustedForChapterUnlock() {
 function clearOwnedTreasureSlotById(treasureId) {
   const tid = String(treasureId ?? "");
   ownedTreasures.value = ownedTreasures.value.map((s) => (s?.treasureId === tid ? null : s));
+}
+
+/** 自毁宝藏：wobble → 红色「摧毁！」→ 缩至 0 后清空槽位 */
+async function destroyOwnedTreasureWithFx(treasureId) {
+  const ix = findOwnedTreasureSlotIndex(treasureId);
+  if (ix < 0) return;
+  const el = gameTreasureSlotRefs[ix];
+  if (!el) {
+    clearOwnedTreasureSlotById(treasureId);
+    return;
+  }
+  const sp = 1;
+  const wobbleTl = createWobbleScoreSlotTimeline(el);
+  if (wobbleTl) {
+    wobbleTl.timeScale(sp);
+    wobbleTl.play(0);
+    await new Promise((resolve) => {
+      wobbleTl.eventCallback("onComplete", () => resolve());
+    });
+  } else {
+    await scoringSleep(SCORING_TREASURE_FALLBACK_MS, sp);
+  }
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  const bubble = showScoreBubble(el, "摧毁！", "destroy", sp);
+  gsap.killTweensOf(el);
+  await new Promise((resolve) => {
+    gsap.to(el, {
+      scale: 0,
+      opacity: 0,
+      duration: 0.35,
+      ease: EASE_TRANSFORM,
+      transformOrigin: "50% 50%",
+      onComplete: resolve,
+    });
+  });
+  scheduleSmallPlusBubbleOutro(bubble, sp);
+  gsap.set(el, { clearProps: "scale,opacity,transform" });
+  clearOwnedTreasureSlotById(treasureId);
 }
 
 async function resetLevelAfterTreasurePrep(levelDef) {
@@ -2707,6 +2785,7 @@ async function runTreasureLevelCompleteHooks() {
     treasureRun: treasureRunState.value,
     rng: runRandom,
     clearTreasureSlotById: clearOwnedTreasureSlotById,
+    destroyTreasureSlotById: destroyOwnedTreasureWithFx,
     findOwnedTreasureSlotIndex,
     wobbleOwnedTreasureById,
     remainingRemovals: remainingRemovals.value,
@@ -2813,6 +2892,8 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
     addMoney: (n) => {
       money.value += Math.max(0, Math.floor(Number(n) || 0));
     },
+    playOwnedTreasureMoneyFx,
+    wobbleOwnedTreasureById,
     removeDeckLettersByRaws: (raws) => removeDeckLetterInstancesByRaws(raws),
     destroySelf: () => {
       const ix = ownedTreasures.value.findIndex((s) => s?.treasureId === "67");
@@ -3719,7 +3800,6 @@ function collectSwappableGridPositions(excludePositionKeys = null) {
       if (excludePositionKeys?.has(key)) continue;
       if (tile.selected) continue;
       if (tile.bossGridBlocked) continue;
-      if (tile.bossTileDebuffed) continue;
       if (isTileFlying(r, c)) continue;
       list.push({ row: r, col: c, tile });
     }
@@ -5290,8 +5370,13 @@ async function animateTreasureFrameFly(fromFrameEl, toTarget) {
   });
 }
 
-/** 组合包：字母块从选项位飞入商店底部「查看牌库」按钮 */
-async function animatePackTileFlyToDeck(fromEl, toTarget) {
+/**
+ * 字母块飞入牌库：仅位移 + 缩放（先略放大，终点缩至 0），不压扁贴合按钮。
+ * @param {unknown} fromEl
+ * @param {unknown} toTarget
+ * @param {{ flyLiveElement?: boolean }} [options] 为 true 时直接飞挂载了 Regl 的源节点（不 clone，保留材质）
+ */
+async function animatePackTileFlyToDeck(fromEl, toTarget, options = {}) {
   const fromNode = refToDom(fromEl) ?? (fromEl instanceof HTMLElement ? fromEl : null);
   const toNode = refToDom(toTarget) ?? (toTarget instanceof HTMLElement ? toTarget : null);
   if (!fromNode || typeof fromNode.getBoundingClientRect !== "function") return;
@@ -5303,15 +5388,26 @@ async function animatePackTileFlyToDeck(fromEl, toTarget) {
         ? toTarget.getBoundingClientRect()
         : /** @type {DOMRect} */ (toTarget);
   if (!to || !Number.isFinite(to.width)) return;
-  const clone = fromNode.cloneNode(true);
-  clone.setAttribute("aria-hidden", "true");
-  clone.classList.add("pack-tile-purchase-fly-clone");
-  clone.querySelectorAll("canvas").forEach((c) => c.remove());
 
-  gsap.killTweensOf(clone);
-  gsap.set(clone, { clearProps: "transform" });
+  const flyLive = options.flyLiveElement === true;
+  const flyEl = flyLive ? fromNode : /** @type {HTMLElement} */ (fromNode.cloneNode(true));
+  if (!flyLive) {
+    flyEl.setAttribute("aria-hidden", "true");
+    flyEl.classList.add("pack-tile-purchase-fly-clone");
+    flyEl.querySelectorAll("canvas").forEach((c) => c.remove());
+  } else {
+    flyEl.setAttribute("aria-hidden", "true");
+    flyEl.classList.add("pack-tile-purchase-fly-clone");
+  }
 
-  Object.assign(clone.style, {
+  gsap.killTweensOf(flyEl);
+
+  const cx0 = from.left + from.width / 2;
+  const cy0 = from.top + from.height / 2;
+  const cx1 = to.left + to.width / 2;
+  const cy1 = to.top + to.height / 2;
+
+  Object.assign(flyEl.style, {
     position: "fixed",
     left: `${from.left}px`,
     top: `${from.top}px`,
@@ -5321,48 +5417,106 @@ async function animatePackTileFlyToDeck(fromEl, toTarget) {
     zIndex: "9999",
     pointerEvents: "none",
     boxSizing: "border-box",
-    willChange: "left, top, width, height",
+    transformOrigin: "50% 50%",
+    willChange: "transform, opacity",
   });
 
-  document.body.appendChild(clone);
+  if (!flyLive) document.body.appendChild(flyEl);
+  else if (flyEl.parentElement !== document.body) document.body.appendChild(flyEl);
+
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-  const charEl = clone.querySelector(".letter-tile-char");
-  const fs0 = from.width * 0.28;
-  const fs1 = Math.max(10, to.width * 0.22);
+  const dx = cx1 - cx0;
+  const dy = cy1 - cy0;
 
   await new Promise((resolve) => {
-    const tl = gsap.timeline({
+    gsap.fromTo(
+      flyEl,
+      { x: 0, y: 0, scale: 1, opacity: 1 },
+      {
+        x: dx,
+        y: dy,
+        scale: 1.18,
+        duration: 0.22,
+        ease: EASE_TRANSFORM,
+      },
+    );
+    gsap.to(flyEl, {
+      scale: 0,
+      opacity: 0.35,
+      duration: 0.38,
+      delay: 0.18,
+      ease: EASE_TRANSFORM,
       onComplete: () => {
-        clone.remove();
+        flyEl.remove();
         resolve(undefined);
       },
     });
-    tl.to(
-      clone,
-      {
-        left: to.left,
-        top: to.top,
-        width: to.width,
-        height: to.height,
-        duration: 0.55,
-        ease: EASE_TRANSFORM,
-      },
-      0,
-    );
-    if (charEl && Number.isFinite(fs0) && Number.isFinite(fs1) && fs0 > 1 && fs1 > 1) {
-      gsap.set(charEl, { fontSize: fs0 });
-      tl.to(
-        charEl,
-        {
-          fontSize: fs1,
-          duration: 0.55,
-          ease: EASE_TRANSFORM,
-        },
-        0,
-      );
-    }
   });
+}
+
+/**
+ * 铁锹：从法术图标飞出增强 E（完整 LetterTile）并入牌库。
+ * @param {Record<string, unknown>[]} deckCards
+ */
+async function animateGrimDeckAddsFromSpellIcon(deckCards) {
+  const cards = Array.isArray(deckCards) ? deckCards.filter(Boolean) : [];
+  if (!cards.length) return;
+  const deckBtn = deckBtnRef.value;
+  if (!deckBtn) return;
+  const layer = spellTargetLayerRef.value;
+  const iconEl = layer?.getSpellIconEl?.() ?? null;
+  const origin =
+    iconEl && typeof iconEl.getBoundingClientRect === "function"
+      ? iconEl.getBoundingClientRect()
+      : null;
+  if (!origin) {
+    await animateSpellDeckAddsFromOfferSlots([], cards.length);
+    return;
+  }
+  const gridSample = getGridTileElByIndex(0);
+  const gridRect =
+    gridSample && typeof gridSample.getBoundingClientRect === "function"
+      ? gridSample.getBoundingClientRect()
+      : null;
+  const size =
+    gridRect && gridRect.width > 1
+      ? gridRect.width
+      : Math.max(48, origin.width * 0.85);
+
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    const snap = buildSpellOfferSnapshotFromDeckCard(card);
+    if (!snap) continue;
+    const host = document.createElement("div");
+    host.className = "pack-tile-purchase-fly-clone grim-spell-tile-spawn";
+    host.setAttribute("aria-hidden", "true");
+    Object.assign(host.style, {
+      position: "fixed",
+      left: `${origin.left + origin.width / 2 - size / 2}px`,
+      top: `${origin.top + origin.height / 2 - size / 2}px`,
+      width: `${size}px`,
+      height: `${size}px`,
+      zIndex: "9999",
+      pointerEvents: "none",
+      transform: "scale(0)",
+      transformOrigin: "50% 50%",
+    });
+    document.body.appendChild(host);
+    const disposeTile = mountLetterTileClone(host, snap, "grid");
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((resolve) => {
+      gsap.to(host, {
+        scale: 1,
+        duration: 0.2,
+        ease: EASE_TRANSFORM,
+        onComplete: resolve,
+      });
+    });
+    await animatePackTileFlyToDeck(host, deckBtn, { flyLiveElement: true });
+    disposeTile();
+    if (i < cards.length - 1) await sleep(120);
+  }
 }
 
 function grantRandomShopTreasure() {
@@ -5375,7 +5529,7 @@ function grantRandomShopTreasure() {
  * @returns {{ ok: boolean, slotIndex: number }}
  */
 function grantRandomShopTreasureByRarity(rarityFilter) {
-  const ix = ownedTreasures.value.findIndex((s) => s == null);
+  const ix = findTreasurePlacementIndex(null);
   if (ix < 0) return { ok: false, slotIndex: -1 };
   const owned = ownedTreasureIdSet.value;
   const pool = shopTreasurePool.value.filter(
@@ -5416,6 +5570,22 @@ async function wobbleGameTreasureSlot(slotIndex) {
   await new Promise((resolve) => {
     tl.eventCallback("onComplete", () => resolve());
   });
+}
+
+/** @param {string} treasureId @param {number} amount */
+async function playOwnedTreasureMoneyFx(treasureId, amount) {
+  const ix = findOwnedTreasureSlotIndex(treasureId);
+  if (ix < 0) return;
+  const el = gameTreasureSlotRefs[ix];
+  if (!el) return;
+  const sp = 1;
+  const amt = Math.max(0, Math.floor(Number(amount) || 0));
+  if (amt <= 0) return;
+  await wobbleGameTreasureSlot(ix);
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  const bubble = showScoreBubble(el, `+$${amt}`, "money", sp);
+  scheduleSmallPlusBubbleOutro(bubble, sp);
+  money.value += amt;
 }
 
 /** 宝藏槽 wobble 峰值弹出 +分气泡（与记分逐字宝藏同节拍，不等待 wobble 收束） */
@@ -5625,6 +5795,10 @@ async function playSpectralSpellResultFx(spellFx, effectiveSpellId) {
     return;
   }
   if (fx?.kind === "deck_add" && typeof fx.count === "number") {
+    if (fx.source === "spell_icon" && Array.isArray(fx.addedDeckCards) && fx.addedDeckCards.length) {
+      await animateGrimDeckAddsFromSpellIcon(fx.addedDeckCards);
+      return;
+    }
     const layer = spellTargetLayerRef.value;
     const slots = spellTargetSession.value?.offerSlots ?? [];
     const slotIxs = slots.map((sl, ix) => (sl && !sl.empty && sl.tile ? ix : -1)).filter((ix) => ix >= 0);
@@ -5860,6 +6034,7 @@ async function playSpellConfirmAnimOnOfferSlots(
   oldSnaps,
   applySpellFn,
   buildNewSnapsAfterApply,
+  animOpts = {},
 ) {
   if (!slotIndices.length || oldSnaps.length !== slotIndices.length) return false;
   return (
@@ -5867,6 +6042,7 @@ async function playSpellConfirmAnimOnOfferSlots(
       spellId: sid,
       offerSlotIndices: slotIndices,
       oldSnaps,
+      winnerOfferSlotIndex: animOpts.winnerOfferSlotIndex,
       onMidApply: () => {
         applySpellFn();
         return buildNewSnapsAfterApply();
@@ -6213,6 +6389,11 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
       lastSpellFx = r?.spellFx ?? null;
     };
     let playedOnOffer = false;
+    let winnerOfferSlotIndex = -1;
+    if (isRandomDeckRemoveSpell(sid) && slotIxs.length > 0) {
+      winnerOfferSlotIndex = slotIxs[Math.floor(runRandom() * slotIxs.length)];
+      ctx.forcedRemoveDeckCardUid = offerSlotsList[winnerOfferSlotIndex]?.deckCardUid ?? null;
+    }
     if (slotIxs.length > 0 && oldOfferSnaps.every(Boolean)) {
       playedOnOffer = await playSpellConfirmAnimOnOfferSlots(
         sid,
@@ -6220,6 +6401,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
         oldOfferSnaps,
         applySpellNow,
         () => slotIxs.map((ix) => buildSpellOfferSnapFromSlot(offerSlotsList[ix])).filter(Boolean),
+        { winnerOfferSlotIndex },
       );
     }
     if (!playedOnOffer) {
@@ -6433,7 +6615,7 @@ async function onTreasurePurchase() {
     return;
   }
 
-  const ix = ownedTreasures.value.findIndex((s) => s == null);
+  const ix = findTreasurePlacementIndex(t);
   if (ix < 0) return;
 
   const layer = treasureDetailLayerRef.value;
@@ -6477,7 +6659,15 @@ async function onTreasureSell() {
   notifyOwnedTreasuresOnTreasureSold(ownedSlotTreasureIdList(), {
     treasureRun: treasureRunState.value,
   });
-  ownedTreasures.value[ix] = null;
+  const slots = [...ownedTreasures.value];
+  const compacted = compactOwnedSlotsAfterCropSell(slots, ix, cur);
+  if (!compacted) slots[ix] = null;
+  ownedTreasures.value = slots;
+  if (compacted) {
+    const keys = [...gameOwnedKeyOrder.value];
+    if (ix >= 0 && ix < keys.length) keys.splice(ix, 1);
+    gameOwnedKeyOrder.value = keys;
+  }
   treasureDetail.value = null;
   if (activeBossSlug.value === "verdant_leaf") {
     verdantTreasureSold.value = true;
@@ -7080,9 +7270,11 @@ function showScoreBubble(slotEl, text, kind, speed = 1) {
         ? "score-popup-bubble score-popup-bubble--replay-again"
         : kind === "money"
           ? "score-popup-bubble score-popup-bubble--money"
-          : kind === "skip"
-            ? "score-popup-bubble score-popup-bubble--skip"
-            : "score-popup-bubble";
+          : kind === "destroy"
+            ? "score-popup-bubble score-popup-bubble--destroy"
+            : kind === "skip"
+              ? "score-popup-bubble score-popup-bubble--skip"
+              : "score-popup-bubble";
   div.textContent = text;
   document.body.appendChild(div);
   const rpx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
@@ -7307,13 +7499,14 @@ async function runLetterTreasureMultBurst(
 
 async function runSlotPerLetterTreasureScoreStep(
   treasureSlotIndex,
+  effectiveTreasureId,
   part,
   letterIndex,
   slotEl,
   speed = 1,
   realTile = null,
 ) {
-  const tid = ownedTreasures.value[treasureSlotIndex]?.treasureId;
+  const tid = String(effectiveTreasureId ?? "");
   if (!tid || !slotEl) return false;
   const ctx = { ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null) };
   const cue = TREASURE_HOOKS_BY_ID.get(tid)?.getPerLetterScoreCue?.(ctx, part, letterIndex);
@@ -7330,13 +7523,14 @@ async function runSlotPerLetterTreasureScoreStep(
 
 async function runSlotPerLetterTreasureMultStep(
   treasureSlotIndex,
+  effectiveTreasureId,
   part,
   letterIndex,
   slotEl,
   speed = 1,
   realTile = null,
 ) {
-  const tid = ownedTreasures.value[treasureSlotIndex]?.treasureId;
+  const tid = String(effectiveTreasureId ?? "");
   if (!tid || !slotEl) return false;
   const ctx = { ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null) };
   const cue = TREASURE_HOOKS_BY_ID.get(tid)?.getPerLetterMultCue?.(ctx, part, letterIndex);
@@ -7396,18 +7590,17 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
 
   const realTile = resolveRealSubmitTileForWordSlot(i, tile);
 
-  const nOwn = ownedTreasures.value.length;
-  const ctxScoreMerge = { ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null) };
-  /** @type {{ si: number, delta: number, label?: string }[]} */
+  const ownedSlotIds = ownedTreasures.value.map((s) => s?.treasureId ?? null);
+  const ctxScoreMerge = { ownedSlotTreasureIds: ownedSlotIds };
+  /** @type {{ si: number, delta: number, label?: string, treasureId: string }[]} */
   const mergedIntrinsicScoreSlots = [];
-  for (let si = 0; si < nOwn; si++) {
-    const tid = ownedTreasures.value[si]?.treasureId;
-    const hooks = tid ? TREASURE_HOOKS_BY_ID.get(tid) : null;
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(ownedSlotIds)) {
+    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     if (!hooks?.mergeLetterScoreCueIntoIntrinsicLetterScoreStep) continue;
     const cue = hooks.getPerLetterScoreCue?.(ctxScoreMerge, part, i);
     const d = Math.max(0, Math.floor(Number(cue?.delta) || 0));
     if (d <= 0) continue;
-    mergedIntrinsicScoreSlots.push({ si, delta: d, label: cue?.label });
+    mergedIntrinsicScoreSlots.push({ si, delta: d, label: cue?.label, treasureId: tid });
   }
   const mergedIntrinsicScoreAdd = mergedIntrinsicScoreSlots.reduce((s, x) => s + x.delta, 0);
   const baseLetterScore =
@@ -7418,8 +7611,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     wordSlotIntrinsicWobblePlayed = true;
     if (realTile && mergedIntrinsicScoreSlots.length) {
       for (const row of mergedIntrinsicScoreSlots) {
-        const tidS = ownedTreasures.value[row.si]?.treasureId;
-        TREASURE_HOOKS_BY_ID.get(tidS)?.persistTileAfterPerLetterTreasureCue?.({
+        TREASURE_HOOKS_BY_ID.get(row.treasureId)?.persistTileAfterPerLetterTreasureCue?.({
           realTile,
           band: "score",
           delta: row.delta,
@@ -7460,25 +7652,32 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   }
 
   const mergedScoreSiSkip = new Set(mergedIntrinsicScoreSlots.map((x) => x.si));
-  for (let si = 0; si < nOwn; si++) {
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(ownedSlotIds)) {
     if (mergedScoreSiSkip.has(si)) continue;
-    const didTreasureScore = await runSlotPerLetterTreasureScoreStep(si, part, i, slotEl, sp, realTile);
+    const didTreasureScore = await runSlotPerLetterTreasureScoreStep(
+      si,
+      tid,
+      part,
+      i,
+      slotEl,
+      sp,
+      realTile,
+    );
     if (didTreasureScore) wordSlotIntrinsicWobblePlayed = true;
   }
   await runLetterAccessoryCoinMoneyBurst(tile, slotEl, sp);
   if (tile?.accessoryId === TILE_ACCESSORY_COIN) wordSlotIntrinsicWobblePlayed = true;
 
-  const ctxMultMerge = { ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null) };
-  /** @type {{ si: number, delta: number, label?: string }[]} */
+  const ctxMultMerge = { ownedSlotTreasureIds: ownedSlotIds };
+  /** @type {{ si: number, delta: number, label?: string, treasureId: string }[]} */
   const mergedIntrinsicMultSlots = [];
-  for (let si = 0; si < nOwn; si++) {
-    const tid = ownedTreasures.value[si]?.treasureId;
-    const hooks = tid ? TREASURE_HOOKS_BY_ID.get(tid) : null;
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(ownedSlotIds)) {
+    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     if (!hooks?.mergeLetterMultCueIntoIntrinsicLetterMultStep) continue;
     const cue = hooks.getPerLetterMultCue?.(ctxMultMerge, part, i);
     const d = Math.max(0, Math.round(Number(cue?.delta) || 0));
     if (d <= 0) continue;
-    mergedIntrinsicMultSlots.push({ si, delta: d, label: cue?.label });
+    mergedIntrinsicMultSlots.push({ si, delta: d, label: cue?.label, treasureId: tid });
   }
   const mergedIntrinsicMultAdd = mergedIntrinsicMultSlots.reduce((s, x) => s + x.delta, 0);
   const intrinsicLetterMult = part.letterMultBonus ?? 0;
@@ -7490,8 +7689,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     wordSlotIntrinsicWobblePlayed = true;
     if (realTile && mergedIntrinsicMultSlots.length) {
       for (const row of mergedIntrinsicMultSlots) {
-        const tidM = ownedTreasures.value[row.si]?.treasureId;
-        TREASURE_HOOKS_BY_ID.get(tidM)?.persistTileAfterPerLetterTreasureCue?.({
+        TREASURE_HOOKS_BY_ID.get(row.treasureId)?.persistTileAfterPerLetterTreasureCue?.({
           realTile,
           band: "mult",
           delta: row.delta,
@@ -7534,19 +7732,25 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   }
 
   const mergedMultSiSkip = new Set(mergedIntrinsicMultSlots.map((x) => x.si));
-  for (let si = 0; si < nOwn; si++) {
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(ownedSlotIds)) {
     if (mergedMultSiSkip.has(si)) continue;
-    const didTreasureMult = await runSlotPerLetterTreasureMultStep(si, part, i, slotEl, sp, realTile);
+    const didTreasureMult = await runSlotPerLetterTreasureMultStep(
+      si,
+      tid,
+      part,
+      i,
+      slotEl,
+      sp,
+      realTile,
+    );
     if (didTreasureMult) wordSlotIntrinsicWobblePlayed = true;
   }
 
   const ctxLetterRarityMult = {
-    ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null),
+    ownedSlotTreasureIds: ownedSlotIds,
     treasureRun: treasureRunState.value,
   };
-  for (let si = 0; si < nOwn; si++) {
-    const tid = ownedTreasures.value[si]?.treasureId;
-    if (!tid) continue;
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(ownedSlotIds)) {
     const animCfg = TREASURE_HOOKS_BY_ID.get(tid)?.getLetterRarityMultAnimConfig?.(ctxLetterRarityMult);
     if (!animCfg) continue;
     const didRarity = await runLetterRarityTreasureMultStep(part, slotEl, {
@@ -8250,6 +8454,9 @@ async function onRemoveClick() {
     addMoney: (amount) => {
       money.value += Math.max(0, Math.floor(Number(amount) || 0));
     },
+    playOwnedTreasureMoneyFx,
+    wobbleOwnedTreasureById,
+    findOwnedTreasureSlotIndex,
   });
   noteDiscardExhaustedForChapterUnlock();
 
@@ -8712,7 +8919,7 @@ function e2eCanBuyShopOffer(t) {
   if (t.offerType === "upgrade") return w >= p;
   if (t.offerType === "deckLetter" || t.offerType === "deckTile") return w >= p;
   if (t.offerType === "treasure") {
-    return w >= p && ownedTreasures.value.some((s) => s == null);
+    return w >= p && canPlaceTreasureOffer(t);
   }
   return w >= p;
 }
@@ -8764,7 +8971,11 @@ function getE2eShopSnapshot() {
   return {
     money: money.value,
     offers,
-    hasTreasureSlot: ownedTreasures.value.some((s) => s == null),
+    hasTreasureSlot: ownedTreasures.value.some((s) => s == null) || willCropAccessoryExpandSlots(
+      ownedTreasures.value,
+      treasureVoucherExtraSlots(),
+      "treasure_acc_crop",
+    ),
     canReroll: shopCanReroll.value,
   };
 }
@@ -8820,7 +9031,7 @@ async function e2eAutoPackPickOnce() {
   const opt = (sess.options ?? []).find((o) => {
     const key = packPickOptionKeyOf(o);
     if (claimed.includes(key)) return false;
-    if (o.offerType === "treasure" && !ownedTreasures.value.some((s) => s == null)) return false;
+    if (o.offerType === "treasure" && !canPlaceTreasureOffer(o)) return false;
     if (o.offerType === "spell") {
       const sid = String(o.spellId ?? "");
     }

@@ -1551,7 +1551,9 @@ export function useGameState(gameOpts = {}) {
    * @param {{ raw: string, materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null }[]} entries `raw` 小写单字母，`q` 表示 Qu。
    */
   function appendShopDeckEntries(entries) {
-    if (!Array.isArray(entries) || entries.length === 0) return;
+    if (!Array.isArray(entries) || entries.length === 0) return [];
+    /** @type {ReturnType<typeof createDeckCard>[]} */
+    const created = [];
     const snap = [...initialDeckSnapshot.value];
     const d = [...deck.value];
     for (const e of entries) {
@@ -1573,9 +1575,11 @@ export function useGameState(gameOpts = {}) {
       if (tAcc) card.treasureAccessoryId = tAcc;
       snap.push(card);
       d.push(card);
+      created.push(card);
     }
     initialDeckSnapshot.value = snap;
     deck.value = d;
+    return created;
   }
 
   return {

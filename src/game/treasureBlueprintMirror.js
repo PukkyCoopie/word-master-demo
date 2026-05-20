@@ -38,3 +38,14 @@ export function iterTreasureHookContributions(ownedSlotTreasureIds) {
   }
   return out;
 }
+
+/**
+ * 对有效钩子贡献逐条调用（含面具复制右侧槽位的一份）。
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {(entry: { slotIndex: number, treasureId: string, source: "self" | "blueprint" }) => void | Promise<void>} visit
+ */
+export async function forEachTreasureHookContribution(ownedSlotTreasureIds, visit) {
+  for (const entry of iterTreasureHookContributions(ownedSlotTreasureIds)) {
+    await visit(entry);
+  }
+}

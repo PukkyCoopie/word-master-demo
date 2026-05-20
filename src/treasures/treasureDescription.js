@@ -3,6 +3,7 @@
  * 规范见同目录 treasureDescriptionSpec.md
  */
 import { getGameTermConceptPanel } from "../game/gameConceptCopy.js";
+import { parseProbabilityFraction } from "./treasureProbability.js";
 
 /** @typedef {'普通' | '稀有' | '史诗' | '传说'} TreasureRarityLabel */
 
@@ -37,6 +38,12 @@ import { getGameTermConceptPanel } from "../game/gameConceptCopy.js";
  */
 
 /**
+ * @typedef {Object} TreasureDescProb
+ * @property {'prob'} type
+ * @property {string} v  如 "1/6"；展示时可按打字机翻倍
+ */
+
+/**
  * @typedef {Object} TreasureDescBreak
  * @property {'br'} type
  */
@@ -60,7 +67,7 @@ import { getGameTermConceptPanel } from "../game/gameConceptCopy.js";
  */
 
 /**
- * @typedef {TreasureDescText | TreasureDescRarity | TreasureDescMult | TreasureDescScore | TreasureDescMoney | TreasureDescBreak | TreasureDescGain | TreasureDescConcept | TreasureDescGainBlock} TreasureDescSegment
+ * @typedef {TreasureDescText | TreasureDescRarity | TreasureDescMult | TreasureDescScore | TreasureDescMoney | TreasureDescProb | TreasureDescBreak | TreasureDescGain | TreasureDescConcept | TreasureDescGainBlock} TreasureDescSegment
  * 导出类型供 JSDoc 引用（treasureTypes.js）
  */
 
@@ -107,6 +114,25 @@ export function score(v) {
  */
 export function money(v) {
   return /** @type {TreasureDescMoney} */ ({ type: "money", v });
+}
+
+/** @param {string} v 如 "1/6" */
+export function prob(v) {
+  return /** @type {TreasureDescProb} */ ({ type: "prob", v: String(v ?? "").trim() });
+}
+
+/**
+ * 简介展示：数据里 `prob("1/3")` 始终为基础概率；已拥有打字机（45）时 chip 显示翻倍（如 2/3）。
+ * @param {TreasureDescSegment[]} segments
+ * @param {{ probabilityDisplayDoubled?: boolean }} [opts]
+ */
+export function resolveDescriptionProbabilityDisplay(segments, opts = {}) {
+  const doubled = opts.probabilityDisplayDoubled === true;
+  if (!doubled) return segments;
+  return segments.map((seg) => {
+    if (seg.type !== "prob") return seg;
+    return { type: "prob", v: parseProbabilityFraction(seg.v, true) };
+  });
 }
 
 /** 简介中须加粗的「具名材质增益」短词（非 chip）；仅用于如「万能块」等玩家向材质名，禁止整句或抽象效果文案 */

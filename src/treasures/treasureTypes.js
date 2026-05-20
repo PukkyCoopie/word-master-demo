@@ -75,6 +75,8 @@
  * @property {{ letter?: string, rarity?: string, materialId?: string | null }[]} [submittedLetters]
  * @property {(n: number) => void} [addRemainingWords]
  * @property {(amount: number) => void} [addMoney]
+ * @property {(treasureId: string, amount: number) => Promise<void>} [playOwnedTreasureMoneyFx]
+ * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(raws: string[]) => void} [removeDeckLettersByRaws]
  * @property {() => void} [destroySelf]
  * @property {object[]} [ownedTreasureInstances]
@@ -174,6 +176,9 @@
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
  * @property {() => number} [rng]
  * @property {(amount: number) => void} [addMoney]
+ * @property {(treasureId: string, amount: number) => Promise<void>} [playOwnedTreasureMoneyFx]
+ * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
+ * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {boolean} [discardPotteryFxHandled] 陶罐弃牌动效已在逐字消失中结算（避免 onDiscardBatch 重复入银行）
  */
 
@@ -199,6 +204,7 @@
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
  * @property {() => number} [rng]
  * @property {(treasureId: string) => void} [clearTreasureSlotById]
+ * @property {(treasureId: string) => Promise<void>} [destroyTreasureSlotById] wobble +「摧毁！」气泡 + 缩至 0 后清空槽位
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(amount: number) => void} [addMoney]

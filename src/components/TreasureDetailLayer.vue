@@ -262,6 +262,7 @@
                 v-if="hasTreasureDescBody && showMainVoucherDesc"
                 :description="descriptionOverride ?? treasure.description"
                 polish-treasure-copy
+                :probability-display-doubled="probabilityDisplayDoubled"
               />
             </template>
           </div>
@@ -648,6 +649,8 @@ const props = defineProps({
   overlaySuppressed: { type: Boolean, default: false },
   /** 字母块预览：分数×倍率与 TileDetailLayer 一致 */
   rarityLevelsByRarity: { type: Object, default: null },
+  /** 已拥有打字机时宝藏简介概率显示翻倍 */
+  probabilityDisplayDoubled: { type: Boolean, default: false },
 });
 
 const offerPriceDisplayed = computed(() =>

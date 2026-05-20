@@ -35,6 +35,7 @@
 	/* 宝藏简介富文本（见 treasureDescriptionSpec.md） */
 	--treasure-desc-mult: var(--mult-accent);
 	--treasure-desc-score: #5ba3f5;
+	--treasure-desc-prob: #2a9d8f;
 	/* 黄金材质字母：纯白 + 细描边压边（无外发光） */
 	--tile-gold-char: #ffffff;
 	--tile-gold-char-outline: rgba(42, 24, 18, 0.45);
@@ -740,6 +741,10 @@ body {
 /* 关底黄金 +$：与 +分 气泡同形，仅底色区分 */
 .score-popup-bubble--money {
 	background: #d4a84a;
+}
+/* 宝藏自毁：摧毁！ */
+.score-popup-bubble--destroy {
+	background: #e04545;
 }
 /* 废格 / 软违规：跳过计分 */
 .score-popup-bubble--skip {
@@ -2038,6 +2043,16 @@ body {
 	clip-path: polygon(100% 0, 0 0, 100% 100%);
 	pointer-events: none;
 	z-index: 3;
+	filter: none;
+	opacity: 1;
+}
+
+.grid-tile.letter-tile-boss-debuff.player-marked:not(.selected)::after,
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff .word-slot-content.player-marked::after,
+.fly-letter.letter-tile-boss-debuff.player-marked::after,
+.fly-letter-back.letter-tile-boss-debuff.player-marked::after {
+	filter: none;
+	opacity: 1;
 }
 
 .word-slots .word-slot-content.player-marked {
@@ -3363,6 +3378,12 @@ body {
 .treasure-detail-desc-body-text .td-desc-money-dollar,
 .treasure-detail-desc-panel-body .td-desc-money-dollar {
 	font-weight: 400;
+}
+
+.treasure-detail-desc-body-text .td-desc-prob,
+.treasure-detail-desc-panel-body .td-desc-prob {
+	color: var(--treasure-desc-prob);
+	font-weight: 700;
 }
 
 /* 与棋盘字母 gem 稀有度色一致（game.css .letter-gem） */
