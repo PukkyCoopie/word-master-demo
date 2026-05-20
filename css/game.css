@@ -72,6 +72,8 @@
 	--voucher-stamp-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cmask id='vsm'%3E%3Crect width='100' height='100' fill='white'/%3E%3Ccircle cx='0' cy='0' r='10.8' fill='black'/%3E%3Ccircle cx='100' cy='0' r='10.8' fill='black'/%3E%3Ccircle cx='100' cy='100' r='10.8' fill='black'/%3E%3Ccircle cx='0' cy='100' r='10.8' fill='black'/%3E%3C/mask%3E%3C/defs%3E%3Crect width='100' height='100' fill='white' mask='url(%23vsm)'/%3E%3C/svg%3E");
 	--btn-orange: #ea580c;
 	--btn-red: #c85a54;
+	/* 拼词辅助 · 标记按钮与格上折角 */
+	--player-mark-accent: #5b9bd5;
 	/* Boss 条：略偏红的危险提醒（与 --card-bright 块面风格一致） */
 	--boss-tape-bg: #f6ebe8;
 	--boss-tape-border: rgba(176, 78, 68, 0.28);
@@ -1016,7 +1018,7 @@ body {
 	filter: brightness(0.92);
 }
 .action-aux-btn--blue {
-	background: #5b9bd5;
+	background: var(--player-mark-accent);
 }
 .action-aux-btn--purple {
 	background: #9b59b6;
@@ -2039,7 +2041,7 @@ body {
 	right: 0;
 	width: calc(22 * var(--rpx));
 	height: calc(22 * var(--rpx));
-	background: #ffe566;
+	background: var(--player-mark-accent);
 	clip-path: polygon(100% 0, 0 0, 100% 100%);
 	pointer-events: none;
 	z-index: 3;
@@ -2078,7 +2080,7 @@ body {
 	right: 0;
 	width: calc(22 * var(--rpx) * var(--slot-scale, 1));
 	height: calc(22 * var(--rpx) * var(--slot-scale, 1));
-	background: #ffe566;
+	background: var(--player-mark-accent);
 	clip-path: polygon(100% 0, 0 0, 100% 100%);
 	pointer-events: none;
 	z-index: 3;

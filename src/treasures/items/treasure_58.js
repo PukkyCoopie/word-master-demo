@@ -1,4 +1,7 @@
+import { getWordLetterCount } from "../../composables/useScoring.js";
 import { describe, money } from "../treasureDescription.js";
+
+const ID = "58";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
@@ -12,18 +15,34 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  onSuccessfulWordSubmit(ctx) {
+  async onSuccessfulWordSubmit(ctx) {
     const rs = ctx.treasureRun;
     if (!rs || rs.levelFirstWordSubmitted) return;
     rs.levelFirstWordSubmitted = true;
-    const len = Math.max(0, Math.round(Number(ctx.judgedWordLength) || 0));
-    rs.levelFirstWordLength = len;
-    if (len !== 3) return;
+
     const tiles = ctx.submittedScoringTiles;
-    if (!Array.isArray(tiles) || tiles.length !== 3) return;
-    const raws = tiles.map((t) => String(t?.letter ?? "").toLowerCase()).filter(Boolean);
-    if (raws.length !== 3) return;
-    ctx.removeDeckLettersByRaws?.(raws);
-    ctx.addMoney?.(3);
+    const wordLen = getWordLetterCount(Array.isArray(tiles) ? tiles : [], ctx.resolvedWord);
+    rs.levelFirstWordLength = wordLen;
+    if (wordLen !== 3) return;
+
+    const removeDeck = () => ctx.removeDeckCardsForSubmittedWord?.(ctx.resolvedWord);
+
+    const playLeave = ctx.playSubmitWordLetterRemoveAndRewardLeave;
+    const register = ctx.registerSubmitWordLeaveFx;
+    if (!playLeave || !register) {
+      removeDeck();
+      await ctx.playOwnedTreasureMoneyFx?.(ID, 3);
+      return;
+    }
+    register(async ({ slotEls, gridEls, duration }) => {
+      await playLeave({
+        treasureId: ID,
+        slotEls,
+        gridEls,
+        duration,
+        onRemoveDeck: removeDeck,
+        moneyAmount: 3,
+      });
+    });
   },
 };

@@ -4,18 +4,18 @@ Balatro-like word-spelling game demo.
 Completely built using vibe coding.
 
 **Libs and 3rd-party resources**：Vue 3、Vite、GSAP、regl、Remix Icon； 
-**Shaders from** [Shadertoy](https://www.shadertoy.com/)
+**Shaders from** <a href="https://www.shadertoy.com/" target="_blank" rel="noopener noreferrer">Shadertoy</a>
 
 ```bash
 npm install && npm run dev
 ```
 
-MIT — See [LICENSE](./LICENSE)
+MIT — See <a href="./LICENSE" target="_blank" rel="noopener noreferrer">LICENSE</a>
 
 
 ## Live demo
 
 | Platform | URL |
 |----------|-----|
-| GitHub Pages | [pukkycoopie.github.io/word-master-demo](https://pukkycoopie.github.io/word-master-demo/) |
-| 腾讯云 CloudBase| [test-d4gs4qjyl7a9f9d99-1434123598.tcloudbaseapp.com](https://test-d4gs4qjyl7a9f9d99-1434123598.tcloudbaseapp.com/) |
+| GitHub Pages | <a href="https://pukkycoopie.github.io/word-master-demo/" target="_blank" rel="noopener noreferrer">pukkycoopie.github.io/word-master-demo</a> |
+| 腾讯云 CloudBase | <a href="https://test-d4gs4qjyl7a9f9d99-1434123598.tcloudbaseapp.com/" target="_blank" rel="noopener noreferrer">test-d4gs4qjyl7a9f9d99-1434123598.tcloudbaseapp.com</a> |

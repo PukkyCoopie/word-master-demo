@@ -78,6 +78,7 @@
  * @property {(treasureId: string, amount: number) => Promise<void>} [playOwnedTreasureMoneyFx]
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(raws: string[]) => void} [removeDeckLettersByRaws]
+ * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（工具箱等）
  * @property {() => void} [destroySelf]
  * @property {object[]} [ownedTreasureInstances]
  * @property {() => number} [rng]
@@ -90,7 +91,8 @@
  * @property {number} [targetScore] 本关目标分
  * @property {number} [currentScore] 提交前累计分
  * @property {(n: number) => void} [addRemainingWords] 增加拼写次数
- * @property {(raws: string[]) => void} [removeDeckLettersByRaws] 从牌库移除字母
+ * @property {(raws: string[]) => void} [removeDeckLettersByRaws]
+ * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（工具箱等） 从牌库移除字母
  * @property {() => number} [rng]
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {() => string | null} [pickRandomInRunSpellId]
@@ -102,6 +104,29 @@
  * @property {(opts?: { kind?: 'spell' | 'treasure' | 'upgrade' | 'letter', treasureSlotIndex?: number, treasureId?: string }) => Promise<void>} [requestInRunPackOpenOfKind]
  * @property {() => string | null} [rollRandomBigram]
  * @property {(len: number, opts?: { observatoryBoost?: boolean }) => void} [bumpWordLengthLevel]
+ * @property {(runner: SubmitWordLeaveFxRunner) => void} [registerSubmitWordLeaveFx] 登记本词提交后词槽/棋盘格消失阶段的自定义动画（在计分结束、默认批量消失之前执行）
+ * @property {(opts: SubmitWordLetterRemoveLeaveOpts) => Promise<void>} [playSubmitWordLetterRemoveAndRewardLeave] 逐字 wobble + 红色「移除」气泡并消失，结束后宝藏 +$ 动效（由 GamePanel 实现）
+ */
+
+/**
+ * 提交后词槽/棋盘格消失动画入参（与 `registerSubmitWordLeaveFx` 配套）
+ * @typedef {Object} SubmitWordLeaveFxParams
+ * @property {HTMLElement[]} slotEls
+ * @property {HTMLElement[]} gridEls
+ * @property {number} duration
+ * @property {number} stagger
+ */
+
+/** @typedef {(params: SubmitWordLeaveFxParams) => Promise<void>} SubmitWordLeaveFxRunner */
+
+/**
+ * @typedef {Object} SubmitWordLetterRemoveLeaveOpts
+ * @property {string} treasureId
+ * @property {HTMLElement[]} slotEls
+ * @property {HTMLElement[]} gridEls
+ * @property {number} [duration]
+ * @property {() => void} [onRemoveDeck]
+ * @property {number} [moneyAmount]
  */
 
 /**

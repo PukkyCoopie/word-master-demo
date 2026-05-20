@@ -30,6 +30,7 @@ import { snapshotMaxIntrinsicGainsFromTile, applyIntrinsicGainsToTileAndLinkedCa
 import { getWordLengthJudgmentBonus } from "../vouchers/voucherRuntime.js";
 import { applyBossTileDebuffState } from "../game/bossTileDebuff.js";
 import { vowelDisplayLetter } from "../game/vowelNeighborSubstitute.js";
+import { resolvedWordToRemovalLetterRaws } from "../treasures/treasureLogicShared.js";
 
 const VOWEL_LETTERS = new Set(["a", "e", "i", "o", "u"]);
 
@@ -451,6 +452,8 @@ export function useGameState(gameOpts = {}) {
   const initialDeckSnapshot = ref(initialCards);
   const deck = ref([...initialCards]);
   shuffleArrayInPlace(deck.value, getRng);
+  /** 本局已从 multiset 抽空、牌库 UI 仍保留 ghost 堆的字母 raw（如 `q` 表示 Qu） */
+  const depletedDeckStackRaws = ref(/** @type {Set<string>} */ (new Set()));
 
   /** 当前小关 Boss slug（x-3 / 8-3）；非 Boss 小关为空串） */
   const activeBossSlug = ref("");
@@ -498,6 +501,40 @@ export function useGameState(gameOpts = {}) {
     return null;
   }
 
+  /** @param {string} raw0 */
+  function normalizeDeckStackRawKey(raw0) {
+    let raw = String(raw0 ?? "").toLowerCase();
+    if (raw === "qu") raw = "q";
+    return raw;
+  }
+
+  function snapshotHasDeckStackRaw(rawKey) {
+    const key = normalizeDeckStackRawKey(rawKey);
+    if (!key || key === WILDCARD_STACK_RAW) return false;
+    return initialDeckSnapshot.value.some(
+      (e) => e && typeof e === "object" && !e.isWildcard && deckCardRaw(e) === key,
+    );
+  }
+
+  /** @param {string} raw0 */
+  function noteDeckStackDepletedIfEmpty(raw0) {
+    const key = normalizeDeckStackRawKey(raw0);
+    if (!key || key === WILDCARD_STACK_RAW) return;
+    if (snapshotHasDeckStackRaw(key)) return;
+    const next = new Set(depletedDeckStackRaws.value);
+    next.add(key);
+    depletedDeckStackRaws.value = next;
+  }
+
+  /** @param {string} raw0 */
+  function noteDeckStackReplenished(raw0) {
+    const key = normalizeDeckStackRawKey(raw0);
+    if (!key || !depletedDeckStackRaws.value.has(key)) return;
+    const next = new Set(depletedDeckStackRaws.value);
+    next.delete(key);
+    depletedDeckStackRaws.value = next;
+  }
+
   /**
    * 牌库界面：按字母 raw 分堆；`entries` 为本局 multiset 中**该字母每一枚牌张**（含场上、抽牌堆、已消耗离堆）。
    * `dimmed`：曾上场（`everLeftDrawPile`）——半透明。`count` 为全集张数；`inDrawPile` 为仍在抽牌堆可抽的张数。
@@ -515,6 +552,10 @@ export function useGameState(gameOpts = {}) {
       if (!key) continue;
       if (!cardsByRaw.has(key)) cardsByRaw.set(key, []);
       cardsByRaw.get(key).push(entry);
+    }
+
+    for (const raw of depletedDeckStackRaws.value) {
+      if (!cardsByRaw.has(raw)) cardsByRaw.set(raw, []);
     }
 
     const sortedRaws = [...cardsByRaw.keys()].sort((a, b) => a.localeCompare(b, "en"));
@@ -1374,6 +1415,7 @@ export function useGameState(gameOpts = {}) {
       }
     }
     shuffleArrayInPlace(pool, getRng);
+    depletedDeckStackRaws.value = new Set();
     deck.value = pool;
   }
 
@@ -1395,6 +1437,7 @@ export function useGameState(gameOpts = {}) {
     if (spec.letterMultBonus) card.letterMultBonus = Math.max(0, Math.floor(Number(spec.letterMultBonus) || 0));
     if (spec.materialId) card.materialId = spec.materialId;
     initialDeckSnapshot.value = [...initialDeckSnapshot.value, card];
+    noteDeckStackReplenished(raw);
     return card;
   }
 
@@ -1455,18 +1498,49 @@ export function useGameState(gameOpts = {}) {
       snap.splice(si, 1);
       const di = d.indexOf(removed);
       if (di >= 0) d.splice(di, 1);
+      noteDeckStackDepletedIfEmpty(raw);
     }
     deck.value = d;
     initialDeckSnapshot.value = snap;
   }
 
   /**
-   * 从牌库 multiset 移除指定 `_dcUid` 的牌张；同步抽牌堆，并清空棋盘上绑定该牌张的格。
+   * 本词实际牌张优先：先按提交格 `_deckCard` 移除（含 Qu 双字母），再按整词补删其余字母。
+   * @param {object[]} submitTiles 本词参与记分的棋盘/词槽格快照（须含 `letter`、`_deckCard`）
+   * @param {string | null | undefined} resolvedWord
+   */
+  function removeDeckCardsForSubmittedWord(submitTiles, resolvedWord) {
+    /** @type {string[]} */
+    let need = resolvedWordToRemovalLetterRaws(resolvedWord, submitTiles);
+    const tiles = Array.isArray(submitTiles) ? submitTiles : [];
+    for (const tile of tiles) {
+      const uid = tile?._deckCard?._dcUid;
+      if (uid == null) continue;
+      const chars = String(tile?.letter ?? "")
+        .toLowerCase()
+        .trim();
+      if (!chars) continue;
+      if (!removeDeckCardByUid(uid, { clearGrid: false })) continue;
+      for (const ch of chars) {
+        const ix = need.indexOf(ch);
+        if (ix >= 0) need.splice(ix, 1);
+      }
+    }
+    if (need.length > 0) removeDeckLetterInstancesByRaws(need);
+    for (const ch of resolvedWordToRemovalLetterRaws(resolvedWord, submitTiles)) {
+      noteDeckStackDepletedIfEmpty(ch);
+    }
+  }
+
+  /**
+   * 从牌库 multiset 移除指定 `_dcUid` 的牌张；同步抽牌堆。
    * @param {number} uid
+   * @param {{ clearGrid?: boolean }} [options] `clearGrid` 默认 true；拼词消耗中的格应传 false，由 `applySubmitRefill` 处理棋盘
    * @returns {boolean}
    */
-  function removeDeckCardByUid(uid) {
+  function removeDeckCardByUid(uid, options = {}) {
     if (uid == null) return false;
+    const clearGrid = options.clearGrid !== false;
     const snap = [...initialDeckSnapshot.value];
     const si = snap.findIndex(
       (c) => c && typeof c === "object" && /** @type {{ _dcUid?: number }} */ (c)._dcUid === uid,
@@ -1477,18 +1551,21 @@ export function useGameState(gameOpts = {}) {
     const d = [...deck.value];
     const di = d.indexOf(removed);
     if (di >= 0) d.splice(di, 1);
-    const g = grid.value;
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const t = g[r]?.[c];
-        if (t?._deckCard?._dcUid === uid) {
-          g[r][c] = emptyTile(nextId);
+    noteDeckStackDepletedIfEmpty(deckCardRaw(removed));
+    if (clearGrid) {
+      const g = grid.value;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const t = g[r]?.[c];
+          if (t?._deckCard?._dcUid === uid) {
+            g[r][c] = emptyTile(nextId);
+          }
         }
       }
+      triggerRef(grid);
     }
     deck.value = d;
     initialDeckSnapshot.value = snap;
-    triggerRef(grid);
     return true;
   }
 
@@ -1576,6 +1653,7 @@ export function useGameState(gameOpts = {}) {
       snap.push(card);
       d.push(card);
       created.push(card);
+      noteDeckStackReplenished(raw);
     }
     initialDeckSnapshot.value = snap;
     deck.value = d;
@@ -1677,6 +1755,8 @@ export function useGameState(gameOpts = {}) {
     touchGrid,
 
     removeDeckLetterInstancesByRaws,
+
+    removeDeckCardsForSubmittedWord,
 
     removeDeckCardByUid,
 

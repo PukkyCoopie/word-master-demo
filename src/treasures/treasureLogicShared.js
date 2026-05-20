@@ -86,6 +86,20 @@ export function highestRarityAmongTiles(tiles) {
   return best;
 }
 
+/**
+ * 词典整词 → 牌库逐字母移除序列（`Qu` 一格计两字母时，以整词为准如 qua → q,u,a）。
+ * @param {string | null | undefined} resolvedWord
+ * @param {{ letter?: string }[]} [tiles] 无整词时回退为各格 letter 拼接后拆字
+ * @returns {string[]}
+ */
+export function resolvedWordToRemovalLetterRaws(resolvedWord, tiles = null) {
+  const w = String(resolvedWord ?? "").toLowerCase().trim();
+  if (w) return [...w];
+  if (!Array.isArray(tiles) || tiles.length === 0) return [];
+  const joined = tiles.map((t) => String(t?.letter ?? "").toLowerCase()).join("");
+  return joined ? [...joined] : [];
+}
+
 export function buildTreasureLogicConditions(tiles, letterParts, ownedSlotTreasureIds = null) {
   return {
     streakOk: hasConsecutiveDuplicateLetters(tiles),

@@ -1,12 +1,17 @@
 {
   "major": 0,
   "minor": 0,
-  "patch": 4,
+  "patch": 5,
   "changelog": [
+    {
+      "version": "0.0.5",
+      "date": "2026-05-20",
+      "summary": "__FROM_COMMIT_MSG__"
+    },
     {
       "version": "0.0.4",
       "date": "2026-05-20",
-      "summary": "__FROM_COMMIT_MSG__"
+      "summary": "- Added a new probability display feature for treasures, allowing the display of doubled probabilities when the \"打字机\" treasure is owned.\n- Updated treasure descriptions and definitions to reflect changes in probability mechanics, ensuring clarity in gameplay.\n- Introduced new utility functions for managing treasure probabilities and their effects on gameplay.\n- Refactored related components to integrate the new probability features, enhancing user experience and interaction.\n- Improved CSS styles for better visual feedback related to treasure mechanics."
     },
     {
       "version": "0.0.3",

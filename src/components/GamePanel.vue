@@ -1136,6 +1136,7 @@ const {
   resetDeckAfterStageEnd,
   touchGrid,
   removeDeckLetterInstancesByRaws,
+  removeDeckCardsForSubmittedWord,
   removeDeckCardByUid,
   remapTileFromRawLetter,
   markTileAsWildcard,
@@ -2173,11 +2174,23 @@ function getInRunDeckFlyTargetEl() {
  * @param {number} judgedLenTable
  * @param {number} scoreBeforeHand
  */
+/**
+ * @param {Record<string, unknown>[][]} tiles
+ * @param {string} resolvedWord
+ * @param {number} judgedLenTable
+ * @param {number} scoreBeforeHand
+ * @returns {Promise<import('../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[]>}
+ */
 async function runPendingInRunGrantsAfterSubmit(tiles, resolvedWord, judgedLenTable, scoreBeforeHand) {
-  await notifyOwnedTreasuresSuccessfulWordSubmit(
-    ownedSlotTreasureIdList(),
-    buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand),
-  );
+  /** @type {import('../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[]} */
+  const submitWordLeaveFx = [];
+  await notifyOwnedTreasuresSuccessfulWordSubmit(ownedSlotTreasureIdList(), {
+    ...buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand),
+    registerSubmitWordLeaveFx: (runner) => {
+      if (typeof runner === "function") submitWordLeaveFx.push(runner);
+    },
+  });
+  return submitWordLeaveFx;
 }
 
 function packPickOptionKeyOf(opt) {
@@ -2894,7 +2907,9 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
     },
     playOwnedTreasureMoneyFx,
     wobbleOwnedTreasureById,
+    playSubmitWordLetterRemoveAndRewardLeave,
     removeDeckLettersByRaws: (raws) => removeDeckLetterInstancesByRaws(raws),
+    removeDeckCardsForSubmittedWord: (word) => removeDeckCardsForSubmittedWord(tiles, word),
     destroySelf: () => {
       const ix = ownedTreasures.value.findIndex((s) => s?.treasureId === "67");
       if (ix >= 0) ownedTreasures.value[ix] = null;
@@ -5572,20 +5587,141 @@ async function wobbleGameTreasureSlot(slotIndex) {
   });
 }
 
-/** @param {string} treasureId @param {number} amount */
-async function playOwnedTreasureMoneyFx(treasureId, amount) {
-  const ix = findOwnedTreasureSlotIndex(treasureId);
-  if (ix < 0) return;
-  const el = gameTreasureSlotRefs[ix];
-  if (!el) return;
+/** @param {number} slotIndex @param {number} amount */
+async function playTreasureSlotMoneyBurstAtPeak(slotIndex, amount) {
+  const el = gameTreasureSlotRefs[slotIndex];
+  if (!el || slotIndex < 0) return;
   const sp = 1;
   const amt = Math.max(0, Math.floor(Number(amount) || 0));
   if (amt <= 0) return;
-  await wobbleGameTreasureSlot(ix);
+  wobbleScoreSlot(el, sp);
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
   const bubble = showScoreBubble(el, `+$${amt}`, "money", sp);
   scheduleSmallPlusBubbleOutro(bubble, sp);
   money.value += amt;
+}
+
+/** @param {string} treasureId @param {number} amount */
+async function playOwnedTreasureMoneyFx(treasureId, amount) {
+  const ix = findOwnedTreasureSlotIndex(treasureId);
+  if (ix < 0) return;
+  await playTreasureSlotMoneyBurstAtPeak(ix, amount);
+}
+
+/** 工具箱移除：气泡展示后停顿再缩至 0；字间间隔与气泡淡出略短于通用记分 */
+const TOOLBOX_REMOVE_BUBBLE_HOLD_MS = 200;
+const TOOLBOX_REMOVE_SHRINK_S = 0.14;
+const TOOLBOX_REMOVE_LETTER_GAP_MS = 48;
+const TOOLBOX_REMOVE_BEFORE_MONEY_MS = 0;
+const TOOLBOX_REMOVE_BUBBLE_OUTRO_DELAY_S = 0.2;
+const TOOLBOX_REMOVE_BUBBLE_OUTRO_DURATION_S = 0.24;
+
+/** @param {HTMLElement | null | undefined} el @param {number} [speed] */
+function scheduleToolboxRemoveBubbleOutro(el, speed = 1) {
+  if (!el) return;
+  const s = Math.max(0.01, Number(speed) || 1);
+  gsap.to(el, {
+    opacity: 0,
+    y: -10,
+    scale: PLUS_BUBBLE_OUTRO_SCALE,
+    duration: TOOLBOX_REMOVE_BUBBLE_OUTRO_DURATION_S / s,
+    delay: TOOLBOX_REMOVE_BUBBLE_OUTRO_DELAY_S / s,
+    ease: EASE_TRANSFORM,
+    onComplete: () => el.remove(),
+  });
+}
+
+/**
+ * @param {HTMLElement | null | undefined} slotEl
+ * @param {HTMLElement | null | undefined} gridEl
+ * @param {number} duration
+ */
+function animateToolboxTileShrinkToZero(slotEl, gridEl, duration) {
+  return new Promise((resolve) => {
+    let done = 0;
+    const need = (slotEl ? 1 : 0) + (gridEl ? 1 : 0);
+    if (need === 0) {
+      resolve();
+      return;
+    }
+    const finish = () => {
+      done += 1;
+      if (done >= need) resolve();
+    };
+    if (slotEl) {
+      gsap.killTweensOf(slotEl);
+      gsap.set(slotEl, { transformOrigin: "50% 55%" });
+      gsap.to(slotEl, {
+        opacity: 0,
+        scale: 0,
+        duration,
+        ease: EASE_TRANSFORM,
+        onComplete: finish,
+      });
+    }
+    if (gridEl) {
+      gsap.killTweensOf(gridEl);
+      gsap.set(gridEl, { transformOrigin: "50% 50%" });
+      gsap.to(gridEl, {
+        opacity: 0,
+        scale: 0,
+        duration,
+        ease: EASE_TRANSFORM,
+        onComplete: finish,
+      });
+    }
+  });
+}
+
+/**
+ * @param {HTMLElement | null | undefined} slotEl
+ * @param {number} [speed]
+ */
+async function playToolboxRemoveWobbleAndBubble(slotEl, speed = 1) {
+  if (!slotEl) return;
+  const sp = Math.max(0.01, Number(speed) || 1);
+  const tl = createWobbleScoreSlotTimeline(slotEl);
+  if (tl) {
+    tl.timeScale(sp);
+    tl.play(0);
+  }
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  const bubble = showScoreBubble(slotEl, "移除", "destroy", sp);
+  scheduleToolboxRemoveBubbleOutro(bubble, sp);
+}
+
+/**
+ * 提交后：词槽依次 wobble → 红色「移除」→ 停顿 → 缩至 0；首字触发宝藏 wobble（不阻塞下一字）；全字消失后再宝藏 +$。
+ * @param {import('../treasures/treasureTypes.js').SubmitWordLetterRemoveLeaveOpts} opts
+ */
+async function playSubmitWordLetterRemoveAndRewardLeave(opts) {
+  const treasureId = String(opts?.treasureId ?? "");
+  const slotEls = Array.isArray(opts?.slotEls) ? opts.slotEls : [];
+  const gridEls = Array.isArray(opts?.gridEls) ? opts.gridEls : [];
+  const n = Math.min(slotEls.length, gridEls.length);
+  if (n <= 0) return;
+  const treasureSlotIx = findOwnedTreasureSlotIndex(treasureId);
+  const sp = 1;
+
+  for (let i = 0; i < n; i++) {
+    const slotEl = slotEls[i];
+    const gridEl = gridEls[i];
+    if (i === 0 && treasureSlotIx >= 0) {
+      void wobbleGameTreasureSlot(treasureSlotIx);
+    }
+    await playToolboxRemoveWobbleAndBubble(slotEl, sp);
+    await sleep(TOOLBOX_REMOVE_BUBBLE_HOLD_MS);
+    await animateToolboxTileShrinkToZero(slotEl, gridEl, TOOLBOX_REMOVE_SHRINK_S);
+    if (i < n - 1) await sleep(TOOLBOX_REMOVE_LETTER_GAP_MS);
+  }
+
+  opts.onRemoveDeck?.();
+  if (TOOLBOX_REMOVE_BEFORE_MONEY_MS > 0) await sleep(TOOLBOX_REMOVE_BEFORE_MONEY_MS);
+  const amt = Math.max(0, Math.floor(Number(opts?.moneyAmount) || 0));
+  if (amt > 0) {
+    if (treasureSlotIx >= 0) await playTreasureSlotMoneyBurstAtPeak(treasureSlotIx, amt);
+    else await playOwnedTreasureMoneyFx(treasureId, amt);
+  }
 }
 
 /** 宝藏槽 wobble 峰值弹出 +分气泡（与记分逐字宝藏同节拍，不等待 wobble 收束） */
@@ -5837,6 +5973,7 @@ function buildSpellRuntimeContext() {
     markTileAsWildcard,
     touchGrid,
     removeDeckLetterInstancesByRaws,
+  removeDeckCardsForSubmittedWord,
     removeDeckCardByUid,
     appendShopDeckEntries,
     remapTileFromRawLetter,
@@ -8171,8 +8308,10 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
   await nextTick();
   await new Promise((r) => requestAnimationFrame(r));
 
+  /** @type {import('../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[]} */
+  let submitWordLeaveFx = [];
   if (detailed.bossSoftViolation !== true) {
-    await runPendingInRunGrantsAfterSubmit(
+    submitWordLeaveFx = await runPendingInRunGrantsAfterSubmit(
       tiles,
       String(resolvedWord ?? "")
         .toLowerCase()
@@ -8217,10 +8356,25 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
     rects: captureGridRectsByTileId(),
     cells: snapshotGridCellsByTileId(),
   };
-  const leavePromise = runSlotAndGridLeaveAnimation(slotTileEls, submitGridLeaveEls, {
-    duration: 0.28,
-    stagger: submitWordLeaveStagger(n),
-  });
+  const leaveDuration = 0.28;
+  const leaveStagger = submitWordLeaveStagger(n);
+  const leavePromise = (async () => {
+    if (submitWordLeaveFx.length > 0) {
+      for (const fx of submitWordLeaveFx) {
+        await fx({
+          slotEls: slotTileEls,
+          gridEls: submitGridLeaveEls,
+          duration: leaveDuration,
+          stagger: leaveStagger,
+        });
+      }
+      return;
+    }
+    await runSlotAndGridLeaveAnimation(slotTileEls, submitGridLeaveEls, {
+      duration: leaveDuration,
+      stagger: leaveStagger,
+    });
+  })();
 
   const scorePromise = new Promise((resolve) => {
     const p = { t: 0 };
