@@ -17,7 +17,7 @@ export function bossHasWholeWordSoftRule(slug) {
 /** 棘梅可抽取词性（与词典 `pos` 字段做宽松匹配） */
 export const BOSS_CLUB_POS_OPTIONS = Object.freeze([
   { key: "n", labelZh: "名词", patterns: [/名|noun|^n\.?$/i, /^n$/i] },
-  { key: "v", labelZh: "动词", patterns: [/动|verb|^v\.?$/i, /^v$/i] },
+  { key: "v", labelZh: "动词", patterns: [/动|verb|^v\.?$/i, /^v$/i, /^vi$/i, /^vt$/i] },
   { key: "adj", labelZh: "形容词", patterns: [/形|adj|a\.|adjective/i] },
 ]);
 
@@ -30,7 +30,12 @@ export function dictionaryPosMatchesClubKey(dictPos, requiredKey) {
   if (!raw) return false;
   const opt = BOSS_CLUB_POS_OPTIONS.find((o) => o.key === requiredKey);
   if (!opt) return false;
-  return opt.patterns.some((re) => re.test(raw));
+  const tokens = raw
+    .split("|")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const toCheck = tokens.length ? tokens : [raw];
+  return toCheck.some((token) => opt.patterns.some((re) => re.test(token)));
 }
 
 /**

@@ -200,8 +200,8 @@ function buildSpellDefinitions() {
     },
     {
       id: "grim",
-      name: "铁锹",
-      iconClass: "ri-hammer-fill",
+      name: "幽魂",
+      iconClass: "ri-ghost-smile-fill",
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,

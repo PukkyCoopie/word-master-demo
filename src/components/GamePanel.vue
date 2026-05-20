@@ -683,7 +683,10 @@ import {
   resolveTreasureChargeVisualState,
 } from "../treasures/treasureRegistry.js";
 import { hasProbabilityDoubler } from "../treasures/treasureProbability.js";
-import { isRandomDeckRemoveSpell } from "../game/spellOfferRandomPickAnim.js";
+import {
+  isRandomDeckRemoveSpell,
+  isSpellOfferRandomPickOneSpell,
+} from "../game/spellOfferRandomPickAnim.js";
 import { mountLetterTileClone } from "../game/mountLetterTileClone.js";
 import { initTreasureBankOnAcquire } from "../treasures/treasureAcquireInit.js";
 import { collectGridLetterTiles } from "../treasures/treasureLogicShared.js";
@@ -2906,6 +2909,7 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
       money.value += Math.max(0, Math.floor(Number(n) || 0));
     },
     playOwnedTreasureMoneyFx,
+    playOwnedTreasureMultDeltaFx,
     wobbleOwnedTreasureById,
     playSubmitWordLetterRemoveAndRewardLeave,
     removeDeckLettersByRaws: (raws) => removeDeckLetterInstancesByRaws(raws),
@@ -5471,7 +5475,7 @@ async function animatePackTileFlyToDeck(fromEl, toTarget, options = {}) {
 }
 
 /**
- * 铁锹：从法术图标飞出增强 E（完整 LetterTile）并入牌库。
+ * 幽魂：从法术图标飞出增强 E（完整 LetterTile）并入牌库。
  * @param {Record<string, unknown>[]} deckCards
  */
 async function animateGrimDeckAddsFromSpellIcon(deckCards) {
@@ -5606,6 +5610,31 @@ async function playOwnedTreasureMoneyFx(treasureId, amount) {
   const ix = findOwnedTreasureSlotIndex(treasureId);
   if (ix < 0) return;
   await playTreasureSlotMoneyBurstAtPeak(ix, amount);
+}
+
+/** @param {number} slotIndex @param {number} delta */
+async function playTreasureSlotMultDeltaBurstAtPeak(slotIndex, delta) {
+  const el = gameTreasureSlotRefs[slotIndex];
+  if (!el || slotIndex < 0) return;
+  const d = Math.round(Number(delta) || 0);
+  if (d === 0) return;
+  const sp = 1;
+  scoringTreasureBarIndex.value = slotIndex;
+  await nextTick();
+  await new Promise((r) => requestAnimationFrame(r));
+  wobbleScoreSlot(el, sp);
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  const bubble = showScoreBubble(el, d > 0 ? `+${d}` : String(d), "mult", sp);
+  scheduleSmallPlusBubbleOutro(bubble, sp);
+  await scoringSleep(SCORING_LETTER_GAP_MS, sp);
+  scoringTreasureBarIndex.value = null;
+}
+
+/** @param {string} treasureId @param {number} delta */
+async function playOwnedTreasureMultDeltaFx(treasureId, delta) {
+  const ix = findOwnedTreasureSlotIndex(treasureId);
+  if (ix < 0) return;
+  await playTreasureSlotMultDeltaBurstAtPeak(ix, delta);
 }
 
 /** 工具箱移除：气泡展示后停顿再缩至 0；字间间隔与气泡淡出略短于通用记分 */
@@ -6188,6 +6217,43 @@ async function playSpellConfirmAnimOnOfferSlots(
   );
 }
 
+/** @param {string} sid @param {number[]} slotIxs */
+function pickSpellOfferWinnerSlotIndex(sid, slotIxs) {
+  if (!isSpellOfferRandomPickOneSpell(sid) || slotIxs.length <= 1) return -1;
+  return slotIxs[Math.floor(runRandom() * slotIxs.length)];
+}
+
+/**
+ * @param {string} sid
+ * @param {unknown[]} resolvedOrdered
+ * @param {unknown[]} offerSlotsList
+ * @param {number} winnerOfferSlotIndex
+ */
+function narrowResolvedOrderedToSpellWinner(sid, resolvedOrdered, offerSlotsList, winnerOfferSlotIndex) {
+  if (
+    winnerOfferSlotIndex < 0 ||
+    !isSpellOfferRandomPickOneSpell(sid) ||
+    isRandomDeckRemoveSpell(sid)
+  ) {
+    return resolvedOrdered;
+  }
+  const sl = offerSlotsList[winnerOfferSlotIndex];
+  if (!sl) return resolvedOrdered;
+  const uid = sl.deckCardUid;
+  const one = resolvedOrdered.find(
+    (p) =>
+      (uid != null && p?.deckCardUid === uid) ||
+      (Number(p?.row) === Number(sl.row) && Number(p?.col) === Number(sl.col)),
+  );
+  return one ? [one] : resolvedOrdered;
+}
+
+/** @param {Record<string, unknown>} ctx @param {string} sid @param {unknown[]} offerSlotsList @param {number} winnerOfferSlotIndex */
+function applySpellOfferWinnerToContext(ctx, sid, offerSlotsList, winnerOfferSlotIndex) {
+  if (winnerOfferSlotIndex < 0 || !isRandomDeckRemoveSpell(sid)) return;
+  ctx.forcedRemoveDeckCardUid = offerSlotsList[winnerOfferSlotIndex]?.deckCardUid ?? null;
+}
+
 /** 10 格候选：从本局完整牌库 multiset 均匀随机抽牌张 */
 function buildSpellOfferSlots(rng = Math.random) {
   const pool = Array.isArray(initialDeckSnapshot.value)
@@ -6449,7 +6515,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
     return;
   }
   const offerSlotsList = Array.isArray(s.offerSlots) ? s.offerSlots : [];
-  const resolvedOrdered = Array.isArray(selectionSlotIndices)
+  let resolvedOrdered = Array.isArray(selectionSlotIndices)
     ? selectionSlotIndices.map((ix) => {
         const sl = offerSlotsList[ix];
         if (!sl || sl.empty) return null;
@@ -6461,6 +6527,20 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
     : ordered;
   const ctx = buildSpellRuntimeContext();
   const sid = String(s.effectiveSpellId ?? "");
+  const confirmAllSlotIxs = Array.isArray(selectionSlotIndices)
+    ? selectionSlotIndices.filter((ix) => {
+        const sl = offerSlotsList[ix];
+        return typeof ix === "number" && ix >= 0 && sl && !sl.empty && sl.tile;
+      })
+    : [];
+  const winnerOfferSlotIndex = pickSpellOfferWinnerSlotIndex(sid, confirmAllSlotIxs);
+  applySpellOfferWinnerToContext(ctx, sid, offerSlotsList, winnerOfferSlotIndex);
+  resolvedOrdered = narrowResolvedOrderedToSpellWinner(
+    sid,
+    resolvedOrdered,
+    offerSlotsList,
+    winnerOfferSlotIndex,
+  );
   const deferInRunUpgradeFxApply =
     s.context === "inRun" &&
     s.pickMode === "preview_only" &&
@@ -6526,11 +6606,6 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
       lastSpellFx = r?.spellFx ?? null;
     };
     let playedOnOffer = false;
-    let winnerOfferSlotIndex = -1;
-    if (isRandomDeckRemoveSpell(sid) && slotIxs.length > 0) {
-      winnerOfferSlotIndex = slotIxs[Math.floor(runRandom() * slotIxs.length)];
-      ctx.forcedRemoveDeckCardUid = offerSlotsList[winnerOfferSlotIndex]?.deckCardUid ?? null;
-    }
     if (slotIxs.length > 0 && oldOfferSnaps.every(Boolean)) {
       playedOnOffer = await playSpellConfirmAnimOnOfferSlots(
         sid,
@@ -6563,7 +6638,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
         applySpellNow();
       }
     }
-    await sleep(playedOnOffer ? 500 : 0);
+    await sleep(playedOnOffer ? 1000 : 0);
     await playSpectralSpellResultFx(lastSpellFx, sid);
     if (deferInRunUpgradeFxApply) await playInstantSpellInRunFx(sid);
     syncGridTilesToLinkedDeckCards();
@@ -6588,6 +6663,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
       oldSnaps,
       ordered: animOrderedForLayer,
       selectionSlotIndices: animSelectionSlotIndices,
+      winnerOfferSlotIndex,
       onMidApply: () => {
         applySpellNow();
         touchGrid();
@@ -6610,7 +6686,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
       },
     });
   }
-  await sleep(500);
+  await sleep(playedOnOffer ? 1000 : 500);
   await playSpectralSpellResultFx(lastSpellFx, sid);
   if (deferInRunUpgradeFxApply) await playInstantSpellInRunFx(sid);
   syncGridTilesToLinkedDeckCards();
@@ -8609,6 +8685,7 @@ async function onRemoveClick() {
       money.value += Math.max(0, Math.floor(Number(amount) || 0));
     },
     playOwnedTreasureMoneyFx,
+    playOwnedTreasureMultDeltaFx,
     wobbleOwnedTreasureById,
     findOwnedTreasureSlotIndex,
   });

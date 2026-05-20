@@ -1,12 +1,17 @@
 {
   "major": 0,
   "minor": 0,
-  "patch": 5,
+  "patch": 6,
   "changelog": [
+    {
+      "version": "0.0.6",
+      "date": "2026-05-20",
+      "summary": "__FROM_COMMIT_MSG__"
+    },
     {
       "version": "0.0.5",
       "date": "2026-05-20",
-      "summary": "__FROM_COMMIT_MSG__"
+      "summary": "- Updated README.md to include clickable links for Shadertoy and LICENSE, enhancing accessibility.\n- Added a new CSS variable for player mark accent color to improve UI consistency.\n- Refactored button styles to utilize the new accent color, enhancing visual feedback during gameplay.\n- Improved overall CSS styles for better responsiveness and user experience."
     },
     {
       "version": "0.0.4",

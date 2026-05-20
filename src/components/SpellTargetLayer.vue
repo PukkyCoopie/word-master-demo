@@ -105,7 +105,10 @@
           </p>
 
           <div ref="offerGridWrapRef" class="spell-target-letter-grid-wrap">
-            <div class="spell-target-offer-grid-inner">
+            <div
+              class="spell-target-offer-grid-inner"
+              :class="{ 'spell-target-offer-grid-inner--confirm-all': hideOfferPickOrder }"
+            >
               <div
                 v-for="(slot, idx) in offerSlots"
                 :key="slot.key"
@@ -134,7 +137,7 @@
                   />
                   <span v-else class="spell-target-empty-cell" aria-hidden="true" />
                 </button>
-                <div class="spell-target-slot-order" aria-hidden="true">
+                <div v-if="!hideOfferPickOrder" class="spell-target-slot-order" aria-hidden="true">
                   <span
                     v-if="!tileAnimActive && pickOrderForSlot(idx) >= 0"
                     class="spell-target-slot-order-chip"
@@ -180,7 +183,7 @@ import {
   cloneSpellTileSnapshot,
 } from "../game/spellTileAppearanceAnim.js";
 import {
-  isRandomDeckRemoveSpell,
+  isSpellOfferRandomPickOneSpell,
   runSpellOfferRandomPickAnim,
 } from "../game/spellOfferRandomPickAnim.js";
 import { getSpellGainPanel } from "../spells/spellGainPanel.js";
@@ -304,6 +307,8 @@ const rarityTagLabel = computed(() => {
   if (r === "legendary") return "传说";
   return "稀有";
 });
+
+const hideOfferPickOrder = computed(() => props.session?.pickMode === "confirm_all");
 
 const canConfirmSpell = computed(() => {
   const s = props.session;
@@ -558,7 +563,7 @@ async function playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnaps,
 
   const sid = String(spellId ?? "");
   try {
-    if (isRandomDeckRemoveSpell(sid) && slotIndices.length > 1) {
+    if (isSpellOfferRandomPickOneSpell(sid) && slotIndices.length > 1) {
       const winnerSlotIndex =
         typeof animOpts.winnerOfferSlotIndex === "number"
           ? animOpts.winnerOfferSlotIndex

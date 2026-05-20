@@ -6,13 +6,13 @@ const ID = "92";
 export default {
   price: 6,
   rarity: "rare",
-  description: describe("你的单词视为+2的长度，每回合拼写次数-1"),
+  description: describe("你的单词视为+1的长度，每回合拼写次数-1"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   getSubmitLengthBonus() {
-    return 2;
+    return 1;
   },
   onLevelEnter(ctx) {
     ctx.addRemainingWords?.(-1);

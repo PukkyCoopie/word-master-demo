@@ -74,7 +74,7 @@ const USER_BATCH_50 = [
   { batchIndex: 32, text: "$6 rare 使用最后一次拼写次数时具有x3倍率" },
   { batchIndex: 33, text: "$6 rare 重新触发所有的辅音字母" },
   { batchIndex: 34, text: "$4 common 将其他宝藏的售卖价格之和添加至倍率" },
-  { batchIndex: 35, text: "$6 rare 你的单词视为+2的长度，每回合拼写次数-1" },
+  { batchIndex: 35, text: "$6 rare 你的单词视为+1的长度，每回合拼写次数-1" },
   {
     batchIndex: 36,
     text: "$6 rare 每当进入关卡时，在你的牌库中添加一个具有随机增益效果的字母并立即抽到它【joker会在tile掉落前wobble出一个tile，然后tile飞入牌库动画、然后才是grid中的tile从上方掉下来的动画，且抽取时必定抽到这个字母】【解锁前提：拥有一个带有钱币配饰的黄金块】",

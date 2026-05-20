@@ -76,6 +76,7 @@
  * @property {(n: number) => void} [addRemainingWords]
  * @property {(amount: number) => void} [addMoney]
  * @property {(treasureId: string, amount: number) => Promise<void>} [playOwnedTreasureMoneyFx]
+ * @property {(treasureId: string, delta: number) => Promise<void>} [playOwnedTreasureMultDeltaFx] 宝藏槽 wobble + 倍率 ±n 气泡（如天平）
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(raws: string[]) => void} [removeDeckLettersByRaws]
  * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（工具箱等）
@@ -202,6 +203,7 @@
  * @property {() => number} [rng]
  * @property {(amount: number) => void} [addMoney]
  * @property {(treasureId: string, amount: number) => Promise<void>} [playOwnedTreasureMoneyFx]
+ * @property {(treasureId: string, delta: number) => Promise<void>} [playOwnedTreasureMultDeltaFx]
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {boolean} [discardPotteryFxHandled] 陶罐弃牌动效已在逐字消失中结算（避免 onDiscardBatch 重复入银行）
