@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { devRecentTreasuresPlugin } from "./vite-plugin-dev-recent-treasures.js";
+import { changelogFromMarkdownPlugin } from "./vite-plugin-changelog.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DICT_SRC = path.join(__dirname, "data", "dictionary", "dict.json");
@@ -52,5 +53,5 @@ function dictionaryFromDataDir() {
 export default defineConfig({
   root: ".",
   publicDir: "public",
-  plugins: [dictionaryFromDataDir(), devRecentTreasuresPlugin(), vue()],
+  plugins: [changelogFromMarkdownPlugin(), dictionaryFromDataDir(), devRecentTreasuresPlugin(), vue()],
 });

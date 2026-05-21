@@ -1,1 +1,1 @@
-node scripts/post-commit-changelog.mjs
+node scripts/post-commit-release.mjs

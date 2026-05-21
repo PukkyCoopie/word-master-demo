@@ -1,23 +1,29 @@
 #!/usr/bin/env node
 /**
- * 手动调整中/大版本（小版本由 pre-commit 自动 +1）。
+ * 手动调整中/大版本（小版本由 post-commit 按 changelog 最大版本 + patch 处理）。
  *
  * 用法：
  *   node scripts/bump-version.mjs minor
  *   node scripts/bump-version.mjs major
  *
- * 会在下次 git commit 时应用对应级别并写入更新日志；也可立即写入版本文件：
+ * 会在下次 git commit 的 post-commit 阶段应用对应级别；也可立即写入：
  *   node scripts/bump-version.mjs minor --now
  */
+import path from "node:path";
 import {
+  REPO_ROOT,
   bumpSemver,
   clearBumpPending,
   formatVersionString,
-  readAppVersionFile,
   syncPackageJsonVersion,
   writeAppVersionFile,
   writeBumpPending,
 } from "./lib/app-version-files.mjs";
+import {
+  CHANGELOG_DIR_NAME,
+  ensureChangelogFileFromTemplate,
+  getMaxVersionSemverInChangelogDir,
+} from "./lib/changelog-dir.mjs";
 
 const level = process.argv[2];
 const applyNow = process.argv.includes("--now");
@@ -28,16 +34,17 @@ if (level !== "minor" && level !== "major") {
 }
 
 if (applyNow) {
-  const current = readAppVersionFile();
-  const next = bumpSemver(current, level);
-  const versionString = formatVersionString(next);
-  writeAppVersionFile({ ...next, changelog: current.changelog });
-  syncPackageJsonVersion(versionString);
+  const changelogDir = path.join(REPO_ROOT, CHANGELOG_DIR_NAME);
+  const max = getMaxVersionSemverInChangelogDir(changelogDir);
+  const target = bumpSemver(max, level);
+  ensureChangelogFileFromTemplate(changelogDir, target);
+  writeAppVersionFile(target);
+  syncPackageJsonVersion(formatVersionString(target));
   clearBumpPending();
-  console.log(`已写入版本 ${versionString}（未追加更新日志，下次 commit 仍会 patch +1）。`);
+  console.log(`已写入版本 ${formatVersionString(target)} 并准备 changelog 文件。`);
 } else {
   writeBumpPending(level);
   console.log(
-    `已标记下次 commit 使用 ${level} 版本升级。请完成改动后执行 git commit；小版本号将归零。`,
+    `已标记下次 commit 使用 ${level} 版本升级；post-commit 将按 changelog 最大版本 + ${level} 创建新 .md。`,
   );
 }

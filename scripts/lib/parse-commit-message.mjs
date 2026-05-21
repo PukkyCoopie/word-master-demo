@@ -1,8 +1,5 @@
 import fs from "node:fs";
 
-/** pre-commit 占位；commit-msg 阶段用 git 提交说明替换 */
-export const CHANGELOG_FROM_COMMIT_MSG = "__FROM_COMMIT_MSG__";
-
 /**
  * @param {string} raw
  */
@@ -25,7 +22,7 @@ export function parseCommitMessageText(raw) {
   const bodyText = body.join("\n").trim();
   if (bodyText) return bodyText;
   if (subject) return subject;
-  return "维护与修复。";
+  return "";
 }
 
 /**

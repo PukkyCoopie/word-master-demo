@@ -1,1 +1,1 @@
-node scripts/pre-commit-release.mjs
+node scripts/pre-commit-changelog.mjs

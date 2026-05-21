@@ -1,47 +1,5 @@
 {
   "major": 0,
   "minor": 0,
-  "patch": 8,
-  "changelog": [
-    {
-      "version": "0.0.8",
-      "date": "2026-05-21",
-      "summary": "- Added multiple new treasures with unique effects to enrich gameplay strategies.\n- Implemented management functionality for treasure multipliers based on player actions.\n- Refactored game logic to support new mechanics, improving user experience.\n- Updated treasure catalog to reflect recent additions and changes.\n- Enhanced UI elements for clearer feedback on new treasure functionalities."
-    },
-    {
-      "version": "0.0.7",
-      "date": "2026-05-21",
-      "summary": "- Added multiple new treasures with unique effects, enriching gameplay strategies and interactions.\n- Implemented functionality for managing treasure multipliers and effects based on player actions.\n- Refactored game logic to support new treasure mechanics, improving overall user experience.\n- Updated treasure catalog and definitions to reflect the latest additions and changes.\n- Enhanced UI elements to provide clearer feedback related to new treasure functionalities."
-    },
-    {
-      "version": "0.0.6",
-      "date": "2026-05-20",
-      "summary": "- Introduced new CSS styles for spell target confirmation, enhancing visual feedback during spell selection.\n- Updated spell definitions and mechanics to reflect changes in the \"grim\" spell, now renamed to \"幽魂\" with adjusted effects.\n- Refactored game logic to support new random spell selection mechanics, improving user interaction during gameplay.\n- Enhanced treasure mechanics to include new functionality for managing treasure multipliers, enriching the overall game experience."
-    },
-    {
-      "version": "0.0.5",
-      "date": "2026-05-20",
-      "summary": "- Updated README.md to include clickable links for Shadertoy and LICENSE, enhancing accessibility.\n- Added a new CSS variable for player mark accent color to improve UI consistency.\n- Refactored button styles to utilize the new accent color, enhancing visual feedback during gameplay.\n- Improved overall CSS styles for better responsiveness and user experience."
-    },
-    {
-      "version": "0.0.4",
-      "date": "2026-05-20",
-      "summary": "- Added a new probability display feature for treasures, allowing the display of doubled probabilities when the \"打字机\" treasure is owned.\n- Updated treasure descriptions and definitions to reflect changes in probability mechanics, ensuring clarity in gameplay.\n- Introduced new utility functions for managing treasure probabilities and their effects on gameplay.\n- Refactored related components to integrate the new probability features, enhancing user experience and interaction.\n- Improved CSS styles for better visual feedback related to treasure mechanics."
-    },
-    {
-      "version": "0.0.3",
-      "date": "2026-05-19",
-      "summary": "- Removed outdated versioning instructions from README.md for clarity.\n- Added a post-commit script to automatically update the changelog summary based on commit messages.\n- Enhanced changelog entry handling in appVersion.js to replace placeholders with default summaries.\n- Updated appVersion.json with the latest changelog entries reflecting recent changes.\n- Improved commit message parsing functionality in changelog-from-commit.mjs for better integration."
-    },
-    {
-      "version": "0.0.2",
-      "date": "2026-05-19",
-      "summary": "- Bumped version to 0.0.1 and added automated versioning scripts for minor and major updates.\n- Introduced an AboutLayer component to provide game information and changelog access.\n- Updated MainMenu to include an option for opening the About section.\n- Enhanced CSS styles for improved visual feedback and responsiveness across components.\n- Refactored game mechanics to support new features and streamline user interactions."
-    },
-    {
-      "version": "0.0.1",
-      "date": "2026-05-19",
-      "summary": "初始公开版本；含关于弹窗与自动版本机制。"
-    }
-  ]
+  "patch": 105
 }

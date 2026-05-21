@@ -8,19 +8,34 @@ export const APP_VERSION_PATH = path.join(REPO_ROOT, "src", "appVersion.json");
 export const PACKAGE_JSON_PATH = path.join(REPO_ROOT, "package.json");
 export const BUMP_PENDING_PATH = path.join(REPO_ROOT, ".version-bump-pending");
 
-/** @typedef {{ major: number, minor: number, patch: number, changelog: { version: string, date?: string, summary: string }[] }} AppVersionFile */
+/** @typedef {{ major: number, minor: number, patch: number }} AppVersionFile */
 
 export function readAppVersionFile() {
   const raw = fs.readFileSync(APP_VERSION_PATH, "utf8");
   return /** @type {AppVersionFile} */ (JSON.parse(raw));
 }
 
+/**
+ * @param {AppVersionFile} data
+ */
 export function writeAppVersionFile(data) {
-  fs.writeFileSync(APP_VERSION_PATH, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  const payload = {
+    major: data.major,
+    minor: data.minor,
+    patch: data.patch,
+  };
+  fs.writeFileSync(APP_VERSION_PATH, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 }
 
 export function formatVersionString(v) {
   return `${v.major}.${v.minor}.${v.patch}`;
+}
+
+/**
+ * @param {{ major: number, minor: number, patch: number }} v
+ */
+export function versionFileNameForSemver(v) {
+  return `${v.major}_${v.minor}_${v.patch}.md`;
 }
 
 export function formatVersionLabel(v) {
@@ -32,7 +47,7 @@ export function formatVersionLabel(v) {
  * @param {"patch"|"minor"|"major"} level
  */
 export function bumpSemver(v, level) {
-  const next = { ...v, major: v.major, minor: v.minor, patch: v.patch };
+  const next = { major: v.major, minor: v.minor, patch: v.patch };
   if (level === "major") {
     next.major += 1;
     next.minor = 0;
@@ -65,8 +80,4 @@ export function writeBumpPending(level) {
 
 export function clearBumpPending() {
   if (fs.existsSync(BUMP_PENDING_PATH)) fs.unlinkSync(BUMP_PENDING_PATH);
-}
-
-export function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
 }
