@@ -6,7 +6,7 @@
     {
       "version": "0.0.7",
       "date": "2026-05-21",
-      "summary": "__FROM_COMMIT_MSG__"
+      "summary": "- Added multiple new treasures with unique effects, enriching gameplay strategies and interactions.\n- Implemented functionality for managing treasure multipliers and effects based on player actions.\n- Refactored game logic to support new treasure mechanics, improving overall user experience.\n- Updated treasure catalog and definitions to reflect the latest additions and changes.\n- Enhanced UI elements to provide clearer feedback related to new treasure functionalities."
     },
     {
       "version": "0.0.6",
