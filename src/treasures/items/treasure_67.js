@@ -1,5 +1,7 @@
 import { describe } from "../treasureDescription.js";
 
+const ID = "67";
+
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 5,
@@ -9,13 +11,15 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  onSuccessfulWordSubmit(ctx) {
+  async onSuccessfulWordSubmit(ctx) {
     const remainingAfter = Math.max(0, Math.floor(Number(ctx.remainingWordsAfterSubmit) ?? -1));
     if (remainingAfter > 0) return;
     const target = Math.max(1, Math.floor(Number(ctx.targetScore) || 0));
     const score = Math.max(0, Math.floor(Number(ctx.currentScore) || 0));
     if (score < target * 0.25) return;
+    await ctx.playOwnedTreasureBubbleFx?.(ID, "+3", "score");
     ctx.addRemainingWords?.(3);
-    ctx.destroySelf?.();
+    if (ctx.destroyTreasureSlotById) await ctx.destroyTreasureSlotById(ID);
+    else ctx.destroySelf?.();
   },
 };

@@ -40,6 +40,7 @@ export function applyRandomUpgradePick(pick, ctx) {
     } else {
       ctx.setRarityLevel(rk, cur + 1);
     }
+    ctx.onUpgradeUsed?.();
     return;
   }
   const { minLen, maxLen } = pick.g;
@@ -51,6 +52,7 @@ export function applyRandomUpgradePick(pick, ctx) {
       ctx.setWordLengthLevel(len, cur + 1);
     }
   }
+  ctx.onUpgradeUsed?.();
 }
 
 /**

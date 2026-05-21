@@ -1,5 +1,7 @@
 import { describe, money } from "../treasureDescription.js";
 
+const ID = "48";
+
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 7,
@@ -9,8 +11,8 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  onBossRestrictionTriggered(ctx) {
+  async onBossRestrictionTriggered(ctx) {
     if (!ctx.bossSlug) return;
-    ctx.addMoney?.(8);
+    await ctx.playOwnedTreasureMoneyFx?.(ID, 8);
   },
 };

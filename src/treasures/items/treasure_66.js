@@ -1,5 +1,5 @@
 import { describe, mult } from "../treasureDescription.js";
-import { getMultMulBank, multiplyMultMulBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { bankMultMulGain, getMultMulBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 
 const ID = "66";
 
@@ -12,7 +12,6 @@ export default {
     mult("x0.25"),
     "倍率",
     "，在每个大关完成后重置",
-    "（当前x1）",
   ),
 };
 
@@ -23,8 +22,9 @@ export const treasureHooks = {
     const m = getMultMulBank(ctx.treasureRun, ID);
     return m > 1 ? { multMul: m } : null;
   },
-  onTreasureSold(ctx) {
-    multiplyMultMulBank(ctx.treasureRun, ID, 1.25);
+  async onTreasureSold(ctx) {
+    if (ctx.soldTreasureId === ID) return;
+    await bankMultMulGain(ctx, ID, 1.25, "×0.25");
   },
   onChapterEnter(ctx) {
     if (!ctx.treasureRun) return;

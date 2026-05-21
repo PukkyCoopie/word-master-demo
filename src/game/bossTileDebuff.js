@@ -1,8 +1,10 @@
+import { isBossEffectsSuppressedByTreasures } from "./treasureBossSuppress.js";
+
 /** Boss 元音判定（与棋盘 raw 一致） */
 export const BOSS_VOWELS = new Set(["a", "e", "i", "o", "u"]);
 
 /**
- * @typedef {{ pillarUsedDeckUids?: Set<number>, verdantTreasureSold?: boolean }} BossTileDebuffContext
+ * @typedef {{ pillarUsedDeckUids?: Set<number>, verdantTreasureSold?: boolean, ownedSlotTreasureIds?: (string | null | undefined)[] }} BossTileDebuffContext
  */
 
 /** @param {Record<string, unknown> | null | undefined} tile */
@@ -20,6 +22,10 @@ export function gridTileRawLowerForBoss(tile) {
  */
 export function applyBossTileDebuffState(tile, slug, ctx = {}) {
   if (!tile || tile.bossGridBlocked) return;
+  if (isBossEffectsSuppressedByTreasures(ctx.ownedSlotTreasureIds)) {
+    tile.bossTileDebuffed = false;
+    return;
+  }
   const s = String(slug ?? "");
   if (!s || s === "the_hook") return;
   if (!tile.letter || String(tile.letter).trim() === "") return;

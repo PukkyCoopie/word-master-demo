@@ -1,5 +1,5 @@
 import { describe, mult } from "../treasureDescription.js";
-import { multiplyMultMulBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { bankMultMulGain, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 
 const ID = "86";
 
@@ -18,7 +18,7 @@ export const treasureHooks = {
     return m > 1 ? { multMul: m } : null;
   },
   async onLevelEnter(ctx) {
-    multiplyMultMulBank(ctx.treasureRun, ID, 1.5);
+    await bankMultMulGain(ctx, ID, 1.5, "×0.5");
     const rng = ctx.rng ?? Math.random;
     const owned = ctx.ownedSlotTreasureIds ?? [];
     const candidates = [];
@@ -28,7 +28,7 @@ export const treasureHooks = {
     }
     if (!candidates.length) return;
     const pick = candidates[Math.floor(rng() * candidates.length)];
-    ctx.clearTreasureSlotById?.(pick.tid);
-    await ctx.wobbleOwnedTreasureById?.(ID);
+    if (ctx.destroyTreasureSlotById) await ctx.destroyTreasureSlotById(pick.tid);
+    else ctx.clearTreasureSlotById?.(pick.tid);
   },
 };

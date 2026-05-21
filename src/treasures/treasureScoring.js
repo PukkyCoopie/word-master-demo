@@ -89,6 +89,7 @@ function buildPostLetterTreasureSteps(
     remainingGridTiles: submitOptions?.remainingGridTiles ?? undefined,
     rarityLevelsByRarity: rarityLevelsByRarity ?? undefined,
     getWordDefinition: submitOptions?.getWordDefinition ?? undefined,
+    fullDeck: submitOptions?.fullDeck ?? undefined,
   };
 
   const pushAccessoryForSlot = (si) => {
@@ -263,6 +264,7 @@ export function computeWordScoreDetailedForSubmit(
     remainingGridTiles: submitOptions?.remainingGridTiles ?? undefined,
     rarityLevelsByRarity: rarityLevelsByRarity ?? undefined,
     getWordDefinition: submitOptions?.getWordDefinition ?? undefined,
+    fullDeck: submitOptions?.fullDeck ?? undefined,
   };
   const letterRarityTreasureMultAddTotal = sumLetterRarityMultAddFromSlots(baseHookCtx);
 

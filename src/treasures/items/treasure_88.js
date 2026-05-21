@@ -3,7 +3,7 @@ import {
   stripEnhancementsFromTileOrDeckCard,
   tileHasScoringEnhancement,
 } from "../../game/treasureEnhancementStrip.js";
-import { multiplyMultMulBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { bankMultMulGain, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 
 const ID = "88";
 
@@ -15,7 +15,6 @@ export default {
     "每当你使用一个带有增强效果的字母，移除它的增强效果，并获得",
     mult("x0.1"),
     "倍率",
-    "（当前x1）",
   ),
 };
 
@@ -26,7 +25,7 @@ export const treasureHooks = {
     const m = ctx.treasureRun?.banks?.[ID]?.multMul ?? 1;
     return m > 1 ? { multMul: m } : null;
   },
-  onSuccessfulWordSubmit(ctx) {
+  async onSuccessfulWordSubmit(ctx) {
     const tiles = ctx.submittedScoringTiles;
     if (!Array.isArray(tiles)) return;
     let stripped = 0;
@@ -36,6 +35,6 @@ export const treasureHooks = {
       if (t._deckCard) stripEnhancementsFromTileOrDeckCard(t._deckCard);
       stripped += 1;
     }
-    if (stripped > 0) multiplyMultMulBank(ctx.treasureRun, ID, 1.1);
+    if (stripped > 0) await bankMultMulGain(ctx, ID, 1.1, "×0.1");
   },
 };

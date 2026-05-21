@@ -1,5 +1,5 @@
 import { describe, mult } from "../treasureDescription.js";
-import { addMultAddBank, getMultAddBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { bankMultAddGain, getMultAddBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 
 const ID = "59";
 
@@ -7,7 +7,7 @@ const ID = "59";
 export default {
   price: 5,
   rarity: "rare",
-  description: describe("每当商店刷新时，获得", mult("+2"), "倍率", "（当前+0）"),
+  description: describe("每当商店刷新时，获得", mult("+2"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -17,7 +17,7 @@ export const treasureHooks = {
     const v = getMultAddBank(ctx.treasureRun, ID);
     return v !== 0 ? { multAdd: v } : null;
   },
-  onShopReroll(ctx) {
-    addMultAddBank(ctx.treasureRun, ID, 2);
+  async onShopReroll(ctx) {
+    await bankMultAddGain(ctx, ID, 2);
   },
 };

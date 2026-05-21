@@ -126,52 +126,75 @@ export function notifyOwnedTreasuresOnChapterEnter(ownedSlotTreasureIds, ctx) {
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureShopEnterContext} ctx */
-export function notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIds, ctx) {
-  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
-    TREASURE_HOOKS_BY_ID.get(tid)?.onShopEnter?.(ctx);
-  }
+export async function notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIds, ctx) {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onShopEnter;
+    return fn ? Promise.resolve(fn(ctx)) : undefined;
+  });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureShopRerollContext} ctx */
-export function notifyOwnedTreasuresOnShopReroll(ownedSlotTreasureIds, ctx) {
-  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
-    TREASURE_HOOKS_BY_ID.get(tid)?.onShopReroll?.(ctx);
-  }
+export async function notifyOwnedTreasuresOnShopReroll(ownedSlotTreasureIds, ctx) {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onShopReroll;
+    return fn ? Promise.resolve(fn(ctx)) : undefined;
+  });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasurePackSkippedContext} ctx */
-export function notifyOwnedTreasuresOnPackSkipped(ownedSlotTreasureIds, ctx) {
-  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
-    TREASURE_HOOKS_BY_ID.get(tid)?.onPackSkipped?.(ctx);
-  }
+export async function notifyOwnedTreasuresOnPackSkipped(ownedSlotTreasureIds, ctx) {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onPackSkipped;
+    return fn ? Promise.resolve(fn(ctx)) : undefined;
+  });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureSoldContext} ctx */
-export function notifyOwnedTreasuresOnTreasureSold(ownedSlotTreasureIds, ctx) {
-  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
-    TREASURE_HOOKS_BY_ID.get(tid)?.onTreasureSold?.(ctx);
-  }
+export async function notifyOwnedTreasuresOnTreasureSold(ownedSlotTreasureIds, ctx) {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onTreasureSold;
+    return fn ? Promise.resolve(fn(ctx)) : undefined;
+  });
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureShopLeaveContext} ctx */
+export async function notifyOwnedTreasuresOnShopLeave(ownedSlotTreasureIds, ctx) {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onShopLeave;
+    return fn ? Promise.resolve(fn(ctx)) : undefined;
+  });
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureDeckCardsRemovedContext} ctx */
+export async function notifyOwnedTreasuresOnDeckCardsRemoved(ownedSlotTreasureIds, ctx) {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onDeckCardsRemoved;
+    return fn ? Promise.resolve(fn(ctx)) : undefined;
+  });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureIceBreakContext} ctx */
-export function notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIds, ctx) {
-  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
-    TREASURE_HOOKS_BY_ID.get(tid)?.onIceMaterialBreak?.(ctx);
-  }
+export async function notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIds, ctx) {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onIceMaterialBreak;
+    return fn ? Promise.resolve(fn(ctx)) : undefined;
+  });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureBossRestrictionContext} ctx */
-export function notifyOwnedTreasuresOnBossRestrictionTriggered(ownedSlotTreasureIds, ctx) {
-  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
-    TREASURE_HOOKS_BY_ID.get(tid)?.onBossRestrictionTriggered?.(ctx);
-  }
+export async function notifyOwnedTreasuresOnBossRestrictionTriggered(ownedSlotTreasureIds, ctx) {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onBossRestrictionTriggered;
+    return fn ? Promise.resolve(fn(ctx)) : undefined;
+  });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureDeckCardsAddedContext} ctx */
-export function notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIds, ctx) {
-  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
-    TREASURE_HOOKS_BY_ID.get(tid)?.onDeckCardsAdded?.(ctx);
-  }
+export async function notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIds, ctx) {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onDeckCardsAdded;
+    return fn ? Promise.resolve(fn(ctx)) : undefined;
+  });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds */

@@ -343,8 +343,8 @@
             :gem-class="treasureGemClass(slot?.rarity)"
             :charge-state="displayTreasureChargeVisualBySlot[i]"
             :charge-progress="displayTreasureChargeProgressBySlot[i] ?? 0"
-            :amber-boss-mask="activeBossSlug === 'amber_acorn'"
-            :crimson-hand-disabled="activeBossSlug === 'crimson_heart' && scoringAnimating && crimsonTreasureDisabledSlotIndex === i"
+            :amber-boss-mask="isAmberBossMaskActive"
+            :crimson-hand-disabled="isCrimsonBossMechanicsActive && scoringAnimating && crimsonTreasureDisabledSlotIndex === i"
             :slot-class="{
               'treasure-slot--scoring-highlight': scoringTreasureBarIndex === i,
               'treasure-slot--dragging': gameOwnedDragActive && i === gameOwnedDragCurrentIndex,
@@ -673,8 +673,10 @@ import {
   notifyOwnedTreasuresOnShopEnter,
   notifyOwnedTreasuresOnShopReroll,
   notifyOwnedTreasuresOnTreasureSold,
+  notifyOwnedTreasuresOnShopLeave,
   notifyOwnedTreasuresOnBossRestrictionTriggered,
   notifyOwnedTreasuresOnDeckCardsAdded,
+  notifyOwnedTreasuresOnDeckCardsRemoved,
   sumTreasureSubmitLengthBonus,
   sumTreasureLengthJudgmentPenalty,
   resolveTreasureDescriptionPatches,
@@ -700,6 +702,20 @@ import {
   vowelGhostSlotsForDisplay,
 } from "../game/vowelNeighborSubstitute.js";
 import { filterTreasureDefsForPool } from "../treasures/treasureAvailability.js";
+import {
+  addTreasureRunLettersDiscarded,
+  onTreasureRunChapterEnter,
+  recordTreasureChapterWordPos,
+  recordTreasureDiscardWord,
+  recordTreasureLevelVowelLetters,
+  noteTreasureRunSpellCast,
+  noteTreasureRunUpgradeUsed,
+} from "../treasures/treasureRunTracking.js";
+import { isVowelLetterWithMask } from "../treasures/treasureLetterClassify.js";
+import {
+  isBossEffectsSuppressedByTreasures,
+  resolveBossSlugForMechanics,
+} from "../game/treasureBossSuppress.js";
 import {
   createTreasureRunState,
   currentDiscardLetterGroup,
@@ -1111,6 +1127,21 @@ async function scoringSleep(ms, speed) {
 const pillarUsedDeckUids = ref(/** @type {Set<number>} */ (new Set()));
 const verdantTreasureSold = ref(false);
 
+/** 至多 5 格；null 为空（须在 `useGameState` 前，供盾牌 Boss 屏蔽与宝藏逻辑） */
+const ownedTreasures = ref([null, null, null, null, null]);
+
+function ownedSlotTreasureIdListEarly() {
+  return ownedTreasures.value.map((s) => s?.treasureId ?? null);
+}
+
+const bossMechanicsSuppressed = computed(() =>
+  isBossEffectsSuppressedByTreasures(ownedSlotTreasureIdListEarly()),
+);
+
+function bossSlugForMechanics() {
+  return resolveBossSlugForMechanics(activeBossSlug.value, ownedSlotTreasureIdListEarly());
+}
+
 const {
   grid,
   deck,
@@ -1166,6 +1197,7 @@ const {
   runSeedNumeric: coerceRunSeedNumeric(props.runSeed),
   pillarUsedDeckUidsRef: pillarUsedDeckUids,
   verdantTreasureSoldRef: verdantTreasureSold,
+  bossMechanicsSuppressedRef: bossMechanicsSuppressed,
 });
 
 /**
@@ -1238,7 +1270,9 @@ const crimsonTreasureDisabledSlotIndex = ref(/** @type {number | null} */ (null)
 const bossTapeAttentionPulse = ref(false);
 const bossTapeWobble = ref(false);
 
-const isManacleBossGrid = computed(() => activeBossSlug.value === "the_manacle");
+const isManacleBossGrid = computed(() => bossSlugForMechanics() === "the_manacle");
+const isAmberBossMaskActive = computed(() => bossSlugForMechanics() === "amber_acorn");
+const isCrimsonBossMechanicsActive = computed(() => bossSlugForMechanics() === "crimson_heart");
 
 const bossStripDef = computed(() => {
   const slug = activeBossSlug.value;
@@ -1267,11 +1301,12 @@ function getBossTileDebuffContext() {
   return {
     pillarUsedDeckUids: pillarUsedDeckUids.value,
     verdantTreasureSold: verdantTreasureSold.value,
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
   };
 }
 
 function refreshBossTileDebuffOnTile(tile) {
-  applyBossTileDebuffState(tile, activeBossSlug.value, getBossTileDebuffContext());
+  applyBossTileDebuffState(tile, bossSlugForMechanics(), getBossTileDebuffContext());
 }
 
 function getNextLevelDefAfterShop() {
@@ -1303,17 +1338,18 @@ function buildLevelResetRunOpts(levelDef) {
   const override = String(pendingBossSlugOverride.value ?? "").trim();
   const slug =
     override && parseLevelSubFromId(id) === 3 ? override : pickBossSlugForLevel(id, getRunSeedNumeric());
-  const ts = resolveLevelTargetScore(id, slug);
+  const mechSlug = resolveBossSlugForMechanics(slug, ownedSlotTreasureIdListEarly());
+  const ts = resolveLevelTargetScore(id, mechSlug);
   let rem = getBaseRemovalsPerLevel(ownedVoucherIds.value);
-  if (slug === "the_water") rem = 0;
+  if (mechSlug === "the_water") rem = 0;
   let hands = getBaseHandsPerLevel(ownedVoucherIds.value);
-  if (slug === "the_needle") hands = getSubmitHandsForNeedleBoss(hands);
+  if (mechSlug === "the_needle") hands = getSubmitHandsForNeedleBoss(hands);
   if (parseLevelSubFromId(id) === 3) {
     usedWordLengthsThisBoss.value = new Set();
     mouthLockedLengthBoss.value = null;
-    if (slug === "the_club") clubRequiredKeyBoss.value = pickClubRequiredKey();
+    if (mechSlug === "the_club") clubRequiredKeyBoss.value = pickClubRequiredKey();
     else clubRequiredKeyBoss.value = null;
-    if (slug === "verdant_leaf") verdantTreasureSold.value = false;
+    if (mechSlug === "verdant_leaf") verdantTreasureSold.value = false;
   } else {
     clubRequiredKeyBoss.value = null;
   }
@@ -1322,7 +1358,7 @@ function buildLevelResetRunOpts(levelDef) {
     remainingRemovals: rem,
     targetScore: ts,
     bossSlug: slug,
-    postGridBuild: (g) => applyBossPostGridBuild(g, slug),
+    postGridBuild: (g) => applyBossPostGridBuild(g, mechSlug),
   };
 }
 
@@ -1342,7 +1378,7 @@ function clearVerdantDebuffsOnGrid() {
 }
 
 function applyHookBossAfterSubmit() {
-  if (activeBossSlug.value !== "the_hook") return;
+  if (bossSlugForMechanics() !== "the_hook") return;
   const g = grid.value;
   /** @type {{ r: number, c: number }[]} */
   const pool = [];
@@ -1700,9 +1736,6 @@ function makeEmptyShopSlot() {
 function makeEmptyPackSlot() {
   return { kind: "empty", emptySlotId: nextPackEmptySlotId.value++ };
 }
-/** 至多 5 格；null 为空 */
-const ownedTreasures = ref([null, null, null, null, null]);
-
 const ownedTreasureIdSet = computed(() => {
   const s = new Set();
   for (const t of ownedTreasures.value) {
@@ -1714,7 +1747,9 @@ const ownedTreasureIdSet = computed(() => {
 /** 商店可售：已接入且满足解锁/池条件的宝藏 */
 const shopTreasurePool = computed(() =>
   filterTreasureDefsForPool(
-    TREASURE_DEFINITIONS.filter((t) => IMPLEMENTED_TREASURE_ID_SET.has(t.treasureId)),
+    TREASURE_DEFINITIONS.filter(
+      (t) => IMPLEMENTED_TREASURE_ID_SET.has(t.treasureId) && t.shopEligible !== false,
+    ),
     buildTreasurePoolSnapshot(),
   ),
 );
@@ -1725,6 +1760,14 @@ const balatroFirstShopPackConsumed = ref(false);
 
 function shopPriceForOffer(basePrice) {
   return applyShopDiscountPrice(basePrice, ownedVoucherIds.value);
+}
+
+/** @param {{ offerType?: string, bundleKind?: string }} t @param {number} basePay */
+function effectiveShopOfferPay(t, basePay) {
+  if (!treasureRunState.value.shopUpgradesFree) return basePay;
+  if (t.offerType === "upgrade") return 0;
+  if (t.offerType === "bundlePack" && t.bundleKind === "upgrade") return 0;
+  return basePay;
 }
 
 const shopNextRerollCostDisplay = computed(() => {
@@ -1805,6 +1848,7 @@ function buildUpgradeAnimPayloadFromOffer(t) {
 }
 
 function applyUpgradeFromOffer(t, { price = 0 } = {}) {
+  noteTreasureRunUpgradeUsed(treasureRunState.value);
   const isRarity = t.upgradeKind === "rarity";
   if (isRarity) {
     const rk = String(t.rarityKey ?? "");
@@ -2219,10 +2263,11 @@ function onPackPickOpenItem(payload) {
   };
 }
 
-function onPackPickSkip() {
+async function onPackPickSkip() {
   if (packPickBusy.value) return;
-  notifyOwnedTreasuresOnPackSkipped(ownedSlotTreasureIdList(), {
+  await notifyOwnedTreasuresOnPackSkipped(ownedSlotTreasureIdList(), {
     treasureRun: treasureRunState.value,
+    playOwnedTreasureMultDeltaFx,
   });
   packPickSession.value = null;
   packPickOverlaySuppressed.value = false;
@@ -2417,6 +2462,7 @@ function buildTreasurePatchDescriptionContext() {
     levelPosTargetKey: treasureRunState.value.levelPosTargetKey,
     rollRandomBigram: rollRandomBigramForTreasure,
     rng: runRandom,
+    money: money.value,
   };
 }
 
@@ -2618,11 +2664,39 @@ function buildTreasurePoolSnapshot() {
     deck: deck.value,
     isEndlessRun: isEndlessRun.value,
     runState: treasureRunState.value,
+    ownedTreasureSlots: ownedTreasures.value,
   };
 }
 
 function ownedSlotTreasureIdList() {
-  return ownedTreasures.value.map((s) => s?.treasureId ?? null);
+  return ownedSlotTreasureIdListEarly();
+}
+
+/** 镜子(104) 卖出：复制一个已拥有宝藏的原始版（无商店配饰） */
+function grantCopyOfRandomOwnedTreasure(excludeTreasureId = "104") {
+  const filled = ownedTreasures.value.filter(
+    (s) => s?.treasureId && String(s.treasureId) !== String(excludeTreasureId),
+  );
+  if (!filled.length) return false;
+  const pick = filled[Math.floor(runRandom() * filled.length)];
+  const def = getTreasureDef(String(pick.treasureId));
+  if (!def) return false;
+  const ix = findTreasurePlacementIndex(null);
+  if (ix < 0) return false;
+  const slots = [...ownedTreasures.value];
+  slots[ix] = {
+    treasureId: def.treasureId,
+    price: def.price,
+    rarity: def.rarity,
+    name: def.name,
+    emoji: def.emoji,
+    description: def.description,
+    treasureAccessoryId: null,
+  };
+  ownedTreasures.value = slots;
+  initTreasureBankOnAcquire(def.treasureId, treasureRunState.value);
+  applyTreasureAcquireSideEffects(def.treasureId);
+  return true;
 }
 
 function treasureVoucherExtraSlots() {
@@ -2659,7 +2733,32 @@ function rollRandomBigramForTreasure() {
 }
 
 function applyTreasureAcquireSideEffects(treasureId) {
-  if (String(treasureId) === "42") remainingRemovals.value += 3;
+  const id = String(treasureId);
+  if (id === "42") remainingRemovals.value += 3;
+  if (id === "110") treasureRunState.value.shopUpgradesFree = true;
+}
+
+async function notifyTreasureDeckCardsRemovedByRaws(raws) {
+  const slots = ownedSlotTreasureIdList();
+  let vowelsRemoved = 0;
+  for (const raw0 of raws ?? []) {
+    let raw = String(raw0 ?? "").toLowerCase();
+    if (raw === "qu") raw = "q";
+    if (isVowelLetterWithMask(raw, slots)) vowelsRemoved += 1;
+  }
+  if (vowelsRemoved <= 0) return;
+  await notifyOwnedTreasuresOnDeckCardsRemoved(slots, {
+    ownedSlotTreasureIds: slots,
+    treasureRun: treasureRunState.value,
+    vowelsRemoved,
+    wobbleOwnedTreasureById,
+    playOwnedTreasureBubbleFx,
+  });
+}
+
+function removeDeckLettersByRawsWithTreasureNotify(raws) {
+  removeDeckLetterInstancesByRaws(raws);
+  notifyTreasureDeckCardsRemovedByRaws(raws);
 }
 
 /**
@@ -2669,10 +2768,12 @@ function appendShopDeckEntriesAndNotify(entries) {
   const n = Array.isArray(entries) ? entries.length : 0;
   if (!n) return;
   appendShopDeckEntries(entries);
-  notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIdList(), {
+  void notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIdList(), {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     treasureRun: treasureRunState.value,
     count: n,
+    wobbleOwnedTreasureById,
+    playOwnedTreasureBubbleFx,
   });
 }
 
@@ -2762,6 +2863,7 @@ async function runTreasureLevelEnterHooks(levelId) {
   const ch = parseChapterFromLevelId(levelId);
   const prev = treasureRunState.value.lastChapterNumber;
   if (ch !== prev) {
+    onTreasureRunChapterEnter(treasureRunState.value, ch);
     notifyOwnedTreasuresOnChapterEnter(ownedSlotTreasureIdList(), {
       treasureRun: treasureRunState.value,
     });
@@ -2775,8 +2877,15 @@ async function runTreasureLevelEnterHooks(levelId) {
     levelId,
     findOwnedTreasureSlotIndex,
     wobbleOwnedTreasureById,
+    destroyTreasureSlotById: destroyOwnedTreasureWithFx,
+    playOwnedTreasureBubbleFx,
     clearTreasureSlotById: clearOwnedTreasureSlotById,
     grantRandomOwnedTreasure: grantRandomOwnedTreasuresInRun,
+    requestInRunSpellGrant: async (opts = {}) => {
+      const spellId = opts.spellId ?? pickRandomInRunSpellId(runRandom);
+      if (!spellId) return;
+      await runSpellPreviewChain(spellId, "inRun", "remainingDeck");
+    },
     addRemainingWords: (n) => {
       remainingWords.value = Math.max(0, remainingWords.value + Math.floor(Number(n) || 0));
     },
@@ -2804,6 +2913,8 @@ async function runTreasureLevelCompleteHooks() {
     destroyTreasureSlotById: destroyOwnedTreasureWithFx,
     findOwnedTreasureSlotIndex,
     wobbleOwnedTreasureById,
+    playOwnedTreasureMoneyFx,
+    playOwnedTreasureBubbleFx,
     remainingRemovals: remainingRemovals.value,
     addMoney: (n) => {
       money.value += Math.max(0, Math.floor(Number(n) || 0));
@@ -2910,25 +3021,29 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
     },
     playOwnedTreasureMoneyFx,
     playOwnedTreasureMultDeltaFx,
+    playOwnedTreasureScoreDeltaFx,
+    playOwnedTreasureBubbleFx,
     wobbleOwnedTreasureById,
+    destroyTreasureSlotById: destroyOwnedTreasureWithFx,
     playSubmitWordLetterRemoveAndRewardLeave,
-    removeDeckLettersByRaws: (raws) => removeDeckLetterInstancesByRaws(raws),
+    removeDeckLettersByRaws: (raws) => removeDeckLettersByRawsWithTreasureNotify(raws),
     removeDeckCardsForSubmittedWord: (word) => removeDeckCardsForSubmittedWord(tiles, word),
     destroySelf: () => {
-      const ix = ownedTreasures.value.findIndex((s) => s?.treasureId === "67");
-      if (ix >= 0) ownedTreasures.value[ix] = null;
+      void destroyOwnedTreasureWithFx("67");
     },
     ownedTreasureInstances: owned,
     rng: runRandom,
     moneyAfterSubmit: money.value,
-    bumpWordLengthLevel: (len) =>
+    bumpWordLengthLevel: (len) => {
+      noteTreasureRunUpgradeUsed(treasureRunState.value);
       bumpWordLengthLevel(len, {
         observatoryBoost: isLengthObservatoryBoosted(
           ownedVoucherIds.value,
           len,
           spellCountsByLength.value,
         ),
-      }),
+      });
+    },
   };
 }
 
@@ -3161,7 +3276,7 @@ watch(showRunEnd, (open) => {
   }
 });
 
-watch(showShop, (open) => {
+watch(showShop, async (open) => {
   if (!open) {
     shopOverlayLayersSuppressed.value = false;
     packPickOverlaySuppressed.value = false;
@@ -3174,8 +3289,11 @@ watch(showShop, (open) => {
   treasureDetail.value = null;
   packPickSession.value = null;
   shopRerollsThisVisit.value = 0;
-  notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIdList(), {
+  await notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIdList(), {
     treasureRun: treasureRunState.value,
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    wobbleOwnedTreasureById,
+    playOwnedTreasureBubbleFx,
   });
   const levelId = currentLevel.value?.id ?? "1-1";
   const shelfGen = getVoucherShelfGeneration(levelId);
@@ -4104,7 +4222,7 @@ function vowelGhostForTile(tile) {
 const bossTapeSoftPreview = computed(() => {
   if (!dictionaryReady.value) return false;
   if (scoringAnimating.value) return false;
-  const slug = activeBossSlug.value;
+  const slug = bossSlugForMechanics();
   if (!bossHasWholeWordSoftRule(slug)) return false;
   const res = resolvedWordForSubmit.value;
   if (res == null) return false;
@@ -4124,6 +4242,7 @@ const bossTapeSoftPreview = computed(() => {
     usedLengthsThisLevel: usedWordLengthsThisBoss.value,
     mouthLockedLength: mouthLockedLengthBoss.value,
     clubRequiredKey: clubRequiredKeyBoss.value || "",
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
   });
   return soft.violated;
 });
@@ -4611,7 +4730,7 @@ function formatMultDisplay(m) {
   return s.endsWith(".0") ? String(Math.round(n)) : s;
 }
 
-const isFlintBossActive = computed(() => activeBossSlug.value === "the_flint");
+const isFlintBossActive = computed(() => bossSlugForMechanics() === "the_flint");
 
 const displayFormulaScore = computed(() => {
   if (clearWinLengthUpgradeFxActive.value) {
@@ -5612,6 +5731,31 @@ async function playOwnedTreasureMoneyFx(treasureId, amount) {
   await playTreasureSlotMoneyBurstAtPeak(ix, amount);
 }
 
+/** @param {number} slotIndex @param {string} text @param {string} [kind] */
+async function playTreasureSlotBubbleBurstAtPeak(slotIndex, text, kind = "score") {
+  const el = gameTreasureSlotRefs[slotIndex];
+  if (!el || slotIndex < 0) return;
+  const label = String(text ?? "").trim();
+  if (!label) return;
+  const sp = 1;
+  scoringTreasureBarIndex.value = slotIndex;
+  await nextTick();
+  await new Promise((r) => requestAnimationFrame(r));
+  wobbleScoreSlot(el, sp);
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  const bubble = showScoreBubble(el, label, kind, sp);
+  scheduleSmallPlusBubbleOutro(bubble, sp);
+  await scoringSleep(SCORING_LETTER_GAP_MS, sp);
+  scoringTreasureBarIndex.value = null;
+}
+
+/** @param {string} treasureId @param {string} text @param {string} [kind] */
+async function playOwnedTreasureBubbleFx(treasureId, text, kind = "score") {
+  const ix = findOwnedTreasureSlotIndex(treasureId);
+  if (ix < 0) return;
+  await playTreasureSlotBubbleBurstAtPeak(ix, text, kind);
+}
+
 /** @param {number} slotIndex @param {number} delta */
 async function playTreasureSlotMultDeltaBurstAtPeak(slotIndex, delta) {
   const el = gameTreasureSlotRefs[slotIndex];
@@ -5635,6 +5779,13 @@ async function playOwnedTreasureMultDeltaFx(treasureId, delta) {
   const ix = findOwnedTreasureSlotIndex(treasureId);
   if (ix < 0) return;
   await playTreasureSlotMultDeltaBurstAtPeak(ix, delta);
+}
+
+/** @param {string} treasureId @param {number} delta */
+async function playOwnedTreasureScoreDeltaFx(treasureId, delta) {
+  const ix = findOwnedTreasureSlotIndex(treasureId);
+  if (ix < 0) return;
+  await playTreasureSlotScoreBurstAtPeak(ix, delta);
 }
 
 /** 工具箱移除：气泡展示后停顿再缩至 0；字间间隔与气泡淡出略短于通用记分 */
@@ -5854,6 +6005,7 @@ function buildEclipseLengthUpgradeSteps() {
       obsFn,
     ),
     apply: () => {
+      noteTreasureRunUpgradeUsed(treasureRunState.value);
       for (let len = g.minLen; len <= g.maxLen; len++) {
         bumpWordLengthLevel(len, { observatoryBoost: obsFn(len) });
       }
@@ -5870,6 +6022,7 @@ function buildEclipseRarityUpgradeSteps() {
       () => false,
     ),
     apply: () => {
+      noteTreasureRunUpgradeUsed(treasureRunState.value);
       const cur = Math.max(1, Math.round(Number(rarityLevelsByRarity.value?.[rk])) || 1);
       setRarityLevelWithTreasurePairs(rk, cur + 1);
     },
@@ -6001,8 +6154,8 @@ function buildSpellRuntimeContext() {
       }),
     markTileAsWildcard,
     touchGrid,
-    removeDeckLetterInstancesByRaws,
-  removeDeckCardsForSubmittedWord,
+    removeDeckLetterInstancesByRaws: removeDeckLettersByRawsWithTreasureNotify,
+    removeDeckCardsForSubmittedWord,
     removeDeckCardByUid,
     appendShopDeckEntries,
     remapTileFromRawLetter,
@@ -6018,6 +6171,7 @@ function buildSpellRuntimeContext() {
       lastReplayableSpellId.value = id;
     },
     refreshBossTileDebuffOnTile: refreshBossTileDebuffOnTile,
+    onUpgradeUsed: () => noteTreasureRunUpgradeUsed(treasureRunState.value),
   };
 }
 
@@ -6266,6 +6420,8 @@ function noteSpellCastForReplay(purchasedSpellId) {
   const sid = String(purchasedSpellId ?? "");
   if (!sid || sid === "restart" || sid === "dice") return;
   spellCastHistory.value = [...spellCastHistory.value, sid];
+  noteTreasureRunSpellCast(treasureRunState.value);
+  treasureRunState.value.lastSpellIdBeforeShopLeave = sid;
 }
 
 /**
@@ -6726,7 +6882,7 @@ async function onTreasurePurchase() {
   }
   if (d.kind !== "offer") return;
   const t = d.treasure;
-  const pay = shopPriceForOffer(Number(t.price) || 0);
+  const pay = effectiveShopOfferPay(t, shopPriceForOffer(Number(t.price) || 0));
 
   if (t.offerType === "bundlePack") {
     if (money.value < pay) return;
@@ -6869,8 +7025,15 @@ async function onTreasureSell() {
 
   await treasureDetailLayerRef.value?.playClose?.();
   money.value += Math.floor(Number(cur.price) / 2);
-  notifyOwnedTreasuresOnTreasureSold(ownedSlotTreasureIdList(), {
+  const soldId = String(cur.treasureId ?? "");
+  if (soldId === "98") treasureRunState.value.soldBlueprintTreasure98 = true;
+  await notifyOwnedTreasuresOnTreasureSold(ownedSlotTreasureIdList(), {
     treasureRun: treasureRunState.value,
+    soldTreasureId: soldId,
+    soldSlotIndex: ix,
+    grantRandomTreasureCopy: () => grantCopyOfRandomOwnedTreasure("104"),
+    wobbleOwnedTreasureById,
+    playOwnedTreasureBubbleFx,
   });
   const slots = [...ownedTreasures.value];
   const compacted = compactOwnedSlotsAfterCropSell(slots, ix, cur);
@@ -6881,8 +7044,11 @@ async function onTreasureSell() {
     if (ix >= 0 && ix < keys.length) keys.splice(ix, 1);
     gameOwnedKeyOrder.value = keys;
   }
+  if (!ownedSlotTreasureIdList().includes("110")) {
+    treasureRunState.value.shopUpgradesFree = false;
+  }
   treasureDetail.value = null;
-  if (activeBossSlug.value === "verdant_leaf") {
+  if (bossSlugForMechanics() === "verdant_leaf") {
     verdantTreasureSold.value = true;
     clearVerdantDebuffsOnGrid();
   }
@@ -6899,8 +7065,9 @@ async function onShopReroll() {
     rs.shopFreeRerollsRemaining -= 1;
   }
   noteRunReroll();
-  notifyOwnedTreasuresOnShopReroll(ownedSlotTreasureIdList(), {
+  await notifyOwnedTreasuresOnShopReroll(ownedSlotTreasureIdList(), {
     treasureRun: treasureRunState.value,
+    playOwnedTreasureMultDeltaFx,
   });
   shopRerollsThisVisit.value += 1;
   const sessionExclude = new Set();
@@ -6949,6 +7116,14 @@ async function onBossBlindRerollContinue(event) {
 async function executeShopLeaveToNextLevel(event) {
   if (transitionBusy.value) return;
   transitionBusy.value = true;
+
+  await notifyOwnedTreasuresOnShopLeave(ownedSlotTreasureIdList(), {
+    treasureRun: treasureRunState.value,
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    replayLastSpellInRun: async (spellId) => {
+      await runSpellPreviewChain(spellId, "inRun", "remainingDeck");
+    },
+  });
 
   const nextLevel = async () => {
     // 只在“覆盖阶段”做 grid 清空/重置：让新关的 grid 先处在 pre-intro 隐藏态；
@@ -7792,7 +7967,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   await nextTick();
   await new Promise((r) => requestAnimationFrame(r));
 
-  if (activeBossSlug.value === "the_tooth" && detailed.bossSoftViolation !== true && luckyVisitIndex === 0) {
+  if (bossSlugForMechanics() === "the_tooth" && detailed.bossSoftViolation !== true && luckyVisitIndex === 0) {
     wobbleScoreSlot(slotEl, sp);
     await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
     money.value = Math.max(0, money.value - 1);
@@ -8147,6 +8322,7 @@ async function runClearWinBoardEffectsBeforeRefill(lastWordLen) {
         len,
         spellCountsByLength.value,
       );
+      noteTreasureRunUpgradeUsed(treasureRunState.value);
       bumpWordLengthLevel(len, { observatoryBoost });
       await runClearWinLengthUpgradeShopLikeFx({
         areaRef: gameResultAreaRef,
@@ -8185,12 +8361,12 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
               lengthLevelsByLength.value,
               lengthUpgradeObservatoryExtra.value,
             ),
-            activeBossSlug.value === "the_flint",
+            isFlintBossActive.value,
           ),
       );
   animMultTotal.value =
     detailed.lengthMultiplierEffective ??
-    scaleLengthContributionForBoss(detailed.lengthMultiplier, activeBossSlug.value === "the_flint");
+    scaleLengthContributionForBoss(detailed.lengthMultiplier, isFlintBossActive.value);
   animResultTotal.value = 0;
 
   const wordStr =
@@ -8674,6 +8850,15 @@ async function onRemoveClick() {
   recordLettersDiscarded(runMatchStats.value, nSel);
 
   treasureRunState.value.levelDiscardsUsed = true;
+  addTreasureRunLettersDiscarded(treasureRunState.value, nSel);
+  recordTreasureLevelVowelLetters(
+    treasureRunState.value,
+    discardedLettersForHooks,
+    ownedSlotTreasureIdList(),
+  );
+  recordTreasureDiscardWord(treasureRunState.value, discardedLettersForHooks, (w) =>
+    getWordDefinition(w),
+  );
   await notifyOwnedTreasuresOnDiscardBatch(ownedSlotTreasureIdList(), {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     discardedLetters: discardedLettersForHooks,
@@ -8681,11 +8866,24 @@ async function onRemoveClick() {
     treasureRun: treasureRunState.value,
     rng: runRandom,
     discardPotteryFxHandled,
+    resolveDiscardedWord: (w) => getWordDefinition(w),
+    bumpWordLengthLevel: (len) => {
+      noteTreasureRunUpgradeUsed(treasureRunState.value);
+      bumpWordLengthLevel(len, {
+        observatoryBoost: isLengthObservatoryBoosted(
+          ownedVoucherIds.value,
+          len,
+          spellCountsByLength.value,
+        ),
+      });
+    },
     addMoney: (amount) => {
       money.value += Math.max(0, Math.floor(Number(amount) || 0));
     },
     playOwnedTreasureMoneyFx,
     playOwnedTreasureMultDeltaFx,
+    playOwnedTreasureScoreDeltaFx,
+    playOwnedTreasureBubbleFx,
     wobbleOwnedTreasureById,
     findOwnedTreasureSlotIndex,
   });
@@ -8895,7 +9093,7 @@ async function submitWord() {
     rarityLevelsByRarity.value,
   );
   const debuffCtx = getBossTileDebuffContext();
-  const bossSlugSubmit = activeBossSlug.value;
+  const bossSlugSubmit = bossSlugForMechanics();
   for (const t of tiles) {
     if (t?.letter) applyBossTileDebuffState(t, bossSlugSubmit, debuffCtx);
   }
@@ -8936,7 +9134,7 @@ async function submitWord() {
       sumTreasureSubmitLengthBonus(ownedTids),
   );
   const soft = evaluateBossSoftWordViolation({
-    slug: activeBossSlug.value,
+    slug: bossSlugForMechanics(),
     wordLen: judgedLenTable,
     resolvedWord,
     endingLetterRarity: getEndingLetterRarityFromTiles(tiles),
@@ -8944,6 +9142,7 @@ async function submitWord() {
     usedLengthsThisLevel: usedWordLengthsThisBoss.value,
     mouthLockedLength: mouthLockedLengthBoss.value,
     clubRequiredKey: clubRequiredKeyBoss.value || "",
+    ownedSlotTreasureIds: ownedTids,
   });
   const submitViolated = soft.violated;
   if (submitViolated) {
@@ -8954,7 +9153,7 @@ async function submitWord() {
   }
   crimsonTreasureDisabledSlotIndex.value = null;
   let crimsonSet = /** @type {Set<number> | null} */ (null);
-  if (activeBossSlug.value === "crimson_heart") {
+  if (bossSlugForMechanics() === "crimson_heart") {
     const ix = pickCrimsonDisabledTreasureSlotIndex();
     if (ix != null) {
       crimsonSet = new Set([ix]);
@@ -8977,7 +9176,7 @@ async function submitWord() {
     lengthJb,
     {
       disabledTreasureSlotIndices: crimsonSet,
-      bossFlintQuarter: activeBossSlug.value === "the_flint",
+      bossFlintQuarter: isFlintBossActive.value,
       lengthUpgradeObservatoryExtra: lengthUpgradeObservatoryExtra.value,
       rng: runRandom,
       resolvedWord,
@@ -8987,17 +9186,19 @@ async function submitWord() {
       getWordDefinition,
       gridTiles: gridTilesForTreasures,
       remainingGridTiles: remainingGridTilesForTreasures,
+      fullDeck: initialDeckSnapshot.value,
     },
   );
   if (submitViolated) {
-    if (activeBossSlug.value) {
-      notifyOwnedTreasuresOnBossRestrictionTriggered(ownedSlotTreasureIdList(), {
+    if (bossSlugForMechanics()) {
+      await notifyOwnedTreasuresOnBossRestrictionTriggered(ownedSlotTreasureIdList(), {
         ownedSlotTreasureIds: ownedSlotTreasureIdList(),
         treasureRun: treasureRunState.value,
-        bossSlug: activeBossSlug.value,
+        bossSlug: bossSlugForMechanics(),
         addMoney: (n) => {
           money.value += Math.max(0, Math.floor(Number(n) || 0));
         },
+        playOwnedTreasureMoneyFx,
       });
     }
     bossTapeWobble.value = true;
@@ -9027,6 +9228,12 @@ async function submitWord() {
     score: detailed.finalScore,
     length: judgedLenTable,
   });
+  recordTreasureChapterWordPos(treasureRunState.value, resolvedWord, getWordDefinition);
+  recordTreasureLevelVowelLetters(
+    treasureRunState.value,
+    tiles.map((t) => ({ letter: t?.letter ?? "" })),
+    ownedTids,
+  );
   flashSubmitCountDelta();
   remainingWords.value = Math.max(0, remainingWords.value - 1);
   await nextTick();
@@ -9038,8 +9245,10 @@ async function submitWord() {
     for (const iceTileId of submittedIceTileIds) {
       if (runRandom() < ICE_MATERIAL_SELF_DESTRUCT_CHANCE) {
         consumeIceTileOnGrid(iceTileId);
-        notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIdList(), {
+        await notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIdList(), {
           treasureRun: treasureRunState.value,
+          wobbleOwnedTreasureById,
+          playOwnedTreasureBubbleFx,
         });
       }
     }
@@ -9066,18 +9275,18 @@ async function submitWord() {
           if (Number.isFinite(uid)) pillarUsedDeckUids.value.add(uid);
         }
       }
-      if (activeBossSlug.value === "the_eye") usedWordLengthsThisBoss.value.add(judgedLenTable);
+      if (bossSlugForMechanics() === "the_eye") usedWordLengthsThisBoss.value.add(judgedLenTable);
       mouthLockedLengthBoss.value = nextMouthLockedLengthAfterSubmit(
         mouthLockedLengthBoss.value,
         judgedLenTable,
         false,
       );
-      if (activeBossSlug.value === "the_arm") {
+      if (bossSlugForMechanics() === "the_arm") {
         const curLv = Math.max(1, Math.round(Number(lengthLevelsByLength.value[judgedLenTable])) || 1);
         setWordLengthLevel(judgedLenTable, Math.max(1, curLv - 1));
       }
       const oxHit =
-        activeBossSlug.value === "the_ox" && evaluateOxBossHit(judgedLenTable, spellCountsByLength.value);
+        bossSlugForMechanics() === "the_ox" && evaluateOxBossHit(judgedLenTable, spellCountsByLength.value);
       recordSpellWordLength(judgedLenTable);
       if (oxHit) money.value = 0;
     } else {
@@ -9346,7 +9555,7 @@ function mountE2eHarnessIfNeeded() {
           getWordLengthJudgmentBonus(ownedVoucherIds.value ?? []) -
           runWordLengthJudgmentPenalty.value;
         const flintOpts =
-          activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
+          isFlintBossActive.value ? { bossFlintQuarter: true } : {};
         flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;
         if (resolved) flintOpts.resolvedWord = resolved;
         return computeWordScore(

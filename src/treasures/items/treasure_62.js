@@ -8,7 +8,7 @@ const ID = "62";
 export default {
   price: 6,
   rarity: "rare",
-  description: describe(mult("x2"), "倍率", "，每弃掉1个字母损失0.01", "（当前x2）"),
+  description: describe(mult("x2"), "倍率", "，每弃掉1个字母损失0.01"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

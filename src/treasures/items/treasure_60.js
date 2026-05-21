@@ -1,5 +1,5 @@
 import { describe, mult } from "../treasureDescription.js";
-import { addMultAddBank, getMultAddBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { bankMultAddGain, getMultAddBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 
 const ID = "60";
 
@@ -7,7 +7,7 @@ const ID = "60";
 export default {
   price: 5,
   rarity: "common",
-  description: describe(mult("+25"), "倍率", "；每拼写一个单词", mult("-5"), "倍率", "（当前+25）"),
+  description: describe(mult("+25"), "倍率", "；每拼写一个单词", mult("-5"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -17,7 +17,7 @@ export const treasureHooks = {
     const v = getMultAddBank(ctx.treasureRun, ID);
     return v !== 0 ? { multAdd: v } : null;
   },
-  onSuccessfulWordSubmit(ctx) {
-    addMultAddBank(ctx.treasureRun, ID, -5);
+  async onSuccessfulWordSubmit(ctx) {
+    await bankMultAddGain(ctx, ID, -5);
   },
 };

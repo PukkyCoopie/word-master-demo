@@ -1,5 +1,7 @@
 import { describe, money } from "../treasureDescription.js";
 
+const ID = "91";
+
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 5,
@@ -10,13 +12,13 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  onSuccessfulWordSubmit(ctx) {
+  async onSuccessfulWordSubmit(ctx) {
     const tiles = ctx.submittedScoringTiles;
     if (!Array.isArray(tiles)) return;
     let gold = 0;
     for (const t of tiles) {
       if (String(t?.materialId ?? "") === "gold") gold += 1;
     }
-    if (gold > 0) ctx.addMoney?.(gold * 4);
+    if (gold > 0) await ctx.playOwnedTreasureMoneyFx?.(ID, gold * 4);
   },
 };

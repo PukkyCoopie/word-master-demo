@@ -19,6 +19,7 @@
  * @property {string} name
  * @property {string} emoji
  * @property {import('./treasureDescription.js').TreasureDescSegment[] | string} description
+ * @property {boolean} [shopEligible] 为 false 时不出现在商店池（传说法术授予等）
  */
 
 /**
@@ -51,6 +52,7 @@
  * @property {string} [resolvedWord] 本词（小写）
  * @property {readonly { rarity?: string }[]} [gridTiles] 提交时棋盘上全部有字格（含本手拼词格）
  * @property {readonly { rarity?: string }[]} [remainingGridTiles] 提交后仍将留在棋盘上的有字格（不含本手拼词格）
+ * @property {readonly unknown[]} [fullDeck] 本局完整牌库 multiset
  * @property {Record<string, number> | null} [rarityLevelsByRarity] 各字母稀有度等级
  * @property {(word: string) => { pos?: string } | null | undefined} [getWordDefinition]
  */
@@ -77,7 +79,10 @@
  * @property {(amount: number) => void} [addMoney]
  * @property {(treasureId: string, amount: number) => Promise<void>} [playOwnedTreasureMoneyFx]
  * @property {(treasureId: string, delta: number) => Promise<void>} [playOwnedTreasureMultDeltaFx] 宝藏槽 wobble + 倍率 ±n 气泡（如天平）
+ * @property {(treasureId: string, delta: number) => Promise<void>} [playOwnedTreasureScoreDeltaFx] 宝藏槽 wobble + 分数 +n 气泡（累加分数银行）
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
+ * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
+ * @property {(treasureId: string) => Promise<void>} [destroyTreasureSlotById]
  * @property {(raws: string[]) => void} [removeDeckLettersByRaws]
  * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（工具箱等）
  * @property {() => void} [destroySelf]
@@ -104,7 +109,9 @@
  * @property {(word: string) => { pos?: string } | null | undefined} [getWordDefinition]
  * @property {(opts?: { kind?: 'spell' | 'treasure' | 'upgrade' | 'letter', treasureSlotIndex?: number, treasureId?: string }) => Promise<void>} [requestInRunPackOpenOfKind]
  * @property {() => string | null} [rollRandomBigram]
+ * @property {(word: string) => object | null | undefined} [resolveDiscardedWord] 弃牌字母串是否构成词典词
  * @property {(len: number, opts?: { observatoryBoost?: boolean }) => void} [bumpWordLengthLevel]
+ * @property {(opts?: { spellId?: string, treasureSlotIndex?: number, treasureId?: string }) => Promise<void>} [requestInRunSpellGrant]
  * @property {(runner: SubmitWordLeaveFxRunner) => void} [registerSubmitWordLeaveFx] 登记本词提交后词槽/棋盘格消失阶段的自定义动画（在计分结束、默认批量消失之前执行）
  * @property {(opts: SubmitWordLetterRemoveLeaveOpts) => Promise<void>} [playSubmitWordLetterRemoveAndRewardLeave] 逐字 wobble + 红色「移除」气泡并消失，结束后宝藏 +$ 动效（由 GamePanel 实现）
  */
@@ -173,15 +180,17 @@
  * @property {(ctx: TreasureLevelEnterContext) => void | Promise<void>} [onLevelEnter] 进入新小关之后
  * @property {(ctx: TreasureLevelCompleteContext) => void | Promise<void>} [onLevelComplete] 小关达标即将结算
  * @property {(ctx: TreasureChapterEnterContext) => void} [onChapterEnter] 进入新大关（章号变化）
- * @property {(ctx: TreasureShopEnterContext) => void} [onShopEnter] 进入商店（本段停留开始）
- * @property {(ctx: TreasureShopRerollContext) => void} [onShopReroll] 商店刷新
- * @property {(ctx: TreasurePackSkippedContext) => void} [onPackSkipped] 跳过组合包
- * @property {(ctx: TreasureSoldContext) => void} [onTreasureSold] 卖出宝藏
- * @property {(ctx: TreasureIceBreakContext) => void} [onIceMaterialBreak] 碎冰块碎裂
+ * @property {(ctx: TreasureShopEnterContext) => void | Promise<void>} [onShopEnter] 进入商店（本段停留开始）
+ * @property {(ctx: TreasureShopRerollContext) => void | Promise<void>} [onShopReroll] 商店刷新
+ * @property {(ctx: TreasurePackSkippedContext) => void | Promise<void>} [onPackSkipped] 跳过组合包
+ * @property {(ctx: TreasureSoldContext) => void | Promise<void>} [onTreasureSold] 卖出宝藏
+ * @property {(ctx: TreasureShopLeaveContext) => void | Promise<void>} [onShopLeave] 离开商店进入下一关前
+ * @property {(ctx: TreasureDeckCardsRemovedContext) => void | Promise<void>} [onDeckCardsRemoved] 从牌库永久移除牌张后
+ * @property {(ctx: TreasureIceBreakContext) => void | Promise<void>} [onIceMaterialBreak] 碎冰块碎裂
  * @property {(ctx: TreasureLogicContext) => number} [getSubmitLengthBonus] 等效词长加成（直尺券之外）
  * @property {() => number} [getLengthJudgmentPenalty] 判定词长减益（视为更短）
- * @property {(ctx: TreasureBossRestrictionContext) => void} [onBossRestrictionTriggered]
- * @property {(ctx: TreasureDeckCardsAddedContext) => void} [onDeckCardsAdded]
+ * @property {(ctx: TreasureBossRestrictionContext) => void | Promise<void>} [onBossRestrictionTriggered]
+ * @property {(ctx: TreasureDeckCardsAddedContext) => void | Promise<void>} [onDeckCardsAdded]
  */
 
 /**
@@ -192,6 +201,7 @@
  * @property {string | null} [levelPosTargetKey]
  * @property {() => string | null} [rollRandomBigram]
  * @property {() => number} [rng]
+ * @property {number} [money] 当前钱包（动态简介用）
  */
 
 /**
@@ -218,11 +228,14 @@
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string) => void} [clearTreasureSlotById]
+ * @property {(treasureId: string) => Promise<void>} [destroyTreasureSlotById]
+ * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  * @property {(count?: number) => number} [grantRandomOwnedTreasure] 本关赠送随机宝藏次数，返回实际获得数
  * @property {(n: number) => void} [addRemainingWords]
  * @property {(n: number) => void} [addRemainingRemovals]
  * @property {(tiles: object[]) => void} [stripEnhancementsFromScoringTiles]
  * @property {(spec: { raw: string, accessoryId?: string | null, tileScoreBonus?: number, letterMultBonus?: number, materialId?: string | null }) => object | null} [appendDeckCardSpecToInitialSnapshot]
+ * @property {(opts?: { spellId?: string, treasureSlotIndex?: number, treasureId?: string }) => Promise<void>} [requestInRunSpellGrant]
  */
 
 /**
@@ -235,6 +248,8 @@
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(amount: number) => void} [addMoney]
+ * @property {(treasureId: string, amount: number) => Promise<void>} [playOwnedTreasureMoneyFx] 宝藏槽 wobble + +$n 气泡并入账
+ * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx] 宝藏槽 wobble + 自定义气泡（不入账）
  * @property {number} [remainingRemovals] 小关结束时剩余丢弃次数
  * @property {(treasureId: string, amount: number) => void} [bumpOwnedTreasurePriceById] 提高已拥有实例的购入价（影响卖出价）
  */
@@ -247,26 +262,54 @@
 /**
  * @typedef {Object} TreasureShopEnterContext
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {(string | null | undefined)[]} [ownedSlotTreasureIds]
+ * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
+ * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  */
 
 /**
  * @typedef {Object} TreasureShopRerollContext
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {(treasureId: string, delta: number) => Promise<void>} [playOwnedTreasureMultDeltaFx]
  */
 
 /**
  * @typedef {Object} TreasurePackSkippedContext
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {(treasureId: string, delta: number) => Promise<void>} [playOwnedTreasureMultDeltaFx]
  */
 
 /**
  * @typedef {Object} TreasureSoldContext
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {string} [soldTreasureId]
+ * @property {number} [soldSlotIndex]
+ * @property {() => boolean} [grantRandomTreasureCopy] 卖出时创建随机其他宝藏原始版（空槽）
+ * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
+ * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
+ */
+
+/**
+ * @typedef {Object} TreasureShopLeaveContext
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @property {(spellId: string) => Promise<void>} [replayLastSpellInRun]
+ */
+
+/**
+ * @typedef {Object} TreasureDeckCardsRemovedContext
+ * @property {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {number} [vowelsRemoved] 本次移除的元音牌张数
+ * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
+ * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  */
 
 /**
  * @typedef {Object} TreasureIceBreakContext
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
+ * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  */
 
 /**
@@ -275,6 +318,7 @@
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
  * @property {string} [bossSlug]
  * @property {(amount: number) => void} [addMoney]
+ * @property {(treasureId: string, amount: number) => Promise<void>} [playOwnedTreasureMoneyFx]
  */
 
 /**
@@ -282,6 +326,8 @@
  * @property {(string | null | undefined)[]} ownedSlotTreasureIds
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
  * @property {number} [count]
+ * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
+ * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  */
 
 /**

@@ -1,5 +1,5 @@
 import { describe, mult } from "../treasureDescription.js";
-import { getMultMulBank, multiplyMultMulBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { bankMultMulGain, getMultMulBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 
 const ID = "78";
 
@@ -7,7 +7,7 @@ const ID = "78";
 export default {
   price: 6,
   rarity: "rare",
-  description: describe("每当一个碎冰块碎裂时，获得", mult("x0.75"), "倍率", "（当前x1）"),
+  description: describe("每当一个碎冰块碎裂时，获得", mult("x0.75"), "倍率"),
   unlockPrerequisite: { type: "deckIceMin", min: 5 },
 };
 
@@ -18,7 +18,7 @@ export const treasureHooks = {
     const m = getMultMulBank(ctx.treasureRun, ID);
     return m > 1 ? { multMul: m } : null;
   },
-  onIceMaterialBreak(ctx) {
-    multiplyMultMulBank(ctx.treasureRun, ID, 1.75);
+  async onIceMaterialBreak(ctx) {
+    await bankMultMulGain(ctx, ID, 1.75, "×0.75");
   },
 };

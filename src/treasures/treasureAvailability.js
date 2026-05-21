@@ -6,6 +6,7 @@
  * @property {unknown[]} [deck]
  * @property {boolean} [isEndlessRun]
  * @property {import('./treasureRunState.js').TreasureRunState} [runState]
+ * @property {readonly (null | { treasureAccessoryId?: string | null })[]} [ownedTreasureSlots]
  */
 
 /** @param {unknown[]} deck @param {string} rarity */
@@ -102,6 +103,27 @@ export function isTreasureUnlocked(def, snap) {
       return rs?.allCommonBossClearRecorded === true;
     case "chapterAllDiscardsExhausted":
       return rs?.chapterAllDiscardsExhausted === true;
+    case "chapterNoNounSpelled":
+      return rs?.chapterNoNounUnlocked === true;
+    case "chapterNoAdjSpelled":
+      return rs?.chapterNoAdjUnlocked === true;
+    case "chapterNoVerbSpelled":
+      return rs?.chapterNoVerbUnlocked === true;
+    case "levelAllFiveVowels":
+      return rs?.levelAllFiveVowelsUnlocked === true;
+    case "runSpellsCastMin":
+      return (rs?.runSpellsCastCount ?? 0) >= Math.max(0, Number(pre.min) || 0);
+    case "runUpgradesUsedMin":
+      return (rs?.runUpgradesUsedCount ?? 0) >= Math.max(0, Number(pre.min) || 0);
+    case "everDiscardedFullWord":
+      return rs?.everDiscardedFullWord === true;
+    case "discardWordLen7OrSoldBlueprint98":
+      return rs?.everDiscardedWordLen7Plus === true || rs?.soldBlueprintTreasure98 === true;
+    case "allOwnedTreasuresHaveAccessory": {
+      const owned = snap.ownedTreasureSlots;
+      if (!Array.isArray(owned) || !owned.length) return false;
+      return owned.every((s) => s && String(s.treasureAccessoryId ?? "").trim() !== "");
+    }
     default:
       return true;
   }

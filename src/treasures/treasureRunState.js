@@ -22,6 +22,21 @@
  * @property {boolean} levelDiscardsUsed 本小关是否使用过丢弃
  * @property {number} shopFreeRerollsRemaining 本段商店停留内剩余免费刷新次数（小票等）
  * @property {number | null} jokerForcedDrawUid 鬼牌：下一局 buildGrid 首抽强制牌张 _dcUid
+ * @property {Set<string>} chapterPosSpelledThisChapter 本大关内已拼写过的词性 n | adj | v
+ * @property {boolean} chapterNoNounUnlocked 曾完成一整大关且未拼写过名词
+ * @property {boolean} chapterNoAdjUnlocked 曾完成一整大关且未拼写过形容词
+ * @property {boolean} chapterNoVerbUnlocked 曾完成一整大关且未拼写过动词
+ * @property {Set<string>} levelVowelsUsedThisLevel 本小关内已出现的元音字母 a–u
+ * @property {boolean} levelAllFiveVowelsUnlocked 本小关内曾用齐五种元音（解锁用，跨局保留）
+ * @property {boolean} levelFirstFullWordDiscardDone 本小关是否已因首次弃完整词升级过长度
+ * @property {boolean} everDiscardedFullWord 本局是否弃过完整单词
+ * @property {boolean} everDiscardedWordLen7Plus 本局是否弃过 7 字母及以上完整单词
+ * @property {boolean} soldBlueprintTreasure98 本局是否卖出过面具（98）
+ * @property {number} runSpellsCastCount 本局已释放法术次数
+ * @property {number} runUpgradesUsedCount 本局已使用升级次数
+ * @property {number} runLettersDiscardedTotal 本局累计弃掉字母块数
+ * @property {boolean} shopUpgradesFree 商店升级/升级包免费（宝藏 110）
+ * @property {string | null} lastSpellIdBeforeShopLeave 离店前最后一次释放的法术 id（宝藏 117）
  */
 
 /** @type {readonly string[]} */
@@ -55,6 +70,21 @@ export function createTreasureRunState() {
     levelDiscardsUsed: false,
     shopFreeRerollsRemaining: 0,
     jokerForcedDrawUid: null,
+    chapterPosSpelledThisChapter: new Set(),
+    chapterNoNounUnlocked: false,
+    chapterNoAdjUnlocked: false,
+    chapterNoVerbUnlocked: false,
+    levelVowelsUsedThisLevel: new Set(),
+    levelAllFiveVowelsUnlocked: false,
+    levelFirstFullWordDiscardDone: false,
+    everDiscardedFullWord: false,
+    everDiscardedWordLen7Plus: false,
+    soldBlueprintTreasure98: false,
+    runSpellsCastCount: 0,
+    runUpgradesUsedCount: 0,
+    runLettersDiscardedTotal: 0,
+    shopUpgradesFree: false,
+    lastSpellIdBeforeShopLeave: null,
   };
 }
 
@@ -73,6 +103,8 @@ export function resetTreasureLevelScopedState(state) {
   state.levelFirstWordSubmitted = false;
   state.levelFirstWordLength = null;
   state.levelDiscardsUsed = false;
+  state.levelVowelsUsedThisLevel = new Set();
+  state.levelFirstFullWordDiscardDone = false;
 }
 
 /** @param {TreasureRunState} state @param {() => number} [rng] */

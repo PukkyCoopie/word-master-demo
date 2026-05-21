@@ -14,7 +14,9 @@ export const treasureHooks = {
   getSubmitLengthBonus() {
     return 1;
   },
-  onLevelEnter(ctx) {
+  async onLevelEnter(ctx) {
+    await ctx.wobbleOwnedTreasureById?.(ID);
+    await ctx.playOwnedTreasureBubbleFx?.(ID, "-1", "score");
     ctx.addRemainingWords?.(-1);
   },
 };

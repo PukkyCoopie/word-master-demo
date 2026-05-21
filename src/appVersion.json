@@ -1,12 +1,17 @@
 {
   "major": 0,
   "minor": 0,
-  "patch": 6,
+  "patch": 7,
   "changelog": [
+    {
+      "version": "0.0.7",
+      "date": "2026-05-21",
+      "summary": "__FROM_COMMIT_MSG__"
+    },
     {
       "version": "0.0.6",
       "date": "2026-05-20",
-      "summary": "__FROM_COMMIT_MSG__"
+      "summary": "- Introduced new CSS styles for spell target confirmation, enhancing visual feedback during spell selection.\n- Updated spell definitions and mechanics to reflect changes in the \"grim\" spell, now renamed to \"幽魂\" with adjusted effects.\n- Refactored game logic to support new random spell selection mechanics, improving user interaction during gameplay.\n- Enhanced treasure mechanics to include new functionality for managing treasure multipliers, enriching the overall game experience."
     },
     {
       "version": "0.0.5",

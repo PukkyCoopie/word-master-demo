@@ -1,5 +1,7 @@
 import { describe, money } from "../treasureDescription.js";
 
+const ID = "27";
+
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 4,
@@ -9,11 +11,12 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  onLevelComplete(ctx) {
+  async onLevelComplete(ctx) {
     const rs = ctx.treasureRun;
     if (!rs || rs.levelDiscardsUsed) return;
     const remaining = Math.max(0, Math.floor(Number(ctx.remainingRemovals) || 0));
     if (remaining <= 0) return;
-    ctx.addMoney?.(remaining * 2);
+    const amount = remaining * 2;
+    await ctx.playOwnedTreasureMoneyFx?.(ID, amount);
   },
 };

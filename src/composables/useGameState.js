@@ -433,12 +433,14 @@ export const MAX_LETTERS_PER_REMOVAL = 8;
  *   runSeedNumeric?: number,
  *   pillarUsedDeckUidsRef?: import("vue").Ref<Set<number>>,
  *   verdantTreasureSoldRef?: import("vue").Ref<boolean>,
+ *   bossMechanicsSuppressedRef?: import("vue").Ref<boolean>,
  * }} [gameOpts]
  */
 export function useGameState(gameOpts = {}) {
   const ownedVoucherIdsRef = gameOpts?.ownedVoucherIdsRef ?? null;
   const pillarUsedDeckUidsRef = gameOpts?.pillarUsedDeckUidsRef ?? null;
   const verdantTreasureSoldRef = gameOpts?.verdantTreasureSoldRef ?? null;
+  const bossMechanicsSuppressedRef = gameOpts?.bossMechanicsSuppressedRef ?? null;
   const getRng =
     typeof gameOpts?.getRng === "function" ? gameOpts.getRng : defaultRng;
   resetDeckCardUidSeqForRun(gameOpts?.runSeedNumeric ?? 0);
@@ -458,6 +460,12 @@ export function useGameState(gameOpts = {}) {
   /** 当前小关 Boss slug（x-3 / 8-3）；非 Boss 小关为空串） */
   const activeBossSlug = ref("");
 
+  /** 计分/补牌等 Boss 机制用 slug；盾牌(116) 持有时为空（UI 仍用 `activeBossSlug`） */
+  function bossSlugForMechanics() {
+    if (bossMechanicsSuppressedRef?.value === true) return "";
+    return activeBossSlug.value;
+  }
+
   function getBossTileDebuffContext() {
     return {
       pillarUsedDeckUids: pillarUsedDeckUidsRef?.value,
@@ -468,7 +476,7 @@ export function useGameState(gameOpts = {}) {
   /** 新入盘或改字母后，按当前 Boss 刷新格上削弱标记 */
   function stampBossTileDebuffIfNeeded(tile) {
     if (!tile?.letter || String(tile.letter).trim() === "") return;
-    applyBossTileDebuffState(tile, activeBossSlug.value, getBossTileDebuffContext());
+    applyBossTileDebuffState(tile, bossSlugForMechanics(), getBossTileDebuffContext());
   }
 
   /**
@@ -765,7 +773,7 @@ export function useGameState(gameOpts = {}) {
     const forcedUid = opts.forcedJokerDrawUid ?? null;
     let forcedUsed = false;
 
-    const manacle = activeBossSlug.value === "the_manacle";
+    const manacle = bossSlugForMechanics() === "the_manacle";
 
     const rows = [];
 
@@ -835,7 +843,7 @@ export function useGameState(gameOpts = {}) {
 
     const lengthJb =
       ownedVoucherIdsRef != null ? getWordLengthJudgmentBonus(ownedVoucherIdsRef.value ?? []) : 0;
-    const flintOpts = activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
+    const flintOpts = bossSlugForMechanics() === "the_flint" ? { bossFlintQuarter: true } : {};
     flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;
     const base = computeWordScore(tiles, 1, lengthLevelsByLength.value, rarityLevelsByRarity.value, lengthJb, flintOpts);
     const g = grid.value;
@@ -954,10 +962,10 @@ export function useGameState(gameOpts = {}) {
    * @returns {{ row: number, col: number } | null}
    */
   function prepareCeruleanBellPickAfterGridStable() {
-    if (activeBossSlug.value !== "cerulean_bell") return null;
+    if (bossSlugForMechanics() !== "cerulean_bell") return null;
     clearCeruleanBellFlagsOnGrid();
     const g = grid.value;
-    const top = activeBossSlug.value === "the_manacle" ? 1 : 0;
+    const top = bossSlugForMechanics() === "the_manacle" ? 1 : 0;
     /** @type {{ r: number, c: number }[]} */
     const opts = [];
     for (let r = top; r < ROWS; r++) {
@@ -982,15 +990,15 @@ export function useGameState(gameOpts = {}) {
   const SERPENT_BOSS_REFILL_COUNT = 3;
 
   function isSerpentLimitedRefillActive(skipNewFromDeck = false) {
-    return activeBossSlug.value === "the_serpent" && skipNewFromDeck !== true;
+    return bossSlugForMechanics() === "the_serpent" && skipNewFromDeck !== true;
   }
 
   /** 游蛇：在重力落定后的空位中，总共只从牌库放入 SERPENT_BOSS_REFILL_COUNT 枚 */
   function applySerpentRefillFromDeck() {
-    if (activeBossSlug.value !== "the_serpent") return;
+    if (bossSlugForMechanics() !== "the_serpent") return;
     const g = grid.value;
     const d = deck.value;
-    const top = activeBossSlug.value === "the_manacle" ? 1 : 0;
+    const top = bossSlugForMechanics() === "the_manacle" ? 1 : 0;
     let placed = 0;
     while (placed < SERPENT_BOSS_REFILL_COUNT && d.length > 0) {
       let progressed = false;
@@ -1025,7 +1033,7 @@ export function useGameState(gameOpts = {}) {
 
     const d = deck.value;
 
-    const manacle = activeBossSlug.value === "the_manacle";
+    const manacle = bossSlugForMechanics() === "the_manacle";
 
     for (const col of [...Array(COLS).keys()]) {
       if (manacle) {
@@ -1104,7 +1112,7 @@ export function useGameState(gameOpts = {}) {
 
   function buildLastWordPayload(getDefinition, tilesSnapshot) {
     const word = tilesSnapshot.map((c) => c.letter.toLowerCase()).join("");
-    const flintOpts = activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
+    const flintOpts = bossSlugForMechanics() === "the_flint" ? { bossFlintQuarter: true } : {};
     flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;
     const patternWord = tilesSnapshot.map((c) => c.letter.toLowerCase()).join("");
     const scoreInfo = computeWordScoreDetailed(
@@ -1130,7 +1138,7 @@ export function useGameState(gameOpts = {}) {
     const resolvedWord = String(options?.resolvedWord ?? "").toLowerCase().trim();
     const word = resolvedWord || fallbackWord;
     const definition = getDefinition ? getDefinition(word) : null;
-    const flintOpts = activeBossSlug.value === "the_flint" ? { bossFlintQuarter: true } : {};
+    const flintOpts = bossSlugForMechanics() === "the_flint" ? { bossFlintQuarter: true } : {};
     flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;
     const scoreInfo =
       scoreInfoOverride != null
@@ -1216,7 +1224,7 @@ export function useGameState(gameOpts = {}) {
 
     const removeSet = new Set(order.map(({ row, col }) => `${row},${col}`));
 
-    const manacleRm = activeBossSlug.value === "the_manacle";
+    const manacleRm = bossSlugForMechanics() === "the_manacle";
 
     for (let col = 0; col < COLS; col++) {
 
@@ -1328,7 +1336,7 @@ export function useGameState(gameOpts = {}) {
 
     const d = deck.value;
     finalizeConsumedGridTileDeckCard(g[targetRow][targetCol]);
-    const manacleIce = activeBossSlug.value === "the_manacle";
+    const manacleIce = bossSlugForMechanics() === "the_manacle";
     if (manacleIce) {
       const blocked = g[0][targetCol];
       const columnTiles = [];
@@ -1448,7 +1456,7 @@ export function useGameState(gameOpts = {}) {
     const ts =
       tsOpt != null && Number.isFinite(Number(tsOpt))
         ? Number(tsOpt)
-        : resolveLevelTargetScore(lid, activeBossSlug.value);
+        : resolveLevelTargetScore(lid, bossSlugForMechanics());
     const snap = initialDeckSnapshot.value.filter((c) => c && typeof c === "object");
     for (const c of snap) {
       /** @type {{ everLeftDrawPile?: boolean }} */ (c).everLeftDrawPile = false;

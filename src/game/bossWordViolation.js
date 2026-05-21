@@ -1,3 +1,5 @@
+import { isBossEffectsSuppressedByTreasures } from "./treasureBossSuppress.js";
+
 /**
  * Boss 词长 / 词性「软规则」：不挡提交，违规时本手计 0 分（由调用方处理）。
  */
@@ -49,10 +51,13 @@ export function getEndingLetterRarityFromTiles(tiles) {
 }
 
 /**
- * @param {{ slug: string, wordLen: number, resolvedWord: string, endingLetterRarity?: string, getWordDefinition: (w: string) => { pos?: string } | null | undefined, usedLengthsThisLevel: Set<number>, mouthLockedLength: number | null, clubRequiredKey: string | null }} ctx
+ * @param {{ slug: string, wordLen: number, resolvedWord: string, endingLetterRarity?: string, getWordDefinition: (w: string) => { pos?: string } | null | undefined, usedLengthsThisLevel: Set<number>, mouthLockedLength: number | null, clubRequiredKey: string | null, ownedSlotTreasureIds?: (string | null | undefined)[] }} ctx
  * @returns {{ violated: boolean, reason: string }}
  */
 export function evaluateBossSoftWordViolation(ctx) {
+  if (isBossEffectsSuppressedByTreasures(ctx.ownedSlotTreasureIds)) {
+    return { violated: false, reason: "" };
+  }
   const slug = String(ctx.slug ?? "");
   if (!slug) return { violated: false, reason: "" };
   const wordLen = Math.max(0, Math.round(Number(ctx.wordLen)) || 0);
