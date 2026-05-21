@@ -1,8 +1,13 @@
 {
   "major": 0,
   "minor": 0,
-  "patch": 7,
+  "patch": 8,
   "changelog": [
+    {
+      "version": "0.0.8",
+      "date": "2026-05-21",
+      "summary": "__FROM_COMMIT_MSG__"
+    },
     {
       "version": "0.0.7",
       "date": "2026-05-21",
