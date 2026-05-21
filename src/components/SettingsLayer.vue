@@ -65,6 +65,47 @@
               </div>
             </div>
           </div>
+
+          <div class="settings-row settings-row--cycle">
+            <span class="settings-row-label">对调按钮</span>
+            <div class="settings-cycle" role="group" aria-label="对调按钮范围">
+              <button
+                type="button"
+                class="settings-cycle-arrow"
+                aria-label="上一项"
+                @click="onSwapModePrev"
+              >
+                <i class="ri-arrow-left-s-line" aria-hidden="true" />
+              </button>
+              <span class="settings-cycle-value" aria-live="polite">
+                <span class="settings-cycle-value-sizer" aria-hidden="true">{{ swapModeSizerLabel }}</span>
+                <span class="settings-cycle-value-text">{{ swapModeLabel }}</span>
+              </span>
+              <button
+                type="button"
+                class="settings-cycle-arrow"
+                aria-label="下一项"
+                @click="onSwapModeNext"
+              >
+                <i class="ri-arrow-right-s-line" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+
+          <label class="settings-row">
+            <span class="settings-row-label">对调时标记</span>
+            <button
+              type="button"
+              class="settings-toggle"
+              role="switch"
+              :aria-checked="markOnSwap"
+              @click="onToggleMarkOnSwap"
+            >
+              <span class="settings-toggle-track" :class="{ 'settings-toggle-track--on': markOnSwap }">
+                <span class="settings-toggle-thumb" />
+              </span>
+            </button>
+          </label>
         </div>
         </div>
 
@@ -81,10 +122,13 @@ import { computed, ref, watch } from "vue";
 import {
   UI_SCALE_MAX,
   UI_SCALE_MIN,
+  SWAP_BUTTON_MODE_OPTIONS,
   clampUiScalePercent,
   gameSettings,
   setAllowSpellingAbbreviations,
+  setMarkOnSwap,
   setUiScalePercent,
+  stepSwapButtonMode,
 } from "../settings/gameSettings.js";
 
 defineProps({
@@ -96,7 +140,29 @@ defineEmits(["close"]);
 const titleId = "settings-layer-title";
 
 const allowAbbrev = computed(() => gameSettings.allowSpellingAbbreviations === true);
+const markOnSwap = computed(() => gameSettings.markOnSwap !== false);
 const uiScalePercent = computed(() => gameSettings.uiScalePercent);
+
+const swapModeSizerLabel = SWAP_BUTTON_MODE_OPTIONS.reduce((a, b) =>
+  a.label.length >= b.label.length ? a : b,
+).label;
+
+const swapModeLabel = computed(() => {
+  const id = gameSettings.swapButtonMode;
+  return SWAP_BUTTON_MODE_OPTIONS.find((o) => o.id === id)?.label ?? "最下面8个";
+});
+
+function onSwapModePrev() {
+  stepSwapButtonMode(-1);
+}
+
+function onSwapModeNext() {
+  stepSwapButtonMode(1);
+}
+
+function onToggleMarkOnSwap() {
+  setMarkOnSwap(!markOnSwap.value);
+}
 
 const scaleSliderStyle = computed(() => {
   const t = (uiScalePercent.value - UI_SCALE_MIN) / (UI_SCALE_MAX - UI_SCALE_MIN);
@@ -167,8 +233,8 @@ function onScaleInputEnter(e) {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  width: min(calc(540 * var(--rpx)), calc(100% - 48 * var(--rpx)));
-  height: min(calc(700 * var(--rpx)), calc(100% - 48 * var(--rpx)));
+  width: min(calc(620 * var(--rpx)), calc(100% - 40 * var(--rpx)));
+  height: min(calc(820 * var(--rpx)), calc(100% - 40 * var(--rpx)));
   overflow: hidden;
   background: var(--card-bright);
   border-radius: var(--radius);
@@ -259,16 +325,91 @@ function onScaleInputEnter(e) {
   transform: translateX(calc(24 * var(--rpx)));
 }
 
-.settings-row--scale {
-  flex-direction: column;
-  align-items: stretch;
-  gap: calc(12 * var(--rpx));
+.settings-row--cycle {
   cursor: default;
 }
 
-.settings-scale-controls {
+.settings-cycle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8 * var(--rpx));
+  padding: 0 calc(4 * var(--rpx));
+  background: transparent;
+  border: none;
+  box-sizing: border-box;
+}
+
+.settings-cycle-arrow {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: calc(36 * var(--rpx));
+  height: calc(36 * var(--rpx));
+  padding: 0;
+  border: none;
+  border-radius: calc(8 * var(--rpx));
+  background: transparent;
+  color: var(--text-dark, #3c3a32);
+  font-size: calc(24 * var(--rpx));
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 0.14s ease;
+}
+
+.settings-cycle-arrow:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.settings-cycle-arrow:active {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.settings-cycle-arrow:focus-visible {
+  outline: calc(2 * var(--rpx)) solid #5a8fb8;
+  outline-offset: calc(1 * var(--rpx));
+}
+
+.settings-cycle-value {
+  position: relative;
+  flex: 0 0 auto;
+  font-size: calc(22 * var(--rpx));
+  font-weight: 700;
+  line-height: calc(36 * var(--rpx));
+  color: var(--text-dark, #3c3a32);
+}
+
+.settings-cycle-value-sizer {
+  visibility: hidden;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+
+.settings-cycle-value-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.settings-row--scale {
+  cursor: default;
+}
+
+.settings-row--scale .settings-row-label {
+  flex-shrink: 0;
+}
+
+.settings-scale-controls {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: calc(10 * var(--rpx));
   min-width: 0;
 }

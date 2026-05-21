@@ -448,11 +448,12 @@
               <i class="ri-bookmark-line" aria-hidden="true"></i>
             </button>
             <button
+              v-if="showSwapWordButton"
               type="button"
               class="action-aux-btn action-aux-btn--purple"
               :class="{ 'action-aux-btn--disabled': !canSwapWordSelection }"
-              title="将拼词中的字母送回棋盘，并选中原先未选的字母"
-              aria-label="互换拼词与棋盘选中"
+              :title="swapWordButtonTitle"
+              :aria-label="swapWordButtonTitle"
               @click="onSwapWordSelectionClick"
             >
               <i class="ri-arrow-up-down-line" aria-hidden="true"></i>
@@ -857,6 +858,7 @@ import {
   parseLevelSubFromId,
 } from "../vouchers/voucherRuntime.js";
 import { useDictionary } from "../composables/useDictionary";
+import { gameSettings, getMarkOnSwap, getSwapButtonMode } from "../settings/gameSettings.js";
 import {
   getBaseScoreForRarity,
   getWordLengthScoreForTableLen,
@@ -3944,6 +3946,45 @@ function collectSwappableGridPositions(excludePositionKeys = null) {
   return list;
 }
 
+/** @returns {Set<string>} */
+function buildRandomEightPositionKeys() {
+  const keys = [];
+  for (let r = 0; r < ROWS; r += 1) {
+    for (let c = 0; c < COLS; c += 1) {
+      keys.push(`${r},${c}`);
+    }
+  }
+  for (let i = keys.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = keys[i];
+    keys[i] = keys[j];
+    keys[j] = t;
+  }
+  return new Set(keys.slice(0, 8));
+}
+
+/**
+ * 按设置的对调范围筛选棋盘格；`pickCount` 有值时仅取前 N 个（非「对调全部」模式）。
+ * @param {Set<string> | null} excludePositionKeys
+ * @param {number | null} pickCount
+ */
+function resolveSwapGridTargets(excludePositionKeys, pickCount = null) {
+  const mode = getSwapButtonMode();
+  const all = collectSwappableGridPositions(excludePositionKeys);
+  if (mode === "all") return all;
+
+  const randomRegionKeys = mode === "random8" ? buildRandomEightPositionKeys() : null;
+  const filtered = all.filter(({ row, col }) => {
+    if (mode === "bottom8") return row >= ROWS / 2;
+    if (mode === "top8") return row < ROWS / 2;
+    if (mode === "random8") return randomRegionKeys?.has(`${row},${col}`) === true;
+    return true;
+  });
+
+  if (pickCount == null || pickCount <= 0) return filtered;
+  return filtered.slice(0, pickCount);
+}
+
 /** 用于提交按钮的「即将生效」单词：飞入中视为已加入，飞回中视为已移除，不等到动画结束 */
 const effectiveWordForSubmit = computed(() => buildEffectiveWordPartsForSubmit().word);
 
@@ -4852,12 +4893,26 @@ const canUseWordAuxTools = computed(() => {
   return collectWordAuxTargetTiles().length > 0;
 });
 
+const showSwapWordButton = computed(() => gameSettings.swapButtonMode !== "hidden");
+
+const swapWordButtonTitle = computed(() => {
+  const mode = getSwapButtonMode();
+  if (mode === "bottom8") return "将拼词中的字母送回棋盘，并从最下面 8 格选入新字母";
+  if (mode === "top8") return "将拼词中的字母送回棋盘，并从最上面 8 格选入新字母";
+  if (mode === "random8") return "将拼词中的字母送回棋盘，并从随机 8 格选入新字母";
+  return "将拼词中的字母送回棋盘，并选中原先未选的字母";
+});
+
 const canSwapWordSelection = computed(() => {
+  if (!showSwapWordButton.value) return false;
   if (!canUseWordAuxTools.value) return false;
   if (ceruleanBellSlotIndex.value != null) return false;
   if (flyingBackBatches.value.length > 0) return false;
   const hasInWord = effectiveSelectedCount.value > 0 || flyingLetters.value.length > 0;
-  const hasOnGrid = collectSwappableGridPositions(buildWordSelectionPositionKeys()).length > 0;
+  const inWordCount = selectedOrder.value.length + flyingLetters.value.length;
+  const pickCount = getSwapButtonMode() === "all" ? null : inWordCount;
+  const hasOnGrid =
+    resolveSwapGridTargets(buildWordSelectionPositionKeys(), pickCount).length > 0;
   return hasInWord && hasOnGrid;
 });
 
@@ -4877,7 +4932,20 @@ async function onSwapWordSelectionClick() {
   wordSelectionSwapBusy.value = true;
   /** 飞回会清空 `tile.selected`，须在清槽前记下「原先在拼词中」的格，再选补集 */
   const previouslyInWord = buildWordSelectionPositionKeys();
+  const inWordCountBefore =
+    selectedOrder.value.length +
+    flyingLetters.value.filter((f) => f.pendingRow != null).length;
+  const swapMode = getSwapButtonMode();
+  const pickCount = swapMode === "all" ? null : inWordCountBefore;
   try {
+    if (getMarkOnSwap()) {
+      const tiles = collectWordAuxTargetTiles();
+      for (const tile of tiles) {
+        tile.playerMarked = true;
+      }
+      touchGrid();
+    }
+
     if (flyingLetters.value.length > 0) cancelAllFlyingIn();
     if (flyingBackBatches.value.length > 0) await waitForFlyingBackIdle();
 
@@ -4891,7 +4959,7 @@ async function onSwapWordSelectionClick() {
       await waitForFlyingBackIdle();
     }
 
-    const toSelect = collectSwappableGridPositions(previouslyInWord);
+    const toSelect = resolveSwapGridTargets(previouslyInWord, pickCount);
     if (toSelect.length === 0) return;
     for (const { row, col, tile } of toSelect) {
       startOneMoveIn(row, col, tile);
