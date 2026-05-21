@@ -16,7 +16,7 @@
 ## 日常 commit 时会发生什么
 
 1. **pre-commit**（`commit-msg` 也会补跑）：若**最新版本**的 md 仍是模板/空白 → 把本次 **commit 说明** 写入该文件，并设 `show: false`（仅存档，不进游戏列表）；若你已手写正文 → **不改动**。
-2. **post-commit**：按最大版本 +1（或 minor/major）新建下一版空 md，并同步 `appVersion.json` / `package.json`。
+2. **post-commit**：按最大版本 +1（或 minor/major）新建下一版空 md，并同步 `appVersion.json` / `package.json`（amend 时带 `SKIP_VERSION_BUMP`，避免连环升版）。
 
 要让玩家在游戏里看到某版说明：在该版本 md 里写好正文，并设 `show: true`。
 

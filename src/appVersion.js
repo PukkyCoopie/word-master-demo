@@ -10,8 +10,6 @@ export function formatAppVersion(v = versionData) {
   return `v${v.major}.${v.minor}.${v.patch}`;
 }
 
-export const GITHUB_REPO_URL = "https://github.com/pukkycoopie/word-master-demo";
-
 /** @type {AppChangelogEntry[]} 仅 show: true 的条目，新版本在前 */
 export const APP_CHANGELOG = changelogBundle.entries;
 

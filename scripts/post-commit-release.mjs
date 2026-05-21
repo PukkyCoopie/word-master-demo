@@ -73,9 +73,11 @@ function main() {
   }
 
   gitAdd(toAdd);
+  // amend 会再次触发 post-commit；须跳过，否则会连环升版（9 → 10 → … → 202）
   execSync("git commit --amend --no-edit --no-verify", {
     cwd: REPO_ROOT,
     stdio: "inherit",
+    env: { ...process.env, SKIP_VERSION_BUMP: "1" },
   });
 
   console.log(

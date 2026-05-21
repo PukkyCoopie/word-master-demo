@@ -285,6 +285,8 @@
             @click="onSlotClick(i)"
             @contextmenu.prevent.stop="onWordSlotContextMenu($event, i)"
             @pointerdown="onWordSlotDetailPointerDown($event, i)"
+            @pointerup="onWordSlotPointerUp($event, i)"
+            @pointercancel="onTilePointerCancel($event)"
           >
             <div class="word-slot-placeholder" aria-hidden="true"></div>
             <LetterTile
@@ -413,6 +415,8 @@
                   onGridTileContextMenu($event, Math.floor(index / COLS), index % COLS, tile)
                 "
                 @pointerdown="onGridTileDetailPointerDown($event, Math.floor(index / COLS), index % COLS, tile)"
+                @pointerup="onGridTilePointerUp($event, Math.floor(index / COLS), index % COLS, tile)"
+                @pointercancel="onTilePointerCancel($event)"
               />
               <div v-else class="letter-grid-cell--void" aria-hidden="true" />
             </template>
@@ -4382,6 +4386,57 @@ let tileLongPressCleanup = null;
 const TILE_LONG_PRESS_MS = 480;
 const TILE_LONG_PRESS_MOVE_PX = 14;
 
+/** 触摸/笔：在 pointerup 立即点选，避免移动端 click 延迟与连点丢触 */
+/** @type {Map<number, { x: number, y: number, time: number, fire: () => void, consumed: boolean }>} */
+const tilePrimaryTapPending = new Map();
+
+/** @param {PointerEvent} e */
+function isTouchLikePointer(e) {
+  return e.pointerType === "touch" || e.pointerType === "pen";
+}
+
+/** @param {PointerEvent} e @param {() => void} fire */
+function armTilePrimaryTap(e, fire) {
+  tilePrimaryTapPending.set(e.pointerId, {
+    x: e.clientX,
+    y: e.clientY,
+    time: performance.now(),
+    fire,
+    consumed: false,
+  });
+}
+
+/** @param {number} pointerId */
+function markTilePrimaryTapConsumed(pointerId) {
+  const s = tilePrimaryTapPending.get(pointerId);
+  if (s) s.consumed = true;
+}
+
+/** @param {number} pointerId */
+function clearTilePrimaryTap(pointerId) {
+  tilePrimaryTapPending.delete(pointerId);
+}
+
+/** @param {PointerEvent} e */
+function tryCompleteTilePrimaryTap(e) {
+  if (!isTouchLikePointer(e)) return;
+  const s = tilePrimaryTapPending.get(e.pointerId);
+  tilePrimaryTapPending.delete(e.pointerId);
+  if (!s || s.consumed) return;
+  const dt = performance.now() - s.time;
+  const dist = Math.hypot(e.clientX - s.x, e.clientY - s.y);
+  if (dt >= TILE_LONG_PRESS_MS || dist > TILE_LONG_PRESS_MOVE_PX) return;
+  e.preventDefault();
+  suppressTilePrimaryClick.value = true;
+  s.fire();
+}
+
+/** @param {PointerEvent} e */
+function onTilePointerCancel(e) {
+  clearTileLongPressArm();
+  clearTilePrimaryTap(e.pointerId);
+}
+
 function clearTileLongPressArm() {
   if (tileLongPressTimer != null) {
     clearTimeout(tileLongPressTimer);
@@ -4510,12 +4565,15 @@ function armTileLongPressFromPointer(e, openFn) {
   window.addEventListener("pointerup", up);
   window.addEventListener("pointercancel", up);
 
+  const pointerId = e.pointerId;
   tileLongPressTimer = window.setTimeout(() => {
     tileLongPressTimer = null;
     if (tileLongPressCleanup) {
       tileLongPressCleanup();
       tileLongPressCleanup = null;
     }
+    markTilePrimaryTapConsumed(pointerId);
+    suppressTilePrimaryClick.value = true;
     openFn();
   }, TILE_LONG_PRESS_MS);
 }
@@ -4536,17 +4594,24 @@ function onGridTileDetailPointerDown(e, row, col, tile) {
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value || gridRefillAnimating.value) return;
   if (tile.selected || isTileFlying(row, col)) return;
+  armTilePrimaryTap(e, () => onTileClick(row, col, tile));
   armTileLongPressFromPointer(e, () => {
     if (!canOpenTileDetail()) return;
     const t = grid.value[row]?.[col];
     if (!t || t.selected || isTileFlying(row, col)) return;
     const p = buildTileDetailPayloadFromTile(t);
     if (p) {
-      suppressTilePrimaryClick.value = true;
       const origin = tileOriginRectFromElement(getGridTileElByIndex(row * COLS + col));
       openTileDetail(p, origin);
     }
   });
+}
+
+/** @param {PointerEvent} e */
+function onGridTilePointerUp(e, row, col, tile) {
+  clearTileLongPressArm();
+  if (!tile) return;
+  tryCompleteTilePrimaryTap(e);
 }
 
 function onWordSlotContextMenu(e, i) {
@@ -4566,19 +4631,25 @@ function onWordSlotDetailPointerDown(e, i) {
   if (scoringAnimating.value) return;
   const order = selectedOrder.value;
   if (i < 0 || i >= order.length) return;
+  armTilePrimaryTap(e, () => onSlotClick(i));
   armTileLongPressFromPointer(e, () => {
     if (!canOpenTileDetail()) return;
     const order2 = selectedOrder.value;
     if (i < 0 || i >= order2.length) return;
     const p = buildWordSlotTileDetailPayload(i);
     if (p) {
-      suppressTilePrimaryClick.value = true;
       const slotEl = wordSlotRefs.value[i];
       const inner = slotEl?.querySelector?.(".word-slot-content");
       const origin = tileOriginRectFromElement(inner ?? slotEl);
       openTileDetail(p, origin);
     }
   });
+}
+
+/** @param {PointerEvent} e */
+function onWordSlotPointerUp(e, i) {
+  clearTileLongPressArm();
+  tryCompleteTilePrimaryTap(e);
 }
 
 function onDeckLayerBackdropClick() {
@@ -8769,10 +8840,19 @@ function setFlyingInRef(fly, el) {
   flyingInElById.set(fly.id, node);
   const item = fly;
   if (flyingInAnimStarted.has(item.id)) return;
-  flyingInAnimStarted.add(item.id);
   const r = item.fromRect;
   const t = item.toRect;
-  if (!t) return;
+  if (!t) {
+    nextTick(() => {
+      const latest = flyingLetters.value.find((f) => f.id === item.id);
+      const el = flyingInElById.get(item.id);
+      if (latest?.toRect && el && !flyingInAnimStarted.has(item.id)) {
+        setFlyingInRef(latest, el);
+      }
+    });
+    return;
+  }
+  flyingInAnimStarted.add(item.id);
   const tw = Math.max(t.width, 1e-6);
   const th = Math.max(t.height, 1e-6);
   const targetScale = item.targetSlotScale ?? 1;

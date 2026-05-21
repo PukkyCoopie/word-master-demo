@@ -2019,6 +2019,16 @@ body {
 	right: calc(var(--deck-tile-size) * 0.04);
 }
 
+.grid-tile {
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.word-slot-tile {
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
+}
+
 .grid-tile.selected,
 .grid-tile.tile-flying {
 	outline: none;

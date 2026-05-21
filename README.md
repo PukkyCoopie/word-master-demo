@@ -10,10 +10,6 @@ Completely built using vibe coding.
 npm install && npm run dev
 ```
 
-### 更新日志
-
-`changelog/` 下按版本存放 `major_minor_patch.md`；frontmatter 中 `show: true` 的才会出现在游戏更新日志（详见 `changelog/README.md`）。**commit 时**若最新版未手写说明，会把 commit 说明写入该 md（`show: false`）；**commit 后**自动准备下一版文件并同步版本号。
-
 MIT — See <a href="./LICENSE" target="_blank" rel="noopener noreferrer">LICENSE</a>
 
 
