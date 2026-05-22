@@ -1,16 +1,17 @@
 import {
+  getTileAccessoryEffectDescription,
+  getTileBoardAccessoryTitle,
   getTileMaterialBlockTitle,
   getTileMaterialEffectDescription,
+  getTreasureAccessoryPanelDescription,
+  getTreasureAccessoryPanelTitle,
 } from "../game/gameConceptCopy.js";
 
 /**
  * 法术卡详情 / 选格浮层：主描述下方的「增益说明」分区。
  *
- * **仅展示**：具名单种字母块材质及其计分/倍率/关卡金币等说明；名称与正文均来自 `gameConceptCopy.js`。
- *
- * **不展示**：类目词（如「宝藏配饰」）、抛光稀有度、复制、星星随机附魔、万能变形、麦克风/铃铛/电话换字等——见 `.cursor/rules/spell-gain-panel.mdc`。
- *
- * 骰子/向上/积累/标签/藏宝图/生长/删除/重播本体等仍不在此解释；重播仅嵌套上一张法术**仍满足上述条件时**的材质说明（正文与单独展示该法术时一致，不另加套话）。
+ * **展示**：具名材质块、或主描述点名的具名棋盘/宝藏配饰（文案来自 `gameConceptCopy.js`）。
+ * **不展示**：未点名的「随机配饰」等（由 `collectExplicitDescriptionConceptPanels` 补通用「配饰」）。
  *
  * @typedef {{ title: string, description: string }} SpellGainPanel
  */
@@ -32,6 +33,28 @@ function spellMaterialGainPanel(materialId) {
   const id = String(materialId ?? "").trim();
   if (id === "wildcard") return null;
   return materialGainPanelForMaterialId(id);
+}
+
+/**
+ * @param {string} accessoryId `treasure_acc_*`
+ * @returns {SpellGainPanel | null}
+ */
+function spellTreasureAccessoryGainPanel(accessoryId) {
+  const title = getTreasureAccessoryPanelTitle(accessoryId);
+  const description = getTreasureAccessoryPanelDescription(accessoryId);
+  if (!title || !description) return null;
+  return { title, description };
+}
+
+/**
+ * @param {string} accessoryId 棋盘配饰 id
+ * @returns {SpellGainPanel | null}
+ */
+function spellTileBoardAccessoryGainPanel(accessoryId) {
+  const title = getTileBoardAccessoryTitle(accessoryId);
+  const description = getTileAccessoryEffectDescription(accessoryId);
+  if (!title || !description) return null;
+  return { title, description };
 }
 
 /**
@@ -62,6 +85,16 @@ export function getSpellGainPanel(spellId, opts = {}) {
       return spellMaterialGainPanel("ice");
     case "flask":
       return spellMaterialGainPanel("gold");
+    case "diamond":
+      return spellTileBoardAccessoryGainPanel("vip_diamond");
+    case "ectoplasm":
+      return spellTreasureAccessoryGainPanel("treasure_acc_crop");
+    case "wrench":
+      return spellTreasureAccessoryGainPanel("treasure_acc_wrench");
+    case "talisman":
+      return spellTileBoardAccessoryGainPanel("coin");
+    case "deja_vu":
+      return spellTileBoardAccessoryGainPanel("rewind");
     default:
       return null;
   }

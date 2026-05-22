@@ -4033,6 +4033,7 @@ function flushFlyInSelections() {
       const item = flyInPendingComplete[i];
       if (item.targetSlotIndex !== selectedOrder.value.length) continue;
       selectTile(item.pendingRow, item.pendingCol);
+      clearGridTileGsapAfterDrop(getGridTileElByIndex(item.pendingRow * COLS + item.pendingCol));
       if (item.ceruleanBell) finalizeCeruleanBellSlotIndex();
       flyInPendingComplete.splice(i, 1);
       progressed = true;
@@ -7644,7 +7645,9 @@ function runGridDropAnimation(prevFlip, options = {}) {
       let movedInstantCount = 0;
       let newDropCount = 0;
       let fallbackNodeCount = 0;
-      const tick = () => {
+      /** 单格动画结束：立刻清掉 GSAP 行内 opacity，避免盖住 `.selected` / `.tile-flying` 的 0.1 */
+      const tickOne = (el) => {
+        clearGridTileGsapAfterDrop(el);
         if (settled) return;
         if (++completed >= pending) settleOnce();
       };
@@ -7675,7 +7678,7 @@ function runGridDropAnimation(prevFlip, options = {}) {
 
         if (isInitial) {
           gsap
-            .timeline({ delay: stagger, onComplete: tick })
+            .timeline({ delay: stagger, onComplete: () => tickOne(el) })
             .to(el, { y: 0, duration: dDrop, ease: EASE_GRID_GRAVITY_Y }, 0);
         } else if (tid && prevCellMap?.has(tid)) {
           const pCell = prevCellMap.get(tid);
@@ -7699,14 +7702,14 @@ function runGridDropAnimation(prevFlip, options = {}) {
               movedInstantCount += 1;
             }
             gsap.set(el, { x: 0, y: 0 });
-            tick();
+            tickOne(el);
           } else {
             if (movedCell) movedAnimatedCount += 1;
             gsap.set(el, { x: dx, y: dy, force3D: true });
             const gravityDom = Math.abs(dy) >= Math.abs(dx) && Math.abs(dy) > 1.5;
             if (gravityDom) {
               gsap
-                .timeline({ delay: flipDelay, onComplete: tick })
+                .timeline({ delay: flipDelay, onComplete: () => tickOne(el) })
                 .to(el, { x: 0, duration: dFlip, ease: EASE_GRID_LINEAR }, 0)
                 .to(el, { y: 0, duration: dFlip, ease: EASE_GRID_GRAVITY_Y }, 0);
             } else {
@@ -7716,7 +7719,7 @@ function runGridDropAnimation(prevFlip, options = {}) {
                 duration: dFlip,
                 delay: flipDelay,
                 ease: EASE_TRANSFORM,
-                onComplete: tick,
+                onComplete: () => tickOne(el),
               });
             }
           }
@@ -7730,9 +7733,11 @@ function runGridDropAnimation(prevFlip, options = {}) {
             y: y0,
             ...(dropFromAboveGrid ? { opacity: 0.55 } : {}),
           });
-          gsap
-            .timeline({ delay: stagger, onComplete: tick })
-            .to(el, { y: 0, opacity: 1, duration: dDrop, ease: EASE_GRID_GRAVITY_Y }, 0);
+          const dropTl = gsap.timeline({ delay: stagger, onComplete: () => tickOne(el) });
+          dropTl.to(el, { y: 0, duration: dDrop, ease: EASE_GRID_GRAVITY_Y }, 0);
+          if (dropFromAboveGrid) {
+            dropTl.to(el, { opacity: 1, duration: dDrop, ease: EASE_GRID_LINEAR }, 0);
+          }
         }
       }
       if (pending === 0) {
@@ -9402,6 +9407,7 @@ function startOneMoveIn(row, col, tile, options = {}) {
   const index = row * COLS + col;
   const fromEl = gridTileRefs.value[index] ?? getGridTileElByIndex(index);
   if (!fromEl) return;
+  clearGridTileGsapAfterDrop(fromEl);
   const fromRect = fromEl.getBoundingClientRect();
   const wrapEl = wordSlotsWrapRef.value;
   if (!wrapEl) return;

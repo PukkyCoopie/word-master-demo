@@ -79,19 +79,19 @@ export function getTileMaterialEffectDescription(materialId) {
 /** @type {Readonly<Record<string, Readonly<{ accessoryTitle: string, effectDescription: string }>>>} */
 export const TILE_BOARD_ACCESSORY_CONCEPT_BY_ID = Object.freeze({
   level_upgrade: Object.freeze({
-    accessoryTitle: "升级",
+    accessoryTitle: "升级配饰",
     effectDescription: "关卡完成时，如果升级配饰位于棋盘中，升级最后拼出的单词的长度等级",
   }),
   vip_diamond: Object.freeze({
-    accessoryTitle: "钻石",
+    accessoryTitle: "钻石配饰",
     effectDescription: "关卡完成时，如果钻石配饰位于最后拼出的单词的首位，升级该字母的稀有度等级",
   }),
   rewind: Object.freeze({
-    accessoryTitle: "重播",
+    accessoryTitle: "重播配饰",
     effectDescription: "额外触发1次",
   }),
   coin: Object.freeze({
-    accessoryTitle: "硬币",
+    accessoryTitle: "硬币配饰",
     effectDescription: "计分时提供 +$3",
   }),
 });
@@ -117,15 +117,11 @@ export function getTileAccessoryEffectDescription(accessoryId) {
 
 /**
  * 棋盘配饰的关联机制补充分区（用于详情层在配饰分区下追加说明）。
- * 目前仅「钻石」关联「升级」。
  * @param {string | null | undefined} accessoryId
  * @returns {{ title: string, effectDescription: string }[]}
  */
-export function getTileAccessoryLinkedConceptPanels(accessoryId) {
-  const id = normId(accessoryId);
-  if (id !== "vip_diamond") return [];
-  const panel = getGameTermConceptPanel("升级");
-  return panel ? [panel] : [];
+export function getTileAccessoryLinkedConceptPanels(_accessoryId) {
+  return [];
 }
 
 // ---------------------------------------------------------------------------
@@ -202,6 +198,90 @@ export const GAME_TERM_CONCEPT_BY_LABEL = Object.freeze({
 /** @typedef {{ title: string, effectDescription: string }} DescriptionConceptPanel */
 
 /**
+ * @typedef {{ title: string, effectDescription: string, matchAliases: string[] }} NamedAccessoryCatalogEntry
+ */
+
+/** @returns {NamedAccessoryCatalogEntry[]} */
+function buildNamedAccessoryCatalogEntries() {
+  /** @type {NamedAccessoryCatalogEntry[]} */
+  const entries = [];
+  for (const c of Object.values(TREASURE_ACCESSORY_CONCEPT_BY_ID)) {
+    entries.push({
+      title: c.title,
+      effectDescription: c.effectDescription,
+      matchAliases: [c.title],
+    });
+  }
+  for (const c of Object.values(TILE_BOARD_ACCESSORY_CONCEPT_BY_ID)) {
+    const title = c.accessoryTitle;
+    const aliases = [title];
+    if (!title.endsWith("配饰")) aliases.push(`${title}配饰`);
+    entries.push({ title, effectDescription: c.effectDescription, matchAliases: aliases });
+  }
+  return entries.sort((a, b) => {
+    const al = Math.max(...a.matchAliases.map((x) => x.length));
+    const bl = Math.max(...b.matchAliases.map((x) => x.length));
+    return bl - al;
+  });
+}
+
+/**
+ * @param {unknown} description
+ * @returns {string}
+ */
+function descriptionToPlainText(description) {
+  if (!Array.isArray(description)) return String(description ?? "");
+  /** @type {string[]} */
+  const parts = [];
+  /** @param {unknown[]} segs */
+  function walk(segs) {
+    for (const seg of segs) {
+      if (!seg || typeof seg !== "object") continue;
+      if (seg.type === "text" || seg.type === "gain" || seg.type === "concept") {
+        parts.push(String(seg.v ?? ""));
+      } else if (seg.type === "gainBlock" && Array.isArray(seg.parts)) {
+        walk(seg.parts);
+      }
+    }
+  }
+  walk(description);
+  return parts.join("");
+}
+
+/**
+ * @param {string} text
+ * @returns {boolean}
+ */
+function textMentionsAnyNamedAccessory(text) {
+  const s = String(text ?? "");
+  for (const entry of buildNamedAccessoryCatalogEntries()) {
+    for (const alias of entry.matchAliases) {
+      if (alias && s.includes(alias)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * @param {string} text
+ * @param {Set<string>} seen
+ * @returns {DescriptionConceptPanel[]}
+ */
+function collectNamedAccessoryPanelsFromPlainText(text, seen) {
+  const s = String(text ?? "");
+  /** @type {DescriptionConceptPanel[]} */
+  const panels = [];
+  for (const entry of buildNamedAccessoryCatalogEntries()) {
+    if (!entry.title || seen.has(entry.title)) continue;
+    const hit = entry.matchAliases.some((alias) => alias && s.includes(alias));
+    if (!hit) continue;
+    seen.add(entry.title);
+    panels.push({ title: entry.title, effectDescription: entry.effectDescription });
+  }
+  return panels;
+}
+
+/**
  * @param {string} label
  * @returns {DescriptionConceptPanel | null}
  */
@@ -213,7 +293,8 @@ export function getGameTermConceptPanel(label) {
 }
 
 /**
- * 从简介片段中收集 `concept(...)` 标记的机制词分区（不做全文匹配）。
+ * 从简介收集补充分区：`concept('升级')` 等机制词；文案出现具名配饰（火焰/裁剪/钻石配饰等）时追加该配饰说明；
+ * 仅当提到「配饰」但未指名任何一种时，才追加通用「配饰」机制词。
  *
  * @param {unknown} description
  * @param {Set<string> | Iterable<string>} [excludeTitles] 已单独展示的分区标题
@@ -223,30 +304,30 @@ export function collectExplicitDescriptionConceptPanels(description, excludeTitl
   const seen = new Set([...excludeTitles].map((t) => String(t ?? "").trim()).filter(Boolean));
   /** @type {DescriptionConceptPanel[]} */
   const panels = [];
-  let mentionsAccessory = false;
   /** @param {unknown[]} segs */
-  function walk(segs) {
+  function walkConceptSegments(segs) {
     for (const seg of segs) {
       if (!seg || typeof seg !== "object") continue;
       if (seg.type === "concept") {
-        if (String(seg.v ?? "").includes("配饰")) mentionsAccessory = true;
-        const entry = getGameTermConceptPanel(seg.v);
+        const label = String(seg.v ?? "").trim();
+        if (label === "配饰") continue;
+        const entry = getGameTermConceptPanel(label);
         if (!entry || seen.has(entry.title)) continue;
         seen.add(entry.title);
         panels.push(entry);
       } else if (seg.type === "gainBlock" && Array.isArray(seg.parts)) {
-        walk(seg.parts);
-      } else if (seg.type === "text" || seg.type === "gain") {
-        if (String(seg.v ?? "").includes("配饰")) mentionsAccessory = true;
+        walkConceptSegments(seg.parts);
       }
     }
   }
   if (Array.isArray(description)) {
-    walk(description);
-  } else if (String(description ?? "").includes("配饰")) {
-    mentionsAccessory = true;
+    walkConceptSegments(description);
   }
-  if (mentionsAccessory) {
+  const plain = descriptionToPlainText(description);
+  for (const panel of collectNamedAccessoryPanelsFromPlainText(plain, seen)) {
+    panels.push(panel);
+  }
+  if (plain.includes("配饰") && !textMentionsAnyNamedAccessory(plain)) {
     const entry = getGameTermConceptPanel("配饰");
     if (entry && !seen.has(entry.title)) {
       seen.add(entry.title);

@@ -114,7 +114,7 @@ export function buildDeckTileOfferDisplay(letterDisp, mods) {
   const descParts = [];
   if (mat) descParts.push(`「${getTileMaterialBlockTitle(mat) || mat}」材质`);
   if (tAcc) descParts.push(`「${getTreasureAccessoryPanelTitle(tAcc) || tAcc}」`);
-  if (bAcc) descParts.push(`「${getTileBoardAccessoryTitle(bAcc) || bAcc}」配饰`);
+  if (bAcc) descParts.push(`「${getTileBoardAccessoryTitle(bAcc) || bAcc}」`);
   const description = descParts.length
     ? `${descParts.join("、")}的「${letterDisp}」加入牌库`
     : `「${letterDisp}」加入牌库${mods.rarityLabel ? `（${mods.rarityLabel}）` : ""}`;

@@ -223,7 +223,7 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
-      description: `从下列字母中随机挑选1个，为其添加${getTileBoardAccessoryTitle("coin")}配饰`,
+      description: `从下列字母中随机挑选1个，为其添加${getTileBoardAccessoryTitle("coin")}`,
     },
     {
       id: "aura",
@@ -290,7 +290,7 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
-      description: `从下列字母中随机挑选1个，为其添加${getTileBoardAccessoryTitle("rewind")}配饰`,
+      description: `从下列字母中随机挑选1个，为其添加${getTileBoardAccessoryTitle("rewind")}`,
     },
     {
       id: "wrench",
@@ -308,12 +308,7 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
-      description: describe(
-        `从下列字母中随机挑选1个，为其添加${getTileBoardAccessoryTitle("vip_diamond")}配饰`,
-        "（触发效果属于",
-        concept("升级"),
-        "）",
-      ),
+      description: `从下列字母中随机挑选1个，为其添加${getTileBoardAccessoryTitle("vip_diamond")}`,
     },
     {
       id: "eclipse_length",
