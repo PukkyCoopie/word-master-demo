@@ -1014,7 +1014,22 @@ export function useGameState(gameOpts = {}) {
     return bossSlugForMechanics() === "the_serpent" && skipNewFromDeck !== true;
   }
 
-  /** 游蛇：在重力落定后的空位中，总共只从牌库放入 SERPENT_BOSS_REFILL_COUNT 枚 */
+  function isGridCellEmptyForRefill(cell) {
+    return !cell || !cell.letter || String(cell.letter).trim() === "";
+  }
+
+  /** 游蛇补牌：该列中 row 最大且为空的格（紧贴下方已有字母堆叠） */
+  function findSerpentRefillRowInColumn(g, col, topRow) {
+    let slot = -1;
+    for (let r = topRow; r < ROWS; r++) {
+      const cell = g[r][col];
+      if (cell?.bossGridBlocked) continue;
+      if (isGridCellEmptyForRefill(cell)) slot = r;
+    }
+    return slot;
+  }
+
+  /** 游蛇：重力落定后仅从牌库补 SERPENT_BOSS_REFILL_COUNT 枚，每枚落在所在列最下方空位 */
   function applySerpentRefillFromDeck() {
     if (bossSlugForMechanics() !== "the_serpent") return;
     const g = grid.value;
@@ -1023,19 +1038,15 @@ export function useGameState(gameOpts = {}) {
     let placed = 0;
     while (placed < SERPENT_BOSS_REFILL_COUNT && d.length > 0) {
       let progressed = false;
-      outer: for (let r = top; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          const cell = g[r][c];
-          if (cell?.bossGridBlocked) continue;
-          const isEmpty = !cell || !cell.letter || String(cell.letter).trim() === "";
-          if (!isEmpty) continue;
-          const card = drawFromDeck(d, getRng);
-          if (!card) break outer;
-          g[r][c] = createGridTileFromDeckCard(card);
-          placed += 1;
-          progressed = true;
-          if (placed >= SERPENT_BOSS_REFILL_COUNT) break outer;
-        }
+      for (let c = 0; c < COLS; c++) {
+        const r = findSerpentRefillRowInColumn(g, c, top);
+        if (r < 0) continue;
+        const card = drawFromDeck(d, getRng);
+        if (!card) return;
+        g[r][c] = createGridTileFromDeckCard(card);
+        placed += 1;
+        progressed = true;
+        if (placed >= SERPENT_BOSS_REFILL_COUNT) break;
       }
       if (!progressed) break;
     }

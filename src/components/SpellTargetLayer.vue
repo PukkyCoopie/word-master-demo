@@ -182,7 +182,7 @@
 
 <script setup>
 import gsap from "gsap";
-import { computed, onMounted, onUnmounted, ref, shallowRef, useId, watch, nextTick } from "vue";
+import { computed, onBeforeUpdate, onMounted, onUnmounted, ref, shallowRef, useId, watch, nextTick } from "vue";
 import { EASE_TRANSFORM } from "../constants.js";
 import {
   runDetachedSpellTileAppearanceAnim,
@@ -289,15 +289,18 @@ const spellGainPanelContent = computed(() => {
   return panel && String(panel.description ?? "").trim() ? panel : null;
 });
 
-const descriptionConceptPanelRefs = ref([]);
+/** 机制词补充分区 DOM：非响应式，避免 `:ref` 回调写入 ref 触发无限重渲染（扳手等含「配饰」描述的法术） */
+/** @type {(HTMLElement | null)[]} */
+const descriptionConceptPanelRefs = [];
 
 /** @param {number} i @param {unknown} el */
 function setDescriptionConceptPanelRef(i, el) {
-  if (!(el instanceof HTMLElement)) return;
-  const arr = [...descriptionConceptPanelRefs.value];
-  arr[i] = el;
-  descriptionConceptPanelRefs.value = arr;
+  descriptionConceptPanelRefs[i] = el instanceof HTMLElement ? el : null;
 }
+
+onBeforeUpdate(() => {
+  descriptionConceptPanelRefs.length = 0;
+});
 
 const descriptionConceptPanels = computed(() => {
   const s = props.session;
@@ -333,7 +336,7 @@ function staggerTargets() {
     iconColumnRef.value,
     descRef.value,
     spellGainPanelRef.value,
-    ...descriptionConceptPanelRefs.value.filter((el) => el instanceof HTMLElement),
+    ...descriptionConceptPanelRefs.filter((el) => el instanceof HTMLElement),
     spellCardRef.value,
   ].filter(Boolean);
 }

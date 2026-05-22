@@ -788,6 +788,7 @@ import {
   recordShopPurchase,
   recordWordSubmit,
 } from "../game/runMatchStats.js";
+import { playRunEndWinConfettiBursts } from "../game/runEndWinConfetti.js";
 import BossBlindRerollLayer from "./BossBlindRerollLayer.vue";
 import { getBossDef } from "../game/bossBlindDefinitions.js";
 import {
@@ -2701,18 +2702,26 @@ const showRunEnd = ref(false);
 /** @type {import('vue').Ref<'fail' | 'win'>} */
 const runEndOutcome = ref("fail");
 const runEndConfettiCanvasRef = ref(null);
-let runEndConfettiBurstTimer = 0;
+/** @type {number[]} */
+let runEndConfettiBurstTimers = [];
 /** @type {ReturnType<typeof confetti.create> | null} */
 let runEndConfettiFire = null;
 const runMatchStats = ref(createRunMatchStats());
 const runEndStatsRows = computed(() => getRunMatchStatsRows(runMatchStats.value));
 const treasureRunState = ref(createTreasureRunState());
 
-function clearRunEndConfettiBurstTimer() {
-  if (runEndConfettiBurstTimer) {
-    clearTimeout(runEndConfettiBurstTimer);
-    runEndConfettiBurstTimer = 0;
-  }
+function clearRunEndConfettiBurstTimers() {
+  for (const id of runEndConfettiBurstTimers) clearTimeout(id);
+  runEndConfettiBurstTimers = [];
+}
+
+/** @param {() => void} fn @param {number} delayMs */
+function scheduleRunEndConfettiBurst(fn, delayMs) {
+  const id = window.setTimeout(() => {
+    runEndConfettiBurstTimers = runEndConfettiBurstTimers.filter((t) => t !== id);
+    fn();
+  }, delayMs);
+  runEndConfettiBurstTimers.push(id);
 }
 
 function clearRunEndConfettiCanvas() {
@@ -2731,7 +2740,7 @@ function releaseRunEndConfettiInstance() {
 }
 
 function disposeRunEndConfettiResources() {
-  clearRunEndConfettiBurstTimer();
+  clearRunEndConfettiBurstTimers();
   releaseRunEndConfettiInstance();
   clearRunEndConfettiCanvas();
   const canvas = runEndConfettiCanvasRef.value;
@@ -2764,26 +2773,11 @@ function ensureRunEndConfettiFire() {
 }
 
 function triggerRunWinConfetti() {
-  clearRunEndConfettiBurstTimer();
+  clearRunEndConfettiBurstTimers();
   if (!syncRunEndConfettiCanvasSize()) return;
   const fire = ensureRunEndConfettiFire();
   if (!fire) return;
-  const burst = (particleCount, originX, spread = 70) =>
-    fire({
-      particleCount,
-      spread,
-      startVelocity: 52,
-      gravity: 1.05,
-      ticks: 210,
-      scalar: 0.95,
-      origin: { x: originX, y: 0.08 },
-    });
-  burst(90, 0.18);
-  burst(90, 0.82);
-  runEndConfettiBurstTimer = window.setTimeout(() => {
-    burst(120, 0.5, 95);
-    runEndConfettiBurstTimer = 0;
-  }, 200);
+  playRunEndWinConfettiBursts(fire, scheduleRunEndConfettiBurst);
 }
 
 function buildTreasurePoolSnapshot() {
@@ -4121,25 +4115,9 @@ function collectSwappableGridPositions(excludePositionKeys = null) {
   return list;
 }
 
-/** @returns {Set<string>} */
-function buildRandomEightPositionKeys() {
-  const keys = [];
-  for (let r = 0; r < ROWS; r += 1) {
-    for (let c = 0; c < COLS; c += 1) {
-      keys.push(`${r},${c}`);
-    }
-  }
-  for (let i = keys.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const t = keys[i];
-    keys[i] = keys[j];
-    keys[j] = t;
-  }
-  return new Set(keys.slice(0, 8));
-}
-
 /**
- * 按设置的对调范围筛选棋盘格；`pickCount` 有值时仅取前 N 个（非「对调全部」模式）。
+ * 按设置的对调范围筛选棋盘格（先排除已选/拼词中的格）。
+ * `pickCount` 有值时取排序后的前 N 个（数量通常等于当前拼词长度；非「对调全部」）。
  * @param {Set<string> | null} excludePositionKeys
  * @param {number | null} pickCount
  */
@@ -4148,16 +4126,32 @@ function resolveSwapGridTargets(excludePositionKeys, pickCount = null) {
   const all = collectSwappableGridPositions(excludePositionKeys);
   if (mode === "all") return all;
 
-  const randomRegionKeys = mode === "random8" ? buildRandomEightPositionKeys() : null;
-  const filtered = all.filter(({ row, col }) => {
-    if (mode === "bottom8") return row >= ROWS / 2;
-    if (mode === "top8") return row < ROWS / 2;
-    if (mode === "random8") return randomRegionKeys?.has(`${row},${col}`) === true;
-    return true;
-  });
+  const limit =
+    pickCount == null || pickCount <= 0 ? all.length : Math.min(pickCount, all.length);
 
-  if (pickCount == null || pickCount <= 0) return filtered;
-  return filtered.slice(0, pickCount);
+  if (mode === "bottom8") {
+    return [...all]
+      .sort((a, b) => (b.row !== a.row ? b.row - a.row : a.col - b.col))
+      .slice(0, limit);
+  }
+  if (mode === "top8") {
+    return [...all]
+      .sort((a, b) => (a.row !== b.row ? a.row - b.row : a.col - b.col))
+      .slice(0, limit);
+  }
+  if (mode === "random8") {
+    const pool = [...all];
+    for (let i = pool.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = pool[i];
+      pool[i] = pool[j];
+      pool[j] = t;
+    }
+    return pool.slice(0, limit);
+  }
+
+  if (pickCount == null || pickCount <= 0) return all;
+  return all.slice(0, pickCount);
 }
 
 /** 用于提交按钮的「即将生效」单词：飞入中视为已加入，飞回中视为已移除，不等到动画结束 */
@@ -5145,9 +5139,9 @@ const showSwapWordButton = computed(() => gameSettings.swapButtonMode !== "hidde
 
 const swapWordButtonTitle = computed(() => {
   const mode = getSwapButtonMode();
-  if (mode === "bottom8") return "将拼词中的字母送回棋盘，并从最下面 8 格选入新字母";
-  if (mode === "top8") return "将拼词中的字母送回棋盘，并从最上面 8 格选入新字母";
-  if (mode === "random8") return "将拼词中的字母送回棋盘，并从随机 8 格选入新字母";
+  if (mode === "bottom8") return "将拼词中的字母送回棋盘，并从剩余未选字母中取最靠下的若干格";
+  if (mode === "top8") return "将拼词中的字母送回棋盘，并从剩余未选字母中取最靠上的若干格";
+  if (mode === "random8") return "将拼词中的字母送回棋盘，并从剩余未选字母中随机选取若干格";
   return "将拼词中的字母送回棋盘，并选中原先未选的字母";
 });
 
@@ -7589,6 +7583,24 @@ function gridTileEntranceDelay(row, col, colMul = 1) {
   return gridTileEntranceDelayKey(row, col, ROWS, COLS, colMul);
 }
 
+function isGridCellEmptyForDropAnim(cell) {
+  return cell == null || !cell.letter || String(cell.letter).trim() === "";
+}
+
+/** 本列落点上方仍有空位（游蛇等「贴底补牌」）：须从整盘顶外缘落入，避免在空洞内闪现 */
+function gridColumnHasEmptyAbove(row, col) {
+  for (let r = 0; r < row; r++) {
+    if (isGridCellEmptyForDropAnim(grid.value[r]?.[col])) return true;
+  }
+  return false;
+}
+
+/** @returns {number} 相对落点格向上的偏移行数（乘 stepY 为 GSAP y0） */
+function gridRefillNewTileDropOffsetRows(row, col) {
+  if (gridColumnHasEmptyAbove(row, col)) return ROWS + row + 2;
+  return row + 2;
+}
+
 /**
  * 仅在下落/补牌动画结束后调用：清掉 GSAP 写在格子上的 opacity/transform。
  * 飞字过程中不要对格子 clearProps("opacity")，否则会抹掉 Vue 绑定的幽灵透明度导致闪烁。
@@ -7710,11 +7722,17 @@ function runGridDropAnimation(prevFlip, options = {}) {
           }
         } else {
           newDropCount += 1;
-          const y0 = -(row + 2) * stepY;
-          gsap.set(el, { x: 0, y: y0 });
+          const dropOffsetRows = gridRefillNewTileDropOffsetRows(row, col);
+          const y0 = -dropOffsetRows * stepY;
+          const dropFromAboveGrid = dropOffsetRows > row + 2;
+          gsap.set(el, {
+            x: 0,
+            y: y0,
+            ...(dropFromAboveGrid ? { opacity: 0.55 } : {}),
+          });
           gsap
             .timeline({ delay: stagger, onComplete: tick })
-            .to(el, { y: 0, duration: dDrop, ease: EASE_GRID_GRAVITY_Y }, 0);
+            .to(el, { y: 0, opacity: 1, duration: dDrop, ease: EASE_GRID_GRAVITY_Y }, 0);
         }
       }
       if (pending === 0) {

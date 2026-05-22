@@ -46,6 +46,7 @@
             <h3 :id="sectionHeadingId('game')" class="about-section-title">关于本游戏</h3>
             <div class="about-panel">
               <p class="about-intro-line">一款使用Vibe Coding制作的、类小丑牌的拼单词游戏。</p>
+              <p class="about-app-version">{{ APP_VERSION }}</p>
             </div>
           </section>
 
@@ -152,7 +153,7 @@
 
 <script setup>
 import { computed, nextTick, onUnmounted, ref, watch } from "vue";
-import { APP_CHANGELOG } from "../appVersion.js";
+import { APP_CHANGELOG, APP_VERSION } from "../appVersion.js";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -693,11 +694,19 @@ function splitSummary(summary) {
 }
 
 .about-intro-line {
-  margin: 0 0 calc(10 * var(--rpx));
+  margin: 0 0 calc(6 * var(--rpx));
   font-size: var(--about-text-size);
   font-weight: 600;
   line-height: var(--about-text-lh);
   color: var(--text-dark, #3c3a32);
+}
+
+.about-app-version {
+  margin: 0;
+  font-size: calc(18 * var(--rpx));
+  font-weight: 600;
+  line-height: var(--about-text-lh);
+  color: rgba(60, 58, 50, 0.55);
 }
 
 .about-changelog-list {

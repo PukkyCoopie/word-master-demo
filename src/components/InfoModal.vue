@@ -501,6 +501,15 @@ onMounted(() => {
   }
 });
 
+function killAllInfoStaggerTweens() {
+  for (const panelRef of Object.values(INFO_TAB_PANEL_REF)) {
+    const panel = panelRef.value;
+    if (!panel) continue;
+    const els = panel.querySelectorAll(".info-stagger-el");
+    if (els.length) gsap.killTweensOf(els);
+  }
+}
+
 function collectActiveTabStaggerTargets() {
   const panel = INFO_TAB_PANEL_REF[activeTab.value]?.value;
   if (!panel) return [];
@@ -549,10 +558,7 @@ onBeforeUnmount(() => {
   measureLevelTabTimer = null;
   if (tabEnterAnimTimer) clearTimeout(tabEnterAnimTimer);
   tabEnterAnimTimer = null;
-  for (const panelRef of Object.values(INFO_TAB_PANEL_REF)) {
-    const panel = panelRef.value;
-    if (panel) gsap.killTweensOf(panel.querySelectorAll(".info-stagger-el"));
-  }
+  killAllInfoStaggerTweens();
   levelTableResizeObserver?.disconnect();
   levelTableResizeObserver = null;
   window.removeEventListener("resize", onWindowResizeForInfoModal);
@@ -591,6 +597,11 @@ watch(
 
 watch(activeTab, () => {
   if (!props.modelValue || skipTabSwitchAnim) return;
+  if (tabEnterAnimTimer) {
+    clearTimeout(tabEnterAnimTimer);
+    tabEnterAnimTimer = null;
+  }
+  killAllInfoStaggerTweens();
   scheduleActiveTabEnterAnim({ delay: 0 });
 });
 

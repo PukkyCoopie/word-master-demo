@@ -267,6 +267,14 @@ export function formatRarityEffectLineSegments(score, mult) {
 }
 
 /**
+ * 「（当前3/16）」等进度计数：勿当作概率 chip（非 `prob('1/3')`）。
+ * @param {string} buf 尚未 flush 的前缀文案
+ */
+function isProgressCounterFractionContext(buf) {
+  return /(?:当前|已达)\s*$/.test(buf) || /[（(]\s*当前\s*$/.test(buf);
+}
+
+/**
  * 将纯文案中的 `+$n`、`$n`、`+n 分数`、`+n 倍率`、`xn/x.n 倍率`、`n 分`、`倍率 +n` 等拆成片段（材质/配饰/法术等整段字符串用）。
  * @param {string} str
  * @returns {TreasureDescSegment[]}
@@ -299,7 +307,7 @@ export function parsePlainEffectCopyToSegments(str) {
       i += m[0].length;
       continue;
     }
-    if ((m = rest.match(/^(\d+)\s*\/\s*(\d+)/))) {
+    if ((m = rest.match(/^(\d+)\s*\/\s*(\d+)/)) && !isProgressCounterFractionContext(buf)) {
       flushBuf();
       out.push({ type: "prob", v: `${m[1]}/${m[2]}` });
       i += m[0].length;

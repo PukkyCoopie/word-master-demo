@@ -51,7 +51,8 @@ export default {
 5. **概率**  
    - 在 `*.js` 里用 `prob('1/3')` 写**宝藏自身的基础概率**，不要预先写成翻倍后的分数。  
    - 局内判定走 `rollProbabilitySuccess` / `rollProbabilityFailsSkip`（或等价地传入 `ownedSlotTreasureIds` 的 `effectiveProbability`）。  
-   - 已拥有 **打字机（45）** 时：实际概率 ×2（上限 1），详情 `TreasureDescRichText` 的 prob chip 同步显示翻倍（如 `1/3`→`2/3`）。
+   - 已拥有 **打字机（45）** 时：实际概率 ×2（上限 1），详情 `TreasureDescRichText` 的 prob chip 同步显示翻倍（如 `1/3`→`2/3`）。  
+   - **进度计数**（如书包 `（当前0/16）`、104 `（当前0/2）`）写在普通 `text` 里即可；`当前` 后的 `n/m` **不会**被自动当成概率 chip（保持正文色）。
 
 6. **顺序**  
    `describe(a, b, c)` 按阅读顺序拼接；字符串参数会自动变成 `text` 段。
