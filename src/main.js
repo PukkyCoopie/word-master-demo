@@ -1,6 +1,7 @@
 import { createApp } from "vue";
 import "remixicon/fonts/remixicon.css";
 import "../css/game.css";
+import "../css/game.layout.css";
 import App from "./App.vue";
 import { warmupAllReglMaterialHubs } from "./lib/reglMaterialWarmup.js";
 
