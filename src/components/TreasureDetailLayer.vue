@@ -327,6 +327,21 @@
           </div>
 
           <div
+            v-for="panel in deckOfferAccessoryLinkedConceptPanels"
+            :key="'deck-offer-acc-linked-' + panel.title"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span class="treasure-detail-desc-panel-title-text">{{ panel.title }}</span>
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="panel.effectDescription"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
             v-if="isDeckOffer && showDeckOfferTreasureAccessoryRegion"
             ref="deckOfferTreasureAccessoryRef"
             class="treasure-detail-desc-card treasure-detail-stagger-el"
@@ -384,6 +399,7 @@
                 class="treasure-detail-desc-panel-rich"
                 :description="spellGainPanelContent.description"
                 :panel-body="true"
+                :probability-display-doubled="probabilityDisplayDoubled"
               />
             </div>
           </div>
@@ -401,6 +417,7 @@
               class="treasure-detail-desc-panel-rich"
               :description="panel.effectDescription"
               :panel-body="true"
+              :probability-display-doubled="probabilityDisplayDoubled"
             />
           </div>
 
@@ -608,7 +625,10 @@ import {
 } from "../game/treasureAccessories.js";
 import { getTileAccessoryChipVisual } from "../game/tileAccessories.js";
 import { getTileMaterialEffectDescription, getTileAccessoryEffectDescription } from "../game/tileDetailDescriptions.js";
-import { collectExplicitDescriptionConceptPanelsFromMany } from "../game/gameConceptCopy.js";
+import {
+  collectExplicitDescriptionConceptPanelsFromMany,
+  getTileAccessoryLinkedConceptPanels,
+} from "../game/gameConceptCopy.js";
 import { resolveTreasureDetailGainPanel } from "../treasures/treasureRegistry.js";
 import { getSpellGainPanel } from "../spells/spellGainPanel.js";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
@@ -771,6 +791,9 @@ const deckOfferTileAccessoryChipVisual = computed(() =>
 
 const showDeckOfferAccessoryRegion = computed(
   () => Boolean(deckOfferAccessoryIdNorm.value && deckOfferAccessoryDesc.value),
+);
+const deckOfferAccessoryLinkedConceptPanels = computed(() =>
+  showDeckOfferAccessoryRegion.value ? getTileAccessoryLinkedConceptPanels(deckOfferAccessoryIdNorm.value) : [],
 );
 
 const deckOfferTreasureAccessoryIdNorm = computed(() => {

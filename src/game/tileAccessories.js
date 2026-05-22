@@ -1,5 +1,5 @@
 /**
- * 字母块专用配饰 id（`tile.accessoryId`；与宝藏通用配饰 `treasureAccessoryId` 可并存）。
+ * 字母块专用配饰 id（`tile.accessoryId`；与宝藏通用配饰 `treasureAccessoryId` 互斥）。
  * 通用配饰见 `treasureAccessories.js`。
  */
 export const TILE_ACCESSORY_LEVEL_UPGRADE = "level_upgrade";

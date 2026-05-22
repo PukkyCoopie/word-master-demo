@@ -86,7 +86,7 @@ function buildChapterRow(chapter, ctx) {
 
 /**
  * 对局信息 · 关卡 Tab：上/中/下三行对应前、当前、后一大关。
- * @param {{ currentLevelId: string, activeBossSlug?: string, runSeedNumeric?: number, inShop?: boolean }} opts
+ * @param {{ currentLevelId: string, activeBossSlug?: string, runSeedNumeric?: number, inShop?: boolean, isEndlessRun?: boolean }} opts
  * @returns {InfoStageChapterRow[]}
  */
 export function buildInfoStageProgressRows(opts) {
@@ -94,6 +94,8 @@ export function buildInfoStageProgressRows(opts) {
   const activeBossSlug = String(opts.activeBossSlug ?? "");
   const runSeedNumeric = Math.max(0, Math.floor(Number(opts.runSeedNumeric) || 0));
   const inShop = opts.inShop === true;
+  const isEndlessRun = opts.isEndlessRun === true;
+  const MAX_NORMAL_CHAPTER = 8;
   const chapter = parseMajorFromLevelId(currentLevelId);
 
   /** @type {InfoStageChapterRow[]} */
@@ -124,16 +126,19 @@ export function buildInfoStageProgressRows(opts) {
   rows.push(
     buildChapterRow(chapter, { currentLevelId, activeBossSlug, runSeedNumeric, inShop, dimmed: false, fadeMask: null }),
   );
-  rows.push(
-    buildChapterRow(chapter + 1, {
-      currentLevelId,
-      activeBossSlug,
-      runSeedNumeric,
-      inShop,
-      dimmed: true,
-      fadeMask: "down",
-    }),
-  );
+  const canShowNextChapter = isEndlessRun || chapter < MAX_NORMAL_CHAPTER;
+  if (canShowNextChapter) {
+    rows.push(
+      buildChapterRow(chapter + 1, {
+        currentLevelId,
+        activeBossSlug,
+        runSeedNumeric,
+        inShop,
+        dimmed: true,
+        fadeMask: "down",
+      }),
+    );
+  }
 
   return rows;
 }

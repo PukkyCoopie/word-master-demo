@@ -299,6 +299,12 @@ export function parsePlainEffectCopyToSegments(str) {
       i += m[0].length;
       continue;
     }
+    if ((m = rest.match(/^(\d+)\s*\/\s*(\d+)/))) {
+      flushBuf();
+      out.push({ type: "prob", v: `${m[1]}/${m[2]}` });
+      i += m[0].length;
+      continue;
+    }
     if ((m = rest.match(/^\+\d+(?:\.\d+)?\s*分数/))) {
       flushBuf();
       const head = rest.match(/^\+\d+(?:\.\d+)?/);

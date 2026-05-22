@@ -82,6 +82,8 @@
  * @property {(treasureId: string, delta: number) => Promise<void>} [playOwnedTreasureScoreDeltaFx] 宝藏槽 wobble + 分数 +n 气泡（累加分数银行）
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
+ * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleOnlyFx] 仅弹气泡（不自带 wobble）
+ * @property {(treasureId: string) => Promise<void>} [playOwnedTreasureWobbleOnlyFx] 仅 wobble（不改遮罩层）
  * @property {(treasureId: string) => Promise<void>} [destroyTreasureSlotById]
  * @property {(raws: string[]) => void} [removeDeckLettersByRaws]
  * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（工具箱等）
@@ -111,8 +113,10 @@
  * @property {() => string | null} [rollRandomBigram]
  * @property {(word: string) => object | null | undefined} [resolveDiscardedWord] 弃牌字母串是否构成词典词
  * @property {(len: number, opts?: { observatoryBoost?: boolean }) => void} [bumpWordLengthLevel]
+ * @property {(len: number) => Promise<void>} [runSingleInRunLengthUpgradeFx] 局内播放「单一词长 +1」升级动画并应用升级（会抑制交互层）
  * @property {(opts?: { spellId?: string, treasureSlotIndex?: number, treasureId?: string }) => Promise<void>} [requestInRunSpellGrant]
  * @property {(runner: SubmitWordLeaveFxRunner) => void} [registerSubmitWordLeaveFx] 登记本词提交后词槽/棋盘格消失阶段的自定义动画（在计分结束、默认批量消失之前执行）
+ * @property {(runner: () => Promise<void>) => void} [registerSubmitPostScoreClearFx] 登记本词「计分清空」完成后执行的展示（在入库补牌与总分结算后）
  * @property {(opts: SubmitWordLetterRemoveLeaveOpts) => Promise<void>} [playSubmitWordLetterRemoveAndRewardLeave] 逐字 wobble + 红色「移除」气泡并消失，结束后宝藏 +$ 动效（由 GamePanel 实现）
  */
 
@@ -202,6 +206,7 @@
  * @property {() => string | null} [rollRandomBigram]
  * @property {() => number} [rng]
  * @property {number} [money] 当前钱包（动态简介用）
+ * @property {readonly unknown[]} [fullDeck] 本局完整牌库 multiset（动态简介用）
  */
 
 /**

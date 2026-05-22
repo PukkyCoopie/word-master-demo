@@ -164,6 +164,7 @@
       ref="spellTargetLayerRef"
       :overlay-suppressed="shopOverlayLayersSuppressed"
       :session="spellTargetSession"
+      :probability-display-doubled="treasureProbabilityDisplayDoubled"
       @confirm="onSpellTargetConfirm"
       @cancel="onSpellTargetCancel"
     />
@@ -537,6 +538,16 @@
     </Teleport>
 
     <Teleport defer to="#game-view-portal">
+      <canvas
+        v-if="showRunEnd && runEndOutcome === 'win'"
+        ref="runEndConfettiCanvasRef"
+        class="portal-overlay-fill run-end-confetti-canvas"
+        :style="runEndConfettiPortalStackStyle"
+        aria-hidden="true"
+      />
+    </Teleport>
+
+    <Teleport defer to="#game-view-portal">
       <RunEndLayer
         :open="showRunEnd"
         :outcome="runEndOutcome"
@@ -604,7 +615,12 @@
                 :ref="(el) => setSettlementRowRef(3, el)"
               >
                 <span class="settle-label">本关共计</span>
-                <span class="settle-value settle-dollars settle-total">{{ dollarMarks(animSettleTotal) }}</span>
+                <span
+                  class="settle-value settle-dollars settle-total"
+                  :class="{ 'settle-total--wrapped': settlementTotalNeedsWrap }"
+                  :style="settlementTotalValueStyle"
+                  >{{ dollarMarks(animSettleTotal) }}</span
+                >
               </div>
             </div>
             <button
@@ -643,6 +659,7 @@
         :next-level-id="infoModalNextLevelId"
         :run-seed-numeric="getRunSeedNumeric()"
         :active-boss-slug="activeBossSlug"
+        :is-endless-run="isEndlessRun"
         @select-owned-voucher="onInfoSelectOwnedVoucher"
       />
       </Transition>
@@ -655,6 +672,7 @@
  * 动画约定：位移/尺寸/缩放/旋转统一 EASE_TRANSFORM（expo.out），见 src/constants.js 与 .cursor/rules/animation-easing.mdc
  */
 import { computed, inject, ref, watch, onMounted, onUnmounted, nextTick } from "vue";
+import confetti from "canvas-confetti";
 import gsap from "gsap";
 import {
   EASE_TRANSFORM,
@@ -959,6 +977,9 @@ const settlementPortalStackStyle = computed(() =>
 );
 const runEndPortalStackStyle = computed(() =>
   runEndPortalZ.value > 0 ? { zIndex: runEndPortalZ.value } : undefined,
+);
+const runEndConfettiPortalStackStyle = computed(() =>
+  runEndPortalZ.value > 0 ? { zIndex: runEndPortalZ.value + 1 } : undefined,
 );
 const pauseOptionsPortalStackStyle = computed(() =>
   pauseOptionsPortalZ.value > 0 ? { zIndex: pauseOptionsPortalZ.value } : undefined,
@@ -1694,6 +1715,9 @@ const ownedUpgrades = ref([]);
 const shopUpgradeAnimating = ref(false);
 /** 商店升级顶栏动效播放时暂隐其它 portal 浮层（包内多选未完成时动效后再显示） */
 const shopOverlayLayersSuppressed = ref(false);
+/** 升级序列进度：仅最后一步允许通过事件提前解锁点击 */
+let shopUpgradePlaybackStepIndex = -1;
+let shopUpgradePlaybackStepCount = 0;
 /** 仅暂隐开包层（法术选格时仍显示 SpellTargetLayer） */
 const packPickOverlaySuppressed = ref(false);
 
@@ -1898,23 +1922,34 @@ async function runShopUpgradePlaybackSteps(steps, { restoreLayersAfter: _restore
   if (!showShop.value || shopUpgradeAnimating.value) return;
   shopUpgradeAnimating.value = true;
   shopOverlayLayersSuppressed.value = true;
+  shopUpgradePlaybackStepCount = Array.isArray(steps) ? steps.length : 0;
+  shopUpgradePlaybackStepIndex = -1;
   await nextTick();
   try {
-    for (const step of steps) {
+    for (let i = 0; i < steps.length; i += 1) {
+      shopUpgradePlaybackStepIndex = i;
+      const step = steps[i];
       step.apply?.();
       await shopPanelRef.value?.playUpgradeResult?.(step.payload);
     }
   } catch (e) {
     shopUpgradeAnimating.value = false;
     shopOverlayLayersSuppressed.value = false;
+    shopUpgradePlaybackStepIndex = -1;
+    shopUpgradePlaybackStepCount = 0;
     throw e;
   }
   shopUpgradeAnimating.value = false;
   shopOverlayLayersSuppressed.value = false;
+  shopUpgradePlaybackStepIndex = -1;
+  shopUpgradePlaybackStepCount = 0;
 }
 
 function onShopUpgradeInteractionUnlock() {
-  if (shopOverlayLayersSuppressed.value) return;
+  if (!shopUpgradeAnimating.value) return;
+  if (shopUpgradePlaybackStepIndex < 0 || shopUpgradePlaybackStepCount <= 0) return;
+  const isLastStep = shopUpgradePlaybackStepIndex >= shopUpgradePlaybackStepCount - 1;
+  if (!isLastStep) return;
   shopUpgradeAnimating.value = false;
 }
 
@@ -2232,18 +2267,23 @@ function getInRunDeckFlyTargetEl() {
  * @param {string} resolvedWord
  * @param {number} judgedLenTable
  * @param {number} scoreBeforeHand
- * @returns {Promise<import('../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[]>}
+ * @returns {Promise<{ submitWordLeaveFx: import('../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[], submitPostScoreClearFx: (() => Promise<void>)[] }>}
  */
 async function runPendingInRunGrantsAfterSubmit(tiles, resolvedWord, judgedLenTable, scoreBeforeHand) {
   /** @type {import('../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[]} */
   const submitWordLeaveFx = [];
+  /** @type {(() => Promise<void>)[]} */
+  const submitPostScoreClearFx = [];
   await notifyOwnedTreasuresSuccessfulWordSubmit(ownedSlotTreasureIdList(), {
     ...buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand),
     registerSubmitWordLeaveFx: (runner) => {
       if (typeof runner === "function") submitWordLeaveFx.push(runner);
     },
+    registerSubmitPostScoreClearFx: (runner) => {
+      if (typeof runner === "function") submitPostScoreClearFx.push(runner);
+    },
   });
-  return submitWordLeaveFx;
+  return { submitWordLeaveFx, submitPostScoreClearFx };
 }
 
 function packPickOptionKeyOf(opt) {
@@ -2387,7 +2427,6 @@ async function fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter = false }
     const flyRoot = flyEl ?? null;
     if (flyRoot && deckBtn) await animatePackTileFlyToDeck(flyRoot, deckBtn);
     appendShopDeckEntriesAndNotify([{ raw, materialId: null }]);
-    showToast(`已加入牌库：${t.name}`);
     return;
   }
   if (t.offerType === "deckTile") {
@@ -2410,7 +2449,6 @@ async function fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter = false }
         treasureAccessoryId: tAcc || undefined,
       },
     ]);
-    showToast(`已加入牌库：${t.name}`);
   }
 }
 
@@ -2463,6 +2501,7 @@ function buildTreasurePatchDescriptionContext() {
   ensureBigramTargetPair(treasureRunState.value, rollRandomBigramForTreasure);
   return {
     treasureRun: treasureRunState.value,
+    fullDeck: initialDeckSnapshot.value,
     extraLetterScoreWordsRemaining: treasureRunState.value.extraLetterScoreWordsRemaining,
     discardLetterGroup: currentDiscardLetterGroup(treasureRunState.value),
     levelPosTargetKey: treasureRunState.value.levelPosTargetKey,
@@ -2661,9 +2700,91 @@ const showPauseOptions = ref(false);
 const showRunEnd = ref(false);
 /** @type {import('vue').Ref<'fail' | 'win'>} */
 const runEndOutcome = ref("fail");
+const runEndConfettiCanvasRef = ref(null);
+let runEndConfettiBurstTimer = 0;
+/** @type {ReturnType<typeof confetti.create> | null} */
+let runEndConfettiFire = null;
 const runMatchStats = ref(createRunMatchStats());
 const runEndStatsRows = computed(() => getRunMatchStatsRows(runMatchStats.value));
 const treasureRunState = ref(createTreasureRunState());
+
+function clearRunEndConfettiBurstTimer() {
+  if (runEndConfettiBurstTimer) {
+    clearTimeout(runEndConfettiBurstTimer);
+    runEndConfettiBurstTimer = 0;
+  }
+}
+
+function clearRunEndConfettiCanvas() {
+  const canvas = runEndConfettiCanvasRef.value;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function releaseRunEndConfettiInstance() {
+  if (runEndConfettiFire && typeof runEndConfettiFire.reset === "function") {
+    runEndConfettiFire.reset();
+  }
+  runEndConfettiFire = null;
+}
+
+function disposeRunEndConfettiResources() {
+  clearRunEndConfettiBurstTimer();
+  releaseRunEndConfettiInstance();
+  clearRunEndConfettiCanvas();
+  const canvas = runEndConfettiCanvasRef.value;
+  if (canvas) {
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+}
+
+function syncRunEndConfettiCanvasSize() {
+  const canvas = runEndConfettiCanvasRef.value;
+  if (!canvas) return false;
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return false;
+  const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
+  const width = Math.max(1, Math.round(rect.width * dpr));
+  const height = Math.max(1, Math.round(rect.height * dpr));
+  if (canvas.width !== width) canvas.width = width;
+  if (canvas.height !== height) canvas.height = height;
+  return true;
+}
+
+function ensureRunEndConfettiFire() {
+  const canvas = runEndConfettiCanvasRef.value;
+  if (!canvas) return null;
+  if (!runEndConfettiFire) {
+    runEndConfettiFire = confetti.create(canvas, { resize: false, useWorker: true });
+  }
+  return runEndConfettiFire;
+}
+
+function triggerRunWinConfetti() {
+  clearRunEndConfettiBurstTimer();
+  if (!syncRunEndConfettiCanvasSize()) return;
+  const fire = ensureRunEndConfettiFire();
+  if (!fire) return;
+  const burst = (particleCount, originX, spread = 70) =>
+    fire({
+      particleCount,
+      spread,
+      startVelocity: 52,
+      gravity: 1.05,
+      ticks: 210,
+      scalar: 0.95,
+      origin: { x: originX, y: 0.08 },
+    });
+  burst(90, 0.18);
+  burst(90, 0.82);
+  runEndConfettiBurstTimer = window.setTimeout(() => {
+    burst(120, 0.5, 95);
+    runEndConfettiBurstTimer = 0;
+  }, 200);
+}
 
 function buildTreasurePoolSnapshot() {
   return {
@@ -2953,6 +3074,24 @@ function setRarityLevelWithTreasurePairs(rarity, level) {
 
 function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand) {
   const owned = ownedTreasures.value.filter(Boolean);
+  const buildLengthUpgradeStep = (len) => {
+    const L = Math.max(3, Math.min(16, Math.round(Number(len) || 0)));
+    const beforeLevel = Math.max(1, Math.round(Number(lengthLevelsByLength.value?.[L])) || 1);
+    const obs = isLengthObservatoryBoosted(ownedVoucherIds.value, L, spellCountsByLength.value);
+    return {
+      payload: {
+        upgradeKind: "length",
+        lengthMin: L,
+        lengthMax: L,
+        beforeLevel,
+        isLengthObservatoryBoosted: () => obs,
+      },
+      apply: () => {
+        noteTreasureRunUpgradeUsed(treasureRunState.value);
+        bumpWordLengthLevel(L, { observatoryBoost: obs });
+      },
+    };
+  };
   return {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     findOwnedTreasureSlotIndex,
@@ -3029,6 +3168,8 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
     playOwnedTreasureMultDeltaFx,
     playOwnedTreasureScoreDeltaFx,
     playOwnedTreasureBubbleFx,
+    playOwnedTreasureBubbleOnlyFx,
+    playOwnedTreasureWobbleOnlyFx,
     wobbleOwnedTreasureById,
     destroyTreasureSlotById: destroyOwnedTreasureWithFx,
     playSubmitWordLetterRemoveAndRewardLeave,
@@ -3040,6 +3181,10 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
     ownedTreasureInstances: owned,
     rng: runRandom,
     moneyAfterSubmit: money.value,
+    runSingleInRunLengthUpgradeFx: async (len) => {
+      const step = buildLengthUpgradeStep(len);
+      await runInRunUpgradePlaybackSteps([step]);
+    },
     bumpWordLengthLevel: (len) => {
       noteTreasureRunUpgradeUsed(treasureRunState.value);
       bumpWordLengthLevel(len, {
@@ -3089,6 +3234,27 @@ const settlementRowEmpty = computed(() => {
     total: s.total === 0,
   };
 });
+
+const SETTLEMENT_TOTAL_SHRINK_START = 15;
+const SETTLEMENT_TOTAL_SHRINK_FULL_AT = 30;
+const SETTLEMENT_TOTAL_MIN_SCALE = 0.6;
+
+const settlementTotalScale = computed(() => {
+  const count = Math.max(0, Math.round(Number(animSettleTotal.value) || 0));
+  if (count <= SETTLEMENT_TOTAL_SHRINK_START) return 1;
+  const span = Math.max(1, SETTLEMENT_TOTAL_SHRINK_FULL_AT - SETTLEMENT_TOTAL_SHRINK_START);
+  const t = Math.min(1, (count - SETTLEMENT_TOTAL_SHRINK_START) / span);
+  return 1 - (1 - SETTLEMENT_TOTAL_MIN_SCALE) * t;
+});
+
+const settlementTotalNeedsWrap = computed(() => {
+  const count = Math.max(0, Math.round(Number(animSettleTotal.value) || 0));
+  return count > SETTLEMENT_TOTAL_SHRINK_FULL_AT;
+});
+
+const settlementTotalValueStyle = computed(() => ({
+  "--settle-total-scale": String(settlementTotalScale.value),
+}));
 
 let settlementTl = null;
 
@@ -3279,6 +3445,11 @@ watch(showRunEnd, (open) => {
     showDeckLayer.value = false;
     closeTileDetail();
     showShop.value = false;
+    nextTick(() => {
+      if (runEndOutcome.value === "win") triggerRunWinConfetti();
+    });
+  } else {
+    disposeRunEndConfettiResources();
   }
 });
 
@@ -3420,6 +3591,7 @@ watch(showResultTotalBar, (show) => {
 const showResultWordLength = computed(() => {
   if (clearWinLengthUpgradeFxActive.value) return true;
   if (lastSubmitRarityFxActive.value) return true;
+  if (inRunGrantUpgradeFxActive.value) return true;
   if (showResultTotalBar.value) return false;
   if (hideResultWordLengthBeforeTotal.value) return false;
   if (suppressResultWordLengthUntilScoringEnd.value) return false;
@@ -3438,12 +3610,14 @@ const resultAreaJudgedWordLength = computed(() => {
 const resultWordLengthShown = computed(() => {
   if (clearWinLengthUpgradeFxActive.value) return clearWinFxWordlenText.value;
   if (lastSubmitRarityFxActive.value) return lastSubmitRarityFxWordlenText.value;
+  if (inRunGrantUpgradeFxActive.value) return inRunGrantUpgradeFxWordlenText.value;
   const L = resultAreaJudgedWordLength.value;
   return L > 0 ? `${L}字母` : `${effectiveWordForSubmit.value.length}字母`;
 });
 const resultWordLengthLevel = computed(() => {
   if (clearWinLengthUpgradeFxActive.value) return clearWinFxLevelShown.value;
   if (lastSubmitRarityFxActive.value) return lastSubmitRarityFxLevelShown.value;
+  if (inRunGrantUpgradeFxActive.value) return inRunGrantUpgradeFxLevelShown.value;
   const len = resultAreaJudgedWordLength.value;
   if (len < 3 || len > 16) return 1;
   return Math.max(1, Math.round(Number(lengthLevelsByLength.value?.[len])) || 1);
@@ -3916,14 +4090,11 @@ function collectWordAuxTargetTiles() {
   return tiles;
 }
 
-/** 当前拼词槽（含飞入中）占用的棋盘格坐标，用于互换时取补集 */
-function buildWordSelectionPositionKeys() {
+/** 当前已入槽（不含飞入中）占用的棋盘格坐标，用于对调按钮排除集 */
+function buildStableWordSelectionPositionKeys() {
   const keys = new Set();
   for (const { row, col } of selectedOrder.value) {
     keys.add(`${row},${col}`);
-  }
-  for (const fly of flyingLetters.value) {
-    keys.add(`${fly.pendingRow},${fly.pendingCol}`);
   }
   return keys;
 }
@@ -4851,6 +5022,9 @@ const displayFormulaScore = computed(() => {
   if (lastSubmitRarityFxActive.value) {
     return String(Math.max(0, Math.round(lastSubmitRarityFxScoreValue.value)));
   }
+  if (inRunGrantUpgradeFxActive.value) {
+    return String(Math.max(0, Math.round(inRunGrantUpgradeFxScoreValue.value)));
+  }
   if (scoringAnimating.value) return String(Math.max(0, Math.round(animScoreSum.value)));
   /** 预览：判定词长 × 该档每字基础分（无稀有度/材质等；画笔时乘数用判定词长非棋盘格数） */
   const tiles = effectiveFormulaTiles.value;
@@ -4878,6 +5052,9 @@ const displayFormulaMult = computed(() => {
   }
   if (lastSubmitRarityFxActive.value) {
     return formatMultDisplay(lastSubmitRarityFxMultValue.value);
+  }
+  if (inRunGrantUpgradeFxActive.value) {
+    return formatMultDisplay(inRunGrantUpgradeFxMultValue.value);
   }
   /** 记分/淡出等动画期间倍率面板只显示整数 */
   if (scoringAnimating.value) {
@@ -4979,11 +5156,11 @@ const canSwapWordSelection = computed(() => {
   if (!canUseWordAuxTools.value) return false;
   if (ceruleanBellSlotIndex.value != null) return false;
   if (flyingBackBatches.value.length > 0) return false;
-  const hasInWord = effectiveSelectedCount.value > 0 || flyingLetters.value.length > 0;
-  const inWordCount = selectedOrder.value.length + flyingLetters.value.length;
+  const hasInWord = selectedOrder.value.length > 0;
+  const inWordCount = selectedOrder.value.length;
   const pickCount = getSwapButtonMode() === "all" ? null : inWordCount;
   const hasOnGrid =
-    resolveSwapGridTargets(buildWordSelectionPositionKeys(), pickCount).length > 0;
+    resolveSwapGridTargets(buildStableWordSelectionPositionKeys(), pickCount).length > 0;
   return hasInWord && hasOnGrid;
 });
 
@@ -5001,13 +5178,6 @@ function onMarkSelectedTilesClick() {
 async function onSwapWordSelectionClick() {
   if (!canSwapWordSelection.value || wordSelectionSwapBusy.value) return;
   wordSelectionSwapBusy.value = true;
-  /** 飞回会清空 `tile.selected`，须在清槽前记下「原先在拼词中」的格，再选补集 */
-  const previouslyInWord = buildWordSelectionPositionKeys();
-  const inWordCountBefore =
-    selectedOrder.value.length +
-    flyingLetters.value.filter((f) => f.pendingRow != null).length;
-  const swapMode = getSwapButtonMode();
-  const pickCount = swapMode === "all" ? null : inWordCountBefore;
   try {
     if (getMarkOnSwap()) {
       const tiles = collectWordAuxTargetTiles();
@@ -5019,6 +5189,12 @@ async function onSwapWordSelectionClick() {
 
     if (flyingLetters.value.length > 0) cancelAllFlyingIn();
     if (flyingBackBatches.value.length > 0) await waitForFlyingBackIdle();
+
+    /** 对调仅基于当前稳定已入槽的字母，避免把已取消飞入的格子误判为“原先已选中”。 */
+    const previouslyInWord = buildStableWordSelectionPositionKeys();
+    const inWordCountBefore = selectedOrder.value.length;
+    const swapMode = getSwapButtonMode();
+    const pickCount = swapMode === "all" ? null : inWordCountBefore;
 
     const inWordCount = selectedOrder.value.length;
     if (inWordCount > 0) {
@@ -5733,10 +5909,10 @@ async function animatePackTileFlyToDeck(fromEl, toTarget, options = {}) {
 }
 
 /**
- * 幽魂：从法术图标飞出增强 E（完整 LetterTile）并入牌库。
+ * 幻灵「洗入牌库」：从法术图标生成完整 LetterTile，并飞入牌库按钮。
  * @param {Record<string, unknown>[]} deckCards
  */
-async function animateGrimDeckAddsFromSpellIcon(deckCards) {
+async function animateSpectralDeckAddsFromSpellIcon(deckCards) {
   const cards = Array.isArray(deckCards) ? deckCards.filter(Boolean) : [];
   if (!cards.length) return;
   const deckBtn = deckBtnRef.value;
@@ -5858,7 +6034,7 @@ async function playTreasureSlotMoneyBurstAtPeak(slotIndex, amount) {
   if (amt <= 0) return;
   wobbleScoreSlot(el, sp);
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-  const bubble = showScoreBubble(el, `+$${amt}`, "money", sp);
+  const bubble = showScoreBubble(el, formatMoneyBubbleLabel(amt), "money", sp);
   scheduleSmallPlusBubbleOutro(bubble, sp);
   money.value += amt;
 }
@@ -5893,6 +6069,30 @@ async function playOwnedTreasureBubbleFx(treasureId, text, kind = "score") {
   const ix = findOwnedTreasureSlotIndex(treasureId);
   if (ix < 0) return;
   await playTreasureSlotBubbleBurstAtPeak(ix, text, kind);
+}
+
+/** 仅弹气泡（不含 wobble、不等待字间节拍），用于需要自行编排时序的宝藏 */
+async function playOwnedTreasureBubbleOnlyFx(treasureId, text, kind = "score") {
+  const ix = findOwnedTreasureSlotIndex(treasureId);
+  if (ix < 0) return;
+  const el = gameTreasureSlotRefs[ix];
+  if (!el) return;
+  const label = String(text ?? "").trim();
+  if (!label) return;
+  scoringTreasureBarIndex.value = ix;
+  await nextTick();
+  await new Promise((r) => requestAnimationFrame(r));
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, 1);
+  const bubble = showScoreBubble(el, label, kind, 1);
+  scheduleSmallPlusBubbleOutro(bubble, 1);
+  scoringTreasureBarIndex.value = null;
+}
+
+/** 仅播放宝藏槽 wobble（不改遮罩层），用于与其他特效并发 */
+async function playOwnedTreasureWobbleOnlyFx(treasureId) {
+  const ix = findOwnedTreasureSlotIndex(treasureId);
+  if (ix < 0) return;
+  await wobbleGameTreasureSlot(ix);
 }
 
 /** @param {number} slotIndex @param {number} delta */
@@ -6252,8 +6452,8 @@ async function playSpectralSpellResultFx(spellFx, effectiveSpellId) {
     return;
   }
   if (fx?.kind === "deck_add" && typeof fx.count === "number") {
-    if (fx.source === "spell_icon" && Array.isArray(fx.addedDeckCards) && fx.addedDeckCards.length) {
-      await animateGrimDeckAddsFromSpellIcon(fx.addedDeckCards);
+    if (Array.isArray(fx.addedDeckCards) && fx.addedDeckCards.length) {
+      await animateSpectralDeckAddsFromSpellIcon(fx.addedDeckCards);
       return;
     }
     const layer = spellTargetLayerRef.value;
@@ -6354,6 +6554,7 @@ function buildSpellOfferSnapshotFromDeckCard(card) {
     rarity: p.rarity,
     materialId: p.materialId ?? null,
     accessoryId: p.accessoryId ?? null,
+    treasureAccessoryId: p.treasureAccessoryId ?? null,
     tileScoreBonus: p.tileScoreBonus,
     letterMultBonus: p.tileMultBonus,
     materialScoreBonus: p.materialScoreBonus,
@@ -6555,6 +6756,35 @@ function buildSpellOfferSlots(rng = Math.random) {
   return buildSpellOfferSlotsFromPool(pool, buildSpellOfferSnapshotFromDeckCard, rng);
 }
 
+function spellRandomAccessoryPoolRequiresNoAccessoryTile(spellId) {
+  const sid = String(spellId ?? "");
+  return sid === "talisman" || sid === "deja_vu" || sid === "wrench" || sid === "diamond";
+}
+
+/** @param {unknown} tile */
+function tileHasAnyAccessoryMark(tile) {
+  if (!tile || typeof tile !== "object") return false;
+  const acc = String(/** @type {{ accessoryId?: unknown }} */ (tile).accessoryId ?? "").trim();
+  const tAcc = String(/** @type {{ treasureAccessoryId?: unknown }} */ (tile).treasureAccessoryId ?? "").trim();
+  return Boolean(acc || tAcc);
+}
+
+/**
+ * 随机加配饰类法术：候选池仅保留“无任何配饰”的字母块（普通/宝藏配饰均视为已占用）。
+ * @param {unknown[]} slots
+ * @param {string} spellId
+ */
+function filterSpellOfferSlotsBySpell(slots, spellId) {
+  if (!spellRandomAccessoryPoolRequiresNoAccessoryTile(spellId)) return slots;
+  if (!Array.isArray(slots) || slots.length === 0) return slots;
+  return slots.map((slot, i) => {
+    if (!slot || typeof slot !== "object") return { key: `sp-empty-${i}`, empty: true };
+    if (slot.empty === true || !slot.tile) return slot;
+    if (tileHasAnyAccessoryMark(slot.tile)) return { key: slot.key ?? `sp-empty-${i}`, empty: true };
+    return slot;
+  });
+}
+
 function noteSpellCastForReplay(purchasedSpellId) {
   const sid = String(purchasedSpellId ?? "");
   if (!sid || sid === "restart" || sid === "dice") return;
@@ -6570,6 +6800,8 @@ function noteSpellCastForReplay(purchasedSpellId) {
  * @param {'fullDeck' | 'remainingDeck'} offerDeckSource
  * @param {{
  *   confirmDisabled?: boolean,
+ *   forcePreview?: boolean,
+ *   forcePreviewOnly?: boolean,
  *   spellDescription?: import('../treasures/treasureDescription.js').TreasureDescSegment[] | string,
  *   spellName?: string,
  *   spellIconClass?: string,
@@ -6593,6 +6825,10 @@ function buildSpellTargetSessionFields(
   const pickSourceId = pid === "restart" && replayTarget ? replayTarget : pid;
   let pickMode = resolveSpellPickMode(pickSourceId);
   let pickCount = resolveSpellPickCount(pid, lastReplayableSpellId.value);
+  if (overrides.forcePreviewOnly === true) {
+    pickMode = "preview_only";
+    pickCount = 0;
+  }
   if (context === "inRun" && pickMode === "none") {
     pickMode = "preview_only";
     pickCount = 0;
@@ -6601,6 +6837,7 @@ function buildSpellTargetSessionFields(
   const offerSlots = preferRemaining
     ? prepareSpellOfferSlotsFromRemainingDeck(runRandom)
     : prepareSpellOfferSlots(runRandom);
+  const filteredOfferSlots = filterSpellOfferSlotsBySpell(offerSlots, eff);
   return {
     spellName: overrides.spellName ?? def?.name ?? "法术",
     spellIconClass: overrides.spellIconClass ?? def?.iconClass ?? "ri-magic-fill",
@@ -6608,7 +6845,7 @@ function buildSpellTargetSessionFields(
     spellRarity: overrides.spellRarity ?? "rare",
     pickCount,
     pickMode,
-    offerSlots,
+    offerSlots: filteredOfferSlots,
     offerDeckSource,
     context,
     confirmDisabled: overrides.confirmDisabled === true,
@@ -6725,7 +6962,11 @@ async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, 
     });
     if (!result.confirmed) return result;
     if (!replayTarget) return result;
-    return runSpellPreviewChain(replayTarget, context, offerDeckSource, overrides);
+    return runSpellPreviewChain(replayTarget, context, offerDeckSource, {
+      ...overrides,
+      forcePreview: true,
+      forcePreviewOnly: true,
+    });
   }
 
   if (pid === "dice") {
@@ -6739,7 +6980,9 @@ async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, 
 
   const replayTarget = resolveRestartEffectiveSpellId(spellCastHistory.value, lastReplayableSpellId.value);
   const openPreview =
-    context === "inRun"
+    overrides.forcePreview === true
+      ? true
+      : context === "inRun"
       ? shouldOpenInRunSpellPreview(pid)
       : shouldOpenSpellTargetLayer(pid, replayTarget);
 
@@ -6797,7 +7040,10 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
       lastReplayableSpellId.value,
     );
     if (!replayTarget) return;
-    await runSpellPreviewChain(replayTarget, s.context ?? "shop", s.offerDeckSource ?? "fullDeck");
+    await runSpellPreviewChain(replayTarget, s.context ?? "shop", s.offerDeckSource ?? "fullDeck", {
+      forcePreview: true,
+      forcePreviewOnly: true,
+    });
     return;
   }
   if (purchasedId === "dice") {
@@ -7526,14 +7772,13 @@ function pulseFormulaMultMultiplyBurst(el) {
   });
 }
 
-/** 倍率乘数气泡文案（整数不保留小数，否则保留一位） */
+/** 倍率乘数气泡文案（整数不保留小数，非整数最多保留两位并去尾零） */
 function formatMultMultiplyLabel(factor) {
   const x = Number(factor);
   if (!Number.isFinite(x) || x <= 0) return "0";
   const r = Math.round(x);
   if (Math.abs(x - r) < 1e-4) return String(r);
-  const t = x.toFixed(1);
-  return t.endsWith(".0") ? String(r) : t;
+  return x.toFixed(2).replace(/\.?0+$/, "");
 }
 
 /** 宝藏槽上方 ×n 气泡：比 +倍率 更夸张的弹出与回弹 */
@@ -7785,16 +8030,32 @@ function scoreBubbleAnchorRect(slotEl) {
   return r;
 }
 
+/** 金币气泡：显示 $n，不带前导 +（负值仍保留 -$） */
+function formatMoneyBubbleLabel(amount) {
+  const n = Math.round(Number(amount) || 0);
+  return n < 0 ? `-$${Math.abs(n)}` : `$${n}`;
+}
+
+function normalizeScoreBubbleDisplayText(text, kind) {
+  const raw = String(text ?? "");
+  if (kind !== "money") return raw;
+  if (raw.startsWith("+$")) return raw.slice(1);
+  return raw;
+}
+
 function showScoreBubble(slotEl, text, kind, speed = 1) {
   const s = Math.max(0.01, Number(speed) || 1);
   const rect = scoreBubbleAnchorRect(slotEl);
   if (!rect) return null;
+  const displayText = normalizeScoreBubbleDisplayText(text, kind);
   const div = document.createElement("div");
   div.className =
     kind === "mult"
       ? "mult-popup-bubble"
       : kind === "replay"
         ? "score-popup-bubble score-popup-bubble--replay-again"
+        : kind === "upgrade"
+          ? "score-popup-bubble score-popup-bubble--upgrade"
         : kind === "money"
           ? "score-popup-bubble score-popup-bubble--money"
           : kind === "destroy"
@@ -7802,7 +8063,7 @@ function showScoreBubble(slotEl, text, kind, speed = 1) {
             : kind === "skip"
               ? "score-popup-bubble score-popup-bubble--skip"
               : "score-popup-bubble";
-  div.textContent = text;
+  div.textContent = displayText;
   document.body.appendChild(div);
   const rpx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
   /** 气泡底边与字母块顶边的间距，整块在槽位上方、槽外 */
@@ -8032,10 +8293,15 @@ async function runSlotPerLetterTreasureScoreStep(
   slotEl,
   speed = 1,
   realTile = null,
+  scoringVisitIndex = 0,
 ) {
   const tid = String(effectiveTreasureId ?? "");
   if (!tid || !slotEl) return false;
-  const ctx = { ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null) };
+  const ctx = {
+    ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null),
+    treasureRun: treasureRunState.value,
+    scoringVisitIndex,
+  };
   const cue = TREASURE_HOOKS_BY_ID.get(tid)?.getPerLetterScoreCue?.(ctx, part, letterIndex);
   if (!cue?.delta) return false;
   return runLetterTreasureScoreBurst(
@@ -8072,14 +8338,19 @@ async function runSlotPerLetterTreasureMultStep(
   );
 }
 
-/** 字母块配饰「钱币」：该字母轮到计分时，wobble 并弹出 +$ 气泡。 */
+/** 字母块配饰「钱币」：该字母轮到计分时，wobble 并弹出 $ 气泡。 */
 async function runLetterAccessoryCoinMoneyBurst(tile, slotEl, speed = 1) {
   if (!slotEl || tile?.accessoryId !== TILE_ACCESSORY_COIN) return;
   const sp = Math.max(0.01, Number(speed) || 1);
   wobbleScoreSlot(slotEl, sp);
   triggerAccessoryChipRipple(slotEl, sp);
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-  const bubble = showScoreBubble(slotEl, `+$${COIN_ACCESSORY_SCORE_BONUS_DOLLARS}`, "money", sp);
+  const bubble = showScoreBubble(
+    slotEl,
+    formatMoneyBubbleLabel(COIN_ACCESSORY_SCORE_BONUS_DOLLARS),
+    "money",
+    sp,
+  );
   scheduleSmallPlusBubbleOutro(bubble, sp);
   money.value += COIN_ACCESSORY_SCORE_BONUS_DOLLARS;
   await scoringSleep(SCORING_STEP_BEAT_MS, sp);
@@ -8118,7 +8389,11 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   const realTile = resolveRealSubmitTileForWordSlot(i, tile);
 
   const ownedSlotIds = ownedTreasures.value.map((s) => s?.treasureId ?? null);
-  const ctxScoreMerge = { ownedSlotTreasureIds: ownedSlotIds };
+  const ctxScoreMerge = {
+    ownedSlotTreasureIds: ownedSlotIds,
+    treasureRun: treasureRunState.value,
+    scoringVisitIndex: luckyVisitIndex,
+  };
   /** @type {{ si: number, delta: number, label?: string, treasureId: string }[]} */
   const mergedIntrinsicScoreSlots = [];
   for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(ownedSlotIds)) {
@@ -8189,6 +8464,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
       slotEl,
       sp,
       realTile,
+      luckyVisitIndex,
     );
     if (didTreasureScore) wordSlotIntrinsicWobblePlayed = true;
   }
@@ -8298,7 +8574,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
       await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
       wordSlotIntrinsicWobblePlayed = true;
     }
-    const bubbleLuckyMoney = showScoreBubble(slotEl, `+$${luckyRoll.moneyAdd}`, "money", sp);
+    const bubbleLuckyMoney = showScoreBubble(slotEl, formatMoneyBubbleLabel(luckyRoll.moneyAdd), "money", sp);
     scheduleSmallPlusBubbleOutro(bubbleLuckyMoney, sp);
     money.value += luckyRoll.moneyAdd;
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
@@ -8375,7 +8651,7 @@ async function runPerLetterTreasureReplayCue(cue, speed = 1) {
 
 /** 关卡通关时：棋盘上每个黄金材质字母块 wobble + 金币色 $ 气泡，金额直接进钱包（计入结算前利息基数，不在通关弹层单列） */
 const GOLD_MATERIAL_CLEAR_BONUS_DOLLARS = 3;
-/** 字母块钱币配饰：在该字母轮到计分时触发 +$3 */
+/** 字母块钱币配饰：在该字母轮到计分时触发 $3 */
 const COIN_ACCESSORY_SCORE_BONUS_DOLLARS = 3;
 const ICE_MATERIAL_SELF_DESTRUCT_CHANCE = 0.25;
 
@@ -8388,93 +8664,126 @@ function getGridEffectTriggerCount(tile) {
   return tile?.accessoryId === TILE_ACCESSORY_REWIND ? 2 : 1;
 }
 
-/** 同格多效果时：与入场 delay 一致则黄金先于配饰，便于稳定排序 */
-const CLEAR_WIN_TILE_EFFECT_KIND_ORDER = Object.freeze({ gold: 0, length_upgrade: 1 });
-
-/**
- * 通关当手、补牌前：按格子入场顺序（gridTileEntranceDelay）交错触发黄金与「升级配饰」；
- * 同 delay 时黄金优先。
- * @param {number} lastWordLen 本手最后提交单词的判定词长（实际字母数 + 画笔等）
- */
-function buildClearWinTileEffectQueue() {
+/** 通关黄金材质：按格子入场顺序交错触发 */
+function buildClearWinGoldEffectQueue() {
   const g = grid.value;
-  /** @type {{ kind: "gold" | "length_upgrade", r: number, c: number, delay: number, accessoryTriggered?: boolean }[]} */
+  /** @type {{ r: number, c: number, delay: number, accessoryTriggered?: boolean }[]} */
   const items = [];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const t = g[r][c];
       if (!t?.letter || t.selected) continue;
+      if (t.materialId !== "gold") continue;
       const delay = gridTileEntranceDelay(r, c);
-      if (t.materialId === "gold") {
-        const triggerCount = getGridEffectTriggerCount(t);
-        for (let k = 0; k < triggerCount; k++) {
-          items.push({ kind: "gold", r, c, delay, accessoryTriggered: k > 0 });
-        }
-      }
-      if (t.accessoryId === TILE_ACCESSORY_LEVEL_UPGRADE) {
-        items.push({ kind: "length_upgrade", r, c, delay });
+      const triggerCount = getGridEffectTriggerCount(t);
+      for (let k = 0; k < triggerCount; k++) {
+        items.push({ r, c, delay, accessoryTriggered: k > 0 });
       }
     }
   }
-  items.sort((a, b) => {
-    if (a.delay !== b.delay) return a.delay - b.delay;
-    return CLEAR_WIN_TILE_EFFECT_KIND_ORDER[a.kind] - CLEAR_WIN_TILE_EFFECT_KIND_ORDER[b.kind];
-  });
+  items.sort((a, b) => a.delay - b.delay);
   return items;
 }
 
-async function runClearWinBoardEffectsBeforeRefill(lastWordLen) {
-  const queue = buildClearWinTileEffectQueue();
+/** 通关「升级配饰」：登记到计分清空结束队列（排在飞机等宝藏之后） */
+function buildClearWinLengthUpgradeAccessoryEntries() {
+  const g = grid.value;
+  /** @type {{ r: number, c: number, delay: number }[]} */
+  const items = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const t = g[r][c];
+      if (!t?.letter || t.selected) continue;
+      if (t.accessoryId !== TILE_ACCESSORY_LEVEL_UPGRADE) continue;
+      items.push({ r, c, delay: gridTileEntranceDelay(r, c) });
+    }
+  }
+  items.sort((a, b) => a.delay - b.delay);
+  return items;
+}
+
+/**
+ * @param {(() => Promise<void>)[]} fxQueue
+ * @param {number} judgedLen 本手判定词长（查表用）
+ */
+function registerClearWinLengthUpgradePostScoreFx(fxQueue, judgedLen) {
+  const len = Math.max(3, Math.min(16, Math.round(Number(judgedLen)) || 0));
+  if (len < 3 || len > 16) return;
+  for (const { r, c } of buildClearWinLengthUpgradeAccessoryEntries()) {
+    fxQueue.push(() => runClearWinLengthUpgradeAccessoryTileFx(r, c, len));
+  }
+}
+
+/** 与飞机升级：格子上 wobble + 升级气泡后，顶栏播词长升级动效 */
+const CLEAR_WIN_ACCESSORY_UPGRADE_FX_DELAY_MS = 300;
+
+/** @param {number} r @param {number} c @param {number} len */
+async function runClearWinLengthUpgradeAccessoryTileFx(r, c, len) {
+  const idx = r * COLS + c;
+  const el = getGridTileElByIndex(idx);
+  if (!el) return;
+  const sp = 1;
+  const wobbleTl = createWobbleScoreSlotTimeline(el);
+  if (wobbleTl) {
+    wobbleTl.timeScale(sp);
+    wobbleTl.play(0);
+  }
+  triggerAccessoryChipRipple(el, sp);
+  const bubbleTask = (async () => {
+    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+    const bubble = showScoreBubble(el, "升级", "upgrade", sp);
+    scheduleSmallPlusBubbleOutro(bubble, sp);
+  })();
+  const wobbleDone = wobbleTl ? wobbleTl.then() : Promise.resolve();
+  await Promise.all([bubbleTask, wobbleDone]);
+  await sleep(CLEAR_WIN_ACCESSORY_UPGRADE_FX_DELAY_MS);
+
+  const beforeLevel = Math.max(1, Math.round(Number(lengthLevelsByLength.value?.[len])) || 1);
+  const observatoryBoost = isLengthObservatoryBoosted(
+    ownedVoucherIds.value,
+    len,
+    spellCountsByLength.value,
+  );
+  noteTreasureRunUpgradeUsed(treasureRunState.value);
+  bumpWordLengthLevel(len, { observatoryBoost });
+  await runClearWinLengthUpgradeShopLikeFx({
+    areaRef: gameResultAreaRef,
+    model: clearWinFxModel,
+    fxActive: clearWinLengthUpgradeFxActive,
+    waitNextTick: () => nextTick(),
+    len,
+    beforeLevel,
+    observatoryBoost,
+    speed: sp,
+  });
+}
+
+/** 通关当手、补牌前：仅黄金材质 wobble + 金币（升级配饰改在计分清空结束后队列执行） */
+async function runClearWinGoldEffectsBeforeRefill() {
+  const queue = buildClearWinGoldEffectQueue();
   if (queue.length === 0) return;
   const sp = 1;
-  const len = Math.max(3, Math.min(16, Math.round(Number(lastWordLen)) || 0));
   for (const item of queue) {
     const idx = item.r * COLS + item.c;
     const el = getGridTileElByIndex(idx);
     if (!el) continue;
-    if (item.kind === "gold") {
-      const wobbleTl = createWobbleScoreSlotTimeline(el);
-      if (wobbleTl) {
-        wobbleTl.timeScale(sp);
-        wobbleTl.play(0);
-      }
-      if (item.accessoryTriggered) triggerAccessoryChipRipple(el, sp, true);
-      await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-      const bubble = showScoreBubble(el, `+$${GOLD_MATERIAL_CLEAR_BONUS_DOLLARS}`, "money", sp);
-      scheduleSmallPlusBubbleOutro(bubble, sp);
-      await scoringSleep(SCORING_STEP_BEAT_MS, sp);
-      money.value += GOLD_MATERIAL_CLEAR_BONUS_DOLLARS;
-      /** 须等 wobble 播完再进入补牌下落：否则 scale/rotation 与 FLIP 的 y 冲突 */
-      if (wobbleTl) await wobbleTl.then();
-    } else {
-      if (len < 3) continue;
-      const wobbleTl = createWobbleScoreSlotTimeline(el);
-      if (wobbleTl) {
-        wobbleTl.timeScale(sp);
-        wobbleTl.play(0);
-      }
-      triggerAccessoryChipRipple(el, sp);
-      await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-      const beforeLevel = Math.max(1, Math.round(Number(lengthLevelsByLength.value?.[len])) || 1);
-      const observatoryBoost = isLengthObservatoryBoosted(
-        ownedVoucherIds.value,
-        len,
-        spellCountsByLength.value,
-      );
-      noteTreasureRunUpgradeUsed(treasureRunState.value);
-      bumpWordLengthLevel(len, { observatoryBoost });
-      await runClearWinLengthUpgradeShopLikeFx({
-        areaRef: gameResultAreaRef,
-        model: clearWinFxModel,
-        fxActive: clearWinLengthUpgradeFxActive,
-        waitNextTick: () => nextTick(),
-        len,
-        beforeLevel,
-        observatoryBoost,
-        speed: sp,
-      });
-      if (wobbleTl) await wobbleTl.then();
+    const wobbleTl = createWobbleScoreSlotTimeline(el);
+    if (wobbleTl) {
+      wobbleTl.timeScale(sp);
+      wobbleTl.play(0);
     }
+    if (item.accessoryTriggered) triggerAccessoryChipRipple(el, sp, true);
+    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+    const bubble = showScoreBubble(
+      el,
+      formatMoneyBubbleLabel(GOLD_MATERIAL_CLEAR_BONUS_DOLLARS),
+      "money",
+      sp,
+    );
+    scheduleSmallPlusBubbleOutro(bubble, sp);
+    await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+    money.value += GOLD_MATERIAL_CLEAR_BONUS_DOLLARS;
+    if (wobbleTl) await wobbleTl.then();
   }
 }
 
@@ -8657,7 +8966,12 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
       if (fxTargetEl) {
         wobbleScoreSlot(fxTargetEl, spPost);
         await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, spPost);
-        const bubbleMoney = showScoreBubble(fxTargetEl, `+$${Math.round(moneyAdd)}`, "money", spPost);
+        const bubbleMoney = showScoreBubble(
+          fxTargetEl,
+          formatMoneyBubbleLabel(moneyAdd),
+          "money",
+          spPost,
+        );
         scheduleSmallPlusBubbleOutro(bubbleMoney, spPost);
         money.value += Math.round(moneyAdd);
         await scoringSleep(SCORING_STEP_BEAT_MS, spPost);
@@ -8701,8 +9015,10 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
 
   /** @type {import('../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[]} */
   let submitWordLeaveFx = [];
+  /** @type {(() => Promise<void>)[]} */
+  let submitPostScoreClearFx = [];
   if (detailed.bossSoftViolation !== true) {
-    submitWordLeaveFx = await runPendingInRunGrantsAfterSubmit(
+    const pending = await runPendingInRunGrantsAfterSubmit(
       tiles,
       String(resolvedWord ?? "")
         .toLowerCase()
@@ -8710,6 +9026,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
       lenTb,
       currentScore.value,
     );
+    submitWordLeaveFx = pending.submitWordLeaveFx;
+    submitPostScoreClearFx = pending.submitPostScoreClearFx;
   }
 
   const startRound = currentScore.value;
@@ -8795,7 +9113,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
   const skipNewFromDeck = willWinThisSubmit || noSubmitsLeft;
 
   if (willWinThisSubmit) {
-    await runClearWinBoardEffectsBeforeRefill(n);
+    registerClearWinLengthUpgradePostScoreFx(submitPostScoreClearFx, lenTb);
+    await runClearWinGoldEffectsBeforeRefill();
   }
 
   applySubmitRefill({ skipNewFromDeck });
@@ -8813,6 +9132,12 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
   })();
 
   await Promise.all([dropPromise, scorePromise]);
+
+  if (submitPostScoreClearFx.length > 0) {
+    for (const fx of submitPostScoreClearFx) {
+      await fx();
+    }
+  }
 
   await collapseTrans;
 
@@ -9778,6 +10103,7 @@ onMounted(async () => {
   }
 });
 onUnmounted(() => {
+  disposeRunEndConfettiResources();
   disposeE2eHarness?.();
   disposeE2eHarness = null;
   gamePanelAlive = false;
@@ -9827,6 +10153,15 @@ onUnmounted(() => {
 .header-box-level-title--clickable {
   cursor: pointer;
   transition: filter 0.1s ease;
+}
+
+.run-end-confetti-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  border-radius: calc(12 * var(--rpx));
 }
 
 .header-box-level-title--clickable:hover {
@@ -10160,6 +10495,16 @@ onUnmounted(() => {
   box-sizing: border-box;
   overflow: hidden;
 }
+/* 牌库视图统一字号：覆盖材质块在 game.css 里的固定 42*rpx */
+.deck-layer-stacks :deep(.deck-stack-pile-tile.tile-material-gold .letter-tile-char),
+.deck-layer-stacks :deep(.deck-stack-pile-tile.tile-material-steel .letter-tile-char),
+.deck-layer-stacks :deep(.deck-stack-pile-tile.tile-material-ice .letter-tile-char),
+.deck-layer-stacks :deep(.deck-stack-pile-tile.tile-material-water .letter-tile-char),
+.deck-layer-stacks :deep(.deck-stack-pile-tile.tile-material-fire .letter-tile-char),
+.deck-layer-stacks :deep(.deck-stack-pile-tile.tile-material-wildcard .letter-tile-char),
+.deck-layer-stacks :deep(.deck-stack-pile-tile.tile-material-lucky .letter-tile-char) {
+  font-size: 1em;
+}
 .deck-layer-stacks :deep(.deck-stack-pile-tile .letter-gem) {
   display: none;
 }
@@ -10257,6 +10602,15 @@ onUnmounted(() => {
   cursor: pointer;
   box-sizing: border-box;
   overflow: hidden;
+}
+.deck-stack-expand-scroll :deep(.deck-expand-face-tile.tile-material-gold .letter-tile-char),
+.deck-stack-expand-scroll :deep(.deck-expand-face-tile.tile-material-steel .letter-tile-char),
+.deck-stack-expand-scroll :deep(.deck-expand-face-tile.tile-material-ice .letter-tile-char),
+.deck-stack-expand-scroll :deep(.deck-expand-face-tile.tile-material-water .letter-tile-char),
+.deck-stack-expand-scroll :deep(.deck-expand-face-tile.tile-material-fire .letter-tile-char),
+.deck-stack-expand-scroll :deep(.deck-expand-face-tile.tile-material-wildcard .letter-tile-char),
+.deck-stack-expand-scroll :deep(.deck-expand-face-tile.tile-material-lucky .letter-tile-char) {
+  font-size: 1em;
 }
 .deck-stack-expand-scroll :deep(.deck-expand-face-tile .letter-gem) {
   left: calc(var(--deck-expand-tile-size) * 0.045);
@@ -10398,10 +10752,21 @@ onUnmounted(() => {
 }
 
 .settle-total {
-  font-size: calc(36 * var(--rpx)) !important;
+  font-size: calc(36 * var(--rpx) * var(--settle-total-scale, 1)) !important;
   font-weight: 800 !important;
   min-height: calc(43 * var(--rpx)) !important;
   color: var(--money-gold) !important;
+  margin-left: calc(8 * var(--rpx));
+}
+
+.settle-total--wrapped {
+  flex-shrink: 1 !important;
+  max-width: 62%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  line-height: 1.15 !important;
+  text-align: right;
 }
 
 .stage-settlement-btn {

@@ -1,4 +1,4 @@
-import { VOUCHERS_BY_ID } from "./voucherDefinitions.js";
+import { getTier1DefForPair, getTier2DefForPair, VOUCHERS_BY_ID } from "./voucherDefinitions.js";
 import { formatVoucherDisplayName } from "./voucherDisplay.js";
 
 /**
@@ -82,13 +82,17 @@ export function buildOwnedVoucherDetailTreasure(group) {
   const top = tier2 ?? tier1;
   if (!top) return null;
   const hasT2 = Boolean(tier2);
+  const tier1Def = getTier1DefForPair(pairId);
+  const tier2Def = getTier2DefForPair(pairId);
+  const tier1Description = tier1?.description ?? tier1Def?.description ?? "";
+  const tier2Description = tier2?.description ?? tier2Def?.description ?? "";
   /** @type {Array<{ tier: number, title: string, description: string, emoji: string }>} */
   const ownedVoucherTiers = [];
   if (tier1) {
     ownedVoucherTiers.push({
       tier: 1,
       title: "一级",
-      description: tier1.description,
+      description: tier1Description,
       emoji: tier1.emoji,
     });
   }
@@ -96,17 +100,18 @@ export function buildOwnedVoucherDetailTreasure(group) {
     ownedVoucherTiers.push({
       tier: 2,
       title: "二级",
-      description: tier2.description,
+      description: tier2Description,
       emoji: tier2.emoji,
     });
   }
+  const singleTierDescription = ownedVoucherTiers[0]?.description ?? "";
   return {
     offerType: "voucher",
     pairId,
     voucherId: top.id,
     emoji: top.emoji,
     name: formatVoucherDisplayName(top, { pairHasTier2Owned: hasT2 }),
-    description: ownedVoucherTiers.length === 1 ? ownedVoucherTiers[0].description : "",
+    description: ownedVoucherTiers.length === 1 ? singleTierDescription : "",
     ownedVoucherTiers,
     price: top.price,
     rarity: "common",

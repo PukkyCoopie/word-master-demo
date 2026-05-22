@@ -64,6 +64,8 @@
 	--shop-shelf-cell-size: calc(108 * var(--rpx));
 	/* 对局信息 · 优惠券 Tab 网格格（商店货架与 --shop-shelf-cell-size 一致） */
 	--shop-voucher-cell-size: calc(132 * var(--rpx));
+	/* 信息弹窗优惠券格：文本可用宽度（仅影响布局，不拉伸优惠券邮票本体） */
+	--info-voucher-cell-width: calc(168 * var(--rpx));
 	/* 与 @container treasure-cell 内 emoji 比例一致，供无容器上下文回退 */
 	--shop-shelf-emoji-size: calc(42 * var(--rpx));
 	/* 牌包法术格 Remix 图标：相对 108 单元格边长；与 TreasureDetailLayer 法术飞入字号比例同步 */
@@ -401,7 +403,7 @@ body {
 	inset: 0;
 	border-radius: var(--radius);
 	border: calc(2.5 * var(--rpx)) solid var(--boss-tape-ripple);
-	animation: boss-tape-ripple-out 2.55s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+	animation: boss-tape-ripple-out 2.4s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
 	opacity: 0;
 }
 
@@ -416,6 +418,11 @@ body {
 .boss-tape-wrap--violate .boss-tape {
 	border-color: var(--boss-tape-violate-border);
 	background: var(--boss-tape-violate-bg);
+}
+
+.boss-tape-wrap--violate .boss-tape-ripple {
+	border-width: calc(3.4 * var(--rpx));
+	filter: drop-shadow(0 0 calc(7 * var(--rpx)) rgba(210, 56, 48, 0.46));
 }
 
 .boss-tape-wrap--violate .boss-tape-desc {
@@ -474,11 +481,14 @@ body {
 @keyframes boss-tape-ripple-out {
 	0% {
 		inset: 0;
-		opacity: 0.78;
+		opacity: 0.96;
+	}
+	48% {
+		opacity: 0.54;
 	}
 	72%,
 	100% {
-		inset: calc(-7 * var(--rpx));
+		inset: calc(-12 * var(--rpx));
 		opacity: 0;
 	}
 }
@@ -515,6 +525,11 @@ body {
 }
 
 /* ----- Boss 盲注重掷（场记板券，离开商店进 x-3 前） ----- */
+.boss-blind-reroll-backdrop {
+	/* 比常规预览层更不透明，确保在商店界面文字可读 */
+	background: rgba(14, 12, 10, 0.86);
+}
+
 .boss-blind-reroll-backdrop .treasure-detail-stack {
 	gap: calc(20 * var(--rpx));
 }
@@ -743,6 +758,11 @@ body {
 /* 关底黄金 +$：与 +分 气泡同形，仅底色区分 */
 .score-popup-bubble--money {
 	background: #d4a84a;
+}
+/* 宝藏触发升级：底色与升级动画等级标识一致 */
+.score-popup-bubble--upgrade {
+	background: var(--btn-yellow);
+	text-shadow: 0 calc(1 * var(--rpx)) 0 rgba(120, 84, 40, 0.5);
 }
 /* 宝藏自毁：摧毁！ */
 .score-popup-bubble--destroy {
@@ -1902,15 +1922,37 @@ body {
 	align-items: center;
 	justify-content: center;
 	box-sizing: border-box;
+	border: none;
+	box-shadow: none;
 	overflow: hidden;
-	left: calc(3 * var(--rpx) * var(--slot-scale, 1));
-	top: calc(3 * var(--rpx) * var(--slot-scale, 1));
-	right: auto;
-	bottom: auto;
-	width: calc(24 * var(--rpx) * var(--slot-scale, 1));
-	height: calc(24 * var(--rpx) * var(--slot-scale, 1));
+	right: calc(3 * var(--rpx) * var(--slot-scale, 1));
+	bottom: calc(3 * var(--rpx) * var(--slot-scale, 1));
+	left: auto;
+	top: auto;
+	width: calc(28 * var(--rpx) * var(--slot-scale, 1));
+	height: calc(28 * var(--rpx) * var(--slot-scale, 1));
 	border-radius: calc(6 * var(--rpx) * var(--slot-scale, 1));
 	pointer-events: none;
+}
+
+.grid-tile .tile-treasure-accessory-chip .treasure-accessory-chip-ripple,
+.word-slots .word-slot-content .tile-treasure-accessory-chip .treasure-accessory-chip-ripple,
+.fly-letter .tile-treasure-accessory-chip .treasure-accessory-chip-ripple,
+.fly-letter-back .tile-treasure-accessory-chip .treasure-accessory-chip-ripple,
+.deck-expand-face-tile .tile-treasure-accessory-chip .treasure-accessory-chip-ripple,
+.shop-shelf-letter-tile .tile-treasure-accessory-chip .treasure-accessory-chip-ripple {
+	inset: calc(-4 * var(--rpx) * var(--slot-scale, 1));
+	border-radius: calc(8 * var(--rpx) * var(--slot-scale, 1));
+	box-shadow: 0 0 0 calc(2.4 * var(--rpx) * var(--slot-scale, 1)) rgba(255, 255, 255, 0);
+}
+
+.grid-tile .tile-treasure-accessory-chip .treasure-accessory-chip-icon,
+.word-slots .word-slot-content .tile-treasure-accessory-chip .treasure-accessory-chip-icon,
+.fly-letter .tile-treasure-accessory-chip .treasure-accessory-chip-icon,
+.fly-letter-back .tile-treasure-accessory-chip .treasure-accessory-chip-icon,
+.deck-expand-face-tile .tile-treasure-accessory-chip .treasure-accessory-chip-icon,
+.shop-shelf-letter-tile .tile-treasure-accessory-chip .treasure-accessory-chip-icon {
+	font-size: calc(17 * var(--rpx) * var(--slot-scale, 1));
 }
 
 .grid-tile .tile-accessory-chip,
@@ -2856,7 +2898,7 @@ body {
 /* 对局信息：已购优惠券网格（InfoModal） */
 .info-voucher-grid {
 	display: grid;
-	grid-template-columns: repeat(3, var(--shop-voucher-cell-size));
+	grid-template-columns: repeat(3, var(--info-voucher-cell-width));
 	gap: calc(20 * var(--rpx));
 	padding: calc(20 * var(--rpx));
 	justify-content: center;
@@ -2883,13 +2925,15 @@ body {
 
 .info-voucher-name {
 	margin: calc(10 * var(--rpx)) 0 0;
-	max-width: var(--shop-voucher-cell-size);
+	max-width: var(--info-voucher-cell-width);
 	font-size: calc(24 * var(--rpx));
 	font-weight: 700;
 	line-height: 1.25;
 	color: #776e65;
 	text-align: center;
-	word-break: break-word;
+	white-space: nowrap;
+	word-break: keep-all;
+	overflow-wrap: normal;
 }
 
 .info-voucher-cell:hover {
@@ -2923,7 +2967,9 @@ body {
 /* 已购优惠券：同 pair 两级叠放（后层略旋转） */
 .voucher-stamp-stack {
 	position: relative;
-	width: 100%;
+	width: var(--shop-voucher-cell-size);
+	max-width: 100%;
+	margin: 0 auto;
 	box-sizing: border-box;
 }
 
@@ -3747,8 +3793,9 @@ body {
 	}
 
 	.shop-shelf-letter-tile.grid-tile .tile-accessory-chip {
-		top: calc(100cqmin * 4 / 108);
 		right: calc(100cqmin * 4 / 108);
+		bottom: calc(100cqmin * 4 / 108);
+		top: auto;
 		width: calc(100cqmin * 22 / 108);
 		height: calc(100cqmin * 22 / 108);
 		border-radius: calc(100cqmin * 5 / 108);

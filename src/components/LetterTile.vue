@@ -37,7 +37,7 @@ const props = defineProps({
   materialId: { type: String, default: null },
   /** 棋盘专用配饰 id，如 level_upgrade */
   accessoryId: { type: String, default: null },
-  /** 通用宝藏配饰 id（火焰/水滴/扳手；与 accessoryId 可并存） */
+  /** 通用宝藏配饰 id（火焰/水滴/扳手；与 accessoryId 互斥） */
   treasureAccessoryId: { type: String, default: null },
   /** Boss 镣铐顶行禁位 */
   bossGridBlocked: { type: Boolean, default: false },

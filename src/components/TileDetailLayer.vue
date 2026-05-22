@@ -117,6 +117,21 @@
                 :panel-body="true"
               />
             </div>
+
+            <div
+              v-for="panel in accessoryLinkedConceptPanels"
+              :key="'tile-acc-linked-' + panel.title"
+              class="treasure-detail-desc-card tile-detail-entry tile-detail-stagger-el"
+            >
+              <div class="treasure-detail-desc-panel-title-row">
+                <span class="treasure-detail-desc-panel-title-text">{{ panel.title }}</span>
+              </div>
+              <TreasureDescRichText
+                class="treasure-detail-desc-panel-rich"
+                :description="panel.effectDescription"
+                :panel-body="true"
+              />
+            </div>
           </div>
 
           <div ref="actionsRef" class="treasure-detail-actions tile-detail-stagger-el">
@@ -181,6 +196,7 @@ import {
   getTileDetailMaterialTitle,
   getTileDetailAccessoryTitle,
 } from "../game/tileDetailLayerCopy.js";
+import { getTileAccessoryLinkedConceptPanels } from "../game/gameConceptCopy.js";
 import { EASE_TRANSFORM } from "../constants.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 
@@ -704,6 +720,9 @@ const accessoryTitle = computed(() => getTileDetailAccessoryTitle(props.payload?
 const tileAccessoryChipVisual = computed(() => getTileAccessoryChipVisual(props.payload?.accessoryId));
 
 const showAccessoryRegion = computed(() => Boolean(accessoryIdNorm.value && accessoryDesc.value));
+const accessoryLinkedConceptPanels = computed(() =>
+  showAccessoryRegion.value ? getTileAccessoryLinkedConceptPanels(accessoryIdNorm.value) : [],
+);
 
 const treasureAccessoryIdNorm = computed(() => String(props.payload?.treasureAccessoryId ?? "").trim());
 

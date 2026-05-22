@@ -115,6 +115,19 @@ export function getTileAccessoryEffectDescription(accessoryId) {
   return v ?? null;
 }
 
+/**
+ * 棋盘配饰的关联机制补充分区（用于详情层在配饰分区下追加说明）。
+ * 目前仅「钻石」关联「升级」。
+ * @param {string | null | undefined} accessoryId
+ * @returns {{ title: string, effectDescription: string }[]}
+ */
+export function getTileAccessoryLinkedConceptPanels(accessoryId) {
+  const id = normId(accessoryId);
+  if (id !== "vip_diamond") return [];
+  const panel = getGameTermConceptPanel("升级");
+  return panel ? [panel] : [];
+}
+
 // ---------------------------------------------------------------------------
 // 已拥有宝藏上的具名装备配饰（treasureAccessoryId，与 treasureAccessories.js 常量同值）
 // ---------------------------------------------------------------------------
@@ -180,6 +193,10 @@ export const GAME_TERM_CONCEPT_BY_LABEL = Object.freeze({
     title: "升级",
     effectDescription: "提高长度或稀有度的等级，从而提高它们提供的分数和倍率",
   }),
+  配饰: Object.freeze({
+    title: "配饰",
+    effectDescription: "可以镶嵌在宝藏或字母块上，提供一些增益",
+  }),
 });
 
 /** @typedef {{ title: string, effectDescription: string }} DescriptionConceptPanel */
@@ -206,21 +223,36 @@ export function collectExplicitDescriptionConceptPanels(description, excludeTitl
   const seen = new Set([...excludeTitles].map((t) => String(t ?? "").trim()).filter(Boolean));
   /** @type {DescriptionConceptPanel[]} */
   const panels = [];
+  let mentionsAccessory = false;
   /** @param {unknown[]} segs */
   function walk(segs) {
     for (const seg of segs) {
       if (!seg || typeof seg !== "object") continue;
       if (seg.type === "concept") {
+        if (String(seg.v ?? "").includes("配饰")) mentionsAccessory = true;
         const entry = getGameTermConceptPanel(seg.v);
         if (!entry || seen.has(entry.title)) continue;
         seen.add(entry.title);
         panels.push(entry);
       } else if (seg.type === "gainBlock" && Array.isArray(seg.parts)) {
         walk(seg.parts);
+      } else if (seg.type === "text" || seg.type === "gain") {
+        if (String(seg.v ?? "").includes("配饰")) mentionsAccessory = true;
       }
     }
   }
-  if (Array.isArray(description)) walk(description);
+  if (Array.isArray(description)) {
+    walk(description);
+  } else if (String(description ?? "").includes("配饰")) {
+    mentionsAccessory = true;
+  }
+  if (mentionsAccessory) {
+    const entry = getGameTermConceptPanel("配饰");
+    if (entry && !seen.has(entry.title)) {
+      seen.add(entry.title);
+      panels.push(entry);
+    }
+  }
   return panels;
 }
 

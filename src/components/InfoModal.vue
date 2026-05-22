@@ -1,7 +1,10 @@
 <template>
   <div
     class="info-layer"
-    :class="{ 'portal-overlay--shop-upgrade-suppressed': overlaySuppressed }"
+    :class="{
+      'portal-overlay--shop-upgrade-suppressed': overlaySuppressed,
+      'info-layer--stagger-guard': openingStaggerGuard,
+    }"
     role="dialog"
     aria-modal="true"
     aria-label="信息"
@@ -352,6 +355,8 @@ const props = defineProps({
   inShop: { type: Boolean, default: false },
   /** 商店内下一小关 id（与 GamePanel getNextLevelDefAfterShop 一致） */
   nextLevelId: { type: String, default: "" },
+  /** 是否已进入无尽模式（未进入前关卡进度最多展示到 8 大关） */
+  isEndlessRun: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue", "select-owned-voucher"]);
@@ -526,6 +531,7 @@ function runActiveTabEnterAnim() {
 /** @type {ReturnType<typeof setTimeout> | null} */
 let tabEnterAnimTimer = null;
 let skipTabSwitchAnim = false;
+const openingStaggerGuard = ref(true);
 
 /** @param {{ delay?: number }} [opts] */
 function scheduleActiveTabEnterAnim(opts = {}) {
@@ -558,12 +564,14 @@ const VALID_INFO_TABS = new Set(["level", "rarity", "stage", "coupon"]);
 /** 打开弹窗：设 Tab、量高、与外壳同时播当前 Tab 入场（v-if 挂载时 watch 不会触发，onMounted 也需调用） */
 function applyInfoModalOpenState() {
   skipTabSwitchAnim = true;
+  openingStaggerGuard.value = true;
   const tab = String(props.initialTab ?? "level");
   activeTab.value = VALID_INFO_TABS.has(tab) ? tab : "level";
   scheduleMeasureLevelTabHeight();
   scheduleMeasureLevelTabHeight({ delay: 340 });
   nextTick(() => {
     prepareActiveTabEnterHidden();
+    openingStaggerGuard.value = false;
     runActiveTabEnterAnim();
     skipTabSwitchAnim = false;
   });
@@ -575,6 +583,7 @@ watch(
     if (open) {
       applyInfoModalOpenState();
     } else {
+      openingStaggerGuard.value = true;
       panelMinHeightPx.value = 0;
     }
   },
@@ -601,6 +610,7 @@ const stageProgressRows = computed(() => {
     activeBossSlug: props.activeBossSlug,
     runSeedNumeric: props.runSeedNumeric,
     inShop: props.inShop,
+    isEndlessRun: props.isEndlessRun,
   });
 });
 
@@ -725,6 +735,11 @@ function close() {
 
 /* 外壳 CSS 入场期间先藏住内容，避免首帧全显再等 GSAP */
 .info-layer-enter-active .info-stagger-el {
+  opacity: 0;
+}
+
+/* 防止偶发首帧先渲染终态：等 prepare + run 建立起始态后再放开 */
+.info-layer--stagger-guard .info-stagger-el {
   opacity: 0;
 }
 

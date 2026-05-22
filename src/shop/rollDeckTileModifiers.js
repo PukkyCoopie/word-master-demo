@@ -5,7 +5,7 @@
  * - 宝藏配饰（火焰/水滴/扳手）≈ Edition：Foil 4% + Holo 2.8% + Poly 1.2%（宝石券 Hone/Glow Up 倍率；裁剪仅宝藏槽）
  * - 棋盘配饰 ≈ Seal：20%（四种均匀）
  *
- * 三者独立掷骰，可与材质、彼此叠加。
+ * 材质与配饰独立掷骰；普通配饰与宝藏配饰互斥（若同时命中，保留普通配饰）。
  */
 import {
   TREASURE_ACCESSORY_DROP,
@@ -89,10 +89,12 @@ export function rollDeckTileBoardAccessoryId(rng) {
 export function rollDeckTileModifiers(rng, opts = {}) {
   const hone = opts.honeAccessoryMult ?? 1;
   const mats = opts.materialIds ?? SHOP_TILE_PACK_MATERIAL_IDS;
+  const treasureAccessoryId = rollDeckTileTreasureAccessoryId(rng, hone);
+  const accessoryId = rollDeckTileBoardAccessoryId(rng);
   return {
     materialId: rollDeckTileMaterialId(rng, mats),
-    treasureAccessoryId: rollDeckTileTreasureAccessoryId(rng, hone),
-    accessoryId: rollDeckTileBoardAccessoryId(rng),
+    treasureAccessoryId: accessoryId ? null : treasureAccessoryId,
+    accessoryId: accessoryId || null,
   };
 }
 

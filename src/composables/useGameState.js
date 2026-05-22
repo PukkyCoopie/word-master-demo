@@ -77,6 +77,19 @@ function defaultRng() {
 }
 
 /**
+ * 字母块配饰互斥：同一牌张/格子最多保留一种配饰（普通配饰优先）。
+ * @param {unknown} accessoryId
+ * @param {unknown} treasureAccessoryId
+ */
+function normalizeExclusiveTileAccessoryPair(accessoryId, treasureAccessoryId) {
+  const acc = accessoryId != null ? String(accessoryId).trim() : "";
+  const tAcc = treasureAccessoryId != null ? String(treasureAccessoryId).trim() : "";
+  if (acc) return { accessoryId: acc, treasureAccessoryId: null };
+  if (tAcc) return { accessoryId: null, treasureAccessoryId: tAcc };
+  return { accessoryId: null, treasureAccessoryId: null };
+}
+
+/**
  * 牌库 multiset 中一枚「牌张」的稳定引用；材质/稀有度/万能等跨小关保存在此对象上，
  * 棋盘格 `tile._deckCard` 指向同一引用。
  * @param {string} raw0 小写；`q` 表示 Qu。
@@ -151,9 +164,11 @@ export function syncTileStateToDeckCard(tile) {
   c.materialMultBonus = Number(tile?.materialMultBonus) || 0;
   c.tileScoreBonus = Math.max(0, Math.floor(Number(tile?.tileScoreBonus) || 0));
   c.letterMultBonus = Math.max(0, Math.round(Number(tile?.letterMultBonus) || 0));
-  c.accessoryId = tile?.accessoryId != null ? String(tile.accessoryId) : null;
-  c.treasureAccessoryId =
-    tile?.treasureAccessoryId != null ? String(tile.treasureAccessoryId) : null;
+  const normalizedAccessory = normalizeExclusiveTileAccessoryPair(tile?.accessoryId, tile?.treasureAccessoryId);
+  tile.accessoryId = normalizedAccessory.accessoryId;
+  tile.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
+  c.accessoryId = normalizedAccessory.accessoryId;
+  c.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
 }
 
 function shuffleArrayInPlace(arr, rng = Math.random) {
@@ -327,6 +342,12 @@ function createTileFromDeckCard(card, idGen, rarityLevelsSnapshot = null) {
       : getRarityForLetter(raw);
   const letter = useWildcard ? WILDCARD_TILE_LETTER : raw === "q" ? "Qu" : String(raw).toUpperCase();
   const baseScore = getBaseScoreForRarity(rarity, rarityLevelsSnapshot);
+  const normalizedAccessory = normalizeExclusiveTileAccessoryPair(
+    /** @type {{ accessoryId?: unknown }} */ (card).accessoryId,
+    /** @type {{ treasureAccessoryId?: unknown }} */ (card).treasureAccessoryId,
+  );
+  card.accessoryId = normalizedAccessory.accessoryId;
+  card.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
   return {
     id: idGen(),
     letter,
@@ -337,8 +358,8 @@ function createTileFromDeckCard(card, idGen, rarityLevelsSnapshot = null) {
     materialScoreBonus: Math.max(0, Math.floor(Number(card.materialScoreBonus) || 0)),
     materialId: useWildcard ? WILDCARD_MATERIAL_ID : card.materialId ?? null,
     materialMultBonus: Number(card.materialMultBonus) || 0,
-    accessoryId: card.accessoryId ?? null,
-    treasureAccessoryId: card.treasureAccessoryId ?? null,
+    accessoryId: normalizedAccessory.accessoryId,
+    treasureAccessoryId: normalizedAccessory.treasureAccessoryId,
     selected: false,
     isWildcard: useWildcard,
     bossGridBlocked: false,
@@ -1654,10 +1675,9 @@ export function useGameState(gameOpts = {}) {
         if (mat === "water") card.materialScoreBonus = WATER_MATERIAL_SCORE_BONUS;
         if (mat === "fire") card.materialMultBonus = FIRE_MATERIAL_MULT_BONUS;
       }
-      const acc = e?.accessoryId != null ? String(e.accessoryId).trim() : "";
-      if (acc) card.accessoryId = acc;
-      const tAcc = e?.treasureAccessoryId != null ? String(e.treasureAccessoryId).trim() : "";
-      if (tAcc) card.treasureAccessoryId = tAcc;
+      const normalizedAccessory = normalizeExclusiveTileAccessoryPair(e?.accessoryId, e?.treasureAccessoryId);
+      card.accessoryId = normalizedAccessory.accessoryId;
+      card.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
       snap.push(card);
       d.push(card);
       created.push(card);

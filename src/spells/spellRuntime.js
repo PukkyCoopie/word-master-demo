@@ -23,6 +23,19 @@ const WATER_MATERIAL_SCORE_BONUS = 30;
 const FIRE_MATERIAL_MULT_BONUS = 4;
 const VOWEL_SET = new Set(["a", "e", "i", "o", "u"]);
 
+/**
+ * 字母块配饰互斥：同一格/牌张最多保留一种配饰（普通配饰优先）。
+ * @param {unknown} accessoryId
+ * @param {unknown} treasureAccessoryId
+ */
+function normalizeExclusiveTileAccessoryPair(accessoryId, treasureAccessoryId) {
+  const acc = accessoryId != null ? String(accessoryId).trim() : "";
+  const tAcc = treasureAccessoryId != null ? String(treasureAccessoryId).trim() : "";
+  if (acc) return { accessoryId: acc, treasureAccessoryId: null };
+  if (tAcc) return { accessoryId: null, treasureAccessoryId: tAcc };
+  return { accessoryId: null, treasureAccessoryId: null };
+}
+
 function rngU(rng) {
   const f = typeof rng === "function" ? rng : Math.random;
   return f();
@@ -293,9 +306,14 @@ const TILE_AURA_ACCESSORY_POOL = Object.freeze([
 /** @param {Record<string, unknown>} tile @param {string} accessoryId */
 function applyTileBoardAccessory(tile, accessoryId) {
   const gains = snapshotMaxIntrinsicGainsFromTile(tile);
-  tile.accessoryId = accessoryId;
+  const normalizedAccessory = normalizeExclusiveTileAccessoryPair(accessoryId, null);
+  tile.accessoryId = normalizedAccessory.accessoryId;
+  tile.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
   const c = tile._deckCard;
-  if (c && typeof c === "object") c.accessoryId = accessoryId;
+  if (c && typeof c === "object") {
+    c.accessoryId = normalizedAccessory.accessoryId;
+    c.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
+  }
   applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
   syncTileStateToDeckCard(tile);
 }
@@ -303,9 +321,14 @@ function applyTileBoardAccessory(tile, accessoryId) {
 /** @param {Record<string, unknown>} tile @param {string} treasureAccessoryId */
 function applyTileTreasureAccessory(tile, treasureAccessoryId) {
   const gains = snapshotMaxIntrinsicGainsFromTile(tile);
-  tile.treasureAccessoryId = treasureAccessoryId;
+  const normalizedAccessory = normalizeExclusiveTileAccessoryPair(null, treasureAccessoryId);
+  tile.accessoryId = normalizedAccessory.accessoryId;
+  tile.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
   const c = tile._deckCard;
-  if (c && typeof c === "object") c.treasureAccessoryId = treasureAccessoryId;
+  if (c && typeof c === "object") {
+    c.accessoryId = normalizedAccessory.accessoryId;
+    c.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
+  }
   applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
   syncTileStateToDeckCard(tile);
 }
@@ -356,6 +379,7 @@ function buildTileSurfaceFromDeckCard(card, rarityLevelsByRarity) {
       ? String(card.rarity)
       : getRarityForLetter(raw || "a");
   const letter = useWildcard ? "?" : raw === "q" ? "Qu" : String(raw || "e").toUpperCase();
+  const normalizedAccessory = normalizeExclusiveTileAccessoryPair(card.accessoryId, card.treasureAccessoryId);
   return {
     letter,
     baseScore: getBaseScoreForRarity(rarity, rarityLevelsByRarity ?? null),
@@ -365,9 +389,8 @@ function buildTileSurfaceFromDeckCard(card, rarityLevelsByRarity) {
     materialScoreBonus: Math.max(0, Math.floor(Number(card.materialScoreBonus) || 0)),
     materialId: useWildcard ? WILDCARD_MATERIAL_ID : card.materialId != null ? String(card.materialId) : null,
     materialMultBonus: Number(card.materialMultBonus) || 0,
-    accessoryId: card.accessoryId != null ? String(card.accessoryId) : null,
-    treasureAccessoryId:
-      card.treasureAccessoryId != null ? String(card.treasureAccessoryId) : null,
+    accessoryId: normalizedAccessory.accessoryId,
+    treasureAccessoryId: normalizedAccessory.treasureAccessoryId,
     isWildcard: useWildcard,
   };
 }
@@ -412,6 +435,7 @@ function copyTileOntoPreserveId(dst, src, rarityLevelsByRarity) {
     srcCard && typeof srcCard === "object"
       ? buildTileSurfaceFromDeckCard(srcCard, rarityLevelsByRarity)
       : {
+          ...(normalizeExclusiveTileAccessoryPair(src.accessoryId, src.treasureAccessoryId)),
           letter: src.letter,
           baseScore: getBaseScoreForRarity(String(src.rarity || "common"), rarityLevelsByRarity ?? null),
           rarity: String(src.rarity || "common"),
@@ -420,9 +444,6 @@ function copyTileOntoPreserveId(dst, src, rarityLevelsByRarity) {
           materialScoreBonus: Math.max(0, Math.floor(Number(src.materialScoreBonus) || 0)),
           materialId: src.materialId != null ? String(src.materialId) : null,
           materialMultBonus: Number(src.materialMultBonus) || 0,
-          accessoryId: src.accessoryId != null ? String(src.accessoryId) : null,
-          treasureAccessoryId:
-            src.treasureAccessoryId != null ? String(src.treasureAccessoryId) : null,
           isWildcard: !!src.isWildcard,
         };
   Object.assign(dst, patch);
@@ -750,8 +771,14 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       const vowels = [];
       for (let i = 0; i < 3; i++) vowels.push(pickRandomRaw(allVowelRaws(), rng));
       const entries = buildEnhancedDeckEntries(vowels, rng);
-      ctx.appendShopDeckEntries?.(entries);
-      spellFx = { kind: "deck_add", count: entries.length, removedDeckCardUid: remUid };
+      const addedDeckCards = ctx.appendShopDeckEntries?.(entries) ?? [];
+      spellFx = {
+        kind: "deck_add",
+        count: entries.length,
+        removedDeckCardUid: remUid,
+        source: "spell_icon",
+        addedDeckCards,
+      };
       break;
     }
     case "grim": {
@@ -780,8 +807,14 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       const raws = [];
       for (let i = 0; i < 4; i++) raws.push(pickRandomRaw(allConsonantRaws(), rng));
       const entries = buildEnhancedDeckEntries(raws, rng);
-      ctx.appendShopDeckEntries?.(entries);
-      spellFx = { kind: "deck_add", count: entries.length, removedDeckCardUid: remUid };
+      const addedDeckCards = ctx.appendShopDeckEntries?.(entries) ?? [];
+      spellFx = {
+        kind: "deck_add",
+        count: entries.length,
+        removedDeckCardUid: remUid,
+        source: "spell_icon",
+        addedDeckCards,
+      };
       break;
     }
     case "talisman": {

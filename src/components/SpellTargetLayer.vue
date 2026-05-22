@@ -48,7 +48,11 @@
                 >{{ rarityTagLabel }}</span
               >
             </div>
-            <TreasureDescRichText v-if="hasSpellDesc" :description="session.spellDescription" />
+            <TreasureDescRichText
+              v-if="hasSpellDesc"
+              :description="session.spellDescription"
+              :probability-display-doubled="probabilityDisplayDoubled"
+            />
           </div>
 
           <div
@@ -64,6 +68,7 @@
                 class="treasure-detail-desc-panel-rich"
                 :description="spellGainPanelContent.description"
                 :panel-body="true"
+                :probability-display-doubled="probabilityDisplayDoubled"
               />
             </div>
           </div>
@@ -81,6 +86,7 @@
               class="treasure-detail-desc-panel-rich"
               :description="panel.effectDescription"
               :panel-body="true"
+              :probability-display-doubled="probabilityDisplayDoubled"
             />
           </div>
         </div>
@@ -132,6 +138,7 @@
                     :rarity="displaySlotTile(slot, idx).rarity"
                     :material-id="displaySlotTile(slot, idx).materialId ?? null"
                     :accessory-id="displaySlotTile(slot, idx).accessoryId ?? null"
+                    :treasure-accessory-id="displaySlotTile(slot, idx).treasureAccessoryId ?? null"
                     :tile-score-bonus="Number(displaySlotTile(slot, idx).tileScoreBonus) || 0"
                     :tile-mult-bonus="Number(displaySlotTile(slot, idx).letterMultBonus) || 0"
                   />
@@ -195,6 +202,8 @@ import { bumpOverlayZ } from "../game/overlayStack.js";
 const props = defineProps({
   session: { type: Object, default: null },
   overlaySuppressed: { type: Boolean, default: false },
+  /** 已拥有打字机（45）时：法术描述中的概率 chip 显示翻倍 */
+  probabilityDisplayDoubled: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["confirm", "cancel"]);

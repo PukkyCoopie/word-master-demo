@@ -210,7 +210,7 @@ function buildSpellDefinitions() {
     {
       id: "incantation",
       name: "卷轴",
-      iconClass: "ri-scroll-fill",
+      iconClass: "ri-pages-fill",
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
@@ -308,7 +308,12 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
-      description: `从下列字母中随机挑选1个，为其添加${getTileBoardAccessoryTitle("vip_diamond")}配饰`,
+      description: describe(
+        `从下列字母中随机挑选1个，为其添加${getTileBoardAccessoryTitle("vip_diamond")}配饰`,
+        "（触发效果属于",
+        concept("升级"),
+        "）",
+      ),
     },
     {
       id: "eclipse_length",

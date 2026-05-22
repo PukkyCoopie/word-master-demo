@@ -14,7 +14,7 @@ export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription(ctx) {
     const n = Math.max(0, Math.floor(Number(ctx.treasureRun?.runUpgradesUsedCount) || 0));
-    return describe("（当前为", money(String(n)), "）");
+    return describe("在关卡完成时，你在本轮游戏中每使用过1次升级，获得", money("1"), "（当前为", money(String(n)), "）");
   },
   async onLevelComplete(ctx) {
     const n = Math.max(0, Math.floor(Number(ctx.treasureRun?.runUpgradesUsedCount) || 0));

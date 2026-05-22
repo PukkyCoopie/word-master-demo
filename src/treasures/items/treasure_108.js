@@ -16,6 +16,17 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  replaceDescriptionWithPatch: true,
+  patchDescription(ctx) {
+    const deck = Array.isArray(ctx.fullDeck) ? ctx.fullDeck : [];
+    const n = Math.max(0, countDeckCardsWithEnhancement(deck));
+    return describe(
+      `如果你的完整牌库中有至少${MIN_ENHANCED}个具有增益的字母块，`,
+      mult("x3"),
+      "倍率",
+      `（当前${n}/${MIN_ENHANCED}）`,
+    );
+  },
   buildPostLetterStep(ctx) {
     const deck = ctx.fullDeck;
     if (!Array.isArray(deck)) return null;

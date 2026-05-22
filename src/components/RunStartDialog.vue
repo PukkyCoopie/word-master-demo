@@ -24,7 +24,6 @@
           <div class="run-start-dialog-seed-field">
             <input
               id="run-start-seed-input"
-              ref="seedInputRef"
               v-model="seedDraft"
               type="text"
               class="run-start-dialog-seed-input"
@@ -65,7 +64,7 @@
 </template>
 
 <script setup>
-import { nextTick, ref, watch } from "vue";
+import { ref, watch } from "vue";
 import { generateRandomRunSeedString, normalizeRunSeedInput, resolveRunSeedFromDialog } from "../game/runRng.js";
 
 const props = defineProps({
@@ -77,14 +76,12 @@ const props = defineProps({
 const emit = defineEmits(["confirm", "cancel"]);
 
 const seedDraft = ref("");
-const seedInputRef = ref(/** @type {HTMLInputElement | null} */ (null));
 
 watch(
   () => [props.open, props.initialSeed],
   ([isOpen, initial]) => {
     if (!isOpen) return;
     seedDraft.value = initial ? normalizeRunSeedInput(String(initial)) : "";
-    nextTick(() => seedInputRef.value?.focus());
   },
 );
 
