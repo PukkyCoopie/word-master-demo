@@ -5,7 +5,7 @@ import {
   rollDiscardLetterGroupIndex,
 } from "../treasureRunState.js";
 
-const ID = "65";
+export const TREASURE_65_ID = "65";
 const SCORE_PER_MATCHING_DISCARD = 3;
 
 /**
@@ -14,7 +14,7 @@ const SCORE_PER_MATCHING_DISCARD = 3;
 function buildPotteryJarDescription(ctx) {
   const g = String(ctx.discardLetterGroup ?? "abcde").toUpperCase();
   const rs = ctx.treasureRun;
-  const v = rs ? Math.round(getScoreAddBank(rs, ID)) : 0;
+  const v = rs ? Math.round(getScoreAddBank(rs, TREASURE_65_ID)) : 0;
   const bankLabel = v >= 0 ? `+${v}` : String(v);
   return describe(
     `每当你弃掉一张${g}，获得`,
@@ -45,7 +45,7 @@ export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription: buildPotteryJarDescription,
   buildPostLetterStep(ctx) {
-    const v = getScoreAddBank(ctx.treasureRun, ID);
+    const v = getScoreAddBank(ctx.treasureRun, TREASURE_65_ID);
     return v !== 0 ? { scoreAdd: v } : null;
   },
   onDiscardBatch(ctx) {
@@ -54,14 +54,14 @@ export const treasureHooks = {
     if (!rs) return;
     for (const p of ctx.discardedLetters ?? []) {
       if (!letterInCurrentDiscardGroup(p?.letter, rs)) continue;
-      addScoreAddBank(rs, ID, SCORE_PER_MATCHING_DISCARD);
+      addScoreAddBank(rs, TREASURE_65_ID, SCORE_PER_MATCHING_DISCARD);
     }
   },
   async onLevelComplete(ctx) {
-    const ix = ctx.findOwnedTreasureSlotIndex?.(ID) ?? -1;
+    const ix = ctx.findOwnedTreasureSlotIndex?.(TREASURE_65_ID) ?? -1;
     if (ix < 0 || !ctx.treasureRun) return;
     const rnd = typeof ctx.rng === "function" ? ctx.rng : Math.random;
     rollDiscardLetterGroupIndex(ctx.treasureRun, rnd);
-    await ctx.wobbleOwnedTreasureById?.(ID);
+    await ctx.wobbleOwnedTreasureById?.(TREASURE_65_ID);
   },
 };

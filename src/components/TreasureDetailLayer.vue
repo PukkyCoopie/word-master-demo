@@ -646,6 +646,7 @@ import {
   getTileDetailMaterialTitle,
   getTileDetailAccessoryTitle,
 } from "../game/tileDetailLayerCopy.js";
+import { formatCompactOneDecimal, formatWalletInteger, isSingleDigitLabel } from "./detailLayerFormatters.js";
 
 const props = defineProps({
   treasure: { type: Object, required: true },
@@ -730,13 +731,7 @@ const deckOfferRarityKey = computed(() => {
 
 const deckOfferRarityTagLabel = computed(() => getTileDetailRarityTierLabel(deckOfferRarityKey.value));
 
-function formatDeckOfferMultDisplay(n) {
-  const x = Number(n);
-  if (!Number.isFinite(x)) return "0";
-  if (Math.abs(x - Math.round(x)) < 1e-6) return String(Math.round(x));
-  const s = x.toFixed(1);
-  return s.endsWith(".0") ? String(Math.round(x)) : s;
-}
+const formatDeckOfferMultDisplay = formatCompactOneDecimal;
 
 const deckOfferScoreDisplay = computed(() => {
   const n = getPerLetterIntrinsicScoreDisplay(deckOfferRarityKey.value, props.rarityLevelsByRarity);
@@ -1043,9 +1038,7 @@ const bootMask = ref(true);
 let enterTl = null;
 
 function formatWallet(n) {
-  const x = Number(n);
-  if (!Number.isFinite(x)) return "0";
-  return Math.round(x).toLocaleString();
+  return Number(formatWalletInteger(n)).toLocaleString();
 }
 
 /** 与 `game.css` `:root --shop-shelf-spell-icon-units` 一致，供法术飞入动画算字号 */
@@ -1054,10 +1047,6 @@ function resolveShopSpellIconNumer() {
   const raw = getComputedStyle(document.documentElement).getPropertyValue("--shop-shelf-spell-icon-units").trim();
   const n = Number.parseFloat(raw);
   return Number.isFinite(n) && n > 0 ? n : 40;
-}
-
-function isSingleDigitLabel(label) {
-  return /^\d$/.test(String(label ?? "").trim());
 }
 
 function staggerTargets() {

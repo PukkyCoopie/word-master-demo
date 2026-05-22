@@ -1,4 +1,4 @@
-import { deckCardRaw, syncTileStateToDeckCard } from "../composables/useGameState.js";
+import { deckCardRaw, syncTileStateToDeckCard } from "../game/deckCardSync.js";
 import { snapshotMaxIntrinsicGainsFromTile, applyIntrinsicGainsToTileAndLinkedCard } from "../game/tileIntrinsicGains.js";
 import { getBaseScoreForRarity, getRarityForLetter, LETTER_RARITY_ORDER, RARITY_BY_LETTER } from "../composables/useScoring.js";
 import { SPELL_DEFINITIONS, SPELL_IDS_EXCLUDED_FROM_DICE, getSpellDefinition } from "./spellDefinitions.js";
@@ -963,8 +963,9 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "treasure_map": {
-      const ok = ctx.grantRandomShopTreasure?.() === true;
-      if (!ok) ctx.showToast?.("没有空宝藏槽或无可售宝藏");
+      const r = ctx.grantRandomShopTreasureByRarity?.(null);
+      if (!r?.ok) ctx.showToast?.("没有空宝藏槽或无可售宝藏");
+      else spellFx = { kind: "treasure_grant", slotIndex: r.slotIndex };
       break;
     }
     default:

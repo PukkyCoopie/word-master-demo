@@ -324,6 +324,7 @@ import {
   prepareInfoCouponTabEnter,
   prepareInfoGridTabEnter,
 } from "../game/infoModalTabEnterAnim.js";
+import { formatCompactOneDecimal } from "./detailLayerFormatters.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -724,13 +725,7 @@ function onOwnedVoucherClick(group, event) {
   });
 }
 
-function formatMult(m) {
-  const n = Number(m);
-  if (!Number.isFinite(n)) return "0";
-  if (Math.abs(n - Math.round(n)) < 1e-6) return String(Math.round(n));
-  const s = n.toFixed(1);
-  return s.endsWith(".0") ? String(Math.round(n)) : s;
-}
+const formatMult = formatCompactOneDecimal;
 
 function close() {
   emit("update:modelValue", false);

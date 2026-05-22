@@ -672,7 +672,6 @@
  * 动画约定：位移/尺寸/缩放/旋转统一 EASE_TRANSFORM（expo.out），见 src/constants.js 与 .cursor/rules/animation-easing.mdc
  */
 import { computed, inject, ref, watch, onMounted, onUnmounted, nextTick } from "vue";
-import confetti from "canvas-confetti";
 import gsap from "gsap";
 import {
   EASE_TRANSFORM,
@@ -713,7 +712,11 @@ import {
   isSpellOfferRandomPickOneSpell,
 } from "../game/spellOfferRandomPickAnim.js";
 import { mountLetterTileClone } from "../game/mountLetterTileClone.js";
-import { initTreasureBankOnAcquire } from "../treasures/treasureAcquireInit.js";
+import {
+  applyTreasureAcquireImmediateEffects,
+  initTreasureBankOnAcquire,
+  syncShopUpgradesFreeFromOwnedTreasures,
+} from "../treasures/treasureAcquireInit.js";
 import { collectGridLetterTiles } from "../treasures/treasureLogicShared.js";
 import { applyRarityLevelUpgrade } from "../game/treasureRarityTierMerge.js";
 import {
@@ -746,6 +749,7 @@ import {
   resetTreasureLevelScopedState,
 } from "../treasures/treasureRunState.js";
 import { addScoreAddBank } from "../treasures/treasureBankHelpers.js";
+import { TREASURE_65_ID } from "../treasures/items/treasure_65.js";
 import { parseChapterFromLevelId } from "../treasures/treasureLifecycleShared.js";
 import { bundlePackKindCaptionZh } from "../game/bundlePackCopy.js";
 import { ensureBigramTargetPair, rollRandomBigramFromDictionary } from "../game/treasureBigramRoll.js";
@@ -788,7 +792,7 @@ import {
   recordShopPurchase,
   recordWordSubmit,
 } from "../game/runMatchStats.js";
-import { playRunEndWinConfettiBursts } from "../game/runEndWinConfetti.js";
+import { createRunEndConfettiController } from "../game/runEndConfetti.js";
 import BossBlindRerollLayer from "./BossBlindRerollLayer.vue";
 import { getBossDef } from "../game/bossBlindDefinitions.js";
 import {
@@ -801,9 +805,8 @@ import {
 import {
   useGameState,
   MAX_LETTERS_PER_REMOVAL,
-  deckCardRaw,
-  syncTileStateToDeckCard,
 } from "../composables/useGameState";
+import { deckCardRaw, syncTileStateToDeckCard } from "../game/deckCardSync.js";
 import {
   snapshotMaxIntrinsicGainsFromTile,
   applyIntrinsicGainsToTileAndLinkedCard,
@@ -906,6 +909,7 @@ import {
 } from "../game/gridOnlyMaterialScoring.js";
 import { runClearWinLengthUpgradeShopLikeFx } from "../utils/runClearWinLengthUpgradeShopLikeFx";
 import { runInGameRarityUpgradeShopLikeFx } from "../utils/runInGameRarityUpgradeShopLikeFx";
+import { runTreasureGrantPopAnim } from "../game/treasureGrantPopAnim.js";
 import LetterTile from "./LetterTile.vue";
 import InfoModal from "./InfoModal.vue";
 import ShopPanel from "./ShopPanel.vue";
@@ -922,6 +926,17 @@ import {
   playDeckLayerEnter,
   prepareDeckLayerEnter,
 } from "../game/deckLayerEnterAnim.js";
+import {
+  deckExpandHitRestingOpacity,
+  deckStackPileCellStyle,
+  deckStackPileRotationDeg,
+} from "../game/deckStackPileLayout.js";
+import { resolveSubmitWordInput } from "../game/submitWordPipeline.js";
+import {
+  getSubmitScoringBeatSpeed,
+  getSubmitScoringTotalBeats,
+  scoringSleep,
+} from "../game/submitScoringTiming.js";
 import { isE2eMode } from "../e2e/isE2eMode.js";
 import { registerGameTestHarness } from "../e2e/registerGameTestHarness.js";
 import { computeWordScore } from "../composables/useScoring.js";
@@ -1021,24 +1036,6 @@ const SCORING_EXTRA_LETTER_PASS_GAP_MS = SCORING_LETTER_GAP_MS;
 /** 宝藏槽 ref 未就绪时的替代停顿（原 200×1.2，再缩短 30%） */
 const SCORING_TREASURE_FALLBACK_MS = Math.round(200 * 1.2 * SCORING_GAP_SCALE);
 
-/**
- * 提交记分动画节奏：
- * - 总拍数较多时，用次曲线提高「起步倍速」（上限 2×），避免全靠后期每拍累加才变快。
- * - 仍保留随 beatIndex 递增的倍速，但略弱于旧版，且总拍数越多每拍贡献越小（另有上限）。
- * - 最终倍速有全局上限（与旧版上限量级一致）。
- */
-const SUBMIT_SCORING_LENGTH_BASE_MAX = 2;
-/** 越大则总长基速越慢地贴近上限（次线性：1 - exp(-span/τ)） */
-const SUBMIT_SCORING_LENGTH_TAU_BEATS = 18;
-const SUBMIT_SCORING_RAMP_PER_BEAT = 0.062;
-/** 总拍数阻尼：total/ref 越大，每拍递增量越小 */
-const SUBMIT_SCORING_RAMP_DAMP_REF_BEATS = 12;
-const SUBMIT_SCORING_RAMP_DAMP_EXP = 0.42;
-/** 仅「递增段」的倍率上限（再与长度基速相乘） */
-const SUBMIT_SCORING_RAMP_MULT_MAX = 1.82;
-const SUBMIT_SCORING_SPEED_GLOBAL_MAX = 3;
-/** 总拍数低于此不做加速，短词保持原节奏 */
-const SUBMIT_SCORING_SPEEDUP_MIN_TOTAL_BEATS = 6;
 
 /** 与 wobbleScoreSlot 内「缩小 + 放大」两段时长一致（秒） */
 const WOBBLE_SCALE_COMPRESS_S = 0.11;
@@ -1089,67 +1086,6 @@ function flashRemovalCountDelta() {
   }, ACTION_COUNT_DELTA_ANIM_MS + 120);
 }
 
-function countActivePostLetterTreasureSteps(postSteps) {
-  let c = 0;
-  for (const step of postSteps ?? []) {
-    const multAdd = Number(step.multAdd) || 0;
-    const scoreAdd = Number(step.scoreAdd) || 0;
-    const multMul = Number(step.multMul) || 0;
-    const moneyAdd = Number(step.moneyAdd) || 0;
-    if (multAdd <= 0 && scoreAdd <= 0 && multMul <= 1 && moneyAdd <= 0) continue;
-    c += 1;
-  }
-  return c;
-}
-
-/** 用于渐进加速：逐字母步 + 额外轮前 cue + 字后宝藏步 */
-function getSubmitScoringTotalBeats(detailed) {
-  const n = detailed.letterParts?.length ?? 0;
-  const letterPassCount = Math.max(1, Math.round(Number(detailed.letterScoringPassCount)) || 1);
-  const post = countActivePostLetterTreasureSteps(detailed.postLetterTreasureSteps);
-  const extraCues = Math.max(0, letterPassCount - 1);
-  const replayExtra = (detailed.letterReplayExtraCounts ?? []).reduce(
-    (s, v) => s + Math.max(0, Math.floor(Number(v) || 0)),
-    0,
-  );
-  const perLetterTreasureReplayCues = (detailed.perLetterTreasureReplayCueSteps ?? []).reduce(
-    (s, steps) => s + (steps?.length ?? 0),
-    0,
-  );
-  return letterPassCount * n + replayExtra + perLetterTreasureReplayCues + extraCues + post;
-}
-
-function getSubmitScoringLengthBaseSpeed(totalBeats) {
-  if (totalBeats < SUBMIT_SCORING_SPEEDUP_MIN_TOTAL_BEATS) return 1;
-  const span = totalBeats - SUBMIT_SCORING_SPEEDUP_MIN_TOTAL_BEATS;
-  const t = 1 - Math.exp(-span / SUBMIT_SCORING_LENGTH_TAU_BEATS);
-  return 1 + (SUBMIT_SCORING_LENGTH_BASE_MAX - 1) * t;
-}
-
-function getSubmitScoringRampFactor(beatIndex, totalBeats) {
-  if (totalBeats < SUBMIT_SCORING_SPEEDUP_MIN_TOTAL_BEATS) return 1;
-  const ref = SUBMIT_SCORING_RAMP_DAMP_REF_BEATS;
-  const damp =
-    1 /
-    Math.pow(
-      Math.max(SUBMIT_SCORING_SPEEDUP_MIN_TOTAL_BEATS, totalBeats) / ref,
-      SUBMIT_SCORING_RAMP_DAMP_EXP,
-    );
-  const mult = 1 + SUBMIT_SCORING_RAMP_PER_BEAT * damp * Math.max(0, beatIndex);
-  return Math.min(SUBMIT_SCORING_RAMP_MULT_MAX, mult);
-}
-
-function getSubmitScoringBeatSpeed(beatIndex, totalBeats) {
-  const base = getSubmitScoringLengthBaseSpeed(totalBeats);
-  const ramp = getSubmitScoringRampFactor(beatIndex, totalBeats);
-  const s = base * ramp;
-  return Math.min(SUBMIT_SCORING_SPEED_GLOBAL_MAX, Math.max(0.35, s));
-}
-
-async function scoringSleep(ms, speed) {
-  const s = Math.max(0.01, Number(speed) || 1);
-  return sleep(Math.max(1, Math.round(ms / s)));
-}
 
 /** Boss 关：残柱牌张 uid、苍翠是否已卖藏（须在 `useGameState` 之前，供补牌削弱判定） */
 const pillarUsedDeckUids = ref(/** @type {Set<number>} */ (new Set()));
@@ -1556,30 +1492,6 @@ function captureDeckStackPileRects(btnEl) {
     const r = el.getBoundingClientRect();
     return { left: r.left, top: r.top, width: r.width, height: r.height };
   });
-}
-
-/** 牌库 stack：最上层（idx = n-1）为 0°，往下依次略偏；张数越多每层转角越小 */
-function deckStackPileRotationDeg(count, idx) {
-  const n = Math.max(1, Math.round(Number(count)) || 1);
-  if (n <= 1) return 0;
-  const layers = n - 1;
-  const step = Math.min(10, 40 / layers);
-  return (idx - (n - 1)) * step;
-}
-
-function deckStackPileCellStyle(stack, idx) {
-  const n = Math.max(1, stack?.entries?.length ?? 1);
-  const rotDeg = deckStackPileRotationDeg(n, idx);
-  return {
-    zIndex: String(idx),
-    transform: `rotate(${rotDeg}deg)`,
-    transformOrigin: "50% 50%",
-  };
-}
-
-/** 展开列表中单块：已上场过的牌张 resting 透明度（与 `.deck-expand-tile-hit--dimmed` 一致） */
-function deckExpandHitRestingOpacity(hitEl) {
-  return hitEl?.classList?.contains("deck-expand-tile-hit--dimmed") ? 0.42 : 1;
 }
 
 function applyDeckExpandHitRestingOpacity(hitEl) {
@@ -2402,7 +2314,7 @@ async function fulfillTreasureAfterPackPayment(t, fromEl) {
     treasureAccessoryId: t.treasureAccessoryId ?? null,
   };
   initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
-  applyTreasureAcquireSideEffects(t.treasureId);
+  applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
 }
 
 async function fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter = false } = {}) {
@@ -2702,83 +2614,12 @@ const showRunEnd = ref(false);
 /** @type {import('vue').Ref<'fail' | 'win'>} */
 const runEndOutcome = ref("fail");
 const runEndConfettiCanvasRef = ref(null);
-/** @type {number[]} */
-let runEndConfettiBurstTimers = [];
-/** @type {ReturnType<typeof confetti.create> | null} */
-let runEndConfettiFire = null;
+const runEndConfettiController = createRunEndConfettiController({
+  getCanvasEl: () => runEndConfettiCanvasRef.value,
+});
 const runMatchStats = ref(createRunMatchStats());
 const runEndStatsRows = computed(() => getRunMatchStatsRows(runMatchStats.value));
 const treasureRunState = ref(createTreasureRunState());
-
-function clearRunEndConfettiBurstTimers() {
-  for (const id of runEndConfettiBurstTimers) clearTimeout(id);
-  runEndConfettiBurstTimers = [];
-}
-
-/** @param {() => void} fn @param {number} delayMs */
-function scheduleRunEndConfettiBurst(fn, delayMs) {
-  const id = window.setTimeout(() => {
-    runEndConfettiBurstTimers = runEndConfettiBurstTimers.filter((t) => t !== id);
-    fn();
-  }, delayMs);
-  runEndConfettiBurstTimers.push(id);
-}
-
-function clearRunEndConfettiCanvas() {
-  const canvas = runEndConfettiCanvasRef.value;
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
-
-function releaseRunEndConfettiInstance() {
-  if (runEndConfettiFire && typeof runEndConfettiFire.reset === "function") {
-    runEndConfettiFire.reset();
-  }
-  runEndConfettiFire = null;
-}
-
-function disposeRunEndConfettiResources() {
-  clearRunEndConfettiBurstTimers();
-  releaseRunEndConfettiInstance();
-  clearRunEndConfettiCanvas();
-  const canvas = runEndConfettiCanvasRef.value;
-  if (canvas) {
-    canvas.width = 0;
-    canvas.height = 0;
-  }
-}
-
-function syncRunEndConfettiCanvasSize() {
-  const canvas = runEndConfettiCanvasRef.value;
-  if (!canvas) return false;
-  const rect = canvas.getBoundingClientRect();
-  if (!rect.width || !rect.height) return false;
-  const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
-  const width = Math.max(1, Math.round(rect.width * dpr));
-  const height = Math.max(1, Math.round(rect.height * dpr));
-  if (canvas.width !== width) canvas.width = width;
-  if (canvas.height !== height) canvas.height = height;
-  return true;
-}
-
-function ensureRunEndConfettiFire() {
-  const canvas = runEndConfettiCanvasRef.value;
-  if (!canvas) return null;
-  if (!runEndConfettiFire) {
-    runEndConfettiFire = confetti.create(canvas, { resize: false, useWorker: true });
-  }
-  return runEndConfettiFire;
-}
-
-function triggerRunWinConfetti() {
-  clearRunEndConfettiBurstTimers();
-  if (!syncRunEndConfettiCanvasSize()) return;
-  const fire = ensureRunEndConfettiFire();
-  if (!fire) return;
-  playRunEndWinConfettiBursts(fire, scheduleRunEndConfettiBurst);
-}
 
 function buildTreasurePoolSnapshot() {
   return {
@@ -2816,12 +2657,23 @@ function grantCopyOfRandomOwnedTreasure(excludeTreasureId = "104") {
   };
   ownedTreasures.value = slots;
   initTreasureBankOnAcquire(def.treasureId, treasureRunState.value);
-  applyTreasureAcquireSideEffects(def.treasureId);
+  applyTreasureAcquireImmediateEffectsForRun(def.treasureId);
   return true;
 }
 
 function treasureVoucherExtraSlots() {
   return getOwnedTreasureSlotBonusFromVouchers(ownedVoucherIds.value);
+}
+
+function addRemainingRemovalsClamped(n) {
+  remainingRemovals.value = Math.max(0, remainingRemovals.value + Math.floor(Number(n) || 0));
+}
+
+function applyTreasureAcquireImmediateEffectsForRun(treasureId) {
+  applyTreasureAcquireImmediateEffects(treasureId, {
+    addRemainingRemovals: addRemainingRemovalsClamped,
+    treasureRun: treasureRunState.value,
+  });
 }
 
 /** @param {{ treasureAccessoryId?: string | null } | null | undefined} offer */
@@ -2851,12 +2703,6 @@ function findTreasurePlacementIndex(offer) {
 
 function rollRandomBigramForTreasure() {
   return rollRandomBigramFromDictionary(getCandidateWordsByLength, runRandom);
-}
-
-function applyTreasureAcquireSideEffects(treasureId) {
-  const id = String(treasureId);
-  if (id === "42") remainingRemovals.value += 3;
-  if (id === "110") treasureRunState.value.shopUpgradesFree = true;
 }
 
 async function notifyTreasureDeckCardsRemovedByRaws(raws) {
@@ -3010,9 +2856,7 @@ async function runTreasureLevelEnterHooks(levelId) {
     addRemainingWords: (n) => {
       remainingWords.value = Math.max(0, remainingWords.value + Math.floor(Number(n) || 0));
     },
-    addRemainingRemovals: (n) => {
-      remainingRemovals.value = Math.max(0, remainingRemovals.value + Math.floor(Number(n) || 0));
-    },
+    addRemainingRemovals: addRemainingRemovalsClamped,
   });
 }
 
@@ -3169,9 +3013,6 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
     playSubmitWordLetterRemoveAndRewardLeave,
     removeDeckLettersByRaws: (raws) => removeDeckLettersByRawsWithTreasureNotify(raws),
     removeDeckCardsForSubmittedWord: (word) => removeDeckCardsForSubmittedWord(tiles, word),
-    destroySelf: () => {
-      void destroyOwnedTreasureWithFx("67");
-    },
     ownedTreasureInstances: owned,
     rng: runRandom,
     moneyAfterSubmit: money.value,
@@ -3440,10 +3281,10 @@ watch(showRunEnd, (open) => {
     closeTileDetail();
     showShop.value = false;
     nextTick(() => {
-      if (runEndOutcome.value === "win") triggerRunWinConfetti();
+      if (runEndOutcome.value === "win") runEndConfettiController.triggerWin();
     });
   } else {
-    disposeRunEndConfettiResources();
+    runEndConfettiController.dispose();
   }
 });
 
@@ -3744,7 +3585,6 @@ function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
   });
 }
 
-const POTTERY_JAR_TREASURE_ID = "65";
 const DISCARD_POTTERY_EXTRA_GAP_MS = Math.round(90 * SCORING_GAP_SCALE);
 
 /**
@@ -3806,7 +3646,7 @@ async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, opti
   const duration = Number.isFinite(options.duration) ? options.duration : REMOVE_SLOT_FADE_DURATION;
   const stagger = Number.isFinite(options.stagger) ? options.stagger : REMOVE_SLOT_STAGGER;
   const rs = treasureRunState.value;
-  const potterySlotIx = findOwnedTreasureSlotIndex(POTTERY_JAR_TREASURE_ID);
+  const potterySlotIx = findOwnedTreasureSlotIndex(TREASURE_65_ID);
   /** @type {number[]} */
   const potteryIndices = [];
   if (potterySlotIx >= 0) {
@@ -3826,7 +3666,7 @@ async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, opti
     const triggersPottery = potteryIndices.includes(i);
     const leaveP = animateOneDiscardTileLeave(slotEl, gridEl, duration);
     if (triggersPottery) {
-      addScoreAddBank(rs, POTTERY_JAR_TREASURE_ID, scorePerLetter);
+      addScoreAddBank(rs, TREASURE_65_ID, scorePerLetter);
       await Promise.all([leaveP, playTreasureSlotScoreBurstAtPeak(potterySlotIx, scorePerLetter)]);
       if (i < slotEls.length - 1) await sleep(DISCARD_POTTERY_EXTRA_GAP_MS);
     } else {
@@ -5999,7 +5839,7 @@ function grantRandomShopTreasureByRarity(rarityFilter) {
   };
   ownedTreasures.value = slots;
   initTreasureBankOnAcquire(row.treasureId, treasureRunState.value);
-  applyTreasureAcquireSideEffects(row.treasureId);
+  applyTreasureAcquireImmediateEffectsForRun(row.treasureId);
   return { ok: true, slotIndex: ix };
 }
 
@@ -6434,7 +6274,11 @@ async function playSpectralSpellResultFx(spellFx, effectiveSpellId) {
   const sid = String(effectiveSpellId ?? "");
   const fx = spellFx && typeof spellFx === "object" ? spellFx : null;
   if (fx?.kind === "treasure_grant" && typeof fx.slotIndex === "number") {
-    await wobbleGameTreasureSlots([fx.slotIndex]);
+    shopOverlayLayersSuppressed.value = true;
+    await nextTick();
+    const el = gameTreasureSlotRefs[fx.slotIndex];
+    if (el) await runTreasureGrantPopAnim(el);
+    shopOverlayLayersSuppressed.value = false;
     return;
   }
   if (fx?.kind === "treasure_accessory" && typeof fx.slotIndex === "number") {
@@ -7391,7 +7235,7 @@ async function onTreasurePurchase() {
     treasureAccessoryId: t.treasureAccessoryId ?? null,
   };
   initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
-  applyTreasureAcquireSideEffects(t.treasureId);
+  applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
   clearOfferSlotAfterPurchase(t);
   treasureDetail.value = null;
 }
@@ -7406,7 +7250,6 @@ async function onTreasureSell() {
   await treasureDetailLayerRef.value?.playClose?.();
   money.value += Math.floor(Number(cur.price) / 2);
   const soldId = String(cur.treasureId ?? "");
-  if (soldId === "98") treasureRunState.value.soldBlueprintTreasure98 = true;
   await notifyOwnedTreasuresOnTreasureSold(ownedSlotTreasureIdList(), {
     treasureRun: treasureRunState.value,
     soldTreasureId: soldId,
@@ -7424,9 +7267,7 @@ async function onTreasureSell() {
     if (ix >= 0 && ix < keys.length) keys.splice(ix, 1);
     gameOwnedKeyOrder.value = keys;
   }
-  if (!ownedSlotTreasureIdList().includes("110")) {
-    treasureRunState.value.shopUpgradesFree = false;
-  }
+  syncShopUpgradesFreeFromOwnedTreasures(ownedSlotTreasureIdList(), treasureRunState.value);
   treasureDetail.value = null;
   if (bossSlugForMechanics() === "verdant_leaf") {
     verdantTreasureSold.value = true;
@@ -9567,14 +9408,16 @@ async function submitWord() {
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value) return;
   if (!dictionaryReady.value) return;
-  const parts = buildEffectiveWordPartsForSubmit();
-  const wordPattern0 = parts.word;
-  if (!wordPattern0) return;
-  const resolvedWord = resolveWordFromEffectiveParts(parts);
-  if (!resolvedWord) {
+  const submitInput = resolveSubmitWordInput({
+    buildParts: buildEffectiveWordPartsForSubmit,
+    resolveWord: resolveWordFromEffectiveParts,
+  });
+  if (submitInput.error === "empty") return;
+  if (submitInput.error === "invalid") {
     showToast("不是有效单词");
     return;
   }
+  const { parts, wordPattern: wordPattern0, resolvedWord } = submitInput;
   const ownedSlotTreasureIds = ownedTreasures.value.map((s) => s?.treasureId ?? null);
   const tiles = withWildcardsResolvedForScoring(
     listEffectiveTilesForSubmit().map((tile) => {
@@ -10127,7 +9970,7 @@ onMounted(async () => {
   }
 });
 onUnmounted(() => {
-  disposeRunEndConfettiResources();
+  runEndConfettiController.dispose();
   disposeE2eHarness?.();
   disposeE2eHarness = null;
   gamePanelAlive = false;

@@ -337,6 +337,7 @@ import {
 } from "../composables/useScoring";
 import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
+import { isSingleDigitLabel } from "./detailLayerFormatters.js";
 
 const props = defineProps({
   walletAmount: { type: Number, default: 0 },
@@ -741,10 +742,6 @@ function formatWallet(n) {
   const x = Number(n);
   if (!Number.isFinite(x)) return "0";
   return Math.round(x).toLocaleString();
-}
-
-function isSingleDigitLabel(label) {
-  return /^\d$/.test(String(label ?? "").trim());
 }
 
 /** 牌包区组合包角标：类型简称（与详情层一致） */

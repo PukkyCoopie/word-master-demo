@@ -1,5 +1,5 @@
 import gsap from "gsap";
-import { syncTileStateToDeckCard } from "../composables/useGameState.js";
+import { syncTileStateToDeckCard } from "./deckCardSync.js";
 import {
   snapshotMaxIntrinsicGainsFromTile,
   applyIntrinsicGainsToTileAndLinkedCard,

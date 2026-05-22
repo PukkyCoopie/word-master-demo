@@ -1,0 +1,115 @@
+* {
+	box-sizing: border-box;
+	font-family: "Poppins", Arial, "Source Han Sans CN", sans-serif;
+	/* 移动端：配合 viewport 禁止缩放，避免双击放大（touch-action 需落在实际可点元素上，故用通配） */
+	touch-action: manipulation;
+}
+
+html,
+body {
+	margin: 0;
+	width: 100%;
+	height: 100%;
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+	/* 整页游戏：禁止选中文字/元素（含 Teleport 到 body 的飞字、气泡） */
+	user-select: none;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	-webkit-touch-callout: none;
+}
+
+body {
+	width: 100vw;
+	height: 100vh;
+	overflow: hidden;
+	background: var(--bg);
+	color: var(--text);
+}
+
+.game-wrap {
+	width: 100vw;
+	height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* 双保险：子树内不可选 */
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.game-scaler {
+	width: var(--logic-w);
+	height: var(--logic-h);
+	flex-shrink: 0;
+	/* 默认 100% 时 contain 已适配视口；>100% 时允许超出边以避开异形屏遮挡 */
+}
+
+.game-container {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	background: var(--card);
+	border-radius: calc(12 * var(--rpx));
+	box-shadow: var(--shadow);
+	padding: calc(14 * var(--rpx));
+	display: flex;
+	flex-direction: column;
+	gap: calc(8 * var(--rpx));
+}
+
+/* 浮层 Teleport 挂点：在 .game-surface 内常驻，须早于 GamePanel 插入，避免 Teleport 目标为 null */
+.game-surface > .game-view-portal {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	pointer-events: none;
+	border-radius: inherit;
+}
+
+/* 主菜单时挂点仍在 DOM 供选择器命中，但不挡菜单、不参与命中 */
+.game-surface--menu > .game-view-portal {
+	z-index: 0;
+	visibility: hidden;
+}
+
+.game-surface--menu .main-menu {
+	position: relative;
+	z-index: 1;
+}
+
+.game-session-stack > .game-container {
+	position: relative;
+	z-index: 1;
+}
+.game-view-portal > * {
+	pointer-events: auto;
+}
+
+/* Teleport 到 #game-view-portal 的全屏浮层根：铺满圆角容器 */
+.portal-overlay-fill {
+	position: absolute;
+	inset: 0;
+	box-sizing: border-box;
+	border-radius: inherit;
+	pointer-events: auto;
+	min-height: 0;
+	min-width: 0;
+}
+
+/* 商店升级动效播放时暂隐其它 portal 浮层，露出后方 ShopPanel 顶栏动画 */
+.portal-overlay--shop-upgrade-suppressed {
+	visibility: hidden;
+	pointer-events: none;
+}
+
+/* 与 .game-container 同内边距：商店 Teleport 到 .game-view-portal，不在带 padding 的容器内 */
+.shop-portal-root {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	box-sizing: border-box;
+	padding: calc(14 * var(--rpx));
+}

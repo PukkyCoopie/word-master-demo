@@ -87,7 +87,6 @@
  * @property {(treasureId: string) => Promise<void>} [destroyTreasureSlotById]
  * @property {(raws: string[]) => void} [removeDeckLettersByRaws]
  * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（工具箱等）
- * @property {() => void} [destroySelf]
  * @property {object[]} [ownedTreasureInstances]
  * @property {() => number} [rng]
  * @property {{ materialId?: string | null }[] | null | undefined} [submittedScoringTiles] 本词参与记分的字母块快照（补牌前）；用于材质类结算后效果
