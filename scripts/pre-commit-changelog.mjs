@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Git pre-commit / commit-msg：若 changelog 最新版本未手写说明，将提交说明写入该 md（show: false，不进游戏列表）。
+ * Git pre-commit / commit-msg：将提交说明追加到最新版本 md 的「自动区」；
+ * 玩家手写区不变。无手写时仅写自动区且 show: false。
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -8,10 +9,14 @@ import path from "node:path";
 import { REPO_ROOT } from "./lib/app-version-files.mjs";
 import {
   CHANGELOG_DIR_NAME,
+  appendAutoChangelogLine,
   getLatestChangelogFilePath,
   isUserWrittenChangelogBody,
+  joinChangelogBody,
   parseChangelogMarkdown,
   serializeChangelogMarkdown,
+  splitChangelogBody,
+  stripChangelogComments,
 } from "./lib/changelog-dir.mjs";
 import {
   parseCommitMessageFile,
@@ -58,23 +63,33 @@ function main() {
 
   const raw = fs.readFileSync(latestPath, "utf8");
   const { meta, body } = parseChangelogMarkdown(raw);
+  const cleaned = stripChangelogComments(body);
+  const { user, auto } = splitChangelogBody(cleaned);
+  const hasUser = isUserWrittenChangelogBody(changelogDir, cleaned);
 
-  if (isUserWrittenChangelogBody(changelogDir, body)) {
+  const nextAuto = appendAutoChangelogLine(auto, summary);
+  if (nextAuto === auto) {
     return;
   }
 
+  const nextBody = joinChangelogBody(user, nextAuto);
   const date = meta.date?.trim() || new Date().toISOString().slice(0, 10);
   const next = serializeChangelogMarkdown(
-    { ...meta, date, show: "false" },
-    summary,
+    {
+      ...meta,
+      date,
+      show: hasUser ? meta.show : "false",
+    },
+    nextBody,
   );
   fs.writeFileSync(latestPath, next, "utf8");
 
   const rel = path.relative(REPO_ROOT, latestPath).replace(/\\/g, "/");
   gitAdd(rel);
 
+  const mode = hasUser ? "手写区保留，已追加自动区" : "仅存档（show: false）";
   console.log(
-    `[changelog] 已写入最新版本说明（仅存档，show: false）：${path.basename(latestPath)}`,
+    `[changelog] ${mode}：${path.basename(latestPath)}`,
   );
 }
 

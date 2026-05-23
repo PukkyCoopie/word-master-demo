@@ -1,5 +1,5 @@
 <template>
-  <Teleport defer to="#game-view-portal">
+  <Teleport defer to="#game-view-portal-frame">
     <div
       v-if="payload"
       ref="backdropRef"
@@ -176,6 +176,7 @@
 
 <script setup>
 import gsap from "gsap";
+import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import LetterTile from "./LetterTile.vue";
 import {
@@ -308,14 +309,14 @@ function runEnterAnimation() {
 
   gsap.killTweensOf([backdrop, targetFade, clone, ...staggerEls].filter(Boolean));
 
-  gsap.set(backdrop, { backgroundColor: "rgba(14, 12, 10, 0)" });
+  gsap.set(backdrop, portalScrimGsapVars("rgba(14, 12, 10, 0)"));
   gsap.set(staggerEls, { opacity: 0, y: 7 });
 
   gsap.fromTo(
     backdrop,
-    { backgroundColor: "rgba(14, 12, 10, 0)" },
+    portalScrimGsapVars("rgba(14, 12, 10, 0)"),
     {
-      backgroundColor: "rgba(14, 12, 10, 0.78)",
+      ...portalScrimGsapVars("rgba(14, 12, 10, 0.78)"),
       duration: 0.42,
       ease: EASE_TRANSFORM,
     },
@@ -510,7 +511,7 @@ function runCloseAnimation() {
             tl.to(
               backdrop,
               {
-                backgroundColor: "rgba(14, 12, 10, 0)",
+                ...portalScrimGsapVars("rgba(14, 12, 10, 0)"),
                 duration: 0.22,
                 ease: EASE_TRANSFORM,
               },
@@ -559,7 +560,7 @@ function runCloseAnimation() {
       tl.to(
         backdrop,
         {
-          backgroundColor: "rgba(14, 12, 10, 0)",
+          ...portalScrimGsapVars("rgba(14, 12, 10, 0)"),
           duration: 0.2,
           ease: EASE_TRANSFORM,
         },

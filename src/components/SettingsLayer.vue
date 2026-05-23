@@ -207,21 +207,15 @@ function onScaleInputEnter(e) {
 
 <style scoped>
 .settings-layer-backdrop {
-  position: absolute;
-  inset: 0;
   z-index: 25;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: calc(32 * var(--rpx)) calc(24 * var(--rpx));
   box-sizing: border-box;
-  border-radius: inherit;
 }
 
 .settings-layer-scrim {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
   /* 与主菜单 / 选项内设置钮 #d4954a 一致 */
   background: rgba(212, 149, 74, 0.88);
   pointer-events: none;

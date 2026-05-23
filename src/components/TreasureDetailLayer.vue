@@ -1,5 +1,5 @@
 <template>
-  <Teleport defer to="#game-view-portal">
+  <Teleport defer to="#game-view-portal-frame">
     <div
       ref="backdropRef"
       class="treasure-detail-backdrop"
@@ -485,11 +485,7 @@
         v-if="originRect && flyCloneActive"
         ref="flyCloneRef"
         class="treasure-detail-fly-clone-root"
-        :class="
-          isDeckOffer
-            ? 'treasure-detail-fly-clone-root--deck-tile'
-            : 'shop-treasure-visual shop-treasure-visual--detail'
-        "
+        :class="isDeckOffer ? 'treasure-detail-fly-clone-root--deck-tile' : undefined"
         :style="flyCloneStyle"
         aria-hidden="true"
       >
@@ -616,6 +612,7 @@
 
 <script setup>
 import gsap from "gsap";
+import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
 import { computed, nextTick, onBeforeUpdate, onMounted, onUnmounted, ref, useId, watch } from "vue";
 import { EASE_TRANSFORM } from "../constants.js";
 import {
@@ -1041,14 +1038,6 @@ function formatWallet(n) {
   return Number(formatWalletInteger(n)).toLocaleString();
 }
 
-/** 与 `game.css` `:root --shop-shelf-spell-icon-units` 一致，供法术飞入动画算字号 */
-function resolveShopSpellIconNumer() {
-  if (typeof document === "undefined") return 40;
-  const raw = getComputedStyle(document.documentElement).getPropertyValue("--shop-shelf-spell-icon-units").trim();
-  const n = Number.parseFloat(raw);
-  return Number.isFinite(n) && n > 0 ? n : 40;
-}
-
 function staggerTargets() {
   return [
     titleGroupRef.value,
@@ -1095,11 +1084,18 @@ function refToFlyFrameEl(refVal) {
   return el instanceof HTMLElement ? el : null;
 }
 
-/** 货架字母块飞入：只量 LetterTile 框，不含价签列高度 */
-function resolveDeckOfferFlyTargetRect() {
+/** 详情 icon 框（不含价签列）；宝藏/优惠券/牌包飞入终点与 emoji 缩放均以此为准 */
+function resolveDetailFlyFrameRect() {
   const frame = refToFlyFrameEl(detailFlyFrameRef.value);
   const r = frame?.getBoundingClientRect?.();
   if (r && r.width > 2 && r.height > 2) return rectToFlyBox(r);
+  return null;
+}
+
+/** 货架字母块飞入：只量 LetterTile 框，不含价签列高度 */
+function resolveDeckOfferFlyTargetRect() {
+  const frameRect = resolveDetailFlyFrameRect();
+  if (frameRect) return frameRect;
   const visual = targetVisualRef.value;
   const vr = visual?.getBoundingClientRect?.();
   if (vr && vr.width > 2 && vr.height > 2) return rectToFlyBox(vr);
@@ -1155,15 +1151,15 @@ function runEnterAnimation() {
 
   gsap.killTweensOf([backdrop, targetVisual, clone, ...staggerEls].filter(Boolean));
 
-  gsap.set(backdrop, { backgroundColor: "rgba(14, 12, 10, 0)" });
+  gsap.set(backdrop, portalScrimGsapVars("rgba(14, 12, 10, 0)"));
   gsap.set(staggerEls, { opacity: 0, y: 7 });
 
   /* 遮罩与测量解耦：立刻从透明匀缓加深，避免等字体/RAF 后再起 tween 像闪一下 */
   gsap.fromTo(
     backdrop,
-    { backgroundColor: "rgba(14, 12, 10, 0)" },
+    portalScrimGsapVars("rgba(14, 12, 10, 0)"),
     {
-      backgroundColor: "rgba(14, 12, 10, 0.78)",
+      ...portalScrimGsapVars("rgba(14, 12, 10, 0.78)"),
       duration: 0.42,
       ease: EASE_TRANSFORM,
     },
@@ -1197,9 +1193,7 @@ function runEnterAnimation() {
       if (hasFly) {
         void backdrop.offsetHeight;
         flyFrom = props.originRect;
-        flyTo = isDeckOffer.value
-          ? resolveDeckOfferFlyTargetRect()
-          : rectToFlyBox(targetVisual.getBoundingClientRect());
+        flyTo = isDeckOffer.value ? resolveDeckOfferFlyTargetRect() : resolveDetailFlyFrameRect();
 
         if (!flyTo) {
           flyCloneActive.value = false;
@@ -1293,27 +1287,7 @@ function runEnterAnimation() {
           );
         }
 
-        const cloneEmoji = clone.querySelector(".shop-treasure-emoji");
-        const wStart = flyFrom.width;
-        const wEndFrame = refToFlyFrameEl(detailFlyFrameRef.value)?.getBoundingClientRect?.()?.width;
-        const wEnd = wEndFrame && wEndFrame > 2 ? wEndFrame : flyTo.width;
-        /** 法术格 Remix 图标与 `--shop-shelf-spell-icon-units`/108；宝藏格 emoji 约 42/108 */
-        const isSpellFly = props.treasure?.offerType === "spell";
-        const spellIconNumer = resolveShopSpellIconNumer();
-        const fsStart = isSpellFly ? (spellIconNumer / 108) * wStart : (42 / 108) * wStart;
-        const fsEnd = isSpellFly ? (spellIconNumer / 108) * wEnd : (42 / 108) * wEnd;
-        if (cloneEmoji && Number.isFinite(fsStart) && Number.isFinite(fsEnd) && fsStart > 1 && fsEnd > 1) {
-          gsap.set(cloneEmoji, { fontSize: fsStart });
-          enterTl.to(
-            cloneEmoji,
-            {
-              fontSize: fsEnd,
-              duration: 0.36,
-              ease: EASE_TRANSFORM,
-            },
-            0,
-          );
-        }
+        /* emoji/角标字号由 @container treasure-cell 随框体 left/top/width/height 同比缩放，勿再 GSAP fontSize（移动端易与 cq 终值不一致而落地闪缩） */
 
         enterTl.add(() => {
           gsap.set(targetVisual, { opacity: 1, pointerEvents: "auto", clearProps: "opacity,pointerEvents" });
@@ -1373,7 +1347,7 @@ function runCloseAnimation(shouldEmit) {
       tl.to(
         backdrop,
         {
-          backgroundColor: "rgba(14, 12, 10, 0)",
+          ...portalScrimGsapVars("rgba(14, 12, 10, 0)"),
           duration: 0.2,
           ease: EASE_TRANSFORM,
         },

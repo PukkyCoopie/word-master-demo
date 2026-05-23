@@ -19,6 +19,9 @@ export const SWAP_BUTTON_MODE_OPTIONS = [
 
 const SWAP_BUTTON_MODE_IDS = new Set(SWAP_BUTTON_MODE_OPTIONS.map((o) => o.id));
 
+/** bottom8 / top8 / random8：从棋盘补选的上限（与模式名一致，不随当前拼词长度变化） */
+export const SWAP_FROM_GRID_PICK_LIMIT = 8;
+
 /** @param {unknown} value @returns {SwapButtonMode} */
 export function normalizeSwapButtonMode(value) {
   const s = String(value ?? "");
@@ -105,6 +108,16 @@ export function setUiScalePercent(percent) {
 
 export function getSwapButtonMode() {
   return normalizeSwapButtonMode(gameSettings.swapButtonMode);
+}
+
+/** @returns {number | null} 从棋盘补选数量；`all` 为 null（全选未在拼词中的格） */
+export function getSwapGridPickCount() {
+  const mode = getSwapButtonMode();
+  if (mode === "all") return null;
+  if (mode === "bottom8" || mode === "top8" || mode === "random8") {
+    return SWAP_FROM_GRID_PICK_LIMIT;
+  }
+  return null;
 }
 
 /** @returns {boolean} */

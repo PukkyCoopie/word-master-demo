@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Word Master</string>
+    <string name="title_activity_main">Word Master</string>
+    <string name="package_name">com.wordmaster.demo</string>
+    <string name="custom_url_scheme">com.wordmaster.demo</string>
+</resources>

@@ -8,8 +8,29 @@
 	/>
 	<link rel="icon" href="/favicon.png" type="image/png" sizes="256x256" />
 	<title>Word Master</title>
+	<script>
+		(function () {
+			var ua = navigator.userAgent || "";
+			if (!/android/i.test(ua)) return;
+			try {
+				Object.defineProperty(window, "Notification", {
+					configurable: true,
+					value: {
+						permission: "denied",
+						requestPermission: function () {
+							return Promise.resolve("denied");
+						},
+					},
+				});
+			} catch (e) {}
+		})();
+	</script>
 </head>
 <body>
+	<!-- 浮层 Teleport 挂点：视口级；逻辑框 #game-view-portal-frame 由 usePortalFrameSync 与 .game-surface 对齐 -->
+	<div id="game-view-portal" class="game-view-portal">
+		<div id="game-view-portal-frame" class="game-view-portal-frame"></div>
+	</div>
 	<div id="app"></div>
 	<script type="module" src="/src/main.js"></script>
 </body>

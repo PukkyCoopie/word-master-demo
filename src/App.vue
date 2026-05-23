@@ -8,8 +8,6 @@
           'game-surface--run-start-open': showRunStartDialog,
         }"
       >
-        <!-- 须始终在 DOM 中且早于 GamePanel，避免 Teleport 挂载时 querySelector 找不到目标 -->
-        <div id="game-view-portal" class="game-view-portal" />
         <div v-if="dictGate" class="dict-boot-gate">
           <div
             class="dict-boot-bar"
@@ -39,22 +37,27 @@
             @exit-to-menu="onGameExitToMenu"
           />
         </div>
-        <IrisTransition ref="irisFxRef" :color="IRIS_COLOR" />
-        <RunStartDialog
-          :open="showRunStartDialog"
-          :initial-seed="runStartPrefillSeed"
-          @confirm="onRunStartConfirm"
-          @cancel="onRunStartCancel"
-        />
-        <SettingsLayer :open="showSettings" @close="closeSettings" />
-        <AboutLayer :open="showAbout" @close="closeAbout" />
       </div>
     </div>
+    <!-- 转场始终挂视口根，避免宽屏逻辑框内时被裁切/压住；宽屏裁剪见 game.layout.css -->
+    <Teleport to="#game-view-portal">
+      <IrisTransition ref="irisFxRef" :color="IRIS_COLOR" />
+    </Teleport>
+    <Teleport defer to="#game-view-portal-frame">
+      <RunStartDialog
+        :open="showRunStartDialog"
+        :initial-seed="runStartPrefillSeed"
+        @confirm="onRunStartConfirm"
+        @cancel="onRunStartCancel"
+      />
+      <SettingsLayer :open="showSettings" @close="closeSettings" />
+      <AboutLayer :open="showAbout" @close="closeAbout" />
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, provide, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from "vue";
 import MainMenu from "./components/MainMenu.vue";
 import GamePanel from "./components/GamePanel.vue";
 import RunStartDialog from "./components/RunStartDialog.vue";
@@ -62,6 +65,7 @@ import SettingsLayer from "./components/SettingsLayer.vue";
 import AboutLayer from "./components/AboutLayer.vue";
 import { loadGameSettings } from "./settings/gameSettings.js";
 import { useScale } from "./composables/useScale";
+import { syncPortalFrameToGameSurface, usePortalFrameSync } from "./composables/usePortalFrameSync.js";
 import { useDictionary } from "./composables/useDictionary";
 import IrisTransition from "./components/IrisTransition.vue";
 import { coerceRunSeedNumeric } from "./game/runRng.js";
@@ -69,7 +73,7 @@ import { isE2eMode } from "./e2e/isE2eMode.js";
 import { registerAppTestHarness } from "./e2e/registerAppTestHarness.js";
 
 useScale();
-
+usePortalFrameSync();
 const { loadDictionary, dictionaryReady, loading: dictLoading, error: dictError, loadProgress } = useDictionary();
 
 const screen = ref("menu");
@@ -211,7 +215,6 @@ async function onGameExitToMenu() {
 </script>
 
 <style scoped>
-/* 与 .game-container 同圆角，用于裁剪转场层；菜单与游戏均包在内 */
 .game-surface {
   position: relative;
   width: 100%;

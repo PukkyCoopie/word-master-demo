@@ -1,7 +1,7 @@
 import versionData from "./appVersion.json";
 import changelogBundle from "virtual:app-changelog";
 
-/** @typedef {{ version: string, date?: string, summary: string }} AppChangelogEntry */
+/** @typedef {{ version: string, date?: string, summary: string, autoSummary?: string }} AppChangelogEntry */
 
 /**
  * @param {{ major: number, minor: number, patch: number }} v

@@ -3,6 +3,7 @@
 	font-family: "Poppins", Arial, "Source Han Sans CN", sans-serif;
 	/* 移动端：配合 viewport 禁止缩放，避免双击放大（touch-action 需落在实际可点元素上，故用通配） */
 	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -10,6 +11,8 @@ body {
 	margin: 0;
 	width: 100%;
 	height: 100%;
+	min-height: 100%;
+	min-height: 100dvh;
 	-webkit-text-size-adjust: 100%;
 	text-size-adjust: 100%;
 	/* 整页游戏：禁止选中文字/元素（含 Teleport 到 body 的飞字、气泡） */
@@ -21,19 +24,22 @@ body {
 }
 
 body {
-	width: 100vw;
-	height: 100vh;
+	width: 100%;
+	height: 100%;
+	min-height: 100dvh;
 	overflow: hidden;
 	background: var(--bg);
 	color: var(--text);
 }
 
 .game-wrap {
-	width: 100vw;
-	height: 100vh;
+	width: 100%;
+	height: 100%;
+	min-height: 100dvh;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	overflow: hidden;
 	/* 双保险：子树内不可选 */
 	user-select: none;
 	-webkit-user-select: none;
@@ -60,19 +66,28 @@ body {
 	gap: calc(8 * var(--rpx));
 }
 
-/* 浮层 Teleport 挂点：在 .game-surface 内常驻，须早于 GamePanel 插入，避免 Teleport 目标为 null */
-.game-surface > .game-view-portal {
-	position: absolute;
+/* 浮层 Teleport 挂点：固定铺满视口；逻辑内容框与 .game-surface 对齐（JS 写 --portal-frame-*） */
+.game-view-portal {
+	position: fixed;
 	inset: 0;
-	z-index: 2;
+	z-index: 200;
 	pointer-events: none;
-	border-radius: inherit;
 }
 
-/* 主菜单时挂点仍在 DOM 供选择器命中，但不挡菜单、不参与命中 */
-.game-surface--menu > .game-view-portal {
-	z-index: 0;
-	visibility: hidden;
+.game-view-portal-frame {
+	position: fixed;
+	left: var(--portal-frame-left, 0);
+	top: var(--portal-frame-top, 0);
+	width: var(--portal-frame-width, var(--logic-w));
+	height: var(--portal-frame-height, var(--logic-h));
+	box-sizing: border-box;
+	border-radius: calc(12 * var(--rpx));
+	overflow: hidden;
+	pointer-events: none;
+}
+
+html.viewport-narrower-than-design .game-view-portal-frame {
+	border-radius: 0;
 }
 
 .game-surface--menu .main-menu {
@@ -84,11 +99,95 @@ body {
 	position: relative;
 	z-index: 1;
 }
-.game-view-portal > * {
+
+/* Capacitor / 原生壳：固定视口尺寸，contain 缩放后居中（与浏览器一致） */
+html.platform-native,
+html.platform-native body,
+html.platform-native #app {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+}
+
+html.platform-native .game-wrap {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 0;
+	overflow: hidden;
+}
+
+html.platform-native .game-scaler {
+	width: var(--logic-w);
+	height: var(--logic-h);
+	flex-shrink: 0;
+	max-width: none;
+	max-height: none;
+}
+
+/*
+ * 视口比 750×1500 更窄（w/h < 750/1500，contain 时上下留白）：
+ * 留白与 game-container 同色，去掉圆角与阴影。
+ * 更宽时沿用默认：body 淡黄、容器圆角与阴影（两侧留白）。
+ */
+html.viewport-narrower-than-design,
+html.viewport-narrower-than-design body {
+	background: var(--card);
+}
+
+html.viewport-narrower-than-design .game-surface,
+html.viewport-narrower-than-design .game-container {
+	border-radius: 0;
+	box-shadow: none;
+}
+
+/* 触屏设备：去掉 WebView 点击时的灰/蓝覆层与 :active 变暗（保留键盘焦点 outline） */
+@media (hover: none) and (pointer: coarse) {
+	button,
+	[role="button"],
+	a,
+	.icon-btn,
+	.deck-btn,
+	.action-aux-btn,
+	.action-btn-green,
+	.action-btn-red,
+	.action-btn-disabled,
+	.shop-btn,
+	.info-voucher-cell,
+	.grid-tile,
+	.word-slot-tile {
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	button:active,
+	[role="button"]:active,
+	a:active,
+	.icon-btn:active,
+	.deck-btn:active,
+	.action-aux-btn:active,
+	.action-btn-green:active,
+	.action-btn-red:active,
+	.action-btn-disabled:active,
+	.shop-btn:active,
+	.info-voucher-cell:active {
+		filter: none;
+	}
+}
+/* 逻辑框挂点本身不拦截点击；仅 Teleport 进来的浮层可交互 */
+.game-view-portal > .game-view-portal-frame {
+	pointer-events: none;
+}
+
+.game-view-portal-frame > * {
 	pointer-events: auto;
 }
 
-/* Teleport 到 #game-view-portal 的全屏浮层根：铺满圆角容器 */
+/* Teleport 到 #game-view-portal-frame：铺满逻辑框（与原先 game-surface 内一致） */
 .portal-overlay-fill {
 	position: absolute;
 	inset: 0;
@@ -97,6 +196,98 @@ body {
 	pointer-events: auto;
 	min-height: 0;
 	min-width: 0;
+}
+
+/* 视口级铺满（转场、彩纸等）：窄屏 fixed 全视口，宽屏落入逻辑框裁剪 */
+.portal-overlay-viewport {
+	position: fixed;
+	inset: 0;
+	box-sizing: border-box;
+	pointer-events: auto;
+	min-height: 0;
+	min-width: 0;
+}
+
+html:not(.viewport-narrower-than-design) .portal-overlay-viewport {
+	position: absolute;
+	inset: 0;
+}
+
+/* 虹膜挂 #game-view-portal 保证盖住 #app；宽屏尺寸对齐逻辑框 */
+html:not(.viewport-narrower-than-design) #game-view-portal > .iris-overlay {
+	position: fixed;
+	left: var(--portal-frame-left, 0);
+	top: var(--portal-frame-top, 0);
+	width: var(--portal-frame-width, var(--logic-w));
+	height: var(--portal-frame-height, var(--logic-h));
+	right: auto;
+	bottom: auto;
+	border-radius: calc(12 * var(--rpx));
+	box-sizing: border-box;
+}
+
+html.viewport-narrower-than-design #game-view-portal > .iris-overlay {
+	position: fixed;
+	inset: 0;
+}
+
+/* 窄屏：蒙层 box-shadow 延拓到 letterbox；宽屏：不延拓，由 .game-view-portal-frame 裁剪 */
+html.viewport-narrower-than-design #game-view-portal-frame .deck-layer {
+	box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
+}
+
+html.viewport-narrower-than-design #game-view-portal-frame .dict-fatal-layer {
+	box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.5);
+}
+
+html.viewport-narrower-than-design #game-view-portal-frame .stage-settlement-layer {
+	box-shadow: 0 0 0 100vmax rgba(110, 196, 240, 0.8);
+}
+
+html.viewport-narrower-than-design #game-view-portal-frame .info-layer {
+	box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
+}
+
+html.viewport-narrower-than-design #game-view-portal-frame .run-end-layer--fail {
+	box-shadow: 0 0 0 100vmax rgba(196, 74, 74, 0.88);
+}
+
+html.viewport-narrower-than-design #game-view-portal-frame .run-end-layer--win {
+	box-shadow: 0 0 0 100vmax rgba(142, 204, 142, 0.88);
+}
+
+html.viewport-narrower-than-design #game-view-portal-frame .boss-blind-reroll-backdrop {
+	box-shadow: 0 0 0 100vmax rgba(14, 12, 10, 0.86);
+}
+
+html.viewport-narrower-than-design #game-view-portal-frame .spell-target-backdrop {
+	box-shadow: 0 0 0 100vmax rgba(72, 90, 58, 0.78);
+}
+
+/* App 级对话框：宽屏在逻辑框内，窄屏 scrim 铺满视口 */
+.settings-layer-backdrop,
+.about-layer-backdrop,
+.run-start-dialog-backdrop {
+	position: absolute;
+	inset: 0;
+	box-sizing: border-box;
+}
+
+.settings-layer-scrim,
+.about-layer-scrim,
+.run-start-dialog-scrim {
+	position: absolute;
+	inset: 0;
+}
+
+html.viewport-narrower-than-design .settings-layer-backdrop,
+html.viewport-narrower-than-design .about-layer-backdrop,
+html.viewport-narrower-than-design .run-start-dialog-backdrop,
+html.viewport-narrower-than-design .settings-layer-scrim,
+html.viewport-narrower-than-design .about-layer-scrim,
+html.viewport-narrower-than-design .run-start-dialog-scrim {
+	position: fixed;
+	inset: 0;
 }
 
 /* 商店升级动效播放时暂隐其它 portal 浮层，露出后方 ShopPanel 顶栏动画 */

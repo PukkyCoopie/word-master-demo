@@ -1,5 +1,5 @@
 <template>
-  <Teleport defer to="#game-view-portal">
+  <Teleport defer to="#game-view-portal-frame">
     <div
       v-if="session"
       ref="backdropRef"
@@ -182,6 +182,7 @@
 
 <script setup>
 import gsap from "gsap";
+import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
 import { computed, onBeforeUpdate, onMounted, onUnmounted, ref, shallowRef, useId, watch, nextTick } from "vue";
 import { EASE_TRANSFORM } from "../constants.js";
 import {
@@ -652,7 +653,7 @@ function playClose() {
       closeTl.to(
         backdrop,
         {
-          backgroundColor: "rgba(72, 90, 58, 0)",
+          ...portalScrimGsapVars("rgba(72, 90, 58, 0)"),
           duration: 0.22,
           ease: EASE_TRANSFORM,
         },
@@ -698,15 +699,15 @@ function runEnterAnimation() {
   }
 
   gsap.killTweensOf([backdrop, ...staggerEls].filter(Boolean));
-  gsap.set(backdrop, { backgroundColor: "rgba(72, 90, 58, 0)" });
+  gsap.set(backdrop, portalScrimGsapVars("rgba(72, 90, 58, 0)"));
   gsap.set(staggerEls, { opacity: 0, y: 8 });
   backdrop.classList.remove("spell-target-backdrop--boot");
 
   gsap.fromTo(
     backdrop,
-    { backgroundColor: "rgba(72, 90, 58, 0)" },
+    portalScrimGsapVars("rgba(72, 90, 58, 0)"),
     {
-      backgroundColor: "rgba(72, 90, 58, 0.78)",
+      ...portalScrimGsapVars("rgba(72, 90, 58, 0.78)"),
       duration: 0.42,
       ease: EASE_TRANSFORM,
     },

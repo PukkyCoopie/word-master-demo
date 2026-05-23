@@ -51,6 +51,7 @@ function dictionaryFromDataDir() {
 }
 
 export default defineConfig({
+  base: "./",
   root: ".",
   publicDir: "public",
   plugins: [changelogFromMarkdownPlugin(), dictionaryFromDataDir(), devRecentTreasuresPlugin(), vue()],

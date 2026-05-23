@@ -4,7 +4,7 @@ import { describe, mult, rarity } from "../treasureDescription.js";
 export default {
   price: 6,
   rarity: "rare",
-  description: describe("如果棋盘中剩下的都是", rarity("普通"), "或", rarity("稀有"), "字母，", mult("x3"), "倍率"),
+  description: describe("如果棋盘中剩下的都是", rarity("普通"), "或", rarity("稀有"), "字母，", mult("x2"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -16,6 +16,6 @@ export const treasureHooks = {
       const r = String(t?.rarity ?? "common");
       return r === "common" || r === "rare";
     });
-    return ok ? { multMul: 3 } : null;
+    return ok ? { multMul: 2 } : null;
   },
 };

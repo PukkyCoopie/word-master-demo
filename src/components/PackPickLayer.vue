@@ -1,5 +1,5 @@
 <template>
-  <Teleport defer to="#game-view-portal">
+  <Teleport defer to="#game-view-portal-frame">
     <div
       ref="backdropRef"
       class="pack-pick-backdrop portal-overlay-fill"
@@ -143,6 +143,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from "vue";
 import gsap from "gsap";
+import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
 import LetterTile from "./LetterTile.vue";
 import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
@@ -212,14 +213,14 @@ function runEnterAnimation() {
   if (!backdrop || props.overlaySuppressed) return;
   killEnterTweens();
   const staggerEls = collectEnterStaggerEls();
-  gsap.set(backdrop, { backgroundColor: "rgba(42, 38, 48, 0)" });
+  gsap.set(backdrop, portalScrimGsapVars("rgba(42, 38, 48, 0)"));
   gsap.set(staggerEls, { opacity: 0, y: 10, scale: 0.96 });
   enterBoot.value = false;
   enterTl = gsap.timeline();
   enterTl.to(
     backdrop,
     {
-      backgroundColor: "rgba(42, 38, 48, 0.82)",
+      ...portalScrimGsapVars("rgba(42, 38, 48, 0.82)"),
       duration: 0.42,
       ease: EASE_TRANSFORM,
     },

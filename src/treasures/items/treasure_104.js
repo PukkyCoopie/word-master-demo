@@ -19,7 +19,10 @@ export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription(ctx) {
     const n = Math.min(LEVELS_NEEDED, Math.max(0, Math.round(getScoreAddBank(ctx.treasureRun, ID))));
-    return describe(`（当前${n}/${LEVELS_NEEDED}）`);
+    return describe(
+      "完成2个关卡后，你可以卖出本宝藏以创建一个其他宝藏的原始版复制",
+      `（当前${n}/${LEVELS_NEEDED}）`,
+    );
   },
   getChargeVisualState(ctx) {
     const n = getScoreAddBank(ctx.treasureRun, ID);

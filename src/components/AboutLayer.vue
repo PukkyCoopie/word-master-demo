@@ -114,13 +114,30 @@
                     <span class="about-changelog-ver">v{{ entry.version }}</span>
                     <span v-if="entry.date" class="about-changelog-date">{{ entry.date }}</span>
                   </div>
-                  <p
-                    v-for="(line, idx) in splitSummary(entry.summary)"
-                    :key="idx"
-                    class="about-changelog-text"
+                  <template v-if="splitSummary(entry.summary).length">
+                    <p
+                      v-for="(line, idx) in splitSummary(entry.summary)"
+                      :key="`s-${idx}`"
+                      class="about-changelog-text"
+                    >
+                      {{ line }}
+                    </p>
+                  </template>
+                  <details
+                    v-if="entry.autoSummary && splitSummary(entry.autoSummary).length"
+                    class="about-changelog-auto"
                   >
-                    {{ line }}
-                  </p>
+                    <summary class="about-changelog-auto-toggle">开发记录</summary>
+                    <div class="about-changelog-auto-body">
+                      <p
+                        v-for="(line, idx) in splitSummary(entry.autoSummary)"
+                        :key="`a-${idx}`"
+                        class="about-changelog-text about-changelog-text--auto"
+                      >
+                        {{ line }}
+                      </p>
+                    </div>
+                  </details>
                 </li>
               </ul>
             </div>
@@ -465,21 +482,15 @@ function splitSummary(summary) {
 
 <style scoped>
 .about-layer-backdrop {
-  position: absolute;
-  inset: 0;
   z-index: 25;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: calc(32 * var(--rpx)) calc(24 * var(--rpx));
   box-sizing: border-box;
-  border-radius: inherit;
 }
 
 .about-layer-scrim {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
   background: rgba(124, 179, 66, 0.88);
   pointer-events: none;
 }
@@ -755,6 +766,45 @@ function splitSummary(summary) {
 
 .about-changelog-text:last-child {
   margin-bottom: 0;
+}
+
+.about-changelog-auto {
+  margin-top: calc(6 * var(--rpx));
+}
+
+.about-changelog-auto-toggle {
+  font-size: calc(18 * var(--rpx));
+  font-weight: 700;
+  line-height: var(--about-text-lh);
+  color: rgba(60, 58, 50, 0.65);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.about-changelog-auto-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.about-changelog-auto-toggle::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.about-changelog-auto[open] .about-changelog-auto-toggle::before {
+  transform: rotate(90deg);
+}
+
+.about-changelog-auto-body {
+  margin-top: calc(6 * var(--rpx));
+  padding-top: calc(6 * var(--rpx));
+  border-top: calc(1 * var(--rpx)) solid rgba(60, 58, 50, 0.12);
+}
+
+.about-changelog-text--auto {
+  font-size: calc(18 * var(--rpx));
+  color: rgba(60, 58, 50, 0.72);
 }
 
 .about-layer-footer {

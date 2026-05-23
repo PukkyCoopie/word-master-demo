@@ -734,7 +734,7 @@
       "rarity": "rare",
       "name": "灯泡",
       "emoji": "💡",
-      "description": "如果棋盘中剩下的都是普通或稀有字母，x3倍率",
+      "description": "如果棋盘中剩下的都是普通或稀有字母，x2倍率",
       "userBatchIndex": null,
       "userOriginalText": null,
       "userDevNotes": null,

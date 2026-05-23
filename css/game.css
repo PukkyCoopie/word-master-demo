@@ -2500,12 +2500,12 @@
 	border: none;
 }
 
-/* 详情入场飞克隆：外层已由 inline 定货架列尺寸，内框必须随父级变宽变高，不能用 --detail 固定 156 */
+/* 详情入场飞克隆：外层 inline 钉死 icon 方框；内框铺满以便 @container treasure-cell 在 WebView 上稳定生效 */
 .treasure-detail-fly-clone-root .shop-treasure-frame.shop-treasure-frame--detail {
 	width: 100%;
-	height: auto;
-	aspect-ratio: 1;
+	height: 100%;
 	max-width: 100%;
+	max-height: 100%;
 	flex-shrink: 0;
 	box-sizing: border-box;
 }

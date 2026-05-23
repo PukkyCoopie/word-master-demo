@@ -1,5 +1,5 @@
 <template>
-  <Teleport defer to="#game-view-portal">
+  <Teleport defer to="#game-view-portal-frame">
     <div
       ref="backdropRef"
       class="treasure-detail-backdrop boss-blind-reroll-backdrop"

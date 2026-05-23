@@ -763,24 +763,33 @@ function gemClassForTreasureRarity(rarity) {
   return "gem-rare";
 }
 
+/** 飞入详情：起点用 icon 框，不用含价签的整列 shop-treasure-visual */
+function shopOfferFlyOriginEl(root) {
+  if (!root) return root;
+  return (
+    root.querySelector(".shop-shelf-letter-tile") ??
+    root.querySelector(".shop-treasure-frame") ??
+    root.querySelector(".voucher-stamp__frame") ??
+    root
+  );
+}
+
 function onSelectOffer(slot, e) {
   if (props.interactionsDisabled) return;
   const root = e.currentTarget;
-  const originEl =
-    isDeckShopOffer(slot) ? root.querySelector(".shop-shelf-letter-tile") ?? root : root;
-  emit("select-offer", { treasure: slot, originEl });
+  emit("select-offer", { treasure: slot, originEl: shopOfferFlyOriginEl(root) });
 }
 
 function onSelectPackOffer(slot, e) {
   if (props.interactionsDisabled) return;
   const root = e.currentTarget;
-  emit("select-pack-offer", { treasure: slot, originEl: root });
+  emit("select-pack-offer", { treasure: slot, originEl: shopOfferFlyOriginEl(root) });
 }
 
 function onSelectVoucher(slot, e) {
   if (props.interactionsDisabled) return;
   const root = e.currentTarget;
-  emit("select-voucher", { treasure: slot, originEl: root });
+  emit("select-voucher", { treasure: slot, originEl: shopOfferFlyOriginEl(root) });
 }
 
 function onSelectOwned(index, treasure, e) {

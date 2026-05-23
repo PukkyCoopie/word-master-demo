@@ -191,9 +191,10 @@ defineExpose({ play });
 
 <style scoped>
 .iris-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   pointer-events: none;
+  /* 宽屏 absolute 落入逻辑框：见 game.layout.css html:not(.viewport-narrower-than-design) */
 }
 </style>
 

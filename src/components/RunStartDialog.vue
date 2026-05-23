@@ -105,22 +105,16 @@ function onCancel() {
 
 <style scoped>
 .run-start-dialog-backdrop {
-  position: absolute;
-  inset: 0;
   z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: calc(24 * var(--rpx));
   box-sizing: border-box;
-  border-radius: inherit;
   overflow: visible;
 }
 
 .run-start-dialog-scrim {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
   /* 偏蓝深灰，与选项/结算层同色阶透明度（约 0.88） */
   background: rgba(48, 62, 78, 0.88);
   pointer-events: none;

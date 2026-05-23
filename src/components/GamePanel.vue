@@ -1,6 +1,6 @@
 <template>
   <div class="game-container">
-    <Teleport defer to="#game-view-portal">
+    <Teleport defer to="#game-view-portal-frame">
       <div v-if="showShop" class="portal-overlay-fill shop-portal-root" :style="shopPortalStackStyle">
         <ShopPanel
           ref="shopPanelRef"
@@ -30,7 +30,7 @@
     </Teleport>
 
     <!-- 牌库浮层：Teleport 到 portal，z-index 由 overlayStack 按出现顺序递增 -->
-    <Teleport defer to="#game-view-portal">
+    <Teleport defer to="#game-view-portal-frame">
       <Transition name="deck-layer">
         <div
           v-show="showDeckLayer"
@@ -185,7 +185,7 @@
       :rarity-levels-by-rarity="rarityLevelsByRarity"
       @close="closeTileDetail"
     />
-    <Teleport defer to="#game-view-portal">
+    <Teleport defer to="#game-view-portal-frame">
       <div v-if="dictFatalError" class="dict-fatal-layer portal-overlay-fill" :style="dictFatalPortalStackStyle">
         <div class="dict-fatal-card">
           <div class="dict-fatal-title">词典加载失败</div>
@@ -537,17 +537,17 @@
       />
     </Teleport>
 
-    <Teleport defer to="#game-view-portal">
+    <Teleport defer :to="portalFullscreenTarget">
       <canvas
         v-if="showRunEnd && runEndOutcome === 'win'"
         ref="runEndConfettiCanvasRef"
-        class="portal-overlay-fill run-end-confetti-canvas"
+        class="portal-overlay-viewport run-end-confetti-canvas"
         :style="runEndConfettiPortalStackStyle"
         aria-hidden="true"
       />
     </Teleport>
 
-    <Teleport defer to="#game-view-portal">
+    <Teleport defer to="#game-view-portal-frame">
       <RunEndLayer
         :open="showRunEnd"
         :outcome="runEndOutcome"
@@ -559,7 +559,7 @@
       />
     </Teleport>
 
-    <Teleport defer to="#game-view-portal">
+    <Teleport defer to="#game-view-portal-frame">
       <PauseOptionsLayer
         :open="showPauseOptions"
         :portal-stack-style="pauseOptionsPortalStackStyle"
@@ -570,7 +570,7 @@
       />
     </Teleport>
 
-    <Teleport defer to="#game-view-portal">
+    <Teleport defer to="#game-view-portal-frame">
       <Transition name="settle-layer" :css="!disableSettlementLayerAnim">
         <div
           v-if="showSettlement"
@@ -641,7 +641,7 @@
       <div v-if="toast" class="toast" :style="toastPortalStackStyle">{{ toast }}</div>
     </Teleport>
 
-    <Teleport defer to="#game-view-portal">
+    <Teleport defer to="#game-view-portal-frame">
       <Transition name="info-layer" :css="true">
       <InfoModal
         v-if="showInfoLayer"
@@ -672,6 +672,7 @@
  * 动画约定：位移/尺寸/缩放/旋转统一 EASE_TRANSFORM（expo.out），见 src/constants.js 与 .cursor/rules/animation-easing.mdc
  */
 import { computed, inject, ref, watch, onMounted, onUnmounted, nextTick } from "vue";
+import { useViewportLayoutMode } from "../composables/useViewportLayoutMode.js";
 import gsap from "gsap";
 import {
   EASE_TRANSFORM,
@@ -884,7 +885,12 @@ import {
   parseLevelSubFromId,
 } from "../vouchers/voucherRuntime.js";
 import { useDictionary } from "../composables/useDictionary";
-import { gameSettings, getMarkOnSwap, getSwapButtonMode } from "../settings/gameSettings.js";
+import {
+  gameSettings,
+  getMarkOnSwap,
+  getSwapButtonMode,
+  getSwapGridPickCount,
+} from "../settings/gameSettings.js";
 import {
   getBaseScoreForRarity,
   getWordLengthScoreForTableLen,
@@ -961,6 +967,8 @@ const props = defineProps({
   runSeed: { type: Number, default: 0 },
   runSeedDisplay: { type: String, default: "" },
 });
+
+const { portalFullscreenTarget } = useViewportLayoutMode();
 
 const emit = defineEmits(["request-restart", "exit-to-menu"]);
 
@@ -1055,6 +1063,10 @@ const SKIP_BUBBLE_SETTLE_S = 0.22;
 const PLUS_BUBBLE_OUTRO_DELAY_S = 0.48;
 const PLUS_BUBBLE_OUTRO_DURATION_S = 0.42;
 const PLUS_BUBBLE_OUTRO_SCALE = 0.5;
+/** 关卡完成宝藏 +$：气泡淡出后再开结算弹窗（约 1s） */
+const LEVEL_COMPLETE_MONEY_FX_OUTRO_WAIT_MS = Math.round(
+  (PLUS_BUBBLE_OUTRO_DELAY_S + PLUS_BUBBLE_OUTRO_DURATION_S) * 1000,
+);
 
 /** 记分区数字「先瞬间放大再缓落回 1」：峰值倍率 / 回落时长（秒） */
 const VALUE_NUM_PULSE_PEAK_SCALE = 1.42;
@@ -2878,7 +2890,8 @@ async function runTreasureLevelCompleteHooks() {
     destroyTreasureSlotById: destroyOwnedTreasureWithFx,
     findOwnedTreasureSlotIndex,
     wobbleOwnedTreasureById,
-    playOwnedTreasureMoneyFx,
+    playOwnedTreasureMoneyFx: (treasureId, amount) =>
+      playOwnedTreasureMoneyFx(treasureId, amount, { awaitOutro: true }),
     playOwnedTreasureBubbleFx,
     remainingRemovals: remainingRemovals.value,
     addMoney: (n) => {
@@ -3895,6 +3908,34 @@ function waitForFlyingBackIdle() {
   });
 }
 
+/** 飞回 batch 中最小槽下标；无飞回时为 null（与 effectiveSelectedCount / 提交预览一致） */
+function getFlyingBackMinSlotIndex() {
+  const batches = flyingBackBatches.value;
+  if (batches.length === 0) return null;
+  return Math.min(...batches.map((b) => b.slotIndex));
+}
+
+/** 取消飞回动画并立刻落盘为「已回棋盘」（与动画结束后的 removeFromSlot 一致） */
+function finalizeFlyingBackBatchesImmediately() {
+  const batches = [...flyingBackBatches.value];
+  if (batches.length === 0) return;
+  const sorted = [...batches].sort((a, b) => b.slotIndex - a.slotIndex);
+  for (const batch of sorted) {
+    const meta = flyingBackBatchMeta[batch.id];
+    if (meta) {
+      meta.finalized = true;
+      for (const el of meta.elements ?? []) {
+        gsap.killTweensOf(el);
+        disposeFlyBackTileElement(el);
+        el.remove();
+      }
+      delete flyingBackBatchMeta[batch.id];
+    }
+    removeFromSlot(batch.slotIndex);
+  }
+  flyingBackBatches.value = [];
+}
+
 function waitForFlyingInIdle() {
   return new Promise((resolve) => {
     const tick = () => {
@@ -3925,10 +3966,12 @@ function collectWordAuxTargetTiles() {
   return tiles;
 }
 
-/** 当前已入槽（不含飞入中）占用的棋盘格坐标，用于对调按钮排除集 */
+/** 当前已入槽（不含飞入中、飞回中）占用的棋盘格坐标，用于对调按钮排除集 */
 function buildStableWordSelectionPositionKeys() {
   const keys = new Set();
-  for (const { row, col } of selectedOrder.value) {
+  const limit = getFlyingBackMinSlotIndex() ?? selectedOrder.value.length;
+  for (let i = 0; i < limit; i += 1) {
+    const { row, col } = selectedOrder.value[i];
     keys.add(`${row},${col}`);
   }
   return keys;
@@ -3947,7 +3990,7 @@ function collectSwappableGridPositions(excludePositionKeys = null) {
       if (!tile?.letter) continue;
       const key = `${r},${c}`;
       if (excludePositionKeys?.has(key)) continue;
-      if (tile.selected) continue;
+      if (tile.selected && !isTileInFlyingBackFromWord(tile)) continue;
       if (tile.bossGridBlocked) continue;
       if (isTileFlying(r, c)) continue;
       list.push({ row: r, col: c, tile });
@@ -3957,12 +4000,12 @@ function collectSwappableGridPositions(excludePositionKeys = null) {
 }
 
 /**
- * 按设置的对调范围筛选棋盘格（先排除已选/拼词中的格）。
- * `pickCount` 有值时取排序后的前 N 个（数量通常等于当前拼词长度；非「对调全部」）。
+ * 按设置的对调范围筛选棋盘格（先排除互换前已在拼词中的格）。
+ * `pickCount` 为 null 时选全部候选；否则取排序后的前 N 个（bottom8/top8/random8 固定为 8，与拼词长度无关）。
  * @param {Set<string> | null} excludePositionKeys
- * @param {number | null} pickCount
+ * @param {number | null} [pickCount]
  */
-function resolveSwapGridTargets(excludePositionKeys, pickCount = null) {
+function resolveSwapGridTargets(excludePositionKeys, pickCount = getSwapGridPickCount()) {
   const mode = getSwapButtonMode();
   const all = collectSwappableGridPositions(excludePositionKeys);
   if (mode === "all") return all;
@@ -4962,17 +5005,7 @@ function onDiscardBtnClick() {
 }
 
 const canUseWordAuxTools = computed(() => {
-  if (
-    dictFatalError.value ||
-    transitionBusy.value ||
-    showShop.value ||
-    isRunFlowOverlayOpen() ||
-    scoringAnimating.value ||
-    gridRefillAnimating.value ||
-    wordSelectionSwapBusy.value
-  ) {
-    return false;
-  }
+  if (isWordAuxInteractionBlocked()) return false;
   return collectWordAuxTargetTiles().length > 0;
 });
 
@@ -4980,23 +5013,29 @@ const showSwapWordButton = computed(() => gameSettings.swapButtonMode !== "hidde
 
 const swapWordButtonTitle = computed(() => {
   const mode = getSwapButtonMode();
-  if (mode === "bottom8") return "将拼词中的字母送回棋盘，并从剩余未选字母中取最靠下的若干格";
-  if (mode === "top8") return "将拼词中的字母送回棋盘，并从剩余未选字母中取最靠上的若干格";
-  if (mode === "random8") return "将拼词中的字母送回棋盘，并从剩余未选字母中随机选取若干格";
+  if (mode === "bottom8") return "将拼词中的字母送回棋盘，并从剩余未选字母中取最靠下的 8 个";
+  if (mode === "top8") return "将拼词中的字母送回棋盘，并从剩余未选字母中取最靠上的 8 个";
+  if (mode === "random8") return "将拼词中的字母送回棋盘，并从剩余未选字母中随机选取 8 个";
   return "将拼词中的字母送回棋盘，并选中原先未选的字母";
 });
 
+/** 对调/标记等拼词辅助：与词典、流程遮罩、记分/补牌动画等共用门槛（不要求拼词非空） */
+function isWordAuxInteractionBlocked() {
+  return (
+    dictFatalError.value ||
+    transitionBusy.value ||
+    showShop.value ||
+    isRunFlowOverlayOpen() ||
+    scoringAnimating.value ||
+    gridRefillAnimating.value ||
+    wordSelectionSwapBusy.value
+  );
+}
+
 const canSwapWordSelection = computed(() => {
   if (!showSwapWordButton.value) return false;
-  if (!canUseWordAuxTools.value) return false;
-  if (ceruleanBellSlotIndex.value != null) return false;
-  if (flyingBackBatches.value.length > 0) return false;
-  const hasInWord = selectedOrder.value.length > 0;
-  const inWordCount = selectedOrder.value.length;
-  const pickCount = getSwapButtonMode() === "all" ? null : inWordCount;
-  const hasOnGrid =
-    resolveSwapGridTargets(buildStableWordSelectionPositionKeys(), pickCount).length > 0;
-  return hasInWord && hasOnGrid;
+  if (isWordAuxInteractionBlocked()) return false;
+  return resolveSwapGridTargets(buildStableWordSelectionPositionKeys()).length > 0;
 });
 
 function onMarkSelectedTilesClick() {
@@ -5023,13 +5062,10 @@ async function onSwapWordSelectionClick() {
     }
 
     if (flyingLetters.value.length > 0) cancelAllFlyingIn();
-    if (flyingBackBatches.value.length > 0) await waitForFlyingBackIdle();
+    finalizeFlyingBackBatchesImmediately();
 
     /** 对调仅基于当前稳定已入槽的字母，避免把已取消飞入的格子误判为“原先已选中”。 */
     const previouslyInWord = buildStableWordSelectionPositionKeys();
-    const inWordCountBefore = selectedOrder.value.length;
-    const swapMode = getSwapButtonMode();
-    const pickCount = swapMode === "all" ? null : inWordCountBefore;
 
     const inWordCount = selectedOrder.value.length;
     if (inWordCount > 0) {
@@ -5041,7 +5077,7 @@ async function onSwapWordSelectionClick() {
       await waitForFlyingBackIdle();
     }
 
-    const toSelect = resolveSwapGridTargets(previouslyInWord, pickCount);
+    const toSelect = resolveSwapGridTargets(previouslyInWord);
     if (toSelect.length === 0) return;
     for (const { row, col, tile } of toSelect) {
       startOneMoveIn(row, col, tile);
@@ -5860,8 +5896,8 @@ async function wobbleGameTreasureSlot(slotIndex) {
   });
 }
 
-/** @param {number} slotIndex @param {number} amount */
-async function playTreasureSlotMoneyBurstAtPeak(slotIndex, amount) {
+/** @param {number} slotIndex @param {number} amount @param {{ awaitOutro?: boolean }} [opts] */
+async function playTreasureSlotMoneyBurstAtPeak(slotIndex, amount, opts = {}) {
   const el = gameTreasureSlotRefs[slotIndex];
   if (!el || slotIndex < 0) return;
   const sp = 1;
@@ -5872,13 +5908,16 @@ async function playTreasureSlotMoneyBurstAtPeak(slotIndex, amount) {
   const bubble = showScoreBubble(el, formatMoneyBubbleLabel(amt), "money", sp);
   scheduleSmallPlusBubbleOutro(bubble, sp);
   money.value += amt;
+  if (opts.awaitOutro) {
+    await scoringSleep(LEVEL_COMPLETE_MONEY_FX_OUTRO_WAIT_MS, sp);
+  }
 }
 
-/** @param {string} treasureId @param {number} amount */
-async function playOwnedTreasureMoneyFx(treasureId, amount) {
+/** @param {string} treasureId @param {number} amount @param {{ awaitOutro?: boolean }} [opts] */
+async function playOwnedTreasureMoneyFx(treasureId, amount, opts = {}) {
   const ix = findOwnedTreasureSlotIndex(treasureId);
   if (ix < 0) return;
-  await playTreasureSlotMoneyBurstAtPeak(ix, amount);
+  await playTreasureSlotMoneyBurstAtPeak(ix, amount, opts);
 }
 
 /** @param {number} slotIndex @param {string} text @param {string} [kind] */
@@ -9328,7 +9367,7 @@ function startOneMoveOut(slotIndex) {
   const startScale = slotScaleRuntime;
   const listWithScale = list.map((item) => ({ ...item, startSlotScale: startScale }));
   const batchId = `fly-back-${++flyingBackBatchIdCounter}-${Date.now()}`;
-  const meta = { slotIndex, total: list.length, completed: 0 };
+  const meta = { slotIndex, total: list.length, completed: 0, elements: [] };
   flyingBackBatchMeta[batchId] = meta;
   flyingBackBatches.value = [
     ...flyingBackBatches.value,
@@ -9336,6 +9375,7 @@ function startOneMoveOut(slotIndex) {
   ];
   for (const item of listWithScale) {
     const el = createFlyBackElement(item);
+    meta.elements.push(el);
     document.body.appendChild(el);
     const tw = Math.max(item.toRect.width, 1e-6);
     const th = Math.max(item.toRect.height, 1e-6);
@@ -9361,6 +9401,7 @@ function startOneMoveOut(slotIndex) {
       duration: FLY_DURATION,
       ease: EASE_TRANSFORM,
       onComplete: () => {
+        if (meta.finalized) return;
         disposeFlyBackTileElement(el);
         el.remove();
         meta.completed += 1;
@@ -10023,12 +10064,9 @@ onUnmounted(() => {
 }
 
 .run-end-confetti-canvas {
-  position: absolute;
-  inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
-  border-radius: calc(12 * var(--rpx));
 }
 
 .header-box-level-title--clickable:hover {

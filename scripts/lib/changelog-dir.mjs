@@ -4,6 +4,8 @@ import { formatVersionString, versionFileNameForSemver } from "./app-version-fil
 
 export const CHANGELOG_DIR_NAME = "changelog";
 export const CHANGELOG_TEMPLATE_BASENAME = "_template.md";
+/** 正文内分隔「玩家手写」与「commit 自动追加」的标记（HTML 注释，编辑器中可见） */
+export const CHANGELOG_AUTO_MARKER = "<!-- changelog:auto -->";
 
 const VERSION_FILE_RE = /^(\d+)_(\d+)_(\d+)\.md$/i;
 
@@ -59,11 +61,64 @@ export function serializeChangelogMarkdown(meta, body) {
 
 /**
  * @param {string} body
+ * @returns {{ user: string, auto: string }}
+ */
+export function splitChangelogBody(body) {
+  const idx = body.indexOf(CHANGELOG_AUTO_MARKER);
+  if (idx === -1) {
+    return { user: body.trim(), auto: "" };
+  }
+  return {
+    user: body.slice(0, idx).trim(),
+    auto: body.slice(idx + CHANGELOG_AUTO_MARKER.length).trim(),
+  };
+}
+
+/**
+ * @param {string} user
+ * @param {string} auto
+ */
+export function joinChangelogBody(user, auto) {
+  const u = user.trim();
+  const a = auto.trim();
+  if (!a) {
+    return u ? `${u}\n` : "";
+  }
+  if (!u) {
+    return `${CHANGELOG_AUTO_MARKER}\n\n${a}\n`;
+  }
+  return `${u}\n\n${CHANGELOG_AUTO_MARKER}\n\n${a}\n`;
+}
+
+/**
+ * @param {string} body
  */
 export function stripChangelogComments(body) {
-  return body
-    .replace(/<!--[\s\S]*?-->/g, "")
+  const { user, auto } = splitChangelogBody(body);
+  const strippedUser = user
+    .replace(/<!--(?!\s*changelog:auto\s*)[\s\S]*?-->/g, "")
     .trim();
+  return joinChangelogBody(strippedUser, auto);
+}
+
+/**
+ * 将一条 commit 说明追加到自动区（去重、统一为列表项）。
+ * @param {string} autoBody
+ * @param {string} line
+ */
+export function appendAutoChangelogLine(autoBody, line) {
+  const trimmed = line.trim();
+  if (!trimmed) return autoBody;
+
+  const bullet = trimmed.startsWith("- ") ? trimmed : `- ${trimmed}`;
+  const existing = autoBody
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (existing.some((l) => l === bullet || l === trimmed)) {
+    return autoBody;
+  }
+  return existing.length ? `${autoBody.trim()}\n${bullet}` : bullet;
 }
 
 /** @type {string | null} */
@@ -90,7 +145,8 @@ function getTemplateBody(changelogDir) {
  * @param {string} body
  */
 export function isUserWrittenChangelogBody(changelogDir, body) {
-  const stripped = stripChangelogComments(body);
+  const { user } = splitChangelogBody(body);
+  const stripped = stripChangelogComments(user);
   if (!stripped) return false;
 
   const templateBody = getTemplateBody(changelogDir);
@@ -246,7 +302,9 @@ export function readChangelogBundleFromDir(dir) {
     const filePath = path.join(dir, name);
     const { meta, body } = parseChangelogMarkdown(fs.readFileSync(filePath, "utf8"));
     if (!parseShowInGame(meta.show)) continue;
-    if (!stripChangelogComments(body)) continue;
+
+    const { user, auto } = splitChangelogBody(stripChangelogComments(body));
+    if (!user && !auto) continue;
 
     const stat = fs.statSync(filePath);
     const date =
@@ -255,7 +313,13 @@ export function readChangelogBundleFromDir(dir) {
       stat.mtime.toISOString().slice(0, 10);
 
     const sortKey = version.split(".").map((n) => Number(n) || 0);
-    entries.push({ version, date, summary: body, sortKey });
+    entries.push({
+      version,
+      date,
+      summary: user,
+      autoSummary: auto,
+      sortKey,
+    });
   }
 
   entries.sort((a, b) => {
@@ -267,7 +331,12 @@ export function readChangelogBundleFromDir(dir) {
 
   return {
     maxVersion,
-    entries: entries.map(({ version, date, summary }) => ({ version, date, summary })),
+    entries: entries.map(({ version, date, summary, autoSummary }) => ({
+      version,
+      date,
+      summary,
+      ...(autoSummary ? { autoSummary } : {}),
+    })),
   };
 }
 
