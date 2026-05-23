@@ -13,8 +13,9 @@ body {
 	height: 100%;
 	min-height: 100%;
 	min-height: 100dvh;
-	-webkit-text-size-adjust: 100%;
-	text-size-adjust: 100%;
+	/* 禁止移动端自动抬高过小字号（iOS/WebKit；与 Android WebView minimumFontSize 配合） */
+	-webkit-text-size-adjust: none;
+	text-size-adjust: none;
 	/* 整页游戏：禁止选中文字/元素（含 Teleport 到 body 的飞字、气泡） */
 	user-select: none;
 	-webkit-user-select: none;

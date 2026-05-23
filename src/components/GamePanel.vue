@@ -15,6 +15,7 @@
           :interactions-disabled="shopUpgradeAnimating || packPickBusy || !!packPickSession || !!bossRerollSession"
           :treasure-charge-by-slot="treasureChargeVisualBySlot"
           :treasure-charge-progress-by-slot="treasureChargeProgressBySlot"
+          @open-settings="onPauseSettings"
           @view-deck="showDeckLayer = true"
           @view-round-info="openInfoModal('level')"
           @next-level="onShopNextLevel"
@@ -2236,13 +2237,16 @@ function onPackPickOpenItem(payload) {
 
 async function onPackPickSkip() {
   if (packPickBusy.value) return;
-  await notifyOwnedTreasuresOnPackSkipped(ownedSlotTreasureIdList(), {
-    treasureRun: treasureRunState.value,
-    playOwnedTreasureMultDeltaFx,
-  });
+  const owned = ownedSlotTreasureIdList();
   packPickSession.value = null;
   packPickOverlaySuppressed.value = false;
   treasureDetail.value = null;
+  await nextTick();
+  await new Promise((r) => requestAnimationFrame(r));
+  await notifyOwnedTreasuresOnPackSkipped(owned, {
+    treasureRun: treasureRunState.value,
+    playOwnedTreasureMultDeltaFx,
+  });
   resolvePackPickFlow();
 }
 
@@ -5976,15 +5980,24 @@ async function playTreasureSlotMultDeltaBurstAtPeak(slotIndex, delta) {
   const d = Math.round(Number(delta) || 0);
   if (d === 0) return;
   const sp = 1;
-  scoringTreasureBarIndex.value = slotIndex;
+  const prevShopSuppressed = shopOverlayLayersSuppressed.value;
+  shopOverlayLayersSuppressed.value = true;
   await nextTick();
   await new Promise((r) => requestAnimationFrame(r));
-  wobbleScoreSlot(el, sp);
-  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-  const bubble = showScoreBubble(el, d > 0 ? `+${d}` : String(d), "mult", sp);
-  scheduleSmallPlusBubbleOutro(bubble, sp);
-  await scoringSleep(SCORING_LETTER_GAP_MS, sp);
-  scoringTreasureBarIndex.value = null;
+  const bubbleZ = bumpOverlayZ();
+  try {
+    scoringTreasureBarIndex.value = slotIndex;
+    await nextTick();
+    await new Promise((r) => requestAnimationFrame(r));
+    wobbleScoreSlot(el, sp);
+    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+    const bubble = showScoreBubble(el, d > 0 ? `+${d}` : String(d), "mult", sp, bubbleZ);
+    scheduleSmallPlusBubbleOutro(bubble, sp);
+    await scoringSleep(SCORING_LETTER_GAP_MS, sp);
+  } finally {
+    scoringTreasureBarIndex.value = null;
+    shopOverlayLayersSuppressed.value = prevShopSuppressed;
+  }
 }
 
 /** @param {string} treasureId @param {number} delta */
@@ -7946,7 +7959,8 @@ function normalizeScoreBubbleDisplayText(text, kind) {
   return raw;
 }
 
-function showScoreBubble(slotEl, text, kind, speed = 1) {
+/** @param {number} [bubbleZIndex] 默认 350；浮层打开时由调用方传入 `bumpOverlayZ()` */
+function showScoreBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
   const s = Math.max(0.01, Number(speed) || 1);
   const rect = scoreBubbleAnchorRect(slotEl);
   if (!rect) return null;
@@ -7978,7 +7992,7 @@ function showScoreBubble(slotEl, text, kind, speed = 1) {
     xPercent: -50,
     yPercent: -100,
     transformOrigin: "50% 100%",
-    zIndex: 350,
+    zIndex: bubbleZIndex,
     pointerEvents: "none",
     force3D: true,
   });

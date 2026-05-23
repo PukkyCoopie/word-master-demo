@@ -3,6 +3,7 @@
     <div
       v-if="open"
       class="settings-layer-backdrop"
+      :style="backdropStackStyle"
       role="presentation"
     >
       <div class="settings-layer-scrim" aria-hidden="true" />
@@ -118,7 +119,8 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
+import { bumpOverlayZ } from "../game/overlayStack.js";
 import {
   UI_SCALE_MAX,
   UI_SCALE_MIN,
@@ -131,11 +133,26 @@ import {
   stepSwapButtonMode,
 } from "../settings/gameSettings.js";
 
-defineProps({
+const props = defineProps({
   open: { type: Boolean, default: false },
 });
 
 defineEmits(["close"]);
+
+const stackZ = ref(0);
+const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
+
+watch(
+  () => props.open,
+  (v) => {
+    if (v) {
+      nextTick(() => {
+        stackZ.value = bumpOverlayZ();
+      });
+    }
+  },
+  { immediate: true },
+);
 
 const titleId = "settings-layer-title";
 
@@ -207,7 +224,6 @@ function onScaleInputEnter(e) {
 
 <style scoped>
 .settings-layer-backdrop {
-  z-index: 25;
   display: flex;
   align-items: center;
   justify-content: center;

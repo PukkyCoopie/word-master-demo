@@ -68,6 +68,21 @@
 	--info-voucher-cell-width: calc(168 * var(--rpx));
 	/* 与 @container treasure-cell 内 emoji 比例一致，供无容器上下文回退 */
 	--shop-shelf-emoji-size: calc(42 * var(--rpx));
+	/* 宝藏配饰角标（108 参考格 22×22、inset 4、圆角 5、图标 13）；@container 失效时回退 */
+	--shop-shelf-acc-chip-size: calc(22 * var(--rpx));
+	--shop-shelf-acc-chip-inset: calc(4 * var(--rpx));
+	--shop-shelf-acc-chip-radius: calc(5 * var(--rpx));
+	--shop-shelf-acc-chip-icon: calc(13 * var(--rpx));
+	/* 货架格内稀有宝石、充能角标、牌包长度文案等（108 参考格比例）；@container 失效时回退 */
+	--shop-shelf-gem-size: calc(14 * var(--rpx));
+	--shop-shelf-gem-inset: calc(6 * var(--rpx));
+	--shop-shelf-gem-border: calc(1 * var(--rpx));
+	--shop-shelf-charge-icon-inset: calc(8 * var(--rpx));
+	--shop-shelf-charge-icon-size: calc(34 * var(--rpx));
+	--shop-shelf-upgrade-length-bottom: calc(10 * var(--rpx));
+	--shop-shelf-upgrade-length-font: calc(20 * var(--rpx));
+	--shop-shelf-upgrade-length-font-lg: calc(24 * var(--rpx));
+	--shop-shelf-upgrade-length-bottom-detail: calc(12 * var(--rpx));
 	/* 牌包法术格 Remix 图标：相对 108 单元格边长；与 TreasureDetailLayer 法术飞入字号比例同步 */
 	--shop-shelf-spell-icon-units: 40;
 	/* 优惠券四角内凹圆角（相对 100×100 视图，与货架格同比缩放） */
@@ -2238,6 +2253,24 @@
 	box-shadow: none;
 	pointer-events: none;
 	overflow: hidden;
+	/* 无 @container 回退（货架 108 格基准；@container 同选择器在后覆盖） */
+	top: var(--shop-shelf-acc-chip-inset);
+	right: var(--shop-shelf-acc-chip-inset);
+	width: var(--shop-shelf-acc-chip-size);
+	height: var(--shop-shelf-acc-chip-size);
+	border-radius: var(--shop-shelf-acc-chip-radius);
+}
+
+.treasure-slot.filled .treasure-accessory-chip-ripple,
+.shop-treasure-frame .treasure-accessory-chip-ripple {
+	inset: calc(-3 * var(--rpx));
+	border-radius: calc(7 * var(--rpx));
+	box-shadow: 0 0 0 calc(2 * var(--rpx)) rgba(255, 255, 255, 0);
+}
+
+.treasure-slot.filled .treasure-accessory-chip-icon,
+.shop-treasure-frame .treasure-accessory-chip-icon {
+	font-size: var(--shop-shelf-acc-chip-icon);
 }
 
 .treasure-accessory-chip--fire {
@@ -2348,6 +2381,13 @@
 	color: #72ff6a;
 	background-image: none;
 	filter: none;
+}
+
+.treasure-slot.filled .treasure-charge-corner-icon,
+.shop-treasure-frame .treasure-charge-corner-icon {
+	right: var(--shop-shelf-charge-icon-inset);
+	bottom: var(--shop-shelf-charge-icon-inset);
+	font-size: var(--shop-shelf-charge-icon-size);
 }
 
 /* ----- 商店侧栏按钮（与 ShopPanel 一致，供宝藏详情层等复用） ----- */
@@ -2527,6 +2567,19 @@
 	z-index: 0;
 }
 
+.treasure-slot.filled .letter-gem,
+.shop-treasure-frame .letter-gem:not(.shop-pack-rarity-gem) {
+	left: var(--shop-shelf-gem-inset);
+	bottom: var(--shop-shelf-gem-inset);
+	width: var(--shop-shelf-gem-size);
+	height: var(--shop-shelf-gem-size);
+	box-shadow: 0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.2);
+}
+
+.shop-treasure-frame .letter-gem.gem-common:not(.shop-pack-rarity-gem) {
+	border: var(--shop-shelf-gem-border) solid #9c8b7a;
+}
+
 .shop-treasure-frame .letter-gem.gem-common {
 	background: #e8e4dc;
 }
@@ -2584,6 +2637,21 @@
 	color: var(--panel-text-strong, #1a1a1a);
 }
 
+/* 牌包长度文案（无 @container 回退；length-offer 内为 static，仅字号生效） */
+.shop-treasure-frame .shop-upgrade-length {
+	bottom: var(--shop-shelf-upgrade-length-bottom);
+	font-size: var(--shop-shelf-upgrade-length-font);
+}
+
+.shop-treasure-frame .shop-upgrade-length--single-digit {
+	font-size: var(--shop-shelf-upgrade-length-font-lg);
+}
+
+.shop-treasure-frame .shop-upgrade-length--detail {
+	bottom: var(--shop-shelf-upgrade-length-bottom-detail);
+	font-size: var(--shop-shelf-upgrade-length-font-lg);
+}
+
 /* 货架参考格 108×108：emoji 42、配饰角标 22、左下稀有宝石 14 等，随格子 min(宽,高) 同比缩放（局内槽位、详情、飞入克隆与货架一致） */
 @container treasure-cell (min-width: 0px) {
 	.shop-treasure-emoji,
@@ -2616,7 +2684,8 @@
 		box-shadow: 0 calc(100cqmin * 1 / 108) calc(100cqmin * 2 / 108) rgba(0, 0, 0, 0.2);
 	}
 
-	.treasure-accessory-chip {
+	.treasure-slot.filled .treasure-accessory-chip,
+	.shop-treasure-frame .treasure-accessory-chip {
 		top: calc(100cqmin * 4 / 108);
 		right: calc(100cqmin * 4 / 108);
 		width: calc(100cqmin * 22 / 108);
@@ -2624,32 +2693,35 @@
 		border-radius: calc(100cqmin * 5 / 108);
 	}
 
-	.treasure-accessory-chip-ripple {
+	.treasure-slot.filled .treasure-accessory-chip-ripple,
+	.shop-treasure-frame .treasure-accessory-chip-ripple {
 		inset: calc(100cqmin * -3 / 108);
 		border-radius: calc(100cqmin * 7 / 108);
 		box-shadow: 0 0 0 calc(100cqmin * 2 / 108) rgba(255, 255, 255, 0);
 	}
 
-	.treasure-accessory-chip-icon {
+	.treasure-slot.filled .treasure-accessory-chip-icon,
+	.shop-treasure-frame .treasure-accessory-chip-icon {
 		font-size: calc(100cqmin * 13 / 108);
 	}
 
-	.treasure-charge-corner-icon {
+	.treasure-slot.filled .treasure-charge-corner-icon,
+	.shop-treasure-frame .treasure-charge-corner-icon {
 		right: calc(100cqmin * 8 / 108);
 		bottom: calc(100cqmin * 8 / 108);
 		font-size: calc(100cqmin * 34 / 108);
 	}
 
-	.shop-upgrade-length {
+	.shop-treasure-frame .shop-upgrade-length {
 		bottom: calc(100cqmin * 10 / 108);
 		font-size: calc(100cqmin * 20 / 108);
 	}
 
-	.shop-upgrade-length--single-digit {
+	.shop-treasure-frame .shop-upgrade-length--single-digit {
 		font-size: calc(100cqmin * 24 / 108);
 	}
 
-	.shop-upgrade-length--detail {
+	.shop-treasure-frame .shop-upgrade-length--detail {
 		bottom: calc(100cqmin * 12 / 108);
 		font-size: calc(100cqmin * 24 / 108);
 	}
@@ -3658,6 +3730,21 @@
 	flex: 1 1 auto;
 	max-width: none;
 	box-sizing: border-box;
+}
+
+/* 货架字母块：@container 失效时回退（.grid-tile 有通用回退，此处对齐 108 参考格 22 配饰尺寸） */
+.shop-shelf-letter-tile.grid-tile .tile-accessory-chip {
+	right: var(--shop-shelf-acc-chip-inset);
+	bottom: var(--shop-shelf-acc-chip-inset);
+	top: auto;
+	left: auto;
+	width: var(--shop-shelf-acc-chip-size);
+	height: var(--shop-shelf-acc-chip-size);
+	border-radius: var(--shop-shelf-acc-chip-radius);
+}
+
+.shop-shelf-letter-tile.grid-tile .tile-accessory-chip-icon {
+	font-size: var(--shop-shelf-acc-chip-icon);
 }
 
 @container treasure-cell (min-width: 0px) {

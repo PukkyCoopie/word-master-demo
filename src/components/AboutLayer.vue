@@ -44,9 +44,20 @@
             :aria-labelledby="sectionHeadingId('game')"
           >
             <h3 :id="sectionHeadingId('game')" class="about-section-title">关于本游戏</h3>
-            <div class="about-panel">
-              <p class="about-intro-line">一款使用Vibe Coding制作的、类小丑牌的拼单词游戏。</p>
-              <p class="about-app-version">{{ APP_VERSION }}</p>
+            <div class="about-panel about-panel--game">
+              <article class="about-game-card">
+                <header class="about-game-header">
+                  <p class="about-game-name">Word Master</p>
+                  <p class="about-game-intro">
+                    一款使用Vibe Coding制作的、类小丑牌的拼单词游戏。
+                  </p>
+                </header>
+                <footer class="about-game-meta">
+                  <span class="about-game-version">{{ APP_VERSION }}</span>
+                  <span class="about-game-meta-divider" aria-hidden="true" />
+                  <span class="about-game-studio">时移游戏</span>
+                </footer>
+              </article>
             </div>
           </section>
 
@@ -635,6 +646,83 @@ function splitSummary(summary) {
   padding: calc(4 * var(--rpx)) calc(4 * var(--rpx)) calc(8 * var(--rpx));
 }
 
+.about-panel--game {
+  padding: 0;
+}
+
+.about-game-card {
+  display: flex;
+  flex-direction: column;
+  gap: calc(16 * var(--rpx));
+  padding: calc(18 * var(--rpx)) calc(16 * var(--rpx));
+  background: var(--card, #eee4da);
+  border: calc(1 * var(--rpx)) solid rgba(60, 58, 50, 0.14);
+  border-radius: var(--radius);
+  box-sizing: border-box;
+}
+
+.about-game-header {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--rpx));
+}
+
+.about-game-name {
+  margin: 0;
+  font-size: calc(30 * var(--rpx));
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: calc(0.5 * var(--rpx));
+  color: var(--text-dark, #3c3a32);
+}
+
+.about-game-intro {
+  margin: 0;
+  font-size: var(--about-text-size);
+  font-weight: 600;
+  line-height: 1.55;
+  color: rgba(60, 58, 50, 0.82);
+}
+
+.about-game-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(10 * var(--rpx));
+  margin: 0;
+  padding-top: calc(14 * var(--rpx));
+  border-top: calc(2 * var(--rpx)) solid rgba(60, 58, 50, 0.1);
+}
+
+.about-game-version {
+  display: inline-flex;
+  align-items: center;
+  padding: calc(5 * var(--rpx)) calc(12 * var(--rpx));
+  font-size: calc(18 * var(--rpx));
+  font-weight: 800;
+  line-height: 1.25;
+  color: #f9f6f2;
+  background: #8a9a7a;
+  border-radius: calc(8 * var(--rpx));
+  box-shadow: 0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.08);
+}
+
+.about-game-meta-divider {
+  flex-shrink: 0;
+  width: calc(4 * var(--rpx));
+  height: calc(4 * var(--rpx));
+  border-radius: 50%;
+  background: rgba(60, 58, 50, 0.28);
+}
+
+.about-game-studio {
+  font-size: calc(20 * var(--rpx));
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text-soft, #8f7a66);
+  letter-spacing: calc(0.3 * var(--rpx));
+}
+
 .about-panel--third-party {
   padding-top: 0;
 }
@@ -702,22 +790,6 @@ function splitSummary(summary) {
   font-weight: 800;
   line-height: var(--about-text-lh);
   color: var(--text-dark, #3c3a32);
-}
-
-.about-intro-line {
-  margin: 0 0 calc(6 * var(--rpx));
-  font-size: var(--about-text-size);
-  font-weight: 600;
-  line-height: var(--about-text-lh);
-  color: var(--text-dark, #3c3a32);
-}
-
-.about-app-version {
-  margin: 0;
-  font-size: calc(18 * var(--rpx));
-  font-weight: 600;
-  line-height: var(--about-text-lh);
-  color: rgba(60, 58, 50, 0.55);
 }
 
 .about-changelog-list {

@@ -271,7 +271,11 @@
     </div>
 
     <div class="shop-footer-panel">
-      <div class="shop-footer-actions" role="group" aria-label="牌库与信息">
+      <div class="shop-footer-actions" role="group" aria-label="设置、信息与牌库">
+        <button type="button" class="deck-btn shop-footer-action-btn shop-footer-action-btn--settings" @click="emit('open-settings')">
+          <i class="ri-settings-3-line deck-btn-icon" aria-hidden="true"></i>
+          <span>设置</span>
+        </button>
         <button type="button" class="deck-btn shop-footer-action-btn" :disabled="interactionsDisabled" @click="emit('view-round-info')">
           <i class="ri-information-line deck-btn-icon" aria-hidden="true"></i>
           <span>本轮信息</span>
@@ -367,6 +371,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits([
+  "open-settings",
   "view-deck",
   "view-round-info",
   "next-level",
@@ -1172,7 +1177,17 @@ defineExpose({
 .shop-footer-action-btn {
   flex: 1;
   min-width: 0;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: calc(6 * var(--rpx));
+  min-height: calc(72 * var(--rpx));
+  padding: calc(12 * var(--rpx)) calc(10 * var(--rpx));
+}
+
+.shop-footer-action-btn--settings {
+  background: #d4954a;
+  color: #f9f6f2;
 }
 
 :global(.shop-level-popup-bubble) {

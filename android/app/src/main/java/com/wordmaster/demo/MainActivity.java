@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.PermissionRequest;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -75,6 +76,13 @@ public class MainActivity extends BridgeActivity {
         webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);
+
+        WebSettings settings = webView.getSettings();
+        // 默认 minimumFontSize=8 会把小字号（如 13–17 * --rpx）顶到至少 8px
+        settings.setMinimumFontSize(1);
+        settings.setMinimumLogicalFontSize(1);
+        // 使用 CSS 字号，不跟系统「字体大小」设置一起放大
+        settings.setTextZoom(100);
 
         if (!webViewConfigured) {
             webViewConfigured = true;
