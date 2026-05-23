@@ -1,16 +1,16 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
-
-export const DESIGN_ASPECT = 750 / 1500;
+import { DESIGN_ASPECT, getViewportSize } from "./useScale.js";
 
 /**
- * 视口比 750×1500 更窄（偏高、上下留白）→ 浮层蒙层铺满视口；
+ * 视口比 750×1500 更窄（偏高、contain 上下留白）→ 浮层蒙层铺满视口；
  * 更宽（左右留白）→ 浮层限制在逻辑框内裁剪。
  * @param {number} [w]
  * @param {number} [h]
  */
 export function isViewportNarrowerThanDesign(w, h) {
   if (w == null || h == null) {
-    return document.documentElement.classList.contains("viewport-narrower-than-design");
+    const { w: vw, h: vh } = getViewportSize();
+    return isViewportNarrowerThanDesign(vw, vh);
   }
   return h > 0 && w / h < DESIGN_ASPECT;
 }
@@ -20,18 +20,21 @@ export function useViewportLayoutMode() {
   const narrowerThanDesign = ref(isViewportNarrowerThanDesign());
 
   function sync() {
-    narrowerThanDesign.value = isViewportNarrowerThanDesign();
+    const { w, h } = getViewportSize();
+    narrowerThanDesign.value = isViewportNarrowerThanDesign(w, h);
   }
 
   onMounted(() => {
     sync();
     window.addEventListener("resize", sync);
     window.visualViewport?.addEventListener("resize", sync);
+    window.visualViewport?.addEventListener("scroll", sync);
   });
 
   onUnmounted(() => {
     window.removeEventListener("resize", sync);
     window.visualViewport?.removeEventListener("resize", sync);
+    window.visualViewport?.removeEventListener("scroll", sync);
   });
 
   const portalFrameTarget = "#game-view-portal-frame";
@@ -50,3 +53,5 @@ export function useViewportLayoutMode() {
     sync,
   };
 }
+
+export { DESIGN_ASPECT };

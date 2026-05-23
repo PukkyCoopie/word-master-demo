@@ -43,7 +43,7 @@
                     v-if="slot.kind === 'offer'"
                     class="shop-treasure-visual"
                     :class="{ 'shop-treasure-visual--deck-offer': isDeckShopOffer(slot) }"
-                    @pointerdown.stop="!interactionsDisabled && onSelectOffer(slot, $event)"
+                    @click.stop="!interactionsDisabled && onSelectOffer(slot, $event)"
                   >
                     <LetterTile
                       v-if="isDeckShopOffer(slot)"
@@ -178,7 +178,7 @@
                   <div
                     v-if="voucherSlot.kind === 'offer'"
                     class="shop-treasure-visual"
-                    @pointerdown.stop="!interactionsDisabled && onSelectVoucher(voucherSlot, $event)"
+                    @click.stop="!interactionsDisabled && onSelectVoucher(voucherSlot, $event)"
                   >
                     <VoucherStamp
                       :emoji="voucherSlot.emoji"
@@ -203,7 +203,7 @@
                   <div
                     v-if="slot.kind === 'offer'"
                     class="shop-treasure-visual"
-                    @pointerdown.stop="!interactionsDisabled && onSelectPackOffer(slot, $event)"
+                    @click.stop="!interactionsDisabled && onSelectPackOffer(slot, $event)"
                   >
                     <div
                       class="shop-treasure-frame"

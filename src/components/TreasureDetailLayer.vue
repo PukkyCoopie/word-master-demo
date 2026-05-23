@@ -13,10 +13,10 @@
       role="dialog"
       aria-modal="true"
       :aria-labelledby="isDeckOffer ? undefined : titleId"
-      @click.self="requestClose"
+      @click.self="onBackdropSelfClick"
     >
       <!-- 与 ShopPanel.shop-header-panel 同款：左上占位宽度对齐 SHOP 招牌；右上钱包仅在商店内打开详情时显示 -->
-      <div class="treasure-detail-header-panel" @click.self="requestClose">
+      <div class="treasure-detail-header-panel" @click.self="onBackdropSelfClick">
         <div class="treasure-detail-header-logo-sizer" aria-hidden="true"></div>
         <div
           v-if="showHeaderWallet"
@@ -33,8 +33,8 @@
         </div>
       </div>
 
-      <div class="treasure-detail-body" @click.self="requestClose">
-        <div class="treasure-detail-stack" @click.self="requestClose">
+      <div class="treasure-detail-body" @click.self="onBackdropSelfClick">
+        <div class="treasure-detail-stack" @click.self="onBackdropSelfClick">
           <div
             v-if="!isDeckOffer"
             ref="titleGroupRef"
@@ -631,6 +631,7 @@ import { getSpellGainPanel } from "../spells/spellGainPanel.js";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
 import LetterTile from "./LetterTile.vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
 import {
   getPerLetterIntrinsicMultDisplay,
@@ -1031,6 +1032,16 @@ const titleGroupRef = ref(null);
 const closing = ref(false);
 const bootMask = ref(true);
 
+const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
+
+function armBackdropSelfCloseGuard() {
+  backdropSelfCloseGuard.arm();
+}
+
+function onBackdropSelfClick() {
+  backdropSelfCloseGuard.onBackdropSelfClick(requestClose);
+}
+
 /** @type {gsap.core.Timeline | null} */
 let enterTl = null;
 
@@ -1405,6 +1416,7 @@ function onEsc(e) {
 watch(
   () => props.treasure,
   () => {
+    armBackdropSelfCloseGuard();
     nextTick(() => {
       stackZ.value = bumpOverlayZ();
     });
@@ -1413,6 +1425,7 @@ watch(
 );
 
 onMounted(() => {
+  armBackdropSelfCloseGuard();
   document.addEventListener("keydown", onEsc);
   requestAnimationFrame(() => {
     requestAnimationFrame(() => runEnterAnimation());

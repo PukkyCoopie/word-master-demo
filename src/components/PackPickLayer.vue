@@ -50,7 +50,7 @@
                   class="shop-treasure-visual"
                   :class="{ 'shop-treasure-visual--deck-offer': isDeckOffer(opt) }"
                   :ref="(el) => setCellRootRef(opt, el)"
-                  @pointerdown.stop="!disabled && onOpenItem(opt, $event)"
+                  @click.stop="!disabled && onOpenItem(opt, $event)"
                 >
                   <LetterTile
                     v-if="isDeckOffer(opt)"

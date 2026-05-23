@@ -4,14 +4,14 @@ import { syncPortalFrameToGameSurface } from "./usePortalFrameSync.js";
 
 const LOGIC_W = 750;
 const LOGIC_H = 1500;
-/** 设计画布宽高比（750×1500）；视口更「窄」时 w/h 小于该值 */
-const DESIGN_ASPECT = LOGIC_W / LOGIC_H;
+/** 设计画布宽高比（750×1500）；视口更「窄」时 w/h 小于该值（与 useViewportLayoutMode 一致） */
+export const DESIGN_ASPECT = LOGIC_W / LOGIC_H;
 
 function isNativeApp() {
   return typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.() === true;
 }
 
-function getViewportSize() {
+export function getViewportSize() {
   const vv = window.visualViewport;
   if (vv && vv.width > 0 && vv.height > 0) {
     return {

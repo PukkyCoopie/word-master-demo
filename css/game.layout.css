@@ -86,8 +86,10 @@ body {
 	pointer-events: none;
 }
 
+/* 窄屏（w/h < 750/1500）：逻辑框不裁切，浮层根改 fixed 铺满视口 */
 html.viewport-narrower-than-design .game-view-portal-frame {
 	border-radius: 0;
+	overflow: visible;
 }
 
 .game-surface--menu .main-menu {
@@ -231,37 +233,26 @@ html.viewport-narrower-than-design #game-view-portal > .iris-overlay {
 	inset: 0;
 }
 
-/* 窄屏：蒙层 box-shadow 延拓到 letterbox；宽屏：不延拓，由 .game-view-portal-frame 裁剪 */
-html.viewport-narrower-than-design #game-view-portal-frame .deck-layer {
-	box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
-}
-
-html.viewport-narrower-than-design #game-view-portal-frame .dict-fatal-layer {
-	box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.5);
-}
-
-html.viewport-narrower-than-design #game-view-portal-frame .stage-settlement-layer {
-	box-shadow: 0 0 0 100vmax rgba(110, 196, 240, 0.8);
-}
-
-html.viewport-narrower-than-design #game-view-portal-frame .info-layer {
-	box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
-}
-
-html.viewport-narrower-than-design #game-view-portal-frame .run-end-layer--fail {
-	box-shadow: 0 0 0 100vmax rgba(196, 74, 74, 0.88);
-}
-
-html.viewport-narrower-than-design #game-view-portal-frame .run-end-layer--win {
-	box-shadow: 0 0 0 100vmax rgba(142, 204, 142, 0.88);
-}
-
+/*
+ * 窄屏：浮层根 fixed 铺满视口（不用 box-shadow 延拓，避免被 frame overflow 裁切）。
+ * 宽屏：保持 absolute + frame overflow:hidden 裁剪。
+ */
+html.viewport-narrower-than-design #game-view-portal-frame .portal-overlay-fill,
+html.viewport-narrower-than-design #game-view-portal-frame .deck-layer,
+html.viewport-narrower-than-design #game-view-portal-frame .dict-fatal-layer,
+html.viewport-narrower-than-design #game-view-portal-frame .stage-settlement-layer,
+html.viewport-narrower-than-design #game-view-portal-frame .info-layer,
+html.viewport-narrower-than-design #game-view-portal-frame .run-end-layer,
+html.viewport-narrower-than-design #game-view-portal-frame .pause-options-layer,
+html.viewport-narrower-than-design #game-view-portal-frame .pack-pick-backdrop,
+html.viewport-narrower-than-design #game-view-portal-frame .treasure-detail-backdrop,
+html.viewport-narrower-than-design #game-view-portal-frame .spell-target-backdrop,
+html.viewport-narrower-than-design #game-view-portal-frame .tile-detail-backdrop,
 html.viewport-narrower-than-design #game-view-portal-frame .boss-blind-reroll-backdrop {
-	box-shadow: 0 0 0 100vmax rgba(14, 12, 10, 0.86);
-}
-
-html.viewport-narrower-than-design #game-view-portal-frame .spell-target-backdrop {
-	box-shadow: 0 0 0 100vmax rgba(72, 90, 58, 0.78);
+	position: fixed;
+	inset: 0;
+	border-radius: 0;
+	box-shadow: none;
 }
 
 /* App 级对话框：宽屏在逻辑框内，窄屏 scrim 铺满视口 */

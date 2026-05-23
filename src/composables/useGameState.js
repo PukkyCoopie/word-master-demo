@@ -441,6 +441,8 @@ export function useGameState(gameOpts = {}) {
   shuffleArrayInPlace(deck.value, getRng);
   /** 本局已从 multiset 抽空、牌库 UI 仍保留 ghost 堆的字母 raw（如 `q` 表示 Qu） */
   const depletedDeckStackRaws = ref(/** @type {Set<string>} */ (new Set()));
+  /** 小关结束进商店后：牌库预览将全部牌张视为在抽牌堆（忽略棋盘占位与半透明） */
+  const deckPreviewAllInDrawPile = ref(false);
 
   /** 当前小关 Boss slug（x-3 / 8-3）；非 Boss 小关为空串） */
   const activeBossSlug = ref("");
@@ -536,6 +538,7 @@ export function useGameState(gameOpts = {}) {
     const snap = initialDeckSnapshot.value;
     const d = deck.value;
     const g = grid.value;
+    const treatAllInPile = deckPreviewAllInDrawPile.value === true;
 
     const cardsByRaw = new Map();
     for (const entry of snap) {
@@ -569,14 +572,22 @@ export function useGameState(gameOpts = {}) {
       /** @type {{ kind: string, row?: number, col?: number, raw?: string, card?: unknown, dimmed?: boolean }[]} */
       const entries = [];
       for (const card of cardsForRaw) {
-        const pos = findDeckCardOnGrid(g, /** @type {Record<string, unknown>} */ (card));
         const inDeck = d.indexOf(card) >= 0;
-        const dimmed = /** @type {{ everLeftDrawPile?: boolean }} */ (card).everLeftDrawPile === true;
+        const pos = treatAllInPile
+          ? null
+          : findDeckCardOnGrid(g, /** @type {Record<string, unknown>} */ (card));
         if (inDeck) inDrawPile += 1;
-        if (pos) {
+        if (inDeck) {
+          entries.push({
+            kind: "deck",
+            raw,
+            card,
+            dimmed: treatAllInPile
+              ? false
+              : /** @type {{ everLeftDrawPile?: boolean }} */ (card).everLeftDrawPile === true,
+          });
+        } else if (pos) {
           entries.push({ kind: "grid", row: pos.row, col: pos.col, card, dimmed: true });
-        } else if (inDeck) {
-          entries.push({ kind: "deck", raw, card, dimmed: false });
         } else {
           entries.push({ kind: "spent", raw, card, dimmed: true });
         }
@@ -1370,18 +1381,10 @@ export function useGameState(gameOpts = {}) {
     return true;
   }
 
-  function gridTileBindingRawForStageEnd(tile) {
-    if (!tile?.letter) return "";
-    if (tile.isWildcard === true && tile._deckCard && typeof tile._deckCard === "object") {
-      return deckCardRaw(tile._deckCard);
-    }
-    return tileLetterToRawLowerForDeck(tile.letter);
-  }
-
   /**
-   * 小关结束进商店时调用：牌库与快照恢复为满，牌库浮层预览全部为「在库」状态。
+   * 小关结束进商店时调用：牌库与快照恢复为满，全部牌张回到抽牌堆，牌库浮层预览全部为「在库」状态。
    * 棋盘等仍保持本关结束态（进商店时主界面不展示）；点「下一关」时 resetLevel 会再整盘重建。
-   * 会为本关结束时的棋盘格重新绑定牌张引用，并把格上材质/稀有度等写回牌张，以便下一小关仍生效。
+   * 会把格上材质/稀有度等写回牌张，以便下一小关仍生效。
    * multiset 须保留场上+牌库中已有牌张对象（剪贴板/回形针等写在牌张上的增益），再按模板补足张数，禁止整副换成全新 createDeckCard 导致增益丢失。
    */
   function resetDeckAfterStageEnd() {
@@ -1392,35 +1395,18 @@ export function useGameState(gameOpts = {}) {
     for (const c of cards) {
       if (c && typeof c === "object") /** @type {{ everLeftDrawPile?: boolean }} */ (c).everLeftDrawPile = false;
     }
-    const pool = [...cards];
     initialDeckSnapshot.value = cards;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const t = g[r]?.[c];
         if (!t?.letter) continue;
-        const bindRaw = gridTileBindingRawForStageEnd(t);
-        if (!bindRaw) continue;
-        const wantWildcard = t.isWildcard === true;
-        if (wantWildcard) {
-          const p2 = pool.findIndex((card) => deckCardRaw(card) === bindRaw && !card.isWildcard);
-          if (p2 >= 0) {
-            const [card] = pool.splice(p2, 1);
-            t._deckCard = card;
-          }
-        } else {
-          const pi = pool.findIndex((card) => deckCardRaw(card) === bindRaw && !card.isWildcard);
-          if (pi >= 0) {
-            const [card] = pool.splice(pi, 1);
-            t._deckCard = card;
-          }
-        }
-        // 重绑失败时仍保留原 _deckCard：必须把格上角标/材质等写回牌张，否则下一关 buildGrid 从牌张读会丢剪贴板等持久化。
         syncTileStateToDeckCard(t);
       }
     }
-    shuffleArrayInPlace(pool, getRng);
+    shuffleArrayInPlace(cards, getRng);
     depletedDeckStackRaws.value = new Set();
-    deck.value = pool;
+    deck.value = [...cards];
+    deckPreviewAllInDrawPile.value = true;
   }
 
   /**
@@ -1446,6 +1432,7 @@ export function useGameState(gameOpts = {}) {
   }
 
   function resetLevel(levelDef, runOpts = {}) {
+    deckPreviewAllInDrawPile.value = false;
     activeBossSlug.value = String(runOpts.bossSlug ?? "");
     const tsOpt = runOpts.targetScore;
     const lid = levelDef?.id ?? "1-1";

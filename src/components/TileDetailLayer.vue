@@ -12,13 +12,13 @@
       role="dialog"
       aria-modal="true"
       :aria-label="tileDetailLayerCopy.ariaLabelDialog"
-      @click.self="requestClose"
+      @click.self="onBackdropSelfClick"
     >
-      <div class="treasure-detail-header-panel" @click.self="requestClose">
+      <div class="treasure-detail-header-panel" @click.self="onBackdropSelfClick">
         <div class="treasure-detail-header-logo-sizer" aria-hidden="true"></div>
       </div>
 
-      <div class="treasure-detail-body" @click.self="requestClose">
+      <div class="treasure-detail-body" @click.self="onBackdropSelfClick">
         <div class="treasure-detail-stack tile-detail-stack">
           <div class="tile-detail-visual-stage tile-detail-visual-stage--target">
             <div ref="targetFlyMeasureRef" class="tile-detail-visual-scale">
@@ -200,6 +200,7 @@ import {
 import { getTileAccessoryLinkedConceptPanels } from "../game/gameConceptCopy.js";
 import { EASE_TRANSFORM } from "../constants.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 
 const props = defineProps({
   /** @type {{ letter: string, rarity: string, tileScoreBonus?: number, tileMultBonus?: number, materialId?: string | null, materialScoreBonus?: number, materialMultBonus?: number, accessoryId?: string | null, foilOverlay?: boolean } | null} */
@@ -225,6 +226,16 @@ const flyCloneRef = ref(null);
 const closing = ref(false);
 const bootMask = ref(true);
 const flyCloneActive = ref(validOrigin(props.originRect));
+
+const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
+
+function armBackdropSelfCloseGuard() {
+  backdropSelfCloseGuard.arm();
+}
+
+function onBackdropSelfClick() {
+  backdropSelfCloseGuard.onBackdropSelfClick(requestClose);
+}
 
 /**
  * 关闭飞回时：克隆锚在详情区测量矩形；为 null 时进层用 props.originRect。
@@ -611,6 +622,7 @@ watch(
   () => props.payload,
   (p) => {
     if (p) {
+      armBackdropSelfCloseGuard();
       nextTick(() => {
         stackZ.value = bumpOverlayZ();
       });
@@ -621,6 +633,7 @@ watch(
 );
 
 onMounted(() => {
+  armBackdropSelfCloseGuard();
   void nextTick().then(() => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => runEnterAnimation());
