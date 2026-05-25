@@ -15,7 +15,7 @@
           :interactions-disabled="shopUpgradeAnimating || packPickBusy || !!packPickSession || !!bossRerollSession"
           :treasure-charge-by-slot="treasureChargeVisualBySlot"
           :treasure-charge-progress-by-slot="treasureChargeProgressBySlot"
-          @open-settings="onPauseSettings"
+          @open-options="openPauseOptionsFromShop"
           @view-deck="showDeckLayer = true"
           @view-round-info="openInfoModal('level')"
           @next-level="onShopNextLevel"
@@ -5221,6 +5221,15 @@ function onRunEndMainMenu() {
 
 function openPauseOptions() {
   if (transitionBusy.value || showShop.value || isBlockingPauseOpen()) return;
+  revealPauseOptionsLayer();
+}
+
+function openPauseOptionsFromShop() {
+  if (transitionBusy.value || !showShop.value || isBlockingPauseOpen()) return;
+  revealPauseOptionsLayer();
+}
+
+function revealPauseOptionsLayer() {
   showDeckLayer.value = false;
   showInfoLayer.value = false;
   treasureDetail.value = null;

@@ -298,10 +298,10 @@
         </TransitionGroup>
       </div>
 
-      <div class="shop-footer-actions" role="group" aria-label="设置、信息与牌库">
-        <button type="button" class="deck-btn shop-footer-action-btn shop-footer-action-btn--settings" @click="emit('open-settings')">
+      <div class="shop-footer-actions" role="group" aria-label="选项、信息与牌库">
+        <button type="button" class="deck-btn shop-footer-action-btn shop-footer-action-btn--options" @click="emit('open-options')">
           <i class="ri-settings-3-line deck-btn-icon" aria-hidden="true"></i>
-          <span>设置</span>
+          <span>选项</span>
         </button>
         <button
           ref="roundInfoBtnRef"
@@ -378,7 +378,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits([
-  "open-settings",
+  "open-options",
   "view-deck",
   "view-round-info",
   "next-level",
@@ -1261,9 +1261,9 @@ defineExpose({
   padding: calc(12 * var(--rpx)) calc(10 * var(--rpx));
 }
 
-.shop-footer-action-btn--settings {
-  background: #d4954a;
-  color: #f9f6f2;
+.shop-footer-action-btn--options {
+  background: var(--btn-yellow);
+  color: #776e65;
 }
 
 :global(.shop-level-popup-bubble) {
