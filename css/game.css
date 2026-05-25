@@ -1030,10 +1030,6 @@
 	height: var(--letter-grid-inner);
 }
 
-.letter-grid--manacle {
-	grid-template-rows: auto repeat(3, 1fr);
-}
-
 .grid-tile.letter-tile-boss-blocked {
 	opacity: 0.55;
 	border-style: dashed;

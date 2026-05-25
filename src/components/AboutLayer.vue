@@ -35,6 +35,7 @@
           <div
             ref="scrollBodyRef"
             class="about-layer-body"
+            :class="{ 'about-layer-body--dragging': thumbDragging }"
             @scroll.passive="onScrollBody"
           >
           <section
@@ -333,12 +334,16 @@ function updateScrollbarMetrics() {
 
   const maxThumbTop = Math.max(0, trackInner - thumbHeightPx.value);
   const scrollRange = scrollHeight - clientHeight;
-  const ratio = scrollRange > 0 ? scrollTop / scrollRange : 0;
-  thumbTopPx.value = SCROLLBAR_TRACK_INSET + ratio * maxThumbTop;
+  if (!thumbDragging.value) {
+    const ratio = scrollRange > 0 ? scrollTop / scrollRange : 0;
+    thumbTopPx.value = SCROLLBAR_TRACK_INSET + ratio * maxThumbTop;
+  }
 }
 
 function onScrollBody() {
-  updateActiveFromScroll();
+  if (!thumbDragging.value) {
+    updateActiveFromScroll();
+  }
   updateScrollbarMetrics();
 }
 
@@ -377,8 +382,11 @@ function onThumbPointerMove(event) {
   const { maxThumbTop, scrollRange, startScrollTop } = thumbDragState;
   if (maxThumbTop <= 0) return;
 
-  scrollBodyRef.value.scrollTop =
-    startScrollTop + (deltaY / maxThumbTop) * scrollRange;
+  const nextScrollTop = startScrollTop + (deltaY / maxThumbTop) * scrollRange;
+  scrollBodyRef.value.scrollTop = nextScrollTop;
+
+  const ratio = scrollRange > 0 ? nextScrollTop / scrollRange : 0;
+  thumbTopPx.value = SCROLLBAR_TRACK_INSET + ratio * maxThumbTop;
 }
 
 /**
@@ -409,6 +417,8 @@ function onThumbPointerUp() {
   window.removeEventListener("pointermove", onThumbPointerMove);
   window.removeEventListener("pointerup", onThumbPointerUp);
   window.removeEventListener("pointercancel", onThumbPointerUp);
+  updateScrollbarMetrics();
+  updateActiveFromScroll();
 }
 
 function bindScrollResizeObserver() {
@@ -592,6 +602,10 @@ function splitSummary(summary) {
   padding: calc(10 * var(--rpx)) calc(2 * var(--rpx)) calc(12 * var(--rpx));
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.about-layer-body--dragging {
+  scroll-behavior: auto;
 }
 
 .about-layer-body::-webkit-scrollbar {

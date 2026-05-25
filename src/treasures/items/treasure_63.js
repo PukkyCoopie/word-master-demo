@@ -12,7 +12,7 @@ export default {
     mult("+5"),
     "倍率",
     "；每一个z在计分时提供",
-    score("+2"),
+    score("+20"),
     "分数和",
     mult("x2"),
     "倍率",
@@ -40,7 +40,7 @@ export const treasureHooks = {
         scoreAdd += 5 * passes;
         multAdd += 5 * passes;
       } else if (ch === "z") {
-        scoreAdd += 2 * passes;
+        scoreAdd += 20 * passes;
       }
     }
     if (scoreAdd <= 0 && multAdd <= 0) return null;
@@ -49,7 +49,7 @@ export const treasureHooks = {
   getPerLetterScoreCue(_ctx, part) {
     const ch = normalizeLetterChar(part?.letter);
     if (ch === "s") return { delta: 5, label: "+5" };
-    if (ch === "z") return { delta: 2, label: "+2" };
+    if (ch === "z") return { delta: 20, label: "+20" };
     return null;
   },
   getPerLetterMultCue(_ctx, part) {
