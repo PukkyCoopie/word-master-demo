@@ -1,4 +1,4 @@
-package com.wordmaster.demo;
+package com.timeshift_games.word_master;
 
 import android.graphics.Color;
 import android.os.Build;
@@ -22,6 +22,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(TapTapPlugin.class);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(Color.TRANSPARENT);
