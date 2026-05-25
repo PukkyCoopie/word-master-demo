@@ -671,29 +671,15 @@
 .score-popup-bubble--replay-again {
 	background: var(--btn-orange);
 }
-/* 宝藏触发开包：槽位上方礼物图标气泡（与 +分 气泡同锚点/动效） */
+/* 宝藏触发开包：槽位上方礼物图标气泡（与 +分 气泡同形/同字号，仅底色区分） */
 .score-popup-bubble--bundle-pack {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: calc(2 * var(--rpx));
-	padding: calc(8 * var(--rpx)) calc(12 * var(--rpx));
-	min-width: calc(52 * var(--rpx));
 	background: #f0ebe4;
-	color: var(--text-soft);
+	color: #5a5248;
 	box-shadow: 0 calc(4 * var(--rpx)) calc(14 * var(--rpx)) rgba(0, 0, 0, 0.18);
 }
 .score-popup-bubble--bundle-pack .score-popup-bubble__pack-icon {
-	font-size: calc(34 * var(--rpx));
+	font-size: calc(26 * var(--rpx));
 	line-height: 1;
-	color: #5a5248;
-}
-.score-popup-bubble--bundle-pack .score-popup-bubble__pack-caption {
-	font-size: calc(17 * var(--rpx));
-	font-weight: 800;
-	line-height: 1.1;
-	color: var(--text-soft);
 }
 .mult-popup-bubble {
 	background: var(--mult-accent);

@@ -257,7 +257,12 @@
       </div>
       <ResultArea
         ref="gameResultAreaRef"
-        :show-total-bar="showResultTotalBar && !clearWinLengthUpgradeFxActive && !lastSubmitRarityFxActive"
+        :show-total-bar="
+          showResultTotalBar &&
+          !clearWinLengthUpgradeFxActive &&
+          !lastSubmitRarityFxActive &&
+          !inRunGrantUpgradeFxActive
+        "
         :total-text="resultTotalShown"
         :show-word-length="showResultWordLength"
         :word-length-text="resultWordLengthShown"
@@ -753,7 +758,6 @@ import {
 import { addScoreAddBank } from "../treasures/treasureBankHelpers.js";
 import { TREASURE_65_ID } from "../treasures/items/treasure_65.js";
 import { parseChapterFromLevelId } from "../treasures/treasureLifecycleShared.js";
-import { bundlePackKindCaptionZh } from "../game/bundlePackCopy.js";
 import { ensureBigramTargetPair, rollRandomBigramFromDictionary } from "../game/treasureBigramRoll.js";
 import { iterTreasureHookContributions } from "../game/treasureBlueprintMirror.js";
 import { IMPLEMENTED_TREASURE_ID_SET } from "../treasures/treasureCatalog.js";
@@ -2137,10 +2141,25 @@ async function runInRunPackPickFlow(bundleRow, { treasureSlotIndex } = {}) {
   });
 }
 
+/** 本词计分：result-area 清空前登记局内升级顶栏动效，待 post-clear 队列统一播放 */
+let submitUpgradeFxRegistrar = null;
+
 /**
  * @param {{ apply?: () => void, payload: object }[]} steps
  */
 async function runInRunUpgradePlaybackSteps(steps) {
+  if (!steps.length) return;
+  if (submitUpgradeFxRegistrar) {
+    submitUpgradeFxRegistrar(() => runInRunUpgradePlaybackStepsImmediate(steps));
+    return;
+  }
+  await runInRunUpgradePlaybackStepsImmediate(steps);
+}
+
+/**
+ * @param {{ apply?: () => void, payload: object }[]} steps
+ */
+async function runInRunUpgradePlaybackStepsImmediate(steps) {
   if (!steps.length) return;
   inRunGrantUpgradeFxActive.value = true;
   shopOverlayLayersSuppressed.value = true;
@@ -2915,7 +2934,12 @@ async function runTreasureLevelEnterHooks(levelId) {
       await runSpellPreviewChain(spellId, "inRun", "remainingDeck");
     },
     addRemainingWords: (n) => {
-      remainingWords.value = Math.max(0, remainingWords.value + Math.floor(Number(n) || 0));
+      const next = remainingWords.value + Math.floor(Number(n) || 0);
+      remainingWords.value = clampRemainingWordsForBossMechanics(
+        next,
+        bossSlugForMechanics(),
+        ownedVoucherIds.value,
+      );
     },
     addRemainingRemovals: addRemainingRemovalsClamped,
   });
@@ -5938,8 +5962,17 @@ function grantRandomShopTreasureByRarity(rarityFilter) {
 }
 
 /** @param {number} slotIndex */
+function getOwnedTreasureSlotEl(slotIndex) {
+  if (typeof slotIndex !== "number" || slotIndex < 0) return null;
+  if (showShop.value) {
+    return shopPanelRef.value?.getOwnedSlotEl?.(slotIndex) ?? null;
+  }
+  return gameTreasureSlotRefs[slotIndex] ?? null;
+}
+
+/** @param {number} slotIndex */
 async function wobbleGameTreasureSlot(slotIndex) {
-  const el = gameTreasureSlotRefs[slotIndex];
+  const el = getOwnedTreasureSlotEl(slotIndex);
   if (!el) return;
   const sp = 1;
   const tl = createWobbleScoreSlotTimeline(el);
@@ -6029,7 +6062,7 @@ async function playOwnedTreasureWobbleOnlyFx(treasureId) {
 
 /** @param {number} slotIndex @param {number} delta */
 async function playTreasureSlotMultDeltaBurstAtPeak(slotIndex, delta) {
-  const el = gameTreasureSlotRefs[slotIndex];
+  const el = getOwnedTreasureSlotEl(slotIndex);
   if (!el || slotIndex < 0) return;
   const d = Math.round(Number(delta) || 0);
   if (d === 0) return;
@@ -6208,7 +6241,7 @@ async function playTreasureSlotScoreBurstAtPeak(slotIndex, amount) {
  * @param {string} [bundleKind]
  * @param {number} [speed]
  */
-function showBundlePackBubble(slotEl, bundleKind, speed = 1) {
+function showBundlePackBubble(slotEl, _bundleKind, speed = 1) {
   const s = Math.max(0.01, Number(speed) || 1);
   const rect = scoreBubbleAnchorRect(slotEl);
   if (!rect) return null;
@@ -6218,13 +6251,6 @@ function showBundlePackBubble(slotEl, bundleKind, speed = 1) {
   icon.className = "score-popup-bubble__pack-icon ri-gift-2-line";
   icon.setAttribute("aria-hidden", "true");
   div.appendChild(icon);
-  const caption = bundlePackKindCaptionZh(bundleKind);
-  if (caption) {
-    const cap = document.createElement("span");
-    cap.className = "score-popup-bubble__pack-caption";
-    cap.textContent = caption;
-    div.appendChild(cap);
-  }
   document.body.appendChild(div);
   const rpx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
   const gapAboveSlotPx = 12 * rpx;
@@ -8845,6 +8871,78 @@ function registerClearWinLengthUpgradePostScoreFx(fxQueue, judgedLen) {
 /** 与飞机升级：格子上 wobble + 升级气泡后，顶栏播词长升级动效 */
 const CLEAR_WIN_ACCESSORY_UPGRADE_FX_DELAY_MS = 300;
 
+/**
+ * @param {Record<string, unknown>[]} tiles
+ * @param {boolean} isLastSubmitChance
+ * @returns {{ rk: string, beforeLevel: number, slotIndex: number } | null}
+ */
+function resolveLastSubmitVipDiamondRarityUpgrade(tiles, isLastSubmitChance) {
+  if (!isLastSubmitChance || !Array.isArray(tiles) || tiles.length === 0) return null;
+  const first = tiles[0];
+  if (!first || first.accessoryId !== TILE_ACCESSORY_VIP_DIAMOND) return null;
+  const rk = String(first.rarity ?? "common");
+  if (!LETTER_RARITY_ORDER.includes(rk)) return null;
+  const beforeLevel = Math.max(1, Math.round(Number(rarityLevelsByRarity.value?.[rk])) || 1);
+  return { rk, beforeLevel, slotIndex: 0 };
+}
+
+/**
+ * 关内最后一次出牌：首格钻石配饰 → 登记 post-clear 顶栏稀有度升级动效（计分清零后、结算层前）。
+ * @param {(() => Promise<void>)[]} fxQueue
+ * @param {Record<string, unknown>[]} tiles
+ * @param {boolean} isLastSubmitChance
+ */
+function registerLastSubmitVipDiamondRarityPostScoreFx(fxQueue, tiles, isLastSubmitChance) {
+  const upgrade = resolveLastSubmitVipDiamondRarityUpgrade(tiles, isLastSubmitChance);
+  if (!upgrade) return;
+  const { rk, beforeLevel } = upgrade;
+  fxQueue.push(() => runLastSubmitVipDiamondRarityPostScoreFx(rk, beforeLevel));
+}
+
+/**
+ * 计分结束后、词槽离场前：带钻石配饰的 tile wobble +「升级」气泡。
+ * @param {Record<string, unknown>[]} tiles
+ * @param {boolean} isLastSubmitChance
+ * @param {HTMLElement[]} slotTileEls
+ */
+async function runLastSubmitVipDiamondSlotCueBeforeLeave(tiles, isLastSubmitChance, slotTileEls) {
+  const upgrade = resolveLastSubmitVipDiamondRarityUpgrade(tiles, isLastSubmitChance);
+  if (!upgrade) return;
+  const slotEl = slotTileEls[upgrade.slotIndex] ?? wordSlotRefs.value?.[upgrade.slotIndex];
+  if (!(slotEl instanceof HTMLElement)) return;
+  const sp = 1;
+  const wobbleTl = createWobbleScoreSlotTimeline(slotEl);
+  if (wobbleTl) {
+    wobbleTl.timeScale(sp);
+    wobbleTl.play(0);
+  }
+  triggerAccessoryChipRipple(slotEl, sp);
+  const bubbleTask = (async () => {
+    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+    const bubble = showScoreBubble(slotEl, "升级", "upgrade", sp);
+    scheduleSmallPlusBubbleOutro(bubble, sp);
+  })();
+  const wobbleDone = wobbleTl ? wobbleTl.then() : Promise.resolve();
+  await Promise.all([bubbleTask, wobbleDone]);
+  await sleep(CLEAR_WIN_ACCESSORY_UPGRADE_FX_DELAY_MS);
+}
+
+/** @param {string} rk @param {number} beforeLevel */
+async function runLastSubmitVipDiamondRarityPostScoreFx(rk, beforeLevel) {
+  const sp = 1;
+  setRarityLevelWithTreasurePairs(rk, beforeLevel + 1);
+  refreshGridTileBaseScoresFromLevels();
+  await runInGameRarityUpgradeShopLikeFx({
+    areaRef: gameResultAreaRef,
+    model: lastSubmitRarityFxModel,
+    fxActive: lastSubmitRarityFxActive,
+    waitNextTick: () => nextTick(),
+    rarityKey: rk,
+    beforeLevel,
+    speed: sp,
+  });
+}
+
 /** @param {number} r @param {number} c @param {number} len */
 async function runClearWinLengthUpgradeAccessoryTileFx(r, c, len) {
   const idx = r * COLS + c;
@@ -8915,7 +9013,7 @@ async function runClearWinGoldEffectsBeforeRefill() {
   }
 }
 
-async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
+async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, isLastSubmitChance = false) {
   scoringTreasureBarIndex.value = null;
   try {
   hideResultWordLengthBeforeTotal.value = false;
@@ -9145,6 +9243,9 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
   let submitWordLeaveFx = [];
   /** @type {(() => Promise<void>)[]} */
   let submitPostScoreClearFx = [];
+  submitUpgradeFxRegistrar = (runner) => {
+    if (typeof runner === "function") submitPostScoreClearFx.push(runner);
+  };
   if (detailed.bossSoftViolation !== true) {
     const pending = await runPendingInRunGrantsAfterSubmit(
       tiles,
@@ -9155,8 +9256,9 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
       currentScore.value,
     );
     submitWordLeaveFx = pending.submitWordLeaveFx;
-    submitPostScoreClearFx = pending.submitPostScoreClearFx;
+    submitPostScoreClearFx.push(...pending.submitPostScoreClearFx);
   }
+  registerLastSubmitVipDiamondRarityPostScoreFx(submitPostScoreClearFx, tiles, isLastSubmitChance);
 
   const startRound = currentScore.value;
   const endRound = startRound + detailed.finalScore;
@@ -9177,6 +9279,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
     const ph = slotEl.querySelector(".word-slot-placeholder");
     if (ph) ph.classList.add("word-slot-placeholder--shell");
   }
+  await runLastSubmitVipDiamondSlotCueBeforeLeave(tiles, isLastSubmitChance, slotTileEls);
+
   const submitGridLeaveEls = getSelectedGridTileElsInOrder();
   gsap.killTweensOf(submitGridLeaveEls);
   gsap.set(submitGridLeaveEls, {
@@ -9261,6 +9365,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
 
   await Promise.all([dropPromise, scorePromise]);
 
+  submitUpgradeFxRegistrar = null;
   if (submitPostScoreClearFx.length > 0) {
     for (const fx of submitPostScoreClearFx) {
       await fx();
@@ -9274,6 +9379,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null) {
   await nextTick();
   updateSlotPositions(true);
   } finally {
+    submitUpgradeFxRegistrar = null;
     scoringTreasureBarIndex.value = null;
     crimsonTreasureDisabledSlotIndex.value = null;
     hideResultWordLengthBeforeTotal.value = false;
@@ -9645,30 +9751,6 @@ function createFlyBackElement(item) {
   return createFlyBackTileElement(item);
 }
 
-/**
- * 关内最后一次出牌机会：若本词首格佩戴 `vip_diamond`，则该格稀有度对应的全局稀有度等级 +1，
- * 并播与商店稀有度升级一致的顶栏动效（在整段记分与补牌完成之后执行）。
- */
-async function runLastSubmitVipDiamondRarityFxIfApplicable(tiles, isLastSubmitChance) {
-  if (!isLastSubmitChance || !Array.isArray(tiles) || tiles.length === 0) return;
-  const first = tiles[0];
-  if (!first || first.accessoryId !== TILE_ACCESSORY_VIP_DIAMOND) return;
-  const rk = String(first.rarity ?? "common");
-  if (!LETTER_RARITY_ORDER.includes(rk)) return;
-  const beforeLevel = Math.max(1, Math.round(Number(rarityLevelsByRarity.value?.[rk])) || 1);
-  setRarityLevelWithTreasurePairs(rk, beforeLevel + 1);
-  refreshGridTileBaseScoresFromLevels();
-  await runInGameRarityUpgradeShopLikeFx({
-    areaRef: gameResultAreaRef,
-    model: lastSubmitRarityFxModel,
-    fxActive: lastSubmitRarityFxActive,
-    waitNextTick: () => nextTick(),
-    rarityKey: rk,
-    beforeLevel,
-    speed: 1,         
-  });
-}
-    
 async function submitWord() {
   if (dictFatalError.value) return;
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
@@ -9849,7 +9931,7 @@ async function submitWord() {
   scoringAnimating.value = true;
   scoringLetterIndex.value = -1;
   try {
-    await runSubmitScoringSequence(tiles, detailed, resolvedWord);
+    await runSubmitScoringSequence(tiles, detailed, resolvedWord, isLastSubmitChance);
     for (const iceTileId of submittedIceTileIds) {
       if (runRandom() < ICE_MATERIAL_SELF_DESTRUCT_CHANCE) {
         consumeIceTileOnGrid(iceTileId);
@@ -9860,7 +9942,6 @@ async function submitWord() {
         });
       }
     }
-    await runLastSubmitVipDiamondRarityFxIfApplicable(tiles, isLastSubmitChance);
     if (!submitViolated) {
       if (
         parseLevelSubFromId(currentLevel.value?.id ?? "1-1") === 3 &&

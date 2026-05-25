@@ -89,6 +89,7 @@ function buildSpellDefinitions() {
       name: "点亮",
       iconClass: "ri-lightbulb-ai-fill",
       pickCount: 1,
+      shopPrice: 5,
       description: `选择1个字母块，使其变为${m("wildcard")}`,
     },
     {

@@ -87,6 +87,23 @@ export function getSubmitHandsForNeedleBoss(baseHandsFromVouchers) {
   return Math.max(1, 1 + Math.max(0, b - 4));
 }
 
+/** 细针 Boss 本关拼词次数下限（与 `getSubmitHandsForNeedleBoss` 一致，含券面基数）。 */
+export function getNeedleBossSubmitHandsFloor(owned) {
+  return getSubmitHandsForNeedleBoss(getBaseHandsPerLevel(owned));
+}
+
+/**
+ * 细针 Boss 优先：进关后宝藏/法术等对 `remainingWords` 的加减不得压低于 Boss 给出的次数。
+ * @param {number} count
+ * @param {string} bossSlug
+ * @param {Iterable<string>} owned
+ */
+export function clampRemainingWordsForBossMechanics(count, bossSlug, owned) {
+  const n = Math.max(0, Math.floor(Number(count) || 0));
+  if (String(bossSlug ?? "") !== "the_needle") return n;
+  return Math.max(getNeedleBossSubmitHandsFloor(owned), n);
+}
+
 /** @param {Iterable<string>} owned */
 export function getBaseHandsPerLevel(owned) {
   let n = 4;
