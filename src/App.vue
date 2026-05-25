@@ -67,6 +67,7 @@ import { loadGameSettings } from "./settings/gameSettings.js";
 import { useScale } from "./composables/useScale";
 import { syncPortalFrameToGameSurface, usePortalFrameSync } from "./composables/usePortalFrameSync.js";
 import { useDictionary } from "./composables/useDictionary";
+import { useRemixIconFont } from "./composables/useRemixIconFont.js";
 import IrisTransition from "./components/IrisTransition.vue";
 import { coerceRunSeedNumeric } from "./game/runRng.js";
 import { isE2eMode } from "./e2e/isE2eMode.js";
@@ -75,6 +76,7 @@ import { registerAppTestHarness } from "./e2e/registerAppTestHarness.js";
 useScale();
 usePortalFrameSync();
 const { loadDictionary, dictionaryReady, loading: dictLoading, error: dictError, loadProgress } = useDictionary();
+const { remixIconReady, loadRemixIconFont } = useRemixIconFont();
 
 const screen = ref("menu");
 const gameSessionKey = ref(0);
@@ -126,13 +128,19 @@ function closeAbout() {
 provide("openSettings", openSettings);
 provide("closeSettings", closeSettings);
 
-const showMenu = computed(() => dictionaryReady.value && screen.value === "menu");
-const showGame = computed(() => dictionaryReady.value && screen.value === "game");
-const dictGate = computed(() => !dictionaryReady.value);
+const appBootReady = computed(() => dictionaryReady.value && remixIconReady.value);
+const showMenu = computed(() => appBootReady.value && screen.value === "menu");
+const showGame = computed(() => appBootReady.value && screen.value === "game");
+const dictGate = computed(() => !appBootReady.value);
 const dictBootError = computed(() => !dictLoading.value && !!dictError.value);
-const dictBarPct = computed(() =>
-  Math.round((dictBootError.value ? 1 : loadProgress.value) * 100),
-);
+const dictBarPct = computed(() => {
+  if (dictBootError.value) return 100;
+  const dictPct = loadProgress.value;
+  if (!remixIconReady.value) {
+    return Math.round(Math.min(dictPct, 0.99) * 100);
+  }
+  return Math.round(dictPct * 100);
+});
 
 let appAlive = true;
 /** @type {(() => void) | null} */
@@ -141,6 +149,7 @@ let disposeAppE2eHarness = null;
 onMounted(() => {
   loadGameSettings();
   loadDictionary({ shouldAbort: () => !appAlive });
+  loadRemixIconFont({ shouldAbort: () => !appAlive });
   if (isE2eMode()) {
     disposeAppE2eHarness = registerAppTestHarness({
       screen,
@@ -148,7 +157,9 @@ onMounted(() => {
       sessionRunSeed,
       sessionRunSeedDisplay,
       dictionaryReady,
+      remixIconReady,
       loadDictionary: () => loadDictionary({ shouldAbort: () => !appAlive }),
+      loadRemixIconFont: () => loadRemixIconFont({ shouldAbort: () => !appAlive }),
     });
   }
 });

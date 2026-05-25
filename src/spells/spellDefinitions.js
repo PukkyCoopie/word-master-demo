@@ -32,6 +32,7 @@ export const SPELL_IDS_EXCLUDED_FROM_DICE = Object.freeze(["restart", "dice"]);
  *   pickMode?: SpellPickMode,
  *   description: string | import("../treasures/treasureDescription.js").TreasureDescSegment[],
  *   tags?: readonly string[],
+ *   shopPrice?: number,
  * }} SpellDefinition
  */
 
@@ -316,6 +317,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-stairs-fill",
       pickCount: 0,
       tags: SPECTRAL,
+      shopPrice: 7,
       description: "将所有单词长度的等级提升1级",
     },
     {
@@ -324,6 +326,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-palette-fill",
       pickCount: 0,
       tags: SPECTRAL,
+      shopPrice: 6,
       description: "将所有稀有度的等级提升1级",
     },
   ];
@@ -337,6 +340,13 @@ const BY_ID = new Map(SPELL_DEFINITIONS.map((d) => [d.id, d]));
 /** @param {string} id */
 export function getSpellDefinition(id) {
   return BY_ID.get(String(id ?? "")) ?? null;
+}
+
+/** @param {SpellDefinition | string | null | undefined} defOrId */
+export function getSpellShopPrice(defOrId) {
+  const def =
+    typeof defOrId === "string" ? getSpellDefinition(defOrId) : defOrId && typeof defOrId === "object" ? defOrId : null;
+  return Math.max(0, Math.round(Number(def?.shopPrice ?? SPELL_SHOP_PRICE)) || SPELL_SHOP_PRICE);
 }
 
 /**

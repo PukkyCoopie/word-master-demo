@@ -2,6 +2,7 @@
  * 商店单卡区库存（对齐 [Balatro Shop](https://balatrowiki.org/w/Shop) 随机卡栏）。
  *
  * 每格按权重抽取：宝藏（小丑）/ 法术（塔罗）/ 升级（行星）；魔法棒券追加字母块（Playing Card）。
+ * 同次掷货（进店、刷新、纸箱加栏）内：宝藏 id、法术 id、升级键互不重复（与牌包区宝藏共用 `sessionExcludeTreasureIds` 集）。
  * 信封/土星券提高法术/升级权重；纸箱券增加槽位数（见 `shopRandomCardEconomy.js`）。
  * 商店「刷新」仅重掷本区；牌包区与优惠券进店生成后不变。
  */
@@ -66,7 +67,7 @@ function pickWeightedCategory(keys, weights, rng) {
  *   nextOfferInstanceId: () => number,
  *   nextShopEmptySlotId: () => number,
  *   ownedTreasureIdSet: Set<string>,
- *   sessionExcludeTreasureIds?: Set<string>,
+ *   sessionExcludeTreasureIds?: Set<string>, // 宝藏 id；另含 spell_*、upgrade_* 单卡区互斥键
  *   lastReplayableSpellId: string | null,
  *   shopTreasurePool: import("../treasures/treasureTypes.js").TreasureDef[],
  *   ownedVoucherIds?: Iterable<string>,
@@ -95,10 +96,34 @@ function createShopRandomCardRoller(ctx) {
 
   const makeEmpty = () => ({ kind: "empty", emptySlotId: ctx.nextShopEmptySlotId() });
 
+  function spellShelfKey(spellId) {
+    return `spell_${spellId}`;
+  }
+
+  function lengthUpgradeShelfKey(groupKey) {
+    return `upgrade_${groupKey}`;
+  }
+
+  function rarityUpgradeShelfKey(rarityKey) {
+    return `upgrade_rarity_${rarityKey}`;
+  }
+
   function availableTreasurePool() {
     return pool.filter(
       (t) => t && !owned.has(t.treasureId) && !sessionExcluded?.has(t.treasureId),
     );
+  }
+
+  function availableSpellDefs() {
+    return spellDefsAll.filter((d) => !sessionExcluded?.has(spellShelfKey(d.id)));
+  }
+
+  function availableLengthUpgradeGroups() {
+    return UPGRADE_LENGTH_GROUPS.filter((g) => !sessionExcluded?.has(lengthUpgradeShelfKey(g.key)));
+  }
+
+  function availableRarityUpgradeKeys() {
+    return rarityKeys.filter((rk) => !sessionExcluded?.has(rarityUpgradeShelfKey(rk)));
   }
 
   function tryTreasure() {
@@ -111,25 +136,38 @@ function createShopRandomCardRoller(ctx) {
   }
 
   function trySpell() {
-    if (!spellDefsAll.length) return null;
-    const def = spellDefsAll[Math.floor(rng() * spellDefsAll.length)];
-    return def ? buildSpellShopRow(ctx.nextOfferInstanceId, def) : null;
+    const avail = availableSpellDefs();
+    if (!avail.length) return null;
+    const def = avail[Math.floor(rng() * avail.length)];
+    if (!def) return null;
+    sessionExcluded?.add(spellShelfKey(def.id));
+    return buildSpellShopRow(ctx.nextOfferInstanceId, def);
   }
 
   function tryUpgrade() {
-    if (rng() < 0.5 && UPGRADE_LENGTH_GROUPS.length) {
-      const g = UPGRADE_LENGTH_GROUPS[Math.floor(rng() * UPGRADE_LENGTH_GROUPS.length)];
+    const lenAvail = availableLengthUpgradeGroups();
+    const rarAvail = availableRarityUpgradeKeys();
+    if (!lenAvail.length && !rarAvail.length) return null;
+
+    const preferLength = rng() < 0.5;
+    const tryLengthFirst =
+      preferLength && lenAvail.length > 0
+        ? true
+        : !rarAvail.length && lenAvail.length > 0;
+
+    if (tryLengthFirst) {
+      const g = lenAvail[Math.floor(rng() * lenAvail.length)];
+      sessionExcluded?.add(lengthUpgradeShelfKey(g.key));
       return buildLengthUpgradeShopRow(ctx.nextOfferInstanceId, g);
     }
-    if (rarityKeys.length) {
-      const rk = rarityKeys[Math.floor(rng() * rarityKeys.length)];
+    if (rarAvail.length) {
+      const rk = rarAvail[Math.floor(rng() * rarAvail.length)];
+      sessionExcluded?.add(rarityUpgradeShelfKey(rk));
       return buildRarityUpgradeShopRow(ctx.nextOfferInstanceId, rk);
     }
-    if (UPGRADE_LENGTH_GROUPS.length) {
-      const g = UPGRADE_LENGTH_GROUPS[Math.floor(rng() * UPGRADE_LENGTH_GROUPS.length)];
-      return buildLengthUpgradeShopRow(ctx.nextOfferInstanceId, g);
-    }
-    return null;
+    const g = lenAvail[Math.floor(rng() * lenAvail.length)];
+    sessionExcluded?.add(lengthUpgradeShelfKey(g.key));
+    return buildLengthUpgradeShopRow(ctx.nextOfferInstanceId, g);
   }
 
   function tryDeckLetter() {
@@ -154,8 +192,10 @@ function createShopRandomCardRoller(ctx) {
     const keys = /** @type {string[]} */ (["treasure", "spell", "upgrade"]);
     const weights = [
       availableTreasurePool().length ? SHOP_RANDOM_CARD_TYPE_WEIGHTS.treasure : 0,
-      spellDefsAll.length ? SHOP_RANDOM_CARD_TYPE_WEIGHTS.spell * spellWt : 0,
-      UPGRADE_LENGTH_GROUPS.length || rarityKeys.length ? SHOP_RANDOM_CARD_TYPE_WEIGHTS.upgrade * upgradeWt : 0,
+      availableSpellDefs().length ? SHOP_RANDOM_CARD_TYPE_WEIGHTS.spell * spellWt : 0,
+      availableLengthUpgradeGroups().length || availableRarityUpgradeKeys().length
+        ? SHOP_RANDOM_CARD_TYPE_WEIGHTS.upgrade * upgradeWt
+        : 0,
     ];
     if (magicOwned) {
       keys.push("playingCard");

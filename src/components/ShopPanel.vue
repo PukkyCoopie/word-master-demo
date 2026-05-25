@@ -271,27 +271,6 @@
     </div>
 
     <div class="shop-footer-panel">
-      <div class="shop-footer-actions" role="group" aria-label="设置、信息与牌库">
-        <button type="button" class="deck-btn shop-footer-action-btn shop-footer-action-btn--settings" @click="emit('open-settings')">
-          <i class="ri-settings-3-line deck-btn-icon" aria-hidden="true"></i>
-          <span>设置</span>
-        </button>
-        <button type="button" class="deck-btn shop-footer-action-btn" :disabled="interactionsDisabled" @click="emit('view-round-info')">
-          <i class="ri-information-line deck-btn-icon" aria-hidden="true"></i>
-          <span>本轮信息</span>
-        </button>
-        <button
-          ref="deckViewBtnRef"
-          type="button"
-          class="deck-btn shop-footer-action-btn"
-          :disabled="interactionsDisabled"
-          @click="emit('view-deck')"
-        >
-          <i class="ri-stack-line deck-btn-icon" aria-hidden="true"></i>
-          <span>查看牌库</span>
-        </button>
-      </div>
-
       <div class="treasure-slots-ctn shop-footer-treasure-row" aria-label="已拥有的宝藏">
         <TransitionGroup
           name="treasure-slot-reorder"
@@ -318,6 +297,33 @@
           />
         </TransitionGroup>
       </div>
+
+      <div class="shop-footer-actions" role="group" aria-label="设置、信息与牌库">
+        <button type="button" class="deck-btn shop-footer-action-btn shop-footer-action-btn--settings" @click="emit('open-settings')">
+          <i class="ri-settings-3-line deck-btn-icon" aria-hidden="true"></i>
+          <span>设置</span>
+        </button>
+        <button
+          ref="roundInfoBtnRef"
+          type="button"
+          class="deck-btn shop-footer-action-btn"
+          :disabled="interactionsDisabled"
+          @click="emit('view-round-info')"
+        >
+          <i class="ri-information-line deck-btn-icon" aria-hidden="true"></i>
+          <span>本轮信息</span>
+        </button>
+        <button
+          ref="deckViewBtnRef"
+          type="button"
+          class="deck-btn shop-footer-action-btn"
+          :disabled="interactionsDisabled"
+          @click="emit('view-deck')"
+        >
+          <i class="ri-stack-line deck-btn-icon" aria-hidden="true"></i>
+          <span>查看牌库</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -339,6 +345,7 @@ import {
   getRarityMultBonusForRarity,
   RARITY_UPGRADE_BALANCE,
 } from "../composables/useScoring";
+import { resolveUpgradePlaybackSpeed } from "../shop/randomUpgradeRoll.js";
 import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
 import { isSingleDigitLabel } from "./detailLayerFormatters.js";
@@ -432,6 +439,7 @@ const shopTitleRows = [
 
 const shopWalletBoxRef = ref(null);
 const deckViewBtnRef = ref(null);
+const roundInfoBtnRef = ref(null);
 const shopResultAreaRef = ref(null);
 /** @type {(HTMLElement | undefined)[]} */
 const ownedCellEls = [];
@@ -476,6 +484,7 @@ function bubbleAt(targetEl, text, kind) {
   const div = document.createElement("div");
   if (kind === "mult") div.className = "mult-popup-bubble";
   else if (kind === "level") div.className = "score-popup-bubble shop-level-popup-bubble";
+  else if (kind === "info") div.className = "score-popup-bubble shop-round-info-popup-bubble";
   else div.className = "score-popup-bubble";
   div.textContent = text;
   document.body.appendChild(div);
@@ -660,8 +669,36 @@ const RARITY_RESULT_LINE = Object.freeze({
   legendary: "稀有度 · 传说",
 });
 
-async function playOneRarityUpgrade(rarityKey, beforeLevel, speed = 1) {
+async function playSwitchToRarityDefault(line, level, scoreBefore, multBefore, speed = 1) {
   const s = Math.max(0.01, Number(speed) || 1);
+  shopResultWordlenText.value = line;
+  shopResultLevelShown.value = level;
+  const wordlenMainEl = shopResultAreaRef.value?.getWordlenMainEl?.() ?? null;
+  const scoreBoxEl = shopResultAreaRef.value?.getScoreBoxEl?.() ?? null;
+  const multBoxEl = shopResultAreaRef.value?.getMultBoxEl?.() ?? null;
+  const levelEl = shopResultAreaRef.value?.getWordlenLevelEl?.() ?? null;
+  popSettle(wordlenMainEl, s);
+  await sleep(Math.round(60 / s));
+  popSettle(levelEl, s);
+  await sleep(Math.round(60 / s));
+  shopResultScoreValue.value = Math.max(0, Math.round(scoreBefore));
+  popSettle(scoreBoxEl, s);
+  await sleep(Math.round(60 / s));
+  shopResultMultValue.value = Math.max(0, Math.round(multBefore));
+  popSettle(multBoxEl, s);
+  await sleep(Math.round(180 / s));
+}
+
+async function playOneRarityUpgrade(
+  rarityKey,
+  beforeLevel,
+  speed = 1,
+  isFirstRarity = true,
+  isLastRarity = true,
+) {
+  const s = Math.max(0.01, Number(speed) || 1);
+  const backToNormalMid = isLastRarity ? s - (s - 1) * 0.5 : s;
+  const backToNormalEnd = isLastRarity ? 1 : s;
   const rk = String(rarityKey ?? "common");
   const line = RARITY_RESULT_LINE[rk] ?? `稀有度 · ${rk}`;
   const nextLevel = beforeLevel + 1;
@@ -674,23 +711,36 @@ async function playOneRarityUpgrade(rarityKey, beforeLevel, speed = 1) {
   const multAfter = getRarityMultBonusForRarity(rk, levelMapAfter);
   const multDelta = multAfter - multBefore;
 
-  shopResultWordlenText.value = line;
-  shopResultLevelShown.value = beforeLevel;
-  shopResultScoreValue.value = Math.max(0, Math.round(scoreBefore));
-  shopResultMultValue.value = Math.max(0, Math.round(multBefore));
-  shopResultWordlenVisible.value = true;
-  await nextTick();
+  if (
+    isFirstRarity &&
+    Math.max(0, Math.round(shopResultScoreValue.value)) === 0 &&
+    Math.max(0, Math.round(shopResultMultValue.value)) === 0
+  ) {
+    shopResultWordlenText.value = line;
+    shopResultLevelShown.value = beforeLevel;
+    void tweenResultValues(scoreBefore, multBefore, 0.42 / s);
+  } else if (isFirstRarity) {
+    shopResultWordlenText.value = line;
+    shopResultLevelShown.value = beforeLevel;
+    shopResultScoreValue.value = Math.max(0, Math.round(scoreBefore));
+    shopResultMultValue.value = Math.max(0, Math.round(multBefore));
+    shopResultWordlenVisible.value = true;
+    await nextTick();
+    const wordlenMainEl = shopResultAreaRef.value?.getWordlenMainEl?.() ?? null;
+    popSettle(wordlenMainEl, s);
+    await sleep(Math.round(120 / s));
+  } else {
+    await playSwitchToRarityDefault(line, beforeLevel, scoreBefore, multBefore, s);
+  }
 
-  const wordlenMainEl = shopResultAreaRef.value?.getWordlenMainEl?.() ?? null;
   const levelEl = shopResultAreaRef.value?.getWordlenLevelEl?.() ?? null;
   const scoreBoxEl = shopResultAreaRef.value?.getScoreBoxEl?.() ?? null;
   const multBoxEl = shopResultAreaRef.value?.getMultBoxEl?.() ?? null;
-  popSettle(wordlenMainEl, s);
-  await sleep(Math.round(120 / s));
 
   const stepGapMs = 200;
+  const firstRarityLeadInGapMs = 160;
   const valueTweenS = 0.46;
-  await sleep(Math.round(stepGapMs / s));
+  await sleep(Math.round((isFirstRarity ? firstRarityLeadInGapMs : stepGapMs) / s));
   await runPanelWobbleAndBubble(levelEl, "+1", "level", s);
   shopResultLevelShown.value = nextLevel;
 
@@ -700,19 +750,39 @@ async function playOneRarityUpgrade(rarityKey, beforeLevel, speed = 1) {
 
   await sleep(Math.round(stepGapMs / s));
   if (multDelta > 0) {
-    await runPanelWobbleAndBubble(multBoxEl, `+${multDelta}`, "mult", s);
+    await runPanelWobbleAndBubble(multBoxEl, `+${multDelta}`, "mult", backToNormalMid);
   }
   await scoreTweenPromise;
-  await tweenResultValues(scoreAfter, multAfter, valueTweenS / s);
+  await tweenResultValues(scoreAfter, multAfter, valueTweenS / backToNormalMid);
 
-  shopResultWordlenVisible.value = false;
-  await nextTick();
-  emit("upgrade-interaction-unlock");
-  await sleep(Math.round(460 / s));
-  await tweenResultValues(0, 0, 0.75 / s);
+  if (isLastRarity) {
+    shopResultWordlenVisible.value = false;
+    await nextTick();
+    emit("upgrade-interaction-unlock");
+    await sleep(Math.round(460 / backToNormalEnd));
+    await tweenResultValues(0, 0, 0.75 / backToNormalEnd);
+  }
 }
 
 async function playUpgradeResult(payload) {
+  if (payload?.upgradeKind === "rarity_sequence") {
+    const rarities = Array.isArray(payload.rarities) ? payload.rarities : [];
+    shopResultWordlenVisible.value = true;
+    shopResultScoreValue.value = 0;
+    shopResultMultValue.value = 0;
+    for (let i = 0; i < rarities.length; i += 1) {
+      const row = rarities[i];
+      const rarityKey = String(row?.rarityKey ?? "common");
+      const beforeLevel = Math.max(1, Math.round(Number(row?.beforeLevel) || 1));
+      const isFirst = i === 0;
+      const isLast = i === rarities.length - 1;
+      const speed = resolveUpgradePlaybackSpeed(i, payload);
+      await playOneRarityUpgrade(rarityKey, beforeLevel, speed, isFirst, isLast);
+      if (!isLast) await sleep(Math.round(30 / speed));
+    }
+    return;
+  }
+
   if (payload?.upgradeKind === "rarity") {
     shopResultWordlenVisible.value = true;
     shopResultScoreValue.value = 0;
@@ -737,7 +807,7 @@ async function playUpgradeResult(payload) {
   for (let len = lenMin; len <= lenMax; len++) {
     const isFirst = len === lenMin;
     const isLast = len === lenMax;
-    const speed = 1 + 0.3 * (len - lenMin);
+    const speed = resolveUpgradePlaybackSpeed(len - lenMin, payload);
     await playOneLengthUpgrade(len, beforeLevel, isFirst, isLast, speed, isObsBoost(len));
     if (!isLast) await sleep(Math.round(30 / speed));
   }
@@ -926,10 +996,16 @@ function onShopOwnedDragEnd() {
   }, 0);
 }
 
+/** 卷轴券生效：本轮信息按钮 wobble + 白色「-N大关」气泡 */
+async function playGlyphRoundInfoFx(text, speed = 1) {
+  await runPanelWobbleAndBubble(roundInfoBtnRef.value, text, "info", speed);
+}
+
 defineExpose({
   getWalletEl: () => shopWalletBoxRef.value,
   getOwnedSlotEl: (i) => ownedCellEls[i] ?? null,
   getDeckViewBtnEl: () => deckViewBtnRef.value ?? null,
+  playGlyphRoundInfoFx,
   playUpgradeResult,
 });
 </script>
@@ -1193,5 +1269,11 @@ defineExpose({
 :global(.shop-level-popup-bubble) {
   background: var(--btn-yellow);
   text-shadow: 0 calc(1 * var(--rpx)) 0 rgba(120, 84, 40, 0.5);
+}
+
+:global(.shop-round-info-popup-bubble) {
+  background: var(--btn-white);
+  color: var(--text);
+  font-weight: 600;
 }
 </style>

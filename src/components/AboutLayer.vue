@@ -54,8 +54,10 @@
                 </header>
                 <footer class="about-game-meta">
                   <span class="about-game-version">{{ APP_VERSION }}</span>
-                  <span class="about-game-meta-divider" aria-hidden="true" />
-                  <span class="about-game-studio">时移游戏</span>
+                  <template v-if="showGameStudio">
+                    <span class="about-game-meta-divider" aria-hidden="true" />
+                    <span class="about-game-studio">时移游戏</span>
+                  </template>
                 </footer>
               </article>
             </div>
@@ -188,6 +190,10 @@ const props = defineProps({
 });
 
 defineEmits(["close"]);
+
+/** 仅在 Capacitor 原生 App 内展示工作室名称 */
+const showGameStudio =
+  typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.() === true;
 
 const ABOUT_SECTIONS = [
   { id: "game", label: "关于本游戏" },

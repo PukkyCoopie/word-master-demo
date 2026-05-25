@@ -4,57 +4,44 @@ import {
   TREASURE_ACCESSORY_WRENCH,
 } from "../game/treasureAccessories.js";
 
+/** 字母块火焰配饰：每次该字母计分时 +倍率 */
+export const TILE_TREASURE_ACCESSORY_FIRE_MULT_ADD = 10;
+/** 字母块水滴配饰：每次该字母计分时 +分数 */
+export const TILE_TREASURE_ACCESSORY_DROP_SCORE_ADD = 50;
+/** 字母块扳手配饰：每次该字母计分时 ×倍率 */
+export const TILE_TREASURE_ACCESSORY_WRENCH_MULT_MUL = 1.5;
+
 /**
- * 已装备具名配饰（火焰/水滴/扳手）：在字后宝藏步中注入的结算增量；裁剪配饰仅扩栏位、无计分步。
- * @param {(string | null | undefined)[]} ownedSlotTreasureIds
- * @param {(string | null | undefined)[]} ownedSlotTreasureAccessoryIds 与槽位同索引
- * @returns {{ treasureId: null, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number }[]}
- */
-/**
- * 字母块上的通用宝藏配饰（火焰/水滴/扳手）：在字后步中按词槽下标结算。
+ * 字母块通用宝藏配饰（火焰/水滴/扳手）：按每字母计分次数累加，与逐字动画一致。
+ * 宝藏槽上同 id 配饰见 `buildTreasureAccessoryPostLetterStepForSlot`（整词计分后字后步）。
+ *
  * @param {readonly { treasureAccessoryId?: string | null, bossTileDebuffed?: boolean }[]} tiles
- * @returns {{ treasureId: null, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, scoreFxWordSlotIndex: number, accessoryTriggered: boolean }[]}
+ * @param {readonly number[]} scoringVisitCountsByLetter 与词槽对齐，每项 = 该字母本轮提交中的计分次数
+ * @returns {{ scoreAdd: number, multAdd: number, multMulProduct: number }}
  */
-export function buildTileTreasureAccessoryPostLetterSteps(tiles) {
+export function accumulateTileTreasureAccessoryPerLetter(tiles, scoringVisitCountsByLetter) {
   const list = Array.isArray(tiles) ? tiles : [];
-  /** @type {{ treasureId: null, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, scoreFxWordSlotIndex: number, accessoryTriggered: boolean }[]} */
-  const steps = [];
+  const visits = Array.isArray(scoringVisitCountsByLetter) ? scoringVisitCountsByLetter : [];
+  let scoreAdd = 0;
+  let multAdd = 0;
+  let multMulProduct = 1;
   for (let i = 0; i < list.length; i += 1) {
     const tile = list[i];
     if (!tile || tile.bossTileDebuffed === true) continue;
+    const n = Math.max(0, Math.floor(Number(visits[i]) || 0));
+    if (n <= 0) continue;
     const aid = String(tile.treasureAccessoryId ?? "").trim();
-    if (!aid) continue;
-    if (aid === TREASURE_ACCESSORY_FIRE) {
-      steps.push({
-        treasureId: null,
-        slotIndex: -1,
-        multAdd: 10,
-        scoreFxWordSlotIndex: i,
-        accessoryTriggered: true,
-      });
-    } else if (aid === TREASURE_ACCESSORY_DROP) {
-      steps.push({
-        treasureId: null,
-        slotIndex: -1,
-        scoreAdd: 50,
-        scoreFxWordSlotIndex: i,
-        accessoryTriggered: true,
-      });
-    } else if (aid === TREASURE_ACCESSORY_WRENCH) {
-      steps.push({
-        treasureId: null,
-        slotIndex: -1,
-        multMul: 1.5,
-        scoreFxWordSlotIndex: i,
-        accessoryTriggered: true,
-      });
+    if (aid === TREASURE_ACCESSORY_DROP) scoreAdd += TILE_TREASURE_ACCESSORY_DROP_SCORE_ADD * n;
+    else if (aid === TREASURE_ACCESSORY_FIRE) multAdd += TILE_TREASURE_ACCESSORY_FIRE_MULT_ADD * n;
+    else if (aid === TREASURE_ACCESSORY_WRENCH) {
+      for (let k = 0; k < n; k += 1) multMulProduct *= TILE_TREASURE_ACCESSORY_WRENCH_MULT_MUL;
     }
   }
-  return steps;
+  return { scoreAdd, multAdd, multMulProduct };
 }
 
 /**
- * 单槽宝藏配饰字后步（无宝藏或裁剪配饰时返回 null）。
+ * 单槽宝藏配饰字后步（整词字母计分结束后；无宝藏或裁剪配饰时返回 null）。
  * @param {number} slotIndex
  * @param {string | null | undefined} treasureId
  * @param {string | null | undefined} accessoryId

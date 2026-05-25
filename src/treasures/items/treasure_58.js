@@ -25,12 +25,11 @@ export const treasureHooks = {
     rs.levelFirstWordLength = wordLen;
     if (wordLen !== 3) return;
 
-    const removeDeck = () => ctx.removeDeckCardsForSubmittedWord?.(ctx.resolvedWord);
+    ctx.removeDeckCardsForSubmittedWord?.(ctx.resolvedWord);
 
     const playLeave = ctx.playSubmitWordLetterRemoveAndRewardLeave;
     const register = ctx.registerSubmitWordLeaveFx;
     if (!playLeave || !register) {
-      removeDeck();
       await ctx.playOwnedTreasureMoneyFx?.(ID, 3);
       return;
     }
@@ -40,7 +39,6 @@ export const treasureHooks = {
         slotEls,
         gridEls,
         duration,
-        onRemoveDeck: removeDeck,
         moneyAmount: 3,
       });
     });

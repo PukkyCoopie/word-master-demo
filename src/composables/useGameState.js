@@ -338,70 +338,6 @@ const ROWS = 4;
 
 const COLS = 4;
 
-/**
- * 小关结束前：从棋盘格 + 抽牌堆收集当前 multiset 中的牌张（按 `_dcUid` 去重）。
- * @param {unknown[][]} g `grid.value`
- * @param {unknown[]} deckArr `deck.value`
- */
-function collectLiveDeckCardsFromGridAndDeck(g, deckArr) {
-  const seen = new Set();
-  /** @type {unknown[]} */
-  const out = [];
-  /** @param {unknown} c */
-  function push(c) {
-    if (!c || typeof c !== "object") return;
-    const uid = /** @type {{ _dcUid?: number }} */ (c)._dcUid;
-    if (uid != null) {
-      if (seen.has(uid)) return;
-      seen.add(uid);
-    }
-    out.push(c);
-  }
-  for (let r = 0; r < ROWS; r++) {
-    for (let col = 0; col < COLS; col++) {
-      push(/** @type {Record<string, unknown> | null | undefined} */ (g[r]?.[col])?._deckCard);
-    }
-  }
-  if (Array.isArray(deckArr)) {
-    for (const c of deckArr) push(c);
-  }
-  return out;
-}
-
-/**
- * 在「满库」模板 multiset 下保留本关已有牌张对象（剪贴板/回形针等写在牌张上的增益），再为各 raw 补足与模板一致的张数。
- * @param {unknown[]} liveCards
- * @param {ReturnType<typeof buildInitialDeckCards>} templateCards
- */
-function reconcileMultisetPreserveLiveWithTemplate(liveCards, templateCards) {
-  const live = [...liveCards];
-  /** @type {Map<string, number>} */
-  const templateByRaw = new Map();
-  for (const tc of templateCards) {
-    if (!tc || typeof tc !== "object") continue;
-    if (/** @type {{ isWildcard?: boolean }} */ (tc).isWildcard === true) continue;
-    const raw = deckCardRaw(tc);
-    if (!raw) continue;
-    templateByRaw.set(raw, (templateByRaw.get(raw) || 0) + 1);
-  }
-  /** @type {Map<string, number>} */
-  const liveByRaw = new Map();
-  for (const c of live) {
-    if (!c || typeof c !== "object") continue;
-    if (/** @type {{ isWildcard?: boolean }} */ (c).isWildcard === true) continue;
-    const raw = deckCardRaw(c);
-    if (!raw) continue;
-    liveByRaw.set(raw, (liveByRaw.get(raw) || 0) + 1);
-  }
-  /** @type {ReturnType<typeof createDeckCard>[]} */
-  const additions = [];
-  for (const [raw, need] of templateByRaw) {
-    const have = liveByRaw.get(raw) || 0;
-    for (let i = have; i < need; i++) additions.push(createDeckCard(raw));
-  }
-  return [...live, ...additions];
-}
-
 /** 水域材质平面加分（写入 `materialScoreBonus`） */
 const WATER_MATERIAL_SCORE_BONUS = 30;
 const FIRE_MATERIAL_MULT_BONUS = 4;
@@ -846,7 +782,10 @@ export function useGameState(gameOpts = {}) {
     const excludedKeys = gridSelectedPositionKeySet(selectedTiles.value);
     const gridPresenceMul = previewGridPresenceMultProduct(g, ROWS, COLS, excludedKeys);
     // 预览对齐当前规则：棋盘光环类材质仅统计未入本手拼词的格；冰材质仅对本次入词的冰字母位触发。
-    const selectedIceCount = tiles.reduce((n, t) => n + (t?.materialId === "ice" ? 1 : 0), 0);
+    const selectedIceCount = tiles.reduce(
+      (n, t) => n + (t?.materialId === "ice" && !t?.bossTileDebuffed ? 1 : 0),
+      0,
+    );
     const mul = gridPresenceMul * Math.pow(2, selectedIceCount);
     if (mul === 1) return base;
     return {
@@ -1382,20 +1321,13 @@ export function useGameState(gameOpts = {}) {
   }
 
   /**
-   * 小关结束进商店时调用：牌库与快照恢复为满，全部牌张回到抽牌堆，牌库浮层预览全部为「在库」状态。
+   * 小关结束进商店时调用：本局 multiset 全部牌张回到抽牌堆，牌库浮层预览全部为「在库」状态。
    * 棋盘等仍保持本关结束态（进商店时主界面不展示）；点「下一关」时 resetLevel 会再整盘重建。
    * 会把格上材质/稀有度等写回牌张，以便下一小关仍生效。
-   * multiset 须保留场上+牌库中已有牌张对象（剪贴板/回形针等写在牌张上的增益），再按模板补足张数，禁止整副换成全新 createDeckCard 导致增益丢失。
+   * 以 `initialDeckSnapshot` 为准（含工具箱/法术等本局永久移除），不再按开局模板补回张数。
    */
   function resetDeckAfterStageEnd() {
     const g = grid.value;
-    const template = buildInitialDeckCards();
-    const live = initialDeckSnapshot.value.filter((c) => c && typeof c === "object");
-    const cards = reconcileMultisetPreserveLiveWithTemplate(live, template);
-    for (const c of cards) {
-      if (c && typeof c === "object") /** @type {{ everLeftDrawPile?: boolean }} */ (c).everLeftDrawPile = false;
-    }
-    initialDeckSnapshot.value = cards;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const t = g[r]?.[c];
@@ -1403,9 +1335,16 @@ export function useGameState(gameOpts = {}) {
         syncTileStateToDeckCard(t);
       }
     }
+    const cards = initialDeckSnapshot.value.filter((c) => c && typeof c === "object");
+    for (const c of cards) {
+      if (c && typeof c === "object") /** @type {{ everLeftDrawPile?: boolean }} */ (c).everLeftDrawPile = false;
+    }
     shuffleArrayInPlace(cards, getRng);
-    depletedDeckStackRaws.value = new Set();
+    initialDeckSnapshot.value = cards;
     deck.value = [...cards];
+    depletedDeckStackRaws.value = new Set(
+      [...depletedDeckStackRaws.value].filter((raw) => !snapshotHasDeckStackRaw(raw)),
+    );
     deckPreviewAllInDrawPile.value = true;
   }
 

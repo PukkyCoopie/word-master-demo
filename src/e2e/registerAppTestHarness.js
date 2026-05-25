@@ -8,7 +8,9 @@ import { isE2eMode } from "./isE2eMode.js";
  * @param {import('vue').Ref<number>} deps.sessionRunSeed
  * @param {import('vue').Ref<string>} deps.sessionRunSeedDisplay
  * @param {import('vue').ComputedRef<boolean>} deps.dictionaryReady
+ * @param {import('vue').ComputedRef<boolean>} [deps.remixIconReady]
  * @param {() => Promise<void>} deps.loadDictionary
+ * @param {() => Promise<void>} [deps.loadRemixIconFont]
  */
 export function registerAppTestHarness(deps) {
   if (!isE2eMode()) return () => {};
@@ -19,24 +21,33 @@ export function registerAppTestHarness(deps) {
     sessionRunSeed,
     sessionRunSeedDisplay,
     dictionaryReady,
+    remixIconReady,
     loadDictionary,
+    loadRemixIconFont,
   } = deps;
 
-  async function waitForDictionary(timeoutMs = 120_000) {
+  async function waitForAppBoot(timeoutMs = 120_000) {
     if (!dictionaryReady.value) {
       await loadDictionary();
     }
+    loadRemixIconFont?.();
     const t0 = Date.now();
-    while (!dictionaryReady.value && Date.now() - t0 < timeoutMs) {
+    while (
+      (!dictionaryReady.value || (remixIconReady && !remixIconReady.value)) &&
+      Date.now() - t0 < timeoutMs
+    ) {
       await new Promise((r) => setTimeout(r, 100));
     }
     if (!dictionaryReady.value) {
       throw new Error("词典加载超时");
     }
+    if (remixIconReady && !remixIconReady.value) {
+      throw new Error("Remix Icon 字体加载超时");
+    }
   }
 
   async function startGame({ seed = "e2e42", skipIris = true } = {}) {
-    await waitForDictionary();
+    await waitForAppBoot();
     const seedDisplay = String(seed).slice(0, 8);
     sessionRunSeed.value = coerceRunSeedNumeric(seedDisplay);
     sessionRunSeedDisplay.value = seedDisplay;
@@ -51,10 +62,13 @@ export function registerAppTestHarness(deps) {
 
   const api = {
     version: 1,
-    waitForDictionary,
+    waitForDictionary: waitForAppBoot,
+    waitForAppBoot,
     startGame,
     getScreen: () => screen.value,
     isDictionaryReady: () => dictionaryReady.value,
+    isAppBootReady: () =>
+      dictionaryReady.value && (!remixIconReady || remixIconReady.value),
   };
 
   globalThis.__WM_APP_E2E__ = api;

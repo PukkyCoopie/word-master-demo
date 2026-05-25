@@ -4,6 +4,7 @@ import "../css/game.css";
 import "../css/game.layout.css";
 import App from "./App.vue";
 import { warmupAllReglMaterialHubs } from "./lib/reglMaterialWarmup.js";
+import { startRemixIconFontLoad } from "./composables/useRemixIconFont.js";
 
 function disableNativeWebNotificationPrompt() {
   if (typeof window === "undefined" || !window.Capacitor?.isNativePlatform?.()) {
@@ -35,6 +36,7 @@ function disableNativeWebNotificationPrompt() {
 }
 
 disableNativeWebNotificationPrompt();
+startRemixIconFontLoad();
 
 if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
   document.documentElement.classList.add("platform-native");

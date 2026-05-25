@@ -424,11 +424,6 @@
 }
 
 /* ----- Boss 盲注重掷（场记板券，离开商店进 x-3 前） ----- */
-.boss-blind-reroll-backdrop {
-	/* 比常规预览层更不透明，确保在商店界面文字可读 */
-	background: rgba(14, 12, 10, 0.86);
-}
-
 .boss-blind-reroll-backdrop .treasure-detail-stack {
 	gap: calc(20 * var(--rpx));
 }
@@ -3027,6 +3022,10 @@
 	box-sizing: border-box;
 	border-radius: calc(12 * var(--rpx));
 	overflow: hidden;
+}
+
+.treasure-detail-backdrop.boss-blind-reroll-backdrop {
+	background: rgba(0, 0, 0, 0.55);
 }
 
 .treasure-detail-backdrop--boot .treasure-detail-stagger-el {

@@ -6,7 +6,7 @@ import { rollProbabilitySuccess } from "../treasureProbability.js";
 export default {
   price: 4,
   rarity: "common",
-  description: describe("元音字母在记分时有", prob("1/2"), "概率使你获得", money("2")),
+  description: describe("元音字母在记分时有", prob("1/2"), "概率使你获得", money("1")),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -16,7 +16,7 @@ export const treasureHooks = {
     let moneyAdd = 0;
     for (const p of ctx.letterParts ?? []) {
       if (!isVowelLetterWithMask(p?.letter, ctx.ownedSlotTreasureIds)) continue;
-      if (rollProbabilitySuccess(1, 2, rnd, ctx.ownedSlotTreasureIds)) moneyAdd += 2;
+      if (rollProbabilitySuccess(1, 2, rnd, ctx.ownedSlotTreasureIds)) moneyAdd += 1;
     }
     return moneyAdd > 0 ? { moneyAdd } : null;
   },

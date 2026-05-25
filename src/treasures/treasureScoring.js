@@ -1,4 +1,5 @@
 import { computeWordScoreDetailed } from "../composables/useScoring.js";
+import { isBossTileDebuffed } from "../game/bossTileDebuff.js";
 import { TILE_ACCESSORY_REWIND } from "../game/tileAccessories.js";
 import { TREASURE_HOOKS_BY_ID } from "./treasureRegistry.js";
 import { iterTreasureHookContributions } from "../game/treasureBlueprintMirror.js";
@@ -10,7 +11,7 @@ import {
   sumLetterRarityMultDeltaForLetterPart,
 } from "./treasureReplaySubmitAggregate.js";
 import {
-  buildTileTreasureAccessoryPostLetterSteps,
+  accumulateTileTreasureAccessoryPerLetter,
   buildTreasureAccessoryPostLetterStepForSlot,
 } from "./treasureAccessoryScoring.js";
 
@@ -150,7 +151,7 @@ function hasRewindAccessory(tile) {
 }
 
 export function isBossDebuffedSubmitTile(tile) {
-  return tile?.bossTileDebuffed === true;
+  return isBossTileDebuffed(tile);
 }
 
 const LUCKY_MATERIAL_MULT_ADD = 20;
@@ -241,8 +242,6 @@ export function computeWordScoreDetailedForSubmit(
     rarityLevelsByRarity,
     accessoryRow,
   );
-  postLetterTreasureSteps.push(...buildTileTreasureAccessoryPostLetterSteps(tiles));
-
   const baseHookCtx = {
     tiles,
     letterParts: base.letterParts,
@@ -418,20 +417,39 @@ export function computeWordScoreDetailedForSubmit(
     }
   }
 
+  /** 与 `runSingleLetterScoringStep` 调用次数一致：整词额外轮 + 该字母 replay */
+  const scoringVisitCountsByLetter = replayCounts.map((r) => {
+    const replayExtra = Math.max(
+      0,
+      Math.floor(Number(r) || 0) - extraLetterScoringPasses,
+    );
+    return 1 + extraLetterScoringPasses + replayExtra;
+  });
+  const tileAccessoryPerLetter = accumulateTileTreasureAccessoryPerLetter(
+    tiles,
+    scoringVisitCountsByLetter,
+  );
+
   const multBeforePostLetterTreasures =
     base.multTotal +
     letterRarityTreasureMultAddTotal +
     replayLetterMultAdd +
     replayRarityTreasureMultAdd +
-    perLetterTreasureFlatMultAdd;
+    perLetterTreasureFlatMultAdd +
+    tileAccessoryPerLetter.multAdd;
 
   const postLetterScoreAdd =
-    sumPostLetterScoreAdd(postLetterTreasureSteps) + replayScoreAdd + perLetterTreasureFlatScoreAdd;
-  const scoreSumForSubmit = base.scoreSum + postLetterScoreAdd;
+    sumPostLetterScoreAdd(postLetterTreasureSteps) +
+    replayScoreAdd +
+    perLetterTreasureFlatScoreAdd;
+  const scoreSumForSubmit =
+    base.scoreSum + postLetterScoreAdd + tileAccessoryPerLetter.scoreAdd;
 
   const multTotal =
     applyPostLetterMultPipeline(
-      multBeforePostLetterTreasures * letterRarityTreasureMultMulProduct,
+      multBeforePostLetterTreasures *
+        letterRarityTreasureMultMulProduct *
+        tileAccessoryPerLetter.multMulProduct,
       postLetterTreasureSteps,
     ) + (hasPostLetterMultMul ? 0 : luckyMaterialMultAddTotal);
   const finalScore = Math.round(scoreSumForSubmit * multTotal * base.treasureMultiplier);

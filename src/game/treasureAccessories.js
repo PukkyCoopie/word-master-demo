@@ -2,6 +2,8 @@
  * 宝藏通用配饰（火焰/水滴/扳手/裁剪）：可装备于**已拥有宝藏槽**与**字母块牌张**（`treasureAccessoryId`）。
  *
  * - **通用**（本文件 id）：火焰/水滴/扳手/裁剪；字母块上仅随机前三者（裁剪仅扩栏位，不进包）。
+ *   - 装在 **字母块**（`treasureAccessoryId`）：该字母每次逐字计分时生效（见 `treasureAccessoryScoring.accumulateTileTreasureAccessoryPerLetter`）。
+ *   - 装在 **宝藏槽**：整词字母计分结束后的字后步（见 `buildTreasureAccessoryPostLetterStepForSlot`）。
  * - **字母块专用**（`tile.accessoryId`）：升级/钻石/重播/硬币，见 `tileAccessories.js`。
  *
  * **标题与效果说明**的唯一事实源：`gameConceptCopy.js`（`TREASURE_ACCESSORY_CONCEPT_BY_ID`）。

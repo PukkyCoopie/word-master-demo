@@ -7,6 +7,12 @@ export const BOSS_VOWELS = new Set(["a", "e", "i", "o", "u"]);
  * @typedef {{ pillarUsedDeckUids?: Set<number>, verdantTreasureSold?: boolean, ownedSlotTreasureIds?: (string | null | undefined)[] }} BossTileDebuffContext
  */
 
+/** Boss 削弱格：拼词槽内与棋盘上的一切块能力（材质、配饰、棋盘光环等）均不生效。 */
+/** @param {{ bossTileDebuffed?: boolean } | null | undefined} tile */
+export function isBossTileDebuffed(tile) {
+  return tile?.bossTileDebuffed === true;
+}
+
 /** @param {Record<string, unknown> | null | undefined} tile */
 export function gridTileRawLowerForBoss(tile) {
   const L = String(tile?.letter ?? "").trim().toLowerCase();

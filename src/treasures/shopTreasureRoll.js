@@ -59,7 +59,7 @@ export function countShopPoolSize(all, ownedTreasureIds) {
 }
 
 /**
- * 将已展示在商店货架上的宝藏 id 写入同次进店互斥集（单卡区 + 牌包宝藏包选项）。
+ * 将已展示在商店货架上的商品键写入同次进店互斥集（宝藏 / 单卡区法术·升级 / 牌包宝藏包选项）。
  *
  * @param {Set<string>} exclude
  * @param {object[]} offers
@@ -69,6 +69,14 @@ export function addShopShelfTreasureIdsToExclude(exclude, offers) {
   for (const o of offers) {
     if (!o || o.kind !== "offer") continue;
     if (o.offerType === "treasure" && o.treasureId) exclude.add(String(o.treasureId));
+    if (o.offerType === "spell" && o.spellId) exclude.add(`spell_${o.spellId}`);
+    if (o.offerType === "upgrade") {
+      if (o.upgradeKind === "length" && o.lengthGroupKey) {
+        exclude.add(`upgrade_${o.lengthGroupKey}`);
+      } else if (o.upgradeKind === "rarity" && o.rarityKey) {
+        exclude.add(`upgrade_rarity_${o.rarityKey}`);
+      }
+    }
     if (o.offerType === "bundlePack" && o.bundleKind === "treasure") {
       for (const opt of o.bundleOptions ?? []) {
         if (opt?.offerType === "treasure" && opt.treasureId) exclude.add(String(opt.treasureId));

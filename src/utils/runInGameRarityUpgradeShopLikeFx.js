@@ -117,16 +117,62 @@ async function tweenResultValues(model, toScore, toMult, durationS = 0.44) {
  * @param {{
  *   areaRef: import('vue').Ref<{ getWordlenMainEl?: () => HTMLElement | null, getWordlenLevelEl?: () => HTMLElement | null, getScoreBoxEl?: () => HTMLElement | null, getMultBoxEl?: () => HTMLElement | null } | null | undefined>,
  *   model: { wordlenText: import('vue').Ref<string>, levelShown: import('vue').Ref<number>, scoreValue: import('vue').Ref<number>, multValue: import('vue').Ref<number> },
+ *   line: string,
+ *   level: number,
+ *   scoreBefore: number,
+ *   multBefore: number,
+ *   speed?: number,
+ * }} opts
+ */
+async function playSwitchToRarityDefault(opts) {
+  const { areaRef, model, line, level, scoreBefore, multBefore, speed = 1 } = opts;
+  const s = Math.max(0.01, Number(speed) || 1);
+  model.wordlenText.value = line;
+  model.levelShown.value = level;
+  const wordlenMainEl = areaRef.value?.getWordlenMainEl?.() ?? null;
+  const scoreBoxEl = areaRef.value?.getScoreBoxEl?.() ?? null;
+  const multBoxEl = areaRef.value?.getMultBoxEl?.() ?? null;
+  const levelEl = areaRef.value?.getWordlenLevelEl?.() ?? null;
+  popSettle(wordlenMainEl, s);
+  await sleep(Math.round(60 / s));
+  popSettle(levelEl, s);
+  await sleep(Math.round(60 / s));
+  model.scoreValue.value = Math.max(0, Math.round(scoreBefore));
+  popSettle(scoreBoxEl, s);
+  await sleep(Math.round(60 / s));
+  model.multValue.value = Math.max(0, Math.round(multBefore));
+  popSettle(multBoxEl, s);
+  await sleep(Math.round(180 / s));
+}
+
+/**
+ * @param {{
+ *   areaRef: import('vue').Ref<{ getWordlenMainEl?: () => HTMLElement | null, getWordlenLevelEl?: () => HTMLElement | null, getScoreBoxEl?: () => HTMLElement | null, getMultBoxEl?: () => HTMLElement | null } | null | undefined>,
+ *   model: { wordlenText: import('vue').Ref<string>, levelShown: import('vue').Ref<number>, scoreValue: import('vue').Ref<number>, multValue: import('vue').Ref<number> },
  *   fxActive: import('vue').Ref<boolean>,
  *   waitNextTick: () => Promise<void>,
  *   rarityKey: string,
  *   beforeLevel: number,
  *   speed?: number,
+ *   isFirstRarity?: boolean,
+ *   isLastRarity?: boolean,
  * }} opts
  */
 export async function runInGameRarityUpgradeShopLikeFx(opts) {
-  const { areaRef, model, fxActive, waitNextTick, rarityKey, beforeLevel, speed = 1 } = opts;
+  const {
+    areaRef,
+    model,
+    fxActive,
+    waitNextTick,
+    rarityKey,
+    beforeLevel,
+    speed = 1,
+    isFirstRarity = true,
+    isLastRarity = true,
+  } = opts;
   const s = Math.max(0.01, Number(speed) || 1);
+  const backToNormalMid = isLastRarity ? s - (s - 1) * 0.5 : s;
+  const backToNormalEnd = isLastRarity ? 1 : s;
   const rk = String(rarityKey ?? "common");
   const line = RARITY_RESULT_LINE[rk] ?? `稀有度 · ${rk}`;
   const nextLevel = beforeLevel + 1;
@@ -140,22 +186,45 @@ export async function runInGameRarityUpgradeShopLikeFx(opts) {
   const multDelta = multAfter - multBefore;
 
   fxActive.value = true;
-  model.wordlenText.value = line;
-  model.levelShown.value = beforeLevel;
-  model.scoreValue.value = Math.max(0, Math.round(scoreBefore));
-  model.multValue.value = Math.max(0, Math.round(multBefore));
-  await waitNextTick();
 
-  const wordlenMainEl = areaRef.value?.getWordlenMainEl?.() ?? null;
+  if (
+    isFirstRarity &&
+    Math.max(0, Math.round(model.scoreValue.value)) === 0 &&
+    Math.max(0, Math.round(model.multValue.value)) === 0
+  ) {
+    model.wordlenText.value = line;
+    model.levelShown.value = beforeLevel;
+    await waitNextTick();
+    void tweenResultValues(model, scoreBefore, multBefore, 0.42 / s);
+  } else if (isFirstRarity) {
+    model.wordlenText.value = line;
+    model.levelShown.value = beforeLevel;
+    model.scoreValue.value = Math.max(0, Math.round(scoreBefore));
+    model.multValue.value = Math.max(0, Math.round(multBefore));
+    await waitNextTick();
+    const wordlenMainEl = areaRef.value?.getWordlenMainEl?.() ?? null;
+    popSettle(wordlenMainEl, s);
+    await sleep(Math.round(120 / s));
+  } else {
+    await playSwitchToRarityDefault({
+      areaRef,
+      model,
+      line,
+      level: beforeLevel,
+      scoreBefore,
+      multBefore,
+      speed: s,
+    });
+  }
+
   const levelEl = areaRef.value?.getWordlenLevelEl?.() ?? null;
   const scoreBoxEl = areaRef.value?.getScoreBoxEl?.() ?? null;
   const multBoxEl = areaRef.value?.getMultBoxEl?.() ?? null;
-  popSettle(wordlenMainEl, s);
-  await sleep(Math.round(120 / s));
 
   const stepGapMs = 200;
+  const firstRarityLeadInGapMs = 160;
   const valueTweenS = 0.46;
-  await sleep(Math.round(stepGapMs / s));
+  await sleep(Math.round((isFirstRarity ? firstRarityLeadInGapMs : stepGapMs) / s));
   await runPanelWobbleAndBubble(levelEl, "+1", "level", s);
   model.levelShown.value = nextLevel;
 
@@ -165,13 +234,15 @@ export async function runInGameRarityUpgradeShopLikeFx(opts) {
 
   await sleep(Math.round(stepGapMs / s));
   if (multDelta > 0) {
-    await runPanelWobbleAndBubble(multBoxEl, `+${multDelta}`, "mult", s);
+    await runPanelWobbleAndBubble(multBoxEl, `+${multDelta}`, "mult", backToNormalMid);
   }
   await scoreTweenPromise;
-  await tweenResultValues(model, scoreAfter, multAfter, valueTweenS / s);
+  await tweenResultValues(model, scoreAfter, multAfter, valueTweenS / backToNormalMid);
 
-  fxActive.value = false;
-  await waitNextTick();
-  await sleep(Math.round(460 / s));
-  await tweenResultValues(model, 0, 0, 0.75 / s);
+  if (isLastRarity) {
+    fxActive.value = false;
+    await waitNextTick();
+    await sleep(Math.round(460 / backToNormalEnd));
+    await tweenResultValues(model, 0, 0, 0.75 / backToNormalEnd);
+  }
 }

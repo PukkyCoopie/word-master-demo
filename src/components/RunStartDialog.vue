@@ -3,6 +3,7 @@
   <div
     v-if="open"
     class="run-start-dialog-backdrop"
+    :style="backdropStackStyle"
     role="presentation"
     @click.self="onCancel"
   >
@@ -64,7 +65,8 @@
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
+import { bumpOverlayZ } from "../game/overlayStack.js";
 import { generateRandomRunSeedString, normalizeRunSeedInput, resolveRunSeedFromDialog } from "../game/runRng.js";
 
 const props = defineProps({
@@ -74,6 +76,21 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["confirm", "cancel"]);
+
+const stackZ = ref(0);
+const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
+
+watch(
+  () => props.open,
+  (v) => {
+    if (v) {
+      nextTick(() => {
+        stackZ.value = bumpOverlayZ();
+      });
+    }
+  },
+  { immediate: true },
+);
 
 const seedDraft = ref("");
 
@@ -105,7 +122,6 @@ function onCancel() {
 
 <style scoped>
 .run-start-dialog-backdrop {
-  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;

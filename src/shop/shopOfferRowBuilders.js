@@ -1,7 +1,7 @@
 /**
  * 商店单格商品行：单卡区（宝藏/法术/升级/字母块）与牌包区内选项共用。
  */
-import { getSpellDefinition } from "../spells/spellDefinitions.js";
+import { getSpellDefinition, getSpellShopPrice } from "../spells/spellDefinitions.js";
 import { LETTER_RARITY_ORDER, getRarityForLetter } from "../composables/useScoring.js";
 import { getShopTreasureAccessoryPriceAdd, rollShopTreasureAccessoryId } from "../treasures/shopTreasureAccessoryRoll.js";
 import { SHOP_SINGLE_ROW_PRICES, SHOP_TILE_PACK_MATERIAL_IDS } from "./shopPackEconomy.js";
@@ -52,7 +52,7 @@ export function buildSpellShopRow(nextOfferInstanceId, def) {
     offerInstanceId: nextOfferInstanceId(),
     treasureId: `spell_${def.id}`,
     spellId: def.id,
-    price: SHOP_SINGLE_ROW_PRICES.spell,
+    price: getSpellShopPrice(def),
     rarity: "rare",
     name: def.name,
     emoji: "",

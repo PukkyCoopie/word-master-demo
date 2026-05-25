@@ -100,7 +100,11 @@
               将会在下列字母中进行随机
             </template>
             <template v-else-if="session.pickMode === 'preview_only'">
-              点击确定施放此法术，或选择跳过
+              {{
+                session.skipDisabled
+                  ? "点击确定继续施放此法术"
+                  : "点击确定施放此法术，或选择跳过"
+              }}
             </template>
             <template v-else>
               在下方候选块中依次点选 {{ session.pickCount }} 个字母块
@@ -157,6 +161,7 @@
 
           <div class="spell-target-actions">
             <button
+              v-if="!session.skipDisabled"
               type="button"
               class="shop-btn shop-btn--reroll"
               :disabled="tileAnimActive"

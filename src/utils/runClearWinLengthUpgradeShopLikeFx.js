@@ -116,18 +116,64 @@ async function tweenResultValues(model, toScore, toMult, durationS = 0.44) {
  * @param {{
  *   areaRef: import('vue').Ref<{ getWordlenMainEl?: () => HTMLElement | null, getWordlenLevelEl?: () => HTMLElement | null, getScoreBoxEl?: () => HTMLElement | null, getMultBoxEl?: () => HTMLElement | null } | null | undefined>,
  *   model: { wordlenText: import('vue').Ref<string>, levelShown: import('vue').Ref<number>, scoreValue: import('vue').Ref<number>, multValue: import('vue').Ref<number> },
+ *   lenLabel: string,
+ *   level: number,
+ *   scoreBefore: number,
+ *   multBefore: number,
+ *   speed?: number,
+ * }} opts
+ */
+async function playSwitchToLengthDefault(opts) {
+  const { areaRef, model, lenLabel, level, scoreBefore, multBefore, speed = 1 } = opts;
+  const s = Math.max(0.01, Number(speed) || 1);
+  model.wordlenText.value = lenLabel;
+  model.levelShown.value = level;
+  const wordlenMainEl = areaRef.value?.getWordlenMainEl?.() ?? null;
+  const scoreBoxEl = areaRef.value?.getScoreBoxEl?.() ?? null;
+  const multBoxEl = areaRef.value?.getMultBoxEl?.() ?? null;
+  const levelEl = areaRef.value?.getWordlenLevelEl?.() ?? null;
+  popSettle(wordlenMainEl, s);
+  await sleep(Math.round(60 / s));
+  popSettle(levelEl, s);
+  await sleep(Math.round(60 / s));
+  model.scoreValue.value = Math.max(0, Math.round(scoreBefore));
+  popSettle(scoreBoxEl, s);
+  await sleep(Math.round(60 / s));
+  model.multValue.value = Math.max(0, Math.round(multBefore));
+  popSettle(multBoxEl, s);
+  await sleep(Math.round(180 / s));
+}
+
+/**
+ * @param {{
+ *   areaRef: import('vue').Ref<{ getWordlenMainEl?: () => HTMLElement | null, getWordlenLevelEl?: () => HTMLElement | null, getScoreBoxEl?: () => HTMLElement | null, getMultBoxEl?: () => HTMLElement | null } | null | undefined>,
+ *   model: { wordlenText: import('vue').Ref<string>, levelShown: import('vue').Ref<number>, scoreValue: import('vue').Ref<number>, multValue: import('vue').Ref<number> },
  *   fxActive: import('vue').Ref<boolean>,
  *   waitNextTick: () => Promise<void>,
  *   len: number,
  *   beforeLevel: number,
  *   observatoryBoost?: boolean,
  *   speed?: number,
+ *   isFirstLength?: boolean,
+ *   isLastLength?: boolean,
  * }} opts
  */
 export async function runClearWinLengthUpgradeShopLikeFx(opts) {
-  const { areaRef, model, fxActive, waitNextTick, len, beforeLevel, observatoryBoost = false, speed = 1 } =
-    opts;
+  const {
+    areaRef,
+    model,
+    fxActive,
+    waitNextTick,
+    len,
+    beforeLevel,
+    observatoryBoost = false,
+    speed = 1,
+    isFirstLength = true,
+    isLastLength = true,
+  } = opts;
   const s = Math.max(0.01, Number(speed) || 1);
+  const backToNormalMid = isLastLength ? s - (s - 1) * 0.5 : s;
+  const backToNormalEnd = isLastLength ? 1 : s;
   const lenClamped = Math.max(3, Math.min(16, Math.round(Number(len) || 3)));
   const lenLabel = `${lenClamped}字母`;
   const nextLevel = beforeLevel + 1;
@@ -143,17 +189,32 @@ export async function runClearWinLengthUpgradeShopLikeFx(opts) {
   const multAfter = multBefore + multAdd;
 
   fxActive.value = true;
-  model.wordlenText.value = lenLabel;
-  model.levelShown.value = beforeLevel;
-  model.scoreValue.value = 0;
-  model.multValue.value = 0;
-  await waitNextTick();
-  void tweenResultValues(model, scoreBefore, multBefore, 0.42 / s);
+
+  if (
+    isFirstLength &&
+    Math.max(0, Math.round(model.scoreValue.value)) === 0 &&
+    Math.max(0, Math.round(model.multValue.value)) === 0
+  ) {
+    model.wordlenText.value = lenLabel;
+    model.levelShown.value = beforeLevel;
+    await waitNextTick();
+    void tweenResultValues(model, scoreBefore, multBefore, 0.42 / s);
+  } else {
+    await playSwitchToLengthDefault({
+      areaRef,
+      model,
+      lenLabel,
+      level: beforeLevel,
+      scoreBefore,
+      multBefore,
+      speed: s,
+    });
+  }
 
   const stepGapMs = 200;
   const firstLengthLeadInGapMs = 160;
   const valueTweenS = 0.46;
-  await sleep(Math.round(firstLengthLeadInGapMs / s));
+  await sleep(Math.round((isFirstLength ? firstLengthLeadInGapMs : stepGapMs) / s));
   const levelEl = areaRef.value?.getWordlenLevelEl?.() ?? null;
   await runPanelWobbleAndBubble(levelEl, "+1", "level", s);
   model.levelShown.value = nextLevel;
@@ -165,12 +226,14 @@ export async function runClearWinLengthUpgradeShopLikeFx(opts) {
 
   await sleep(Math.round(stepGapMs / s));
   const multBoxEl = areaRef.value?.getMultBoxEl?.() ?? null;
-  await runPanelWobbleAndBubble(multBoxEl, `+${multAdd}`, "mult", s);
+  await runPanelWobbleAndBubble(multBoxEl, `+${multAdd}`, "mult", backToNormalMid);
   await scoreTweenPromise;
-  await tweenResultValues(model, scoreAfter, multAfter, valueTweenS / s);
+  await tweenResultValues(model, scoreAfter, multAfter, valueTweenS / backToNormalMid);
 
-  fxActive.value = false;
-  await waitNextTick();
-  await sleep(Math.round(460 / s));
-  await tweenResultValues(model, 0, 0, 0.75 / s);
+  if (isLastLength) {
+    fxActive.value = false;
+    await waitNextTick();
+    await sleep(Math.round(460 / backToNormalEnd));
+    await tweenResultValues(model, 0, 0, 0.75 / backToNormalEnd);
+  }
 }

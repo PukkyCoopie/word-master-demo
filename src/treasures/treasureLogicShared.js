@@ -54,16 +54,19 @@ export function allUniformRarity(letterParts, ownedSlotTreasureIds = null) {
  * @param {number} rows
  * @param {number} cols
  * @param {Set<string> | null | undefined} excludedPositionKeys `"row,col"`；有则跳过这些格
+ * @param {{ excludeBossDebuffed?: boolean }} [opts]
  * @returns {object[]}
  */
-export function collectGridLetterTiles(grid, rows, cols, excludedPositionKeys = null) {
+export function collectGridLetterTiles(grid, rows, cols, excludedPositionKeys = null, opts = {}) {
   /** @type {object[]} */
   const out = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       if (excludedPositionKeys?.has(`${r},${c}`)) continue;
       const t = grid[r]?.[c];
-      if (t?.letter) out.push(t);
+      if (!t?.letter) continue;
+      if (opts.excludeBossDebuffed && t.bossTileDebuffed === true) continue;
+      out.push(t);
     }
   }
   return out;

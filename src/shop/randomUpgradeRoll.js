@@ -91,3 +91,15 @@ export function buildRandomUpgradeAnimPayload(pick, beforeLevel, isLengthObserva
     isLengthObservatoryBoosted,
   };
 }
+
+/** 阶梯/色盘等批量升级动效相对普通升级的倍速（仍叠加 1 + 0.3×步序 加速） */
+export const ECLIPSE_UPGRADE_ANIM_SPEED_SCALE = 1.5;
+
+/**
+ * @param {number} stepIndex 序列内步序（首项为 0）
+ * @param {{ animSpeedScale?: number } | null | undefined} payload
+ */
+export function resolveUpgradePlaybackSpeed(stepIndex, payload) {
+  const scale = Math.max(0.01, Number(payload?.animSpeedScale) || 1);
+  return scale * (1 + 0.3 * Math.max(0, Math.round(Number(stepIndex)) || 0));
+}

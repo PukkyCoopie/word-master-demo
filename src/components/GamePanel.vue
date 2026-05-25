@@ -784,7 +784,11 @@ import {
 import RunEndLayer from "./RunEndLayer.vue";
 import PauseOptionsLayer from "./PauseOptionsLayer.vue";
 import { pickBossSlugForLevel } from "../game/bossRoll.js";
-import { applyBossTileDebuffState, applyBossTileDebuffToGrid } from "../game/bossTileDebuff.js";
+import {
+  applyBossTileDebuffState,
+  applyBossTileDebuffToGrid,
+  isBossTileDebuffed,
+} from "../game/bossTileDebuff.js";
 import { coerceRunSeedNumeric, createRunRng } from "../game/runRng.js";
 import {
   createRunMatchStats,
@@ -817,6 +821,7 @@ import {
   applySpell,
   tileLetterToRaw,
   getSpellTileAppearanceTargets,
+  buildRandomSpellSelection,
   buildSpellAnimPickTargetsFromOrdered,
 } from "../spells/spellRuntime.js";
 import {
@@ -853,7 +858,9 @@ import {
 import {
   applyRandomUpgradePick,
   buildRandomUpgradeAnimPayload,
+  ECLIPSE_UPGRADE_ANIM_SPEED_SCALE,
   getBeforeLevelForRandomUpgradePick,
+  resolveUpgradePlaybackSpeed,
   rollRandomUpgradePicks,
 } from "../shop/randomUpgradeRoll.js";
 import { formatVoucherDisplayName } from "../vouchers/voucherDisplay.js";
@@ -909,6 +916,16 @@ import {
   TILE_ACCESSORY_REWIND,
   TILE_ACCESSORY_VIP_DIAMOND,
 } from "../game/tileAccessories";
+import {
+  TREASURE_ACCESSORY_DROP,
+  TREASURE_ACCESSORY_FIRE,
+  TREASURE_ACCESSORY_WRENCH,
+} from "../game/treasureAccessories.js";
+import {
+  TILE_TREASURE_ACCESSORY_DROP_SCORE_ADD,
+  TILE_TREASURE_ACCESSORY_FIRE_MULT_ADD,
+  TILE_TREASURE_ACCESSORY_WRENCH_MULT_MUL,
+} from "../treasures/treasureAccessoryScoring.js";
 import {
   buildGridPresencePostLetterSteps,
   gridTileEntranceDelayKey,
@@ -1959,7 +1976,7 @@ function appendShopRandomCardSlotsAfterPurchase(extraCount) {
   if (extra.length) shopOffers.value = [...shopOffers.value, ...extra];
 }
 
-/** 进店生成单卡区 + 牌包区，同次 visit 内宝藏 id 互不重复 */
+/** 进店生成单卡区 + 牌包区，同次 visit 内宝藏 id 互不重复；单卡区法术/升级同键不重复 */
 function rollShopVisitStock(rng = Math.random) {
   const sessionExcludeTreasureIds = new Set();
   const shop = rollShopStock(rng, sessionExcludeTreasureIds);
@@ -2132,6 +2149,29 @@ async function runInRunUpgradePlaybackSteps(steps) {
     for (const step of steps) {
       step.apply?.();
       const p = step.payload;
+      if (p?.upgradeKind === "rarity_sequence") {
+        const rarities = Array.isArray(p.rarities) ? p.rarities : [];
+        for (let i = 0; i < rarities.length; i += 1) {
+          const row = rarities[i];
+          const rarityKey = String(row?.rarityKey ?? "common");
+          const beforeLevel = Math.max(1, Math.round(Number(row?.beforeLevel) || 1));
+          const isFirst = i === 0;
+          const isLast = i === rarities.length - 1;
+          await runInGameRarityUpgradeShopLikeFx({
+            areaRef: gameResultAreaRef,
+            model: inRunGrantUpgradeFxModel,
+            fxActive: inRunGrantUpgradeFxActive,
+            waitNextTick: () => nextTick(),
+            rarityKey,
+            beforeLevel,
+            speed: resolveUpgradePlaybackSpeed(i, p),
+            isFirstRarity: isFirst,
+            isLastRarity: isLast,
+          });
+          if (!isLast) await sleep(Math.round(30 / resolveUpgradePlaybackSpeed(i, p)));
+        }
+        continue;
+      }
       if (p?.upgradeKind === "rarity") {
         const rk = String(p.rarityKey ?? "common");
         const beforeLevel = Math.max(1, Math.round(Number(p.beforeLevel) || 1));
@@ -2154,6 +2194,9 @@ async function runInRunUpgradePlaybackSteps(steps) {
           ? p.isLengthObservatoryBoosted
           : () => false;
       for (let len = lenMin; len <= lenMax; len++) {
+        const isFirst = len === lenMin;
+        const isLast = len === lenMax;
+        const speed = resolveUpgradePlaybackSpeed(len - lenMin, p);
         await runClearWinLengthUpgradeShopLikeFx({
           areaRef: gameResultAreaRef,
           model: inRunGrantUpgradeFxModel,
@@ -2162,9 +2205,11 @@ async function runInRunUpgradePlaybackSteps(steps) {
           len,
           beforeLevel,
           observatoryBoost: obsFn(len),
-          speed: 1 + 0.3 * (len - lenMin),
+          speed,
+          isFirstLength: isFirst,
+          isLastLength: isLast,
         });
-        if (len < lenMax) await sleep(30);
+        if (!isLast) await sleep(Math.round(30 / speed));
       }
     }
   } finally {
@@ -2601,7 +2646,7 @@ const treasureCanBuyOffer = computed(() => {
   if (t.offerType === "voucher") {
     const vid = String(t.voucherId ?? "");
     if (vid === "v_glyph_1" || vid === "v_glyph_2") {
-      if (getGlyphPurchaseTargetLevelIndex(levelIndex.value, vid === "v_glyph_2") == null) return false;
+      if (getGlyphPurchaseTargetLevelIndex(levelIndex.value) == null) return false;
     }
     return w >= p;
   }
@@ -6221,38 +6266,54 @@ async function animateSpellDeckAddsFromOfferSlots(slotIndices, flyCount) {
   }
 }
 
+const ECLIPSE_ALL_LENGTHS_GROUP = Object.freeze({ minLen: 3, maxLen: 16, label: "3-16字母" });
+
 function buildEclipseLengthUpgradeSteps() {
   const levelRefs = { rarityLevelsByRarity, lengthLevelsByLength };
   const obsFn = (len) => isLengthObservatoryBoosted(ownedVoucherIds.value, len, spellCountsByLength.value);
-  return UPGRADE_LENGTH_GROUPS.map((g) => ({
-    payload: buildRandomUpgradeAnimPayload(
-      { kind: "length", g },
-      getBeforeLevelForRandomUpgradePick({ kind: "length", g }, levelRefs),
-      obsFn,
-    ),
-    apply: () => {
-      noteTreasureRunUpgradeUsed(treasureRunState.value);
-      for (let len = g.minLen; len <= g.maxLen; len++) {
-        bumpWordLengthLevel(len, { observatoryBoost: obsFn(len) });
-      }
+  const pick = { kind: "length", g: ECLIPSE_ALL_LENGTHS_GROUP };
+  return [
+    {
+      payload: {
+        ...buildRandomUpgradeAnimPayload(
+          pick,
+          getBeforeLevelForRandomUpgradePick(pick, levelRefs),
+          obsFn,
+        ),
+        animSpeedScale: ECLIPSE_UPGRADE_ANIM_SPEED_SCALE,
+      },
+      apply: () => {
+        noteTreasureRunUpgradeUsed(treasureRunState.value);
+        for (let len = 3; len <= 16; len++) {
+          bumpWordLengthLevel(len, { observatoryBoost: obsFn(len) });
+        }
+      },
     },
-  }));
+  ];
 }
 
 function buildEclipseRarityUpgradeSteps() {
   const levelRefs = { rarityLevelsByRarity, lengthLevelsByLength };
-  return LETTER_RARITY_ORDER.map((rk) => ({
-    payload: buildRandomUpgradeAnimPayload(
-      { kind: "rarity", rk },
-      getBeforeLevelForRandomUpgradePick({ kind: "rarity", rk }, levelRefs),
-      () => false,
-    ),
-    apply: () => {
-      noteTreasureRunUpgradeUsed(treasureRunState.value);
-      const cur = Math.max(1, Math.round(Number(rarityLevelsByRarity.value?.[rk])) || 1);
-      setRarityLevelWithTreasurePairs(rk, cur + 1);
-    },
+  const rarities = LETTER_RARITY_ORDER.map((rk) => ({
+    rarityKey: rk,
+    beforeLevel: getBeforeLevelForRandomUpgradePick({ kind: "rarity", rk }, levelRefs),
   }));
+  return [
+    {
+      payload: {
+        upgradeKind: "rarity_sequence",
+        rarities,
+        animSpeedScale: ECLIPSE_UPGRADE_ANIM_SPEED_SCALE,
+      },
+      apply: () => {
+        noteTreasureRunUpgradeUsed(treasureRunState.value);
+        for (const { rarityKey: rk } of rarities) {
+          const cur = Math.max(1, Math.round(Number(rarityLevelsByRarity.value?.[rk])) || 1);
+          setRarityLevelWithTreasurePairs(rk, cur + 1);
+        }
+      },
+    },
+  ];
 }
 
 async function playEclipseLengthUpgradeSequence() {
@@ -6639,6 +6700,64 @@ function applySpellOfferWinnerToContext(ctx, sid, offerSlotsList, winnerOfferSlo
   ctx.forcedRemoveDeckCardUid = offerSlotsList[winnerOfferSlotIndex]?.deckCardUid ?? null;
 }
 
+/** 骰子链式子法术：仅预览层、不可跳过（与 `runSpellPreviewChain` 中骰子分支一致） */
+const DICE_CHAIN_SUB_SPELL_OVERRIDES = Object.freeze({
+  forcePreview: true,
+  forcePreviewOnly: true,
+  diceChainSubSpell: true,
+  skipDisabled: true,
+});
+
+/**
+ * 骰子链子法术在预览层点确定后，按真实 pickMode 自动解析目标（等同骰子内联随机施法）。
+ * @param {{ effectiveSpellId?: string, offerSlots?: unknown[] }} session
+ */
+function buildDiceChainSubSpellConfirmPayload(session) {
+  const sid = String(session.effectiveSpellId ?? "");
+  const offerSlotsList = Array.isArray(session.offerSlots) ? session.offerSlots : [];
+  const realMode = resolveSpellPickMode(sid);
+  const def = getSpellDefinition(sid);
+  const g = grid.value;
+
+  const mapSlotToOrdered = (ix) => {
+    const sl = offerSlotsList[ix];
+    if (!sl || sl.empty) return null;
+    const pos = resolveSpellOfferTargetOnGrid(g, sl);
+    if (pos) return { ...pos, deckCardUid: sl.deckCardUid ?? undefined };
+    if (sl.deckOnly && sl.deckCardUid != null) return { deckCardUid: sl.deckCardUid };
+    return { row: sl.row, col: sl.col, deckCardUid: sl.deckCardUid ?? undefined };
+  };
+
+  if (realMode === "confirm_all") {
+    const selectionSlotIndices = offerSlotsList
+      .map((sl, ix) => (sl && !sl.empty && sl.tile ? ix : -1))
+      .filter((ix) => ix >= 0);
+    const resolvedOrdered = selectionSlotIndices.map(mapSlotToOrdered).filter(Boolean);
+    return { resolvedOrdered, selectionSlotIndices };
+  }
+
+  if (realMode === "pick") {
+    const n = def ? Math.max(0, def.pickCount) : 0;
+    const validIxs = offerSlotsList
+      .map((sl, ix) => (sl && !sl.empty && sl.tile ? ix : -1))
+      .filter((ix) => ix >= 0);
+    if (validIxs.length > 0 && n > 0) {
+      const pool = [...validIxs];
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(runRandom() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      const selectionSlotIndices = pool.slice(0, Math.min(n, pool.length));
+      const resolvedOrdered = selectionSlotIndices.map(mapSlotToOrdered).filter(Boolean);
+      return { resolvedOrdered, selectionSlotIndices };
+    }
+    const resolvedOrdered = buildRandomSpellSelection(g, ROWS, COLS, n, runRandom);
+    return { resolvedOrdered, selectionSlotIndices: [] };
+  }
+
+  return { resolvedOrdered: [], selectionSlotIndices: [] };
+}
+
 /** 10 格候选：从本局完整牌库 multiset 均匀随机抽牌张 */
 function buildSpellOfferSlots(rng = Math.random) {
   const pool = Array.isArray(initialDeckSnapshot.value)
@@ -6693,6 +6812,8 @@ function noteSpellCastForReplay(purchasedSpellId) {
  *   confirmDisabled?: boolean,
  *   forcePreview?: boolean,
  *   forcePreviewOnly?: boolean,
+ *   diceChainSubSpell?: boolean,
+ *   skipDisabled?: boolean,
  *   spellDescription?: import('../treasures/treasureDescription.js').TreasureDescSegment[] | string,
  *   spellName?: string,
  *   spellIconClass?: string,
@@ -6740,6 +6861,8 @@ function buildSpellTargetSessionFields(
     offerDeckSource,
     context,
     confirmDisabled: overrides.confirmDisabled === true,
+    diceChainSubSpell: overrides.diceChainSubSpell === true,
+    skipDisabled: overrides.skipDisabled === true,
     purchasedSpellId: pid,
     effectiveSpellId: eff,
     getOfferTileSnapshot: preferRemaining
@@ -6864,7 +6987,13 @@ async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, 
     const result = await openSingleSpellPreviewSession(pid, context, offerDeckSource, overrides);
     if (!result.confirmed) return result;
     for (const subId of pickDiceChainSpellIds(runRandom)) {
-      await runSpellPreviewChain(subId, context, offerDeckSource, overrides);
+      const subResult = await runSpellPreviewChain(
+        subId,
+        context,
+        offerDeckSource,
+        DICE_CHAIN_SUB_SPELL_OVERRIDES,
+      );
+      if (!subResult.confirmed) return subResult;
     }
     return { confirmed: true, skipped: false };
   }
@@ -6939,28 +7068,33 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
   }
   if (purchasedId === "dice") {
     await dismissSpellTargetLayer({ confirmed: true, skipped: false });
-    const deckSrc = s.offerDeckSource ?? "fullDeck";
-    const ctx = s.context ?? "shop";
-    for (const subId of pickDiceChainSpellIds(runRandom)) {
-      await runSpellPreviewChain(subId, ctx, deckSrc);
-    }
     return;
   }
   const offerSlotsList = Array.isArray(s.offerSlots) ? s.offerSlots : [];
-  let resolvedOrdered = Array.isArray(selectionSlotIndices)
-    ? selectionSlotIndices.map((ix) => {
-        const sl = offerSlotsList[ix];
-        if (!sl || sl.empty) return null;
-        const pos = resolveSpellOfferTargetOnGrid(grid.value, sl);
-        if (pos) return { ...pos, deckCardUid: sl.deckCardUid ?? undefined };
-        if (sl.deckOnly && sl.deckCardUid != null) return { deckCardUid: sl.deckCardUid };
-        return { row: sl.row, col: sl.col, deckCardUid: sl.deckCardUid ?? undefined };
-      }).filter(Boolean)
-    : ordered;
+  let resolvedOrdered;
+  let confirmSelectionSlotIndices = selectionSlotIndices;
+  if (s.diceChainSubSpell === true) {
+    const built = buildDiceChainSubSpellConfirmPayload(s);
+    resolvedOrdered = built.resolvedOrdered;
+    confirmSelectionSlotIndices = built.selectionSlotIndices;
+  } else {
+    resolvedOrdered = Array.isArray(selectionSlotIndices)
+      ? selectionSlotIndices
+          .map((ix) => {
+            const sl = offerSlotsList[ix];
+            if (!sl || sl.empty) return null;
+            const pos = resolveSpellOfferTargetOnGrid(grid.value, sl);
+            if (pos) return { ...pos, deckCardUid: sl.deckCardUid ?? undefined };
+            if (sl.deckOnly && sl.deckCardUid != null) return { deckCardUid: sl.deckCardUid };
+            return { row: sl.row, col: sl.col, deckCardUid: sl.deckCardUid ?? undefined };
+          })
+          .filter(Boolean)
+      : ordered;
+  }
   const ctx = buildSpellRuntimeContext();
   const sid = String(s.effectiveSpellId ?? "");
-  const confirmAllSlotIxs = Array.isArray(selectionSlotIndices)
-    ? selectionSlotIndices.filter((ix) => {
+  const confirmAllSlotIxs = Array.isArray(confirmSelectionSlotIndices)
+    ? confirmSelectionSlotIndices.filter((ix) => {
         const sl = offerSlotsList[ix];
         return typeof ix === "number" && ix >= 0 && sl && !sl.empty && sl.tile;
       })
@@ -6998,8 +7132,8 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
   /** 与 `targets` 逐项对齐的候选槽下标（供弹层动效绑定），与 `resolvedOrdered` 同步过滤 */
   const animSelectionSlotIndices =
     usePickSequenceAnim &&
-    Array.isArray(selectionSlotIndices) &&
-    selectionSlotIndices.length === resolvedOrdered.length
+    Array.isArray(confirmSelectionSlotIndices) &&
+    confirmSelectionSlotIndices.length === resolvedOrdered.length
       ? (() => {
           /** @type {number[]} */
           const ix = [];
@@ -7011,18 +7145,18 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
             const row = Math.trunc(r);
             const col = Math.trunc(c);
             if (!g[row]?.[col]?.letter) continue;
-            const sli = selectionSlotIndices[i];
+            const sli = confirmSelectionSlotIndices[i];
             if (typeof sli !== "number" || sli < 0) continue;
             ix.push(sli);
           }
           return ix;
         })()
-      : selectionSlotIndices;
+      : confirmSelectionSlotIndices;
   const animOrderedForLayer = usePickSequenceAnim ? targets : resolvedOrdered;
 
   if (!targets.length) {
-    const slotIxs = Array.isArray(selectionSlotIndices)
-      ? selectionSlotIndices.filter((ix) => {
+    const slotIxs = Array.isArray(confirmSelectionSlotIndices)
+      ? confirmSelectionSlotIndices.filter((ix) => {
           const sl = offerSlotsList[ix];
           return typeof ix === "number" && ix >= 0 && sl && !sl.empty && sl.tile;
         })
@@ -7190,7 +7324,7 @@ async function onTreasurePurchase() {
       getShopRandomCardSlotCount(getShopRandomCardSlotBonus(ownedVoucherIds.value)) - slotCountBefore;
     appendShopRandomCardSlotsAfterPurchase(slotsToAdd);
     if (vid === "v_glyph_1" || vid === "v_glyph_2") {
-      const tix = getGlyphPurchaseTargetLevelIndex(levelIndex.value, vid === "v_glyph_2");
+      const tix = getGlyphPurchaseTargetLevelIndex(levelIndex.value);
       if (tix != null) {
         levelIndex.value = tix;
         glyphShopSkipLevelAdvance.value = true;
@@ -7199,11 +7333,7 @@ async function onTreasurePurchase() {
           targetScore.value = resolveLevelTargetScore(L.id, "");
           activeBossSlug.value = "";
         }
-        showToast(
-          vid === "v_glyph_2"
-            ? `已后退两大关，下一关为 ${L.id}`
-            : `已后退一大关，下一关为 ${L.id}`,
-        );
+        void shopPanelRef.value?.playGlyphRoundInfoFx?.("-1大关");
       }
     }
     treasureDetail.value = null;
@@ -7819,9 +7949,7 @@ function triggerAccessoryChipRipple(slotEl, speed = 1, strong = false) {
     chip.classList.remove(
       isTreasure ? "treasure-accessory-chip--ripple-active" : "tile-accessory-chip--ripple-active",
     );
-    chip.classList.remove(
-      isTreasure ? "" : "tile-accessory-chip--ripple-strong",
-    );
+    if (!isTreasure) chip.classList.remove("tile-accessory-chip--ripple-strong");
     void chip.offsetWidth;
     const baseDuration = strong ? 0.62 : 0.46;
     const dur = `${Math.max(0.26, baseDuration / s).toFixed(3)}s`;
@@ -7837,7 +7965,7 @@ function triggerAccessoryChipRipple(slotEl, speed = 1, strong = false) {
       chip.classList.remove(
         isTreasure ? "treasure-accessory-chip--ripple-active" : "tile-accessory-chip--ripple-active",
       );
-      chip.classList.remove("tile-accessory-chip--ripple-strong");
+      if (!isTreasure) chip.classList.remove("tile-accessory-chip--ripple-strong");
       chip.style.removeProperty(isTreasure ? "--treasure-acc-ripple-duration" : "--tile-accessory-ripple-duration");
       accessoryRippleTimers.delete(chip);
     }, Math.max(220, Math.round(((strong ? 700 : 520) / s))));
@@ -8255,6 +8383,68 @@ async function runSlotPerLetterTreasureMultStep(
   );
 }
 
+/** 字母块宝藏配饰「水滴」：该字母每次计分时 +50 分（与 `accumulateTileTreasureAccessoryPerLetter` 一致）。 */
+async function runTileTreasureAccessoryDropScoreBurst(tile, slotEl, speed = 1) {
+  if (!slotEl || String(tile?.treasureAccessoryId ?? "").trim() !== TREASURE_ACCESSORY_DROP) return false;
+  const sp = Math.max(0.01, Number(speed) || 1);
+  wobbleScoreSlot(slotEl, sp);
+  triggerAccessoryChipRipple(slotEl, sp, true);
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  animScoreSum.value += TILE_TREASURE_ACCESSORY_DROP_SCORE_ADD;
+  await nextTick();
+  const bubble = showScoreBubble(
+    slotEl,
+    `+${TILE_TREASURE_ACCESSORY_DROP_SCORE_ADD}`,
+    "score",
+    sp,
+  );
+  pulseFormulaPanelNum(getResultScoreNumEl());
+  scheduleSmallPlusBubbleOutro(bubble, sp);
+  await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+  return true;
+}
+
+/** 字母块宝藏配饰「火焰」：该字母每次计分时 +10 倍率。 */
+async function runTileTreasureAccessoryFireMultBurst(tile, slotEl, speed = 1) {
+  if (!slotEl || String(tile?.treasureAccessoryId ?? "").trim() !== TREASURE_ACCESSORY_FIRE) return false;
+  const sp = Math.max(0.01, Number(speed) || 1);
+  wobbleScoreSlot(slotEl, sp);
+  triggerAccessoryChipRipple(slotEl, sp, true);
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  animMultTotal.value += TILE_TREASURE_ACCESSORY_FIRE_MULT_ADD;
+  await nextTick();
+  const bubble = showScoreBubble(slotEl, `+${TILE_TREASURE_ACCESSORY_FIRE_MULT_ADD}`, "mult", sp);
+  pulseFormulaPanelNum(getResultMultNumEl());
+  scheduleSmallPlusBubbleOutro(bubble, sp);
+  await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+  return true;
+}
+
+/** 字母块宝藏配饰「扳手」：该字母每次计分时 ×1.5 倍率。 */
+async function runTileTreasureAccessoryWrenchMultBurst(tile, slotEl, speed = 1) {
+  if (!slotEl || String(tile?.treasureAccessoryId ?? "").trim() !== TREASURE_ACCESSORY_WRENCH) return false;
+  const sp = Math.max(0.01, Number(speed) || 1);
+  const multMul = TILE_TREASURE_ACCESSORY_WRENCH_MULT_MUL;
+  wobbleScoreSlot(slotEl, sp);
+  triggerAccessoryChipRipple(slotEl, sp, true);
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  animMultTotal.value = Math.round(animMultTotal.value * multMul);
+  await nextTick();
+  const bubbleX = showMultMultiplyBubble(slotEl, multMul, sp);
+  pulseFormulaMultMultiplyBurst(getResultMultNumEl());
+  gsap.to(bubbleX, {
+    opacity: 0,
+    y: -22,
+    scale: 0.85,
+    duration: 0.22 / sp,
+    delay: 0.38 / sp,
+    ease: EASE_TRANSFORM,
+    onComplete: () => bubbleX.remove(),
+  });
+  await scoringSleep(SCORING_STEP_BEAT_MS + 120, sp);
+  return true;
+}
+
 /** 字母块配饰「钱币」：该字母轮到计分时，wobble 并弹出 $ 气泡。 */
 async function runLetterAccessoryCoinMoneyBurst(tile, slotEl, speed = 1) {
   if (!slotEl || tile?.accessoryId !== TILE_ACCESSORY_COIN) return;
@@ -8276,7 +8466,8 @@ async function runLetterAccessoryCoinMoneyBurst(tile, slotEl, speed = 1) {
 /**
  * 单字母一轮：与 **tile 本体**同拍的只有——稀有度基础分 + tile/材质平面分 + tile 角标分；以及声明了
  * `mergeLetter*IntoIntrinsic*` 的宝藏（当前：备忘录平面分、回形针倍率加法）。元音倍率、某字母加分等仍走单独步。
- * 顺序：上述「本体同一拍」→ 其余逐字加分宝藏 → 钱币配饰 →「本体倍率同一拍」→ 其余逐字倍率宝藏 → 铅笔～王冠
+ * 顺序：上述「本体同一拍」→ 水滴 +50 → 其余逐字加分宝藏 → 钱币 →「本体倍率」→ 火焰 +10 → 扳手 ×1.5 → 其余逐字倍率宝藏 → 铅笔～王冠。
+ * （宝藏槽火焰/水滴/扳手仍在整词字后步，见 postLetterTreasureSteps。）
  */
 async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVisitIndex = 0) {
   const sp = Math.max(0.01, Number(speed) || 1);
@@ -8370,6 +8561,10 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     scoringTreasureBarIndex.value = null;
   }
 
+  if (await runTileTreasureAccessoryDropScoreBurst(tile, slotEl, sp)) {
+    wordSlotIntrinsicWobblePlayed = true;
+  }
+
   const mergedScoreSiSkip = new Set(mergedIntrinsicScoreSlots.map((x) => x.si));
   for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(ownedSlotIds)) {
     if (mergedScoreSiSkip.has(si)) continue;
@@ -8449,6 +8644,13 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     scheduleSmallPlusBubbleOutro(bubbleM, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
     scoringTreasureBarIndex.value = null;
+  }
+
+  if (await runTileTreasureAccessoryFireMultBurst(tile, slotEl, sp)) {
+    wordSlotIntrinsicWobblePlayed = true;
+  }
+  if (await runTileTreasureAccessoryWrenchMultBurst(tile, slotEl, sp)) {
+    wordSlotIntrinsicWobblePlayed = true;
   }
 
   const mergedMultSiSkip = new Set(mergedIntrinsicMultSlots.map((x) => x.si));
@@ -8589,7 +8791,7 @@ function buildClearWinGoldEffectQueue() {
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const t = g[r][c];
-      if (!t?.letter || t.selected) continue;
+      if (!t?.letter || t.selected || isBossTileDebuffed(t)) continue;
       if (t.materialId !== "gold") continue;
       const delay = gridTileEntranceDelay(r, c);
       const triggerCount = getGridEffectTriggerCount(t);
@@ -8610,7 +8812,7 @@ function buildClearWinLengthUpgradeAccessoryEntries() {
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const t = g[r][c];
-      if (!t?.letter || t.selected) continue;
+      if (!t?.letter || t.selected || isBossTileDebuffed(t)) continue;
       if (t.accessoryId !== TILE_ACCESSORY_LEVEL_UPGRADE) continue;
       items.push({ r, c, delay: gridTileEntranceDelay(r, c) });
     }
@@ -9493,7 +9695,7 @@ async function submitWord() {
     if (t?.letter) applyBossTileDebuffState(t, bossSlugSubmit, debuffCtx);
   }
   const submittedIceTileIds = tiles
-    .filter((t) => t?.materialId === "ice")
+    .filter((t) => t?.materialId === "ice" && !isBossTileDebuffed(t))
     .map((t) => String(t?.id ?? ""))
     .filter(Boolean);
   const ownedSlotTreasureAccessoryIds = ownedTreasures.value.map((s) => s?.treasureAccessoryId ?? null);
@@ -9501,7 +9703,9 @@ async function submitWord() {
   const isLastSubmitChance = remainingWords.value === 1;
   const gSubmit = grid.value;
   const submitExcludedGridKeys = gridSelectedPositionKeySet(selectedTiles.value);
-  const gridTilesForTreasures = collectGridLetterTiles(gSubmit, ROWS, COLS);
+  const gridTilesForTreasures = collectGridLetterTiles(gSubmit, ROWS, COLS, null, {
+    excludeBossDebuffed: true,
+  });
   const remainingGridTilesForTreasures = collectGridLetterTiles(
     gSubmit,
     ROWS,
@@ -9742,7 +9946,7 @@ function e2eCanBuyShopOffer(t) {
   if (t.offerType === "voucher") {
     const vid = String(t.voucherId ?? "");
     if (vid === "v_glyph_1" || vid === "v_glyph_2") {
-      if (getGlyphPurchaseTargetLevelIndex(levelIndex.value, vid === "v_glyph_2") == null) return false;
+      if (getGlyphPurchaseTargetLevelIndex(levelIndex.value) == null) return false;
     }
     return w >= p;
   }
