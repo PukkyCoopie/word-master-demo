@@ -45,14 +45,22 @@
         </button>
       </nav>
     </div>
+    <TapTapPromoIcon
+      v-if="showTapTapMenuPromo"
+      in-menu
+      @open-poster="openTapTapPoster"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, inject } from "vue";
 import TileLetterShowcase from "./TileLetterShowcase.vue";
 import TapTapLoginButton from "./TapTapLoginButton.vue";
+import TapTapPromoIcon from "./TapTapPromoIcon.vue";
 import { useTapTapAuth } from "../composables/useTapTapAuth.js";
+import { useWebLayoutMode } from "../composables/useWebLayoutMode.js";
+import { isTapTapWebPromoEnabled } from "../taptap/tapTapWebPromo.js";
 
 defineEmits(["request-start", "open-settings", "open-about"]);
 
@@ -67,6 +75,13 @@ const {
   loginWithTapTap,
   retryAuth,
 } = useTapTapAuth();
+
+const { isMobileLayout } = useWebLayoutMode();
+/** @type {() => void} */
+const openTapTapPoster = inject("openTapTapPoster", () => {});
+const showTapTapMenuPromo = computed(
+  () => isTapTapWebPromoEnabled() && isMobileLayout.value,
+);
 
 const authBusyLabel = computed(() =>
   phase.value === "compliance" ? "正在验证…" : "正在检查登录…"
@@ -92,6 +107,7 @@ const showcaseRows = [
 
 <style scoped>
 .main-menu {
+  position: relative;
   width: 100%;
   height: 100%;
   background: var(--card);

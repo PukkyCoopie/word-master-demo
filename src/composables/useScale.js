@@ -46,6 +46,14 @@ function resetNativeSafeAreaInsets() {
   root.style.setProperty("--safe-area-inset-left", "0px");
 }
 
+/** 逻辑画布像素尺寸超出视口时，用绝对定位 + translate 保证上下/左右对称超出 */
+function updateUiScaleOverflowLayout(w, h, rpx) {
+  const logicW = LOGIC_W * rpx;
+  const logicH = LOGIC_H * rpx;
+  const overflows = logicW > w + 0.5 || logicH > h + 0.5;
+  document.documentElement.classList.toggle("ui-scale-overflows-viewport", overflows);
+}
+
 /** 设置 --rpx：contain 适配（宽/高取较小缩放，窄屏宽顶满、上下留白） */
 export function useScale() {
   function updateRpx() {
@@ -54,7 +62,9 @@ export function useScale() {
     const fitH = h / LOGIC_H;
     const base = Math.min(fitW, fitH);
     const pct = gameSettings.uiScalePercent / 100;
-    document.documentElement.style.setProperty("--rpx", `${base * pct}px`);
+    const rpx = base * pct;
+    document.documentElement.style.setProperty("--rpx", `${rpx}px`);
+    updateUiScaleOverflowLayout(w, h, rpx);
     updateViewportAspectLayoutClass(w, h);
     resetNativeSafeAreaInsets();
     requestAnimationFrame(() => syncPortalFrameToGameSurface());

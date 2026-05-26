@@ -1,11 +1,13 @@
 import { describe, mult } from "../treasureDescription.js";
 import { countBigramOccurrencesInWord, ensureBigramTargetPair } from "../../game/treasureBigramRoll.js";
 
+const BIGRAM_MULT = 2.5;
+
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 5,
   rarity: "rare",
-  description: describe("每一个拼出的双字母组合提供", mult("x2"), "倍率"),
+  description: describe("每一个拼出的双字母组合提供", mult("x2.5"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -15,7 +17,7 @@ export const treasureHooks = {
     const pair = String(
       ensureBigramTargetPair(ctx.treasureRun, ctx.rollRandomBigram) ?? "??",
     ).toUpperCase();
-    return describe(`每一个拼出的${pair}提供`, mult("x2"), "倍率");
+    return describe(`每一个拼出的${pair}提供`, mult("x2.5"), "倍率");
   },
   buildPostLetterStep(ctx) {
     const pair = ctx.treasureRun?.bigramTargetPair;
@@ -24,7 +26,7 @@ export const treasureHooks = {
     const hits = countBigramOccurrencesInWord(word, pair);
     if (hits <= 0) return null;
     let m = 1;
-    for (let i = 0; i < hits; i += 1) m *= 2;
+    for (let i = 0; i < hits; i += 1) m *= BIGRAM_MULT;
     return { multMul: m };
   },
   getPerLetterMultCue(ctx, _part, letterIndex) {
@@ -33,7 +35,7 @@ export const treasureHooks = {
     if (!pair || pair.length !== 2 || letterIndex < 1) return null;
     const i = letterIndex;
     if (word[i - 1] === pair[0] && word[i] === pair[1]) {
-      return { delta: 2, label: "x2" };
+      return { delta: BIGRAM_MULT, label: "×2.5" };
     }
     return null;
   },

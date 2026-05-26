@@ -48,18 +48,22 @@
             <div class="about-panel about-panel--game">
               <article class="about-game-card">
                 <header class="about-game-header">
-                  <p class="about-game-name">Word Master</p>
+                  <div class="about-game-title-row">
+                    <p class="about-game-name">Word Master</p>
+                    <span class="about-game-version">{{ APP_VERSION }}</span>
+                  </div>
                   <p class="about-game-intro">
                     一款使用Vibe Coding制作的、类小丑牌的拼单词游戏。
                   </p>
                 </header>
-                <footer class="about-game-meta">
-                  <span class="about-game-version">{{ APP_VERSION }}</span>
-                  <template v-if="showGameStudio">
-                    <span class="about-game-meta-divider" aria-hidden="true" />
-                    <span class="about-game-studio">时移游戏</span>
-                  </template>
+                <footer v-if="showGameStudio" class="about-game-meta">
+                  <span class="about-game-studio">时移游戏</span>
                 </footer>
+                <TapTapPromoIcon
+                  v-if="showTapTapWebPromo"
+                  in-about
+                  @open-poster="openTapTapPoster"
+                />
               </article>
             </div>
           </section>
@@ -183,8 +187,10 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onUnmounted, ref, watch } from "vue";
+import { computed, inject, nextTick, onUnmounted, ref, watch } from "vue";
 import { APP_CHANGELOG, APP_VERSION } from "../appVersion.js";
+import TapTapPromoIcon from "./TapTapPromoIcon.vue";
+import { isTapTapWebPromoEnabled } from "../taptap/tapTapWebPromo.js";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -195,6 +201,10 @@ defineEmits(["close"]);
 /** 仅在 Capacitor 原生 App 内展示工作室名称 */
 const showGameStudio =
   typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.() === true;
+
+const showTapTapWebPromo = isTapTapWebPromoEnabled();
+/** @type {() => void} */
+const openTapTapPoster = inject("openTapTapPoster", () => {});
 
 const ABOUT_SECTIONS = [
   { id: "game", label: "关于本游戏" },
@@ -671,6 +681,7 @@ function splitSummary(summary) {
 }
 
 .about-game-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: calc(16 * var(--rpx));
@@ -687,8 +698,17 @@ function splitSummary(summary) {
   gap: calc(10 * var(--rpx));
 }
 
+.about-game-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(12 * var(--rpx));
+}
+
 .about-game-name {
   margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: calc(30 * var(--rpx));
   font-weight: 800;
   line-height: 1.2;
@@ -717,6 +737,7 @@ function splitSummary(summary) {
 .about-game-version {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
   padding: calc(5 * var(--rpx)) calc(12 * var(--rpx));
   font-size: calc(18 * var(--rpx));
   font-weight: 800;

@@ -33,7 +33,14 @@ body {
 	color: var(--text);
 }
 
+#app {
+	width: 100%;
+	height: 100%;
+	min-height: 100dvh;
+}
+
 .game-wrap {
+	position: relative;
 	width: 100%;
 	height: 100%;
 	min-height: 100dvh;
@@ -51,6 +58,14 @@ body {
 	height: var(--logic-h);
 	flex-shrink: 0;
 	/* 默认 100% 时 contain 已适配视口；>100% 时允许超出边以避开异形屏遮挡 */
+}
+
+/* 界面缩放 >100%：逻辑框大于视口时用视口中心锚定，上下/左右对称裁切 */
+html.ui-scale-overflows-viewport .game-scaler {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
 }
 
 .game-container {
@@ -131,6 +146,13 @@ html.platform-native .game-scaler {
 	flex-shrink: 0;
 	max-width: none;
 	max-height: none;
+}
+
+html.platform-native.ui-scale-overflows-viewport .game-scaler {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
 }
 
 /*

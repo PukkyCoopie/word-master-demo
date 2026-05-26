@@ -1,6 +1,6 @@
 import { isBossTileDebuffed } from "../../game/bossTileDebuff.js";
 import { describe, score } from "../treasureDescription.js";
-import { addScoreAddBank, getScoreAddBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { getScoreAddBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 import { normalizeLetterChar } from "../treasureLifecycleShared.js";
 import { ensureTreasureBank } from "../treasureRunState.js";
 
@@ -33,15 +33,12 @@ export default {
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   ...patchCurrentBankDescription(ID, "scoreAdd"),
+  perLetterScoreCueDepositsTreasureBank: true,
   buildPostLetterStep(ctx) {
-    const rs = ctx.treasureRun;
-    const bCount = countFirstPassBLetters(ctx);
-    if (bCount > 0) addScoreAddBank(rs, ID, SCORE_PER_B * bCount);
-    const v = getScoreAddBank(rs, ID);
-    return v !== 0 ? { scoreAdd: v } : null;
+    const add = countFirstPassBLetters(ctx) * SCORE_PER_B;
+    return add > 0 ? { scoreAdd: add } : null;
   },
   getPerLetterScoreCue(ctx, part) {
-    // 仅在该字母首轮计分时展示 +8；入账在 `buildPostLetterStep`，与字后「提供分数」同步。
     const visit = Math.max(0, Math.floor(Number(ctx?.scoringVisitIndex) || 0));
     if (visit > 0) return null;
     if (normalizeLetterChar(part?.letter) !== "b") return null;

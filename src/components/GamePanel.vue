@@ -8377,13 +8377,19 @@ async function runSlotPerLetterTreasureScoreStep(
 ) {
   const tid = String(effectiveTreasureId ?? "");
   if (!tid || !slotEl) return false;
+  const hooks = TREASURE_HOOKS_BY_ID.get(tid);
   const ctx = {
     ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null),
     treasureRun: treasureRunState.value,
     scoringVisitIndex,
   };
-  const cue = TREASURE_HOOKS_BY_ID.get(tid)?.getPerLetterScoreCue?.(ctx, part, letterIndex);
+  const cue = hooks?.getPerLetterScoreCue?.(ctx, part, letterIndex);
   if (!cue?.delta) return false;
+  if (hooks?.perLetterScoreCueDepositsTreasureBank) {
+    addScoreAddBank(treasureRunState.value, tid, cue.delta);
+    await playTreasureSlotScoreBurstAtPeak(treasureSlotIndex, cue.delta);
+    return true;
+  }
   return runLetterTreasureScoreBurst(
     slotEl,
     treasureSlotIndex,
@@ -9554,6 +9560,13 @@ async function onRemoveClick() {
     return;
   }
 
+  for (const el of removeGridLeaveEls) clearGridTileGsapAfterDrop(el);
+  for (const slotEl of slotTileEls) {
+    gsap.killTweensOf(slotEl);
+    const ph = slotEl.querySelector(".word-slot-placeholder");
+    if (ph) ph.classList.remove("word-slot-placeholder--shell");
+  }
+
   recordLettersDiscarded(runMatchStats.value, nSel);
 
   treasureRunState.value.levelDiscardsUsed = true;
@@ -9566,39 +9579,50 @@ async function onRemoveClick() {
   recordTreasureDiscardWord(treasureRunState.value, discardedLettersForHooks, (w) =>
     getWordDefinition(w),
   );
-  await notifyOwnedTreasuresOnDiscardBatch(ownedSlotTreasureIdList(), {
-    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
-    discardedLetters: discardedLettersForHooks,
-    letterCount: nSel,
-    treasureRun: treasureRunState.value,
-    rng: runRandom,
-    discardPotteryFxHandled,
-    resolveDiscardedWord: (w) => getWordDefinition(w),
-    bumpWordLengthLevel: (len) => {
-      noteTreasureRunUpgradeUsed(treasureRunState.value);
-      bumpWordLengthLevel(len, {
-        observatoryBoost: isLengthObservatoryBoosted(
-          ownedVoucherIds.value,
-          len,
-          spellCountsByLength.value,
-        ),
-      });
-    },
-    addMoney: (amount) => {
-      money.value += Math.max(0, Math.floor(Number(amount) || 0));
-    },
-    playOwnedTreasureMoneyFx,
-    playOwnedTreasureMultDeltaFx,
-    playOwnedTreasureScoreDeltaFx,
-    playOwnedTreasureBubbleFx,
-    wobbleOwnedTreasureById,
-    findOwnedTreasureSlotIndex,
-  });
+
+  /** 与提交一致：补牌下落与宝藏 onDiscardBatch（扫帚 +$ 等）并行，避免格内闪一下 */
+  const dropPromise = (async () => {
+    await nextTick();
+    try {
+      await runGridDropAnimation(prevFlip);
+    } finally {
+      tryCeruleanBellFlyInAfterGridStable();
+    }
+  })();
+
+  await Promise.all([
+    dropPromise,
+    notifyOwnedTreasuresOnDiscardBatch(ownedSlotTreasureIdList(), {
+      ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+      discardedLetters: discardedLettersForHooks,
+      letterCount: nSel,
+      treasureRun: treasureRunState.value,
+      rng: runRandom,
+      discardPotteryFxHandled,
+      resolveDiscardedWord: (w) => getWordDefinition(w),
+      bumpWordLengthLevel: (len) => {
+        noteTreasureRunUpgradeUsed(treasureRunState.value);
+        bumpWordLengthLevel(len, {
+          observatoryBoost: isLengthObservatoryBoosted(
+            ownedVoucherIds.value,
+            len,
+            spellCountsByLength.value,
+          ),
+        });
+      },
+      addMoney: (amount) => {
+        money.value += Math.max(0, Math.floor(Number(amount) || 0));
+      },
+      playOwnedTreasureMoneyFx,
+      playOwnedTreasureMultDeltaFx,
+      playOwnedTreasureScoreDeltaFx,
+      playOwnedTreasureBubbleFx,
+      wobbleOwnedTreasureById,
+      findOwnedTreasureSlotIndex,
+    }),
+  ]);
   noteDiscardExhaustedForChapterUnlock();
 
-  await nextTick();
-  await runGridDropAnimation(prevFlip);
-  tryCeruleanBellFlyInAfterGridStable();
   gridRefillAnimating.value = false;
   nextTick(() => updateSlotPositions(true));
 }

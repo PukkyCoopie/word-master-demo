@@ -53,6 +53,19 @@
       <SettingsLayer :open="showSettings" @close="closeSettings" />
       <AboutLayer :open="showAbout" @close="closeAbout" />
     </Teleport>
+    <Teleport to="body">
+      <TapTapPromoIcon
+        v-if="showTapTapDesktopPromo"
+        desktop
+        viewport-fixed
+        @open-poster="openTapTapPoster"
+      />
+      <TapTapPosterLayer
+        v-if="tapTapWebPromoEnabled"
+        :open="showTapTapPoster"
+        @close="showTapTapPoster = false"
+      />
+    </Teleport>
   </div>
 </template>
 
@@ -72,8 +85,13 @@ import IrisTransition from "./components/IrisTransition.vue";
 import { coerceRunSeedNumeric } from "./game/runRng.js";
 import { isE2eMode } from "./e2e/isE2eMode.js";
 import { registerAppTestHarness } from "./e2e/registerAppTestHarness.js";
+import TapTapPromoIcon from "./components/TapTapPromoIcon.vue";
+import TapTapPosterLayer from "./components/TapTapPosterLayer.vue";
+import { isTapTapWebPromoEnabled } from "./taptap/tapTapWebPromo.js";
+import { useWebLayoutMode } from "./composables/useWebLayoutMode.js";
 
 useScale();
+const { isDesktopLayout } = useWebLayoutMode();
 usePortalFrameSync();
 const { loadDictionary, dictionaryReady, loading: dictLoading, error: dictError, loadProgress } = useDictionary();
 const { remixIconReady, loadRemixIconFont } = useRemixIconFont();
@@ -93,6 +111,12 @@ const runStartPrefillSeed = ref("");
 const IRIS_COLOR = "#5a8fb8";
 const irisFxRef = ref(null);
 const transitionBusy = ref(false);
+const showTapTapPoster = ref(false);
+const tapTapWebPromoEnabled = isTapTapWebPromoEnabled();
+
+const showTapTapDesktopPromo = computed(
+  () => tapTapWebPromoEnabled && isDesktopLayout.value,
+);
 
 provide("irisTransition", {
   play: (opts) => irisFxRef.value?.play(opts),
@@ -127,6 +151,12 @@ function closeAbout() {
 
 provide("openSettings", openSettings);
 provide("closeSettings", closeSettings);
+
+function openTapTapPoster() {
+  showTapTapPoster.value = true;
+}
+
+provide("openTapTapPoster", openTapTapPoster);
 
 const appBootReady = computed(() => dictionaryReady.value && remixIconReady.value);
 const showMenu = computed(() => appBootReady.value && screen.value === "menu");
