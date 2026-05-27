@@ -145,7 +145,7 @@
                     v-if="entry.autoSummary && splitSummary(entry.autoSummary).length"
                     class="about-changelog-auto"
                   >
-                    <summary class="about-changelog-auto-toggle">开发记录</summary>
+                    <summary class="about-changelog-auto-toggle">详细信息</summary>
                     <div class="about-changelog-auto-body">
                       <p
                         v-for="(line, idx) in splitSummary(entry.autoSummary)"
