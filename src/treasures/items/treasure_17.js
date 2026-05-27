@@ -16,6 +16,7 @@ export default {
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   buildPostLetterStep(ctx) {
-    return { multMul: chairTimesMultFromOwnedSlots(ctx.ownedSlotTreasureIds) };
+    const m = chairTimesMultFromOwnedSlots(ctx.ownedSlotTreasureIds);
+    return m > 1 ? { multMul: m } : null;
   },
 };

@@ -35,6 +35,8 @@ export const treasureHooks = {
       if (t._deckCard) stripEnhancementsFromTileOrDeckCard(t._deckCard);
       stripped += 1;
     }
-    if (stripped > 0) await bankMultMulGain(ctx, ID, 1.1, "×0.1");
+    for (let i = 0; i < stripped; i += 1) {
+      await bankMultMulGain(ctx, ID, 0.1, "×0.1");
+    }
   },
 };

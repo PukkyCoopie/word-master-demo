@@ -221,7 +221,7 @@
  * @property {(treasureId: string, delta: number) => Promise<void>} [playOwnedTreasureMultDeltaFx]
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
- * @property {boolean} [discardPotteryFxHandled] 陶罐弃牌动效已在逐字消失中结算（避免 onDiscardBatch 重复入银行）
+ * @property {boolean} [discardPotteryFxHandled] 陶罐/垃圾桶等逐字弃牌动效已在消失动画中结算（避免 onDiscardBatch 重复入银行或播 FX）
  */
 
 /**

@@ -1,5 +1,7 @@
 import { describe, mult } from "../treasureDescription.js";
-import { getMultMulBank, multiplyMultMulBank, patchCurrentBankDescription, playBankMultMulGainFx } from "../treasureBankHelpers.js";
+import { addMultMulBank, getMultMulBank, patchCurrentBankDescription, playBankMultMulGainFx } from "../treasureBankHelpers.js";
+
+const VOWEL_REMOVED_MULT_INCREMENT = 0.5;
 
 const ID = "113";
 
@@ -21,7 +23,7 @@ export const treasureHooks = {
   async onDeckCardsRemoved(ctx) {
     const n = Math.max(0, Math.floor(Number(ctx.vowelsRemoved) || 0));
     if (n <= 0 || !ctx.treasureRun) return;
-    for (let i = 0; i < n; i += 1) multiplyMultMulBank(ctx.treasureRun, ID, 1.5);
+    for (let i = 0; i < n; i += 1) addMultMulBank(ctx.treasureRun, ID, VOWEL_REMOVED_MULT_INCREMENT);
     await playBankMultMulGainFx(ctx, ID, "×0.5");
   },
 };

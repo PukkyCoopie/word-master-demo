@@ -1,5 +1,7 @@
 import { describe, mult } from "../treasureDescription.js";
-import { getMultMulBank, multiplyMultMulBank, patchCurrentBankDescription, playBankMultMulGainFx } from "../treasureBankHelpers.js";
+import { addMultMulBank, getMultMulBank, patchCurrentBankDescription, playBankMultMulGainFx } from "../treasureBankHelpers.js";
+
+const DISCARD_26_MULT_INCREMENT = 1;
 
 const ID = "115";
 const LETTERS_PER_STEP = 26;
@@ -29,7 +31,7 @@ export const treasureHooks = {
     const stepsAfter = Math.floor((before + n) / LETTERS_PER_STEP);
     const delta = stepsAfter - stepsBefore;
     if (delta <= 0) return;
-    for (let i = 0; i < delta; i += 1) multiplyMultMulBank(rs, ID, 2);
+    for (let i = 0; i < delta; i += 1) addMultMulBank(rs, ID, DISCARD_26_MULT_INCREMENT);
     await playBankMultMulGainFx(ctx, ID, "×1");
   },
 };

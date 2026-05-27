@@ -19,6 +19,18 @@ import {
 /** 拼词中公式区预览用 `useScoring` 的 `computeWordScore`（无宝藏）；提交结算用 `computeWordScoreDetailedForSubmit`（棋盘光环类材质倍率由 `gridOnlyMaterialScoring.js` 的 `buildGridPresencePostLetterSteps` 提供字后乘法步；冰为入词格 ×2）。 */
 
 /**
+ * 累计乘法倍率银行仍为 ×1、且无其它增益时，不计入字后步（避免计分 wobble 显示 ×1）。
+ * @param {{ multAdd?: number, scoreAdd?: number, multMul?: number, moneyAdd?: number }} step
+ */
+function isNoOpPostLetterTreasureStep(step) {
+  const multMul = Number(step.multMul) || 0;
+  const multAdd = Number(step.multAdd) || 0;
+  const scoreAdd = Number(step.scoreAdd) || 0;
+  const moneyAdd = Number(step.moneyAdd) || 0;
+  return multMul <= 1 && multAdd <= 0 && scoreAdd <= 0 && moneyAdd <= 0;
+}
+
+/**
  * 所有字母结算完成后再触发的宝藏：按槽位从左到右，每槽先宝藏字后步（含蓝图复制）再该槽配饰。
  * @param {Array} tiles
  * @param {(string | null | undefined)[]} ownedSlotTreasureIds
@@ -109,7 +121,9 @@ function buildPostLetterTreasureSteps(
     }
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     const step = hooks?.buildPostLetterStep?.(hookCtxBase);
-    if (step) steps.push({ treasureId: tid, slotIndex: si, ...step });
+    if (step && !isNoOpPostLetterTreasureStep(step)) {
+      steps.push({ treasureId: tid, slotIndex: si, ...step });
+    }
     lastSlotIndex = si;
   }
   if (lastSlotIndex >= 0) {
@@ -342,7 +356,9 @@ export function computeWordScoreDetailedForSubmit(
   for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(slots)) {
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     const step = hooks?.buildPostLetterReplayStep?.(replayCtx);
-    if (step) postLetterTreasureSteps.push({ treasureId: tid, slotIndex: si, ...step });
+    if (step && !isNoOpPostLetterTreasureStep(step)) {
+      postLetterTreasureSteps.push({ treasureId: tid, slotIndex: si, ...step });
+    }
   }
 
   const { flatScoreAdd: perLetterTreasureFlatScoreAdd, flatMultAdd: perLetterTreasureFlatMultAdd } =

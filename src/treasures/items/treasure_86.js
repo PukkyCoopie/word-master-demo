@@ -18,7 +18,7 @@ export const treasureHooks = {
     return m > 1 ? { multMul: m } : null;
   },
   async onLevelEnter(ctx) {
-    await bankMultMulGain(ctx, ID, 1.5, "×0.5");
+    await bankMultMulGain(ctx, ID, 0.5, "×0.5");
     const rng = ctx.rng ?? Math.random;
     const owned = ctx.ownedSlotTreasureIds ?? [];
     const candidates = [];

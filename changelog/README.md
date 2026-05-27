@@ -16,7 +16,7 @@
 
 ## 日常 commit 时会发生什么
 
-1. **pre-commit**（`commit-msg` 也会补跑）：把本次 **commit 说明** 追加到最新版本 md 的 **自动区**（`<!-- changelog:auto -->` 之后）；**手写区**不会被覆盖。若无手写内容则 `show: false`（仅存档）；若已有手写则保留原有 `show` 设置。
+1. **pre-commit**（`commit-msg` 也会补跑）：把本次 **commit 说明** 追加到最新版本 md 的 **自动区**（`<!-- changelog:auto -->` 之后），并将 frontmatter 的 **`date` 更新为当天（本地日期）**；**手写区**不会被覆盖。若无手写内容则 `show: false`（仅存档）；若已有手写则保留原有 `show` 设置。
 2. **post-commit**：按最大版本 +1（或 minor/major）新建下一版空 md，并同步 `appVersion.json` / `package.json`（amend 时带 `SKIP_VERSION_BUMP`，避免连环升版）。
 
 要让玩家在游戏里看到某版说明：在该版本 md 里写好正文，并设 `show: true`。

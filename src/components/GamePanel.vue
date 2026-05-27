@@ -755,8 +755,9 @@ import {
   letterInCurrentDiscardGroup,
   resetTreasureLevelScopedState,
 } from "../treasures/treasureRunState.js";
-import { addScoreAddBank } from "../treasures/treasureBankHelpers.js";
+import { addMultMulBank, addScoreAddBank } from "../treasures/treasureBankHelpers.js";
 import { TREASURE_65_ID } from "../treasures/items/treasure_65.js";
+import { TREASURE_99_ID } from "../treasures/items/treasure_99.js";
 import { parseChapterFromLevelId } from "../treasures/treasureLifecycleShared.js";
 import { ensureBigramTargetPair, rollRandomBigramFromDictionary } from "../game/treasureBigramRoll.js";
 import { iterTreasureHookContributions } from "../game/treasureBlueprintMirror.js";
@@ -2812,9 +2813,9 @@ function removeDeckLettersByRawsWithTreasureNotify(raws) {
  * @param {{ raw: string, materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null }[]} entries
  */
 function appendShopDeckEntriesAndNotify(entries) {
-  const n = Array.isArray(entries) ? entries.length : 0;
-  if (!n) return;
-  appendShopDeckEntries(entries);
+  const created = appendShopDeckEntries(entries);
+  const n = created.length;
+  if (!n) return created;
   void notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIdList(), {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     treasureRun: treasureRunState.value,
@@ -2822,6 +2823,21 @@ function appendShopDeckEntriesAndNotify(entries) {
     wobbleOwnedTreasureById,
     playOwnedTreasureBubbleFx,
   });
+  return created;
+}
+
+/** @param {Parameters<typeof appendDeckCardSpecToInitialSnapshot>[0]} spec */
+function appendDeckCardSpecToInitialSnapshotAndNotify(spec) {
+  const card = appendDeckCardSpecToInitialSnapshot(spec);
+  if (!card) return card;
+  void notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIdList(), {
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    treasureRun: treasureRunState.value,
+    count: 1,
+    wobbleOwnedTreasureById,
+    playOwnedTreasureBubbleFx,
+  });
+  return card;
 }
 
 /** @param {number} [maxCount] */
@@ -2895,7 +2911,7 @@ async function resetLevelAfterTreasurePrep(levelDef) {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     treasureRun: treasureRunState.value,
     rng: runRandom,
-    appendDeckCardSpecToInitialSnapshot,
+    appendDeckCardSpecToInitialSnapshot: appendDeckCardSpecToInitialSnapshotAndNotify,
   });
   const opts = buildLevelResetRunOpts(levelDef);
   const forced = treasureRunState.value.jokerForcedDrawUid;
@@ -3721,39 +3737,59 @@ function animateOneDiscardTileLeave(slotEl, gridEl, duration) {
 }
 
 /**
- * 弃牌消失：无陶罐结算时批量播；有陶罐则逐字与 tile 同步 wobble+气泡，并略推迟下一字。
+ * 弃牌消失：无逐字宝藏结算时批量播；陶罐/垃圾桶等则逐字与 tile 同步 wobble+气泡，并略推迟下一字。
  * @param {HTMLElement[]} slotEls
  * @param {HTMLElement[]} gridEls
  * @param {{ letter?: string }[]} discardedLetters
  * @param {{ duration?: number, stagger?: number }} [options]
- * @returns {Promise<boolean>} 是否已在动画中处理陶罐（调用方勿在 onDiscardBatch 重复入银行）
+ * @returns {Promise<boolean>} 逐字弃牌动效已结算（调用方勿在 onDiscardBatch 重复入银行/播 FX）
  */
 async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, options = {}) {
   const duration = Number.isFinite(options.duration) ? options.duration : REMOVE_SLOT_FADE_DURATION;
   const stagger = Number.isFinite(options.stagger) ? options.stagger : REMOVE_SLOT_STAGGER;
   const rs = treasureRunState.value;
   const potterySlotIx = findOwnedTreasureSlotIndex(TREASURE_65_ID);
+  const trashSlotIx = findOwnedTreasureSlotIndex(TREASURE_99_ID);
   /** @type {number[]} */
   const potteryIndices = [];
+  /** @type {number[]} */
+  const trashIndices = [];
   if (potterySlotIx >= 0) {
     for (let i = 0; i < discardedLetters.length; i++) {
       if (letterInCurrentDiscardGroup(discardedLetters[i]?.letter, rs)) potteryIndices.push(i);
     }
   }
-  if (!potteryIndices.length) {
+  if (trashSlotIx >= 0) {
+    for (let i = 0; i < discardedLetters.length; i++) {
+      if (String(discardedLetters[i]?.letter ?? "").toLowerCase() === "e") trashIndices.push(i);
+    }
+  }
+  if (!potteryIndices.length && !trashIndices.length) {
     await runSlotAndGridLeaveAnimation(slotEls, gridEls, { duration, stagger });
     return false;
   }
 
   const scorePerLetter = 3;
+  const trashMultIncrement = 0.25;
+  const trashBubble = "×0.25";
   for (let i = 0; i < slotEls.length; i++) {
     const slotEl = slotEls[i];
     const gridEl = gridEls[i];
     const triggersPottery = potteryIndices.includes(i);
+    const triggersTrash = trashIndices.includes(i);
     const leaveP = animateOneDiscardTileLeave(slotEl, gridEl, duration);
-    if (triggersPottery) {
-      addScoreAddBank(rs, TREASURE_65_ID, scorePerLetter);
-      await Promise.all([leaveP, playTreasureSlotScoreBurstAtPeak(potterySlotIx, scorePerLetter)]);
+    if (triggersPottery || triggersTrash) {
+      /** @type {Promise<void>[]} */
+      const fxPromises = [leaveP];
+      if (triggersPottery) {
+        addScoreAddBank(rs, TREASURE_65_ID, scorePerLetter);
+        fxPromises.push(playTreasureSlotScoreBurstAtPeak(potterySlotIx, scorePerLetter));
+      }
+      if (triggersTrash) {
+        addMultMulBank(rs, TREASURE_99_ID, trashMultIncrement);
+        fxPromises.push(playTreasureSlotBubbleBurstAtPeak(trashSlotIx, trashBubble, "mult"));
+      }
+      await Promise.all(fxPromises);
       if (i < slotEls.length - 1) await sleep(DISCARD_POTTERY_EXTRA_GAP_MS);
     } else {
       await leaveP;
@@ -6483,7 +6519,7 @@ function buildSpellRuntimeContext() {
     removeDeckLetterInstancesByRaws: removeDeckLettersByRawsWithTreasureNotify,
     removeDeckCardsForSubmittedWord,
     removeDeckCardByUid,
-    appendShopDeckEntries,
+    appendShopDeckEntries: appendShopDeckEntriesAndNotify,
     remapTileFromRawLetter,
     money,
     ownedTreasures,

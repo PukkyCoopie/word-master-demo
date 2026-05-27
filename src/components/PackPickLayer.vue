@@ -5,16 +5,14 @@
       class="pack-pick-backdrop portal-overlay-fill"
       :class="{
         'pack-pick-backdrop--boot': enterBoot,
+        'portal-overlay--shop-upgrade-suppressed': overlaySuppressed,
       }"
       :style="backdropStackStyle"
       role="dialog"
       aria-modal="true"
       :aria-labelledby="titleId"
     >
-      <div
-        class="pack-pick-header-panel pack-pick-enter-stagger"
-        :class="{ 'portal-overlay--shop-upgrade-suppressed': overlaySuppressed }"
-      >
+      <div class="pack-pick-header-panel pack-pick-enter-stagger">
         <div class="treasure-detail-header-logo-sizer" aria-hidden="true"></div>
         <div
           class="header-box header-box-split header-box-wallet treasure-detail-wallet"
@@ -31,10 +29,7 @@
 
       <div class="pack-pick-body">
         <div class="pack-pick-stack" :class="{ 'pack-pick-stack--wide': isWideOfferRow }">
-          <div
-            class="pack-pick-title-block pack-pick-enter-stagger"
-            :class="{ 'portal-overlay--shop-upgrade-suppressed': overlaySuppressed }"
-          >
+          <div class="pack-pick-title-block pack-pick-enter-stagger">
             <p class="treasure-detail-kind-caption">{{ kindCaption }}</p>
             <h2 :id="titleId" class="treasure-detail-name">{{ session.title }}</h2>
             <p class="pack-pick-instruction">{{ pickInstruction }}</p>
@@ -42,10 +37,7 @@
 
           <div
             class="pack-pick-offers-panel"
-            :class="{
-              'pack-pick-offers-panel--wide': isWideOfferRow,
-              'portal-overlay--shop-upgrade-suppressed': overlaySuppressed,
-            }"
+            :class="{ 'pack-pick-offers-panel--wide': isWideOfferRow }"
           >
             <div class="pack-pick-grid" role="list" aria-label="包内物品">
               <div

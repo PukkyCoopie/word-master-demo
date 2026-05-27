@@ -1,5 +1,5 @@
 import { describe, mult } from "../treasureDescription.js";
-import { getMultMulBank } from "../treasureBankHelpers.js";
+import { addMultMulBank, getMultMulBank } from "../treasureBankHelpers.js";
 import { ensureTreasureBank } from "../treasureRunState.js";
 
 const ID = "62";
@@ -54,6 +54,6 @@ export const treasureHooks = {
   onDiscardBatch(ctx) {
     const n = Math.max(0, Math.floor(Number(ctx.letterCount) || 0));
     if (n <= 0 || !ctx.treasureRun) return;
-    ensureTreasureBank(ctx.treasureRun, ID).multMul *= 0.99 ** n;
+    addMultMulBank(ctx.treasureRun, ID, -0.01 * n);
   },
 };

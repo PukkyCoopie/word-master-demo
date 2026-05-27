@@ -40,15 +40,17 @@ export function addMultAddBank(runState, treasureId, delta) {
 }
 
 /**
+ * 「获得 xN 倍率」类宝藏：在 1 的基础上累加增量（如 x0.25 → +0.25，银行 1→1.25→1.5）。
+ * 计分时再将银行值作为 {@link buildPostLetterStep} 的 `multMul` 乘入总倍率。
  * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
  * @param {string} treasureId
- * @param {number} factor
+ * @param {number} increment 加法增量（可为负，如磁铁每弃字 -0.01）
  */
-export function multiplyMultMulBank(runState, treasureId, factor) {
+export function addMultMulBank(runState, treasureId, increment) {
   if (!runState) return;
-  const f = Number(factor);
-  if (!Number.isFinite(f) || f <= 0) return;
-  ensureTreasureBank(runState, treasureId).multMul *= f;
+  const d = Number(increment);
+  if (!Number.isFinite(d) || d === 0) return;
+  ensureTreasureBank(runState, treasureId).multMul += d;
 }
 
 /**
@@ -90,19 +92,22 @@ export async function bankScoreAddGain(ctx, treasureId, delta) {
  * @param {string} [bubbleText]
  */
 export async function playBankMultMulGainFx(ctx, treasureId, bubbleText) {
+  if (bubbleText) {
+    await ctx.playOwnedTreasureBubbleFx?.(treasureId, bubbleText, "mult");
+    return;
+  }
   await ctx.wobbleOwnedTreasureById?.(treasureId);
-  if (bubbleText) await ctx.playOwnedTreasureBubbleFx?.(treasureId, bubbleText, "mult");
 }
 
 /**
- * 乘法倍率银行单次累乘 + 动效。
+ * 倍率银行单次累加 + 动效。
  * @param {{ treasureRun?: import('./treasureRunState.js').TreasureRunState, wobbleOwnedTreasureById?: (id: string) => Promise<void>, playOwnedTreasureBubbleFx?: (id: string, text: string, kind?: string) => Promise<void> }} ctx
  * @param {string} treasureId
- * @param {number} factor
+ * @param {number} increment 与 `addMultMulBank` 相同（x0.25 → 0.25）
  * @param {string} [bubbleText]
  */
-export async function bankMultMulGain(ctx, treasureId, factor, bubbleText) {
-  multiplyMultMulBank(ctx.treasureRun, treasureId, factor);
+export async function bankMultMulGain(ctx, treasureId, increment, bubbleText) {
+  addMultMulBank(ctx.treasureRun, treasureId, increment);
   await playBankMultMulGainFx(ctx, treasureId, bubbleText);
 }
 

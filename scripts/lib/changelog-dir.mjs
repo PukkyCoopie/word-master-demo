@@ -9,6 +9,15 @@ export const CHANGELOG_AUTO_MARKER = "<!-- changelog:auto -->";
 
 const VERSION_FILE_RE = /^(\d+)_(\d+)_(\d+)\.md$/i;
 
+/** 本地时区下的 YYYY-MM-DD（pre-commit 写入 date 用） */
+export function changelogTodayDate() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 /** @typedef {{ meta: Record<string, string>, body: string }} ChangelogParsed */
 
 /**

@@ -392,7 +392,10 @@ function onThumbPointerMove(event) {
   const { maxThumbTop, scrollRange, startScrollTop } = thumbDragState;
   if (maxThumbTop <= 0) return;
 
-  const nextScrollTop = startScrollTop + (deltaY / maxThumbTop) * scrollRange;
+  const nextScrollTop = Math.max(
+    0,
+    Math.min(scrollRange, startScrollTop + (deltaY / maxThumbTop) * scrollRange),
+  );
   scrollBodyRef.value.scrollTop = nextScrollTop;
 
   const ratio = scrollRange > 0 ? nextScrollTop / scrollRange : 0;

@@ -1,8 +1,10 @@
 import { describe, mult } from "../treasureDescription.js";
-import { getMultMulBank, multiplyMultMulBank, patchCurrentBankDescription, playBankMultMulGainFx } from "../treasureBankHelpers.js";
+import { addMultMulBank, getMultMulBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 import { ensureTreasureBank } from "../treasureRunState.js";
 
-const ID = "99";
+export const TREASURE_99_ID = "99";
+const ID = TREASURE_99_ID;
+const TRASH_CAN_E_MULT_INCREMENT = 0.25;
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
@@ -22,16 +24,13 @@ export const treasureHooks = {
     if (!ctx.treasureRun) return;
     ensureTreasureBank(ctx.treasureRun, ID).multMul = 1;
   },
-  async onDiscardBatch(ctx) {
+  onDiscardBatch(ctx) {
+    if (ctx.discardPotteryFxHandled) return;
     const rs = ctx.treasureRun;
     if (!rs) return;
-    let n = 0;
     for (const p of ctx.discardedLetters ?? []) {
       const ch = String(p?.letter ?? "").toLowerCase();
-      if (ch === "e") n += 1;
+      if (ch === "e") addMultMulBank(rs, ID, TRASH_CAN_E_MULT_INCREMENT);
     }
-    if (n <= 0) return;
-    for (let i = 0; i < n; i += 1) multiplyMultMulBank(rs, ID, 1.25);
-    await playBankMultMulGainFx(ctx, ID, "×0.25");
   },
 };

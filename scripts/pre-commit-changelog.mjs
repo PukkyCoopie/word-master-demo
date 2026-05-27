@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Git pre-commit / commit-msg：将提交说明追加到最新版本 md 的「自动区」；
- * 玩家手写区不变。无手写时仅写自动区且 show: false。
+ * 玩家手写区不变；每次写入时 date 为当天。无手写时仅写自动区且 show: false。
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -10,6 +10,7 @@ import { REPO_ROOT } from "./lib/app-version-files.mjs";
 import {
   CHANGELOG_DIR_NAME,
   appendAutoChangelogLine,
+  changelogTodayDate,
   getLatestChangelogFilePath,
   isUserWrittenChangelogBody,
   joinChangelogBody,
@@ -73,7 +74,7 @@ function main() {
   }
 
   const nextBody = joinChangelogBody(user, nextAuto);
-  const date = meta.date?.trim() || new Date().toISOString().slice(0, 10);
+  const date = changelogTodayDate();
   const next = serializeChangelogMarkdown(
     {
       ...meta,

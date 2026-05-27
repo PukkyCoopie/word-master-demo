@@ -19,6 +19,6 @@ export const treasureHooks = {
     return m > 1 ? { multMul: m } : null;
   },
   async onIceMaterialBreak(ctx) {
-    await bankMultMulGain(ctx, ID, 1.75, "×0.75");
+    await bankMultMulGain(ctx, ID, 0.75, "×0.75");
   },
 };
