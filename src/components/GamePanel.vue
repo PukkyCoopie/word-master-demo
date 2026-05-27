@@ -145,9 +145,20 @@
       :spell-replay-target-spell-id="lastReplayableSpellId"
       :rarity-levels-by-rarity="rarityLevelsByRarity"
       :probability-display-doubled="treasureProbabilityDisplayDoubled"
-      @close="treasureDetail = null"
+      @close="onTreasureDetailClose"
       @purchase="onTreasurePurchase"
       @sell="onTreasureSell"
+      @open-spell-replay-target-preview="onOpenSpellReplayTargetPreview"
+    />
+    <TreasureDetailLayer
+      v-if="spellReferencePreview"
+      :overlay-suppressed="shopOverlayLayersSuppressed"
+      :treasure="spellReferencePreview"
+      mode="spell-reference"
+      :owned-voucher-ids="ownedVoucherIds"
+      :rarity-levels-by-rarity="rarityLevelsByRarity"
+      :probability-display-doubled="treasureProbabilityDisplayDoubled"
+      @close="spellReferencePreview = null"
     />
     <PackPickLayer
       v-if="packPickSession"
@@ -846,6 +857,7 @@ import {
 } from "../spells/spellDefinitions.js";
 import { buildSpellOfferSlotsFromPool } from "../spells/spellOfferSlots.js";
 import { pickDiceChainSpellIds, pickRandomInRunSpellId } from "../spells/spellInRunPool.js";
+import { buildSpellOfferPreviewFromId } from "../spells/spellReplayUi.js";
 import {
   resolveRestartEffectiveSpellId,
   resolveSpellFlowEffectiveId,
@@ -1991,6 +2003,8 @@ function rollShopVisitStock(rng = Math.random) {
 
 /** @type {import('vue').Ref<null | { kind: 'offer', treasure: object, originRect?: object | null } | { kind: 'owned', slotIndex: number, treasure: object, originRect?: object | null }>} */
 const treasureDetail = ref(null);
+/** 重播详情内点击「上一张法术」时叠开的只读法术预览 */
+const spellReferencePreview = ref(/** @type {object | null} */ (null));
 const treasureDetailLayerRef = ref(null);
 const spellTargetLayerRef = ref(null);
 const deckBtnRef = ref(null);
@@ -6889,8 +6903,21 @@ function noteSpellCastForReplay(purchasedSpellId) {
  *   spellName?: string,
  *   spellIconClass?: string,
  *   spellRarity?: string,
+ *   replayAsPurchasedId?: string,
  * }} [overrides]
  */
+function onOpenSpellReplayTargetPreview() {
+  const id = resolveRestartEffectiveSpellId(spellCastHistory.value, lastReplayableSpellId.value);
+  if (!id) return;
+  const offer = buildSpellOfferPreviewFromId(id);
+  if (offer) spellReferencePreview.value = offer;
+}
+
+function onTreasureDetailClose() {
+  treasureDetail.value = null;
+  spellReferencePreview.value = null;
+}
+
 function buildSpellTargetSessionFields(
   purchasedSpellId,
   effectiveSpellId,
@@ -6899,15 +6926,24 @@ function buildSpellTargetSessionFields(
   overrides = {},
 ) {
   const pid = String(purchasedSpellId ?? "");
+  const replayAs = overrides.replayAsPurchasedId ? String(overrides.replayAsPurchasedId) : null;
+  const sessionPurchasedId = replayAs ?? pid;
   const replayTarget = resolveRestartEffectiveSpellId(spellCastHistory.value, lastReplayableSpellId.value);
   const eff =
     pid === "restart"
       ? replayTarget ?? String(effectiveSpellId ?? pid)
       : resolveSpellFlowEffectiveId(pid, lastReplayableSpellId.value, spellCastHistory.value);
-  const def = getSpellDefinition(pid);
-  const pickSourceId = pid === "restart" && replayTarget ? replayTarget : pid;
+  const displaySpellId =
+    replayAs === "restart"
+      ? pid
+      : pid === "restart" && replayTarget
+        ? replayTarget
+        : pid;
+  const displayDef = getSpellDefinition(displaySpellId);
+  const pickSourceId =
+    pid === "restart" && replayTarget ? replayTarget : replayAs === "restart" ? pid : pid;
   let pickMode = resolveSpellPickMode(pickSourceId);
-  let pickCount = resolveSpellPickCount(pid, lastReplayableSpellId.value);
+  let pickCount = resolveSpellPickCount(sessionPurchasedId, lastReplayableSpellId.value);
   if (overrides.forcePreviewOnly === true) {
     pickMode = "preview_only";
     pickCount = 0;
@@ -6920,11 +6956,12 @@ function buildSpellTargetSessionFields(
   const offerSlots = preferRemaining
     ? prepareSpellOfferSlotsFromRemainingDeck(runRandom)
     : prepareSpellOfferSlots(runRandom);
-  const filteredOfferSlots = filterSpellOfferSlotsBySpell(offerSlots, eff);
+  const sessionEffectiveId = replayAs === "restart" ? pid : eff;
+  const filteredOfferSlots = filterSpellOfferSlotsBySpell(offerSlots, sessionEffectiveId);
   return {
-    spellName: overrides.spellName ?? def?.name ?? "法术",
-    spellIconClass: overrides.spellIconClass ?? def?.iconClass ?? "ri-magic-fill",
-    spellDescription: overrides.spellDescription ?? def?.description ?? "",
+    spellName: overrides.spellName ?? displayDef?.name ?? "法术",
+    spellIconClass: overrides.spellIconClass ?? displayDef?.iconClass ?? "ri-magic-fill",
+    spellDescription: overrides.spellDescription ?? displayDef?.description ?? "",
     spellRarity: overrides.spellRarity ?? "rare",
     pickCount,
     pickMode,
@@ -6934,8 +6971,8 @@ function buildSpellTargetSessionFields(
     confirmDisabled: overrides.confirmDisabled === true,
     diceChainSubSpell: overrides.diceChainSubSpell === true,
     skipDisabled: overrides.skipDisabled === true,
-    purchasedSpellId: pid,
-    effectiveSpellId: eff,
+    purchasedSpellId: sessionPurchasedId,
+    effectiveSpellId: sessionEffectiveId,
     getOfferTileSnapshot: preferRemaining
       ? getSpellOfferTileSnapshotForRemainingDeck
       : getSpellOfferTileSnapshotForCell,
@@ -7041,16 +7078,17 @@ async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, 
       spellCastHistory.value,
       lastReplayableSpellId.value,
     );
-    const result = await openSingleSpellPreviewSession(pid, context, offerDeckSource, {
-      ...overrides,
-      confirmDisabled: !replayTarget,
-    });
-    if (!result.confirmed) return result;
-    if (!replayTarget) return result;
+    if (!replayTarget) return { confirmed: false, skipped: true };
+    const { spellDescription, spellName, spellIconClass, spellRarity, ...restartRestOverrides } =
+      overrides;
+    void spellDescription;
+    void spellName;
+    void spellIconClass;
+    void spellRarity;
     return runSpellPreviewChain(replayTarget, context, offerDeckSource, {
-      ...overrides,
+      ...restartRestOverrides,
+      replayAsPurchasedId: "restart",
       forcePreview: true,
-      forcePreviewOnly: true,
     });
   }
 
@@ -7124,19 +7162,6 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
   if (!s) return;
 
   const purchasedId = String(s.purchasedSpellId ?? "");
-  if (purchasedId === "restart") {
-    await dismissSpellTargetLayer({ confirmed: true, skipped: false });
-    const replayTarget = resolveRestartEffectiveSpellId(
-      spellCastHistory.value,
-      lastReplayableSpellId.value,
-    );
-    if (!replayTarget) return;
-    await runSpellPreviewChain(replayTarget, s.context ?? "shop", s.offerDeckSource ?? "fullDeck", {
-      forcePreview: true,
-      forcePreviewOnly: true,
-    });
-    return;
-  }
   if (purchasedId === "dice") {
     await dismissSpellTargetLayer({ confirmed: true, skipped: false });
     return;

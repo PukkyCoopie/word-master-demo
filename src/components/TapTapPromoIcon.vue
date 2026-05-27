@@ -3,10 +3,10 @@
     v-if="inAbout"
     type="button"
     class="taptap-promo-icon-wrap taptap-promo-icon-wrap--in-about"
-    :aria-label="TAP_TAP_PROMO_LABEL"
+    :aria-label="promoLabel"
     @click="$emit('open-poster')"
   >
-    <span class="taptap-promo-about-text">{{ TAP_TAP_PROMO_ABOUT_LEAD }}</span>
+    <span class="taptap-promo-about-text">{{ promoAboutLead }}</span>
     <img
       class="taptap-promo-icon-img taptap-promo-icon-img--in-about"
       :src="TAP_TAP_ICON_SRC"
@@ -14,7 +14,7 @@
       width="48"
       height="48"
     />
-    <span class="taptap-promo-about-text">{{ TAP_TAP_PROMO_ABOUT_TAIL }}</span>
+    <span class="taptap-promo-about-text">{{ promoAboutTail }}</span>
   </button>
   <div
     v-else
@@ -31,12 +31,12 @@
       class="taptap-promo-icon-label"
       aria-hidden="true"
     >
-      {{ TAP_TAP_PROMO_LABEL }}
+      {{ promoLabel }}
     </span>
     <button
       type="button"
       class="taptap-promo-icon-btn"
-      :aria-label="TAP_TAP_PROMO_LABEL"
+      :aria-label="promoLabel"
       @click="$emit('open-poster')"
     >
       <img class="taptap-promo-icon-img" :src="TAP_TAP_ICON_SRC" alt="" width="40" height="40" />
@@ -45,13 +45,18 @@
 </template>
 
 <script setup>
+import { computed } from "vue";
 import {
   TAP_TAP_ICON_SRC,
-  TAP_TAP_PROMO_ABOUT_LEAD,
-  TAP_TAP_PROMO_ABOUT_TAIL,
-  TAP_TAP_PROMO_LABEL,
   TAP_TAP_VIEWPORT_PROMO_Z,
+  getTapTapPromoAboutLead,
+  getTapTapPromoAboutTail,
+  getTapTapPromoLabel,
 } from "../taptap/tapTapWebPromo.js";
+
+const promoLabel = computed(() => getTapTapPromoLabel());
+const promoAboutLead = computed(() => getTapTapPromoAboutLead());
+const promoAboutTail = computed(() => getTapTapPromoAboutTail());
 
 defineProps({
   /** 电脑端：悬停显示 label */

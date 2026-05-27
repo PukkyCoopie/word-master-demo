@@ -3160,6 +3160,56 @@
 	text-align: center;
 }
 
+.treasure-detail-spell-replay-prev-row {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: calc(10 * var(--rpx));
+	margin-top: calc(12 * var(--rpx));
+	text-align: left;
+}
+
+.treasure-detail-spell-replay-prev-label {
+	font-size: calc(26 * var(--rpx));
+	line-height: 1.35;
+	color: rgba(255, 255, 255, 0.82);
+	flex-shrink: 0;
+}
+
+.treasure-detail-spell-replay-prev-hit {
+	display: inline-flex;
+	align-items: center;
+	gap: calc(12 * var(--rpx));
+	margin: 0;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+	text-align: left;
+}
+
+.treasure-detail-spell-replay-prev-hit:focus-visible {
+	outline: calc(2 * var(--rpx)) solid rgba(255, 255, 255, 0.45);
+	outline-offset: calc(2 * var(--rpx));
+	border-radius: calc(6 * var(--rpx));
+}
+
+.treasure-detail-spell-replay-prev-name {
+	font-size: calc(28 * var(--rpx));
+	font-weight: 700;
+	line-height: 1.25;
+	color: rgba(255, 255, 255, 0.95);
+}
+
+.treasure-detail-spell-replay-prev-hit .shop-spell-shelf-cell.shop-treasure-product {
+	flex: 0 0 auto;
+	width: var(--shop-shelf-cell-size);
+	max-width: var(--shop-shelf-cell-size);
+}
+
 /* 主简介下方的「配饰」分区（与 TileDetailLayer 多卡片结构一致） */
 .treasure-detail-extra-regions {
 	width: 100%;

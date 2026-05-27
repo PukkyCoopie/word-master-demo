@@ -21,7 +21,7 @@
       <button
         type="button"
         class="taptap-poster-layer-poster-btn"
-        :aria-label="TAP_TAP_PROMO_LABEL"
+        :aria-label="promoLabel"
         @click.stop="onPosterClick"
       >
         <img
@@ -36,12 +36,15 @@
 </template>
 
 <script setup>
+import { computed } from "vue";
 import {
+  getTapTapPromoLabel,
   openTapTapAppPage,
   TAP_TAP_POSTER_LAYER_Z,
   TAP_TAP_POSTER_SRC,
-  TAP_TAP_PROMO_LABEL,
 } from "../taptap/tapTapWebPromo.js";
+
+const promoLabel = computed(() => getTapTapPromoLabel());
 
 defineProps({
   open: { type: Boolean, default: false },

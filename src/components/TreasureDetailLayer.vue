@@ -264,6 +264,26 @@
                 polish-treasure-copy
                 :probability-display-doubled="probabilityDisplayDoubled"
               />
+              <div
+                v-if="showSpellReplayTargetRow"
+                class="treasure-detail-spell-replay-prev-row"
+              >
+                <span class="treasure-detail-spell-replay-prev-label">上一张法术：</span>
+                <button
+                  type="button"
+                  class="treasure-detail-spell-replay-prev-hit"
+                  :aria-label="`预览上一张法术 ${spellReplayTargetName}`"
+                  @click="emit('openSpellReplayTargetPreview')"
+                >
+                  <ShopSpellShelfCell
+                    :icon-class="spellReplayTargetIconClass"
+                    :price="spellReplayTargetPrice"
+                    price-struck
+                    :owned-voucher-ids="ownedVoucherIds"
+                  />
+                  <span class="treasure-detail-spell-replay-prev-name">{{ spellReplayTargetName }}</span>
+                </button>
+              </div>
             </template>
           </div>
 
@@ -628,6 +648,8 @@ import {
 } from "../game/gameConceptCopy.js";
 import { resolveTreasureDetailGainPanel } from "../treasures/treasureRegistry.js";
 import { getSpellGainPanel } from "../spells/spellGainPanel.js";
+import { getSpellDefinition, getSpellShopPrice } from "../spells/spellDefinitions.js";
+import ShopSpellShelfCell from "./ShopSpellShelfCell.vue";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
 import LetterTile from "./LetterTile.vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
@@ -855,6 +877,27 @@ const isPackRarityUpgrade = computed(
 
 const isSpellOffer = computed(() => props.treasure?.offerType === "spell");
 
+const isRestartSpellOffer = computed(
+  () => isSpellOffer.value && String(props.treasure?.spellId ?? "") === "restart",
+);
+
+const showSpellReplayTargetRow = computed(
+  () => isRestartSpellOffer.value && Boolean(String(props.spellReplayTargetSpellId ?? "").trim()),
+);
+
+const spellReplayTargetDef = computed(() => {
+  const id = String(props.spellReplayTargetSpellId ?? "").trim();
+  return id ? getSpellDefinition(id) : null;
+});
+
+const spellReplayTargetName = computed(() => spellReplayTargetDef.value?.name ?? "");
+const spellReplayTargetIconClass = computed(
+  () => spellReplayTargetDef.value?.iconClass ?? "ri-magic-fill",
+);
+const spellReplayTargetPrice = computed(() =>
+  spellReplayTargetDef.value ? getSpellShopPrice(spellReplayTargetDef.value) : 0,
+);
+
 const isBundlePack = computed(() => props.treasure?.offerType === "bundlePack");
 
 const isVoucherOffer = computed(() => props.treasure?.offerType === "voucher");
@@ -1007,7 +1050,7 @@ onBeforeUpdate(() => {
   descriptionConceptPanelRefs.length = 0;
 });
 
-const emit = defineEmits(["close", "purchase", "sell"]);
+const emit = defineEmits(["close", "purchase", "sell", "openSpellReplayTargetPreview"]);
 
 const titleId = useId();
 const backdropRef = ref(null);
