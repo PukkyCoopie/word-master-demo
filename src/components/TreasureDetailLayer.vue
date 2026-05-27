@@ -58,13 +58,7 @@
                     ref="detailFlyFrameRef"
                     variant="grid"
                     class="shop-shelf-letter-tile shop-shelf-letter-tile--detail"
-                    :letter="deckOfferLetter"
-                    :rarity="treasure.letterRarity ?? treasure.rarity ?? 'common'"
-                    :material-id="treasure.offerType === 'deckTile' ? treasure.deckTileMaterialId : undefined"
-                    :accessory-id="deckOfferAccessoryId"
-                    :treasure-accessory-id="deckOfferTreasureAccessoryId"
-                    :tile-score-bonus="0"
-                    :tile-mult-bonus="0"
+                    v-bind="deckOfferLetterTileBind"
                   />
                   <div
                     class="shop-treasure-price"
@@ -513,13 +507,7 @@
           v-if="isDeckOffer"
           variant="grid"
           class="shop-shelf-letter-tile"
-          :letter="deckOfferLetter"
-          :rarity="treasure.letterRarity ?? treasure.rarity ?? 'common'"
-          :material-id="treasure.offerType === 'deckTile' ? treasure.deckTileMaterialId : undefined"
-          :accessory-id="deckOfferAccessoryId"
-          :treasure-accessory-id="deckOfferTreasureAccessoryId"
-          :tile-score-bonus="0"
-          :tile-mult-bonus="0"
+          v-bind="deckOfferLetterTileBind"
         />
         <div
           v-else
@@ -667,6 +655,7 @@ import {
   getTileDetailAccessoryTitle,
 } from "../game/tileDetailLayerCopy.js";
 import { formatCompactOneDecimal, formatWalletInteger, isSingleDigitLabel } from "./detailLayerFormatters.js";
+import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
 
 const props = defineProps({
   treasure: { type: Object, required: true },
@@ -716,6 +705,28 @@ const showHeaderWallet = computed(
 const isDeckOffer = computed(
   () => props.treasure?.offerType === "deckLetter" || props.treasure?.offerType === "deckTile",
 );
+
+const deckOfferLetterTileBind = computed(() => {
+  const p = buildPackDeckOfferLetterTileProps(props.treasure);
+  if (!p) {
+    const raw = String(props.treasure?.deckLetterRaw ?? "a").toLowerCase();
+    return {
+      letter: raw === "q" ? "Qu" : raw.toUpperCase(),
+      rarity: props.treasure?.letterRarity ?? props.treasure?.rarity ?? "common",
+      tileScoreBonus: 0,
+      tileMultBonus: 0,
+    };
+  }
+  return {
+    letter: p.letter,
+    rarity: p.rarity,
+    materialId: p.materialId ?? undefined,
+    accessoryId: p.accessoryId ?? undefined,
+    treasureAccessoryId: p.treasureAccessoryId ?? undefined,
+    tileScoreBonus: p.tileScoreBonus,
+    tileMultBonus: p.tileMultBonus,
+  };
+});
 
 const deckOfferLetter = computed(() => {
   const raw = String(props.treasure?.deckLetterRaw ?? "a").toLowerCase();

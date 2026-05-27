@@ -329,6 +329,35 @@
 	font-weight: 700;
 }
 
+/* Boss 效果触发：单次大幅外扩 ripple（警示态约 -12rpx，此处约 -52rpx） */
+.boss-tape-wrap--trigger-impact .boss-tape-ripple {
+	border-width: calc(3.6 * var(--rpx));
+	filter: drop-shadow(0 0 calc(11 * var(--rpx)) rgba(210, 56, 48, 0.42));
+	animation: boss-tape-ripple-out-trigger 1.05s cubic-bezier(0.18, 0.72, 0.32, 1) 1 forwards;
+}
+
+.boss-tape-wrap--trigger-impact .boss-tape-ripple:nth-child(2) {
+	animation-delay: 0.22s;
+}
+
+.boss-tape-wrap--trigger-impact .boss-tape-ripple:nth-child(3) {
+	animation-delay: 0.44s;
+}
+
+@keyframes boss-tape-ripple-out-trigger {
+	0% {
+		inset: 0;
+		opacity: 0.94;
+	}
+	42% {
+		opacity: 0.46;
+	}
+	100% {
+		inset: calc(-52 * var(--rpx));
+		opacity: 0;
+	}
+}
+
 .boss-tape {
 	position: relative;
 	z-index: 1;
@@ -397,6 +426,12 @@
 		animation: none;
 		opacity: 0.45;
 		inset: calc(-4 * var(--rpx));
+	}
+
+	.boss-tape-wrap--trigger-impact .boss-tape-ripple {
+		animation: none;
+		opacity: 0.5;
+		inset: calc(-18 * var(--rpx));
 	}
 
 	.boss-tape-wrap--violate .boss-tape {

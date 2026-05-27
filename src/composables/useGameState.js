@@ -355,6 +355,7 @@ export const MAX_LETTERS_PER_REMOVAL = 8;
  *   pillarUsedDeckUidsRef?: import("vue").Ref<Set<number>>,
  *   verdantTreasureSoldRef?: import("vue").Ref<boolean>,
  *   bossMechanicsSuppressedRef?: import("vue").Ref<boolean>,
+ *   onBossTapeTriggerCue?: () => void,
  * }} [gameOpts]
  */
 export function useGameState(gameOpts = {}) {
@@ -362,6 +363,8 @@ export function useGameState(gameOpts = {}) {
   const pillarUsedDeckUidsRef = gameOpts?.pillarUsedDeckUidsRef ?? null;
   const verdantTreasureSoldRef = gameOpts?.verdantTreasureSoldRef ?? null;
   const bossMechanicsSuppressedRef = gameOpts?.bossMechanicsSuppressedRef ?? null;
+  const onBossTapeTriggerCue =
+    typeof gameOpts?.onBossTapeTriggerCue === "function" ? gameOpts.onBossTapeTriggerCue : null;
   const getRng =
     typeof gameOpts?.getRng === "function" ? gameOpts.getRng : defaultRng;
   resetDeckCardUidSeqForRun(gameOpts?.runSeedNumeric ?? 0);
@@ -964,6 +967,7 @@ export function useGameState(gameOpts = {}) {
       }
       if (!progressed) break;
     }
+    if (placed > 0) onBossTapeTriggerCue?.();
   }
 
 

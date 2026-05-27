@@ -49,13 +49,7 @@
                       v-if="isDeckShopOffer(slot)"
                       variant="grid"
                       class="shop-shelf-letter-tile"
-                      :letter="displayLetterForOffer(slot)"
-                      :rarity="slot.letterRarity ?? slot.rarity ?? 'common'"
-                      :material-id="slot.offerType === 'deckTile' ? slot.deckTileMaterialId : undefined"
-                      :accessory-id="deckOfferAccessoryId(slot)"
-                      :treasure-accessory-id="deckOfferTreasureAccessoryId(slot)"
-                      :tile-score-bonus="0"
-                      :tile-mult-bonus="0"
+                      v-bind="deckOfferLetterTileBind(slot)"
                     />
                     <div
                       v-else
@@ -349,6 +343,7 @@ import { resolveUpgradePlaybackSpeed } from "../shop/randomUpgradeRoll.js";
 import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
 import { isSingleDigitLabel } from "./detailLayerFormatters.js";
+import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
 
 const props = defineProps({
   walletAmount: { type: Number, default: 0 },
@@ -403,29 +398,31 @@ function shopOfferTreasureAccessoryChip(slot) {
 }
 
 /** @param {object} slot */
-function displayLetterForOffer(slot) {
-  const raw = String(slot?.deckLetterRaw ?? "e").toLowerCase();
-  return raw === "q" ? "Qu" : raw.toUpperCase();
-}
-
-/** @param {object} slot */
 function isDeckShopOffer(slot) {
   return slot?.offerType === "deckLetter" || slot?.offerType === "deckTile";
 }
 
 /** @param {object} slot */
-function deckOfferAccessoryId(slot) {
-  if (!slot || slot.offerType !== "deckTile") return undefined;
-  const id = slot.deckTileAccessoryId;
-  const s = id != null ? String(id).trim() : "";
-  return s || undefined;
-}
-
-function deckOfferTreasureAccessoryId(slot) {
-  if (!slot || slot.offerType !== "deckTile") return undefined;
-  const id = slot.deckTileTreasureAccessoryId;
-  const s = id != null ? String(id).trim() : "";
-  return s || undefined;
+function deckOfferLetterTileBind(slot) {
+  const p = buildPackDeckOfferLetterTileProps(slot);
+  if (!p) {
+    const raw = String(slot?.deckLetterRaw ?? "e").toLowerCase();
+    return {
+      letter: raw === "q" ? "Qu" : raw.toUpperCase(),
+      rarity: slot?.letterRarity ?? slot?.rarity ?? "common",
+      tileScoreBonus: 0,
+      tileMultBonus: 0,
+    };
+  }
+  return {
+    letter: p.letter,
+    rarity: p.rarity,
+    materialId: p.materialId ?? undefined,
+    accessoryId: p.accessoryId ?? undefined,
+    treasureAccessoryId: p.treasureAccessoryId ?? undefined,
+    tileScoreBonus: p.tileScoreBonus,
+    tileMultBonus: p.tileMultBonus,
+  };
 }
 
 const shopTitleRows = [
@@ -804,11 +801,16 @@ async function playUpgradeResult(payload) {
   shopResultScoreValue.value = 0;
   shopResultMultValue.value = 0;
 
+  const beforeLevelsByLen = payload?.beforeLevelsByLen;
   for (let len = lenMin; len <= lenMax; len++) {
     const isFirst = len === lenMin;
     const isLast = len === lenMax;
     const speed = resolveUpgradePlaybackSpeed(len - lenMin, payload);
-    await playOneLengthUpgrade(len, beforeLevel, isFirst, isLast, speed, isObsBoost(len));
+    const lenBeforeLevel =
+      beforeLevelsByLen != null && beforeLevelsByLen[len] != null
+        ? Math.max(1, Math.round(Number(beforeLevelsByLen[len])) || 1)
+        : beforeLevel;
+    await playOneLengthUpgrade(len, lenBeforeLevel, isFirst, isLast, speed, isObsBoost(len));
     if (!isLast) await sleep(Math.round(30 / speed));
   }
 }

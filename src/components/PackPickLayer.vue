@@ -56,13 +56,7 @@
                     v-if="isDeckOffer(opt)"
                     variant="grid"
                     class="shop-shelf-letter-tile pack-pick-fly-source"
-                    :letter="displayLetter(opt)"
-                    :rarity="opt.letterRarity ?? opt.rarity ?? 'common'"
-                    :material-id="opt.offerType === 'deckTile' ? opt.deckTileMaterialId : undefined"
-                    :accessory-id="deckOfferAccessoryId(opt)"
-                    :treasure-accessory-id="deckOfferTreasureAccessoryId(opt)"
-                    :tile-score-bonus="0"
-                    :tile-mult-bonus="0"
+                    v-bind="deckOfferLetterTileBind(opt)"
                   />
                   <div v-else class="shop-treasure-frame pack-pick-fly-source" :class="frameClassFor(opt)">
                     <template v-if="opt.offerType === 'spell'">
@@ -149,6 +143,7 @@ import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { EASE_TRANSFORM } from "../constants.js";
+import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
 
 const props = defineProps({
   session: { type: Object, required: true },
@@ -280,27 +275,31 @@ function markPrice(base) {
   return applyShopDiscountPrice(Number(base) || 0, props.ownedVoucherIds ?? []);
 }
 
-function displayLetter(opt) {
-  const raw = String(opt?.deckLetterRaw ?? "a").toLowerCase();
-  return raw === "q" ? "Qu" : raw.toUpperCase();
-}
-
 function isDeckOffer(opt) {
   return opt?.offerType === "deckLetter" || opt?.offerType === "deckTile";
 }
 
-function deckOfferAccessoryId(opt) {
-  if (!opt || opt.offerType !== "deckTile") return undefined;
-  const id = opt.deckTileAccessoryId;
-  const s = id != null ? String(id).trim() : "";
-  return s || undefined;
-}
-
-function deckOfferTreasureAccessoryId(opt) {
-  if (!opt || opt.offerType !== "deckTile") return undefined;
-  const id = opt.deckTileTreasureAccessoryId;
-  const s = id != null ? String(id).trim() : "";
-  return s || undefined;
+/** @param {Record<string, unknown>} opt */
+function deckOfferLetterTileBind(opt) {
+  const p = buildPackDeckOfferLetterTileProps(opt);
+  if (!p) {
+    const raw = String(opt?.deckLetterRaw ?? "a").toLowerCase();
+    return {
+      letter: raw === "q" ? "Qu" : raw.toUpperCase(),
+      rarity: opt?.letterRarity ?? opt?.rarity ?? "common",
+      tileScoreBonus: 0,
+      tileMultBonus: 0,
+    };
+  }
+  return {
+    letter: p.letter,
+    rarity: p.rarity,
+    materialId: p.materialId ?? undefined,
+    accessoryId: p.accessoryId ?? undefined,
+    treasureAccessoryId: p.treasureAccessoryId ?? undefined,
+    tileScoreBonus: p.tileScoreBonus,
+    tileMultBonus: p.tileMultBonus,
+  };
 }
 
 function gemClassFor(rarity) {
