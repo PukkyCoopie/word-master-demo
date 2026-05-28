@@ -190,8 +190,8 @@ defineEmits(["open-poster"]);
 /* 与 useWebLayoutMode 手机端判定一致（视口宽高比 ≤ 1:1） */
 @media (max-aspect-ratio: 1/1) {
   .taptap-promo-icon-img--in-about {
-    width: calc(96 * var(--rpx));
-    height: calc(96 * var(--rpx));
+    width: calc(64 * var(--rpx));
+    height: calc(64 * var(--rpx));
   }
 }
 

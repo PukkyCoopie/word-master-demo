@@ -6444,6 +6444,46 @@ async function playToolboxRemoveWobbleAndBubble(slotEl, speed = 1) {
 }
 
 /**
+ * 碎冰块自毁：词槽/棋盘格 wobble 与「碎裂！」深蓝气泡并发。
+ * @param {HTMLElement | null | undefined} slotEl
+ * @param {HTMLElement | null | undefined} gridEl
+ * @param {number} [speed]
+ */
+async function playIceTileShatterWobbleAndBubble(slotEl, gridEl, speed = 1) {
+  const anchorEl = slotEl || gridEl;
+  if (!anchorEl) return;
+  const sp = Math.max(0.01, Number(speed) || 1);
+  const wobbleTargets = /** @type {HTMLElement[]} */ ([slotEl, gridEl].filter(Boolean));
+  const wobbleP = Promise.all(wobbleTargets.map((el) => awaitTreasureSlotWobbleEl(el, sp)));
+  const bubbleP = (async () => {
+    await new Promise((r) => requestAnimationFrame(r));
+    return showScoreBubble(anchorEl, "碎裂！", "ice-shatter", sp);
+  })();
+  const [, bubble] = await Promise.all([wobbleP, bubbleP]);
+  scheduleSmallPlusBubbleOutro(bubble, sp);
+  await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+}
+
+/** 提交计分结束后、词槽消失前：碎冰块 1/4 概率碎裂动效 + 宝藏钩子 */
+async function runSubmittedIceShatterEffects(tiles) {
+  const list = Array.isArray(tiles) ? tiles : [];
+  const gridEls = getSelectedGridTileElsInOrder();
+  for (let i = 0; i < list.length; i += 1) {
+    const t = list[i];
+    if (t?.materialId !== "ice" || isBossTileDebuffed(t)) continue;
+    if (runRandom() >= ICE_MATERIAL_SELF_DESTRUCT_CHANCE) continue;
+    const slotEl = wordSlotRefs.value[i];
+    const gridEl = gridEls[i];
+    await playIceTileShatterWobbleAndBubble(slotEl, gridEl);
+    await notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIdList(), {
+      treasureRun: treasureRunState.value,
+      wobbleOwnedTreasureById,
+      playOwnedTreasureBubbleFx,
+    });
+  }
+}
+
+/**
  * 提交后：词槽依次 wobble → 红色「移除」→ 停顿 → 缩至 0；首字触发宝藏 wobble（不阻塞下一字）；全字消失后再宝藏 +$。
  * @param {import('../treasures/treasureTypes.js').SubmitWordLetterRemoveLeaveOpts} opts
  */
@@ -9753,6 +9793,8 @@ async function onRemoveClick() {
   if (dictFatalError.value) return;
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (!canRemove.value) return;
+  gridRefillAnimating.value = true;
+  try {
   if (flyingLetters.value.length > 0) {
     cancelAllFlyingIn();
   }
@@ -9793,7 +9835,6 @@ async function onRemoveClick() {
   await nextTick();
   await sleep(ACTION_COUNT_DELTA_BEAT_MS);
 
-  gridRefillAnimating.value = true;
   const prevFlip = {
     rects: captureGridRectsByTileId(),
     cells: snapshotGridCellsByTileId(),
@@ -9889,6 +9930,9 @@ async function onRemoveClick() {
 
   gridRefillAnimating.value = false;
   nextTick(() => updateSlotPositions(true));
+  } finally {
+    if (gridRefillAnimating.value) gridRefillAnimating.value = false;
+  }
 }
 
 /** 青铃锁：棋盘稳定后从格内飞入词槽（与玩家点选同一套飞字） */
@@ -10054,6 +10098,9 @@ async function submitWord() {
     showToast("不是有效单词");
     return;
   }
+  scoringAnimating.value = true;
+  let submitChanceConsumed = false;
+  try {
   const { parts, wordPattern: wordPattern0, resolvedWord } = submitInput;
   const ownedSlotTreasureIds = ownedTreasures.value.map((s) => s?.treasureId ?? null);
   const tiles = withWildcardsResolvedForScoring(
@@ -10211,11 +10258,10 @@ async function submitWord() {
   );
   flashSubmitCountDelta();
   remainingWords.value = Math.max(0, remainingWords.value - 1);
+  submitChanceConsumed = true;
   await nextTick();
   await sleep(ACTION_COUNT_DELTA_BEAT_MS);
-  scoringAnimating.value = true;
   scoringLetterIndex.value = -1;
-  try {
     await runSubmitScoringSequence(tiles, detailed, resolvedWord, isLastSubmitChance);
     if (!submitViolated) {
       if (
@@ -10274,7 +10320,7 @@ async function submitWord() {
     }
   } catch (e) {
     console.error(e);
-    remainingWords.value += 1;
+    if (submitChanceConsumed) remainingWords.value += 1;
     scoringAnimating.value = false;
     scoringLetterIndex.value = -1;
     roundScoreOverride.value = null;
