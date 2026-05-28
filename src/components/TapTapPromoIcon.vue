@@ -39,7 +39,7 @@
       :aria-label="promoLabel"
       @click="$emit('open-poster')"
     >
-      <img class="taptap-promo-icon-img" :src="TAP_TAP_ICON_SRC" alt="" width="40" height="40" />
+      <img class="taptap-promo-icon-img" :src="TAP_TAP_ICON_SRC" alt="" width="80" height="80" />
     </button>
   </div>
 </template>
@@ -183,8 +183,16 @@ defineEmits(["open-poster"]);
 
 .taptap-promo-icon-img {
   display: block;
-  width: calc(40 * var(--rpx));
-  height: calc(40 * var(--rpx));
+  width: calc(80 * var(--rpx));
+  height: calc(80 * var(--rpx));
+}
+
+/* 与 useWebLayoutMode 手机端判定一致（视口宽高比 ≤ 1:1） */
+@media (max-aspect-ratio: 1/1) {
+  .taptap-promo-icon-img--in-about {
+    width: calc(96 * var(--rpx));
+    height: calc(96 * var(--rpx));
+  }
 }
 
 .taptap-promo-icon-label {

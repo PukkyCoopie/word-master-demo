@@ -2,8 +2,8 @@ import { describe } from "../treasureDescription.js";
 import {
   VOWEL_SUBSTITUTE_TREASURE_ID,
   cycleVowelDisplayShiftOnDeckCard,
-  isSubstitutableVowel,
-  vowelNeighborLetters,
+  isLetterSubstitutableForMouth,
+  letterSubstituteNeighborTrio,
 } from "../../game/vowelNeighborSubstitute.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
@@ -18,6 +18,7 @@ export const treasureHooks = {
   onSuccessfulWordSubmit(ctx) {
     const resolved = String(ctx.resolvedWord ?? "").toLowerCase();
     const letters = ctx.submittedLetters ?? [];
+    const owned = ctx.ownedSlotTreasureIds ?? [];
     if (!resolved || letters.length !== resolved.length) return;
     for (let i = 0; i < letters.length; i++) {
       const tile = ctx.submittedScoringTiles?.[i];
@@ -25,13 +26,13 @@ export const treasureHooks = {
       const natural = card && typeof card === "object"
         ? String(card.raw ?? "").toLowerCase()
         : String(letters[i]?.letter ?? "").toLowerCase();
-      if (!isSubstitutableVowel(natural)) continue;
+      if (!isLetterSubstitutableForMouth(natural, owned)) continue;
       const used = natural !== resolved[i];
       if (card && typeof card === "object") {
-        cycleVowelDisplayShiftOnDeckCard(card, used);
+        cycleVowelDisplayShiftOnDeckCard(card, used, owned);
         if (tile && typeof tile === "object") {
           const raw = String(card.raw ?? natural);
-          const disp = vowelNeighborLetters(raw);
+          const disp = letterSubstituteNeighborTrio(raw, owned);
           if (disp && card.vowelDisplayShift) {
             const sh = Math.sign(Number(card.vowelDisplayShift) || 0);
             const ch = sh < 0 ? (disp.prev ?? disp.self) : sh > 0 ? (disp.next ?? disp.self) : disp.self;

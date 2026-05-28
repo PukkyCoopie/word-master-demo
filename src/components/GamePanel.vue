@@ -748,7 +748,7 @@ import { collectGridLetterTiles } from "../treasures/treasureLogicShared.js";
 import { applyRarityLevelUpgrade } from "../game/treasureRarityTierMerge.js";
 import {
   hasVowelNeighborSubstitute,
-  isSubstitutableVowel,
+  isLetterSubstitutableForMouth,
   resolveWordPatternWithVowelSubstitutions,
   vowelDisplayLetter,
   vowelDisplayShiftForResolved,
@@ -973,6 +973,7 @@ import TreasureSlot from "./TreasureSlot.vue";
 import ResultArea from "./ResultArea.vue";
 import { createFlyBackTileElement, disposeFlyBackTileElement } from "../utils/letterTileFlyBack.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { recordPointerClientFromEvent } from "../game/lastPointerClient.js";
 import {
   killDeckLayerEnter,
   playDeckLayerEnter,
@@ -1186,7 +1187,6 @@ const {
   prepareCeruleanBellPickAfterGridStable,
   finalizeCeruleanBellSlotIndex,
   removeSelectedLetters,
-  consumeIceTileOnGrid,
   snapshotGridCellsByTileId,
   resetLevel,
   resetDeckAfterStageEnd,
@@ -2955,16 +2955,8 @@ function clearOwnedTreasureSlotById(treasureId) {
   ownedTreasures.value = ownedTreasures.value.map((s) => (s?.treasureId === tid ? null : s));
 }
 
-/** 自毁宝藏：wobble → 红色「摧毁！」→ 缩至 0 后清空槽位 */
-async function destroyOwnedTreasureWithFx(treasureId) {
-  const ix = findOwnedTreasureSlotIndex(treasureId);
-  if (ix < 0) return;
-  const el = gameTreasureSlotRefs[ix];
-  if (!el) {
-    clearOwnedTreasureSlotById(treasureId);
-    return;
-  }
-  const sp = 1;
+/** @param {HTMLElement} el @param {number} sp */
+async function awaitTreasureSlotWobbleEl(el, sp) {
   const wobbleTl = createWobbleScoreSlotTimeline(el);
   if (wobbleTl) {
     wobbleTl.timeScale(sp);
@@ -2975,8 +2967,21 @@ async function destroyOwnedTreasureWithFx(treasureId) {
   } else {
     await scoringSleep(SCORING_TREASURE_FALLBACK_MS, sp);
   }
-  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-  const bubble = showScoreBubble(el, "摧毁！", "destroy", sp);
+}
+
+/** @param {number} slotIndex @param {HTMLElement} el @param {number} sp */
+async function wobbleTreasureSlotWithDestroyBubbleConcurrent(slotIndex, el, sp) {
+  const wobbleP = wobbleGameTreasureSlot(slotIndex);
+  const bubbleP = (async () => {
+    await new Promise((r) => requestAnimationFrame(r));
+    return showScoreBubble(el, "摧毁！", "destroy", sp);
+  })();
+  const [, bubble] = await Promise.all([wobbleP, bubbleP]);
+  return bubble;
+}
+
+/** @param {HTMLElement} el @param {ReturnType<typeof showScoreBubble>} bubble @param {string} treasureId @param {number} sp */
+async function shrinkTreasureSlotAndClear(treasureId, el, bubble, sp) {
   gsap.killTweensOf(el);
   await new Promise((resolve) => {
     gsap.to(el, {
@@ -2993,7 +2998,57 @@ async function destroyOwnedTreasureWithFx(treasureId) {
   clearOwnedTreasureSlotById(treasureId);
 }
 
+/** 自毁宝藏：wobble → 红色「摧毁！」→ 缩至 0 后清空槽位 */
+async function destroyOwnedTreasureWithFx(treasureId) {
+  const ix = findOwnedTreasureSlotIndex(treasureId);
+  if (ix < 0) return;
+  const el = getOwnedTreasureSlotEl(ix);
+  if (!el) {
+    clearOwnedTreasureSlotById(treasureId);
+    return;
+  }
+  const sp = 1;
+  await awaitTreasureSlotWobbleEl(el, sp);
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  const bubble = showScoreBubble(el, "摧毁！", "destroy", sp);
+  await shrinkTreasureSlotAndClear(treasureId, el, bubble, sp);
+}
+
+/** 炸药等：来源宝藏 wobble → 目标 wobble 与「摧毁！」并发 → 目标缩灭 */
+async function destroyOtherOwnedTreasureFromSourceFx(sourceTreasureId, victimTreasureId) {
+  const sourceId = String(sourceTreasureId ?? "");
+  const victimId = String(victimTreasureId ?? "");
+  if (!victimId) return;
+  if (sourceId) await playOwnedTreasureWobbleOnlyFx(sourceId);
+  const ix = findOwnedTreasureSlotIndex(victimId);
+  if (ix < 0) return;
+  const el = getOwnedTreasureSlotEl(ix);
+  if (!el) {
+    clearOwnedTreasureSlotById(victimId);
+    return;
+  }
+  const sp = 1;
+  shopOverlayLayersSuppressed.value = true;
+  await nextTick();
+  const bubble = await wobbleTreasureSlotWithDestroyBubbleConcurrent(ix, el, sp);
+  shopOverlayLayersSuppressed.value = false;
+  await shrinkTreasureSlotAndClear(victimId, el, bubble, sp);
+}
+
+function scheduleAfterGridTilesSettled(fn) {
+  if (typeof fn !== "function") return;
+  pendingAfterGridTilesSettled.push(fn);
+}
+
+async function runPendingAfterGridTilesSettled() {
+  const batch = pendingAfterGridTilesSettled.splice(0);
+  for (const fn of batch) {
+    await fn();
+  }
+}
+
 async function resetLevelAfterTreasurePrep(levelDef) {
+  pendingAfterGridTilesSettled.length = 0;
   await notifyOwnedTreasuresPrepareLevelEnter(ownedSlotTreasureIdList(), {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     treasureRun: treasureRunState.value,
@@ -3028,6 +3083,8 @@ async function runTreasureLevelEnterHooks(levelId) {
     findOwnedTreasureSlotIndex,
     wobbleOwnedTreasureById,
     destroyTreasureSlotById: destroyOwnedTreasureWithFx,
+    destroyOtherTreasureFromSource: destroyOtherOwnedTreasureFromSourceFx,
+    scheduleAfterGridTilesSettled,
     playOwnedTreasureBubbleFx,
     clearTreasureSlotById: clearOwnedTreasureSlotById,
     grantRandomOwnedTreasure: grantRandomOwnedTreasuresInRun,
@@ -3537,6 +3594,8 @@ const scoringAnimating = ref(false);
 const gridRefillAnimating = ref(false);
 /** 首次入场前隐藏棋盘，避免未动画的一帧闪现 */
 const gridIntroDone = ref(false);
+/** 进关棋盘落位后待执行的宝藏回调（如炸药摧毁） */
+const pendingAfterGridTilesSettled = [];
 const scoringLetterIndex = ref(-1);
 const animScoreSum = ref(0);
 const animMultTotal = ref(0);
@@ -3791,6 +3850,8 @@ function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
 }
 
 const DISCARD_POTTERY_EXTRA_GAP_MS = Math.round(90 * SCORING_GAP_SCALE);
+/** 垃圾桶触发：宝藏气泡后再略停，再让本字消失（对齐工具箱「移除」气泡后停顿） */
+const DISCARD_TRASH_FX_HOLD_MS = Math.round(200 * SCORING_GAP_SCALE);
 
 /**
  * @param {HTMLElement | null | undefined} slotEl
@@ -4259,7 +4320,8 @@ function buildEffectiveWordPartsForSubmit(opts = {}) {
   const chars = [];
   /** @type {boolean[]} */
   const vowelAltMask = [];
-  const vowelTreasure = hasVowelNeighborSubstitute(ownedSlotTreasureIdList());
+  const owned = ownedSlotTreasureIdList();
+  const vowelTreasure = hasVowelNeighborSubstitute(owned);
   const appendTile = opts.appendTile ?? null;
 
   const pushFromTile = (tile) => {
@@ -4270,7 +4332,7 @@ function buildEffectiveWordPartsForSubmit(opts = {}) {
     for (const ch of frag) {
       if (!ch) continue;
       chars.push(ch);
-      vowelAltMask.push(vowelTreasure && isSubstitutableVowel(natural));
+      vowelAltMask.push(vowelTreasure && isLetterSubstitutableForMouth(natural, owned));
     }
   };
 
@@ -4299,8 +4361,14 @@ function buildEffectiveWordPartsForSubmit(opts = {}) {
 /** @param {{ word: string, vowelAltMask: boolean[] }} parts */
 function resolveWordFromEffectiveParts(parts) {
   const { word, vowelAltMask } = parts;
-  if (hasVowelNeighborSubstitute(ownedSlotTreasureIdList()) && vowelAltMask.some(Boolean)) {
-    return resolveWordPatternWithVowelSubstitutions(word, vowelAltMask, (p) => resolveWordPattern(p, "?"));
+  const owned = ownedSlotTreasureIdList();
+  if (hasVowelNeighborSubstitute(owned) && vowelAltMask.some(Boolean)) {
+    return resolveWordPatternWithVowelSubstitutions(
+      word,
+      vowelAltMask,
+      (p) => resolveWordPattern(p, "?"),
+      owned,
+    );
   }
   return resolveWordPattern(word, "?");
 }
@@ -4339,7 +4407,8 @@ function tilePresentationInResolvedWord(tile, res, effWord, extraTile = null) {
       vowelGhostNext: g?.next ?? null,
     };
   }
-  const vowelTreasure = hasVowelNeighborSubstitute(ownedSlotTreasureIdList());
+  const owned = ownedSlotTreasureIdList();
+  const vowelTreasure = hasVowelNeighborSubstitute(owned);
   let pos = 0;
   for (const t of listEffectiveTilesForSubmit(extraTile)) {
     const frag = String(t?.letter ?? "").toLowerCase();
@@ -4359,11 +4428,11 @@ function tilePresentationInResolvedWord(tile, res, effWord, extraTile = null) {
           ? deckCardRaw(card)
           : frag.replace(/^qu/, "q").charAt(0);
       const naturalCh = natural.charAt(0) === "q" ? "q" : natural.charAt(0);
-      if (isSubstitutableVowel(naturalCh)) {
+      if (isLetterSubstitutableForMouth(naturalCh, owned)) {
         const resolvedCh = res[start];
         if (resolvedCh >= "a" && resolvedCh <= "z") {
-          const shift = vowelDisplayShiftForResolved(naturalCh, resolvedCh);
-          const ghosts = vowelGhostSlotsForDisplay(naturalCh, shift);
+          const shift = vowelDisplayShiftForResolved(naturalCh, resolvedCh, owned);
+          const ghosts = vowelGhostSlotsForDisplay(naturalCh, shift, owned);
           vowelGhostPrev = upGhost(ghosts?.prev ?? null);
           vowelGhostNext = upGhost(ghosts?.next ?? null);
           if (resolvedCh !== naturalCh) {
@@ -4428,15 +4497,16 @@ function computeFlyBackTilePresentation(tile) {
   let vowelGhostPrev = null;
   let vowelGhostNext = null;
 
-  if (hasVowelNeighborSubstitute(ownedSlotTreasureIdList()) && isSubstitutableVowel(rawLower)) {
+  const ownedFlyBack = ownedSlotTreasureIdList();
+  if (hasVowelNeighborSubstitute(ownedFlyBack) && isLetterSubstitutableForMouth(rawLower, ownedFlyBack)) {
     const shift = card && typeof card === "object" ? Math.sign(Number(card.vowelDisplayShift) || 0) : 0;
-    const displayed = vowelDisplayLetter(rawLower, shift);
+    const displayed = vowelDisplayLetter(rawLower, shift, ownedFlyBack);
     letter = displayed === "q" ? "Qu" : displayed.toUpperCase();
     rarity =
       card?.rarity != null && String(card.rarity).trim() !== "" && shift === 0
         ? String(card.rarity)
         : getRarityForLetter(displayed);
-    const ghosts = vowelGhostSlotsForDisplay(rawLower, shift);
+    const ghosts = vowelGhostSlotsForDisplay(rawLower, shift, ownedFlyBack);
     vowelGhostPrev = upGhost(ghosts?.prev ?? null);
     vowelGhostNext = upGhost(ghosts?.next ?? null);
   } else if (card && typeof card === "object") {
@@ -4474,7 +4544,8 @@ function resolveVowelDisplayShiftForTile(tile) {
   const res = resolvedWordForSubmit.value;
   const eff = effectiveWordForSubmit.value;
   if (!res || !eff || eff.length !== res.length) return null;
-  if (!hasVowelNeighborSubstitute(ownedSlotTreasureIdList())) return null;
+  const owned = ownedSlotTreasureIdList();
+  if (!hasVowelNeighborSubstitute(owned)) return null;
   let pos = 0;
   for (const t of effectiveFormulaTiles.value) {
     const frag = String(t?.letter ?? "").toLowerCase();
@@ -4485,10 +4556,10 @@ function resolveVowelDisplayShiftForTile(tile) {
           ? deckCardRaw(card)
           : frag.replace(/^qu/, "q").charAt(0);
       const naturalCh = natural.charAt(0) === "q" ? "q" : natural.charAt(0);
-      if (!isSubstitutableVowel(naturalCh)) return null;
+      if (!isLetterSubstitutableForMouth(naturalCh, owned)) return null;
       const resolvedCh = res[pos];
       if (!resolvedCh) return null;
-      return vowelDisplayShiftForResolved(naturalCh, resolvedCh);
+      return vowelDisplayShiftForResolved(naturalCh, resolvedCh, owned);
     }
     pos += frag.length;
   }
@@ -4497,7 +4568,8 @@ function resolveVowelDisplayShiftForTile(tile) {
 
 /** @param {object | null | undefined} tile */
 function vowelGhostForTile(tile) {
-  if (!hasVowelNeighborSubstitute(ownedSlotTreasureIdList()) || !tile?.letter) return null;
+  const owned = ownedSlotTreasureIdList();
+  if (!hasVowelNeighborSubstitute(owned) || !tile?.letter) return null;
   if (isTileInFlyingBackFromWord(tile)) {
     const back = computeFlyBackTilePresentation(tile);
     return { prev: back.vowelGhostPrev, next: back.vowelGhostNext };
@@ -4510,7 +4582,7 @@ function vowelGhostForTile(tile) {
   } else {
     raw = String(tile.letter).toLowerCase().replace(/^qu/, "q").charAt(0);
   }
-  if (!isSubstitutableVowel(raw)) return null;
+  if (!isLetterSubstitutableForMouth(raw, owned)) return null;
   const liveShift = resolveVowelDisplayShiftForTile(tile);
   const shift =
     liveShift != null
@@ -4518,7 +4590,7 @@ function vowelGhostForTile(tile) {
       : card && typeof card === "object"
         ? Math.sign(Number(card.vowelDisplayShift) || 0)
         : 0;
-  const ghosts = vowelGhostSlotsForDisplay(raw, shift);
+  const ghosts = vowelGhostSlotsForDisplay(raw, shift, owned);
   if (!ghosts) return null;
   const up = (ch) => (ch ? (ch === "q" ? "Qu" : ch.toUpperCase()) : null);
   return { prev: up(ghosts.prev), next: up(ghosts.next) };
@@ -5705,6 +5777,7 @@ function playLevelAdvanceHeaderFx() {
 
 async function onSettlementContinue(event) {
   event?.stopPropagation?.();
+  recordPointerClientFromEvent(event);
   if (transitionBusy.value) return;
   const s = settlementSnapshot.value;
   if (!s) return;
@@ -7241,7 +7314,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
 
   const offerSlotsList = Array.isArray(s.offerSlots) ? s.offerSlots : [];
   let confirmSelectionSlotIndices = selectionSlotIndices;
-  const resolvedOrdered = Array.isArray(selectionSlotIndices)
+  let resolvedOrdered = Array.isArray(selectionSlotIndices)
       ? selectionSlotIndices
           .map((ix) => {
             const sl = offerSlotsList[ix];
@@ -7670,6 +7743,7 @@ async function onBossBlindRerollContinue(event) {
 
 async function executeShopLeaveToNextLevel(event) {
   if (transitionBusy.value) return;
+  recordPointerClientFromEvent(event);
   transitionBusy.value = true;
 
   await notifyOwnedTreasuresOnShopLeave(ownedSlotTreasureIdList(), {
@@ -8257,9 +8331,11 @@ function showScoreBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
           ? "score-popup-bubble score-popup-bubble--money"
           : kind === "destroy"
             ? "score-popup-bubble score-popup-bubble--destroy"
-            : kind === "skip"
-              ? "score-popup-bubble score-popup-bubble--skip"
-              : "score-popup-bubble";
+            : kind === "ice-shatter"
+              ? "score-popup-bubble score-popup-bubble--ice-shatter"
+              : kind === "skip"
+                ? "score-popup-bubble score-popup-bubble--skip"
+                : "score-popup-bubble";
   div.textContent = displayText;
   document.body.appendChild(div);
   const rpx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
@@ -9420,6 +9496,10 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   await nextTick();
   await new Promise((r) => requestAnimationFrame(r));
 
+  if (detailed.bossSoftViolation !== true) {
+    await runSubmittedIceShatterEffects(tiles);
+  }
+
   /** @type {import('../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[]} */
   let submitWordLeaveFx = [];
   /** @type {(() => Promise<void>)[]} */
@@ -9994,10 +10074,6 @@ async function submitWord() {
   for (const t of tiles) {
     if (t?.letter) applyBossTileDebuffState(t, bossSlugSubmit, debuffCtx);
   }
-  const submittedIceTileIds = tiles
-    .filter((t) => t?.materialId === "ice" && !isBossTileDebuffed(t))
-    .map((t) => String(t?.id ?? ""))
-    .filter(Boolean);
   const ownedSlotTreasureAccessoryIds = ownedTreasures.value.map((s) => s?.treasureAccessoryId ?? null);
   /** 与号角等一致：仅当本手消耗关内最后一次出牌机会（提交前剩余 1 次） */
   const isLastSubmitChance = remainingWords.value === 1;
@@ -10141,16 +10217,6 @@ async function submitWord() {
   scoringLetterIndex.value = -1;
   try {
     await runSubmitScoringSequence(tiles, detailed, resolvedWord, isLastSubmitChance);
-    for (const iceTileId of submittedIceTileIds) {
-      if (runRandom() < ICE_MATERIAL_SELF_DESTRUCT_CHANCE) {
-        consumeIceTileOnGrid(iceTileId);
-        await notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIdList(), {
-          treasureRun: treasureRunState.value,
-          wobbleOwnedTreasureById,
-          playOwnedTreasureBubbleFx,
-        });
-      }
-    }
     if (!submitViolated) {
       if (
         parseLevelSubFromId(currentLevel.value?.id ?? "1-1") === 3 &&

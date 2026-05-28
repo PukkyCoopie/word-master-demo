@@ -1,5 +1,5 @@
 import { describe, score } from "../treasureDescription.js";
-import { isVowelLetterWithMask } from "../treasureLetterClassify.js";
+import { isConsonantLetterWithMask } from "../treasureLetterClassify.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
@@ -16,7 +16,7 @@ export const treasureHooks = {
     let scoreAdd = 0;
     for (let i = 0; i < letterParts.length; i++) {
       const ch = String(letterParts[i]?.letter ?? "").toLowerCase();
-      if (!ch || isVowelLetterWithMask(ch, slots)) continue;
+      if (!ch || !isConsonantLetterWithMask(ch, slots)) continue;
       const r = 1 + Math.max(0, Math.floor(Number(replayCounts[i]) || 0));
       scoreAdd += 40 * r;
     }
@@ -25,7 +25,7 @@ export const treasureHooks = {
   getPerLetterScoreCue(ctx, part) {
     const letter = String(part?.letter ?? "").toLowerCase();
     const slots = ctx.ownedSlotTreasureIds ?? [];
-    if (!letter || isVowelLetterWithMask(letter, slots)) return null;
+    if (!letter || !isConsonantLetterWithMask(letter, slots)) return null;
     return { delta: 40, label: "+40" };
   },
 };

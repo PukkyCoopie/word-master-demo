@@ -1,5 +1,5 @@
 import { describe } from "../treasureDescription.js";
-import { isVowelLetterWithMask } from "../treasureLetterClassify.js";
+import { isConsonantLetterWithMask } from "../treasureLetterClassify.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
@@ -13,7 +13,7 @@ export const treasureHooks = {
   getLetterReplayCountForLetter(ctx, part, _letterIndex) {
     const letter = String(part?.letter ?? "").toLowerCase();
     if (!letter) return 0;
-    if (isVowelLetterWithMask(letter, ctx.ownedSlotTreasureIds)) return 0;
+    if (!isConsonantLetterWithMask(letter, ctx.ownedSlotTreasureIds)) return 0;
     return 1;
   },
 };

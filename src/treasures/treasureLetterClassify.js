@@ -11,14 +11,18 @@ function hasTreasure(ownedSlotTreasureIds, treasureId) {
 
 /**
  * 30：所有字母视为元音；31：所有字母视为辅音。
- * 当二者同时存在时，保持默认分类（互相抵消，避免全真/全假）。
+ * 二者同时存在时各自仍生效（同一字母可同时计元音与辅音）；仅单独持有时另一方走自然分类。
  */
 export function isVowelLetterWithMask(letter, ownedSlotTreasureIds) {
-  const forceVowel = hasTreasure(ownedSlotTreasureIds, "30");
-  const forceConsonant = hasTreasure(ownedSlotTreasureIds, "31");
-  if (forceVowel && !forceConsonant) return true;
-  if (forceConsonant && !forceVowel) return false;
+  if (hasTreasure(ownedSlotTreasureIds, "30")) return true;
+  if (hasTreasure(ownedSlotTreasureIds, "31")) return false;
   return VOWEL_SET.has(normalizeLetter(letter));
+}
+
+export function isConsonantLetterWithMask(letter, ownedSlotTreasureIds) {
+  if (hasTreasure(ownedSlotTreasureIds, "31")) return true;
+  if (hasTreasure(ownedSlotTreasureIds, "30")) return false;
+  return !VOWEL_SET.has(normalizeLetter(letter));
 }
 
 export function countMatchedLetters(letterParts, predicate) {

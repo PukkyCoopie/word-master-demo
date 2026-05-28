@@ -697,6 +697,11 @@
 .score-popup-bubble--destroy {
 	background: #e04545;
 }
+/* 碎冰块自毁：碎裂！（与暂停菜单「继续游戏」主按钮同色） */
+.score-popup-bubble--ice-shatter {
+	background: #5a8fb8;
+	color: #f9f6f2;
+}
 /* 废格 / 软违规：跳过计分 */
 .score-popup-bubble--skip {
 	background: #8a939c;

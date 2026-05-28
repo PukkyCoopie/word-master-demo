@@ -234,6 +234,8 @@
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string) => void} [clearTreasureSlotById]
  * @property {(treasureId: string) => Promise<void>} [destroyTreasureSlotById]
+ * @property {(sourceTreasureId: string, victimTreasureId: string) => Promise<void>} [destroyOtherTreasureFromSource] 来源宝藏 wobble 后，目标 wobble 与「摧毁！」气泡并发，再缩至 0 清空
+ * @property {(fn: () => void | Promise<void>) => void} [scheduleAfterGridTilesSettled] 棋盘字母块落位稳定后执行（进关 grid intro 结束）
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  * @property {(count?: number) => number} [grantRandomOwnedTreasure] 本关赠送随机宝藏次数，返回实际获得数
  * @property {(n: number) => void} [addRemainingWords]

@@ -24,11 +24,22 @@ export const treasureHooks = {
     const candidates = [];
     for (let i = 0; i < owned.length; i += 1) {
       const tid = owned[i];
-      if (tid && tid !== ID) candidates.push({ i, tid });
+      if (tid && tid !== ID) candidates.push(tid);
     }
     if (!candidates.length) return;
-    const pick = candidates[Math.floor(rng() * candidates.length)];
-    if (ctx.destroyTreasureSlotById) await ctx.destroyTreasureSlotById(pick.tid);
-    else ctx.clearTreasureSlotById?.(pick.tid);
+    const victimId = candidates[Math.floor(rng() * candidates.length)];
+    const runDestroy = () => {
+      if (ctx.destroyOtherTreasureFromSource) {
+        return ctx.destroyOtherTreasureFromSource(ID, victimId);
+      }
+      if (ctx.destroyTreasureSlotById) return ctx.destroyTreasureSlotById(victimId);
+      ctx.clearTreasureSlotById?.(victimId);
+      return undefined;
+    };
+    if (ctx.scheduleAfterGridTilesSettled) {
+      ctx.scheduleAfterGridTilesSettled(runDestroy);
+      return;
+    }
+    await runDestroy();
   },
 };

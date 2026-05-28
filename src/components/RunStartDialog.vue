@@ -51,7 +51,7 @@
         <button
           type="button"
           class="run-start-dialog-btn run-start-dialog-btn--primary"
-          @click="onConfirm"
+          @click="onConfirm($event)"
         >
           开始游戏
         </button>
@@ -67,6 +67,7 @@
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { recordPointerClientFromEvent } from "../game/lastPointerClient.js";
 import { generateRandomRunSeedString, normalizeRunSeedInput, resolveRunSeedFromDialog } from "../game/runRng.js";
 
 const props = defineProps({
@@ -110,7 +111,9 @@ function onRandomSeed() {
   seedDraft.value = generateRandomRunSeedString();
 }
 
-function onConfirm() {
+/** @param {MouseEvent} event */
+function onConfirm(event) {
+  recordPointerClientFromEvent(event);
   const { seedNumeric, seedDisplay } = resolveRunSeedFromDialog(seedDraft.value);
   emit("confirm", { seedNumeric, seedDisplay });
 }

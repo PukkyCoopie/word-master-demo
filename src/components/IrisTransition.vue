@@ -124,21 +124,30 @@ function animateIrisR(from, to, durationMs) {
 /** @param {{ onCovered?: () => void } | undefined} opts */
 function resolvePlayOpts(arg1, arg2) {
   if (arg2 && typeof arg2 === "object") return arg2;
-  if (arg1 && typeof arg1 === "object" && "onCovered" in arg1) return arg1;
+  if (
+    arg1 &&
+    typeof arg1 === "object" &&
+    ("onCovered" in arg1 || "clientPoint" in arg1)
+  ) {
+    return arg1;
+  }
   return undefined;
 }
 
 /**
- * 圆心始终取播放瞬间的当前指针位置（见 lastPointerClient.js），忽略历史入参 event。
+ * 圆心取播放瞬间的最后触点（见 lastPointerClient.js）；opts.clientPoint 可显式传入。
  * @param {unknown} [_ignored]
- * @param {{ onCovered?: () => void } | undefined} [opts]
+ * @param {{ onCovered?: () => void, clientPoint?: { clientX: number, clientY: number } } | undefined} [opts]
  */
 async function play(_ignored, opts) {
   const overlayEl = overlayRef.value;
   if (!overlayEl) return;
 
   const resolvedOpts = resolvePlayOpts(_ignored, opts);
-  const coverLocal = clientPointToOverlayLocal(overlayEl, getLastPointerClientPoint());
+  const coverLocal = clientPointToOverlayLocal(
+    overlayEl,
+    resolvedOpts?.clientPoint ?? getLastPointerClientPoint(),
+  );
   const originXPct = coverLocal.xPct;
   const originYPct = coverLocal.yPct;
 

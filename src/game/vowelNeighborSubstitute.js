@@ -1,6 +1,8 @@
-/** 宝藏 95：元音邻位替换（aeiou 线性链，首尾不相邻） */
+/** 宝藏 95：元音邻位替换；宝藏 30：试管（全视为元音）时与 95 联动——辅音按字母表邻位 */
 
 export const VOWEL_SUBSTITUTE_TREASURE_ID = "95";
+export const TEST_TUBE_ALL_VOWEL_TREASURE_ID = "30";
+export const HAMMER_ALL_CONSONANT_TREASURE_ID = "31";
 
 const VOWELS = Object.freeze(["a", "e", "i", "o", "u"]);
 
@@ -9,9 +11,32 @@ export function hasVowelNeighborSubstitute(ownedSlotTreasureIds) {
   return (ownedSlotTreasureIds ?? []).includes(VOWEL_SUBSTITUTE_TREASURE_ID);
 }
 
+/** 试管：拼词邻位对非 aeiou 字母按字母表展开（与锤子叠放时仍生效） */
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
+export function hasTestTubeAllVowelsForMouth(ownedSlotTreasureIds) {
+  return (ownedSlotTreasureIds ?? []).includes(TEST_TUBE_ALL_VOWEL_TREASURE_ID);
+}
+
+/** @param {string} ch */
+function normalizeSubstLetter(ch) {
+  const c = String(ch ?? "").toLowerCase().charAt(0);
+  return /^[a-z]$/.test(c) ? c : null;
+}
+
+/** @param {string} c */
+function alphabetNeighborTrio(c) {
+  const code = c.charCodeAt(0);
+  return {
+    prev: code > "a".charCodeAt(0) ? String.fromCharCode(code - 1) : null,
+    self: c,
+    next: code < "z".charCodeAt(0) ? String.fromCharCode(code + 1) : null,
+  };
+}
+
 /** @param {string} ch 单字母小写 */
 export function vowelNeighborLetters(ch) {
-  const c = String(ch ?? "").toLowerCase();
+  const c = normalizeSubstLetter(ch);
+  if (!c) return null;
   const i = VOWELS.indexOf(c);
   if (i < 0) return null;
   return {
@@ -21,18 +46,44 @@ export function vowelNeighborLetters(ch) {
   };
 }
 
+/**
+ * 嘴（±试管）下该自然字母的三邻位：aeiou 走元音链；试管+嘴时对其它 a–z 走字母表前后位。
+ * @param {string} ch
+ * @param {(string | null | undefined)[]} [ownedSlotTreasureIds]
+ * @returns {{ prev: string | null, self: string, next: string | null } | null}
+ */
+export function letterSubstituteNeighborTrio(ch, ownedSlotTreasureIds = []) {
+  const c = normalizeSubstLetter(ch);
+  if (!c) return null;
+  const vowelTrio = vowelNeighborLetters(c);
+  if (vowelTrio) return vowelTrio;
+  if (!hasTestTubeAllVowelsForMouth(ownedSlotTreasureIds)) return null;
+  return alphabetNeighborTrio(c);
+}
+
 /** @param {string} ch */
 export function isSubstitutableVowel(ch) {
   return vowelNeighborLetters(ch) != null;
+}
+
+/** @param {string} ch @param {(string | null | undefined)[]} ownedSlotTreasureIds */
+export function isLetterSubstitutableForMouth(ch, ownedSlotTreasureIds) {
+  if (!hasVowelNeighborSubstitute(ownedSlotTreasureIds)) return false;
+  return letterSubstituteNeighborTrio(ch, ownedSlotTreasureIds) != null;
 }
 
 /**
  * 牌张自然字母 + 显示偏移（-1/0/1）→ 当前展示字母
  * @param {string} naturalRaw 小写单字母
  * @param {number} [displayShift=0]
+ * @param {(string | null | undefined)[]} [ownedSlotTreasureIds]
  */
-export function vowelDisplayLetter(naturalRaw, displayShift = 0) {
-  const n = vowelNeighborLetters(naturalRaw);
+export function vowelDisplayLetter(naturalRaw, displayShift = 0, ownedSlotTreasureIds = []) {
+  let n = letterSubstituteNeighborTrio(naturalRaw, ownedSlotTreasureIds);
+  if (!n && Math.sign(Number(displayShift) || 0) !== 0) {
+    const c = normalizeSubstLetter(naturalRaw);
+    if (c) n = alphabetNeighborTrio(c);
+  }
   if (!n) return String(naturalRaw ?? "").toLowerCase();
   const sh = Math.sign(Number(displayShift) || 0);
   if (sh < 0) return n.prev ?? n.self;
@@ -41,19 +92,14 @@ export function vowelDisplayLetter(naturalRaw, displayShift = 0) {
 }
 
 /**
- * 嘴宝藏 UI：三格 [prev, 自然, next] 滑动窗口；中心为当前展示字母，两侧为同牌张 trio 中其余位（链端为空）
- * @param {string} naturalRaw 牌张自然元音（小写）
- * @param {number} [displayShift=0]
- * @returns {{ prev: string | null, next: string | null } | null}
- */
-/**
- * 自然元音与词典解析字母 → 展示偏移（-1/0/1）
+ * 自然字母与词典解析字母 → 展示偏移（-1/0/1）
  * @param {string} naturalRaw
  * @param {string} resolvedCh
+ * @param {(string | null | undefined)[]} [ownedSlotTreasureIds]
  */
-export function vowelDisplayShiftForResolved(naturalRaw, resolvedCh) {
+export function vowelDisplayShiftForResolved(naturalRaw, resolvedCh, ownedSlotTreasureIds = []) {
   const c = String(naturalRaw ?? "").toLowerCase().charAt(0);
-  const n = vowelNeighborLetters(c);
+  const n = letterSubstituteNeighborTrio(c, ownedSlotTreasureIds);
   if (!n) return 0;
   const d = String(resolvedCh ?? "").toLowerCase().charAt(0);
   if (n.prev != null && d === n.prev) return -1;
@@ -61,11 +107,12 @@ export function vowelDisplayShiftForResolved(naturalRaw, resolvedCh) {
   return 0;
 }
 
-export function vowelGhostSlotsForDisplay(naturalRaw, displayShift = 0) {
+/** @param {string} naturalRaw @param {number} [displayShift] @param {(string | null | undefined)[]} [ownedSlotTreasureIds] */
+export function vowelGhostSlotsForDisplay(naturalRaw, displayShift = 0, ownedSlotTreasureIds = []) {
   const c = String(naturalRaw ?? "").toLowerCase().charAt(0);
-  const n = vowelNeighborLetters(c);
+  const n = letterSubstituteNeighborTrio(c, ownedSlotTreasureIds);
   if (!n) return null;
-  const displayed = vowelDisplayLetter(c, displayShift);
+  const displayed = vowelDisplayLetter(c, displayShift, ownedSlotTreasureIds);
   let centerIdx = 1;
   if (n.prev != null && displayed === n.prev) centerIdx = 0;
   else if (n.next != null && displayed === n.next) centerIdx = 2;
@@ -80,8 +127,14 @@ export function vowelGhostSlotsForDisplay(naturalRaw, displayShift = 0) {
  * @param {string} pattern 小写串（棋盘选中串）
  * @param {boolean[]} vowelAltMask 与 pattern 等长
  * @param {(p: string) => string | null} resolveExact 无通配解析
+ * @param {(string | null | undefined)[]} [ownedSlotTreasureIds]
  */
-export function resolveWordPatternWithVowelSubstitutions(pattern, vowelAltMask, resolveExact) {
+export function resolveWordPatternWithVowelSubstitutions(
+  pattern,
+  vowelAltMask,
+  resolveExact,
+  ownedSlotTreasureIds = [],
+) {
   const raw = String(pattern ?? "").toLowerCase().trim();
   if (!raw) return null;
   if (!vowelAltMask?.length) return resolveExact(raw);
@@ -106,7 +159,7 @@ export function resolveWordPatternWithVowelSubstitutions(pattern, vowelAltMask, 
       letters[i] = saved;
       return rest;
     }
-    const opts = vowelNeighborLetters(letters[i]);
+    const opts = letterSubstituteNeighborTrio(letters[i], ownedSlotTreasureIds);
     if (!opts) return dfs(i + 1);
     const candidates = [opts.prev, opts.self, opts.next].filter((c) => c != null);
     for (const c of candidates) {
@@ -123,13 +176,17 @@ export function resolveWordPatternWithVowelSubstitutions(pattern, vowelAltMask, 
 }
 
 /**
- * 本词解析结果相对「选中串自然字母」哪些下标用了邻位元音
- * @param {string} selectedPattern 选中 tile 串（小写）
+ * @param {string} selectedPattern
  * @param {string} resolvedWord
  * @param {boolean[]} vowelAltMask
- * @returns {boolean[]}
+ * @param {(string | null | undefined)[]} [ownedSlotTreasureIds]
  */
-export function computeVowelSubstitutionUsedMask(selectedPattern, resolvedWord, vowelAltMask) {
+export function computeVowelSubstitutionUsedMask(
+  selectedPattern,
+  resolvedWord,
+  vowelAltMask,
+  ownedSlotTreasureIds = [],
+) {
   const len = Math.min(selectedPattern.length, resolvedWord.length, vowelAltMask.length);
   /** @type {boolean[]} */
   const used = [];
@@ -140,20 +197,22 @@ export function computeVowelSubstitutionUsedMask(selectedPattern, resolvedWord, 
     }
     const natural = String(selectedPattern[i] ?? "").toLowerCase();
     const resolved = String(resolvedWord[i] ?? "").toLowerCase();
-    used.push(natural !== resolved && isSubstitutableVowel(natural));
+    used.push(
+      natural !== resolved && isLetterSubstitutableForMouth(natural, ownedSlotTreasureIds),
+    );
   }
   return used;
 }
 
 /**
- * 拼词成功后轮换牌张元音展示偏移（与 dev 备注「位置循环」一致）
  * @param {object} deckCard
- * @param {boolean} usedSubstitution 本词是否用了邻位
+ * @param {boolean} usedSubstitution
+ * @param {(string | null | undefined)[]} [ownedSlotTreasureIds]
  */
-export function cycleVowelDisplayShiftOnDeckCard(deckCard, usedSubstitution) {
+export function cycleVowelDisplayShiftOnDeckCard(deckCard, usedSubstitution, ownedSlotTreasureIds = []) {
   if (!deckCard || typeof deckCard !== "object" || !usedSubstitution) return;
   const raw = String(deckCard.raw ?? "").toLowerCase();
-  if (!isSubstitutableVowel(raw)) return;
+  if (!isLetterSubstitutableForMouth(raw, ownedSlotTreasureIds)) return;
   const cur = Math.sign(Number(deckCard.vowelDisplayShift) || 0);
   deckCard.vowelDisplayShift = cur >= 1 ? -1 : cur + 1;
 }
