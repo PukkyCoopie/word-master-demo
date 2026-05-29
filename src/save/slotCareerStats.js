@@ -1,0 +1,73 @@
+import { createEmptySlotCareerStats } from "./runSaveSchema.js";
+
+/**
+ * @param {unknown} raw
+ * @returns {import('./runSaveSchema.js').SlotCareerStats}
+ */
+export function normalizeSlotCareerStats(raw) {
+  const base = createEmptySlotCareerStats();
+  if (!raw || typeof raw !== "object") return base;
+  const o = /** @type {Record<string, unknown>} */ (raw);
+  return {
+    runsStarted: Math.max(0, Math.floor(Number(o.runsStarted) || 0)),
+    runsCompleted: Math.max(0, Math.floor(Number(o.runsCompleted) || 0)),
+    runsWon: Math.max(0, Math.floor(Number(o.runsWon) || 0)),
+    bestWord: String(o.bestWord ?? ""),
+    bestWordScore: Math.max(0, Math.floor(Number(o.bestWordScore) || 0)),
+    totalLettersUsed: Math.max(0, Math.floor(Number(o.totalLettersUsed) || 0)),
+    totalLettersDiscarded: Math.max(0, Math.floor(Number(o.totalLettersDiscarded) || 0)),
+    totalShopPurchases: Math.max(0, Math.floor(Number(o.totalShopPurchases) || 0)),
+    totalRerolls: Math.max(0, Math.floor(Number(o.totalRerolls) || 0)),
+    lastRunEndedAt:
+      o.lastRunEndedAt != null && Number.isFinite(Number(o.lastRunEndedAt))
+        ? Math.floor(Number(o.lastRunEndedAt))
+        : null,
+  };
+}
+
+/**
+ * @param {import('./runSaveSchema.js').SlotCareerStats} career
+ * @param {import('../game/runMatchStats.js').RunMatchStats} runStats
+ * @param {'win' | 'fail'} outcome
+ */
+export function mergeRunMatchStatsIntoCareer(career, runStats, outcome) {
+  career.runsCompleted += 1;
+  if (outcome === "win") career.runsWon += 1;
+  career.totalLettersUsed += Math.max(0, Math.floor(Number(runStats.lettersUsed) || 0));
+  career.totalLettersDiscarded += Math.max(0, Math.floor(Number(runStats.lettersDiscarded) || 0));
+  career.totalShopPurchases += Math.max(0, Math.floor(Number(runStats.shopPurchases) || 0));
+  career.totalRerolls += Math.max(0, Math.floor(Number(runStats.rerolls) || 0));
+  const sc = Math.max(0, Math.floor(Number(runStats.bestWordScore) || 0));
+  const w = String(runStats.bestWord ?? "").trim();
+  if (w && sc >= career.bestWordScore) {
+    career.bestWord = w;
+    career.bestWordScore = sc;
+  }
+  career.lastRunEndedAt = Date.now();
+}
+
+/** @param {import('./runSaveSchema.js').SlotCareerStats} career */
+export function recordCareerRunStarted(career) {
+  career.runsStarted += 1;
+}
+
+/**
+ * @param {import('./runSaveSchema.js').SlotCareerStats} career
+ * @returns {{ label: string, value: string }[]}
+ */
+export function getSlotCareerStatRows(career) {
+  const c = normalizeSlotCareerStats(career);
+  const best = c.bestWord
+    ? `${c.bestWord.toUpperCase()}（${c.bestWordScore.toLocaleString("zh-CN")}）`
+    : "—";
+  return [
+    { label: "开局次数", value: String(c.runsStarted) },
+    { label: "完成局数", value: String(c.runsCompleted) },
+    { label: "胜利局数", value: String(c.runsWon) },
+    { label: "历史最佳单词", value: best },
+    { label: "累计拼词", value: c.totalLettersUsed > 0 ? String(c.totalLettersUsed) : "—" },
+    { label: "累计弃牌", value: c.totalLettersDiscarded > 0 ? String(c.totalLettersDiscarded) : "—" },
+    { label: "累计购物", value: c.totalShopPurchases > 0 ? String(c.totalShopPurchases) : "—" },
+    { label: "累计重掷", value: c.totalRerolls > 0 ? String(c.totalRerolls) : "—" },
+  ];
+}

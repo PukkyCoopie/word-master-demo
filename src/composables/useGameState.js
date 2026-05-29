@@ -73,6 +73,17 @@ export function resetDeckCardUidSeqForRun(runSeedNumeric = 0) {
   deckCardUidSeq = (base % 100000) * 1000;
 }
 
+/** @returns {number} */
+export function getDeckCardUidSeq() {
+  return deckCardUidSeq;
+}
+
+/** @param {number} next */
+export function setDeckCardUidSeq(next) {
+  const n = Math.floor(Number(next));
+  if (Number.isFinite(n) && n >= 0) deckCardUidSeq = n;
+}
+
 function defaultRng() {
   return Math.random();
 }
@@ -1593,6 +1604,194 @@ export function useGameState(gameOpts = {}) {
     return created;
   }
 
+  /** @param {unknown} card */
+  function serializeDeckCard(card) {
+    if (!card || typeof card !== "object") return null;
+    const c = /** @type {Record<string, unknown>} */ (card);
+    return {
+      _dcUid: Math.floor(Number(c._dcUid) || 0),
+      raw: String(c.raw ?? "e"),
+      rarity: String(c.rarity ?? "common"),
+      materialId: c.materialId != null ? String(c.materialId) : null,
+      materialScoreBonus: Math.max(0, Math.floor(Number(c.materialScoreBonus) || 0)),
+      materialMultBonus: Number(c.materialMultBonus) || 0,
+      tileScoreBonus: Math.max(0, Math.floor(Number(c.tileScoreBonus) || 0)),
+      letterMultBonus: Math.max(0, Math.round(Number(c.letterMultBonus) || 0)),
+      isWildcard: c.isWildcard === true,
+      accessoryId: c.accessoryId != null ? String(c.accessoryId) : null,
+      treasureAccessoryId: c.treasureAccessoryId != null ? String(c.treasureAccessoryId) : null,
+      everLeftDrawPile: c.everLeftDrawPile === true,
+      vowelDisplayShift: c.vowelDisplayShift != null ? Math.floor(Number(c.vowelDisplayShift)) : undefined,
+    };
+  }
+
+  /** @param {import('../save/runSavePayload.js').SerializedDeckCard} raw */
+  function hydrateDeckCardFromSerialized(raw) {
+    const card = {
+      _dcUid: Math.floor(Number(raw._dcUid) || 0),
+      raw: String(raw.raw ?? "e").toLowerCase(),
+      rarity: String(raw.rarity ?? "common"),
+      materialId: raw.materialId ?? null,
+      materialScoreBonus: Math.max(0, Math.floor(Number(raw.materialScoreBonus) || 0)),
+      materialMultBonus: Number(raw.materialMultBonus) || 0,
+      tileScoreBonus: Math.max(0, Math.floor(Number(raw.tileScoreBonus) || 0)),
+      letterMultBonus: Math.max(0, Math.round(Number(raw.letterMultBonus) || 0)),
+      isWildcard: raw.isWildcard === true,
+      accessoryId: raw.accessoryId ?? null,
+      treasureAccessoryId: raw.treasureAccessoryId ?? null,
+      everLeftDrawPile: raw.everLeftDrawPile === true,
+    };
+    if (raw.vowelDisplayShift != null) {
+      /** @type {Record<string, unknown>} */ (card).vowelDisplayShift = Math.floor(Number(raw.vowelDisplayShift));
+    }
+    return card;
+  }
+
+  /** @param {Record<string, unknown> | null | undefined} tile */
+  function serializeGridCell(tile) {
+    if (!tile?.letter || String(tile.letter).trim() === "") return null;
+    const dc = /** @type {{ _dcUid?: number }} */ (tile._deckCard);
+    return {
+      tileId: String(tile.id ?? ""),
+      deckUid: dc?._dcUid != null ? Math.floor(Number(dc._dcUid)) : null,
+      letter: String(tile.letter ?? ""),
+      baseScore: Math.max(0, Math.floor(Number(tile.baseScore) || 0)),
+      rarity: String(tile.rarity ?? "common"),
+      letterMultBonus: Math.max(0, Math.round(Number(tile.letterMultBonus) || 0)),
+      tileScoreBonus: Math.max(0, Math.floor(Number(tile.tileScoreBonus) || 0)),
+      materialScoreBonus: Math.max(0, Math.floor(Number(tile.materialScoreBonus) || 0)),
+      materialId: tile.materialId != null ? String(tile.materialId) : null,
+      materialMultBonus: Number(tile.materialMultBonus) || 0,
+      accessoryId: tile.accessoryId != null ? String(tile.accessoryId) : null,
+      treasureAccessoryId: tile.treasureAccessoryId != null ? String(tile.treasureAccessoryId) : null,
+      isWildcard: tile.isWildcard === true,
+      bossGridBlocked: tile.bossGridBlocked === true,
+      bossTileDebuffed: tile.bossTileDebuffed === true,
+      ceruleanBellLocked: tile.ceruleanBellLocked === true,
+      playerMarked: tile.playerMarked === true,
+    };
+  }
+
+  function exportDeckState() {
+    const flatGrid = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        flatGrid.push(serializeGridCell(grid.value[r]?.[c]));
+      }
+    }
+    return {
+      cards: initialDeckSnapshot.value
+        .map((c) => serializeDeckCard(c))
+        .filter((c) => c != null),
+      deckUids: deck.value
+        .map((c) => (c && typeof c === "object" ? Math.floor(Number(/** @type {{ _dcUid?: number }} */ (c)._dcUid) || 0) : 0))
+        .filter((uid) => uid > 0),
+      grid: flatGrid,
+      depletedDeckStackRaws: [...depletedDeckStackRaws.value],
+      deckPreviewAllInDrawPile: deckPreviewAllInDrawPile.value === true,
+      deckCardUidSeq: getDeckCardUidSeq(),
+      currentScore: currentScore.value,
+      targetScore: targetScore.value,
+      remainingWords: remainingWords.value,
+      remainingRemovals: remainingRemovals.value,
+      activeBossSlug: activeBossSlug.value,
+      ceruleanBellSlotIndex: ceruleanBellSlotIndex.value,
+      lengthLevelsByLength: { ...lengthLevelsByLength.value },
+      rarityLevelsByRarity: { ...rarityLevelsByRarity.value },
+      lengthUpgradeObservatoryExtra: { ...lengthUpgradeObservatoryExtra.value },
+      spellCountsByLength: { ...spellCountsByLength.value },
+      basketballWordsSubmitted: basketballWordsSubmitted.value,
+      runWordLengthJudgmentPenalty: runWordLengthJudgmentPenalty.value,
+      ownedUpgrades: [],
+    };
+  }
+
+  /**
+   * @param {import('../save/runSavePayload.js').SerializedDeckState} state
+   * @param {unknown[]} [ownedUpgrades]
+   */
+  function hydrateDeckState(state, ownedUpgrades = []) {
+    if (!state || typeof state !== "object") return;
+    setDeckCardUidSeq(state.deckCardUidSeq ?? getDeckCardUidSeq());
+    const cardByUid = new Map();
+    const cards = [];
+    for (const raw of state.cards ?? []) {
+      if (!raw || typeof raw !== "object") continue;
+      const card = hydrateDeckCardFromSerialized(/** @type {import('../save/runSavePayload.js').SerializedDeckCard} */ (raw));
+      cardByUid.set(card._dcUid, card);
+      cards.push(card);
+    }
+    initialDeckSnapshot.value = cards;
+    const deckCards = [];
+    for (const uid of state.deckUids ?? []) {
+      const card = cardByUid.get(Math.floor(Number(uid)));
+      if (card) deckCards.push(card);
+    }
+    deck.value = deckCards;
+    depletedDeckStackRaws.value = new Set(
+      Array.isArray(state.depletedDeckStackRaws) ? state.depletedDeckStackRaws.map(String) : [],
+    );
+    deckPreviewAllInDrawPile.value = state.deckPreviewAllInDrawPile === true;
+    currentScore.value = Math.max(0, Math.floor(Number(state.currentScore) || 0));
+    targetScore.value = Math.max(0, Math.floor(Number(state.targetScore) || 0));
+    remainingWords.value = Math.max(0, Math.floor(Number(state.remainingWords) || 0));
+    remainingRemovals.value = Math.max(0, Math.floor(Number(state.remainingRemovals) || 0));
+    activeBossSlug.value = String(state.activeBossSlug ?? "");
+    ceruleanBellSlotIndex.value =
+      state.ceruleanBellSlotIndex != null ? Math.floor(Number(state.ceruleanBellSlotIndex)) : null;
+    lengthLevelsByLength.value = { ...(state.lengthLevelsByLength ?? {}) };
+    rarityLevelsByRarity.value = { ...(state.rarityLevelsByRarity ?? {}) };
+    lengthUpgradeObservatoryExtra.value = { ...(state.lengthUpgradeObservatoryExtra ?? {}) };
+    spellCountsByLength.value = { ...(state.spellCountsByLength ?? {}) };
+    basketballWordsSubmitted.value = Math.max(0, Math.floor(Number(state.basketballWordsSubmitted) || 0));
+    runWordLengthJudgmentPenalty.value = Math.max(0, Math.floor(Number(state.runWordLengthJudgmentPenalty) || 0));
+
+    const nextGrid = [];
+    const flat = Array.isArray(state.grid) ? state.grid : [];
+    for (let r = 0; r < ROWS; r++) {
+      const row = [];
+      for (let c = 0; c < COLS; c++) {
+        const cell = flat[r * COLS + c];
+        if (!cell || typeof cell !== "object") {
+          row.push(emptyTile(nextId));
+          continue;
+        }
+        const ser = /** @type {import('../save/runSavePayload.js').SerializedGridCell} */ (cell);
+        const uid = ser.deckUid != null ? Math.floor(Number(ser.deckUid)) : null;
+        const card = uid != null ? cardByUid.get(uid) ?? null : null;
+        if (card) {
+          const tile = createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value);
+          tile.id = ser.tileId || tile.id;
+          tile.letter = ser.letter || tile.letter;
+          tile.baseScore = Math.max(0, Math.floor(Number(ser.baseScore) || tile.baseScore));
+          tile.rarity = ser.rarity || tile.rarity;
+          tile.letterMultBonus = Math.max(0, Math.round(Number(ser.letterMultBonus) || 0));
+          tile.tileScoreBonus = Math.max(0, Math.floor(Number(ser.tileScoreBonus) || 0));
+          tile.materialScoreBonus = Math.max(0, Math.floor(Number(ser.materialScoreBonus) || 0));
+          tile.materialId = ser.materialId ?? tile.materialId;
+          tile.materialMultBonus = Number(ser.materialMultBonus) || 0;
+          tile.accessoryId = ser.accessoryId ?? null;
+          tile.treasureAccessoryId = ser.treasureAccessoryId ?? null;
+          tile.isWildcard = ser.isWildcard === true;
+          tile.bossGridBlocked = ser.bossGridBlocked === true;
+          tile.bossTileDebuffed = ser.bossTileDebuffed === true;
+          tile.ceruleanBellLocked = ser.ceruleanBellLocked === true;
+          tile.playerMarked = ser.playerMarked === true;
+          tile._deckCard = card;
+          row.push(tile);
+        } else {
+          row.push(emptyTile(nextId));
+        }
+      }
+      nextGrid.push(row);
+    }
+    grid.value = nextGrid;
+    triggerRef(grid);
+    selectedOrder.value = [];
+    clearCurrentWord();
+    void ownedUpgrades;
+  }
+
   return {
 
     grid,
@@ -1703,7 +1902,10 @@ export function useGameState(gameOpts = {}) {
 
     appendDeckCardSpecToInitialSnapshot,
 
+    exportDeckState,
+
+    hydrateDeckState,
+
   };
 
 }
-

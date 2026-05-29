@@ -3,6 +3,8 @@
  * @typedef {{
  *   bestWord: string,
  *   bestWordScore: number,
+ *   longestWord: string,
+ *   longestWordLength: number,
  *   lengthCounts: Map<number, number>,
  *   lettersUsed: number,
  *   lettersDiscarded: number,
@@ -16,6 +18,8 @@ export function createRunMatchStats() {
   return {
     bestWord: "",
     bestWordScore: 0,
+    longestWord: "",
+    longestWordLength: 0,
     lengthCounts: new Map(),
     lettersUsed: 0,
     lettersDiscarded: 0,
@@ -39,6 +43,10 @@ export function recordWordSubmit(stats, { word, score, length }) {
   if (w && sc >= stats.bestWordScore) {
     stats.bestWord = w;
     stats.bestWordScore = sc;
+  }
+  if (w && len >= stats.longestWordLength) {
+    stats.longestWord = w;
+    stats.longestWordLength = len;
   }
 }
 
@@ -87,9 +95,11 @@ export function getRunMatchStatsRows(stats) {
   const best = stats.bestWord
     ? `${stats.bestWord.toUpperCase()}（${stats.bestWordScore.toLocaleString("zh-CN")}）`
     : "—";
+  const longest = stats.longestWord ? stats.longestWord.toUpperCase() : "—";
   const commonLen = resolveMostCommonLength(stats.lengthCounts);
   return [
     { label: "最佳单词", value: best },
+    { label: "最长单词", value: longest },
     { label: "最常拼写长度", value: commonLen != null ? String(commonLen) : "—" },
     { label: "使用字母数", value: String(stats.lettersUsed) },
     { label: "弃掉字母数", value: String(stats.lettersDiscarded) },

@@ -40,6 +40,15 @@
 
 立刻生效：`npm run version:minor -- --now`（major 同理）。
 
+### 误运行后回退
+
+| 情况 | 怎么回退 |
+|------|----------|
+| 只跑了 `npm run version:minor` / `version:major`（**没有** `--now`） | 删除仓库根目录的 `.version-bump-pending` 即可。`package.json`、`appVersion.json`、已有 changelog **不会变**；只是取消了「下次 commit 再升一级」的标记。 |
+| 误跑了 `npm run version:minor -- --now`（或 major 同理） | 1. 恢复版本号文件：`git restore package.json src/appVersion.json`（若尚未 commit 过目标版本）<br>2. 删除**本次误操作**新建的 changelog（如误从 0.4.0 升到 0.5.0 时删 `changelog/0_5_0.md`）<br>3. 若存在 `.version-bump-pending` 也一并删除<br>4. 若之前已用 `--now` 正确建好目标版（如 `0_4_0.md`），**保留**该文件与对应版本号，只撤销多出来的那一档 |
+
+回退后确认：changelog 目录里**最大**的 `major_minor_patch.md` 与 `package.json` / `src/appVersion.json` 一致（如 `0_4_0.md` → **0.4.0**）。
+
 ---
 
 ## 其他

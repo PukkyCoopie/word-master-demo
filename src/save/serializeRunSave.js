@@ -1,0 +1,92 @@
+import { getRunLevelAtIndex } from "../levelDefinitions.js";
+import { getDeckCardUidSeq } from "../composables/useGameState.js";
+import { normalizeRunSavePhase } from "./runSaveSchema.js";
+import { serializeRunMatchStats } from "./runMatchStatsCodec.js";
+import { serializeTreasureRunState } from "./treasureRunStateCodec.js";
+
+/** @template T @param {T} value @returns {T} */
+function cloneSaveData(value) {
+  if (value == null) return value;
+  return JSON.parse(JSON.stringify(value));
+}
+
+/**
+ * @param {Record<string, unknown>} ctx
+ * @returns {import('./runSavePayload.js').RunSavePayload}
+ */
+export function serializeRunSave(ctx) {
+  const deckState = /** @type {ReturnType<import('../composables/useGameState.js').useGameState>['exportDeckState']>} */ (
+    ctx.exportDeckState
+  )();
+  deckState.ownedUpgrades = cloneSaveData(ctx.ownedUpgrades ?? []);
+
+  let phase = normalizeRunSavePhase(ctx.phase);
+  if (ctx.showRunEnd && ctx.runEndOutcome === "win") phase = "run_end_win";
+  else if (ctx.showRunEnd && ctx.runEndOutcome === "fail") phase = "run_end_fail";
+  else if (ctx.showSettlement) phase = "settlement";
+  else if (ctx.showShop) phase = "shop";
+
+  return {
+    runSeedNumeric: Math.floor(Number(ctx.runSeedNumeric) || 0) >>> 0,
+    runSeedDisplay: String(ctx.runSeedDisplay ?? ""),
+    rngState: Math.floor(Number(ctx.rngState) || 0) >>> 0,
+    deckCardUidSeq: getDeckCardUidSeq(),
+    levelIndex: Math.max(0, Math.floor(Number(ctx.levelIndex) || 0)),
+    isEndlessRun: ctx.isEndlessRun === true,
+    glyphShopSkipLevelAdvance: ctx.glyphShopSkipLevelAdvance === true,
+    money: Math.max(0, Math.floor(Number(ctx.money) || 0)),
+    phase,
+    activeSlotIndex: Math.max(0, Math.floor(Number(ctx.activeSlotIndex) || 0)),
+    deckState,
+    ownedTreasures: cloneSaveData(ctx.ownedTreasures ?? []),
+    ownedVoucherIds: [...(ctx.ownedVoucherIds ?? [])].map(String),
+    treasureRunState: serializeTreasureRunState(ctx.treasureRunState),
+    spellCastHistory: [...(ctx.spellCastHistory ?? [])].map(String),
+    lastReplayableSpellId: ctx.lastReplayableSpellId != null ? String(ctx.lastReplayableSpellId) : null,
+    usedWordLengthsThisBoss: [...(ctx.usedWordLengthsThisBoss ?? [])].map((n) => Math.floor(Number(n) || 0)),
+    mouthLockedLengthBoss:
+      ctx.mouthLockedLengthBoss != null ? Math.floor(Number(ctx.mouthLockedLengthBoss)) : null,
+    clubRequiredKeyBoss: ctx.clubRequiredKeyBoss != null ? String(ctx.clubRequiredKeyBoss) : null,
+    pillarUsedDeckUids: [...(ctx.pillarUsedDeckUids ?? [])].map((n) => Math.floor(Number(n) || 0)),
+    verdantTreasureSold: ctx.verdantTreasureSold === true,
+    crimsonTreasureDisabledSlotIndex:
+      ctx.crimsonTreasureDisabledSlotIndex != null
+        ? Math.floor(Number(ctx.crimsonTreasureDisabledSlotIndex))
+        : null,
+    pendingBossSlugOverride: String(ctx.pendingBossSlugOverride ?? ""),
+    settlementSnapshot: ctx.settlementSnapshot ? cloneSaveData(ctx.settlementSnapshot) : null,
+    shopOffers: cloneSaveData(ctx.shopOffers ?? []),
+    packOffers: cloneSaveData(ctx.packOffers ?? []),
+    shopVoucherShelf: ctx.shopVoucherShelf ? cloneSaveData(ctx.shopVoucherShelf) : null,
+    shopRerollsThisVisit: Math.max(0, Math.floor(Number(ctx.shopRerollsThisVisit) || 0)),
+    shopVoucherShelfGeneration: Math.floor(Number(ctx.shopVoucherShelfGeneration) || -1),
+    packPickSession: ctx.packPickSession ? cloneSaveData(ctx.packPickSession) : null,
+    bossRerollSession: ctx.bossRerollSession ? cloneSaveData(ctx.bossRerollSession) : null,
+    runMatchStats: serializeRunMatchStats(ctx.runMatchStats),
+    runEndOutcome: ctx.runEndOutcome === "win" ? "win" : "fail",
+  };
+}
+
+/**
+ * @param {import('./runSavePayload.js').RunSavePayload} payload
+ * @param {number} levelIndex
+ * @returns {import('./runSaveSchema.js').RunSaveMeta}
+ */
+export function buildRunSaveMetaFromPayload(payload, levelIndex) {
+  const levelDef = getRunLevelAtIndex(levelIndex);
+  const emojis = (payload.ownedTreasures ?? []).map((t) =>
+    t && typeof t === "object" && /** @type {{ emoji?: string }} */ (t).emoji
+      ? String(/** @type {{ emoji?: string }} */ (t).emoji)
+      : null,
+  );
+  while (emojis.length < 5) emojis.push(null);
+  return {
+    seedDisplay: String(payload.runSeedDisplay ?? ""),
+    levelId: levelDef?.id ?? "1-1",
+    money: Math.max(0, Math.floor(Number(payload.money) || 0)),
+    isEndlessRun: payload.isEndlessRun === true,
+    phase: normalizeRunSavePhase(payload.phase),
+    ownedTreasureEmojis: emojis.slice(0, 5),
+    savedAt: Date.now(),
+  };
+}

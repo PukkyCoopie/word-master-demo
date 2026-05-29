@@ -816,6 +816,12 @@ import {
 } from "../game/bossTileDebuff.js";
 import { coerceRunSeedNumeric, createRunRng } from "../game/runRng.js";
 import {
+  applyGamePanelSave,
+  checkGamePanelCanSave,
+  saveGamePanelToSlot,
+} from "../save/gamePanelSaveApi.js";
+import { createRunAutoSave } from "../save/runAutoSave.js";
+import {
   createRunMatchStats,
   getRunMatchStatsRows,
   recordLettersDiscarded,
@@ -1013,6 +1019,8 @@ const dictFatalError = computed(() => !!dictError.value && !dictionaryReady.valu
 const props = defineProps({
   runSeed: { type: Number, default: 0 },
   runSeedDisplay: { type: String, default: "" },
+  restoredSave: { type: Object, default: null },
+  saveSlotIndex: { type: Number, default: 0 },
 });
 
 const { portalFullscreenTarget } = useViewportLayoutMode();
@@ -1021,9 +1029,14 @@ const emit = defineEmits(["request-restart", "exit-to-menu"]);
 
 const ownedVoucherIds = ref([]);
 
-const runRng = createRunRng(coerceRunSeedNumeric(props.runSeed));
+const runRng = ref(
+  createRunRng(
+    coerceRunSeedNumeric(props.restoredSave?.runSeedNumeric ?? props.runSeed),
+    props.restoredSave?.rngState,
+  ),
+);
 function runRandom() {
-  return runRng.next();
+  return runRng.value.next();
 }
 
 const shopPortalZ = ref(0);
@@ -1199,6 +1212,8 @@ const {
   refreshGridTileBaseScoresFromLevels,
   appendShopDeckEntries,
   appendDeckCardSpecToInitialSnapshot,
+  exportDeckState,
+  hydrateDeckState,
   spellCountsByLength,
   recordSpellWordLength,
   lengthLevelsByLength,
@@ -1216,7 +1231,7 @@ const {
 } = useGameState({
   ownedVoucherIdsRef: ownedVoucherIds,
   getRng: runRandom,
-  runSeedNumeric: coerceRunSeedNumeric(props.runSeed),
+  runSeedNumeric: coerceRunSeedNumeric(props.restoredSave?.runSeedNumeric ?? props.runSeed),
   pillarUsedDeckUidsRef: pillarUsedDeckUids,
   verdantTreasureSoldRef: verdantTreasureSold,
   bossMechanicsSuppressedRef: bossMechanicsSuppressed,
@@ -2400,6 +2415,7 @@ async function onPackPickSkip() {
     playOwnedTreasureMultDeltaFx,
   });
   resolvePackPickFlow();
+  scheduleRunAutoSave();
 }
 
 /** 领取数已达包内上限（含法术选格结束后）时关闭开包层 */
@@ -2411,6 +2427,7 @@ function maybeAutoClosePackPickSession() {
     packPickSession.value = null;
     packPickOverlaySuppressed.value = false;
     resolvePackPickFlow();
+    scheduleRunAutoSave();
   }
 }
 
@@ -2566,6 +2583,7 @@ async function onPackInnerClaim() {
     ensurePackPickOverlayVisible();
   } finally {
     packPickBusy.value = false;
+    scheduleRunAutoSave();
   }
 }
 
@@ -2773,6 +2791,7 @@ const irisTransition = inject("irisTransition", null);
 /** 开局弹层（菜单 / 暂停「开始新的一局」） */
 const requestNewRun = inject("requestNewRun", null);
 const openSettings = inject("openSettings", null);
+const mergeCareerOnRunEnd = inject("mergeCareerOnRunEnd", null);
 
 /** 暂停选项层 */
 const showPauseOptions = ref(false);
@@ -3012,9 +3031,8 @@ async function destroyOwnedTreasureWithFx(treasureId) {
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
   const bubble = showScoreBubble(el, "摧毁！", "destroy", sp);
   await shrinkTreasureSlotAndClear(treasureId, el, bubble, sp);
+  scheduleRunAutoSave();
 }
-
-/** 炸药等：来源宝藏 wobble → 目标 wobble 与「摧毁！」并发 → 目标缩灭 */
 async function destroyOtherOwnedTreasureFromSourceFx(sourceTreasureId, victimTreasureId) {
   const sourceId = String(sourceTreasureId ?? "");
   const victimId = String(victimTreasureId ?? "");
@@ -3061,6 +3079,7 @@ async function resetLevelAfterTreasurePrep(levelDef) {
   treasureRunState.value.jokerForcedDrawUid = null;
   resetLevel(levelDef, opts);
   await runTreasureLevelEnterHooks(levelDef?.id ?? "1-1");
+  scheduleRunAutoSave();
 }
 
 async function runTreasureLevelEnterHooks(levelId) {
@@ -5340,6 +5359,7 @@ function onMarkSelectedTilesClick() {
     tile.playerMarked = shouldMark;
   }
   touchGrid();
+  scheduleRunAutoSave();
 }
 
 async function onSwapWordSelectionClick() {
@@ -5400,6 +5420,126 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function buildLocalSaveContext() {
+  return {
+    exportDeckState,
+    ownedUpgrades: ownedUpgrades.value,
+    runSeedNumeric: coerceRunSeedNumeric(props.restoredSave?.runSeedNumeric ?? props.runSeed),
+    runSeedDisplay: props.runSeedDisplay,
+    rngState: runRng.value.getState(),
+    levelIndex: levelIndex.value,
+    isEndlessRun: isEndlessRun.value,
+    glyphShopSkipLevelAdvance: glyphShopSkipLevelAdvance.value,
+    money: money.value,
+    phase: "playing",
+    activeSlotIndex: props.saveSlotIndex,
+    ownedTreasures: ownedTreasures.value,
+    ownedVoucherIds: ownedVoucherIds.value,
+    treasureRunState: treasureRunState.value,
+    spellCastHistory: spellCastHistory.value,
+    lastReplayableSpellId: lastReplayableSpellId.value,
+    usedWordLengthsThisBoss: [...usedWordLengthsThisBoss.value],
+    mouthLockedLengthBoss: mouthLockedLengthBoss.value,
+    clubRequiredKeyBoss: clubRequiredKeyBoss.value,
+    pillarUsedDeckUids: [...pillarUsedDeckUids.value],
+    verdantTreasureSold: verdantTreasureSold.value,
+    crimsonTreasureDisabledSlotIndex: crimsonTreasureDisabledSlotIndex.value,
+    pendingBossSlugOverride: pendingBossSlugOverride.value,
+    settlementSnapshot: settlementSnapshot.value,
+    shopOffers: shopOffers.value,
+    packOffers: packOffers.value,
+    shopVoucherShelf: shopVoucherShelf.value,
+    shopRerollsThisVisit: shopRerollsThisVisit.value,
+    shopVoucherShelfGeneration: shopVoucherShelfGeneration.value,
+    packPickSession: packPickSession.value,
+    bossRerollSession: bossRerollSession.value,
+    runMatchStats: runMatchStats.value,
+    runEndOutcome: runEndOutcome.value,
+    showShop: showShop.value,
+    showSettlement: showSettlement.value,
+    showRunEnd: showRunEnd.value,
+  };
+}
+
+function buildHydrateContext() {
+  return {
+    runRngRef: runRng,
+    levelIndexRef: levelIndex,
+    isEndlessRunRef: isEndlessRun,
+    glyphShopSkipLevelAdvanceRef: glyphShopSkipLevelAdvance,
+    moneyRef: money,
+    ownedTreasuresRef: ownedTreasures,
+    ownedVoucherIdsRef: ownedVoucherIds,
+    treasureRunStateRef: treasureRunState,
+    spellCastHistoryRef: spellCastHistory,
+    lastReplayableSpellIdRef: lastReplayableSpellId,
+    usedWordLengthsThisBossRef: usedWordLengthsThisBoss,
+    mouthLockedLengthBossRef: mouthLockedLengthBoss,
+    clubRequiredKeyBossRef: clubRequiredKeyBoss,
+    pillarUsedDeckUidsRef: pillarUsedDeckUids,
+    verdantTreasureSoldRef: verdantTreasureSold,
+    crimsonTreasureDisabledSlotIndexRef: crimsonTreasureDisabledSlotIndex,
+    pendingBossSlugOverrideRef: pendingBossSlugOverride,
+    hydrateDeckState,
+    ownedUpgradesRef: ownedUpgrades,
+    runMatchStatsRef: runMatchStats,
+    runEndOutcomeRef: runEndOutcome,
+    showSettlementRef: showSettlement,
+    showShopRef: showShop,
+    showRunEndRef: showRunEnd,
+    settlementSnapshotRef: settlementSnapshot,
+    shopOffersRef: shopOffers,
+    packOffersRef: packOffers,
+    shopVoucherShelfRef: shopVoucherShelf,
+    shopRerollsThisVisitRef: shopRerollsThisVisit,
+    shopVoucherShelfGenerationRef: shopVoucherShelfGeneration,
+    packPickSessionRef: packPickSession,
+    bossRerollSessionRef: bossRerollSession,
+  };
+}
+
+/** @param {number} [slotIndex] */
+function saveCurrentRun(slotIndex = props.saveSlotIndex) {
+  return saveGamePanelToSlot(buildLocalSaveContext(), slotIndex);
+}
+
+function canSaveCurrentRun() {
+  return checkGamePanelCanSave({
+    transitionBusy: transitionBusy.value,
+    scoringAnimating: scoringAnimating.value,
+    gridRefillAnimating: gridRefillAnimating.value,
+    flyingLettersCount: flyingLetters.value.length,
+    flyingBackBatchesCount: flyingBackBatches.value.length,
+    submitWordBusy: submitWordBusy.value,
+  });
+}
+
+const runAutoSave = createRunAutoSave({
+  canSave: canSaveCurrentRun,
+  save: () => {
+    saveCurrentRun(props.saveSlotIndex);
+  },
+  isAlive: () => gamePanelAlive,
+});
+
+function scheduleRunAutoSave() {
+  runAutoSave.scheduleAutoSave();
+}
+
+watch(
+  () => [
+    scoringAnimating.value,
+    gridRefillAnimating.value,
+    flyingLetters.value.length,
+    flyingBackBatches.value.length,
+    transitionBusy.value,
+    submitWordBusy.value,
+  ],
+  () => {
+    runAutoSave.tryFlush();
+  },
+);
+
 function buildSettlementSnapshot() {
   const moneyBefore = money.value;
   const clearReward = stageRewardYuan.value;
@@ -5434,6 +5574,7 @@ async function openStageSettlement() {
   showSettlement.value = true;
   await nextTick();
   await runSettlementIntro();
+  scheduleRunAutoSave();
 }
 
 /**
@@ -5442,6 +5583,10 @@ async function openStageSettlement() {
  */
 async function openRunEnd(outcome, opts = {}) {
   runEndOutcome.value = outcome === "win" ? "win" : "fail";
+  mergeCareerOnRunEnd?.({
+    outcome: runEndOutcome.value,
+    stats: runMatchStats.value,
+  });
   showDeckLayer.value = false;
   showInfoLayer.value = false;
   treasureDetail.value = null;
@@ -5453,6 +5598,7 @@ async function openRunEnd(outcome, opts = {}) {
   runEndPortalZ.value = bumpOverlayZ();
   showRunEnd.value = true;
   await nextTick();
+  scheduleRunAutoSave();
 }
 
 function onRunEndRetry() {
@@ -5501,6 +5647,7 @@ function onPauseSettings() {
 
 function onPauseMainMenu() {
   closePauseOptions();
+  runAutoSave.tryFlush();
   emit("exit-to-menu");
 }
 
@@ -5518,6 +5665,7 @@ async function onRunEndEndless() {
   showSettlement.value = true;
   await nextTick();
   await runSettlementIntro();
+  scheduleRunAutoSave();
 }
 
 function runSettlementIntro() {
@@ -5818,6 +5966,7 @@ async function onSettlementContinue(event) {
   transitionBusy.value = false;
   const shopWalletEl = shopPanelRef.value?.getWalletEl?.();
   await playWalletHeaderGainAnim(startMoney, endMoney, shopWalletEl);
+  scheduleRunAutoSave();
 }
 
 function openGameTreasureDetail(ti, slot, ev) {
@@ -5893,6 +6042,7 @@ function onGameOwnedDrop(index, e) {
   }
   ownedTreasures.value = [...gameOwnedDragPreview.value];
   gameOwnedDragDroppedInside.value = true;
+  scheduleRunAutoSave();
 }
 
 function onGameOwnedDragEnd() {
@@ -7220,9 +7370,9 @@ async function applyInstantSpellWithoutPreview(purchasedSpellId, context, offerD
     if (context === "inRun") await playInstantSpellInRunFx(effectiveSpellId);
     else if (showShop.value) await playInstantSpellShopFx(effectiveSpellId);
     noteSpellCastForReplay(pid);
+    scheduleRunAutoSave();
     return;
   }
-  const ctx0 = buildSpellRuntimeContext();
   const beforeGrid = cloneGridDeep(grid.value, ROWS, COLS);
   const applyOpts =
     pid === "dice" ? { rng: runRandom, skipDiceInline: true } : { rng: runRandom };
@@ -7253,6 +7403,7 @@ async function applyInstantSpellWithoutPreview(purchasedSpellId, context, offerD
   syncGridTilesToLinkedDeckCards();
   noteSpellCastForReplay(pid);
   void offerDeckSource;
+  scheduleRunAutoSave();
 }
 
 /**
@@ -7477,10 +7628,9 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
     syncGridTilesToLinkedDeckCards();
     noteSpellCastForReplay(s.purchasedSpellId);
     await dismissSpellTargetLayer({ confirmed: true, skipped: false });
+    scheduleRunAutoSave();
     return;
   }
-
-  const oldSnaps = targets.map(({ row, col }) => cloneGridTileSnapshot(g[row][col]));
   /** @type {Record<string, unknown> | null} */
   let lastSpellFx = null;
   const applySpellNow = () => {
@@ -7525,6 +7675,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
   syncGridTilesToLinkedDeckCards();
   noteSpellCastForReplay(s.purchasedSpellId);
   await dismissSpellTargetLayer({ confirmed: true, skipped: false });
+  scheduleRunAutoSave();
 }
 
 function clearOfferSlotAfterPurchase(t) {
@@ -7553,6 +7704,7 @@ function clearOfferSlotAfterPurchase(t) {
 async function onTreasurePurchase() {
   const d = treasureDetail.value;
   if (!d) return;
+  try {
   if (d.kind === "pack-inner") {
     await onPackInnerClaim();
     return;
@@ -7687,6 +7839,9 @@ async function onTreasurePurchase() {
   applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
   clearOfferSlotAfterPurchase(t);
   treasureDetail.value = null;
+  } finally {
+    scheduleRunAutoSave();
+  }
 }
 
 async function onTreasureSell() {
@@ -7723,6 +7878,7 @@ async function onTreasureSell() {
     clearVerdantDebuffsOnGrid();
     playBossTapeTriggerCue();
   }
+  scheduleRunAutoSave();
 }
 
 async function onShopReroll() {
@@ -7747,12 +7903,14 @@ async function onShopReroll() {
   packOffers.value = rollPackStock(runRandom, sessionExclude);
   treasureDetail.value = null;
   packPickSession.value = null;
+  scheduleRunAutoSave();
 }
 
 function onShopReorderOwned(nextSlots) {
   if (!Array.isArray(nextSlots)) return;
   if (nextSlots.length !== ownedTreasures.value.length) return;
   ownedTreasures.value = [...nextSlots];
+  scheduleRunAutoSave();
 }
 
 async function onShopNextLevel(event) {
@@ -7774,6 +7932,7 @@ function onBossBlindRerollPaid() {
   const rerollsUsed = s.rerollsUsed + 1;
   const slug = pickBossSlugForLevel(s.levelId, getRunSeedNumeric(), rerollNonce);
   bossRerollSession.value = { ...s, slug, rerollNonce, rerollsUsed };
+  scheduleRunAutoSave();
 }
 
 async function onBossBlindRerollContinue(event) {
@@ -7826,6 +7985,7 @@ async function executeShopLeaveToNextLevel(event) {
     await Promise.all([runGridIntroAfterReset(), playLevelAdvanceHeaderFx()]);
   }
   transitionBusy.value = false;
+  scheduleRunAutoSave();
 }
 
 /** 下落时长略长，便于看出加速过程 */
@@ -9701,6 +9861,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   suppressResultWordLengthUntilScoringEnd.value = false;
   await nextTick();
   updateSlotPositions(true);
+  scheduleRunAutoSave();
   } finally {
     submitUpgradeFxRegistrar = null;
     scoringTreasureBarIndex.value = null;
@@ -9943,6 +10104,7 @@ async function onRemoveClick() {
 
   gridRefillAnimating.value = false;
   nextTick(() => updateSlotPositions(true));
+  scheduleRunAutoSave();
   } finally {
     if (gridRefillAnimating.value) gridRefillAnimating.value = false;
   }
@@ -10634,6 +10796,27 @@ function mountE2eHarnessIfNeeded() {
 onMounted(async () => {
   await loadDictionary({ shouldAbort: () => !gamePanelAlive });
   if (!gamePanelAlive) return;
+
+  const restored = props.restoredSave;
+  if (restored && typeof restored === "object") {
+    applyGamePanelSave(restored, buildHydrateContext());
+    ensureBigramTargetPair(treasureRunState.value, rollRandomBigramForTreasure);
+    mountE2eHarnessIfNeeded();
+    slotRafLastTime = performance.now();
+    slotRafId = requestAnimationFrame(slotRafLoop);
+    await nextTick();
+    gridIntroDone.value = true;
+    gridRefillAnimating.value = false;
+    for (let i = 0; i < ROWS * COLS; i++) {
+      const el = gridTileRefs.value[i];
+      if (el) gsap.set(el, { x: 0, y: 0, opacity: 1 });
+    }
+    tryCeruleanBellFlyInAfterGridStable();
+    updateSlotPositions(true);
+    scheduleRunAutoSave();
+    return;
+  }
+
   ensureBigramTargetPair(treasureRunState.value, rollRandomBigramForTreasure);
   mountE2eHarnessIfNeeded();
   slotRafLastTime = performance.now();
@@ -10654,8 +10837,10 @@ onMounted(async () => {
   } else {
     await runGridIntroAfterReset();
   }
+  scheduleRunAutoSave();
 });
 onUnmounted(() => {
+  runAutoSave.cancelPending();
   runEndConfettiController.dispose();
   disposeE2eHarness?.();
   disposeE2eHarness = null;

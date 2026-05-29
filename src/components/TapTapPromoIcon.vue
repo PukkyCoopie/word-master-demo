@@ -11,8 +11,8 @@
       class="taptap-promo-icon-img taptap-promo-icon-img--in-about"
       :src="TAP_TAP_ICON_SRC"
       alt=""
-      width="48"
-      height="48"
+      width="22"
+      height="22"
     />
     <span class="taptap-promo-about-text">{{ promoAboutTail }}</span>
   </button>
@@ -152,14 +152,6 @@ defineEmits(["open-poster"]);
   color: rgba(60, 58, 50, 0.78);
 }
 
-.taptap-promo-icon-img--in-about {
-  width: calc(48 * var(--rpx));
-  height: calc(48 * var(--rpx));
-  flex-shrink: 0;
-  border-radius: calc(8 * var(--rpx));
-  box-shadow: 0 calc(1 * var(--rpx)) calc(4 * var(--rpx)) rgba(0, 0, 0, 0.1);
-}
-
 .taptap-promo-icon-btn {
   display: block;
   padding: 0;
@@ -185,6 +177,14 @@ defineEmits(["open-poster"]);
   display: block;
   width: calc(80 * var(--rpx));
   height: calc(80 * var(--rpx));
+}
+
+.taptap-promo-icon-img--in-about {
+  width: calc(32 * var(--rpx) * 2 / 3);
+  height: calc(32 * var(--rpx) * 2 / 3);
+  flex-shrink: 0;
+  border-radius: calc(8 * var(--rpx) * 2 / 3);
+  box-shadow: 0 calc(1 * var(--rpx)) calc(4 * var(--rpx)) rgba(0, 0, 0, 0.1);
 }
 
 /* 与 useWebLayoutMode 手机端判定一致（视口宽高比 ≤ 1:1） */

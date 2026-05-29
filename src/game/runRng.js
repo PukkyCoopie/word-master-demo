@@ -3,18 +3,35 @@ const SEED_CHARSET = "123456789ABCDEFGHIJKLMNPQRSTUVWXYZ";
 const SEED_DISPLAY_MAX_LEN = 8;
 
 /**
- * 确定性伪随机 [0, 1)
+ * 确定性伪随机 [0, 1)，支持导出/恢复内部状态（存档续局）
+ * @param {number} seed
+ * @returns {{ next: () => number, getState: () => number, setState: (t: number) => void }}
+ */
+export function mulberry32WithState(seed) {
+  let t = seed >>> 0;
+  return {
+    next() {
+      t += 0x6d2b79f5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    },
+    getState() {
+      return t >>> 0;
+    },
+    setState(nextT) {
+      t = coerceRunSeedNumeric(nextT);
+    },
+  };
+}
+
+/**
  * @param {number} seed
  * @returns {() => number}
  */
 export function mulberry32(seed) {
-  let t = seed >>> 0;
-  return function next() {
-    t += 0x6d2b79f5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
+  const core = mulberry32WithState(seed);
+  return () => core.next();
 }
 
 /**
@@ -96,16 +113,23 @@ export function resolveRunSeedFromDialog(seedDisplayInput = "") {
 
 /**
  * @param {number} runSeedNumeric
- * @returns {{ next: () => number, fork: (tag: string) => { next: () => number } }}
+ * @param {number} [initialState] 可选：恢复 mulberry32 内部 t
+ * @returns {{ next: () => number, getState: () => number, setState: (t: number) => void, fork: (tag: string) => { next: () => number } }}
  */
-export function createRunRng(runSeedNumeric) {
-  const nextFn = mulberry32(coerceRunSeedNumeric(runSeedNumeric));
+export function createRunRng(runSeedNumeric, initialState) {
+  const seed = coerceRunSeedNumeric(runSeedNumeric);
+  const core = mulberry32WithState(seed);
+  if (initialState != null) {
+    core.setState(initialState);
+  }
   return {
-    next: () => nextFn(),
+    next: () => core.next(),
+    getState: () => core.getState(),
+    setState: (t) => core.setState(t),
     fork(tag) {
-      const sub = hashSeed32(runSeedNumeric, "fork", tag, nextFn());
-      const subNext = mulberry32(sub);
-      return { next: () => subNext() };
+      const sub = hashSeed32(seed, "fork", tag, core.next());
+      const subCore = mulberry32WithState(sub);
+      return { next: () => subCore.next() };
     },
   };
 }

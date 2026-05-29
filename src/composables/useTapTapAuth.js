@@ -24,87 +24,96 @@ const BLOCK_MESSAGES = {
   [COMPLIANCE_AGE_LIMIT]: "根据年龄限制，暂无法进入游戏。",
 };
 
+const isNative = Capacitor.isNativePlatform();
+const bypassAuth = !isNative || isE2eMode();
+
+/** @type {import('vue').Ref<TapTapAuthPhase>} */
+const phase = ref(bypassAuth ? "ready" : "checking");
+/** @type {import('vue').Ref<import('../taptap/tapTapPlugin.js').TapTapAccount | null>} */
+const account = ref(null);
+const authMessage = ref("");
+const loginBusy = ref(false);
+
+/** @type {import('@capacitor/core').PluginListenerHandle | null} */
+let complianceListener = null;
+let authMountCount = 0;
+let authBootstrapped = false;
+
+/**
+ * @param {number} code
+ */
+function handleComplianceCode(code) {
+  if (code === COMPLIANCE_LOGIN_SUCCESS) {
+    authMessage.value = "";
+    phase.value = "ready";
+    return;
+  }
+  if (
+    code === COMPLIANCE_EXITED ||
+    code === COMPLIANCE_SWITCH_ACCOUNT ||
+    code === COMPLIANCE_REAL_NAME_STOP
+  ) {
+    account.value = null;
+    authMessage.value = "";
+    phase.value = "needsLogin";
+    return;
+  }
+  if (code === COMPLIANCE_NETWORK_ERROR) {
+    authMessage.value = "网络或应用配置异常，请检查后重试。";
+    phase.value = "error";
+    return;
+  }
+  if (code in BLOCK_MESSAGES) {
+    authMessage.value = BLOCK_MESSAGES[/** @type {keyof typeof BLOCK_MESSAGES} */ (code)];
+    phase.value = "blocked";
+    return;
+  }
+}
+
+/**
+ * @param {import('../taptap/tapTapPlugin.js').TapTapAccount} nextAccount
+ */
+async function beginCompliance(nextAccount) {
+  account.value = nextAccount;
+  phase.value = "compliance";
+  authMessage.value = "";
+  await TapTap.startCompliance({ userIdentifier: nextAccount.unionId });
+}
+
+async function bootstrapAuth() {
+  if (bypassAuth) {
+    phase.value = "ready";
+    return;
+  }
+  phase.value = "checking";
+  authMessage.value = "";
+  try {
+    const current = await TapTap.getCurrentAccount();
+    if (!isTapTapAccount(current)) {
+      phase.value = "needsLogin";
+      return;
+    }
+    await beginCompliance(current);
+  } catch {
+    phase.value = "needsLogin";
+  }
+}
+
+async function ensureAuthListener() {
+  if (bypassAuth || complianceListener) return;
+  complianceListener = await TapTap.addListener("complianceResult", (event) => {
+    handleComplianceCode(Number(event?.code));
+  });
+}
+
 /**
  * 原生 App：TapTap 登录 + 合规认证；Web / E2E 直接放行。
  */
 export function useTapTapAuth() {
-  const isNative = Capacitor.isNativePlatform();
-  const bypassAuth = !isNative || isE2eMode();
-
-  /** @type {import('vue').Ref<TapTapAuthPhase>} */
-  const phase = ref(bypassAuth ? "ready" : "checking");
-  /** @type {import('vue').Ref<import('../taptap/tapTapPlugin.js').TapTapAccount | null>} */
-  const account = ref(null);
-  const authMessage = ref("");
-  const loginBusy = ref(false);
-
-  /** @type {import('@capacitor/core').PluginListenerHandle | null} */
-  let complianceListener = null;
-
   const showMenuActions = computed(() => phase.value === "ready");
   const showLoginButton = computed(() => phase.value === "needsLogin");
   const showAuthBusy = computed(() => phase.value === "checking" || phase.value === "compliance");
   const showAuthBlocked = computed(() => phase.value === "blocked" || phase.value === "error");
-
-  /**
-   * @param {number} code
-   */
-  function handleComplianceCode(code) {
-    if (code === COMPLIANCE_LOGIN_SUCCESS) {
-      authMessage.value = "";
-      phase.value = "ready";
-      return;
-    }
-    if (
-      code === COMPLIANCE_EXITED ||
-      code === COMPLIANCE_SWITCH_ACCOUNT ||
-      code === COMPLIANCE_REAL_NAME_STOP
-    ) {
-      account.value = null;
-      authMessage.value = "";
-      phase.value = "needsLogin";
-      return;
-    }
-    if (code === COMPLIANCE_NETWORK_ERROR) {
-      authMessage.value = "网络或应用配置异常，请检查后重试。";
-      phase.value = "error";
-      return;
-    }
-    if (code in BLOCK_MESSAGES) {
-      authMessage.value = BLOCK_MESSAGES[/** @type {keyof typeof BLOCK_MESSAGES} */ (code)];
-      phase.value = "blocked";
-      return;
-    }
-  }
-
-  /**
-   * @param {import('../taptap/tapTapPlugin.js').TapTapAccount} nextAccount
-   */
-  async function beginCompliance(nextAccount) {
-    account.value = nextAccount;
-    phase.value = "compliance";
-    authMessage.value = "";
-    await TapTap.startCompliance({ userIdentifier: nextAccount.unionId });
-  }
-
-  async function bootstrapAuth() {
-    if (bypassAuth) {
-      phase.value = "ready";
-      return;
-    }
-    phase.value = "checking";
-    authMessage.value = "";
-    try {
-      const current = await TapTap.getCurrentAccount();
-      if (!isTapTapAccount(current)) {
-        phase.value = "needsLogin";
-        return;
-      }
-      await beginCompliance(current);
-    } catch {
-      phase.value = "needsLogin";
-    }
-  }
 
   async function loginWithTapTap() {
     if (bypassAuth || loginBusy.value) return;
@@ -136,16 +145,22 @@ export function useTapTapAuth() {
   }
 
   onMounted(async () => {
+    authMountCount += 1;
     if (bypassAuth) return;
-    complianceListener = await TapTap.addListener("complianceResult", (event) => {
-      handleComplianceCode(Number(event?.code));
-    });
-    await bootstrapAuth();
+    await ensureAuthListener();
+    if (!authBootstrapped) {
+      authBootstrapped = true;
+      await bootstrapAuth();
+    }
   });
 
   onBeforeUnmount(async () => {
-    await complianceListener?.remove();
-    complianceListener = null;
+    authMountCount = Math.max(0, authMountCount - 1);
+    if (authMountCount === 0 && complianceListener) {
+      await complianceListener.remove();
+      complianceListener = null;
+      authBootstrapped = false;
+    }
   });
 
   return {
