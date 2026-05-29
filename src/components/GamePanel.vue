@@ -3590,6 +3590,8 @@ watch(showShop, async (open) => {
 });
 
 const scoringAnimating = ref(false);
+/** 提交计分前（算分等）占用，避免连点；与 scoringAnimating 错开以免 result-area 先显示 0×0 */
+const submitWordBusy = ref(false);
 /** 棋盘下落/补牌动画进行中，禁止点格与提交/移除 */
 const gridRefillAnimating = ref(false);
 /** 首次入场前隐藏棋盘，避免未动画的一帧闪现 */
@@ -5252,6 +5254,7 @@ const canSubmit = computed(() => {
     resolvedWordForSubmit.value != null &&
     remainingWords.value > 0 &&
     !scoringAnimating.value &&
+    !submitWordBusy.value &&
     !gridRefillAnimating.value
   );
 });
@@ -9302,6 +9305,33 @@ async function runClearWinGoldEffectsBeforeRefill() {
   }
 }
 
+/** 计分动画起始：result-area 分数×倍率与 detailed 词长段对齐（提交瞬间即设，避免先闪 0×0） */
+function seedAnimFormulaFromSubmitDetailed(detailed) {
+  const n = detailed.letterParts?.length ?? 0;
+  const lenTb =
+    detailed.lengthTableLen != null && Number.isFinite(Number(detailed.lengthTableLen))
+      ? Math.max(1, Math.round(Number(detailed.lengthTableLen)))
+      : n;
+  const skipLetters = detailed.bossSoftViolation === true;
+  animScoreSum.value = skipLetters
+    ? 0
+    : Math.round(
+        detailed.wordLengthScoreEffective ??
+          scaleLengthContributionForBoss(
+            getWordLengthScoreForTableLen(
+              lenTb,
+              lengthLevelsByLength.value,
+              lengthUpgradeObservatoryExtra.value,
+            ),
+            isFlintBossActive.value,
+          ),
+      );
+  animMultTotal.value =
+    detailed.lengthMultiplierEffective ??
+    scaleLengthContributionForBoss(detailed.lengthMultiplier, isFlintBossActive.value);
+  animResultTotal.value = 0;
+}
+
 async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, isLastSubmitChance = false) {
   scoringTreasureBarIndex.value = null;
   submitBossToothTapeCuePlayed = false;
@@ -9321,24 +9351,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   ) {
     playBossTapeTriggerCue();
   }
-  /** 分数列从「判定词长×词长每字基础分」开始，逐字只加稀有度加成（气泡也只显示加成） */
-  animScoreSum.value = skipLetters
-    ? 0
-    : Math.round(
-        detailed.wordLengthScoreEffective ??
-          scaleLengthContributionForBoss(
-            getWordLengthScoreForTableLen(
-              lenTb,
-              lengthLevelsByLength.value,
-              lengthUpgradeObservatoryExtra.value,
-            ),
-            isFlintBossActive.value,
-          ),
-      );
-  animMultTotal.value =
-    detailed.lengthMultiplierEffective ??
-    scaleLengthContributionForBoss(detailed.lengthMultiplier, isFlintBossActive.value);
-  animResultTotal.value = 0;
+  seedAnimFormulaFromSubmitDetailed(detailed);
 
   const wordStr =
     String(resolvedWord ?? "")
@@ -10087,7 +10100,7 @@ function createFlyBackElement(item) {
 async function submitWord() {
   if (dictFatalError.value) return;
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
-  if (scoringAnimating.value) return;
+  if (scoringAnimating.value || submitWordBusy.value) return;
   if (!dictionaryReady.value) return;
   const submitInput = resolveSubmitWordInput({
     buildParts: buildEffectiveWordPartsForSubmit,
@@ -10098,7 +10111,7 @@ async function submitWord() {
     showToast("不是有效单词");
     return;
   }
-  scoringAnimating.value = true;
+  submitWordBusy.value = true;
   let submitChanceConsumed = false;
   try {
   const { parts, wordPattern: wordPattern0, resolvedWord } = submitInput;
@@ -10259,6 +10272,8 @@ async function submitWord() {
   flashSubmitCountDelta();
   remainingWords.value = Math.max(0, remainingWords.value - 1);
   submitChanceConsumed = true;
+  seedAnimFormulaFromSubmitDetailed(detailed);
+  scoringAnimating.value = true;
   await nextTick();
   await sleep(ACTION_COUNT_DELTA_BEAT_MS);
   scoringLetterIndex.value = -1;
@@ -10332,6 +10347,8 @@ async function submitWord() {
       tw.style.overflow = "";
     }
     showToast("提交出错");
+  } finally {
+    submitWordBusy.value = false;
   }
 }
 
