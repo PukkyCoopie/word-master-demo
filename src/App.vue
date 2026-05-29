@@ -112,8 +112,10 @@ import TapTapPosterLayer from "./components/TapTapPosterLayer.vue";
 import { isTapTapWebPromoEnabled } from "./taptap/tapTapWebPromo.js";
 import { useWebLayoutMode } from "./composables/useWebLayoutMode.js";
 import {
+  applyProfileDefaultsFromTapTap,
   getActiveSaveSlotIndex,
   initializeProfileFromTapTap,
+  isSlotProfileActivated,
   loadPlayerProfile,
   playerProfile,
   setActiveSaveSlotIndex,
@@ -145,9 +147,9 @@ const showPlayerProfile = ref(false);
 /** @type {import('vue').Ref<{ chip: DOMRect, avatar: DOMRect | null, name: DOMRect | null } | null>} */
 const profileOpenOrigin = ref(null);
 const showSaveSlots = ref(false);
-/** @type {import('vue').Ref<'select' | 'load' | 'save' | 'new'>} */
+/** @type {import('vue').Ref<'select' | 'load'>} */
 const saveSlotMode = ref("select");
-/** @type {import('vue').Ref<'menu' | 'restart' | 'new-slot'>} */
+/** @type {import('vue').Ref<'menu' | 'restart'>} */
 const runStartMode = ref("menu");
 /** @type {import('vue').Ref<number | null>} */
 const pendingNewRunSlotIndex = ref(null);
@@ -178,12 +180,7 @@ provide("requestNewRun", (opts = {}) => {
   if (transitionBusy.value) return;
   runStartPrefillSeed.value = String(opts.prefillSeed ?? "").trim();
   runStartMode.value = "restart";
-  saveSlotMode.value = "new";
-  pendingNewRunSlotIndex.value = getActiveSaveSlotIndex();
-  if (isSlotOccupied(pendingNewRunSlotIndex.value)) {
-    showSaveSlots.value = true;
-    return;
-  }
+  pendingNewRunSlotIndex.value = sessionSaveSlotIndex.value;
   showRunStartDialog.value = true;
 });
 
@@ -267,16 +264,11 @@ function onSaveSlotSelect(payload) {
   }
   if (mode === "select") {
     setActiveSaveSlotIndex(index);
+    if (!isSlotOccupied(index) && !isSlotProfileActivated(index)) {
+      void applyProfileDefaultsFromTapTap(account.value, index);
+    }
     bumpSaveUi();
     showSaveSlots.value = false;
-    return;
-  }
-  if (mode === "new") {
-    pendingNewRunSlotIndex.value = index;
-    showSaveSlots.value = false;
-    runStartPrefillSeed.value = "";
-    runStartMode.value = "new-slot";
-    showRunStartDialog.value = true;
     return;
   }
   if (mode === "load") {
@@ -303,10 +295,13 @@ async function startLoadSlot(index) {
   transitionBusy.value = false;
 }
 
-async function startNewRunAtSlot(index, seedNumeric, seedDisplay) {
+async function startNewRunAtSlot(index, seedNumeric, seedDisplay, resetProfile = false) {
   sessionRestoredSave.value = null;
   sessionSaveSlotIndex.value = index;
   setActiveSaveSlotIndex(index);
+  if (resetProfile) {
+    await applyProfileDefaultsFromTapTap(account.value, index);
+  }
   sessionRunSeed.value = coerceRunSeedNumeric(seedNumeric);
   sessionRunSeedDisplay.value = String(seedDisplay ?? "");
   transitionBusy.value = true;
@@ -406,20 +401,22 @@ async function onRunStartConfirm(payload) {
     pendingNewRunSlotIndex.value != null ? pendingNewRunSlotIndex.value : getActiveSaveSlotIndex();
   pendingNewRunSlotIndex.value = null;
 
-  if (runStartMode.value === "new-slot" || (runStartMode.value === "menu" && !isSlotOccupied(slotIx))) {
-    if (isSlotOccupied(slotIx) && runStartMode.value === "new-slot") {
-      clearSlot(slotIx);
-      bumpSaveUi();
-    }
-    await startNewRunAtSlot(slotIx, seedNumeric, seedDisplay);
+  if (runStartMode.value === "menu" && !isSlotOccupied(slotIx)) {
+    const resetProfile = !isSlotProfileActivated(slotIx);
+    await startNewRunAtSlot(slotIx, seedNumeric, seedDisplay, resetProfile);
     runStartMode.value = "menu";
     return;
+  }
+
+  if (runStartMode.value === "restart" && isSlotOccupied(slotIx)) {
+    clearSlot(slotIx);
+    bumpSaveUi();
   }
 
   sessionRestoredSave.value = null;
   sessionRunSeed.value = seedNumeric;
   sessionRunSeedDisplay.value = seedDisplay;
-  sessionSaveSlotIndex.value = getActiveSaveSlotIndex();
+  sessionSaveSlotIndex.value = slotIx;
   transitionBusy.value = true;
   const mode = runStartMode.value;
   await irisFxRef.value?.play({
@@ -442,12 +439,7 @@ function onGameRequestRestart(payload) {
   if (transitionBusy.value) return;
   runStartPrefillSeed.value = payload?.prefillSeed ? sessionRunSeedDisplay.value : "";
   runStartMode.value = "restart";
-  saveSlotMode.value = "new";
   pendingNewRunSlotIndex.value = sessionSaveSlotIndex.value;
-  if (isSlotOccupied(pendingNewRunSlotIndex.value)) {
-    showSaveSlots.value = true;
-    return;
-  }
   showRunStartDialog.value = true;
 }
 

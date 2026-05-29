@@ -2,6 +2,7 @@ import { createRunRng } from "../game/runRng.js";
 import { deserializeRunMatchStats } from "./runMatchStatsCodec.js";
 import { deserializeTreasureRunState } from "./treasureRunStateCodec.js";
 import { normalizeRunSavePhase } from "./runSaveSchema.js";
+import { cloneSaveData } from "./saveDataClone.js";
 
 /**
  * @param {import('./runSavePayload.js').RunSavePayload} payload
@@ -22,7 +23,7 @@ export function hydrateRunSave(payload, ctx) {
   }
   if (ctx.moneyRef) ctx.moneyRef.value = Math.max(0, Math.floor(Number(payload.money) || 0));
 
-  if (ctx.ownedTreasuresRef) ctx.ownedTreasuresRef.value = structuredClone(payload.ownedTreasures ?? []);
+  if (ctx.ownedTreasuresRef) ctx.ownedTreasuresRef.value = cloneSaveData(payload.ownedTreasures ?? []);
   if (ctx.ownedVoucherIdsRef) ctx.ownedVoucherIdsRef.value = [...(payload.ownedVoucherIds ?? [])].map(String);
   if (ctx.treasureRunStateRef) {
     ctx.treasureRunStateRef.value = deserializeTreasureRunState(payload.treasureRunState);
@@ -66,7 +67,7 @@ export function hydrateRunSave(payload, ctx) {
     ctx.hydrateDeckState(payload.deckState, payload.deckState.ownedUpgrades ?? []);
   }
   if (ctx.ownedUpgradesRef) {
-    ctx.ownedUpgradesRef.value = structuredClone(payload.deckState?.ownedUpgrades ?? []);
+    ctx.ownedUpgradesRef.value = cloneSaveData(payload.deckState?.ownedUpgrades ?? []);
   }
 
   if (ctx.runMatchStatsRef) {
@@ -82,14 +83,14 @@ export function hydrateRunSave(payload, ctx) {
   if (ctx.showRunEndRef) ctx.showRunEndRef.value = phase === "run_end_win" || phase === "run_end_fail";
   if (ctx.settlementSnapshotRef) {
     ctx.settlementSnapshotRef.value = payload.settlementSnapshot
-      ? structuredClone(payload.settlementSnapshot)
+      ? cloneSaveData(payload.settlementSnapshot)
       : null;
   }
-  if (ctx.shopOffersRef) ctx.shopOffersRef.value = structuredClone(payload.shopOffers ?? []);
-  if (ctx.packOffersRef) ctx.packOffersRef.value = structuredClone(payload.packOffers ?? []);
+  if (ctx.shopOffersRef) ctx.shopOffersRef.value = cloneSaveData(payload.shopOffers ?? []);
+  if (ctx.packOffersRef) ctx.packOffersRef.value = cloneSaveData(payload.packOffers ?? []);
   if (ctx.shopVoucherShelfRef) {
     ctx.shopVoucherShelfRef.value = payload.shopVoucherShelf
-      ? structuredClone(payload.shopVoucherShelf)
+      ? cloneSaveData(payload.shopVoucherShelf)
       : null;
   }
   if (ctx.shopRerollsThisVisitRef) {
@@ -99,11 +100,11 @@ export function hydrateRunSave(payload, ctx) {
     ctx.shopVoucherShelfGenerationRef.value = Math.floor(Number(payload.shopVoucherShelfGeneration) || -1);
   }
   if (ctx.packPickSessionRef) {
-    ctx.packPickSessionRef.value = payload.packPickSession ? structuredClone(payload.packPickSession) : null;
+    ctx.packPickSessionRef.value = payload.packPickSession ? cloneSaveData(payload.packPickSession) : null;
   }
   if (ctx.bossRerollSessionRef) {
     ctx.bossRerollSessionRef.value = payload.bossRerollSession
-      ? structuredClone(payload.bossRerollSession)
+      ? cloneSaveData(payload.bossRerollSession)
       : null;
   }
 }

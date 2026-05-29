@@ -3,12 +3,7 @@ import { getDeckCardUidSeq } from "../composables/useGameState.js";
 import { normalizeRunSavePhase } from "./runSaveSchema.js";
 import { serializeRunMatchStats } from "./runMatchStatsCodec.js";
 import { serializeTreasureRunState } from "./treasureRunStateCodec.js";
-
-/** @template T @param {T} value @returns {T} */
-function cloneSaveData(value) {
-  if (value == null) return value;
-  return JSON.parse(JSON.stringify(value));
-}
+import { cloneSaveData } from "./saveDataClone.js";
 
 /**
  * @param {Record<string, unknown>} ctx

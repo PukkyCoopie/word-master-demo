@@ -56,21 +56,21 @@
                   <span
                     class="save-slot-avatar"
                     :class="{ 'save-slot-avatar--empty': !slotCountsAsOccupied(index, entry) }"
-                    :style="getOccupiedSlotAvatarStyle(slotCountsAsOccupied(index, entry))"
+                    :style="getOccupiedSlotAvatarStyle(index, slotCountsAsOccupied(index, entry))"
                   >
                     <img
-                      v-if="slotCountsAsOccupied(index, entry) && playerProfile.avatarDataUrl"
-                      :src="playerProfile.avatarDataUrl"
+                      v-if="slotCountsAsOccupied(index, entry) && getSlotAvatarUrl(index)"
+                      :src="getSlotAvatarUrl(index)"
                       alt=""
                       class="save-slot-avatar-img"
                     />
                     <span v-else-if="slotCountsAsOccupied(index, entry)" class="save-slot-avatar-letter">{{
-                      getProfileInitialLetter()
+                      getProfileInitialLetter(index)
                     }}</span>
                     <span v-else class="save-slot-avatar-placeholder" aria-hidden="true">?</span>
                   </span>
                   <div class="save-slot-card-head-text">
-                    <span class="save-slot-index">{{ slotTitle(index) }}</span>
+                    <span class="save-slot-index">{{ slotTitle(index, entry) }}</span>
                     <span
                       v-if="entry.hasSave && entry.meta"
                       class="save-slot-phase"
@@ -90,18 +90,9 @@
                   </div>
                 </div>
 
-                <template v-if="entry.hasSave && entry.meta">
-                  <p class="save-slot-line">关卡 {{ entry.meta.levelId }} · ${{ entry.meta.money }}</p>
-                  <p class="save-slot-line save-slot-seed">种子 {{ entry.meta.seedDisplay }}</p>
-                  <p class="save-slot-emojis" aria-label="宝藏">
-                    <span
-                      v-for="(em, ei) in entry.meta.ownedTreasureEmojis"
-                      :key="ei"
-                      class="save-slot-emoji"
-                    >{{ em || "·" }}</span>
-                  </p>
-                  <p class="save-slot-time">{{ formatRelativeSaveTime(entry.meta.savedAt) }}</p>
-                </template>
+                <p v-if="entry.hasSave && entry.meta" class="save-slot-time">
+                  {{ formatRelativeSaveTime(entry.meta.savedAt) }}
+                </p>
               </div>
 
               <div class="save-slot-row-actions">
@@ -141,7 +132,7 @@
 
 <script setup>
 import { computed, ref, watch } from "vue";
-import { getProfileInitialLetter, playerProfile } from "../profile/playerProfile.js";
+import { getProfileInitialLetter, getSlotProfile, isSlotProfileActivated } from "../profile/playerProfile.js";
 import { listAllSlotEntries } from "../save/runSaveStorage.js";
 import { formatRelativeSaveTime, formatSavePhaseLabel } from "../save/saveDisplayUtils.js";
 import { getSlotCareerStatRows } from "../save/slotCareerStats.js";
@@ -182,23 +173,28 @@ watch(
   },
 );
 
-/** @param {number} index */
-function slotTitle(index) {
-  if (index === props.activeSlot) {
-    return playerProfile.displayName || "Player";
+/** @param {number} index @param {{ hasSave: boolean }} entry */
+function slotTitle(index, entry) {
+  if (slotCountsAsOccupied(index, entry)) {
+    return getSlotProfile(index).displayName || "Player";
   }
   return `栏位 ${index + 1}`;
 }
 
-/** @param {number} index @param {{ hasSave: boolean }} entry */
-function slotCountsAsOccupied(index, entry) {
-  return entry.hasSave || index === props.activeSlot;
+/** @param {number} index */
+function getSlotAvatarUrl(index) {
+  return getSlotProfile(index).avatarDataUrl;
 }
 
-/** @param {boolean} occupied */
-function getOccupiedSlotAvatarStyle(occupied) {
-  if (!occupied || playerProfile.avatarDataUrl) return undefined;
-  const ch = getProfileInitialLetter().charCodeAt(0) || 80;
+/** @param {number} index @param {{ hasSave: boolean }} entry */
+function slotCountsAsOccupied(index, entry) {
+  return entry.hasSave || isSlotProfileActivated(index);
+}
+
+/** @param {number} index @param {boolean} occupied */
+function getOccupiedSlotAvatarStyle(index, occupied) {
+  if (!occupied || getSlotAvatarUrl(index)) return undefined;
+  const ch = getProfileInitialLetter(index).charCodeAt(0) || 80;
   const hue = (ch * 17) % 360;
   return { background: `hsl(${hue} 42% 62%)` };
 }
@@ -427,7 +423,6 @@ function onBackdropClick() {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: calc(8 * var(--rpx));
-  margin-bottom: calc(10 * var(--rpx));
 }
 
 .save-slot-stat-cell {
@@ -452,32 +447,8 @@ function onBackdropClick() {
   color: var(--text-muted, #776e65);
 }
 
-.save-slot-line {
-  margin: 0 0 calc(4 * var(--rpx));
-  font-size: calc(22 * var(--rpx));
-  color: var(--text-dark, #3c3a32);
-}
-
-.save-slot-seed {
-  font-family: ui-monospace, monospace;
-  font-size: calc(20 * var(--rpx));
-  color: var(--text-muted, #776e65);
-}
-
-.save-slot-emojis {
-  margin: calc(6 * var(--rpx)) 0;
-  display: flex;
-  gap: calc(4 * var(--rpx));
-}
-
-.save-slot-emoji {
-  font-size: calc(24 * var(--rpx));
-  min-width: calc(28 * var(--rpx));
-  text-align: center;
-}
-
 .save-slot-time {
-  margin: 0;
+  margin: calc(10 * var(--rpx)) 0 0;
   font-size: calc(18 * var(--rpx));
   color: var(--text-muted, #776e65);
 }
