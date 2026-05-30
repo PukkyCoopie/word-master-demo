@@ -20,38 +20,13 @@
               'save-slot-row--confirm': pendingDeleteIndex === index || pendingOverwriteIndex === index,
             }"
           >
-            <div v-if="pendingDeleteIndex === index" class="save-slot-confirm save-slot-confirm--row">
-              <p class="save-slot-confirm-text">确定删除？此操作不可恢复</p>
-              <div class="save-slot-confirm-actions">
-                <button type="button" class="save-slot-btn save-slot-btn--danger" @click="confirmDelete(index)">
-                  确认删除
-                </button>
-                <button type="button" class="save-slot-btn save-slot-btn--muted" @click="pendingDeleteIndex = null">
-                  取消
-                </button>
-              </div>
-            </div>
-
-            <div v-else-if="pendingOverwriteIndex === index" class="save-slot-confirm save-slot-confirm--row">
-              <p class="save-slot-confirm-text">将覆盖栏位 {{ index + 1 }} 的进度</p>
-              <div class="save-slot-confirm-actions">
-                <button type="button" class="save-slot-btn save-slot-btn--primary" @click="confirmSelect(index)">
-                  确认覆盖
-                </button>
-                <button type="button" class="save-slot-btn save-slot-btn--muted" @click="pendingOverwriteIndex = null">
-                  取消
-                </button>
-              </div>
-            </div>
-
-            <template v-else>
-              <div
-                class="save-slot-card"
-                :class="{
-                  'save-slot-card--active': index === activeSlot,
-                  'save-slot-card--empty': !slotCountsAsOccupied(index, entry),
-                }"
-              >
+            <div
+              class="save-slot-card"
+              :class="{
+                'save-slot-card--active': index === activeSlot,
+                'save-slot-card--empty': !slotCountsAsOccupied(index, entry),
+              }"
+            >
                 <div class="save-slot-card-head">
                   <span
                     class="save-slot-avatar"
@@ -93,34 +68,71 @@
                 <p v-if="entry.hasSave && entry.meta" class="save-slot-time">
                   {{ formatRelativeSaveTime(entry.meta.savedAt) }}
                 </p>
-              </div>
+            </div>
 
-              <div class="save-slot-row-actions">
-                <span
-                  v-if="index === activeSlot && mode === 'select'"
-                  class="save-slot-current"
-                  aria-current="true"
-                >当前</span>
-                <button
-                  v-else
-                  type="button"
-                  class="save-slot-side-btn save-slot-side-btn--switch"
-                  :aria-label="switchAriaLabel(index)"
-                  @click="onSwitchSlot(index)"
-                >
-                  {{ switchButtonLabel(index) }}
+            <div class="save-slot-row-actions">
+              <span
+                v-if="index === activeSlot && mode === 'select'"
+                class="save-slot-current"
+                aria-current="true"
+              >当前</span>
+              <button
+                v-else
+                type="button"
+                class="save-slot-side-btn save-slot-side-btn--switch"
+                :aria-label="switchAriaLabel(index)"
+                @click="onSwitchSlot(index)"
+              >
+                {{ switchButtonLabel(index) }}
+              </button>
+              <button
+                v-if="slotCanDelete(index, entry)"
+                type="button"
+                class="save-slot-side-btn save-slot-side-btn--delete"
+                aria-label="删除存档"
+                @click="pendingDeleteIndex = index"
+              >
+                删除
+              </button>
+            </div>
+
+            <div
+              v-if="pendingDeleteIndex === index"
+              class="save-slot-row-overlay save-slot-row-overlay--delete"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="save-slot-delete-title"
+            >
+              <p id="save-slot-delete-title" class="save-slot-confirm-text">确定删除？此操作不可恢复</p>
+              <div class="save-slot-confirm-actions">
+                <button type="button" class="save-slot-btn save-slot-btn--danger" @click="confirmDelete(index)">
+                  确认删除
                 </button>
-                <button
-                  v-if="entry.hasSave"
-                  type="button"
-                  class="save-slot-side-btn save-slot-side-btn--delete"
-                  aria-label="删除存档"
-                  @click="pendingDeleteIndex = index"
-                >
-                  删除
+                <button type="button" class="save-slot-btn save-slot-btn--muted" @click="pendingDeleteIndex = null">
+                  取消
                 </button>
               </div>
-            </template>
+            </div>
+
+            <div
+              v-if="pendingOverwriteIndex === index"
+              class="save-slot-row-overlay save-slot-row-overlay--overwrite"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="save-slot-overwrite-title"
+            >
+              <p id="save-slot-overwrite-title" class="save-slot-confirm-text save-slot-confirm-text--overwrite">
+                将覆盖栏位 {{ index + 1 }} 的进度
+              </p>
+              <div class="save-slot-confirm-actions">
+                <button type="button" class="save-slot-btn save-slot-btn--primary" @click="confirmSelect(index)">
+                  确认覆盖
+                </button>
+                <button type="button" class="save-slot-btn save-slot-btn--muted" @click="pendingOverwriteIndex = null">
+                  取消
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -189,6 +201,11 @@ function getSlotAvatarUrl(index) {
 /** @param {number} index @param {{ hasSave: boolean }} entry */
 function slotCountsAsOccupied(index, entry) {
   return entry.hasSave || isSlotProfileActivated(index);
+}
+
+/** @param {number} index @param {{ hasSave: boolean }} entry */
+function slotCanDelete(index, entry) {
+  return slotCountsAsOccupied(index, entry);
 }
 
 /** @param {number} index @param {boolean} occupied */
@@ -296,13 +313,36 @@ function onBackdropClick() {
 }
 
 .save-slot-row {
+  position: relative;
   display: flex;
   align-items: stretch;
   gap: calc(10 * var(--rpx));
 }
 
-.save-slot-row--confirm {
-  display: block;
+.save-slot-row--confirm .save-slot-card,
+.save-slot-row--confirm .save-slot-row-actions {
+  pointer-events: none;
+}
+
+.save-slot-row-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(8 * var(--rpx));
+  padding: calc(10 * var(--rpx));
+  box-sizing: border-box;
+  border-radius: calc(8 * var(--rpx));
+  background: rgba(245, 230, 229, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.save-slot-row-overlay--overwrite {
+  background: rgba(234, 242, 248, 0.55);
 }
 
 .save-slot-card {
@@ -497,41 +537,37 @@ function onBackdropClick() {
   box-shadow: none;
 }
 
-.save-slot-confirm {
-  background: #f5e6e5;
-  border-radius: calc(8 * var(--rpx));
-  padding: calc(10 * var(--rpx));
-}
-
-.save-slot-confirm--row {
-  width: 100%;
-  box-sizing: border-box;
-}
-
 .save-slot-confirm-actions {
   display: flex;
   gap: calc(8 * var(--rpx));
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .save-slot-confirm-text {
-  margin: 0 0 calc(8 * var(--rpx));
+  margin: 0;
   font-size: calc(20 * var(--rpx));
-  color: #8b3a34;
   font-weight: 700;
+  color: #8b3a34;
+  text-align: center;
+  line-height: 1.35;
+}
+
+.save-slot-confirm-text--overwrite {
+  color: #3a5a78;
 }
 
 .save-slot-btn {
-  flex: 1;
-  min-width: calc(100 * var(--rpx));
+  flex: 0 0 auto;
   border: none;
   border-radius: calc(8 * var(--rpx));
-  padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
+  padding: calc(10 * var(--rpx)) calc(16 * var(--rpx));
   font-family: inherit;
-  font-size: calc(22 * var(--rpx));
+  font-size: calc(20 * var(--rpx));
   font-weight: 700;
   cursor: pointer;
   color: #f9f6f2;
+  white-space: nowrap;
 }
 
 .save-slot-btn--primary {

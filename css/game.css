@@ -899,6 +899,26 @@
 	min-height: var(--grid-deck-aux-btn-size);
 	padding: 0;
 }
+.action-aux-btn__icon-stack {
+	position: relative;
+	display: inline-flex;
+	line-height: 1;
+}
+.action-aux-btn__main-icon {
+	display: block;
+}
+.action-aux-btn__sub-icon {
+	position: absolute;
+	right: calc(-3 * var(--rpx));
+	bottom: calc(-2 * var(--rpx));
+	font-size: calc(14 * var(--rpx));
+	line-height: 1;
+	color: #fff;
+	background: var(--player-mark-accent);
+	border-radius: calc(4 * var(--rpx));
+	padding: calc(1 * var(--rpx));
+	pointer-events: none;
+}
 .deck-btn:hover {
 	filter: brightness(1.08);
 }

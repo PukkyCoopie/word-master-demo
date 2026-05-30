@@ -249,6 +249,12 @@ function emptyTile(idGen) {
     /** 玩家本关内标记（不进牌库、不写回牌张） */
     playerMarked: false,
 
+    /** 标记批次（同一次点「标记」或「对调并标记」共用一批） */
+    playerMarkBatch: undefined,
+
+    /** 批次内标记顺序（0 起） */
+    playerMarkSeq: undefined,
+
   };
 
 }
@@ -293,6 +299,8 @@ function createTileFromLetter(raw, idGen, rarityLevelsSnapshot = null) {
     bossTileDebuffed: false,
     ceruleanBellLocked: false,
     playerMarked: false,
+    playerMarkBatch: undefined,
+    playerMarkSeq: undefined,
 
   };
 
@@ -341,6 +349,8 @@ function createTileFromDeckCard(card, idGen, rarityLevelsSnapshot = null) {
     bossTileDebuffed: false,
     ceruleanBellLocked: false,
     playerMarked: false,
+    playerMarkBatch: undefined,
+    playerMarkSeq: undefined,
     _deckCard: card,
   };
 }
@@ -1669,6 +1679,12 @@ export function useGameState(gameOpts = {}) {
       bossTileDebuffed: tile.bossTileDebuffed === true,
       ceruleanBellLocked: tile.ceruleanBellLocked === true,
       playerMarked: tile.playerMarked === true,
+      ...(tile.playerMarked === true
+        ? {
+            playerMarkBatch: Math.max(0, Math.floor(Number(tile.playerMarkBatch) || 0)),
+            playerMarkSeq: Math.max(0, Math.floor(Number(tile.playerMarkSeq) || 0)),
+          }
+        : {}),
     };
   }
 
@@ -1777,6 +1793,13 @@ export function useGameState(gameOpts = {}) {
           tile.bossTileDebuffed = ser.bossTileDebuffed === true;
           tile.ceruleanBellLocked = ser.ceruleanBellLocked === true;
           tile.playerMarked = ser.playerMarked === true;
+          if (tile.playerMarked) {
+            tile.playerMarkBatch = Math.max(0, Math.floor(Number(ser.playerMarkBatch) || 0));
+            tile.playerMarkSeq = Math.max(0, Math.floor(Number(ser.playerMarkSeq) || 0));
+          } else {
+            tile.playerMarkBatch = undefined;
+            tile.playerMarkSeq = undefined;
+          }
           tile._deckCard = card;
           row.push(tile);
         } else {

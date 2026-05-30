@@ -156,3 +156,15 @@ export function meetsTreasurePoolPrerequisite(def, snap) {
 export function filterTreasureDefsForPool(defs, snap) {
   return defs.filter((d) => isTreasureUnlocked(d, snap) && meetsTreasurePoolPrerequisite(d, snap));
 }
+
+/**
+ * 法术/效果随机授予宝藏池：含 `shopEligible: false` 的专属掉落（如传说法术），仍受解锁与 pool 条件约束。
+ * @param {import('./treasureTypes.js').TreasureDef[]} defs
+ * @param {TreasurePoolSnapshot} snap
+ * @param {string | null} [rarityFilter]
+ */
+export function filterTreasureDefsForSpellGrantPool(defs, snap, rarityFilter = null) {
+  const tier = rarityFilter ? String(rarityFilter) : null;
+  const filtered = tier ? defs.filter((d) => d.rarity === tier) : defs;
+  return filterTreasureDefsForPool(filtered, snap);
+}

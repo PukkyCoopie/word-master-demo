@@ -50,6 +50,7 @@
       <RunStartDialog
         :open="showRunStartDialog"
         :initial-seed="runStartPrefillSeed"
+        :continue-snapshot="runStartContinueSnapshot"
         @confirm="onRunStartConfirm"
         @cancel="onRunStartCancel"
       />
@@ -118,10 +119,12 @@ import {
   isSlotProfileActivated,
   loadPlayerProfile,
   playerProfile,
+  resetSlotProfile,
   setActiveSaveSlotIndex,
 } from "./profile/playerProfile.js";
 import {
   clearSlot,
+  getSlotMeta,
   getSlotPayload,
   isSlotOccupied,
   loadSaveEnvelope,
@@ -167,6 +170,20 @@ const showTapTapPoster = ref(false);
 const tapTapWebPromoEnabled = isTapTapWebPromoEnabled();
 
 const activeSaveSlotIndex = computed(() => getActiveSaveSlotIndex());
+
+const runStartContinueSnapshot = computed(() => {
+  if (runStartMode.value !== "menu") return null;
+  const ix = pendingNewRunSlotIndex.value ?? getActiveSaveSlotIndex();
+  if (!isSlotOccupied(ix)) return null;
+  const meta = getSlotMeta(ix);
+  if (!meta) return null;
+  return {
+    seedDisplay: meta.seedDisplay,
+    levelId: meta.levelId,
+    money: meta.money,
+    isEndlessRun: meta.isEndlessRun === true,
+  };
+});
 
 const showTapTapDesktopPromo = computed(
   () => tapTapWebPromoEnabled && isDesktopLayout.value,
@@ -258,7 +275,11 @@ function bumpSaveUi() {
 function onSaveSlotSelect(payload) {
   const { index, mode } = payload;
   if (mode === "delete") {
+    const hadSave = isSlotOccupied(index);
     clearSlot(index);
+    if (!hadSave && isSlotProfileActivated(index)) {
+      resetSlotProfile(index);
+    }
     bumpSaveUi();
     return;
   }
@@ -380,10 +401,6 @@ function onDictBootBarClick() {
 function onMenuRequestStart() {
   if (transitionBusy.value) return;
   const ix = getActiveSaveSlotIndex();
-  if (isSlotOccupied(ix)) {
-    void startLoadSlot(ix);
-    return;
-  }
   runStartPrefillSeed.value = "";
   runStartMode.value = "menu";
   pendingNewRunSlotIndex.value = ix;
@@ -392,14 +409,21 @@ function onMenuRequestStart() {
 
 async function onRunStartConfirm(payload) {
   if (transitionBusy.value) return;
-  const seedNumeric = coerceRunSeedNumeric(payload.seedNumeric);
-  const seedDisplay = String(payload.seedDisplay ?? "");
   runStartPrefillSeed.value = "";
   showRunStartDialog.value = false;
 
   const slotIx =
     pendingNewRunSlotIndex.value != null ? pendingNewRunSlotIndex.value : getActiveSaveSlotIndex();
   pendingNewRunSlotIndex.value = null;
+
+  if (payload.mode === "continue") {
+    runStartMode.value = "menu";
+    await startLoadSlot(slotIx);
+    return;
+  }
+
+  const seedNumeric = coerceRunSeedNumeric(payload.seedNumeric);
+  const seedDisplay = String(payload.seedDisplay ?? "");
 
   if (runStartMode.value === "menu" && !isSlotOccupied(slotIx)) {
     const resetProfile = !isSlotProfileActivated(slotIx);
@@ -408,7 +432,7 @@ async function onRunStartConfirm(payload) {
     return;
   }
 
-  if (runStartMode.value === "restart" && isSlotOccupied(slotIx)) {
+  if (isSlotOccupied(slotIx)) {
     clearSlot(slotIx);
     bumpSaveUi();
   }

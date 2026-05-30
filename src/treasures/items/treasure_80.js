@@ -1,8 +1,7 @@
 import { isBossTileDebuffed } from "../../game/bossTileDebuff.js";
 import { describe, score } from "../treasureDescription.js";
-import { getScoreAddBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { patchCurrentBankDescription } from "../treasureBankHelpers.js";
 import { normalizeLetterChar } from "../treasureLifecycleShared.js";
-import { ensureTreasureBank } from "../treasureRunState.js";
 
 const ID = "80";
 const SCORE_PER_B = 8;
@@ -43,10 +42,5 @@ export const treasureHooks = {
     if (visit > 0) return null;
     if (normalizeLetterChar(part?.letter) !== "b") return null;
     return { delta: SCORE_PER_B, label: `+${SCORE_PER_B}` };
-  },
-  async onSuccessfulWordSubmit(ctx) {
-    const rs = ctx.treasureRun;
-    if (!rs) return;
-    ensureTreasureBank(rs, ID).scoreAdd = 0;
   },
 };

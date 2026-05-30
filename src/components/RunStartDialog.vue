@@ -17,32 +17,132 @@
     >
       <h2 id="run-start-dialog-title" class="run-start-dialog-title">开始游戏</h2>
 
-      <div class="run-start-dialog-body">
-        <div class="run-start-dialog__future" aria-hidden="true" />
+      <div
+        v-if="hasContinueTab"
+        class="run-start-dialog-tabs"
+        role="tablist"
+        aria-label="开始方式"
+      >
+        <button
+          type="button"
+          role="tab"
+          class="run-start-dialog-tab"
+          :class="{ 'run-start-dialog-tab--active': activeTab === 'new' }"
+          :aria-selected="activeTab === 'new'"
+          @click="activeTab = 'new'"
+        >
+          新游戏
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="run-start-dialog-tab"
+          :class="{ 'run-start-dialog-tab--active': activeTab === 'continue' }"
+          :aria-selected="activeTab === 'continue'"
+          @click="activeTab = 'continue'"
+        >
+          继续
+        </button>
+      </div>
 
-        <div class="run-start-dialog-seed-row">
-          <label class="run-start-dialog-seed-label" for="run-start-seed-input">种子</label>
-          <div class="run-start-dialog-seed-field">
-            <input
-              id="run-start-seed-input"
-              v-model="seedDraft"
-              type="text"
-              class="run-start-dialog-seed-input"
-              autocomplete="off"
-              spellcheck="false"
-              maxlength="8"
-              placeholder="留空则随机"
-              @input="onSeedInput"
-            />
-            <button
-              type="button"
-              class="run-start-dialog-seed-random"
-              title="随机种子"
-              aria-label="随机种子"
-              @click="onRandomSeed"
-            >
-              <i class="ri-dice-line" aria-hidden="true"></i>
-            </button>
+      <div class="run-start-dialog-body">
+        <template v-if="!hasContinueTab">
+          <div class="run-start-dialog-seed-row">
+            <label class="run-start-dialog-seed-label" for="run-start-seed-input">种子</label>
+            <div class="run-start-dialog-seed-field">
+              <input
+                id="run-start-seed-input"
+                v-model="seedDraft"
+                type="text"
+                class="run-start-dialog-seed-input"
+                autocomplete="off"
+                spellcheck="false"
+                maxlength="8"
+                placeholder="留空则随机"
+                @input="onSeedInput"
+              />
+              <button
+                type="button"
+                class="run-start-dialog-seed-random"
+                title="随机种子"
+                aria-label="随机种子"
+                @click="onRandomSeed"
+              >
+                <i class="ri-dice-line" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <div v-else class="run-start-dialog-panels">
+          <div
+            role="tabpanel"
+            aria-label="新游戏"
+            class="run-start-dialog-panel"
+            :class="{ 'run-start-dialog-panel--active': activeTab === 'new' }"
+            :aria-hidden="activeTab !== 'new'"
+            :inert="activeTab !== 'new'"
+          >
+            <div class="run-start-dialog-seed-row">
+              <label class="run-start-dialog-seed-label" for="run-start-seed-input-tab">种子</label>
+              <div class="run-start-dialog-seed-field">
+                <input
+                  id="run-start-seed-input-tab"
+                  v-model="seedDraft"
+                  type="text"
+                  class="run-start-dialog-seed-input"
+                  autocomplete="off"
+                  spellcheck="false"
+                  maxlength="8"
+                  placeholder="留空则随机"
+                  @input="onSeedInput"
+                />
+                <button
+                  type="button"
+                  class="run-start-dialog-seed-random"
+                  title="随机种子"
+                  aria-label="随机种子"
+                  @click="onRandomSeed"
+                >
+                  <i class="ri-dice-line" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            role="tabpanel"
+            aria-label="继续"
+            class="run-start-dialog-panel"
+            :class="{ 'run-start-dialog-panel--active': activeTab === 'continue' }"
+            :aria-hidden="activeTab !== 'continue'"
+            :inert="activeTab !== 'continue'"
+          >
+            <div class="run-start-dialog-seed-row">
+              <span class="run-start-dialog-seed-label">种子</span>
+              <div
+                class="run-start-dialog-seed-readonly"
+                :title="continueSeedDisplay"
+              >
+                {{ continueSeedDisplay || "—" }}
+              </div>
+            </div>
+
+            <div class="run-start-dialog-progress">
+              <span class="run-start-dialog-seed-label">对局进度</span>
+              <div class="run-start-dialog-progress-grid">
+                <div class="run-start-dialog-progress-cell">
+                  <span class="run-start-dialog-progress-value">{{ continueLevelLabel }}</span>
+                  <span class="run-start-dialog-progress-label">关卡</span>
+                </div>
+                <div class="run-start-dialog-progress-cell">
+                  <span class="run-start-dialog-progress-value run-start-dialog-progress-value--money">
+                    <span class="run-start-dialog-money-char">$</span>{{ continueMoney }}
+                  </span>
+                  <span class="run-start-dialog-progress-label">资金</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -53,7 +153,7 @@
           class="run-start-dialog-btn run-start-dialog-btn--primary"
           @click="onConfirm($event)"
         >
-          开始游戏
+          {{ primaryButtonLabel }}
         </button>
         <button type="button" class="run-start-dialog-btn run-start-dialog-btn--secondary" @click="onCancel">
           取消
@@ -70,10 +170,14 @@ import { bumpOverlayZ } from "../game/overlayStack.js";
 import { recordPointerClientFromEvent } from "../game/lastPointerClient.js";
 import { generateRandomRunSeedString, normalizeRunSeedInput, resolveRunSeedFromDialog } from "../game/runRng.js";
 
+/** @typedef {{ seedDisplay: string, levelId: string, money: number, isEndlessRun?: boolean }} RunContinueSnapshot */
+
 const props = defineProps({
   open: { type: Boolean, default: false },
   /** 打开弹层时预填的种子（失败重开等） */
   initialSeed: { type: String, default: "" },
+  /** 当前栏位未完成对局摘要；有值时显示「新游戏 / 继续」分 tab */
+  continueSnapshot: { type: /** @type {import('vue').PropType<RunContinueSnapshot | null>} */ (Object), default: null },
 });
 
 const emit = defineEmits(["confirm", "cancel"]);
@@ -94,12 +198,24 @@ watch(
 );
 
 const seedDraft = ref("");
+/** @type {import('vue').Ref<'new' | 'continue'>} */
+const activeTab = ref("new");
+
+const hasContinueTab = computed(() => props.continueSnapshot != null);
+const continueSeedDisplay = computed(() => String(props.continueSnapshot?.seedDisplay ?? "").trim());
+const continueLevelLabel = computed(() => {
+  const id = String(props.continueSnapshot?.levelId ?? "1-1");
+  return props.continueSnapshot?.isEndlessRun ? `${id}（无尽）` : id;
+});
+const continueMoney = computed(() => Math.max(0, Math.floor(Number(props.continueSnapshot?.money) || 0)));
+const primaryButtonLabel = computed(() => (activeTab.value === "continue" ? "继续游戏" : "开始游戏"));
 
 watch(
-  () => [props.open, props.initialSeed],
-  ([isOpen, initial]) => {
+  () => [props.open, props.initialSeed, props.continueSnapshot],
+  ([isOpen]) => {
     if (!isOpen) return;
-    seedDraft.value = initial ? normalizeRunSeedInput(String(initial)) : "";
+    seedDraft.value = props.initialSeed ? normalizeRunSeedInput(String(props.initialSeed)) : "";
+    activeTab.value = props.continueSnapshot != null ? "continue" : "new";
   },
 );
 
@@ -114,8 +230,12 @@ function onRandomSeed() {
 /** @param {MouseEvent} event */
 function onConfirm(event) {
   recordPointerClientFromEvent(event);
+  if (activeTab.value === "continue" && hasContinueTab.value) {
+    emit("confirm", { mode: "continue" });
+    return;
+  }
   const { seedNumeric, seedDisplay } = resolveRunSeedFromDialog(seedDraft.value);
-  emit("confirm", { seedNumeric, seedDisplay });
+  emit("confirm", { mode: "new", seedNumeric, seedDisplay });
 }
 
 function onCancel() {
@@ -234,14 +354,53 @@ function onCancel() {
   text-align: center;
 }
 
+.run-start-dialog-tabs {
+  display: flex;
+  gap: calc(8 * var(--rpx));
+  margin: calc(-6 * var(--rpx)) 0 calc(18 * var(--rpx));
+  padding: calc(4 * var(--rpx));
+  border-radius: var(--radius);
+  background: var(--card, #eee4da);
+}
+
+.run-start-dialog-tab {
+  flex: 1;
+  border: none;
+  border-radius: calc(8 * var(--rpx));
+  padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
+  font-family: inherit;
+  font-size: calc(24 * var(--rpx));
+  font-weight: 700;
+  color: var(--text-dark, #3c3a32);
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.72;
+}
+
+.run-start-dialog-tab--active {
+  background: var(--card-bright, #faf8ef);
+  box-shadow: var(--shadow);
+  opacity: 1;
+}
+
 .run-start-dialog-body {
   display: flex;
   flex-direction: column;
-  gap: calc(14 * var(--rpx));
 }
 
-.run-start-dialog__future {
-  display: none;
+.run-start-dialog-panels {
+  display: grid;
+}
+
+.run-start-dialog-panel {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.run-start-dialog-panel--active {
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .run-start-dialog-seed-row {
@@ -281,6 +440,70 @@ function onCancel() {
   font-weight: 500;
   letter-spacing: normal;
   opacity: 0.55;
+}
+
+.run-start-dialog-seed-readonly {
+  border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius);
+  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
+  font-size: calc(26 * var(--rpx));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-dark, #3c3a32);
+  background: rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-start-dialog-progress {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--rpx));
+  margin-top: calc(10 * var(--rpx));
+}
+
+.run-start-dialog-progress-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(10 * var(--rpx));
+}
+
+.run-start-dialog-progress-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(4 * var(--rpx));
+  padding: calc(12 * var(--rpx)) calc(10 * var(--rpx));
+  border-radius: var(--radius);
+  background: var(--card, #eee4da);
+}
+
+.run-start-dialog-progress-value {
+  font-size: calc(26 * var(--rpx));
+  font-weight: 800;
+  color: var(--text-dark, #3c3a32);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.run-start-dialog-progress-value--money {
+  display: inline-flex;
+  align-items: baseline;
+  gap: calc(2 * var(--rpx));
+}
+
+.run-start-dialog-money-char {
+  font-size: calc(22 * var(--rpx));
+  font-weight: 800;
+  opacity: 0.85;
+}
+
+.run-start-dialog-progress-label {
+  font-size: calc(20 * var(--rpx));
+  font-weight: 700;
+  color: rgba(60, 58, 50, 0.62);
 }
 
 .run-start-dialog-seed-random {

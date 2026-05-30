@@ -32,6 +32,8 @@
  * @property {boolean} bossTileDebuffed
  * @property {boolean} ceruleanBellLocked
  * @property {boolean} playerMarked
+ * @property {number} [playerMarkBatch]
+ * @property {number} [playerMarkSeq]
  */
 
 /** @typedef {Object} SerializedDeckState

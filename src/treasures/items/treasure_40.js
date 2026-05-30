@@ -21,7 +21,7 @@ function buildBookDescription(ctx) {
   const v = getMultAddBank(ctx.treasureRun, ID);
   return describe(
     "每当你拼写出一个不是名词的单词，获得",
-    mult("+1"),
+    mult("+2"),
     "倍率",
     "（当前",
     mult(v >= 0 ? `+${v}` : String(v)),
@@ -35,7 +35,7 @@ export default {
   rarity: "common",
   description: describe(
     "每当你拼写出一个不是名词的单词，获得",
-    mult("+1"),
+    mult("+2"),
     "倍率",
     "（当前",
     mult("+0"),
@@ -53,6 +53,6 @@ export const treasureHooks = {
   },
   async onSuccessfulWordSubmit(ctx) {
     if (!isNonNounSubmittedWord(ctx)) return;
-    await bankMultAddGain(ctx, ID, 1);
+    await bankMultAddGain(ctx, ID, 2);
   },
 };

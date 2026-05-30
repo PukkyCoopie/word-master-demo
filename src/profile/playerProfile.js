@@ -335,7 +335,17 @@ export async function initializeProfileFromTapTap(account) {
   await applyProfileDefaultsFromTapTap(account, ix);
 }
 
-/** @param {number} [slotIndex] @returns {string} */
+/** @param {number} index */
+export function resetSlotProfile(index) {
+  const ix = clampSaveSlotIndex(index);
+  Object.assign(slotProfiles[ix], createDefaultSlotProfile());
+  if (ix === getActiveSaveSlotIndex()) {
+    syncReactiveFromSlot(ix);
+  }
+  persistPlayerProfile();
+}
+
+/** @param {number} index @returns {string} */
 export function getProfileInitialLetter(slotIndex = getActiveSaveSlotIndex()) {
   const n = getSlotProfile(slotIndex).displayName.trim();
   if (!n) return "P";

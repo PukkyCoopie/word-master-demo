@@ -180,10 +180,10 @@ defineEmits(["open-poster"]);
 }
 
 .taptap-promo-icon-img--in-about {
-  width: calc(32 * var(--rpx) * 2 / 3);
-  height: calc(32 * var(--rpx) * 2 / 3);
+  width: calc(48 * var(--rpx));
+  height: calc(48 * var(--rpx));
   flex-shrink: 0;
-  border-radius: calc(8 * var(--rpx) * 2 / 3);
+  border-radius: calc(12 * var(--rpx));
   box-shadow: 0 calc(1 * var(--rpx)) calc(4 * var(--rpx)) rgba(0, 0, 0, 0.1);
 }
 

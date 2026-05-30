@@ -470,12 +470,19 @@
             <button
               type="button"
               class="action-aux-btn action-aux-btn--blue"
-              :class="{ 'action-aux-btn--disabled': !canUseWordAuxTools }"
-              title="标记当前拼词中的字母（仅本关提示，不进牌库）"
-              aria-label="标记当前拼词中的字母"
-              @click="onMarkSelectedTilesClick"
+              :class="{ 'action-aux-btn--disabled': !canUseMarkButton }"
+              :title="markButtonTitle"
+              :aria-label="markButtonTitle"
+              @click="onMarkButtonClick"
             >
-              <i class="ri-bookmark-line" aria-hidden="true"></i>
+              <span class="action-aux-btn__icon-stack">
+                <i class="ri-bookmark-line action-aux-btn__main-icon" aria-hidden="true"></i>
+                <i
+                  v-if="showMarkSendArrow"
+                  class="ri-arrow-up-s-line action-aux-btn__sub-icon"
+                  aria-hidden="true"
+                ></i>
+              </span>
             </button>
             <button
               v-if="showSwapWordButton"
@@ -754,7 +761,7 @@ import {
   vowelDisplayShiftForResolved,
   vowelGhostSlotsForDisplay,
 } from "../game/vowelNeighborSubstitute.js";
-import { filterTreasureDefsForPool } from "../treasures/treasureAvailability.js";
+import { filterTreasureDefsForPool, filterTreasureDefsForSpellGrantPool } from "../treasures/treasureAvailability.js";
 import {
   addTreasureRunLettersDiscarded,
   onTreasureRunChapterEnter,
@@ -3078,6 +3085,7 @@ async function resetLevelAfterTreasurePrep(levelDef) {
   if (forced != null) opts.forcedJokerDrawUid = forced;
   treasureRunState.value.jokerForcedDrawUid = null;
   resetLevel(levelDef, opts);
+  syncPlayerMarkBatchCounterFromGrid();
   await runTreasureLevelEnterHooks(levelDef?.id ?? "1-1");
   scheduleRunAutoSave();
 }
@@ -4260,6 +4268,67 @@ function collectWordAuxTargetTiles() {
   return tiles;
 }
 
+/** @type {number} 玩家标记批次计数（同一次点「标记」共用一批） */
+let playerMarkBatchCounter = 0;
+
+function syncPlayerMarkBatchCounterFromGrid() {
+  let maxBatch = 0;
+  const g = grid.value;
+  for (let r = 0; r < ROWS; r += 1) {
+    for (let c = 0; c < COLS; c += 1) {
+      const tile = g[r]?.[c];
+      if (tile?.playerMarked !== true) continue;
+      const b = Math.floor(Number(tile.playerMarkBatch) || 0);
+      if (b > maxBatch) maxBatch = b;
+    }
+  }
+  playerMarkBatchCounter = maxBatch;
+}
+
+/** @param {import('../composables/useGameState.js').GridTile[]} tiles */
+function assignPlayerMarkBatch(tiles) {
+  if (tiles.length === 0) return;
+  playerMarkBatchCounter += 1;
+  const batch = playerMarkBatchCounter;
+  let seq = 0;
+  for (const tile of tiles) {
+    tile.playerMarked = true;
+    tile.playerMarkBatch = batch;
+    tile.playerMarkSeq = seq;
+    seq += 1;
+  }
+}
+
+/** @param {import('../composables/useGameState.js').GridTile} tile */
+function clearPlayerMarkMeta(tile) {
+  tile.playerMarked = false;
+  tile.playerMarkBatch = undefined;
+  tile.playerMarkSeq = undefined;
+}
+
+/** @returns {{ row: number, col: number, tile: import('../composables/useGameState.js').GridTile }[]} */
+function collectMarkedGridTilesForSend() {
+  /** @type {{ row: number, col: number, tile: import('../composables/useGameState.js').GridTile, batch: number, seq: number }[]} */
+  const list = [];
+  const g = grid.value;
+  for (let r = 0; r < ROWS; r += 1) {
+    for (let c = 0; c < COLS; c += 1) {
+      const tile = g[r]?.[c];
+      if (!tile?.letter) continue;
+      if (tile.playerMarked !== true) continue;
+      if (tile.selected) continue;
+      if (tile.bossGridBlocked) continue;
+      if (isTileFlying(r, c)) continue;
+      const batch = tile.playerMarkBatch != null ? Math.floor(Number(tile.playerMarkBatch)) : 0;
+      const seq =
+        tile.playerMarkSeq != null ? Math.floor(Number(tile.playerMarkSeq)) : r * COLS + c;
+      list.push({ row: r, col: c, tile, batch, seq });
+    }
+  }
+  list.sort((a, b) => (a.batch !== b.batch ? a.batch - b.batch : a.seq - b.seq));
+  return list;
+}
+
 /** 当前已入槽（不含飞入中、飞回中）占用的棋盘格坐标，用于对调按钮排除集 */
 function buildStableWordSelectionPositionKeys() {
   const keys = new Set();
@@ -5321,6 +5390,23 @@ const canUseWordAuxTools = computed(() => {
   return collectWordAuxTargetTiles().length > 0;
 });
 
+const showMarkSendArrow = computed(() => {
+  if (collectWordAuxTargetTiles().length > 0) return false;
+  return collectMarkedGridTilesForSend().length > 0;
+});
+
+const canSendMarkedTilesToWord = computed(() => {
+  if (!showMarkSendArrow.value) return false;
+  return !isWordAuxInteractionBlocked();
+});
+
+const canUseMarkButton = computed(() => canUseWordAuxTools.value || canSendMarkedTilesToWord.value);
+
+const markButtonTitle = computed(() => {
+  if (showMarkSendArrow.value) return "按标记顺序将已标记字母送入拼词";
+  return "标记当前拼词中的字母（仅本关提示，不进牌库）";
+});
+
 const showSwapWordButton = computed(() => gameSettings.swapButtonMode !== "hidden");
 
 const swapWordButtonTitle = computed(() => {
@@ -5350,15 +5436,35 @@ const canSwapWordSelection = computed(() => {
   return resolveSwapGridTargets(buildStableWordSelectionPositionKeys()).length > 0;
 });
 
+function onMarkButtonClick() {
+  if (canSendMarkedTilesToWord.value) {
+    onSendMarkedTilesClick();
+    return;
+  }
+  onMarkSelectedTilesClick();
+}
+
 function onMarkSelectedTilesClick() {
   if (!canUseWordAuxTools.value) return;
   const tiles = collectWordAuxTargetTiles();
   if (tiles.length === 0) return;
   const shouldMark = tiles.some((t) => t.playerMarked !== true);
-  for (const tile of tiles) {
-    tile.playerMarked = shouldMark;
+  if (shouldMark) {
+    assignPlayerMarkBatch(tiles.filter((t) => t.playerMarked !== true));
+  } else {
+    for (const tile of tiles) clearPlayerMarkMeta(tile);
   }
   touchGrid();
+  scheduleRunAutoSave();
+}
+
+function onSendMarkedTilesClick() {
+  if (!canSendMarkedTilesToWord.value) return;
+  const list = collectMarkedGridTilesForSend();
+  if (list.length === 0) return;
+  for (const { row, col, tile } of list) {
+    startOneMoveIn(row, col, tile);
+  }
   scheduleRunAutoSave();
 }
 
@@ -5368,9 +5474,8 @@ async function onSwapWordSelectionClick() {
   try {
     if (getMarkOnSwap()) {
       const tiles = collectWordAuxTargetTiles();
-      for (const tile of tiles) {
-        tile.playerMarked = true;
-      }
+      const toMark = tiles.filter((t) => t.playerMarked !== true);
+      if (toMark.length > 0) assignPlayerMarkBatch(toMark);
       touchGrid();
     }
 
@@ -6351,9 +6456,14 @@ function grantRandomShopTreasureByRarity(rarityFilter) {
   const ix = findTreasurePlacementIndex(null);
   if (ix < 0) return { ok: false, slotIndex: -1 };
   const owned = ownedTreasureIdSet.value;
-  const pool = shopTreasurePool.value.filter(
-    (t) => !owned.has(t.treasureId) && (!rarityFilter || t.rarity === rarityFilter),
-  );
+  const sourcePool = rarityFilter
+    ? filterTreasureDefsForSpellGrantPool(
+        TREASURE_DEFINITIONS.filter((t) => IMPLEMENTED_TREASURE_ID_SET.has(t.treasureId)),
+        buildTreasurePoolSnapshot(),
+        rarityFilter,
+      )
+    : shopTreasurePool.value;
+  const pool = sourcePool.filter((t) => !owned.has(t.treasureId));
   if (!pool.length) return { ok: false, slotIndex: -1 };
   const picks = rollDistinctShopTreasures(pool, owned, new Set(), 1, runRandom);
   if (!picks[0]) return { ok: false, slotIndex: -1 };
@@ -10800,6 +10910,7 @@ onMounted(async () => {
   const restored = props.restoredSave;
   if (restored && typeof restored === "object") {
     applyGamePanelSave(restored, buildHydrateContext());
+    syncPlayerMarkBatchCounterFromGrid();
     ensureBigramTargetPair(treasureRunState.value, rollRandomBigramForTreasure);
     mountE2eHarnessIfNeeded();
     slotRafLastTime = performance.now();
@@ -11043,6 +11154,8 @@ onUnmounted(() => {
 
 .deck-layer-inner {
   --deck-layer-tile-size: calc(72 * var(--rpx));
+  /* 牌库 tile 小于棋盘格：配饰角标随 --slot-scale 与局内同比例（见 game.css .grid-tile .tile-accessory-chip） */
+  --slot-scale: calc(var(--deck-layer-tile-size) / var(--letter-grid-cell-size));
   position: relative;
   overflow: visible;
   background: #7a6f65;
