@@ -48,6 +48,8 @@ const props = defineProps({
   /** 元音邻位替换（宝藏 95）：左上/右下半透明邻元音 */
   vowelGhostPrev: { type: String, default: null },
   vowelGhostNext: { type: String, default: null },
+  /** 不渲染左下角稀有度 gem（如预设描述预览万能块） */
+  hideRarityGem: { type: Boolean, default: false },
 });
 
 const attrs = useAttrs();
@@ -206,7 +208,7 @@ const treasureAccessoryChipVisual = computed(() => {
       class="letter-tile-cerulean-lock-icon ri-lock-fill"
       aria-hidden="true"
     />
-    <span class="letter-gem" :class="`gem-${rarity}`" aria-hidden="true" />
+    <span v-if="!hideRarityGem" class="letter-gem" :class="`gem-${rarity}`" aria-hidden="true" />
     <span
       v-if="vowelGhostPrev && showVowelGhost"
       class="vowel-ghost vowel-ghost--prev"

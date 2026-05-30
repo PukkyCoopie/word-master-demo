@@ -133,6 +133,7 @@ const wildcardDetailPayload = {
   treasureAccessoryId: null,
   tileScoreBonus: 0,
   tileMultBonus: 0,
+  hideRarityGem: true,
 };
 
 /** @param {number} index */

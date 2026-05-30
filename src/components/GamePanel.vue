@@ -3424,13 +3424,12 @@ const settlementTotalValueStyle = computed(() => ({
 
 let settlementTl = null;
 
-/** 结算各行 DOM，用于入场与每枚 $ 时的震动 */
-const settlementRowEls = ref(/** @type {(HTMLElement | null)[]} */ ([]));
+/** 结算各行 DOM，用于入场与每枚 $ 时的震动（非响应式，避免 Transition 内 ref 回写递归更新） */
+const settlementRowEls = /** @type {(HTMLElement | null)[]} */ ([]);
 function setSettlementRowRef(index, el) {
-  const arr = [...settlementRowEls.value];
-  while (arr.length <= index) arr.push(null);
-  arr[index] = /** @type {HTMLElement | null} */ (el);
-  settlementRowEls.value = arr;
+  const node = refToDom(el);
+  if (node) settlementRowEls[index] = node;
+  else settlementRowEls[index] = null;
 }
 
 /** @param {number} i */
@@ -3582,7 +3581,6 @@ function finishSettlementIntroInstant() {
   }
 
   const card = settlementCardRef.value;
-  const rows = settlementRowEls.value;
   const continueBtn = settlementContinueBtnRef.value;
   if (card) {
     gsap.killTweensOf(card);
@@ -3590,8 +3588,8 @@ function finishSettlementIntroInstant() {
   }
   const displayRows = settlementDisplayRows.value;
   animSettleRows.value = displayRows.map((row) => settlementCountForRow(row));
-  for (let i = 0; i < rows.length; i++) {
-    const el = rows[i];
+  for (let i = 0; i < settlementRowEls.length; i++) {
+    const el = settlementRowEls[i];
     if (!el) continue;
     gsap.killTweensOf(el);
     gsap.set(el, {
@@ -3840,7 +3838,7 @@ const wordTranslationInnerRef = ref(null);
 
 const letterGridRef = ref(null);
 const gridTileRefs = ref([]);
-const wordSlotRefs = ref([]);
+const wordSlotRefs = /** @type {(HTMLElement | undefined)[]} */ ([]);
 /** 记分动效：高亮底部宝藏栏中正在触发的槽位索引 */
 const scoringTreasureBarIndex = ref(/** @type {number | null} */ (null));
 /** 非响应式 DOM 引用容器：仅动画查询使用，避免 TransitionGroup + ref 回写触发递归更新 */
@@ -3895,7 +3893,9 @@ function getGridTileElByIndex(index) {
 }
 
 function setWordSlotRef(index, el) {
-  if (el) wordSlotRefs.value[index] = el;
+  const node = refToDom(el);
+  if (node) wordSlotRefs[index] = node;
+  else wordSlotRefs[index] = undefined;
 }
 
 function getSelectedGridTileElsInOrder() {
@@ -4173,7 +4173,7 @@ function updateSlotPositions(deltaMs) {
   const factor = deltaMs === true ? 1 : 1 - Math.pow(2, -10 * Math.min(dt, 1));
   for (let i = 0; i < N; i++) {
     const outOfFlow = batches.some((b) => i >= b.slotIndex);
-    const el = wordSlotRefs.value[i];
+    const el = wordSlotRefs[i];
     if (outOfFlow) {
       /* 不把 out-of-flow 槽设为 0 尺寸，否则快速连续点击时后续 batch 的 getBoundingClientRect() 会拿到 0×0，飞字失去背景和高度 */
       continue;
@@ -5119,7 +5119,7 @@ function onWordSlotContextMenu(e, i) {
   clearTileLongPressArm();
   if (!canOpenTileDetail()) return;
   const p = buildWordSlotTileDetailPayload(i);
-  const slotEl = wordSlotRefs.value[i];
+  const slotEl = wordSlotRefs[i];
   const inner = slotEl?.querySelector?.(".word-slot-content");
   const origin = tileOriginRectFromElement(inner ?? slotEl);
   if (p) openTileDetail(p, origin);
@@ -5139,7 +5139,7 @@ function onWordSlotDetailPointerDown(e, i) {
     if (i < 0 || i >= order2.length) return;
     const p = buildWordSlotTileDetailPayload(i);
     if (p) {
-      const slotEl = wordSlotRefs.value[i];
+      const slotEl = wordSlotRefs[i];
       const inner = slotEl?.querySelector?.(".word-slot-content");
       const origin = tileOriginRectFromElement(inner ?? slotEl);
       openTileDetail(p, origin);
@@ -5766,7 +5766,7 @@ function buildSettlementSnapshot() {
 function resetSettlementAnimValues() {
   const n = settlementDisplayRows.value.length || 4;
   animSettleRows.value = Array.from({ length: n }, () => 0);
-  settlementRowEls.value = Array.from({ length: n }, () => null);
+  settlementRowEls.length = 0;
   settlementIntroResolve = null;
 }
 
@@ -5890,8 +5890,7 @@ function runSettlementIntro() {
       return;
     }
     gsap.killTweensOf(card);
-    const rows = settlementRowEls.value;
-    for (const el of rows) {
+    for (const el of settlementRowEls) {
       if (el) gsap.killTweensOf(el);
     }
     const continueBtn = settlementContinueBtnRef.value;
@@ -5901,7 +5900,7 @@ function runSettlementIntro() {
     const rowSpecs = displayRows.map((row, i) => {
       const count = settlementCountForRow(row);
       return {
-        el: rows[i],
+        el: settlementRowEls[i],
         anim: animSettleRowRef(i),
         count,
         empty: count === 0,
@@ -6821,7 +6820,7 @@ async function runSubmittedIceShatterEffects(tiles) {
     const t = list[i];
     if (t?.materialId !== "ice" || isBossTileDebuffed(t)) continue;
     if (runRandom() >= ICE_MATERIAL_SELF_DESTRUCT_CHANCE) continue;
-    const slotEl = wordSlotRefs.value[i];
+    const slotEl = wordSlotRefs[i];
     const gridEl = gridEls[i];
     await playIceTileShatterWobbleAndBubble(slotEl, gridEl);
     await notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIdList(), {
@@ -9104,7 +9103,7 @@ async function runLetterAccessoryCoinMoneyBurst(tile, slotEl, speed = 1) {
  */
 async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVisitIndex = 0) {
   const sp = Math.max(0.01, Number(speed) || 1);
-  const slotEl = wordSlotRefs.value[i];
+  const slotEl = wordSlotRefs[i];
   if (!slotEl) return;
   if (isBossDebuffedSubmitTile(tile)) {
     await runLetterScoringSkipStep(slotEl, sp, i);
@@ -9549,7 +9548,7 @@ function registerClearWinVipDiamondRarityPostScoreFx(fxQueue, tiles, willClearLe
 async function runClearWinVipDiamondSlotCueBeforeLeave(tiles, willClearLevelThisSubmit, slotTileEls) {
   const upgrade = resolveClearWinVipDiamondRarityUpgrade(tiles, willClearLevelThisSubmit);
   if (!upgrade) return;
-  const slotEl = slotTileEls[upgrade.slotIndex] ?? wordSlotRefs.value?.[upgrade.slotIndex];
+  const slotEl = slotTileEls[upgrade.slotIndex] ?? wordSlotRefs?.[upgrade.slotIndex];
   if (!(slotEl instanceof HTMLElement)) return;
   const sp = 1;
   const wobbleTl = createWobbleScoreSlotTimeline(slotEl);
@@ -9732,7 +9731,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   if (skipLetters) {
     const spSkip = 1.05;
     for (let i = 0; i < n; i++) {
-      await runLetterScoringSkipStep(wordSlotRefs.value[i], spSkip, i);
+      await runLetterScoringSkipStep(wordSlotRefs[i], spSkip, i);
     }
   } else {
     for (let pass = 0; pass < letterPassCount; pass++) {
@@ -9744,7 +9743,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       for (let i = 0; i < n; i++) {
         const spLetter = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
         if (isBossDebuffedSubmitTile(tiles[i])) {
-          await runLetterScoringSkipStep(wordSlotRefs.value[i], spLetter, i);
+          await runLetterScoringSkipStep(wordSlotRefs[i], spLetter, i);
           scoringBeat += 1;
           continue;
         }
@@ -9761,7 +9760,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
               await runPerLetterTreasureReplayCue(letterTreasureReplayCues[cueIdx], spTreasureCue);
               scoringBeat += 1;
             } else if (tiles[i]?.accessoryId === TILE_ACCESSORY_REWIND) {
-              triggerAccessoryChipRipple(wordSlotRefs.value?.[i], spLetter, true);
+              triggerAccessoryChipRipple(wordSlotRefs?.[i], spLetter, true);
             }
             const spReplay = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
             await runSingleLetterScoringStep(tiles[i], i, detailed, spReplay, luckyVisitByLetter[i]++);
@@ -9794,7 +9793,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
         : null;
     const wordSlotFxEl =
       typeof step.scoreFxWordSlotIndex === "number" && step.scoreFxWordSlotIndex >= 0
-        ? wordSlotRefs.value?.[step.scoreFxWordSlotIndex]
+        ? wordSlotRefs?.[step.scoreFxWordSlotIndex]
         : null;
     const fxTargetEl = gridFxEl || wordSlotFxEl || tel;
     if (multMul > 1) {
@@ -9944,7 +9943,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   /** 整格依次消失（占位+字母一起），按槽位索引 0..n-1 */
   const slotTileEls = [];
   for (let i = 0; i < n; i++) {
-    const el = wordSlotRefs.value[i];
+    const el = wordSlotRefs[i];
     if (el) slotTileEls.push(el);
   }
   gsap.killTweensOf(slotTileEls);
@@ -10178,7 +10177,7 @@ async function onRemoveClick() {
   /** 与提交一致：先收集槽位 DOM，再播依次消失（此时 selectedOrder 仍在，槽位未卸载） */
   const slotTileEls = [];
   for (let i = 0; i < nSel; i++) {
-    const el = wordSlotRefs.value[i];
+    const el = wordSlotRefs[i];
     if (el) slotTileEls.push(el);
   }
   gsap.killTweensOf(slotTileEls);
@@ -10375,7 +10374,7 @@ function startOneMoveOut(slotIndex) {
   if (slotIndex < 0 || slotIndex >= order.length) return;
   if (ceruleanBellSlotIndex.value != null && slotIndex <= ceruleanBellSlotIndex.value) return;
   const batches = flyingBackBatches.value;
-  const fromRefs = wordSlotRefs.value;
+  const fromRefs = wordSlotRefs;
   const list = [];
   for (let j = slotIndex; j < order.length; j++) {
     if (batches.some((b) => b.slotIndex <= j)) continue;
@@ -11059,7 +11058,7 @@ onUnmounted(() => {
   if (wEl) gsap.killTweensOf(wEl);
   const card = settlementCardRef.value;
   if (card) gsap.killTweensOf(card);
-  for (const el of settlementRowEls.value) {
+  for (const el of settlementRowEls) {
     if (el) gsap.killTweensOf(el);
   }
   const settleBtn = settlementContinueBtnRef.value;

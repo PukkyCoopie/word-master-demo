@@ -33,6 +33,7 @@
                   :treasure-accessory-id="payload.treasureAccessoryId"
                   :tile-score-bonus="Number(payload.tileScoreBonus) || 0"
                   :tile-mult-bonus="Number(payload.tileMultBonus) || 0"
+                  :hide-rarity-gem="Boolean(payload.hideRarityGem)"
                 />
               </div>
             </div>
@@ -165,6 +166,7 @@
                 :treasure-accessory-id="payload.treasureAccessoryId"
                 :tile-score-bonus="Number(payload.tileScoreBonus) || 0"
                 :tile-mult-bonus="Number(payload.tileMultBonus) || 0"
+                :hide-rarity-gem="Boolean(payload.hideRarityGem)"
               />
             </div>
           </div>
