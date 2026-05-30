@@ -144,9 +144,19 @@
 
             <div class="run-start-dialog-seed-row run-start-dialog-preset-row">
               <span class="run-start-dialog-seed-label">预设</span>
-              <div class="run-start-dialog-preset-readonly-value">
-                <span class="run-start-dialog-preset-emoji" aria-hidden="true">{{ continuePresetEmoji }}</span>
-                <span>{{ continuePresetName }}</span>
+              <div class="run-start-dialog-preset-readonly-card">
+                <div class="run-start-dialog-preset-readonly-head">
+                  <span class="run-start-dialog-preset-emoji" aria-hidden="true">{{ continuePresetEmoji }}</span>
+                  <span class="run-start-dialog-preset-name">{{ continuePresetName }}</span>
+                </div>
+                <div class="run-start-dialog-preset-readonly-desc">
+                  <PresetDescRichText
+                    :description="continuePresetDef.description"
+                    :size="continuePresetDescLayoutTier"
+                    @preview-voucher="onContinuePreviewVoucher"
+                    @preview-wildcard="onContinuePreviewWildcard"
+                  />
+                </div>
               </div>
             </div>
 
@@ -185,6 +195,20 @@
     </div>
   </div>
   </Transition>
+
+  <TreasureDetailLayer
+    v-if="continueVoucherDetail"
+    :treasure="continueVoucherDetail"
+    mode="offer"
+    :wallet-amount="0"
+    @close="continueVoucherDetail = null"
+  />
+
+  <TileDetailLayer
+    v-if="continueWildcardDetailOpen"
+    :payload="continueWildcardDetailPayload"
+    @close="continueWildcardDetailOpen = false"
+  />
 </template>
 
 <script setup>
@@ -192,10 +216,13 @@ import { computed, nextTick, ref, watch } from "vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { recordPointerClientFromEvent } from "../game/lastPointerClient.js";
 import { generateRandomRunSeedString, normalizeRunSeedInput, resolveRunSeedFromDialog } from "../game/runRng.js";
-import { getRunPresetDef, normalizeRunPresetId } from "../game/runPresetDefinitions.js";
+import { getPresetDescriptionLayoutTier, getRunPresetDef, normalizeRunPresetId } from "../game/runPresetDefinitions.js";
 import { getLastSelectedPresetId, isPresetUnlocked } from "../game/runPresetProgress.js";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
+import PresetDescRichText from "./PresetDescRichText.vue";
 import RunStartPresetPicker from "./RunStartPresetPicker.vue";
+import TileDetailLayer from "./TileDetailLayer.vue";
+import TreasureDetailLayer from "./TreasureDetailLayer.vue";
 
 /** @typedef {{ seedDisplay: string, levelId: string, money: number, isEndlessRun?: boolean, presetId?: string }} RunContinueSnapshot */
 
@@ -240,6 +267,33 @@ const continuePresetDef = computed(() =>
 );
 const continuePresetEmoji = computed(() => continuePresetDef.value.emoji);
 const continuePresetName = computed(() => continuePresetDef.value.name);
+const continuePresetDescLayoutTier = computed(() => {
+  const tier = getPresetDescriptionLayoutTier(continuePresetDef.value);
+  return tier === "normal" ? "medium" : "compact";
+});
+
+/** @type {import('vue').Ref<object | null>} */
+const continueVoucherDetail = ref(null);
+const continueWildcardDetailOpen = ref(false);
+const continueWildcardDetailPayload = {
+  letter: "?",
+  rarity: "common",
+  materialId: "wildcard",
+  accessoryId: null,
+  treasureAccessoryId: null,
+  tileScoreBonus: 0,
+  tileMultBonus: 0,
+  hideRarityGem: true,
+};
+
+/** @param {{ detail: object }} payload */
+function onContinuePreviewVoucher(payload) {
+  continueVoucherDetail.value = payload.detail;
+}
+
+function onContinuePreviewWildcard() {
+  continueWildcardDetailOpen.value = true;
+}
 const continueLevelLabel = computed(() => {
   const id = String(props.continueSnapshot?.levelId ?? "1-1");
   return props.continueSnapshot?.isEndlessRun ? `${id}（无尽）` : id;
@@ -559,27 +613,79 @@ function onCancel() {
   color: rgba(60, 58, 50, 0.62);
 }
 
-.run-start-dialog-preset-readonly {
-  margin-top: calc(10 * var(--rpx));
+.run-start-dialog-preset-readonly-card {
+  height: calc(142 * var(--rpx));
+  min-height: calc(142 * var(--rpx));
+  max-height: calc(142 * var(--rpx));
+  border-radius: var(--radius);
+  background: var(--card, #eee4da);
+  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
 }
 
-.run-start-dialog-preset-readonly-value {
-  display: flex;
+.run-start-dialog-preset-readonly-head {
+  display: inline-flex;
   align-items: center;
-  gap: calc(8 * var(--rpx));
-  border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.06);
-  border-radius: var(--radius);
-  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
-  font-size: calc(26 * var(--rpx));
-  font-weight: 700;
-  color: var(--text-dark, #3c3a32);
-  background: rgba(0, 0, 0, 0.04);
-  box-sizing: border-box;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: calc(6 * var(--rpx));
+  flex-shrink: 0;
+  max-width: 100%;
+  line-height: 1.2;
 }
 
 .run-start-dialog-preset-emoji {
-  font-size: calc(30 * var(--rpx));
+  font-size: calc(28 * var(--rpx));
   line-height: 1;
+}
+
+.run-start-dialog-preset-name {
+  font-size: calc(24 * var(--rpx));
+  font-weight: 800;
+  color: var(--text-dark, #3c3a32);
+  line-height: 1.2;
+}
+
+.run-start-dialog-preset-readonly-desc {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  max-height: calc(88 * var(--rpx));
+  overflow: hidden;
+  margin-top: calc(8 * var(--rpx));
+}
+
+.run-start-dialog-preset-readonly-desc :deep(.preset-desc-rich-text) {
+  font-size: calc(22 * var(--rpx));
+  line-height: 1.4;
+}
+
+.run-start-dialog-preset-readonly-desc :deep(.preset-desc-rich-text--medium) {
+  font-size: calc(20 * var(--rpx));
+  line-height: 1.38;
+}
+
+.run-start-dialog-preset-readonly-desc :deep(.preset-desc-rich-text--compact) {
+  font-size: calc(18 * var(--rpx));
+  line-height: 1.34;
+}
+
+.run-start-dialog-preset-readonly-desc :deep(.preset-desc-chip) {
+  font-size: calc(17 * var(--rpx));
+  padding: calc(1 * var(--rpx)) calc(6 * var(--rpx));
+}
+
+.run-start-dialog-preset-readonly-desc :deep(.preset-desc-rich-text--compact .preset-desc-chip) {
+  font-size: calc(15 * var(--rpx));
 }
 
 .run-start-dialog-seed-random {

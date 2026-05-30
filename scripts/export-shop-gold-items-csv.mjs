@@ -65,16 +65,14 @@ const BUNDLE_NAMES = {
   spell: { normal: "法术包", jumbo: "巨型法术包", mega: "超级法术包" },
   upgrade: { normal: "升级包", jumbo: "巨型升级包", mega: "超级升级包" },
   treasure: { normal: "宝藏包", jumbo: "巨型宝藏包", mega: "超级宝藏包" },
-  letter: { normal: "字母包", jumbo: "巨型字母包", mega: "超级字母包" },
-  tile: { normal: "字母包（材质）", jumbo: "巨型字母包（材质）", mega: "超级字母包（材质）" },
+  tile: { normal: "字母包", jumbo: "巨型字母包", mega: "超级字母包" },
 };
 
 const BUNDLE_EFFECTS = {
   spell: { normal: "从3张法术卡中选择1张并使用", jumbo: "从5张法术卡中选择1张并使用", mega: "从5张法术卡中选择至多2张并使用" },
   upgrade: { normal: "从3张升级卡中选择1张并使用", jumbo: "从5张升级卡中选择1张并使用", mega: "从5张升级卡中选择至多2张并使用" },
   treasure: { normal: "从2个宝藏中选择1个并获取", jumbo: "从4个宝藏中选择1个并获取", mega: "从4个宝藏中选择至多2个并获取" },
-  letter: { normal: "从3个字母块中选择1个并加入牌库", jumbo: "从5个字母块中选择1个并加入牌库", mega: "从5个字母块中选择至多2个并加入牌库" },
-  tile: { normal: "从3个带材质字母块中选择1个并加入牌库", jumbo: "从5个带材质字母块中选择1个并加入牌库", mega: "从5个带材质字母块中选择至多2个并加入牌库" },
+  tile: { normal: "从3个字母块中选择1个并加入牌库", jumbo: "从5个字母块中选择1个并加入牌库", mega: "从5个字母块中选择至多2个并加入牌库" },
 };
 
 async function loadShopTreasures() {
@@ -112,7 +110,8 @@ async function main() {
   const { VOUCHER_DEFINITIONS } = await loadModule("src/vouchers/voucherDefinitions.js");
   const { formatVoucherDisplayName } = await loadModule("src/vouchers/voucherDisplay.js");
   const { SPELL_DEFINITIONS, getSpellShopPrice } = await loadModule("src/spells/spellDefinitions.js");
-  const { SHOP_BUNDLE_PACK_PRICES, SHOP_SINGLE_ROW_PRICES } = await loadModule("src/shop/shopPackEconomy.js");
+  const { SHOP_BUNDLE_PACK_PRICES, SHOP_SINGLE_ROW_PRICES, SHOP_WILDCARD_TILE_PRICE } =
+    await loadModule("src/shop/shopPackEconomy.js");
   const { UPGRADE_LENGTH_GROUPS, UPGRADE_RARITY_LETTER_LABEL } = await loadModule(
     "src/shop/shopOfferRowBuilders.js",
   );
@@ -186,7 +185,7 @@ async function main() {
     });
   }
 
-  for (const kind of /** @type {const} */ (["spell", "upgrade", "treasure", "letter", "tile"])) {
+  for (const kind of /** @type {const} */ (["spell", "upgrade", "treasure", "tile"])) {
     for (const tier of /** @type {const} */ (["normal", "jumbo", "mega"])) {
       all.push({
         id: `bundle_${kind}_${tier}`,
@@ -201,22 +200,13 @@ async function main() {
   }
 
   all.push({
-    id: "deck_letter_random",
-    name: "字母（单张）",
-    emoji: "",
-    type: "字母块",
-    effect: "随机字母加入牌库（稀有度随字母而定）",
-    price: SHOP_SINGLE_ROW_PRICES.deckLetter,
-    note: "需优惠券「打字机」；单卡区随机字母",
-  });
-  all.push({
     id: "deck_tile_random",
-    name: "字母（带材质）",
+    name: "字母块",
     emoji: "",
     type: "字母块",
-    effect: "随机字母+材质/配饰加入牌库",
-    price: SHOP_SINGLE_ROW_PRICES.deckTile,
-    note: "需优惠券「打字机」二级；单卡区或材质字母包",
+    effect: "随机字母块加入牌库（二级打字机后可能带材质/配饰）",
+    price: SHOP_SINGLE_ROW_PRICES.deckTilePlain,
+    note: `需优惠券「打字机」；无增益 $${SHOP_SINGLE_ROW_PRICES.deckTilePlain}、有增益 $${SHOP_SINGLE_ROW_PRICES.deckTile}（万能块 $${SHOP_WILDCARD_TILE_PRICE}）；亦可出现在字母包`,
   });
 
   const header = ["id", "名称", "emoji", "名称与emoji", "类型", "效果", "价格", "备注"];

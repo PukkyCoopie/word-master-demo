@@ -703,7 +703,7 @@ const showHeaderWallet = computed(
 );
 
 const isDeckOffer = computed(
-  () => props.treasure?.offerType === "deckLetter" || props.treasure?.offerType === "deckTile",
+  () => props.treasure?.offerType === "deckTile" || props.treasure?.offerType === "deckLetter",
 );
 
 const deckOfferLetterTileBind = computed(() => {
@@ -943,7 +943,6 @@ const bundlePackTypeLabel = computed(() => {
   if (k === "spell") return "法术";
   if (k === "upgrade") return "升级";
   if (k === "treasure") return "宝藏";
-  if (k === "letter") return "字母";
   if (k === "tile") return "字母";
   return "组合包";
 });

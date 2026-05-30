@@ -1,7 +1,7 @@
 /**
  * 商店单卡区库存（对齐 [Balatro Shop](https://balatrowiki.org/w/Shop) 随机卡栏）。
  *
- * 每格按权重抽取：宝藏（小丑）/ 法术（塔罗）/ 升级（行星）；打字机券追加字母块（Playing Card）。
+ * 每格按权重抽取：宝藏（小丑）/ 法术（塔罗）/ 升级（行星）；打字机券追加字母块 tile（Playing Card）。
  * 同次掷货（进店、刷新、纸箱加栏）内：宝藏 id、法术 id、升级键互不重复（与牌包区宝藏共用 `sessionExcludeTreasureIds` 集）。
  * 魔法棒/土星券提高法术/升级权重；纸箱券增加槽位数（见 `shopRandomCardEconomy.js`）。
  * 商店「刷新」仅重掷本区；牌包区与优惠券进店生成后不变。
@@ -15,7 +15,6 @@ import {
   getShopRandomCardSlotCount,
 } from "./shopRandomCardEconomy.js";
 import {
-  buildDeckLetterShopRow,
   buildDeckTileShopRow,
   buildLengthUpgradeShopRow,
   buildRarityUpgradeShopRow,
@@ -171,24 +170,17 @@ function createShopRandomCardRoller(ctx) {
     return buildLengthUpgradeShopRow(ctx.nextOfferInstanceId, g);
   }
 
-  function tryDeckLetter() {
-    if (!letterRaws.length) return null;
-    const raw = letterRaws[Math.floor(rng() * letterRaws.length)] || "e";
-    return buildDeckLetterShopRow(ctx.nextOfferInstanceId, raw);
-  }
-
   const tileMaterialIds = getShopTilePackMaterialIds(illusionOwned);
 
-  function tryDeckTile() {
+  /** 打字机券：单卡区 tile；二级前无材质/配饰掷骰，二级后可带增益 */
+  function tryPlayingCard() {
     if (!letterRaws.length) return null;
     const raw = letterRaws[Math.floor(rng() * letterRaws.length)] || "e";
-    return buildDeckTileShopRow(ctx.nextOfferInstanceId, raw, rng, honeMult, tileMaterialIds);
-  }
-
-  /** 打字机券：幻术 II 前为纯字母，II 后可为带材质/配饰的字母块 */
-  function tryPlayingCard() {
-    if (illusionOwned) return tryDeckTile() ?? tryDeckLetter();
-    return tryDeckLetter();
+    return buildDeckTileShopRow(ctx.nextOfferInstanceId, raw, rng, {
+      honeAccessoryMult: honeMult,
+      materialIds: tileMaterialIds,
+      allowModifiers: illusionOwned,
+    });
   }
 
   function rollOneSlot() {

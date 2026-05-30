@@ -143,18 +143,17 @@ export function buildTreasureShopRowFromDef(nextOfferInstanceId, def, rng, acces
  * @param {() => number} nextOfferInstanceId
  * @param {string} raw 小写单字母，q 表示 Qu
  * @param {() => number} rng
- * @param {number} [honeAccessoryMult=1]
- * @param {readonly string[]} [materialIds]
+ * @param {{ honeAccessoryMult?: number, materialIds?: readonly string[], allowModifiers?: boolean }} [opts]
  */
-export function buildDeckTileShopRow(
-  nextOfferInstanceId,
-  raw,
-  rng,
-  honeAccessoryMult = 1,
-  materialIds = SHOP_TILE_PACK_MATERIAL_IDS,
-) {
+export function buildDeckTileShopRow(nextOfferInstanceId, raw, rng, opts = {}) {
   const r = String(raw ?? "e").toLowerCase() === "qu" ? "q" : String(raw ?? "e").toLowerCase();
-  const mods = rollDeckTileModifiers(rng, { honeAccessoryMult, materialIds });
+  const honeAccessoryMult = opts.honeAccessoryMult ?? 1;
+  const materialIds = opts.materialIds ?? SHOP_TILE_PACK_MATERIAL_IDS;
+  const mods = rollDeckTileModifiers(rng, {
+    honeAccessoryMult,
+    materialIds,
+    allowModifiers: opts.allowModifiers !== false,
+  });
   const rarity = getRarityForLetter(r);
   const letterDisp = r === "q" ? "Qu" : r.toUpperCase();
   const copy = buildDeckTileOfferDisplay(letterDisp, {
@@ -167,7 +166,7 @@ export function buildDeckTileShopRow(
     offerType: "deckTile",
     offerInstanceId: oid,
     treasureId: `deck_tile_shop_${r}_${mods.materialId ?? "x"}_${oid}`,
-    price: resolveDeckTileShopPrice(mods.materialId),
+    price: resolveDeckTileShopPrice(mods),
     rarity,
     letterRarity: rarity,
     name: copy.name,
@@ -177,30 +176,6 @@ export function buildDeckTileShopRow(
     deckTileMaterialId: mods.materialId,
     deckTileAccessoryId: mods.accessoryId,
     deckTileTreasureAccessoryId: mods.treasureAccessoryId,
-  };
-}
-
-/**
- * @param {() => number} nextOfferInstanceId
- * @param {string} raw
- */
-export function buildDeckLetterShopRow(nextOfferInstanceId, raw) {
-  const r = String(raw ?? "e").toLowerCase() === "qu" ? "q" : String(raw ?? "e").toLowerCase();
-  const rarity = getRarityForLetter(r);
-  const letterDisp = r === "q" ? "Qu" : r.toUpperCase();
-  const oid = nextOfferInstanceId();
-  return {
-    kind: "offer",
-    offerType: "deckLetter",
-    offerInstanceId: oid,
-    treasureId: `deck_letter_shop_${r}_${oid}`,
-    price: SHOP_SINGLE_ROW_PRICES.deckLetter,
-    rarity,
-    letterRarity: rarity,
-    name: `字母 ${letterDisp}`,
-    emoji: "",
-    description: `「${letterDisp}」加入牌库（${UPGRADE_RARITY_LETTER_LABEL[rarity] ?? rarity}）`,
-    deckLetterRaw: r,
   };
 }
 

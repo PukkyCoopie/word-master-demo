@@ -303,28 +303,27 @@
           role="tabpanel"
           aria-label="预设和难度"
         >
-          <div class="info-preset-hero info-stagger-el">
-            <span class="info-preset-kicker">本局预设</span>
-            <div class="info-preset-title-row">
-              <span class="info-preset-emoji" aria-hidden="true">{{ runPresetDef.emoji }}</span>
-              <h3 class="info-preset-name">{{ runPresetDef.name }}</h3>
+          <div class="info-preset-row info-stagger-el">
+            <span class="info-preset-field-label">预设</span>
+            <div class="info-preset-readonly-card">
+              <div class="info-preset-readonly-head">
+                <span class="info-preset-emoji" aria-hidden="true">{{ runPresetDef.emoji }}</span>
+                <span class="info-preset-name">{{ runPresetDef.name }}</span>
+              </div>
+              <div class="info-preset-readonly-desc">
+                <PresetDescRichText
+                  :key="runPresetDef.id"
+                  :description="runPresetDef.description"
+                  :size="runPresetDescTier"
+                  @preview-voucher="onPresetPreviewVoucher"
+                  @preview-wildcard="onPresetPreviewWildcard"
+                />
+              </div>
             </div>
-            <span class="info-preset-index-badge">{{ runPresetIndex + 1 }} / {{ runPresetTotal }}</span>
           </div>
 
-          <div class="info-preset-effects info-stagger-el">
-            <span class="info-preset-section-label">预设效果</span>
-            <div class="info-preset-desc-card">
-              <PresetDescRichText
-                :key="runPresetDef.id"
-                :description="runPresetDef.description"
-                :size="runPresetDescTier"
-              />
-            </div>
-          </div>
-
-          <div class="info-preset-difficulty info-stagger-el">
-            <span class="info-preset-section-label">难度</span>
+          <div class="info-preset-row info-stagger-el">
+            <span class="info-preset-field-label">难度</span>
             <div class="info-preset-difficulty-card">
               <div class="info-preset-soon">
                 <i class="ri-hourglass-line info-preset-soon-icon" aria-hidden="true" />
@@ -339,6 +338,20 @@
       <button type="button" class="info-back-btn" @click="close">返回</button>
     </div>
   </div>
+
+  <TreasureDetailLayer
+    v-if="presetVoucherDetail"
+    :treasure="presetVoucherDetail"
+    mode="offer"
+    :wallet-amount="0"
+    @close="presetVoucherDetail = null"
+  />
+
+  <TileDetailLayer
+    v-if="presetWildcardDetailOpen"
+    :payload="presetWildcardDetailPayload"
+    @close="presetWildcardDetailOpen = false"
+  />
 </template>
 
 <script setup>
@@ -372,9 +385,10 @@ import {
   prepareInfoGridTabEnter,
 } from "../game/infoModalTabEnterAnim.js";
 import { formatCompactOneDecimal } from "./detailLayerFormatters.js";
-import { getRunPresetDef, getPresetDescriptionLayoutTier, normalizeRunPresetId, RUN_PRESET_DEFINITIONS } from "../game/runPresetDefinitions.js";
-import { getPresetIndexById } from "../game/runPresetProgress.js";
+import { getRunPresetDef, getPresetDescriptionLayoutTier, normalizeRunPresetId } from "../game/runPresetDefinitions.js";
 import PresetDescRichText from "./PresetDescRichText.vue";
+import TreasureDetailLayer from "./TreasureDetailLayer.vue";
+import TileDetailLayer from "./TileDetailLayer.vue";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -447,9 +461,33 @@ const INFO_TAB_PANEL_REF = {
 };
 
 const runPresetDef = computed(() => getRunPresetDef(normalizeRunPresetId(props.runPresetId)));
-const runPresetIndex = computed(() => getPresetIndexById(props.runPresetId));
-const runPresetTotal = RUN_PRESET_DEFINITIONS.length;
-const runPresetDescTier = computed(() => getPresetDescriptionLayoutTier(runPresetDef.value));
+const runPresetDescTier = computed(() => {
+  const tier = getPresetDescriptionLayoutTier(runPresetDef.value);
+  return tier === "normal" ? "medium" : "compact";
+});
+
+/** @type {import('vue').Ref<object | null>} */
+const presetVoucherDetail = ref(null);
+const presetWildcardDetailOpen = ref(false);
+const presetWildcardDetailPayload = {
+  letter: "?",
+  rarity: "common",
+  materialId: "wildcard",
+  accessoryId: null,
+  treasureAccessoryId: null,
+  tileScoreBonus: 0,
+  tileMultBonus: 0,
+  hideRarityGem: true,
+};
+
+/** @param {{ detail: object }} payload */
+function onPresetPreviewVoucher(payload) {
+  presetVoucherDetail.value = payload.detail;
+}
+
+function onPresetPreviewWildcard() {
+  presetWildcardDetailOpen.value = true;
+}
 
 
 /** 等级 Tab 内表格（四 Tab 中最高），用于固定中间区高度，切换 Tab 不伸缩 */
@@ -1650,7 +1688,7 @@ function close() {
 .info-tab-layer--preset {
   display: flex;
   flex-direction: column;
-  gap: calc(12 * var(--rpx));
+  gap: 0;
   padding: calc(12 * var(--rpx));
   overflow-x: hidden;
   overflow-y: auto;
@@ -1659,94 +1697,106 @@ function close() {
   -webkit-overflow-scrolling: touch;
 }
 
-.info-preset-hero {
+.info-preset-row {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--rpx));
   flex-shrink: 0;
-  border-radius: calc(10 * var(--rpx));
-  background: #eee4da;
+}
+
+.info-preset-row + .info-preset-row {
+  margin-top: calc(10 * var(--rpx));
+}
+
+.info-preset-field-label {
+  font-size: calc(26 * var(--rpx));
+  font-weight: 700;
+  color: var(--text-dark, #3c3a32);
+}
+
+.info-preset-readonly-card {
+  height: calc(170 * var(--rpx));
+  min-height: calc(170 * var(--rpx));
+  max-height: calc(170 * var(--rpx));
+  border-radius: var(--radius);
+  background: var(--bg, #faf8ef);
   padding: calc(14 * var(--rpx)) calc(16 * var(--rpx));
   box-sizing: border-box;
-  text-align: left;
-}
-
-.info-preset-kicker {
-  display: block;
-  font-size: calc(20 * var(--rpx));
-  font-weight: 700;
-  color: #8f7a66;
-  letter-spacing: 0.04em;
-}
-
-.info-preset-title-row {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: calc(10 * var(--rpx));
-  margin-top: calc(8 * var(--rpx));
-  min-width: 0;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+}
+
+.info-preset-readonly-head {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: calc(6 * var(--rpx));
+  flex-shrink: 0;
+  max-width: 100%;
+  line-height: 1.2;
 }
 
 .info-preset-emoji {
-  flex-shrink: 0;
-  font-size: calc(44 * var(--rpx));
+  font-size: calc(34 * var(--rpx));
   line-height: 1;
 }
 
 .info-preset-name {
-  margin: 0;
-  min-width: 0;
-  font-size: calc(34 * var(--rpx));
+  font-size: calc(29 * var(--rpx));
   font-weight: 800;
-  color: #3c3a32;
-  line-height: 1.15;
+  color: var(--text-dark, #3c3a32);
+  line-height: 1.2;
 }
 
-.info-preset-index-badge {
-  display: inline-flex;
+.info-preset-readonly-desc {
+  flex-shrink: 0;
+  display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: calc(10 * var(--rpx));
-  padding: calc(4 * var(--rpx)) calc(12 * var(--rpx));
-  border-radius: calc(999 * var(--rpx));
-  background: #faf8ef;
+  width: 100%;
+  min-width: 0;
+  max-height: calc(106 * var(--rpx));
+  overflow: hidden;
+  margin-top: calc(8 * var(--rpx));
+}
+
+.info-preset-readonly-desc :deep(.preset-desc-rich-text) {
+  font-size: calc(26 * var(--rpx));
+  line-height: 1.4;
+}
+
+.info-preset-readonly-desc :deep(.preset-desc-rich-text--medium) {
+  font-size: calc(24 * var(--rpx));
+  line-height: 1.38;
+}
+
+.info-preset-readonly-desc :deep(.preset-desc-rich-text--compact) {
+  font-size: calc(22 * var(--rpx));
+  line-height: 1.34;
+}
+
+.info-preset-readonly-desc :deep(.preset-desc-chip) {
   font-size: calc(20 * var(--rpx));
-  font-weight: 800;
-  color: #8f7a66;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
+  padding: calc(1 * var(--rpx)) calc(7 * var(--rpx));
 }
 
-.info-preset-effects,
-.info-preset-difficulty {
-  flex-shrink: 0;
-  text-align: left;
-}
-
-.info-preset-section-label {
-  display: block;
-  margin-bottom: calc(8 * var(--rpx));
-  font-size: calc(20 * var(--rpx));
-  font-weight: 700;
-  color: #8f7a66;
-  letter-spacing: 0.04em;
-}
-
-.info-preset-desc-card {
-  border-radius: calc(10 * var(--rpx));
-  background: #eee4da;
-  padding: calc(14 * var(--rpx)) calc(16 * var(--rpx));
-  box-sizing: border-box;
-  text-align: center;
-}
-
-.info-preset-desc-card :deep(.preset-desc-rich-text) {
-  color: #5c534c;
+.info-preset-readonly-desc :deep(.preset-desc-rich-text--compact .preset-desc-chip) {
+  font-size: calc(18 * var(--rpx));
 }
 
 .info-preset-difficulty-card {
-  border-radius: calc(10 * var(--rpx));
-  background: #e4d9ce;
-  padding: calc(20 * var(--rpx)) calc(16 * var(--rpx));
+  height: calc(170 * var(--rpx));
+  min-height: calc(170 * var(--rpx));
+  max-height: calc(170 * var(--rpx));
+  border-radius: var(--radius);
+  background: var(--card, #eee4da);
+  padding: calc(14 * var(--rpx)) calc(16 * var(--rpx));
   box-sizing: border-box;
-  min-height: calc(88 * var(--rpx));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1761,13 +1811,13 @@ function close() {
 }
 
 .info-preset-soon-icon {
-  font-size: calc(32 * var(--rpx));
+  font-size: calc(38 * var(--rpx));
   color: rgba(92, 83, 76, 0.42);
   line-height: 1;
 }
 
 .info-preset-soon-text {
-  font-size: calc(22 * var(--rpx));
+  font-size: calc(26 * var(--rpx));
   font-weight: 700;
   color: rgba(92, 83, 76, 0.55);
   letter-spacing: 0.02em;

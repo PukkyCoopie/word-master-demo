@@ -1,13 +1,13 @@
 import { getRarityForLetter } from "../composables/useScoring.js";
 
 /**
- * 牌包 / 商店 deckLetter·deckTile 选项 → LetterTile 展示与飞字快照（与入库后牌张字段对齐）。
+ * 牌包 / 商店 deckTile 选项 → LetterTile 展示与飞字快照（与入库后牌张字段对齐）。
  * @param {Record<string, unknown> | null | undefined} offer
  */
 export function buildPackDeckOfferLetterTileProps(offer) {
   if (!offer || typeof offer !== "object") return null;
   const type = String(offer.offerType ?? "");
-  if (type !== "deckLetter" && type !== "deckTile") return null;
+  if (type !== "deckTile" && type !== "deckLetter") return null;
 
   let raw = String(offer.deckLetterRaw ?? "e").toLowerCase();
   if (raw === "qu") raw = "q";
@@ -21,17 +21,15 @@ export function buildPackDeckOfferLetterTileProps(offer) {
       : getRarityForLetter(raw);
 
   let materialId = null;
-  if (type === "deckTile" && offer.deckTileMaterialId != null) {
+  if (offer.deckTileMaterialId != null) {
     const mat = String(offer.deckTileMaterialId).trim();
     if (mat) materialId = mat;
   }
 
   const acc =
-    type === "deckTile" && offer.deckTileAccessoryId != null
-      ? String(offer.deckTileAccessoryId).trim()
-      : "";
+    offer.deckTileAccessoryId != null ? String(offer.deckTileAccessoryId).trim() : "";
   const tAcc =
-    type === "deckTile" && offer.deckTileTreasureAccessoryId != null
+    offer.deckTileTreasureAccessoryId != null
       ? String(offer.deckTileTreasureAccessoryId).trim()
       : "";
 

@@ -260,7 +260,6 @@ const kindCaption = computed(() => {
   if (k === "spell") return "法术包";
   if (k === "upgrade") return "升级包";
   if (k === "treasure") return "宝藏包";
-  if (k === "letter") return "字母包";
   if (k === "tile") return "字母包";
   return "组合包";
 });
@@ -276,7 +275,7 @@ function markPrice(base) {
 }
 
 function isDeckOffer(opt) {
-  return opt?.offerType === "deckLetter" || opt?.offerType === "deckTile";
+  return opt?.offerType === "deckTile" || opt?.offerType === "deckLetter";
 }
 
 /** @param {Record<string, unknown>} opt */

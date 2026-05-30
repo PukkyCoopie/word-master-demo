@@ -16,7 +16,6 @@ const BUY_PRIORITY = Object.freeze([
   "upgrade",
   "spell",
   "deckTile",
-  "deckLetter",
   "treasure",
   "bundlePack",
 ]);

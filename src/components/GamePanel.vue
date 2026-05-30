@@ -2564,18 +2564,7 @@ async function fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter = false }
     await fulfillTreasureAfterPackPayment(t, flyEl ?? null);
     return;
   }
-  if (t.offerType === "deckLetter") {
-    const raw = String(t.deckLetterRaw ?? "e").toLowerCase();
-    const deckBtn =
-      getPackPickGrantContext() === "inRun"
-        ? getInRunDeckFlyTargetEl()
-        : shopPanelRef.value?.getDeckViewBtnEl?.() ?? null;
-    const flyRoot = flyEl ?? null;
-    if (flyRoot && deckBtn) await animatePackDeckOfferFlyToDeck(t, flyRoot, deckBtn);
-    appendShopDeckEntriesAndNotify([{ raw, materialId: null }]);
-    return;
-  }
-  if (t.offerType === "deckTile") {
+  if (t.offerType === "deckTile" || t.offerType === "deckLetter") {
     const raw = String(t.deckLetterRaw ?? "e").toLowerCase();
     const mat = t.deckTileMaterialId != null ? String(t.deckTileMaterialId) : null;
     const acc = t.deckTileAccessoryId != null ? String(t.deckTileAccessoryId).trim() : "";
@@ -2830,7 +2819,7 @@ const treasureCanBuyOffer = computed(() => {
     return w >= p;
   }
   if (t.offerType === "upgrade") return w >= p;
-  if (t.offerType === "deckLetter" || t.offerType === "deckTile") return w >= p;
+  if (t.offerType === "deckTile" || t.offerType === "deckLetter") return w >= p;
   if (t.offerType === "treasure") return w >= p && canPlaceTreasureOffer(t);
   return w >= p;
 });
@@ -7571,7 +7560,7 @@ async function applyInstantSpellWithoutPreview(purchasedSpellId, context, offerD
   const beforeGrid = cloneGridDeep(grid.value, ROWS, COLS);
   const applyOpts =
     pid === "dice" ? { rng: runRandom, skipDiceInline: true } : { rng: runRandom };
-  const spellResult = applySpell(ctx0, pid, effectiveSpellId, [], applyOpts);
+  const spellResult = applySpell(buildSpellRuntimeContext(), pid, effectiveSpellId, [], applyOpts);
   if (showShop.value && context === "shop") {
     await playInstantSpellShopFx(effectiveSpellId);
   }
@@ -7954,7 +7943,7 @@ async function onTreasurePurchase() {
     return;
   }
 
-  if (t.offerType === "deckLetter" || t.offerType === "deckTile") {
+  if (t.offerType === "deckTile" || t.offerType === "deckLetter") {
     const layer = treasureDetailLayerRef.value;
     const fromEl = layer?.getFlyFrameEl?.();
     await layer?.playClose?.();
@@ -10735,7 +10724,7 @@ function e2eCanBuyShopOffer(t) {
     return w >= p;
   }
   if (t.offerType === "upgrade") return w >= p;
-  if (t.offerType === "deckLetter" || t.offerType === "deckTile") return w >= p;
+  if (t.offerType === "deckTile" || t.offerType === "deckLetter") return w >= p;
   if (t.offerType === "treasure") {
     return w >= p && canPlaceTreasureOffer(t);
   }

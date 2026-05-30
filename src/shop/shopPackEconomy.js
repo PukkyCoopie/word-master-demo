@@ -8,7 +8,7 @@
  * - **组合包类型权重**：`PACK_OFFER_CATEGORY_WEIGHTS`（槽位内归一化）。
  *
  * 组合包规则对齐 Balatro Booster Packs（Normal / Jumbo / Mega）：
- * - 法术 / 升级 / 字母 / 字母（带棋盘材质）：Normal 3 选 1；Jumbo 5 选 1；Mega 5 选至多 2。
+ * - 法术 / 升级 / 字母块（tile，随机有无材质）：Normal 3 选 1；Jumbo 5 选 1；Mega 5 选至多 2。
  * - 宝藏：Normal 2 选 1；Jumbo 4 选 1；Mega 4 选至多 2。
  */
 
@@ -27,7 +27,6 @@ export const SHOP_BUNDLE_PACK_PRICES = Object.freeze({
   spell: Object.freeze({ normal: 4, jumbo: 6, mega: 8 }),
   upgrade: Object.freeze({ normal: 4, jumbo: 6, mega: 8 }),
   treasure: Object.freeze({ normal: 4, jumbo: 6, mega: 8 }),
-  letter: Object.freeze({ normal: 4, jumbo: 6, mega: 8 }),
   tile: Object.freeze({ normal: 4, jumbo: 6, mega: 8 }),
 });
 
@@ -39,9 +38,9 @@ export const SHOP_SINGLE_ROW_PRICES = Object.freeze({
   spell: 3,
   lengthUpgrade: 4,
   rarityUpgrade: 5,
-  /** 单张字母进库（打字机券） */
-  deckLetter: 3,
-  /** 单张带材质字母进库 */
+  /** 单张字母块进库（无材质/配饰） */
+  deckTilePlain: 3,
+  /** 单张字母块进库（带材质/配饰） */
   deckTile: 5,
 });
 
@@ -60,15 +59,12 @@ export const PACK_OFFER_CATEGORY_WEIGHTS = Object.freeze({
   bundleTreasureNormal: 1.2,
   bundleTreasureJumbo: 0.6,
   bundleTreasureMega: 0.15,
-  bundleLetterNormal: 4,
-  bundleLetterJumbo: 2,
-  bundleLetterMega: 0.5,
-  bundleTileNormal: 4,
-  bundleTileJumbo: 2,
-  bundleTileMega: 0.5,
+  bundleTileNormal: 8,
+  bundleTileJumbo: 4,
+  bundleTileMega: 1,
 });
 
-/** 字母（带棋盘材质）包：可出现的材质 id（不含万能） */
+/** 字母块包 / 带增益 tile：可出现的材质 id（不含万能） */
 export const SHOP_TILE_PACK_MATERIAL_IDS = Object.freeze(["gold", "steel", "ice", "water", "fire", "lucky"]);
 
 /** 打字机·二级：商店材质池追加万能块（不在券面文案中说明） */
@@ -87,10 +83,14 @@ export function getShopTilePackMaterialIds(illusionOwned = false) {
 }
 
 /**
- * @param {string | null | undefined} materialId
+ * @param {{ materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null }} mods
  * @returns {number}
  */
-export function resolveDeckTileShopPrice(materialId) {
-  if (String(materialId ?? "") === SHOP_WILDCARD_MATERIAL_ID) return SHOP_WILDCARD_TILE_PRICE;
+export function resolveDeckTileShopPrice(mods) {
+  const mat = String(mods?.materialId ?? "").trim();
+  const acc = String(mods?.accessoryId ?? "").trim();
+  const tAcc = String(mods?.treasureAccessoryId ?? "").trim();
+  if (!mat && !acc && !tAcc) return SHOP_SINGLE_ROW_PRICES.deckTilePlain;
+  if (mat === SHOP_WILDCARD_MATERIAL_ID) return SHOP_WILDCARD_TILE_PRICE;
   return SHOP_SINGLE_ROW_PRICES.deckTile;
 }

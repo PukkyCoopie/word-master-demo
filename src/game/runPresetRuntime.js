@@ -66,7 +66,7 @@ export function resolveShopOfferPresetCategory(offer) {
   const bk = String(offer?.bundleKind ?? "");
   if (ot === "upgrade" || bk === "upgrade") return "upgrade";
   if (ot === "spell" || bk === "spell") return "spell";
-  if (ot === "deckLetter" || ot === "deckTile" || bk === "letter" || bk === "tile") return "letter";
+  if (ot === "deckTile" || bk === "tile") return "letter";
   return null;
 }
 

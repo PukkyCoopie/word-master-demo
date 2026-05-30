@@ -192,9 +192,6 @@ export function rollPackOfferStock(ctx) {
   if (!treasureNormalOk) effW.bundleTreasureNormal = 0;
   if (!treasureJumboOk) effW.bundleTreasureJumbo = 0;
   if (!treasureMegaOk) effW.bundleTreasureMega = 0;
-  if (letterRaws.length < 3) effW.bundleLetterNormal = 0;
-  if (letterRaws.length < 5) effW.bundleLetterJumbo = 0;
-  if (letterRaws.length < 5) effW.bundleLetterMega = 0;
   if (letterRaws.length < 3 || materialIds.length < 1) effW.bundleTileNormal = 0;
   if (letterRaws.length < 5 || materialIds.length < 1) effW.bundleTileJumbo = 0;
   if (letterRaws.length < 5 || materialIds.length < 1) effW.bundleTileMega = 0;
@@ -211,9 +208,6 @@ export function rollPackOfferStock(ctx) {
       "bundleTreasureNormal",
       "bundleTreasureJumbo",
       "bundleTreasureMega",
-      "bundleLetterNormal",
-      "bundleLetterJumbo",
-      "bundleLetterMega",
       "bundleTileNormal",
       "bundleTileJumbo",
       "bundleTileMega",
@@ -344,54 +338,6 @@ export function rollPackOfferStock(ctx) {
       };
     }
 
-    if (cat === "bundleLetterNormal" || cat === "bundleLetterJumbo" || cat === "bundleLetterMega") {
-      const tier = cat === "bundleLetterMega" ? "mega" : cat === "bundleLetterJumbo" ? "jumbo" : "normal";
-      const n = tier === "normal" ? 3 : 5;
-      const raws = pickDistinctFromPool(rng, letterRaws, n);
-      const opts = raws.map((raw, i) => {
-        const rarity = getRarityForLetter(raw);
-        const letterDisp = raw === "q" ? "Qu" : raw.toUpperCase();
-        return {
-          kind: "offer",
-          offerType: "deckLetter",
-          optionKey: `letter-${raw}-${i}`,
-          offerInstanceId: ctx.nextPackOfferInstanceId(),
-          treasureId: `deck_letter_${raw}_${i}`,
-          price: 0,
-          rarity,
-          letterRarity: rarity,
-          name: `字母 ${letterDisp}`,
-          emoji: "",
-          description: `选中后「${letterDisp}」加入牌库（${UPGRADE_RARITY_LETTER_LABEL[rarity] ?? rarity}）`,
-          deckLetterRaw: raw,
-        };
-      });
-      const price = SHOP_BUNDLE_PACK_PRICES.letter[tier];
-      const bid = ctx.nextPackOfferInstanceId();
-      const letPick = tier === "mega" ? 2 : 1;
-      const pn = opts.length;
-      const px = Math.min(letPick, Math.max(1, pn));
-      const tag = bundleTreasureIdSuffixForTier(tier);
-      const name = tier === "normal" ? "字母包" : tier === "jumbo" ? "巨型字母包" : "超级字母包";
-      return {
-        kind: "offer",
-        offerType: "bundlePack",
-        bundleKind: "letter",
-        bundleSize: tier,
-        poolSize: opts.length,
-        pickCount: letPick,
-        offerInstanceId: bid,
-        treasureId: `bundle_letter_${tag}_${bid}`,
-        price,
-        rarity: "rare",
-        name,
-        emoji: "",
-        iconClass: "ri-gift-2-line",
-        description: `从${pn}个字母块中选择${px}个并加入牌库`,
-        bundleOptions: opts,
-      };
-    }
-
     if (cat === "bundleTileNormal" || cat === "bundleTileJumbo" || cat === "bundleTileMega") {
       const tier = cat === "bundleTileMega" ? "mega" : cat === "bundleTileJumbo" ? "jumbo" : "normal";
       const n = tier === "normal" ? 3 : 5;
@@ -436,7 +382,7 @@ export function rollPackOfferStock(ctx) {
         offerInstanceId: bid,
         treasureId: `bundle_tile_${tag}_${bid}`,
         price,
-        rarity: "epic",
+        rarity: "rare",
         name,
         emoji: "",
         iconClass: "ri-gift-2-line",

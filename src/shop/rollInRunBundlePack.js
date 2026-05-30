@@ -19,7 +19,7 @@ const KIND_TO_CATEGORIES = Object.freeze({
   spell: ["bundleSpellNormal"],
   treasure: ["bundleTreasureNormal"],
   upgrade: ["bundleUpgradeNormal"],
-  letter: ["bundleLetterNormal"],
+  letter: ["bundleTileNormal"],
 });
 
 /**
@@ -34,7 +34,6 @@ function bundleRowMatchesCategory(row, cat) {
     bundleSpell: "spell",
     bundleTreasure: "treasure",
     bundleUpgrade: "upgrade",
-    bundleLetter: "letter",
     bundleTile: "tile",
   };
   let kind = "";

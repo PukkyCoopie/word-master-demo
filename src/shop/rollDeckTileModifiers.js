@@ -83,10 +83,24 @@ export function rollDeckTileBoardAccessoryId(rng) {
 }
 
 /**
+ * @param {{ materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null }} mods
+ */
+export function deckTileOfferHasGain(mods) {
+  if (!mods || typeof mods !== "object") return false;
+  if (String(mods.materialId ?? "").trim()) return true;
+  if (String(mods.accessoryId ?? "").trim()) return true;
+  if (String(mods.treasureAccessoryId ?? "").trim()) return true;
+  return false;
+}
+
+/**
  * @param {() => number} rng
- * @param {{ honeAccessoryMult?: number, materialIds?: readonly string[] }} [opts]
+ * @param {{ honeAccessoryMult?: number, materialIds?: readonly string[], allowModifiers?: boolean }} [opts]
  */
 export function rollDeckTileModifiers(rng, opts = {}) {
+  if (opts.allowModifiers === false) {
+    return { materialId: null, treasureAccessoryId: null, accessoryId: null };
+  }
   const hone = opts.honeAccessoryMult ?? 1;
   const mats = opts.materialIds ?? SHOP_TILE_PACK_MATERIAL_IDS;
   const treasureAccessoryId = rollDeckTileTreasureAccessoryId(rng, hone);

@@ -408,7 +408,7 @@ function shopOfferTreasureAccessoryChip(slot) {
 
 /** @param {object} slot */
 function isDeckShopOffer(slot) {
-  return slot?.offerType === "deckLetter" || slot?.offerType === "deckTile";
+  return slot?.offerType === "deckTile" || slot?.offerType === "deckLetter";
 }
 
 /** @param {object} slot */
@@ -836,7 +836,6 @@ function bundlePackCaption(slot) {
   if (k === "spell") return "法术";
   if (k === "upgrade") return "升级";
   if (k === "treasure") return "宝藏";
-  if (k === "letter") return "字母";
   if (k === "tile") return "字母";
   return "组合包";
 }
