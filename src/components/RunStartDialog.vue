@@ -72,6 +72,13 @@
               </button>
             </div>
           </div>
+          <div class="run-start-dialog-seed-row run-start-dialog-preset-row">
+            <span class="run-start-dialog-seed-label">预设</span>
+            <RunStartPresetPicker
+              v-model="presetDraft"
+              :slot-career="slotCareer"
+            />
+          </div>
         </template>
 
         <div v-else class="run-start-dialog-panels">
@@ -108,6 +115,13 @@
                 </button>
               </div>
             </div>
+            <div class="run-start-dialog-seed-row run-start-dialog-preset-row">
+              <span class="run-start-dialog-seed-label">预设</span>
+              <RunStartPresetPicker
+                v-model="presetDraft"
+                :slot-career="slotCareer"
+              />
+            </div>
           </div>
 
           <div
@@ -125,6 +139,14 @@
                 :title="continueSeedDisplay"
               >
                 {{ continueSeedDisplay || "—" }}
+              </div>
+            </div>
+
+            <div class="run-start-dialog-seed-row run-start-dialog-preset-row">
+              <span class="run-start-dialog-seed-label">预设</span>
+              <div class="run-start-dialog-preset-readonly-value">
+                <span class="run-start-dialog-preset-emoji" aria-hidden="true">{{ continuePresetEmoji }}</span>
+                <span>{{ continuePresetName }}</span>
               </div>
             </div>
 
@@ -151,6 +173,7 @@
         <button
           type="button"
           class="run-start-dialog-btn run-start-dialog-btn--primary"
+          :disabled="primaryButtonDisabled"
           @click="onConfirm($event)"
         >
           {{ primaryButtonLabel }}
@@ -169,8 +192,12 @@ import { computed, nextTick, ref, watch } from "vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { recordPointerClientFromEvent } from "../game/lastPointerClient.js";
 import { generateRandomRunSeedString, normalizeRunSeedInput, resolveRunSeedFromDialog } from "../game/runRng.js";
+import { getRunPresetDef, normalizeRunPresetId } from "../game/runPresetDefinitions.js";
+import { getLastSelectedPresetId, isPresetUnlocked } from "../game/runPresetProgress.js";
+import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
+import RunStartPresetPicker from "./RunStartPresetPicker.vue";
 
-/** @typedef {{ seedDisplay: string, levelId: string, money: number, isEndlessRun?: boolean }} RunContinueSnapshot */
+/** @typedef {{ seedDisplay: string, levelId: string, money: number, isEndlessRun?: boolean, presetId?: string }} RunContinueSnapshot */
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -178,6 +205,8 @@ const props = defineProps({
   initialSeed: { type: String, default: "" },
   /** 当前栏位未完成对局摘要；有值时显示「新游戏 / 继续」分 tab */
   continueSnapshot: { type: /** @type {import('vue').PropType<RunContinueSnapshot | null>} */ (Object), default: null },
+  /** 当前存档槽 career（预设解锁） */
+  slotCareer: { type: Object, default: null },
 });
 
 const emit = defineEmits(["confirm", "cancel"]);
@@ -200,22 +229,36 @@ watch(
 const seedDraft = ref("");
 /** @type {import('vue').Ref<'new' | 'continue'>} */
 const activeTab = ref("new");
+const presetDraft = ref("preset_01");
+
+const normalizedCareer = computed(() => normalizeSlotCareerStats(props.slotCareer));
 
 const hasContinueTab = computed(() => props.continueSnapshot != null);
 const continueSeedDisplay = computed(() => String(props.continueSnapshot?.seedDisplay ?? "").trim());
+const continuePresetDef = computed(() =>
+  getRunPresetDef(String(props.continueSnapshot?.presetId ?? "preset_01")),
+);
+const continuePresetEmoji = computed(() => continuePresetDef.value.emoji);
+const continuePresetName = computed(() => continuePresetDef.value.name);
 const continueLevelLabel = computed(() => {
   const id = String(props.continueSnapshot?.levelId ?? "1-1");
   return props.continueSnapshot?.isEndlessRun ? `${id}（无尽）` : id;
 });
 const continueMoney = computed(() => Math.max(0, Math.floor(Number(props.continueSnapshot?.money) || 0)));
-const primaryButtonLabel = computed(() => (activeTab.value === "continue" ? "继续游戏" : "开始游戏"));
+const presetLockedForNew = computed(() => !isPresetUnlocked(presetDraft.value, normalizedCareer.value));
+const primaryButtonLabel = computed(() => {
+  if (activeTab.value === "continue") return "继续游戏";
+  return presetLockedForNew.value ? "预设未解锁" : "开始游戏";
+});
+const primaryButtonDisabled = computed(() => activeTab.value === "new" && presetLockedForNew.value);
 
 watch(
-  () => [props.open, props.initialSeed, props.continueSnapshot],
+  () => [props.open, props.initialSeed, props.continueSnapshot, props.slotCareer],
   ([isOpen]) => {
     if (!isOpen) return;
     seedDraft.value = props.initialSeed ? normalizeRunSeedInput(String(props.initialSeed)) : "";
     activeTab.value = props.continueSnapshot != null ? "continue" : "new";
+    presetDraft.value = getLastSelectedPresetId(normalizedCareer.value);
   },
 );
 
@@ -234,8 +277,14 @@ function onConfirm(event) {
     emit("confirm", { mode: "continue" });
     return;
   }
+  if (!isPresetUnlocked(presetDraft.value, normalizedCareer.value)) return;
   const { seedNumeric, seedDisplay } = resolveRunSeedFromDialog(seedDraft.value);
-  emit("confirm", { mode: "new", seedNumeric, seedDisplay });
+  emit("confirm", {
+    mode: "new",
+    seedNumeric,
+    seedDisplay,
+    presetId: normalizeRunPresetId(presetDraft.value),
+  });
 }
 
 function onCancel() {
@@ -409,6 +458,10 @@ function onCancel() {
   gap: calc(8 * var(--rpx));
 }
 
+.run-start-dialog-preset-row {
+  margin-top: calc(10 * var(--rpx));
+}
+
 .run-start-dialog-seed-label {
   font-size: calc(22 * var(--rpx));
   font-weight: 700;
@@ -506,6 +559,29 @@ function onCancel() {
   color: rgba(60, 58, 50, 0.62);
 }
 
+.run-start-dialog-preset-readonly {
+  margin-top: calc(10 * var(--rpx));
+}
+
+.run-start-dialog-preset-readonly-value {
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--rpx));
+  border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius);
+  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
+  font-size: calc(26 * var(--rpx));
+  font-weight: 700;
+  color: var(--text-dark, #3c3a32);
+  background: rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+}
+
+.run-start-dialog-preset-emoji {
+  font-size: calc(30 * var(--rpx));
+  line-height: 1;
+}
+
 .run-start-dialog-seed-random {
   flex-shrink: 0;
   width: calc(52 * var(--rpx));
@@ -552,6 +628,17 @@ function onCancel() {
 .run-start-dialog-btn--primary {
   background: #5a8fb8;
   color: #f9f6f2;
+}
+
+.run-start-dialog-btn--primary:disabled {
+  background: rgba(90, 143, 184, 0.45);
+  color: rgba(249, 246, 242, 0.88);
+  cursor: not-allowed;
+  filter: none;
+}
+
+.run-start-dialog-btn--primary:disabled:hover {
+  filter: none;
 }
 
 .run-start-dialog-btn--secondary {

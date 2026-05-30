@@ -22,6 +22,10 @@ export function normalizeSlotCareerStats(raw) {
       o.lastRunEndedAt != null && Number.isFinite(Number(o.lastRunEndedAt))
         ? Math.floor(Number(o.lastRunEndedAt))
         : null,
+    presetsWonWith: Array.isArray(o.presetsWonWith)
+      ? o.presetsWonWith.map(String).filter(Boolean)
+      : [],
+    lastSelectedPresetId: typeof o.lastSelectedPresetId === "string" ? o.lastSelectedPresetId : "",
   };
 }
 

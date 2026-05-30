@@ -67,7 +67,26 @@ import { parseProbabilityFraction } from "./treasureProbability.js";
  */
 
 /**
- * @typedef {TreasureDescText | TreasureDescRarity | TreasureDescMult | TreasureDescScore | TreasureDescMoney | TreasureDescProb | TreasureDescBreak | TreasureDescGain | TreasureDescConcept | TreasureDescGainBlock} TreasureDescSegment
+ * @typedef {Object} TreasureDescHandDelta
+ * @property {'handDelta'} type
+ * @property {string} v  如 "+1"
+ */
+
+/**
+ * @typedef {Object} TreasureDescDiscardDelta
+ * @property {'discardDelta'} type
+ * @property {string} v  如 "+1" / "-1"
+ */
+
+/**
+ * @typedef {Object} TreasureDescEntityInline
+ * @property {'entityInline'} type
+ * @property {'voucher' | 'wildcardTile' | 'treasureSlot'} kind
+ * @property {string} ref  voucher id 等
+ */
+
+/**
+ * @typedef {TreasureDescText | TreasureDescRarity | TreasureDescMult | TreasureDescScore | TreasureDescMoney | TreasureDescProb | TreasureDescBreak | TreasureDescGain | TreasureDescConcept | TreasureDescGainBlock | TreasureDescHandDelta | TreasureDescDiscardDelta | TreasureDescEntityInline} TreasureDescSegment
  * 导出类型供 JSDoc 引用（treasureTypes.js）
  */
 
@@ -146,10 +165,28 @@ export function gain(v) {
  */
 export function concept(label) {
   const v = String(label ?? "").trim();
-  if (import.meta.env.DEV && v && !getGameTermConceptPanel(v)) {
+  if (import.meta.env?.DEV && v && !getGameTermConceptPanel(v)) {
     console.warn(`[treasureDescription] concept('${v}') 未在 GAME_TERM_CONCEPT_BY_LABEL 登记`);
   }
   return /** @type {TreasureDescConcept} */ ({ type: "concept", v });
+}
+
+/** @param {string} v 如 "+1" */
+export function handDelta(v) {
+  return /** @type {TreasureDescHandDelta} */ ({ type: "handDelta", v: String(v ?? "").trim() });
+}
+
+/** @param {string} v 如 "+1" / "-1" */
+export function discardDelta(v) {
+  return /** @type {TreasureDescDiscardDelta} */ ({ type: "discardDelta", v: String(v ?? "").trim() });
+}
+
+/**
+ * @param {'voucher' | 'wildcardTile' | 'treasureSlot'} kind
+ * @param {string} ref
+ */
+export function entityInline(kind, ref) {
+  return /** @type {TreasureDescEntityInline} */ ({ type: "entityInline", kind, ref: String(ref ?? "") });
 }
 
 /**

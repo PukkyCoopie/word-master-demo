@@ -35,6 +35,7 @@
             :key="gameSessionKey"
             :run-seed="sessionRunSeed"
             :run-seed-display="sessionRunSeedDisplay"
+            :run-preset-id="sessionRunPresetId"
             :restored-save="sessionRestoredSave"
             :save-slot-index="sessionSaveSlotIndex"
             @request-restart="onGameRequestRestart"
@@ -51,6 +52,7 @@
         :open="showRunStartDialog"
         :initial-seed="runStartPrefillSeed"
         :continue-snapshot="runStartContinueSnapshot"
+        :slot-career="runStartSlotCareer"
         @confirm="onRunStartConfirm"
         @cancel="onRunStartCancel"
       />
@@ -124,6 +126,7 @@ import {
 } from "./profile/playerProfile.js";
 import {
   clearSlot,
+  getSlotCareer,
   getSlotMeta,
   getSlotPayload,
   isSlotOccupied,
@@ -133,6 +136,9 @@ import {
   mergeRunMatchStatsIntoCareer,
   normalizeSlotCareerStats,
 } from "./save/slotCareerStats.js";
+import { normalizeRunPresetId } from "./game/runPresetDefinitions.js";
+import { recordPresetWin, setLastSelectedPresetId } from "./game/runPresetProgress.js";
+import { createEmptySlotCareerStats } from "./save/runSaveSchema.js";
 
 useScale();
 const { isDesktopLayout } = useWebLayoutMode();
@@ -158,6 +164,7 @@ const runStartMode = ref("menu");
 const pendingNewRunSlotIndex = ref(null);
 const sessionRunSeed = ref(0);
 const sessionRunSeedDisplay = ref("");
+const sessionRunPresetId = ref("preset_01");
 /** @type {import('vue').Ref<import('./save/runSavePayload.js').RunSavePayload | null>} */
 const sessionRestoredSave = ref(null);
 const sessionSaveSlotIndex = ref(0);
@@ -182,7 +189,13 @@ const runStartContinueSnapshot = computed(() => {
     levelId: meta.levelId,
     money: meta.money,
     isEndlessRun: meta.isEndlessRun === true,
+    presetId: String(meta.runPresetId ?? "preset_01"),
   };
+});
+
+const runStartSlotCareer = computed(() => {
+  const ix = pendingNewRunSlotIndex.value ?? getActiveSaveSlotIndex();
+  return normalizeSlotCareerStats(getSlotCareer(ix) ?? createEmptySlotCareerStats());
 });
 
 const showTapTapDesktopPromo = computed(
@@ -203,12 +216,15 @@ provide("requestNewRun", (opts = {}) => {
 
 provide("activeSaveSlotIndex", activeSaveSlotIndex);
 
-provide("mergeCareerOnRunEnd", ({ outcome, stats }) => {
+provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId }) => {
   const ix = sessionSaveSlotIndex.value;
   const slot = loadSaveEnvelope().slots[ix];
   if (!slot) return;
   const career = normalizeSlotCareerStats(slot.career);
   mergeRunMatchStatsIntoCareer(career, stats, outcome);
+  if (outcome === "win") {
+    recordPresetWin(career, normalizeRunPresetId(runPresetId));
+  }
   const envelope = structuredClone(loadSaveEnvelope());
   if (envelope.slots[ix]) {
     envelope.slots[ix].career = career;
@@ -306,6 +322,7 @@ async function startLoadSlot(index) {
   setActiveSaveSlotIndex(index);
   sessionRunSeed.value = coerceRunSeedNumeric(payload.runSeedNumeric);
   sessionRunSeedDisplay.value = String(payload.runSeedDisplay ?? "");
+  sessionRunPresetId.value = normalizeRunPresetId(payload.runPresetId);
   transitionBusy.value = true;
   await irisFxRef.value?.play({
     onCovered: () => {
@@ -424,6 +441,25 @@ async function onRunStartConfirm(payload) {
 
   const seedNumeric = coerceRunSeedNumeric(payload.seedNumeric);
   const seedDisplay = String(payload.seedDisplay ?? "");
+  const presetId = normalizeRunPresetId(payload.presetId);
+
+  const careerForSlot = normalizeSlotCareerStats(
+    getSlotCareer(slotIx) ?? createEmptySlotCareerStats(),
+  );
+  setLastSelectedPresetId(careerForSlot, presetId);
+  try {
+    const envelope = structuredClone(loadSaveEnvelope());
+    if (envelope.slots[slotIx]) {
+      envelope.slots[slotIx].career = careerForSlot;
+      localStorage.setItem("word_master_run_saves_v1", JSON.stringify(envelope));
+      loadSaveEnvelope();
+      bumpSaveUi();
+    }
+  } catch {
+    /* ignore */
+  }
+
+  sessionRunPresetId.value = presetId;
 
   if (runStartMode.value === "menu" && !isSlotOccupied(slotIx)) {
     const resetProfile = !isSlotProfileActivated(slotIx);

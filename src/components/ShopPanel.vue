@@ -118,7 +118,7 @@
                       </template>
                     </div>
                     <div class="shop-treasure-price" aria-label="售价">
-                      <div class="shop-treasure-price-inner">${{ shopMarkPrice(slot.price) }}</div>
+                      <div class="shop-treasure-price-inner">${{ shopMarkPrice(slot.price, slot) }}</div>
                     </div>
                   </div>
                   <div v-else class="shop-treasure-visual shop-treasure-visual--slot-empty" aria-hidden="true">
@@ -177,7 +177,7 @@
                     <VoucherStamp
                       :emoji="voucherSlot.emoji"
                       :display-name="voucherSlot.name"
-                      :price="shopMarkPrice(voucherSlot.price)"
+                      :price="shopMarkPrice(voucherSlot.price, voucherSlot)"
                     />
                   </div>
                   <div v-else class="shop-treasure-visual shop-treasure-visual--slot-empty" aria-hidden="true">
@@ -247,7 +247,7 @@
                       </template>
                     </div>
                     <div class="shop-treasure-price" aria-label="售价">
-                      <div class="shop-treasure-price-inner">${{ shopMarkPrice(slot.price) }}</div>
+                      <div class="shop-treasure-price-inner">${{ shopMarkPrice(slot.price, slot) }}</div>
                     </div>
                   </div>
                   <div v-else class="shop-treasure-visual shop-treasure-visual--slot-empty" aria-hidden="true">
@@ -269,7 +269,7 @@
         <TransitionGroup
           name="treasure-slot-reorder"
           tag="div"
-          :class="['treasure-slots', { 'treasure-slots--dragging': shopOwnedDragActive }]"
+          :class="['treasure-slots', { 'treasure-slots--dragging': shopOwnedDragActive }, treasureSlotsLayoutClass]"
         >
           <TreasureSlot
             v-for="(slot, i) in displayOwnedTreasures"
@@ -341,7 +341,7 @@ import {
 } from "../composables/useScoring";
 import { resolveUpgradePlaybackSpeed } from "../shop/randomUpgradeRoll.js";
 import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories.js";
-import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
+import { applyPresetAndShopDiscountPrice } from "../game/runPresetRuntime.js";
 import { isSingleDigitLabel } from "./detailLayerFormatters.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
 
@@ -370,6 +370,10 @@ const props = defineProps({
   shopRerollCost: { type: Number, default: 5 },
   canShopReroll: { type: Boolean, default: false },
   interactionsDisabled: { type: Boolean, default: false },
+  /** preset 10 等：四栏按五栏宽度居中 */
+  treasureSlotsLayoutClass: { type: String, default: "" },
+  /** 本局预设 id（商店标价） */
+  runPresetId: { type: String, default: "preset_01" },
 });
 
 const emit = defineEmits([
@@ -386,9 +390,14 @@ const emit = defineEmits([
   "upgrade-interaction-unlock",
 ]);
 
-/** 货架标价（含清仓/半价券） */
-function shopMarkPrice(base) {
-  return applyShopDiscountPrice(Number(base) || 0, props.ownedVoucherIds ?? []);
+/** 货架标价（含预设减价与清仓券） */
+function shopMarkPrice(base, offer = {}) {
+  return applyPresetAndShopDiscountPrice(
+    Number(base) || 0,
+    offer,
+    props.ownedVoucherIds ?? [],
+    props.runPresetId,
+  );
 }
 
 /** @param {object} slot shopOffers 项 */

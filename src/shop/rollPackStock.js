@@ -8,7 +8,7 @@ import {
   getPackOfferSlotCount,
   PACK_OFFER_CATEGORY_WEIGHTS,
   SHOP_BUNDLE_PACK_PRICES,
-  SHOP_TILE_PACK_MATERIAL_IDS,
+  getShopTilePackMaterialIds,
 } from "./shopPackEconomy.js";
 import {
   buildLengthUpgradeShopRow,
@@ -24,6 +24,7 @@ import {
   getSpellCategoryWeightMultiplier,
   getUpgradeCategoryWeightMultiplier,
   getMostPlayedWordLength,
+  hasIllusion,
   hasTelescopeVoucher,
 } from "../vouchers/voucherRuntime.js";
 
@@ -176,7 +177,7 @@ export function rollPackOfferStock(ctx) {
   const upgradePoolMegaOk = upgradeKeyPool.length >= 5;
 
   const letterRaws = allLetterRaws();
-  const materialIds = [...SHOP_TILE_PACK_MATERIAL_IDS];
+  const materialIds = [...getShopTilePackMaterialIds(hasIllusion(ownedV))];
 
   const treasureNormalOk = emptySlots >= 1 && availableTreasureCount >= 2;
   const treasureJumboOk = emptySlots >= 1 && availableTreasureCount >= 4;

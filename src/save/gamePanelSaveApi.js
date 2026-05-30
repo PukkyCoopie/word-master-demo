@@ -44,6 +44,7 @@ export function buildGamePanelSaveContext(ctx) {
     bossRerollSession: ctx.bossRerollSession,
     runMatchStats: ctx.runMatchStats,
     runEndOutcome: ctx.runEndOutcome,
+    runPresetId: ctx.runPresetId,
     showShop: ctx.showShop,
     showSettlement: ctx.showSettlement,
     showRunEnd: ctx.showRunEnd,

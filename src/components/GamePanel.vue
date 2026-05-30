@@ -15,6 +15,8 @@
           :interactions-disabled="shopUpgradeAnimating || packPickBusy || !!packPickSession || !!bossRerollSession"
           :treasure-charge-by-slot="treasureChargeVisualBySlot"
           :treasure-charge-progress-by-slot="treasureChargeProgressBySlot"
+          :treasure-slots-layout-class="treasureSlotsLayoutClass"
+          :run-preset-id="runPresetId"
           @open-options="openPauseOptionsFromShop"
           @view-deck="showDeckLayer = true"
           @view-round-info="openInfoModal('level')"
@@ -361,7 +363,7 @@
         <TransitionGroup
           name="treasure-slot-reorder"
           tag="div"
-          :class="['treasure-slots', { 'treasure-slots--dragging': gameOwnedDragActive }]"
+          :class="['treasure-slots', { 'treasure-slots--dragging': gameOwnedDragActive }, treasureSlotsLayoutClass]"
         >
           <TreasureSlot
             v-for="(slot, i) in displayOwnedTreasures"
@@ -618,40 +620,24 @@
             <p class="stage-settlement-sub">得分已达标，获得以下金币</p>
             <div class="stage-settlement-rows">
               <div
+                v-for="(row, i) in settlementDisplayRows"
+                :key="row.key"
                 class="settle-row"
-                :class="{ 'settle-row--empty': settlementRowEmpty.clear }"
-                :ref="(el) => setSettlementRowRef(0, el)"
+                :class="{
+                  'settle-row-total': row.isTotal,
+                  'settle-row--empty': settlementCountForRow(row) === 0,
+                }"
+                :ref="(el) => setSettlementRowRef(i, el)"
               >
-                <span class="settle-label">关卡奖励</span>
-                <span class="settle-value settle-dollars">{{ dollarMarks(animSettleClear) }}</span>
-              </div>
-              <div
-                class="settle-row"
-                :class="{ 'settle-row--empty': settlementRowEmpty.spare }"
-                :ref="(el) => setSettlementRowRef(1, el)"
-              >
-                <span class="settle-label">剩余次数</span>
-                <span class="settle-value settle-dollars">{{ dollarMarks(animSettleSpare) }}</span>
-              </div>
-              <div
-                class="settle-row"
-                :class="{ 'settle-row--empty': settlementRowEmpty.interest }"
-                :ref="(el) => setSettlementRowRef(2, el)"
-              >
-                <span class="settle-label">利息</span>
-                <span class="settle-value settle-dollars">{{ dollarMarks(animSettleInterest) }}</span>
-              </div>
-              <div
-                class="settle-row settle-row-total"
-                :class="{ 'settle-row--empty': settlementRowEmpty.total }"
-                :ref="(el) => setSettlementRowRef(3, el)"
-              >
-                <span class="settle-label">本关共计</span>
+                <span class="settle-label">{{ row.label }}</span>
                 <span
-                  class="settle-value settle-dollars settle-total"
-                  :class="{ 'settle-total--wrapped': settlementTotalNeedsWrap }"
-                  :style="settlementTotalValueStyle"
-                  >{{ dollarMarks(animSettleTotal) }}</span
+                  class="settle-value settle-dollars"
+                  :class="{
+                    'settle-total': row.isTotal,
+                    'settle-total--wrapped': row.isTotal && settlementTotalNeedsWrap,
+                  }"
+                  :style="row.isTotal ? settlementTotalValueStyle : undefined"
+                  >{{ dollarMarks(animSettleRows[i] ?? 0) }}</span
                 >
               </div>
             </div>
@@ -692,6 +678,7 @@
         :run-seed-numeric="getRunSeedNumeric()"
         :active-boss-slug="activeBossSlug"
         :is-endless-run="isEndlessRun"
+        :run-preset-id="runPresetId"
         @select-owned-voucher="onInfoSelectOwnedVoucher"
       />
       </Transition>
@@ -910,7 +897,20 @@ import {
 } from "../vouchers/voucherOwnedDisplay.js";
 import { rollShopVoucherOfferDef } from "../vouchers/voucherRegistry.js";
 import {
-  applyShopDiscountPrice,
+  applyPresetAndShopDiscountPrice,
+  getPresetHandsPerLevelDelta,
+  getPresetRemovalsPerLevelDelta,
+  getPresetStartMoneyBonus,
+  getPresetStartVoucherIds,
+  getPresetStartWildcardCount,
+  getPresetTreasureSlotDelta,
+  getPresetWordLengthJudgmentBonus,
+  getPresetSettlementMode,
+  presetUsesFiveSlotLayoutAtFour,
+  presetDisablesInterest,
+} from "../game/runPresetRuntime.js";
+import { normalizeRunPresetId } from "../game/runPresetDefinitions.js";
+import {
   clampRemainingWordsForBossMechanics,
   getBaseHandsPerLevel,
   getBaseRemovalsPerLevel,
@@ -918,8 +918,7 @@ import {
   getEconomyInterestCap,
   getEffectiveShopRerollCost,
   getGlyphPurchaseTargetLevelIndex,
-  getJudgedLengthTableLenForOwnedVouchers,
-  getJudgedLengthTableLenWithPenalty,
+  getLengthTableLenFromTileCountAndBonus,
   isLengthObservatoryBoosted,
   getOwnedTreasureSlotBonusFromVouchers,
   getShopAccessoryChanceMultiplier,
@@ -1026,9 +1025,14 @@ const dictFatalError = computed(() => !!dictError.value && !dictionaryReady.valu
 const props = defineProps({
   runSeed: { type: Number, default: 0 },
   runSeedDisplay: { type: String, default: "" },
+  runPresetId: { type: String, default: "preset_01" },
   restoredSave: { type: Object, default: null },
   saveSlotIndex: { type: Number, default: 0 },
 });
+
+const runPresetId = ref(
+  normalizeRunPresetId(props.restoredSave?.runPresetId ?? props.runPresetId),
+);
 
 const { portalFullscreenTarget } = useViewportLayoutMode();
 
@@ -1418,9 +1422,9 @@ function buildLevelResetRunOpts(levelDef) {
     override && parseLevelSubFromId(id) === 3 ? override : pickBossSlugForLevel(id, getRunSeedNumeric());
   const mechSlug = resolveBossSlugForMechanics(slug, ownedSlotTreasureIdListEarly());
   const ts = resolveLevelTargetScore(id, mechSlug);
-  let rem = getBaseRemovalsPerLevel(ownedVoucherIds.value);
+  let rem = getBaseRemovalsPerLevel(ownedVoucherIds.value) + getPresetRemovalsPerLevelDelta(runPresetId.value);
   if (mechSlug === "the_water") rem = 0;
-  let hands = getBaseHandsPerLevel(ownedVoucherIds.value);
+  let hands = getBaseHandsPerLevel(ownedVoucherIds.value) + getPresetHandsPerLevelDelta(runPresetId.value);
   if (mechSlug === "the_needle") hands = getSubmitHandsForNeedleBoss(hands);
   if (parseLevelSubFromId(id) === 3) {
     usedWordLengthsThisBoss.value = new Set();
@@ -1817,9 +1821,46 @@ const shopRerollsThisVisit = ref(0);
 /** 对齐 Balatro：整局仅第一次进店时牌包区第一格必为法术小包 */
 const balatroFirstShopPackConsumed = ref(false);
 
-function shopPriceForOffer(basePrice) {
-  return applyShopDiscountPrice(basePrice, ownedVoucherIds.value);
+function judgedLengthTableLenForRun(wordLetterCount) {
+  const presetBonus = getPresetWordLengthJudgmentBonus(runPresetId.value);
+  const bonus = getWordLengthJudgmentBonus(ownedVoucherIds.value) + presetBonus;
+  const penalty = runWordLengthJudgmentPenalty.value;
+  return getLengthTableLenFromTileCountAndBonus(wordLetterCount, bonus - penalty);
 }
+
+function shopPriceForOffer(basePrice, offer = {}) {
+  return applyPresetAndShopDiscountPrice(
+    basePrice,
+    offer,
+    ownedVoucherIds.value,
+    runPresetId.value,
+  );
+}
+
+function applyRunPresetStartEffects() {
+  const pid = runPresetId.value;
+  for (const vid of getPresetStartVoucherIds(pid)) {
+    if (!ownedVoucherIds.value.includes(vid)) {
+      ownedVoucherIds.value = [...ownedVoucherIds.value, vid];
+    }
+  }
+  const moneyBonus = getPresetStartMoneyBonus(pid);
+  if (moneyBonus > 0) money.value += moneyBonus;
+  const wc = getPresetStartWildcardCount(pid);
+  for (let i = 0; i < wc; i += 1) {
+    const card = appendDeckCardSpecToInitialSnapshot({ raw: "e", materialId: "wildcard" });
+    if (card) card.isWildcard = true;
+  }
+  syncOwnedTreasureSlots();
+}
+
+const treasureSlotsLayoutClass = computed(() => {
+  const count = displayOwnedTreasures.value.length;
+  if (count === 4 && presetUsesFiveSlotLayoutAtFour(runPresetId.value)) {
+    return "treasure-slots--layout-five-at-four";
+  }
+  return "";
+});
 
 /** @param {{ offerType?: string, bundleKind?: string }} t @param {number} basePay */
 function effectiveShopOfferPay(t, basePay) {
@@ -2680,7 +2721,8 @@ function syncOwnedTreasureSlots() {
   const arr = ownedTreasures.value;
   const target = computeOwnedTreasureSlotTargetLength(
     arr,
-    getOwnedTreasureSlotBonusFromVouchers(ownedVoucherIds.value),
+    getOwnedTreasureSlotBonusFromVouchers(ownedVoucherIds.value) +
+      getPresetTreasureSlotDelta(runPresetId.value),
   );
   const next = [...arr];
   while (next.length < target) next.push(null);
@@ -2774,7 +2816,7 @@ const treasureCanBuyOffer = computed(() => {
   const w = money.value;
   const p0 = Number(t.price);
   if (!Number.isFinite(w) || !Number.isFinite(p0)) return false;
-  const p = shopPriceForOffer(p0);
+  const p = shopPriceForOffer(p0, t);
   if (t.offerType === "voucher") {
     const vid = String(t.voucherId ?? "");
     if (vid === "v_glyph_1" || vid === "v_glyph_2") {
@@ -3324,31 +3366,45 @@ const settlementContinueBtnRef = ref(/** @type {HTMLButtonElement | null} */ (nu
 let settlementIntroResolve = null;
 /** @type {import('vue').Ref<null | { clearReward: number, spareMoves: number, interest: number, total: number, moneyBefore: number }>} */
 const settlementSnapshot = ref(null);
-const animSettleClear = ref(0);
-const animSettleSpare = ref(0);
-const animSettleInterest = ref(0);
-const animSettleTotal = ref(0);
+/** @type {import('vue').Ref<number[]>} */
+const animSettleRows = ref([0, 0, 0, 0]);
 
-/** 按结算快照判定各行是否为 0（用于半透明空行，与动画数字无关） */
-const settlementRowEmpty = computed(() => {
+const settlementDisplayRows = computed(() => {
   const s = settlementSnapshot.value;
-  if (!s) {
-    return { clear: false, spare: false, interest: false, total: false };
+  if (!s) return [];
+  if (s.mode === "convertRemainsNoInterest") {
+    return [
+      { key: "clear", label: "关卡奖励", countKey: "clearReward" },
+      { key: "spareWords", label: "剩余拼写", countKey: "spareWordsReward" },
+      { key: "spareDiscards", label: "剩余丢弃", countKey: "spareDiscardsReward" },
+      { key: "interest", label: "利息", countKey: "interest" },
+      { key: "total", label: "本关共计", countKey: "total", isTotal: true },
+    ];
   }
-  return {
-    clear: s.clearReward === 0,
-    spare: s.spareMoves === 0,
-    interest: s.interest === 0,
-    total: s.total === 0,
-  };
+  return [
+    { key: "clear", label: "关卡奖励", countKey: "clearReward" },
+    { key: "spare", label: "剩余次数", countKey: "spareMoves" },
+    { key: "interest", label: "利息", countKey: "interest" },
+    { key: "total", label: "本关共计", countKey: "total", isTotal: true },
+  ];
 });
+
+/** @param {{ countKey: string }} row */
+function settlementCountForRow(row) {
+  const s = settlementSnapshot.value;
+  if (!s) return 0;
+  return Math.max(0, Math.round(Number(s[row.countKey]) || 0));
+}
 
 const SETTLEMENT_TOTAL_SHRINK_START = 15;
 const SETTLEMENT_TOTAL_SHRINK_FULL_AT = 30;
 const SETTLEMENT_TOTAL_MIN_SCALE = 0.6;
 
 const settlementTotalScale = computed(() => {
-  const count = Math.max(0, Math.round(Number(animSettleTotal.value) || 0));
+  const totalRow = settlementDisplayRows.value.find((r) => r.isTotal);
+  const count = totalRow
+    ? Math.max(0, Math.round(Number(animSettleRows.value[settlementDisplayRows.value.indexOf(totalRow)]) || 0))
+    : Math.max(0, Math.round(Number(animSettleRows.value[animSettleRows.value.length - 1]) || 0));
   if (count <= SETTLEMENT_TOTAL_SHRINK_START) return 1;
   const span = Math.max(1, SETTLEMENT_TOTAL_SHRINK_FULL_AT - SETTLEMENT_TOTAL_SHRINK_START);
   const t = Math.min(1, (count - SETTLEMENT_TOTAL_SHRINK_START) / span);
@@ -3356,7 +3412,9 @@ const settlementTotalScale = computed(() => {
 });
 
 const settlementTotalNeedsWrap = computed(() => {
-  const count = Math.max(0, Math.round(Number(animSettleTotal.value) || 0));
+  const totalRow = settlementDisplayRows.value.find((r) => r.isTotal);
+  const ix = totalRow ? settlementDisplayRows.value.indexOf(totalRow) : animSettleRows.value.length - 1;
+  const count = Math.max(0, Math.round(Number(animSettleRows.value[ix]) || 0));
   return count > SETTLEMENT_TOTAL_SHRINK_FULL_AT;
 });
 
@@ -3366,10 +3424,27 @@ const settlementTotalValueStyle = computed(() => ({
 
 let settlementTl = null;
 
-/** 结算四行 DOM，用于入场与每枚 $ 时的震动 */
-const settlementRowEls = ref(/** @type {(HTMLElement | null)[]} */ ([null, null, null, null]));
+/** 结算各行 DOM，用于入场与每枚 $ 时的震动 */
+const settlementRowEls = ref(/** @type {(HTMLElement | null)[]} */ ([]));
 function setSettlementRowRef(index, el) {
-  settlementRowEls.value[index] = /** @type {HTMLElement | null} */ (el);
+  const arr = [...settlementRowEls.value];
+  while (arr.length <= index) arr.push(null);
+  arr[index] = /** @type {HTMLElement | null} */ (el);
+  settlementRowEls.value = arr;
+}
+
+/** @param {number} i */
+function animSettleRowRef(i) {
+  return {
+    get value() {
+      return animSettleRows.value[i] ?? 0;
+    },
+    set value(v) {
+      const next = [...animSettleRows.value];
+      next[i] = v;
+      animSettleRows.value = next;
+    },
+  };
 }
 
 /** 每出现一枚 $：先快速转到约 1°，再 expo.out 回正 */
@@ -3396,6 +3471,16 @@ function shakeSettlementRow(rowEl) {
  * @param {{ clearReward: number, spareMoves: number, interest: number, total: number }} s
  */
 function settlementTotalDollarCount(s) {
+  if (!s) return 0;
+  if (s.mode === "convertRemainsNoInterest") {
+    return (
+      Math.max(0, Math.round(Number(s.clearReward) || 0)) +
+      Math.max(0, Math.round(Number(s.spareWordsReward) || 0)) +
+      Math.max(0, Math.round(Number(s.spareDiscardsReward) || 0)) +
+      Math.max(0, Math.round(Number(s.interest) || 0)) +
+      Math.max(0, Math.round(Number(s.total) || 0))
+    );
+  }
   return (
     Math.max(0, Math.round(Number(s.clearReward) || 0)) +
     Math.max(0, Math.round(Number(s.spareMoves) || 0)) +
@@ -3503,17 +3588,14 @@ function finishSettlementIntroInstant() {
     gsap.killTweensOf(card);
     gsap.set(card, { opacity: 1, scale: 1, y: 0 });
   }
-  const counts = [s.clearReward, s.spareMoves, s.interest, s.total];
-  animSettleClear.value = counts[0];
-  animSettleSpare.value = counts[1];
-  animSettleInterest.value = counts[2];
-  animSettleTotal.value = counts[3];
+  const displayRows = settlementDisplayRows.value;
+  animSettleRows.value = displayRows.map((row) => settlementCountForRow(row));
   for (let i = 0; i < rows.length; i++) {
     const el = rows[i];
     if (!el) continue;
     gsap.killTweensOf(el);
     gsap.set(el, {
-      opacity: counts[i] === 0 ? 0.42 : 1,
+      opacity: settlementCountForRow(displayRows[i]) === 0 ? 0.42 : 1,
       y: 0,
       rotation: 0,
       transformOrigin: "50% 50%",
@@ -3730,7 +3812,7 @@ const resultAreaJudgedWordLength = computed(() => {
     resolvedWordForSubmit.value,
   );
   if (n < 1) return 0;
-  return getJudgedLengthTableLenWithPenalty(n, ownedVoucherIds.value, runWordLengthJudgmentPenalty.value);
+  return judgedLengthTableLenForRun(n);
 });
 
 const resultWordLengthShown = computed(() => {
@@ -4696,11 +4778,7 @@ const bossTapeSoftPreview = computed(() => {
   if (res == null) return false;
   const eff = effectiveWordForSubmit.value;
   if (!eff || eff.length < 1) return false;
-  const judgedLen = getJudgedLengthTableLenWithPenalty(
-    getWordLetterCount(effectiveFormulaTiles.value, res),
-    ownedVoucherIds.value,
-    runWordLengthJudgmentPenalty.value,
-  );
+  const judgedLen = judgedLengthTableLenForRun(getWordLetterCount(effectiveFormulaTiles.value, res));
   const soft = evaluateBossSoftWordViolation({
     slug,
     wordLen: judgedLen,
@@ -5563,6 +5641,7 @@ function buildLocalSaveContext() {
     showShop: showShop.value,
     showSettlement: showSettlement.value,
     showRunEnd: showRunEnd.value,
+    runPresetId: runPresetId.value,
   };
 }
 
@@ -5600,6 +5679,7 @@ function buildHydrateContext() {
     shopVoucherShelfGenerationRef: shopVoucherShelfGeneration,
     packPickSessionRef: packPickSession,
     bossRerollSessionRef: bossRerollSession,
+    runPresetIdRef: runPresetId,
   };
 }
 
@@ -5648,24 +5728,45 @@ watch(
 function buildSettlementSnapshot() {
   const moneyBefore = money.value;
   const clearReward = stageRewardYuan.value;
+  const mode = getPresetSettlementMode(runPresetId.value);
+  if (mode === "convertRemainsNoInterest") {
+    const spareWordsReward = Math.max(0, remainingWords.value) * 2;
+    const spareDiscardsReward = Math.max(0, remainingRemovals.value);
+    const interest = 0;
+    const total = clearReward + spareWordsReward + spareDiscardsReward + interest;
+    return {
+      mode,
+      moneyBefore,
+      clearReward,
+      spareWordsReward,
+      spareDiscardsReward,
+      spareMoves: 0,
+      interest,
+      total,
+    };
+  }
   const spareMoves = remainingWords.value;
-  const cap = getEconomyInterestCap(ownedVoucherIds.value);
-  const interest = computeWalletInterest(moneyBefore, cap);
+  const cap = presetDisablesInterest(runPresetId.value) ? 0 : getEconomyInterestCap(ownedVoucherIds.value);
+  const interest = presetDisablesInterest(runPresetId.value)
+    ? 0
+    : computeWalletInterest(moneyBefore, cap);
   const total = clearReward + spareMoves + interest;
   return {
+    mode: "default",
     moneyBefore,
     clearReward,
     spareMoves,
+    spareWordsReward: 0,
+    spareDiscardsReward: 0,
     interest,
     total,
   };
 }
 
 function resetSettlementAnimValues() {
-  animSettleClear.value = 0;
-  animSettleSpare.value = 0;
-  animSettleInterest.value = 0;
-  animSettleTotal.value = 0;
+  const n = settlementDisplayRows.value.length || 4;
+  animSettleRows.value = Array.from({ length: n }, () => 0);
+  settlementRowEls.value = Array.from({ length: n }, () => null);
   settlementIntroResolve = null;
 }
 
@@ -5691,6 +5792,7 @@ async function openRunEnd(outcome, opts = {}) {
   mergeCareerOnRunEnd?.({
     outcome: runEndOutcome.value,
     stats: runMatchStats.value,
+    runPresetId: runPresetId.value,
   });
   showDeckLayer.value = false;
   showInfoLayer.value = false;
@@ -5795,32 +5897,16 @@ function runSettlementIntro() {
     const continueBtn = settlementContinueBtnRef.value;
     if (continueBtn) gsap.killTweensOf(continueBtn);
 
-    const rowSpecs = [
-      {
-        el: rows[0],
-        anim: animSettleClear,
-        count: s.clearReward,
-        empty: s.clearReward === 0,
-      },
-      {
-        el: rows[1],
-        anim: animSettleSpare,
-        count: s.spareMoves,
-        empty: s.spareMoves === 0,
-      },
-      {
-        el: rows[2],
-        anim: animSettleInterest,
-        count: s.interest,
-        empty: s.interest === 0,
-      },
-      {
-        el: rows[3],
-        anim: animSettleTotal,
-        count: s.total,
-        empty: s.total === 0,
-      },
-    ];
+    const displayRows = settlementDisplayRows.value;
+    const rowSpecs = displayRows.map((row, i) => {
+      const count = settlementCountForRow(row);
+      return {
+        el: rows[i],
+        anim: animSettleRowRef(i),
+        count,
+        empty: count === 0,
+      };
+    });
 
     for (const { el } of rowSpecs) {
       if (el) gsap.set(el, { opacity: 0, y: 18 });
@@ -7821,7 +7907,7 @@ async function onTreasurePurchase() {
   }
   if (d.kind !== "offer") return;
   const t = d.treasure;
-  const pay = effectiveShopOfferPay(t, shopPriceForOffer(Number(t.price) || 0));
+  const pay = effectiveShopOfferPay(t, shopPriceForOffer(Number(t.price) || 0, t));
 
   if (t.offerType === "bundlePack") {
     if (money.value < pay) return;
@@ -10429,17 +10515,12 @@ async function submitWord() {
   );
   const ownedTids = ownedSlotTreasureIdList();
   const lengthJb =
-    getWordLengthJudgmentBonus(ownedVoucherIds.value) -
+    getWordLengthJudgmentBonus(ownedVoucherIds.value) +
+    getPresetWordLengthJudgmentBonus(runPresetId.value) -
     runWordLengthJudgmentPenalty.value -
     sumTreasureLengthJudgmentPenalty(ownedTids) +
     sumTreasureSubmitLengthBonus(ownedTids);
-  const judgedLenTable = getJudgedLengthTableLenWithPenalty(
-    resolvedWord.length,
-    ownedVoucherIds.value,
-    runWordLengthJudgmentPenalty.value +
-      sumTreasureLengthJudgmentPenalty(ownedTids) -
-      sumTreasureSubmitLengthBonus(ownedTids),
-  );
+  const judgedLenTable = getLengthTableLenFromTileCountAndBonus(resolvedWord.length, lengthJb);
   const soft = evaluateBossSoftWordViolation({
     slug: bossSlugForMechanics(),
     wordLen: judgedLenTable,
@@ -10641,7 +10722,7 @@ function e2eCanBuyShopOffer(t) {
   const w = money.value;
   const p0 = Number(t.price);
   if (!Number.isFinite(w) || !Number.isFinite(p0)) return false;
-  const p = shopPriceForOffer(p0);
+  const p = shopPriceForOffer(p0, t);
   if (t.offerType === "voucher") {
     const vid = String(t.voucherId ?? "");
     if (vid === "v_glyph_1" || vid === "v_glyph_2") {
@@ -10684,7 +10765,7 @@ function getE2eShopSnapshot() {
     return {
       offerInstanceId: slot.offerInstanceId,
       offerType: slot.offerType,
-      price: shopPriceForOffer(Number(slot.price) || 0),
+      price: shopPriceForOffer(Number(slot.price) || 0, slot),
       name: slot.name ?? slot.emoji ?? slot.offerType,
       treasureId: slot.treasureId ?? null,
       spellId: slot.spellId ?? null,
@@ -10798,8 +10879,7 @@ function getBossPlayContextForE2e() {
     mouthLockedLength: mouthLockedLengthBoss.value,
     clubRequiredKey: clubRequiredKeyBoss.value || null,
     getWordDefinition,
-    getJudgedLength: (rawLen) =>
-      getJudgedLengthTableLenWithPenalty(rawLen, ownedVoucherIds.value, runWordLengthJudgmentPenalty.value),
+    getJudgedLength: (rawLen) => judgedLengthTableLenForRun(rawLen),
   };
 }
 
@@ -10929,6 +11009,8 @@ onMounted(async () => {
   }
 
   ensureBigramTargetPair(treasureRunState.value, rollRandomBigramForTreasure);
+  runPresetId.value = normalizeRunPresetId(props.runPresetId);
+  applyRunPresetStartEffects();
   mountE2eHarnessIfNeeded();
   slotRafLastTime = performance.now();
   slotRafId = requestAnimationFrame(slotRafLoop);

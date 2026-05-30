@@ -59,6 +59,7 @@ export function serializeRunSave(ctx) {
     bossRerollSession: ctx.bossRerollSession ? cloneSaveData(ctx.bossRerollSession) : null,
     runMatchStats: serializeRunMatchStats(ctx.runMatchStats),
     runEndOutcome: ctx.runEndOutcome === "win" ? "win" : "fail",
+    runPresetId: String(ctx.runPresetId ?? "preset_01"),
   };
 }
 
@@ -83,5 +84,6 @@ export function buildRunSaveMetaFromPayload(payload, levelIndex) {
     phase: normalizeRunSavePhase(payload.phase),
     ownedTreasureEmojis: emojis.slice(0, 5),
     savedAt: Date.now(),
+    runPresetId: String(payload.runPresetId ?? "preset_01"),
   };
 }

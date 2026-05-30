@@ -4,7 +4,11 @@
 import { getSpellDefinition, getSpellShopPrice } from "../spells/spellDefinitions.js";
 import { LETTER_RARITY_ORDER, getRarityForLetter } from "../composables/useScoring.js";
 import { getShopTreasureAccessoryPriceAdd, rollShopTreasureAccessoryId } from "../treasures/shopTreasureAccessoryRoll.js";
-import { SHOP_SINGLE_ROW_PRICES, SHOP_TILE_PACK_MATERIAL_IDS } from "./shopPackEconomy.js";
+import {
+  SHOP_SINGLE_ROW_PRICES,
+  SHOP_TILE_PACK_MATERIAL_IDS,
+  resolveDeckTileShopPrice,
+} from "./shopPackEconomy.js";
 import { buildDeckTileOfferDisplay, rollDeckTileModifiers } from "./rollDeckTileModifiers.js";
 
 export const UPGRADE_ICON_CLASS = "ri-arrow-up-box-fill";
@@ -140,10 +144,17 @@ export function buildTreasureShopRowFromDef(nextOfferInstanceId, def, rng, acces
  * @param {string} raw 小写单字母，q 表示 Qu
  * @param {() => number} rng
  * @param {number} [honeAccessoryMult=1]
+ * @param {readonly string[]} [materialIds]
  */
-export function buildDeckTileShopRow(nextOfferInstanceId, raw, rng, honeAccessoryMult = 1) {
+export function buildDeckTileShopRow(
+  nextOfferInstanceId,
+  raw,
+  rng,
+  honeAccessoryMult = 1,
+  materialIds = SHOP_TILE_PACK_MATERIAL_IDS,
+) {
   const r = String(raw ?? "e").toLowerCase() === "qu" ? "q" : String(raw ?? "e").toLowerCase();
-  const mods = rollDeckTileModifiers(rng, { honeAccessoryMult, materialIds: SHOP_TILE_PACK_MATERIAL_IDS });
+  const mods = rollDeckTileModifiers(rng, { honeAccessoryMult, materialIds });
   const rarity = getRarityForLetter(r);
   const letterDisp = r === "q" ? "Qu" : r.toUpperCase();
   const copy = buildDeckTileOfferDisplay(letterDisp, {
@@ -156,7 +167,7 @@ export function buildDeckTileShopRow(nextOfferInstanceId, raw, rng, honeAccessor
     offerType: "deckTile",
     offerInstanceId: oid,
     treasureId: `deck_tile_shop_${r}_${mods.materialId ?? "x"}_${oid}`,
-    price: SHOP_SINGLE_ROW_PRICES.deckTile,
+    price: resolveDeckTileShopPrice(mods.materialId),
     rarity,
     letterRarity: rarity,
     name: copy.name,

@@ -92,6 +92,7 @@
  * @property {unknown} bossRerollSession
  * @property {unknown} runMatchStats
  * @property {'fail' | 'win'} [runEndOutcome]
+ * @property {string} [runPresetId]
  */
 
 export {};

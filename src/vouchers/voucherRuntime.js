@@ -83,8 +83,8 @@ export function getEconomyInterestCap(owned) {
 
 /** 细针 Boss：以 1 手为基底，再叠加手套等额外次数（卷轴已体现在 baseHands 中）。 */
 export function getSubmitHandsForNeedleBoss(baseHandsFromVouchers) {
-  const b = Math.max(1, Math.floor(Number(baseHandsFromVouchers) || 4));
-  return Math.max(1, 1 + Math.max(0, b - 4));
+  const b = Math.max(1, Math.floor(Number(baseHandsFromVouchers) || 3));
+  return Math.max(1, 1 + Math.max(0, b - 3));
 }
 
 /** 细针 Boss 本关拼词次数下限（与 `getSubmitHandsForNeedleBoss` 一致，含券面基数）。 */
@@ -106,7 +106,7 @@ export function clampRemainingWordsForBossMechanics(count, bossSlug, owned) {
 
 /** @param {Iterable<string>} owned */
 export function getBaseHandsPerLevel(owned) {
-  let n = 4;
+  let n = 3;
   if (has(owned, "v_grabber_2")) n += 2;
   else if (has(owned, "v_grabber_1")) n += 1;
   if (has(owned, "v_glyph_1")) n -= 1;

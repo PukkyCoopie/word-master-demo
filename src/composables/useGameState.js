@@ -619,7 +619,7 @@ export function useGameState(gameOpts = {}) {
 
   const grid = shallowRef(buildGrid());
 
-  const remainingWords = ref(4);
+  const remainingWords = ref(3);
 
   /** 每小关默认弃牌（移除补牌）次数 */
   const remainingRemovals = ref(3);

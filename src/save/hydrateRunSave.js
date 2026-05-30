@@ -107,4 +107,7 @@ export function hydrateRunSave(payload, ctx) {
       ? cloneSaveData(payload.bossRerollSession)
       : null;
   }
+  if (ctx.runPresetIdRef) {
+    ctx.runPresetIdRef.value = String(payload.runPresetId ?? "preset_01");
+  }
 }

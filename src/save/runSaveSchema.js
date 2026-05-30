@@ -8,6 +8,7 @@
  * @property {RunSavePhase} phase
  * @property {(string | null)[]} ownedTreasureEmojis
  * @property {number} savedAt
+ * @property {string} [runPresetId]
  */
 
 /** @typedef {Object} SlotCareerStats
@@ -21,6 +22,8 @@
  * @property {number} totalShopPurchases
  * @property {number} totalRerolls
  * @property {number | null} lastRunEndedAt
+ * @property {string[]} presetsWonWith
+ * @property {string} [lastSelectedPresetId]
  */
 
 /** @typedef {Object} RunSaveSlot
@@ -63,6 +66,8 @@ export function createEmptySlotCareerStats() {
     totalShopPurchases: 0,
     totalRerolls: 0,
     lastRunEndedAt: null,
+    presetsWonWith: [],
+    lastSelectedPresetId: "",
   };
 }
 

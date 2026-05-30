@@ -38,8 +38,8 @@ export const SHOP_BUNDLE_PACK_PRICES = Object.freeze({
 export const SHOP_SINGLE_ROW_PRICES = Object.freeze({
   spell: 3,
   lengthUpgrade: 4,
-  rarityUpgrade: 6,
-  /** 单张字母进库（魔法棒） */
+  rarityUpgrade: 5,
+  /** 单张字母进库（打字机券） */
   deckLetter: 3,
   /** 单张带材质字母进库 */
   deckTile: 5,
@@ -70,3 +70,27 @@ export const PACK_OFFER_CATEGORY_WEIGHTS = Object.freeze({
 
 /** 字母（带棋盘材质）包：可出现的材质 id（不含万能） */
 export const SHOP_TILE_PACK_MATERIAL_IDS = Object.freeze(["gold", "steel", "ice", "water", "fire", "lucky"]);
+
+/** 打字机·二级：商店材质池追加万能块（不在券面文案中说明） */
+export const SHOP_WILDCARD_MATERIAL_ID = "wildcard";
+
+/** 商店单张万能材质字母块售价 */
+export const SHOP_WILDCARD_TILE_PRICE = 6;
+
+/**
+ * @param {boolean} [illusionOwned] 是否拥有打字机二级（v_magic_2）
+ * @returns {readonly string[]}
+ */
+export function getShopTilePackMaterialIds(illusionOwned = false) {
+  if (!illusionOwned) return SHOP_TILE_PACK_MATERIAL_IDS;
+  return Object.freeze([...SHOP_TILE_PACK_MATERIAL_IDS, SHOP_WILDCARD_MATERIAL_ID]);
+}
+
+/**
+ * @param {string | null | undefined} materialId
+ * @returns {number}
+ */
+export function resolveDeckTileShopPrice(materialId) {
+  if (String(materialId ?? "") === SHOP_WILDCARD_MATERIAL_ID) return SHOP_WILDCARD_TILE_PRICE;
+  return SHOP_SINGLE_ROW_PRICES.deckTile;
+}

@@ -68,6 +68,8 @@
 	--info-voucher-cell-width: calc(168 * var(--rpx));
 	/* 与 @container treasure-cell 内 emoji 比例一致，供无容器上下文回退 */
 	--shop-shelf-emoji-size: calc(42 * var(--rpx));
+	/* 富文本行内 sample（优惠券 / 字母块 / 宝藏栏位）：约为货架格 40% */
+	--desc-inline-sample-size: calc(var(--shop-shelf-cell-size) * 0.4);
 	/* 宝藏配饰角标（108 参考格 22×22、inset 4、圆角 5、图标 13）；@container 失效时回退 */
 	--shop-shelf-acc-chip-size: calc(22 * var(--rpx));
 	--shop-shelf-acc-chip-inset: calc(4 * var(--rpx));
@@ -2207,6 +2209,16 @@
 	transition: none;
 }
 
+.treasure-slots--layout-five-at-four {
+	justify-content: center;
+}
+
+.treasure-slots--layout-five-at-four .treasure-slot {
+	flex: 0 0 calc((100% - 4 * calc(8 * var(--rpx))) / 5);
+	width: calc((100% - 4 * calc(8 * var(--rpx))) / 5);
+	max-width: calc((100% - 4 * calc(8 * var(--rpx))) / 5);
+}
+
 .treasure-slot.filled {
 	position: relative;
 	border: none;
@@ -2886,6 +2898,71 @@
 	z-index: 1;
 	line-height: 1;
 	font-size: var(--shop-shelf-emoji-size);
+}
+
+/* 富文本行内：优惠券 / 字母块 / 宝藏栏位（与货架、局内槽位同组件与比例） */
+.desc-inline-entity {
+	display: inline-flex;
+	vertical-align: middle;
+	align-items: center;
+	justify-content: center;
+	margin: 0 calc(4 * var(--rpx));
+	padding: 0;
+	border: none;
+	background: transparent;
+	cursor: pointer;
+	line-height: 0;
+}
+
+.desc-inline-entity:focus-visible {
+	outline: calc(2 * var(--rpx)) solid var(--accent, #5b8def);
+	outline-offset: calc(2 * var(--rpx));
+	border-radius: calc(4 * var(--rpx));
+}
+
+.desc-inline-entity--voucher {
+	width: var(--desc-inline-sample-size);
+	flex-shrink: 0;
+}
+
+.desc-inline-entity--voucher .voucher-stamp {
+	width: 100%;
+}
+
+.desc-inline-entity--voucher .voucher-stamp__frame {
+	width: 100%;
+	height: var(--desc-inline-sample-size);
+	container-type: size;
+	container-name: treasure-cell;
+}
+
+.desc-inline-entity__letter.grid-tile {
+	width: var(--desc-inline-sample-size);
+	height: var(--desc-inline-sample-size);
+	min-width: var(--desc-inline-sample-size);
+	min-height: var(--desc-inline-sample-size);
+	max-width: var(--desc-inline-sample-size);
+	max-height: var(--desc-inline-sample-size);
+	flex-shrink: 0;
+	box-sizing: border-box;
+	container-type: size;
+	container-name: treasure-cell;
+}
+
+.desc-inline-entity__letter.grid-tile .letter-gem {
+	display: none;
+}
+
+.desc-inline-entity__slot.treasure-slot {
+	flex: none;
+	width: var(--desc-inline-sample-size);
+	height: var(--desc-inline-sample-size);
+	min-width: var(--desc-inline-sample-size);
+	min-height: var(--desc-inline-sample-size);
+	max-width: var(--desc-inline-sample-size);
+	max-height: var(--desc-inline-sample-size);
+	aspect-ratio: 1;
+	vertical-align: middle;
 }
 
 /* 对局信息：已购优惠券网格（InfoModal） */
@@ -3839,22 +3916,26 @@
 }
 
 @container treasure-cell (min-width: 0px) {
-	.shop-shelf-letter-tile.grid-tile .letter-tile-char {
+	.shop-shelf-letter-tile.grid-tile .letter-tile-char,
+	.desc-inline-entity__letter.grid-tile .letter-tile-char {
 		font-size: calc(100cqmin * 38 / 108);
 	}
 
-	.shop-shelf-letter-tile.grid-tile .letter-gem {
+	.shop-shelf-letter-tile.grid-tile .letter-gem,
+	.desc-inline-entity__letter.grid-tile .letter-gem {
 		left: calc(100cqmin * 6 / 108);
 		bottom: calc(100cqmin * 6 / 108);
 		width: calc(100cqmin * 14 / 108);
 		height: calc(100cqmin * 14 / 108);
 	}
 
-	.shop-shelf-letter-tile.grid-tile .letter-gem.gem-common {
+	.shop-shelf-letter-tile.grid-tile .letter-gem.gem-common,
+	.desc-inline-entity__letter.grid-tile .letter-gem.gem-common {
 		border: calc(100cqmin * 1 / 108) solid #9c8b7a;
 	}
 
-	.shop-shelf-letter-tile.grid-tile .tile-accessory-chip {
+	.shop-shelf-letter-tile.grid-tile .tile-accessory-chip,
+	.desc-inline-entity__letter.grid-tile .tile-accessory-chip {
 		right: calc(100cqmin * 4 / 108);
 		bottom: calc(100cqmin * 4 / 108);
 		top: auto;
@@ -3863,8 +3944,16 @@
 		border-radius: calc(100cqmin * 5 / 108);
 	}
 
-	.shop-shelf-letter-tile.grid-tile .tile-accessory-chip-icon {
+	.shop-shelf-letter-tile.grid-tile .tile-accessory-chip-icon,
+	.desc-inline-entity__letter.grid-tile .tile-accessory-chip-icon {
 		font-size: calc(100cqmin * 13 / 108);
+	}
+
+	.grid-tile.tile-material-wildcard .letter-tile-char,
+	.desc-inline-entity__letter.grid-tile.tile-material-wildcard .letter-tile-char {
+		font-size: calc(100cqmin * 42 / 108);
+		letter-spacing: calc(100cqmin * -0.35 / 108);
+		-webkit-text-stroke: calc(100cqmin * 1.32 / 108) var(--tile-wildcard-char-outline);
 	}
 }
 

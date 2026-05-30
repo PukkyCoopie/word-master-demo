@@ -47,6 +47,7 @@ function buildSpellDefinitions() {
       name: "重播",
       iconClass: "ri-restart-fill",
       pickCount: -1,
+      shopPrice: 4,
       description: "重复你的上一张法术卡的效果",
     },
     {
@@ -54,6 +55,7 @@ function buildSpellDefinitions() {
       name: "蛋糕",
       iconClass: "ri-cake-2-fill",
       pickCount: 2,
+      shopPrice: 4,
       description: `选择2个字母块，使其变为${m("lucky")}`,
     },
     {
@@ -61,6 +63,7 @@ function buildSpellDefinitions() {
       name: "骰子",
       iconClass: "ri-dice-fill",
       pickCount: 0,
+      shopPrice: 4,
       description: "随机释放2张其他法术卡",
     },
     {
@@ -68,6 +71,7 @@ function buildSpellDefinitions() {
       name: "向上",
       iconClass: "ri-arrow-up-circle-fill",
       pickCount: 0,
+      shopPrice: 4,
       description: describe("随机释放2个", concept("升级"), "卡"),
     },
     {
@@ -75,6 +79,7 @@ function buildSpellDefinitions() {
       name: "炙烤",
       iconClass: "ri-blaze-fill",
       pickCount: 2,
+      shopPrice: 3,
       description: `选择2个字母块，使其变为${m("fire")}`,
     },
     {
@@ -82,6 +87,7 @@ function buildSpellDefinitions() {
       name: "饮料",
       iconClass: "ri-drinks-2-fill",
       pickCount: 2,
+      shopPrice: 3,
       description: `选择2个字母块，使其变为${m("water")}`,
     },
     {
@@ -97,6 +103,7 @@ function buildSpellDefinitions() {
       name: "锤炼",
       iconClass: "ri-hammer-fill",
       pickCount: 1,
+      shopPrice: 4,
       description: `选择1个字母块，使其变为${m("steel")}`,
     },
     {
@@ -104,6 +111,7 @@ function buildSpellDefinitions() {
       name: "降温",
       iconClass: "ri-snowflake-fill",
       pickCount: 1,
+      shopPrice: 3,
       description: `选择1个字母块，使其变为${m("ice")}`,
     },
     {
@@ -111,6 +119,7 @@ function buildSpellDefinitions() {
       name: "积累",
       iconClass: "ri-hand-coin-fill",
       pickCount: 0,
+      shopPrice: 3,
       description: "翻倍余额，至多获得$20",
     },
     {
@@ -118,6 +127,7 @@ function buildSpellDefinitions() {
       name: "星星",
       iconClass: "ri-star-fill",
       pickCount: 0,
+      shopPrice: 3,
       description: buildStarSpellRandomTreasureAccessoryDescription(),
     },
     {
@@ -125,6 +135,7 @@ function buildSpellDefinitions() {
       name: "生长",
       iconClass: "ri-seedling-fill",
       pickCount: 2,
+      shopPrice: 2,
       description: "选择2个字母块，使他们后移1位",
     },
     {
@@ -132,6 +143,7 @@ function buildSpellDefinitions() {
       name: "删除",
       iconClass: "ri-delete-back-2-fill",
       pickCount: 2,
+      shopPrice: 3,
       description: "选择2个字母块，从牌库中将其移除",
     },
     {
@@ -139,6 +151,7 @@ function buildSpellDefinitions() {
       name: "复制",
       iconClass: "ri-file-copy-fill",
       pickCount: 2,
+      shopPrice: 3,
       description: "选择2个字母块，将第1个变为第2个的复制",
     },
     {
@@ -146,6 +159,7 @@ function buildSpellDefinitions() {
       name: "标签",
       iconClass: "ri-price-tag-3-fill",
       pickCount: 0,
+      shopPrice: 3,
       description: "获得金币，数值相当于当前所有宝藏的售出价值总和",
     },
     {
@@ -153,6 +167,7 @@ function buildSpellDefinitions() {
       name: "炼金",
       iconClass: "ri-flask-fill",
       pickCount: 1,
+      shopPrice: 3,
       description: `选择1个字母块，使其变为${m("gold")}`,
     },
     {
@@ -160,6 +175,7 @@ function buildSpellDefinitions() {
       name: "抛光",
       iconClass: "ri-bard-fill",
       pickCount: 2,
+      shopPrice: 3,
       description: "选择2个字母块，使其稀有度提升1级",
     },
     {
@@ -167,6 +183,7 @@ function buildSpellDefinitions() {
       name: "麦克风",
       iconClass: "ri-mic-fill",
       pickCount: 2,
+      shopPrice: 2,
       description: "选择2个字母块，使其变为随机的辅音字母",
     },
     {
@@ -174,6 +191,7 @@ function buildSpellDefinitions() {
       name: "铃铛",
       iconClass: "ri-notification-3-fill",
       pickCount: 2,
+      shopPrice: 3,
       description: "选择2个字母块，使其变为随机的元音字母",
     },
     {
@@ -181,6 +199,7 @@ function buildSpellDefinitions() {
       name: "电话",
       iconClass: "ri-phone-fill",
       pickCount: 3,
+      shopPrice: 3,
       description: "选择3个字母块，使其变为随机的字母",
     },
     {
@@ -188,6 +207,7 @@ function buildSpellDefinitions() {
       name: "藏宝图",
       iconClass: "ri-treasure-map-fill",
       pickCount: 0,
+      shopPrice: 4,
       description: "获取一个随机宝藏",
     },
     // --- Spectral（幻灵）对齐 Balatro，简化为法术卡；见 spellTags.js ---
@@ -198,6 +218,7 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
+      shopPrice: 4,
       description: "从下列字母中随机移除1个，将3个带有增强效果的元音字母加入你的牌库",
     },
     {
@@ -207,6 +228,7 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
+      shopPrice: 4,
       description: "从下列字母中随机移除1个，将2个带有增强效果的E加入你的牌库",
     },
     {
@@ -216,6 +238,7 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
+      shopPrice: 4,
       description: "从下列字母中随机移除1个，将4个带有增强效果的辅音字母加入你的牌库",
     },
     {
@@ -225,6 +248,7 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
+      shopPrice: 4,
       description: `从下列字母中随机挑选1个，为其添加${getTileBoardAccessoryTitle("coin")}`,
     },
     {
@@ -233,6 +257,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-shining-2-fill",
       pickCount: 1,
       tags: SPECTRAL,
+      shopPrice: 3,
       description: "选择1个字母，为其添加一个随机配饰",
     },
     {
@@ -241,6 +266,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-archive-2-fill",
       pickCount: 0,
       tags: SPECTRAL,
+      shopPrice: 4,
       description: "获取一个随机的史诗宝藏",
     },
     {
@@ -249,6 +275,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-wallet-3-fill",
       pickCount: 0,
       tags: SPECTRAL,
+      shopPrice: 7,
       description: "获取一个随机的传说宝藏，将钱包余额变为$0",
     },
     {
@@ -258,6 +285,7 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
+      shopPrice: 3,
       description: "将下列字母全部转换为同一个随机的稀有度",
     },
     {
@@ -266,6 +294,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-candle-fill",
       pickCount: 0,
       tags: SPECTRAL,
+      shopPrice: 5,
       description: `为你的一个随机宝藏添加${getTreasureAccessoryPanelTitle("treasure_acc_crop")}，但你之后拼写的单词都会视为-1长度`,
     },
     {
@@ -275,6 +304,7 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
+      shopPrice: 5,
       description: "随机移除下方全部字母，获得$20",
     },
     {
@@ -283,6 +313,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-key-2-fill",
       pickCount: 0,
       tags: SPECTRAL,
+      shopPrice: 5,
       description: "从你的宝藏中随机挑选1个，摧毁其他宝藏，然后创建一个挑选的宝藏的复制",
     },
     {
@@ -292,6 +323,7 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
+      shopPrice: 4,
       description: `从下列字母中随机挑选1个，为其添加${getTileBoardAccessoryTitle("rewind")}`,
     },
     {
@@ -301,6 +333,7 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
+      shopPrice: 4,
       description: `从下列字母中随机挑选1个，为其添加${getTreasureAccessoryPanelTitle("treasure_acc_wrench")}`,
     },
     {
@@ -310,6 +343,7 @@ function buildSpellDefinitions() {
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
+      shopPrice: 4,
       description: `从下列字母中随机挑选1个，为其添加${getTileBoardAccessoryTitle("vip_diamond")}`,
     },
     {
@@ -327,7 +361,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-palette-fill",
       pickCount: 0,
       tags: SPECTRAL,
-      shopPrice: 6,
+      shopPrice: 7,
       description: "将所有稀有度的等级提升1级",
     },
   ];
