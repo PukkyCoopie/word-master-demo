@@ -191,7 +191,7 @@
             </div>
 
             <div class="run-start-dialog-progress">
-              <span class="run-start-dialog-seed-label">对局进度</span>
+              <span class="run-start-dialog-seed-label">游戏进度</span>
               <div class="run-start-dialog-progress-grid">
                 <div class="run-start-dialog-progress-cell">
                   <span class="run-start-dialog-progress-value">{{ continueLevelLabel }}</span>
@@ -602,7 +602,6 @@ function onCancel() {
 .run-start-dialog-seed-input::placeholder {
   font-weight: 500;
   letter-spacing: normal;
-  opacity: 0.55;
 }
 
 .run-start-dialog-seed-readonly {
@@ -699,7 +698,7 @@ function onCancel() {
 
 .run-start-dialog-continue-difficulty-pill :deep(.difficulty-pill) {
   font-size: calc(22 * var(--rpx));
-  padding: calc(4 * var(--rpx)) calc(14 * var(--rpx));
+  padding: calc(6 * var(--rpx)) calc(16 * var(--rpx));
 }
 
 .run-start-dialog-preset-readonly-card {

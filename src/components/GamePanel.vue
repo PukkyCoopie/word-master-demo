@@ -8398,7 +8398,6 @@ function onBossBlindRerollPaid() {
   if (!s) return;
   if (!canPayBossBlindReroll(ownedVoucherIds.value, s.rerollsUsed, money.value)) return;
   money.value -= BOSS_BLIND_REROLL_COST_DOLLARS;
-  noteRunReroll();
   const rerollNonce = s.rerollNonce + 1;
   const rerollsUsed = s.rerollsUsed + 1;
   const slug = pickBossSlugForLevel(s.levelId, getRunSeedNumeric(), rerollNonce);

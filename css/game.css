@@ -27,6 +27,9 @@
 	--card-bright: #eee4da;
 	--text: #776e65;
 	--text-soft: #8f7a66;
+	--text-dark: #3c3a32;
+	/* 输入框 placeholder：显式色值 + opacity:1，避免 iOS/Android/WebKit 默认半透明灰不一致 */
+	--input-placeholder: rgba(60, 58, 50, 0.55);
 	--accent: #edc22e;
 	/* 金钱符号 / 金币展示：深金黄（DarkGoldenRod），在 #eee4da 卡面上可读 */
 	--money-gold: #b8860b;
@@ -58,8 +61,8 @@
 	--btn-white: #f9f6f2;
 	--btn-yellow: #edc22e;
 	--btn-green: #7cb342;
-	/* 商店「刷新」按钮上的价格字：同色相、更高饱和与明度，叠在 --btn-green 上可读 */
-	--shop-reroll-price-green: #daf56f;
+	/* 商店「刷新」/ Boss 重掷按钮上的价格字：黄色叠在 --btn-green 上，配合轻阴影增强可读 */
+	--shop-reroll-price-accent: #ffe566;
 	/* 商店货架：牌包区并排 2 格，单卡区/底部已拥有格与之统一（108 为格比例基准） */
 	--shop-shelf-cell-size: calc(108 * var(--rpx));
 	/* 对局信息 · 优惠券 Tab 网格格（商店货架与 --shop-shelf-cell-size 一致） */
@@ -120,6 +123,24 @@
 	--ease-circ-out: cubic-bezier(0.075, 0.82, 0.165, 1);
 	--ease-circ-in: cubic-bezier(0.6, 0.04, 0.98, 0.335);
 	--ease-circ-in-out: cubic-bezier(0.785, 0.135, 0.15, 0.86);
+}
+
+input::placeholder,
+textarea::placeholder {
+	color: var(--input-placeholder);
+	opacity: 1;
+}
+
+input::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder {
+	color: var(--input-placeholder);
+	opacity: 1;
+}
+
+input::-moz-placeholder,
+textarea::-moz-placeholder {
+	color: var(--input-placeholder);
+	opacity: 1;
 }
 
 .top-area {
@@ -470,7 +491,8 @@
 	margin: calc(6 * var(--rpx)) 0 0;
 	font-size: calc(26 * var(--rpx));
 	font-weight: 600;
-	color: var(--text-muted, #5a6a7a);
+	color: rgba(250, 247, 242, 0.78);
+	text-shadow: 0 calc(1 * var(--rpx)) calc(6 * var(--rpx)) rgba(0, 0, 0, 0.35);
 	text-align: center;
 }
 
@@ -478,6 +500,8 @@
 	margin: calc(10 * var(--rpx)) 0 0;
 	font-size: calc(28 * var(--rpx));
 	font-weight: 700;
+	color: #faf7f2;
+	text-shadow: 0 calc(1 * var(--rpx)) calc(8 * var(--rpx)) rgba(0, 0, 0, 0.4);
 	text-align: center;
 }
 
@@ -485,7 +509,37 @@
 	margin: 0 0 calc(8 * var(--rpx));
 	font-size: calc(30 * var(--rpx));
 	font-weight: 700;
-	color: var(--text-primary, #2a3540);
+	color: rgba(248, 244, 238, 0.96);
+}
+
+.boss-blind-reroll-backdrop .boss-blind-reroll-btn {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	gap: calc(10 * var(--rpx));
+	text-align: left;
+}
+
+.boss-blind-reroll-backdrop .shop-btn-reroll-price {
+	flex-shrink: 0;
+	font-variant-numeric: tabular-nums;
+	font-size: calc(28 * var(--rpx));
+	font-weight: 800;
+	line-height: 1.1;
+	color: var(--shop-reroll-price-accent, var(--btn-yellow));
+	text-shadow:
+		0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.42),
+		0 0 calc(1 * var(--rpx)) rgba(0, 0, 0, 0.28);
+}
+
+.boss-blind-reroll-backdrop .shop-btn-reroll-dollar {
+	font-weight: 800;
+	margin-right: calc(1 * var(--rpx));
+}
+
+.boss-blind-reroll-backdrop .shop-btn-reroll-lead {
+	flex-shrink: 0;
 }
 
 /* ----- 相乘结果区域（宽:高 = 4:1） ----- */
@@ -3264,7 +3318,15 @@
 }
 
 .treasure-detail-backdrop.boss-blind-reroll-backdrop {
-	background: rgba(0, 0, 0, 0.55);
+	background: rgba(48, 62, 78, 0.84);
+}
+
+.treasure-detail-backdrop--boot {
+	box-shadow: none;
+}
+
+.treasure-detail-backdrop--boot .treasure-detail-header-panel {
+	opacity: 0;
 }
 
 .treasure-detail-backdrop--boot .treasure-detail-stagger-el {
@@ -3838,11 +3900,17 @@
 	box-sizing: border-box;
 	border-radius: calc(12 * var(--rpx));
 	overflow: hidden;
-	background: rgba(42, 38, 48, 0.82);
+	/* 由 GSAP 从透明淡入，避免首帧实色再被 set 成透明造成闪一下 */
+	background: transparent;
 }
 
 .pack-pick-backdrop.pack-pick-backdrop--boot {
-	background: rgba(42, 38, 48, 0);
+	background: transparent;
+	box-shadow: none;
+}
+
+.pack-pick-backdrop--boot .pack-pick-enter-stagger {
+	opacity: 0;
 }
 
 .pack-pick-header-panel {
@@ -4190,6 +4258,11 @@
 
 .spell-target-backdrop--closing {
 	pointer-events: none;
+}
+
+/* GSAP 未写入或入场完成后：保证军绿蒙层可见（boot/closing 期间仍由动画控制） */
+.spell-target-backdrop:not(.spell-target-backdrop--boot):not(.spell-target-backdrop--closing) {
+	background-color: rgba(72, 90, 58, 0.78);
 }
 
 /* 首帧：与宝藏详情 `.treasure-detail-backdrop--boot` 相同思路，避免首 paint 在 GSAP 写入前闪一帧 */

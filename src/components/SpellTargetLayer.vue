@@ -215,6 +215,9 @@ const props = defineProps({
 
 const emit = defineEmits(["confirm", "cancel"]);
 
+const SPELL_TARGET_SCRIM_TRANSPARENT = "rgba(72, 90, 58, 0)";
+const SPELL_TARGET_SCRIM_OPAQUE = "rgba(72, 90, 58, 0.78)";
+
 const titleId = useId();
 const backdropRef = ref(null);
 const stackZ = ref(0);
@@ -661,7 +664,7 @@ function playClose() {
       closeTl.to(
         backdrop,
         {
-          ...portalScrimGsapVars("rgba(72, 90, 58, 0)"),
+          ...portalScrimGsapVars(SPELL_TARGET_SCRIM_TRANSPARENT),
           duration: 0.22,
           ease: EASE_TRANSFORM,
         },
@@ -696,9 +699,21 @@ function getSpellIconEl() {
 
 defineExpose({ playConfirmAppearanceAnim, playClose, getOfferTileEl, getSpellIconEl });
 
+/** @param {HTMLElement} backdrop */
+function setBackdropScrim(backdrop, rgba) {
+  gsap.set(backdrop, portalScrimGsapVars(rgba));
+}
+
+/** @param {HTMLElement} backdrop @param {HTMLElement[]} staggerEls */
 function applyEnterInitialHide(backdrop, staggerEls) {
   gsap.killTweensOf([backdrop, ...staggerEls, iconColumnRef.value].filter(Boolean));
-  gsap.set(backdrop, portalScrimGsapVars("rgba(72, 90, 58, 0)"));
+  setBackdropScrim(backdrop, SPELL_TARGET_SCRIM_TRANSPARENT);
+  applyStaggerEnterInitialHide(staggerEls);
+}
+
+/** @param {HTMLElement[]} staggerEls */
+function applyStaggerEnterInitialHide(staggerEls) {
+  gsap.killTweensOf([...staggerEls, iconColumnRef.value].filter(Boolean));
   gsap.set(staggerEls, { opacity: 0, y: 8 });
   /* 图标列在 boot 解除后易先亮一帧，与宝藏详情 targetVisual 同样先写 GSAP */
   if (iconColumnRef.value) {
@@ -708,7 +723,7 @@ function applyEnterInitialHide(backdrop, staggerEls) {
 
 function runEnterAnimation() {
   const backdrop = backdropRef.value;
-  if (!backdrop) return;
+  if (!backdrop || props.overlaySuppressed) return;
 
   if (enterTl) {
     enterTl.kill();
@@ -722,9 +737,9 @@ function runEnterAnimation() {
   /* 遮罩立刻从透明匀缓加深，避免等 RAF 后再起 tween 像闪一下 */
   gsap.fromTo(
     backdrop,
-    portalScrimGsapVars("rgba(72, 90, 58, 0)"),
+    portalScrimGsapVars(SPELL_TARGET_SCRIM_TRANSPARENT),
     {
-      ...portalScrimGsapVars("rgba(72, 90, 58, 0.78)"),
+      ...portalScrimGsapVars(SPELL_TARGET_SCRIM_OPAQUE),
       duration: 0.42,
       ease: EASE_TRANSFORM,
     },
@@ -740,10 +755,12 @@ function runEnterAnimation() {
     )
     .then(() => {
       const backdropLive = backdropRef.value;
-      if (!backdropLive) return;
+      if (!backdropLive || props.overlaySuppressed) return;
 
       const staggerLive = staggerTargets();
-      applyEnterInitialHide(backdropLive, staggerLive);
+      /* 仅重置子块入场态；勿再把蒙层设回透明，否则会抹掉上方 fromTo 且不再补播 */
+      applyStaggerEnterInitialHide(staggerLive);
+      setBackdropScrim(backdropLive, SPELL_TARGET_SCRIM_OPAQUE);
 
       bootMask.value = false;
 
@@ -764,12 +781,32 @@ function runEnterAnimation() {
 }
 
 onMounted(() => {
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => runEnterAnimation());
+  void nextTick().then(() => {
+    const backdrop = backdropRef.value;
+    if (backdrop) {
+      applyEnterInitialHide(backdrop, staggerTargets());
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => runEnterAnimation());
+    });
   });
 });
 
+watch(
+  () => props.overlaySuppressed,
+  (suppressed, was) => {
+    if (was && !suppressed) {
+      bootMask.value = true;
+      void nextTick(() => {
+        requestAnimationFrame(() => runEnterAnimation());
+      });
+    }
+  },
+);
+
 onUnmounted(() => {
+  const backdrop = backdropRef.value;
+  gsap.killTweensOf([backdrop, ...staggerTargets(), iconColumnRef.value].filter(Boolean));
   if (enterTl) {
     enterTl.kill();
     enterTl = null;

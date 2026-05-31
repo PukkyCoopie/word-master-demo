@@ -1799,7 +1799,7 @@ function close() {
 .info-preset-difficulty-card {
   min-height: calc(152 * var(--rpx));
   border-radius: var(--radius);
-  background: var(--card, #eee4da);
+  background: var(--bg, #faf8ef);
   padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
   box-sizing: border-box;
   display: flex;

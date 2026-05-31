@@ -36,7 +36,7 @@ const pillStyle = computed(() => ({
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  padding: calc(2 * var(--rpx)) calc(10 * var(--rpx));
+  padding: calc(5 * var(--rpx)) calc(14 * var(--rpx));
   border-radius: calc(999 * var(--rpx));
   font-size: calc(18 * var(--rpx));
   font-weight: 700;

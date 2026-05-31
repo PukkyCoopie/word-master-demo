@@ -190,7 +190,7 @@ const statusHint = ref(null);
 const hintStackZ = ref(0);
 const hintBackdropStackStyle = computed(() => (hintStackZ.value > 0 ? { zIndex: hintStackZ.value } : undefined));
 const statusHintText = computed(() => {
-  if (statusHint.value === "lock") return "使用其他预设取得胜利以解锁";
+  if (statusHint.value === "lock") return "使用其他未取得过胜利的预设通关以解锁";
   if (statusHint.value === "won") return "你已用本预设通关过游戏";
   return "";
 });

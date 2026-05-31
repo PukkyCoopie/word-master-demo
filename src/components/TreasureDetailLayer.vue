@@ -1253,6 +1253,16 @@ const flyCloneStyle = computed(() => {
   };
 });
 
+/** @param {HTMLElement} backdrop @param {HTMLElement[]} staggerEls @param {HTMLElement | null} targetVisual */
+function applyEnterInitialHide(backdrop, staggerEls, targetVisual) {
+  gsap.killTweensOf([backdrop, targetVisual, ...staggerEls].filter(Boolean));
+  gsap.set(backdrop, portalScrimGsapVars("rgba(14, 12, 10, 0)"));
+  gsap.set(staggerEls, { opacity: 0, y: 7 });
+  if (targetVisual) {
+    gsap.set(targetVisual, { opacity: 0, pointerEvents: "none" });
+  }
+}
+
 function runEnterAnimation() {
   const backdrop = backdropRef.value;
   const targetVisual = targetVisualRef.value;
@@ -1269,8 +1279,12 @@ function runEnterAnimation() {
 
   gsap.killTweensOf([backdrop, targetVisual, clone, ...staggerEls].filter(Boolean));
 
-  gsap.set(backdrop, portalScrimGsapVars("rgba(14, 12, 10, 0)"));
-  gsap.set(staggerEls, { opacity: 0, y: 7 });
+  bootMask.value = true;
+  applyEnterInitialHide(backdrop, staggerEls, targetVisual);
+
+  if (!hasFly && targetVisual) {
+    gsap.set(targetVisual, { scale: 0.94, transformOrigin: "50% 50%" });
+  }
 
   /* 遮罩与测量解耦：立刻从透明匀缓加深，避免等字体/RAF 后再起 tween 像闪一下 */
   gsap.fromTo(
@@ -1283,17 +1297,6 @@ function runEnterAnimation() {
     },
   );
 
-  /* 有飞行时立刻藏住终点处的真卡片，否则 boot 解除后 icon 列会先亮一帧在目标位 */
-  if (validOrigin(props.originRect) && targetVisual) {
-    gsap.set(targetVisual, { opacity: 0, pointerEvents: "none" });
-  }
-
-  if (!hasFly) {
-    gsap.set(targetVisual, { opacity: 0, scale: 0.94, transformOrigin: "50% 50%" });
-  }
-
-  bootMask.value = false;
-
   void nextTick()
     .then(() => (document.fonts?.ready != null ? document.fonts.ready : Promise.resolve()))
     .then(
@@ -1303,6 +1306,18 @@ function runEnterAnimation() {
         }),
     )
     .then(() => {
+      const backdropLive = backdropRef.value;
+      const targetVisualLive = targetVisualRef.value;
+      if (!backdropLive || !targetVisualLive) return;
+
+      const staggerLive = staggerTargets();
+      applyEnterInitialHide(backdropLive, staggerLive, targetVisualLive);
+      if (!hasFly) {
+        gsap.set(targetVisualLive, { scale: 0.94, transformOrigin: "50% 50%" });
+      }
+
+      bootMask.value = false;
+
       /** @type {{ left: number, top: number, width: number, height: number } | null} */
       let flyTo = null;
       /** @type {{ left: number, top: number, width: number, height: number } | null} */
@@ -1534,10 +1549,29 @@ watch(
 onMounted(() => {
   armBackdropSelfCloseGuard();
   document.addEventListener("keydown", onEsc);
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => runEnterAnimation());
+  void nextTick(() => {
+    const backdrop = backdropRef.value;
+    const targetVisual = targetVisualRef.value;
+    if (backdrop && targetVisual) {
+      applyEnterInitialHide(backdrop, staggerTargets(), targetVisual);
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => runEnterAnimation());
+    });
   });
 });
+
+watch(
+  () => props.overlaySuppressed,
+  (suppressed, was) => {
+    if (was && !suppressed) {
+      bootMask.value = true;
+      void nextTick(() => {
+        requestAnimationFrame(() => runEnterAnimation());
+      });
+    }
+  },
+);
 
 onUnmounted(() => {
   document.removeEventListener("keydown", onEsc);

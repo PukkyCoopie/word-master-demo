@@ -35,7 +35,6 @@ export const treasureHooks = {
     if (getScoreAddBank(ctx.treasureRun, ID) >= LEVELS_NEEDED) return;
     addScoreAddBank(ctx.treasureRun, ID, 1);
     const n = Math.min(LEVELS_NEEDED, Math.max(0, Math.round(getScoreAddBank(ctx.treasureRun, ID))));
-    await ctx.wobbleOwnedTreasureById?.(ID);
     await ctx.playOwnedTreasureBubbleFx?.(ID, `${n}/${LEVELS_NEEDED}`, "score");
   },
   async onTreasureSold(ctx) {

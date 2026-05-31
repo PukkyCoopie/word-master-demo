@@ -52,11 +52,14 @@
           <div class="treasure-detail-actions">
             <button
               type="button"
-              class="shop-btn shop-btn--reroll"
+              class="shop-btn shop-btn--reroll boss-blind-reroll-btn"
               :disabled="!canReroll"
               @click="emit('reroll')"
             >
-              重掷 ${{ rerollCost }}
+              <span class="shop-btn-reroll-price" aria-label="重掷费用">
+                <span class="shop-btn-reroll-dollar">$</span>{{ rerollCost }}
+              </span>
+              <span class="shop-btn-reroll-lead">重掷</span>
             </button>
             <button type="button" class="shop-btn shop-btn--next" @click="emit('continue', $event)">
               继续

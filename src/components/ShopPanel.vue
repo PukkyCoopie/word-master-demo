@@ -1220,9 +1220,12 @@ defineExpose({
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   font-size: calc(30 * var(--rpx));
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.1;
-  color: var(--shop-reroll-price-green);
+  color: var(--shop-reroll-price-accent, var(--btn-yellow));
+  text-shadow:
+    0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.42),
+    0 0 calc(1 * var(--rpx)) rgba(0, 0, 0, 0.28);
 }
 
 .shop-actions-col .shop-btn-reroll-dollar {

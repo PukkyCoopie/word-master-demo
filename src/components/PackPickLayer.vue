@@ -209,24 +209,29 @@ function killEnterTweens() {
   }
 }
 
+function applyEnterInitialHide(backdrop, staggerEls) {
+  gsap.set(backdrop, portalScrimGsapVars("rgba(42, 38, 48, 0)"));
+  gsap.set(staggerEls, { opacity: 0, y: 10, scale: 0.96 });
+}
+
 function runEnterAnimation() {
   const backdrop = backdropRef.value;
   if (!backdrop || props.overlaySuppressed) return;
   killEnterTweens();
+  enterBoot.value = true;
   const staggerEls = collectEnterStaggerEls();
-  gsap.set(backdrop, portalScrimGsapVars("rgba(42, 38, 48, 0)"));
-  gsap.set(staggerEls, { opacity: 0, y: 10, scale: 0.96 });
-  enterBoot.value = false;
-  enterTl = gsap.timeline();
-  enterTl.to(
+  applyEnterInitialHide(backdrop, staggerEls);
+  gsap.fromTo(
     backdrop,
+    portalScrimGsapVars("rgba(42, 38, 48, 0)"),
     {
       ...portalScrimGsapVars("rgba(42, 38, 48, 0.82)"),
       duration: 0.42,
       ease: EASE_TRANSFORM,
     },
-    0,
   );
+  enterBoot.value = false;
+  enterTl = gsap.timeline();
   enterTl.to(
     staggerEls,
     {
@@ -358,6 +363,10 @@ function onSkip() {
 onMounted(() => {
   stackZ.value = bumpOverlayZ();
   void nextTick().then(() => {
+    const backdrop = backdropRef.value;
+    if (backdrop) {
+      applyEnterInitialHide(backdrop, collectEnterStaggerEls());
+    }
     requestAnimationFrame(() => runEnterAnimation());
   });
 });
@@ -366,6 +375,7 @@ watch(
   () => props.overlaySuppressed,
   (suppressed, was) => {
     if (was && !suppressed) {
+      enterBoot.value = true;
       void nextTick().then(() => runEnterAnimation());
     }
   },
