@@ -41,6 +41,6 @@ export const treasureHooks = {
   async onTreasureSold(ctx) {
     if (ctx.soldTreasureId !== ID) return;
     if (getScoreAddBank(ctx.treasureRun, ID) < LEVELS_NEEDED) return;
-    ctx.grantRandomTreasureCopy?.();
+    ctx.grantRandomTreasureCopy?.(ctx.soldSlotIndex);
   },
 };

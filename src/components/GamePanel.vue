@@ -827,6 +827,7 @@ import {
 import { createRunEndConfettiController } from "../game/runEndConfetti.js";
 import BossBlindRerollLayer from "./BossBlindRerollLayer.vue";
 import { getBossDef } from "../game/bossBlindDefinitions.js";
+import { isBossLevelEnterRestrictionSlug } from "../game/bossRestrictionCue.js";
 import {
   BOSS_CLUB_POS_OPTIONS,
   bossHasWholeWordSoftRule,
@@ -1250,6 +1251,7 @@ const {
   verdantTreasureSoldRef: verdantTreasureSold,
   bossMechanicsSuppressedRef: bossMechanicsSuppressed,
   onBossTapeTriggerCue: () => bossTapeTriggerCueDispatch(),
+  onBossRestrictionTreasureCue: () => bossRestrictionTreasureCueDispatch(),
 });
 
 /**
@@ -1321,6 +1323,8 @@ const pendingBossSlugOverride = ref("");
 const crimsonTreasureDisabledSlotIndex = ref(/** @type {number | null} */ (null));
 /** 供 `useGameState` 游蛇补牌等回调（在 `playBossTapeTriggerCue` 定义后赋值） */
 let bossTapeTriggerCueDispatch = () => {};
+/** 供 `useGameState` 游蛇补牌等：匕首 Boss 限制触发 */
+let bossRestrictionTreasureCueDispatch = () => {};
 const bossTapeAttentionPulse = ref(false);
 const bossTapeWobble = ref(false);
 /** Boss 效果触发：条带 wobble + 强外扩 ripple（折臂/倒钩/公牛等） */
@@ -1354,6 +1358,24 @@ function playBossTapeTriggerCue() {
   });
 }
 bossTapeTriggerCueDispatch = playBossTapeTriggerCue;
+
+async function notifyBossRestrictionTreasures(bossSlug = bossSlugForMechanics()) {
+  const slug = String(bossSlug ?? "").trim();
+  if (!slug || bossMechanicsSuppressed.value) return;
+  await notifyOwnedTreasuresOnBossRestrictionTriggered(ownedSlotTreasureIdList(), {
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    treasureRun: treasureRunState.value,
+    bossSlug: slug,
+    addMoney: (n) => {
+      money.value += Math.max(0, Math.floor(Number(n) || 0));
+    },
+    playOwnedTreasureMoneyFx,
+  });
+}
+
+bossRestrictionTreasureCueDispatch = () => {
+  void notifyBossRestrictionTreasures();
+};
 
 const isManacleBossGrid = computed(() => bossSlugForMechanics() === "the_manacle");
 const isAmberBossMaskActive = computed(() => bossSlugForMechanics() === "amber_acorn");
@@ -1462,7 +1484,7 @@ function clearVerdantDebuffsOnGrid() {
   touchGrid();
 }
 
-function applyHookBossAfterSubmit() {
+async function applyHookBossAfterSubmit() {
   if (bossSlugForMechanics() !== "the_hook") return;
   const g = grid.value;
   /** @type {{ r: number, c: number }[]} */
@@ -1484,6 +1506,7 @@ function applyHookBossAfterSubmit() {
     if (t) t.bossTileDebuffed = true;
   }
   touchGrid();
+  await notifyBossRestrictionTreasures("the_hook");
 }
 
 function shuffleArrayInPlaceLocal(arr) {
@@ -2184,6 +2207,7 @@ function onShopSelectPackOffer(payload) {
 }
 
 function onShopSelectOwned(payload) {
+  if (!payload?.treasure) return;
   treasureDetail.value = {
     kind: "owned",
     slotIndex: payload.index,
@@ -2662,6 +2686,7 @@ function buildTreasurePatchDescriptionContext() {
     rollRandomBigram: rollRandomBigramForTreasure,
     rng: runRandom,
     money: money.value,
+    ownedTreasureInstances: ownedTreasures.value.filter(Boolean),
   };
 }
 
@@ -2706,19 +2731,21 @@ const treasureDetailChargeProgress = computed(() => {
 });
 
 /** 已拥有槽：充能外观（篮球等）；商店货架商品不加 */
-const treasureChargeVisualBySlot = computed(() =>
-  ownedTreasures.value.map((s) =>
+const treasureChargeVisualBySlot = computed(() => {
+  const run = treasureRunState.value;
+  return ownedTreasures.value.map((s) =>
     s?.treasureId
-      ? resolveTreasureChargeVisualState(s.treasureId, basketballWordsSubmitted.value)
+      ? resolveTreasureChargeVisualState(s.treasureId, basketballWordsSubmitted.value, run)
       : null,
-  ),
-);
+  );
+});
 
-const treasureChargeProgressBySlot = computed(() =>
-  ownedTreasures.value.map((s) =>
-    s?.treasureId ? resolveTreasureChargeProgress(s.treasureId, basketballWordsSubmitted.value) : 0,
-  ),
-);
+const treasureChargeProgressBySlot = computed(() => {
+  const run = treasureRunState.value;
+  return ownedTreasures.value.map((s) =>
+    s?.treasureId ? resolveTreasureChargeProgress(s.treasureId, basketballWordsSubmitted.value, run) : 0,
+  );
+});
 
 const gameOwnedDragPreview = ref(/** @type {(Array<object | null>) | null} */ (null));
 const gameOwnedKeyOrder = ref(ownedTreasures.value.map((_, i) => `g-slot-${i}`));
@@ -2768,22 +2795,24 @@ const displayOwnedTreasures = computed(() => gameOwnedDragPreview.value ?? owned
 const displayOwnedTreasureKeys = computed(() => {
   return gameOwnedKeyOrder.value;
 });
-const displayTreasureChargeVisualBySlot = computed(() =>
-  displayOwnedTreasures.value.map((s) =>
+const displayTreasureChargeVisualBySlot = computed(() => {
+  const run = treasureRunState.value;
+  return displayOwnedTreasures.value.map((s) =>
     s?.treasureId
-      ? resolveTreasureChargeVisualState(s.treasureId, basketballWordsSubmitted.value)
+      ? resolveTreasureChargeVisualState(s.treasureId, basketballWordsSubmitted.value, run)
       : null,
-  ),
-);
-const displayTreasureChargeProgressBySlot = computed(() =>
-  displayOwnedTreasures.value.map((s) =>
-    s?.treasureId ? resolveTreasureChargeProgress(s.treasureId, basketballWordsSubmitted.value) : 0,
-  ),
-);
+  );
+});
+const displayTreasureChargeProgressBySlot = computed(() => {
+  const run = treasureRunState.value;
+  return displayOwnedTreasures.value.map((s) =>
+    s?.treasureId ? resolveTreasureChargeProgress(s.treasureId, basketballWordsSubmitted.value, run) : 0,
+  );
+});
 
 const treasureSellRefund = computed(() => {
   const d = treasureDetail.value;
-  if (!d || d.kind !== "owned") return 0;
+  if (!d || d.kind !== "owned" || !d.treasure) return 0;
   return Math.floor(Number(d.treasure.price) / 2);
 });
 
@@ -2882,7 +2911,7 @@ function ownedSlotTreasureIdList() {
 }
 
 /** 镜子(104) 卖出：复制一个已拥有宝藏的原始版（无商店配饰） */
-function grantCopyOfRandomOwnedTreasure(excludeTreasureId = "104") {
+function grantCopyOfRandomOwnedTreasure(excludeTreasureId = "104", targetSlotIndex = -1) {
   const filled = ownedTreasures.value.filter(
     (s) => s?.treasureId && String(s.treasureId) !== String(excludeTreasureId),
   );
@@ -2890,9 +2919,13 @@ function grantCopyOfRandomOwnedTreasure(excludeTreasureId = "104") {
   const pick = filled[Math.floor(runRandom() * filled.length)];
   const def = getTreasureDef(String(pick.treasureId));
   if (!def) return false;
-  const ix = findTreasurePlacementIndex(null);
-  if (ix < 0) return false;
   const slots = [...ownedTreasures.value];
+  const preferred = Math.floor(Number(targetSlotIndex));
+  const ix =
+    Number.isInteger(preferred) && preferred >= 0 && preferred < slots.length
+      ? preferred
+      : findTreasurePlacementIndex(null);
+  if (ix < 0) return false;
   slots[ix] = {
     treasureId: def.treasureId,
     price: def.price,
@@ -3140,6 +3173,11 @@ async function resetLevelAfterTreasurePrep(levelDef) {
   resetLevel(levelDef, opts);
   syncPlayerMarkBatchCounterFromGrid();
   await runTreasureLevelEnterHooks(levelDef?.id ?? "1-1");
+  const levelId = levelDef?.id ?? "1-1";
+  const mechSlug = bossSlugForMechanics();
+  if (parseLevelSubFromId(levelId) === 3 && isBossLevelEnterRestrictionSlug(mechSlug)) {
+    await notifyBossRestrictionTreasures(mechSlug);
+  }
   scheduleRunAutoSave();
 }
 
@@ -8181,17 +8219,21 @@ async function onTreasureSell() {
   await treasureDetailLayerRef.value?.playClose?.();
   money.value += Math.floor(Number(cur.price) / 2);
   const soldId = String(cur.treasureId ?? "");
+  let copyGrantedAtSoldSlot = false;
   await notifyOwnedTreasuresOnTreasureSold(ownedSlotTreasureIdList(), {
     treasureRun: treasureRunState.value,
     soldTreasureId: soldId,
     soldSlotIndex: ix,
-    grantRandomTreasureCopy: () => grantCopyOfRandomOwnedTreasure("104"),
+    grantRandomTreasureCopy: (targetSlotIndex = ix) => {
+      copyGrantedAtSoldSlot = grantCopyOfRandomOwnedTreasure("104", targetSlotIndex);
+      return copyGrantedAtSoldSlot;
+    },
     wobbleOwnedTreasureById,
     playOwnedTreasureBubbleFx,
   });
   const slots = [...ownedTreasures.value];
   const compacted = compactOwnedSlotsAfterCropSell(slots, ix, cur);
-  if (!compacted) slots[ix] = null;
+  if (!compacted && !copyGrantedAtSoldSlot) slots[ix] = null;
   ownedTreasures.value = slots;
   if (compacted) {
     const keys = [...gameOwnedKeyOrder.value];
@@ -9253,6 +9295,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     if (!submitBossToothTapeCuePlayed) {
       submitBossToothTapeCuePlayed = true;
       playBossTapeTriggerCue();
+      await notifyBossRestrictionTreasures("the_tooth");
     }
     wobbleScoreSlot(slotEl, sp);
     await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
@@ -9622,6 +9665,7 @@ async function runArmBossLengthDowngradePostScoreFx(len, beforeLevel) {
   armBossLengthDowngradeFxActive.value = true;
   shopOverlayLayersSuppressed.value = true;
   playBossTapeTriggerCue();
+  await notifyBossRestrictionTreasures("the_arm");
   await nextTick();
   try {
     await runLengthDowngradeShopLikeFx({
@@ -9837,6 +9881,10 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     crimsonTreasureDisabledSlotIndex.value != null
   ) {
     playBossTapeTriggerCue();
+    await notifyBossRestrictionTreasures("crimson_heart");
+  }
+  if (!skipLetters && isFlintBossActive.value) {
+    await notifyBossRestrictionTreasures("the_flint");
   }
   seedAnimFormulaFromSubmitDetailed(detailed);
 
@@ -10160,7 +10208,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   }
 
   applySubmitRefill({ skipNewFromDeck });
-  applyHookBossAfterSubmit();
+  await applyHookBossAfterSubmit();
   gridRefillAnimating.value = true;
   const dropPromise = (async () => {
     await nextTick();
@@ -10438,10 +10486,11 @@ async function onRemoveClick() {
 }
 
 /** 青铃锁：棋盘稳定后从格内飞入词槽（与玩家点选同一套飞字） */
-function tryCeruleanBellFlyInAfterGridStable() {
+async function tryCeruleanBellFlyInAfterGridStable() {
   const pick = prepareCeruleanBellPickAfterGridStable();
   if (!pick) return;
   playBossTapeTriggerCue();
+  await notifyBossRestrictionTreasures("cerulean_bell");
   const tile = grid.value[pick.row]?.[pick.col];
   if (!tile?.letter) return;
   startOneMoveIn(pick.row, pick.col, tile, { ceruleanBell: true });
@@ -10709,17 +10758,7 @@ async function submitWord() {
     },
   );
   if (submitViolated) {
-    if (bossSlugForMechanics()) {
-      await notifyOwnedTreasuresOnBossRestrictionTriggered(ownedSlotTreasureIdList(), {
-        ownedSlotTreasureIds: ownedSlotTreasureIdList(),
-        treasureRun: treasureRunState.value,
-        bossSlug: bossSlugForMechanics(),
-        addMoney: (n) => {
-          money.value += Math.max(0, Math.floor(Number(n) || 0));
-        },
-        playOwnedTreasureMoneyFx,
-      });
-    }
+    await notifyBossRestrictionTreasures();
     bossTapeWobble.value = true;
     setTimeout(() => {
       bossTapeWobble.value = false;
@@ -10796,6 +10835,7 @@ async function submitWord() {
       if (oxHit) {
         playBossTapeTriggerCue();
         money.value = 0;
+        await notifyBossRestrictionTreasures("the_ox");
       }
     } else {
       mouthLockedLengthBoss.value = nextMouthLockedLengthAfterSubmit(

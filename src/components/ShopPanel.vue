@@ -880,6 +880,7 @@ function onSelectVoucher(slot, e) {
 function onSelectOwned(index, treasure, e) {
   if (props.interactionsDisabled) return;
   if (shopOwnedDragMoved.value) return;
+  if (!treasure) return;
   emit("select-owned", { index, treasure, originEl: e.currentTarget });
 }
 

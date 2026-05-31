@@ -3,8 +3,9 @@
     <div
       v-if="session"
       ref="backdropRef"
-      class="spell-target-backdrop spell-target-backdrop--boot"
+      class="spell-target-backdrop"
       :class="{
+        'spell-target-backdrop--boot': bootMask,
         'spell-target-backdrop--closing': closing,
         'portal-overlay--shop-upgrade-suppressed': overlaySuppressed,
       }"
@@ -232,6 +233,8 @@ let enterTl = null;
 let closeTl = null;
 
 const closing = ref(false);
+/** 首帧 CSS 隐藏子块，待 GSAP 写入后再解除，避免与详情层同款闪一帧 */
+const bootMask = ref(true);
 
 watch(
   () => props.session,
@@ -693,9 +696,18 @@ function getSpellIconEl() {
 
 defineExpose({ playConfirmAppearanceAnim, playClose, getOfferTileEl, getSpellIconEl });
 
+function applyEnterInitialHide(backdrop, staggerEls) {
+  gsap.killTweensOf([backdrop, ...staggerEls, iconColumnRef.value].filter(Boolean));
+  gsap.set(backdrop, portalScrimGsapVars("rgba(72, 90, 58, 0)"));
+  gsap.set(staggerEls, { opacity: 0, y: 8 });
+  /* 图标列在 boot 解除后易先亮一帧，与宝藏详情 targetVisual 同样先写 GSAP */
+  if (iconColumnRef.value) {
+    gsap.set(iconColumnRef.value, { opacity: 0, pointerEvents: "none" });
+  }
+}
+
 function runEnterAnimation() {
   const backdrop = backdropRef.value;
-  const staggerEls = staggerTargets();
   if (!backdrop) return;
 
   if (enterTl) {
@@ -703,9 +715,9 @@ function runEnterAnimation() {
     enterTl = null;
   }
 
-  gsap.killTweensOf([backdrop, ...staggerEls].filter(Boolean));
-  gsap.set(backdrop, portalScrimGsapVars("rgba(72, 90, 58, 0)"));
-  gsap.set(staggerEls, { opacity: 0, y: 8 });
+  bootMask.value = true;
+  const staggerEls = staggerTargets();
+  applyEnterInitialHide(backdrop, staggerEls);
 
   /* 遮罩立刻从透明匀缓加深，避免等 RAF 后再起 tween 像闪一下 */
   gsap.fromTo(
@@ -718,29 +730,43 @@ function runEnterAnimation() {
     },
   );
 
-  backdrop.classList.remove("spell-target-backdrop--boot");
+  void nextTick()
+    .then(() => (document.fonts?.ready != null ? document.fonts.ready : Promise.resolve()))
+    .then(
+      () =>
+        new Promise((r) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)));
+        }),
+    )
+    .then(() => {
+      const backdropLive = backdropRef.value;
+      if (!backdropLive) return;
 
-  enterTl = gsap.timeline();
-  enterTl.to(
-    staggerEls,
-    {
-      opacity: 1,
-      y: 0,
-      duration: 0.2,
-      stagger: 0.05,
-      ease: EASE_TRANSFORM,
-      clearProps: "opacity,transform",
-    },
-    0.08,
-  );
+      const staggerLive = staggerTargets();
+      applyEnterInitialHide(backdropLive, staggerLive);
+
+      bootMask.value = false;
+
+      enterTl = gsap.timeline();
+      enterTl.to(
+        staggerLive,
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.2,
+          stagger: 0.05,
+          ease: EASE_TRANSFORM,
+          clearProps: "opacity,transform,pointerEvents",
+        },
+        0.08,
+      );
+    });
 }
 
 onMounted(() => {
-  if (backdropRef.value) {
-    runEnterAnimation();
-    return;
-  }
-  requestAnimationFrame(() => runEnterAnimation());
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => runEnterAnimation());
+  });
 });
 
 onUnmounted(() => {

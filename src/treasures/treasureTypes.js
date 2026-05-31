@@ -61,6 +61,7 @@
  * 已拥有槽位充能条（仅当宝藏实现了 `getChargeVisualState` / `getChargeProgress` 时展示）
  * @typedef {Object} TreasureChargeVisualContext
  * @property {number} chargeWordsSubmitted 本关已成功结算的拼词次数（与 `onSuccessfulWordSubmit` 所 bump 的计数一致）
+ * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun] 整局银行/计数（如镜子关卡进度）
  */
 
 /**
@@ -207,6 +208,7 @@
  * @property {() => number} [rng]
  * @property {number} [money] 当前钱包（动态简介用）
  * @property {readonly unknown[]} [fullDeck] 本局完整牌库 multiset（动态简介用）
+ * @property {object[]} [ownedTreasureInstances] 当前已拥有宝藏实例（动态简介用）
  */
 
 /**
@@ -291,7 +293,7 @@
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
  * @property {string} [soldTreasureId]
  * @property {number} [soldSlotIndex]
- * @property {() => boolean} [grantRandomTreasureCopy] 卖出时创建随机其他宝藏原始版（空槽）
+ * @property {(targetSlotIndex?: number) => boolean} [grantRandomTreasureCopy] 卖出时创建随机其他宝藏原始版；可选指定落位槽（如镜子卖出格）
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  */

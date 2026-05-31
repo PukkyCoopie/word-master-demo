@@ -52,25 +52,27 @@ export function getTreasureDef(treasureId) {
 /**
  * @param {string | null | undefined} treasureId
  * @param {number} chargeWordsSubmitted
+ * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} [treasureRun]
  * @returns {'inactive' | 'active' | null}
  */
-export function resolveTreasureChargeVisualState(treasureId, chargeWordsSubmitted) {
+export function resolveTreasureChargeVisualState(treasureId, chargeWordsSubmitted, treasureRun) {
   if (!treasureId) return null;
   const hooks = TREASURE_HOOKS_BY_ID.get(treasureId);
   if (!hooks?.getChargeVisualState) return null;
-  return hooks.getChargeVisualState({ chargeWordsSubmitted });
+  return hooks.getChargeVisualState({ chargeWordsSubmitted, treasureRun: treasureRun ?? undefined });
 }
 
 /**
  * @param {string | null | undefined} treasureId
  * @param {number} chargeWordsSubmitted
+ * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} [treasureRun]
  * @returns {number}
  */
-export function resolveTreasureChargeProgress(treasureId, chargeWordsSubmitted) {
+export function resolveTreasureChargeProgress(treasureId, chargeWordsSubmitted, treasureRun) {
   if (!treasureId) return 0;
   const hooks = TREASURE_HOOKS_BY_ID.get(treasureId);
   if (!hooks?.getChargeProgress) return 0;
-  return hooks.getChargeProgress({ chargeWordsSubmitted });
+  return hooks.getChargeProgress({ chargeWordsSubmitted, treasureRun: treasureRun ?? undefined });
 }
 
 /**
