@@ -327,10 +327,7 @@
             <div class="info-preset-difficulty-card">
               <DifficultyPill :index="runDifficultyIndex" />
               <div class="info-preset-difficulty-desc">
-                <DifficultyDescText
-                  :description="runDifficultyDef.description"
-                  :size="runDifficultyDescSizeTier"
-                />
+                <DifficultyDescText :description="runDifficultyDef.description" />
                 <p v-if="runDifficultyIndex > 0" class="info-preset-difficulty-desc-stack">之前的难度也会生效</p>
               </div>
             </div>
@@ -471,12 +468,6 @@ const INFO_TAB_PANEL_REF = {
 const runPresetDef = computed(() => getRunPresetDef(normalizeRunPresetId(props.runPresetId)));
 const runDifficultyIndex = computed(() => normalizeRunDifficultyIndex(props.runDifficultyIndex));
 const runDifficultyDef = computed(() => getRunDifficultyDef(runDifficultyIndex.value));
-const runDifficultyDescSizeTier = computed(() => {
-  const len = String(runDifficultyDef.value.description ?? "").length;
-  if (len > 34) return "long";
-  if (len > 18) return "medium";
-  return "normal";
-});
 const runPresetDescTier = computed(() => {
   const tier = getPresetDescriptionLayoutTier(runPresetDef.value);
   return tier === "normal" ? "medium" : "compact";
@@ -1806,7 +1797,7 @@ function close() {
 }
 
 .info-preset-difficulty-card {
-  min-height: calc(142 * var(--rpx));
+  min-height: calc(152 * var(--rpx));
   border-radius: var(--radius);
   background: var(--card, #eee4da);
   padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
@@ -1826,13 +1817,13 @@ function close() {
   gap: calc(4 * var(--rpx));
   width: 100%;
   min-width: 0;
-  max-height: calc(88 * var(--rpx));
+  max-height: calc(98 * var(--rpx));
   overflow: hidden;
 }
 
 .info-preset-difficulty-desc-stack {
   margin: 0;
-  font-size: calc(18 * var(--rpx));
+  font-size: calc(19 * var(--rpx));
   line-height: 1.3;
   color: rgba(60, 58, 50, 0.62);
 }

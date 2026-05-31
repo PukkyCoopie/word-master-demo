@@ -305,9 +305,9 @@ defineExpose({
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
-  height: calc(142 * var(--rpx));
-  min-height: calc(142 * var(--rpx));
-  max-height: calc(142 * var(--rpx));
+  height: calc(152 * var(--rpx));
+  min-height: calc(152 * var(--rpx));
+  max-height: calc(152 * var(--rpx));
   border-radius: var(--radius);
   background: var(--card, #eee4da);
   padding: calc(12 * var(--rpx)) calc(14 * var(--rpx)) calc(26 * var(--rpx));
@@ -402,32 +402,32 @@ defineExpose({
   justify-content: center;
   width: 100%;
   min-width: 0;
-  max-height: calc(72 * var(--rpx));
+  max-height: calc(82 * var(--rpx));
   overflow: hidden;
 }
 
 .run-start-preset-desc-slot :deep(.preset-desc-rich-text) {
-  font-size: calc(22 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
   line-height: 1.4;
 }
 
 .run-start-preset-desc-slot :deep(.preset-desc-rich-text--medium) {
-  font-size: calc(20 * var(--rpx));
+  font-size: calc(22 * var(--rpx));
   line-height: 1.38;
 }
 
 .run-start-preset-desc-slot :deep(.preset-desc-rich-text--compact) {
-  font-size: calc(18 * var(--rpx));
+  font-size: calc(20 * var(--rpx));
   line-height: 1.34;
 }
 
 .run-start-preset-desc-slot :deep(.preset-desc-chip) {
-  font-size: calc(17 * var(--rpx));
+  font-size: calc(18 * var(--rpx));
   padding: calc(1 * var(--rpx)) calc(6 * var(--rpx));
 }
 
 .run-start-preset-desc-slot :deep(.preset-desc-rich-text--compact .preset-desc-chip) {
-  font-size: calc(15 * var(--rpx));
+  font-size: calc(16 * var(--rpx));
 }
 
 .run-start-preset-pagination {

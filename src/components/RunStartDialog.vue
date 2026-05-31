@@ -431,7 +431,7 @@ function onCancel() {
 }
 
 .run-start-dialog-enter-active {
-  transition: opacity 0.42s step-end;
+  transition: opacity 0.5s step-end;
 }
 
 .run-start-dialog-leave-active {
@@ -453,7 +453,7 @@ function onCancel() {
 .run-start-dialog-enter-active .run-start-dialog-card {
   animation:
     run-start-dialog-card-rise 0.2s var(--ease-circ-out) both,
-    run-start-dialog-card-settle 0.22s var(--ease-circ-in) 0.2s forwards;
+    run-start-dialog-card-settle 0.3s var(--ease-circ-in-out) 0.2s forwards;
 }
 
 .run-start-dialog-leave-active .run-start-dialog-scrim {
@@ -671,7 +671,7 @@ function onCancel() {
 
 .run-start-dialog-continue-meta-row {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 3fr 1fr;
   gap: calc(10 * var(--rpx));
   margin-top: calc(10 * var(--rpx));
 }
@@ -686,7 +686,7 @@ function onCancel() {
 .run-start-dialog-difficulty-readonly-card {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: calc(142 * var(--rpx));
+  min-height: calc(152 * var(--rpx));
   border-radius: var(--radius);
   background: var(--card, #eee4da);
   padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
@@ -703,9 +703,9 @@ function onCancel() {
 }
 
 .run-start-dialog-preset-readonly-card {
-  height: calc(142 * var(--rpx));
-  min-height: calc(142 * var(--rpx));
-  max-height: calc(142 * var(--rpx));
+  height: calc(152 * var(--rpx));
+  min-height: calc(152 * var(--rpx));
+  max-height: calc(152 * var(--rpx));
   border-radius: var(--radius);
   background: var(--card, #eee4da);
   padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
@@ -748,33 +748,33 @@ function onCancel() {
   justify-content: center;
   width: 100%;
   min-width: 0;
-  max-height: calc(88 * var(--rpx));
+  max-height: calc(98 * var(--rpx));
   overflow: hidden;
   margin-top: calc(8 * var(--rpx));
 }
 
 .run-start-dialog-preset-readonly-desc :deep(.preset-desc-rich-text) {
-  font-size: calc(22 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
   line-height: 1.4;
 }
 
 .run-start-dialog-preset-readonly-desc :deep(.preset-desc-rich-text--medium) {
-  font-size: calc(20 * var(--rpx));
+  font-size: calc(22 * var(--rpx));
   line-height: 1.38;
 }
 
 .run-start-dialog-preset-readonly-desc :deep(.preset-desc-rich-text--compact) {
-  font-size: calc(18 * var(--rpx));
+  font-size: calc(20 * var(--rpx));
   line-height: 1.34;
 }
 
 .run-start-dialog-preset-readonly-desc :deep(.preset-desc-chip) {
-  font-size: calc(17 * var(--rpx));
+  font-size: calc(18 * var(--rpx));
   padding: calc(1 * var(--rpx)) calc(6 * var(--rpx));
 }
 
 .run-start-dialog-preset-readonly-desc :deep(.preset-desc-rich-text--compact .preset-desc-chip) {
-  font-size: calc(15 * var(--rpx));
+  font-size: calc(16 * var(--rpx));
 }
 
 .run-start-dialog-seed-random {

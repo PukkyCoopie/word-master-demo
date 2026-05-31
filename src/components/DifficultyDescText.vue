@@ -1,5 +1,5 @@
 <template>
-  <div class="difficulty-desc-text" :class="sizeClass">
+  <div class="difficulty-desc-text">
     <p class="difficulty-desc-line">
       <template v-for="(seg, i) in mainSegments" :key="`m-${i}`">
         <span v-if="seg.type === 'text'">{{ seg.v }}</span>
@@ -25,8 +25,6 @@ import { parsePlainEffectCopyToSegments } from "../treasures/treasureDescription
 
 const props = defineProps({
   description: { type: String, default: "" },
-  /** normal | medium | long */
-  size: { type: String, default: "normal" },
 });
 
 /** @param {string} text */
@@ -45,12 +43,6 @@ const mainSegments = computed(() => parsePlainEffectCopyToSegments(descParts.val
 const parenSegments = computed(() =>
   descParts.value.paren ? parsePlainEffectCopyToSegments(descParts.value.paren) : [],
 );
-
-const sizeClass = computed(() => {
-  if (props.size === "long") return "difficulty-desc-text--long";
-  if (props.size === "medium") return "difficulty-desc-text--medium";
-  return "";
-});
 </script>
 
 <style scoped>
@@ -65,7 +57,7 @@ const sizeClass = computed(() => {
 
 .difficulty-desc-line {
   margin: 0;
-  font-size: calc(20 * var(--rpx));
+  font-size: calc(22 * var(--rpx));
   line-height: 1.35;
   color: var(--text-dark, #3c3a32);
   display: -webkit-box;
@@ -78,16 +70,6 @@ const sizeClass = computed(() => {
 .difficulty-desc-line--paren {
   -webkit-line-clamp: 1;
   opacity: 0.88;
-}
-
-.difficulty-desc-text--medium .difficulty-desc-line {
-  font-size: calc(18 * var(--rpx));
-  line-height: 1.32;
-}
-
-.difficulty-desc-text--long .difficulty-desc-line {
-  font-size: calc(16 * var(--rpx));
-  line-height: 1.3;
 }
 
 .difficulty-desc-money {

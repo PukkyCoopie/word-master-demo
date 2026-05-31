@@ -46,7 +46,7 @@ const PRESETS = [
     emoji: "💱",
     name: "兑换",
     description: describe(
-      "拼写和丢弃次数会转化为",
+      "拼写和丢弃次数会结算为",
       money("2"),
       "和",
       money("1"),
@@ -108,8 +108,8 @@ const PRESETS = [
     id: "preset_09",
     emoji: "🎴",
     name: "纸牌",
-    description: describe("开局时拥有 4 颗额外的", entityInline("wildcardTile", "wildcard")),
-    effects: { startWildcardCount: 4 },
+    description: describe("开局时拥有 5 颗额外的", entityInline("wildcardTile", "wildcard")),
+    effects: { startWildcardCount: 5 },
   },
   {
     id: "preset_10",

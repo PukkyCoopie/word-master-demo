@@ -29,10 +29,7 @@
             <DifficultyPill :index="browseIndex" />
           </div>
           <div class="run-start-difficulty-desc-slot">
-            <DifficultyDescText
-              :description="currentDef.description"
-              :size="descSizeTier"
-            />
+            <DifficultyDescText :description="currentDef.description" />
             <p v-if="showStackHint" class="run-start-difficulty-desc-stack">之前的难度也会生效</p>
           </div>
         </div>
@@ -147,13 +144,6 @@ const showFreshBadge = computed(() => {
   return props.freshUnlockDifficultyIndices.some((n) => normalizeRunDifficultyIndex(n) === ix);
 });
 
-const descSizeTier = computed(() => {
-  const len = String(currentDef.value.description ?? "").length;
-  if (len > 34) return "long";
-  if (len > 18) return "medium";
-  return "normal";
-});
-
 /** @type {import('vue').Ref<'lock' | null>} */
 const statusHint = ref(null);
 const hintStackZ = ref(0);
@@ -251,9 +241,9 @@ defineExpose({
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
-  height: calc(142 * var(--rpx));
-  min-height: calc(142 * var(--rpx));
-  max-height: calc(142 * var(--rpx));
+  height: calc(152 * var(--rpx));
+  min-height: calc(152 * var(--rpx));
+  max-height: calc(152 * var(--rpx));
   border-radius: var(--radius);
   background: var(--card, #eee4da);
   padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
@@ -314,13 +304,13 @@ defineExpose({
   gap: calc(4 * var(--rpx));
   width: 100%;
   min-width: 0;
-  max-height: calc(88 * var(--rpx));
+  max-height: calc(98 * var(--rpx));
   overflow: hidden;
 }
 
 .run-start-difficulty-desc-stack {
   margin: 0;
-  font-size: calc(18 * var(--rpx));
+  font-size: calc(19 * var(--rpx));
   line-height: 1.3;
   color: rgba(60, 58, 50, 0.62);
 }
@@ -354,10 +344,6 @@ defineExpose({
   box-shadow:
     inset 0 0 0 calc(1.5 * var(--rpx)) rgba(255, 255, 255, 0.85),
     0 0 0 calc(1.5 * var(--rpx)) rgba(60, 58, 50, 0.35);
-}
-
-.run-start-difficulty-bar--locked {
-  opacity: 1;
 }
 </style>
 

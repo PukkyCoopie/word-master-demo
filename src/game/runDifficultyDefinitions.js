@@ -34,7 +34,7 @@ const DIFFICULTIES = Object.freeze([
     label: "难度4",
     color: "#d4b84a",
     textColor: "#ffffff",
-    description: "商店中的宝藏有30%的概率带有禁售配饰（不能被卖出或摧毁）",
+    description: "宝藏有30%的概率带有禁售配饰（不能被卖出或摧毁）",
   },
   {
     index: 4,
@@ -53,16 +53,16 @@ const DIFFICULTIES = Object.freeze([
   {
     index: 6,
     label: "难度7",
-    color: "#8b5fd4",
+    color: "#7a52c6",
     textColor: "#ffffff",
-    description: "商店中的宝藏有30%的概率带有沙漏配饰（在5个关卡后失效）",
+    description: "宝藏有30%的概率带有沙漏配饰（在5个关卡后失效）",
   },
   {
     index: 7,
     label: "难度8",
     color: "#2a2a2a",
     textColor: "#ffffff",
-    description: "商店中的宝藏有30%的概率带有租赁配饰（可以花费$1元购买，但每关扣除$3）",
+    description: "宝藏有30%的概率带有租赁配饰（花费$1元购买，但每关扣除$3）",
   },
 ]);
 
