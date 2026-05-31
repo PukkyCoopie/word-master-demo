@@ -10,7 +10,7 @@
  */
 
 import { isBossTileDebuffed } from "./bossTileDebuff.js";
-import { TILE_ACCESSORY_REWIND } from "./tileAccessories.js";
+import { tileHasRewindAccessory } from "../accessories/accessoryScoring.js";
 
 /** 与 GamePanel 下落 stagger 一致：最下一排先「入场」，用于棋盘光环类结算/预览排序 */
 export const GRID_ENTRANCE_ROW_STAGGER = 0.045;
@@ -32,7 +32,7 @@ export function gridTileEntranceDelayKey(row, col, rows, cols, colMul = 1) {
  * @param {{ accessoryId?: string | null } | null | undefined} tile
  */
 export function getGridPresenceEffectTriggerCount(tile) {
-  return tile?.accessoryId === TILE_ACCESSORY_REWIND ? 2 : 1;
+  return tileHasRewindAccessory(tile) ? 2 : 1;
 }
 
 /** @type {ReadonlySet<string>} */

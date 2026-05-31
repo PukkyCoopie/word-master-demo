@@ -116,6 +116,7 @@ function ensureTelescopeLengthUpgradeInBundleOpts(opts, mostLen, makeLengthUpgra
  *   ownedVoucherIds?: Iterable<string>,
  *   spellCountsByLength?: Record<string, number> | null,
  *   honeAccessoryMult?: number,
+ *   runDifficultyIndex?: number | null,
  * }} ctx
  */
 export function rollPackOfferStock(ctx) {
@@ -147,7 +148,8 @@ export function rollPackOfferStock(ctx) {
 
   const makeRarityUpgrade = (rk) => buildRarityUpgradeShopRow(nextPackId, rk);
 
-  const toTreasureOfferRow = (def) => buildTreasureShopRowFromDef(nextPackId, def, rng, honeMult);
+  const toTreasureOfferRow = (def) =>
+    buildTreasureShopRowFromDef(nextPackId, def, rng, honeMult, ctx.runDifficultyIndex ?? null);
 
   const availableTreasureCount = pool.filter(
     (t) => t && !owned.has(t.treasureId) && !sessionExcluded?.has(t.treasureId),

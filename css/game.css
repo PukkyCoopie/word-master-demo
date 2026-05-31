@@ -2342,6 +2342,87 @@
 	background: #2f855a;
 }
 
+.treasure-accessory-chip--no-sell {
+	--treasure-acc-ripple-color: rgba(120, 120, 120, 0.72);
+	background: #6b7280;
+}
+
+.treasure-accessory-chip--hourglass {
+	--treasure-acc-ripple-color: rgba(120, 120, 120, 0.72);
+	background: #9ca3af;
+}
+
+.treasure-accessory-chip--rental {
+	--treasure-acc-ripple-color: rgba(180, 83, 9, 0.72);
+	background: #b45309;
+}
+
+.treasure-accessory-chip-stack {
+	position: absolute;
+	top: var(--shop-shelf-acc-chip-inset);
+	right: var(--shop-shelf-acc-chip-inset);
+	z-index: 4;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: calc(3 * var(--rpx));
+	pointer-events: none;
+}
+
+.treasure-accessory-chip-stack .treasure-accessory-chip {
+	position: relative;
+	top: auto;
+	right: auto;
+}
+
+.treasure-slot.filled.treasure-slot--accessory-expired .treasure-slot-emoji,
+.treasure-slot.filled.treasure-slot--accessory-expired .letter-gem {
+	filter: brightness(0.72) saturate(0.85);
+}
+
+.header-box-level-title {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: calc(8 * var(--rpx));
+}
+
+.header-level-title-text {
+	min-width: 0;
+}
+
+.header-level-difficulty-pill {
+	flex-shrink: 0;
+}
+
+.score-popup-bubble--hourglass {
+	background: #fff;
+	color: #4b5563;
+	min-width: calc(34 * var(--rpx));
+	min-height: calc(34 * var(--rpx));
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: calc(4 * var(--rpx)) calc(8 * var(--rpx));
+}
+
+.score-popup-bubble-hourglass-icon {
+	font-size: calc(22 * var(--rpx));
+	line-height: 1;
+	color: #4b5563;
+}
+
+.score-popup-bubble--accessory-expired {
+	background: #9ca3af;
+	color: #fff;
+	font-weight: 700;
+}
+
+.shop-btn--sell-blocked {
+	opacity: 0.35;
+	pointer-events: none;
+}
+
 .treasure-accessory-chip-ripple {
 	position: absolute;
 	background: transparent;
@@ -2968,6 +3049,39 @@
 	max-height: var(--desc-inline-sample-size);
 	aspect-ratio: 1;
 	vertical-align: middle;
+}
+
+/* 预设简介行内实体：外框缩小 25%，emoji/字母字号保持与原尺寸一致 */
+.preset-desc-rich-text {
+	--desc-inline-preset-scale: 0.75;
+}
+
+.preset-desc-rich-text .desc-inline-entity--voucher {
+	width: calc(var(--desc-inline-sample-size) * var(--desc-inline-preset-scale));
+}
+
+.preset-desc-rich-text .desc-inline-entity--voucher .voucher-stamp__frame {
+	height: calc(var(--desc-inline-sample-size) * var(--desc-inline-preset-scale));
+}
+
+.preset-desc-rich-text .desc-inline-entity__letter.grid-tile,
+.preset-desc-rich-text .desc-inline-entity__slot.treasure-slot {
+	width: calc(var(--desc-inline-sample-size) * var(--desc-inline-preset-scale));
+	height: calc(var(--desc-inline-sample-size) * var(--desc-inline-preset-scale));
+	min-width: calc(var(--desc-inline-sample-size) * var(--desc-inline-preset-scale));
+	min-height: calc(var(--desc-inline-sample-size) * var(--desc-inline-preset-scale));
+	max-width: calc(var(--desc-inline-sample-size) * var(--desc-inline-preset-scale));
+	max-height: calc(var(--desc-inline-sample-size) * var(--desc-inline-preset-scale));
+}
+
+@container treasure-cell (min-width: 0px) {
+	.preset-desc-rich-text .desc-inline-entity__letter.grid-tile .letter-tile-char {
+		font-size: calc(100cqmin * 38 / 81);
+	}
+
+	.preset-desc-rich-text .desc-inline-entity--voucher .voucher-stamp__frame .voucher-stamp__emoji {
+		font-size: calc(100cqmin * 42 / 81);
+	}
 }
 
 /* 对局信息：已购优惠券网格（InfoModal） */

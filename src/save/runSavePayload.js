@@ -93,6 +93,7 @@
  * @property {unknown} runMatchStats
  * @property {'fail' | 'win'} [runEndOutcome]
  * @property {string} [runPresetId]
+ * @property {number} [runDifficultyIndex]
  */
 
 export {};

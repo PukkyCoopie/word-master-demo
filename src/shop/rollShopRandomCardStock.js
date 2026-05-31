@@ -73,6 +73,7 @@ function pickWeightedCategory(keys, weights, rng) {
  *   shopTreasurePool: import("../treasures/treasureTypes.js").TreasureDef[],
  *   ownedVoucherIds?: Iterable<string>,
  *   honeAccessoryMult?: number,
+ *   runDifficultyIndex?: number | null,
  * }} ctx
  */
 /**
@@ -134,7 +135,7 @@ function createShopRandomCardRoller(ctx) {
     const def = pickWeightedTreasureFromPool(avail, rng);
     if (!def) return null;
     sessionExcluded?.add(def.treasureId);
-    return buildTreasureShopRowFromDef(ctx.nextOfferInstanceId, def, rng, honeMult);
+    return buildTreasureShopRowFromDef(ctx.nextOfferInstanceId, def, rng, honeMult, ctx.runDifficultyIndex ?? null);
   }
 
   function trySpell() {

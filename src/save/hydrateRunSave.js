@@ -2,6 +2,7 @@ import { createRunRng } from "../game/runRng.js";
 import { deserializeRunMatchStats } from "./runMatchStatsCodec.js";
 import { deserializeTreasureRunState } from "./treasureRunStateCodec.js";
 import { normalizeRunSavePhase } from "./runSaveSchema.js";
+import { normalizeOwnedTreasureSlot } from "../accessories/accessoryState.js";
 import { cloneSaveData } from "./saveDataClone.js";
 
 /**
@@ -23,7 +24,12 @@ export function hydrateRunSave(payload, ctx) {
   }
   if (ctx.moneyRef) ctx.moneyRef.value = Math.max(0, Math.floor(Number(payload.money) || 0));
 
-  if (ctx.ownedTreasuresRef) ctx.ownedTreasuresRef.value = cloneSaveData(payload.ownedTreasures ?? []);
+  if (ctx.ownedTreasuresRef) {
+    const slots = cloneSaveData(payload.ownedTreasures ?? []).map((s) =>
+      s && typeof s === "object" ? normalizeOwnedTreasureSlot(/** @type {Record<string, unknown>} */ (s)) : s,
+    );
+    ctx.ownedTreasuresRef.value = slots;
+  }
   if (ctx.ownedVoucherIdsRef) ctx.ownedVoucherIdsRef.value = [...(payload.ownedVoucherIds ?? [])].map(String);
   if (ctx.treasureRunStateRef) {
     ctx.treasureRunStateRef.value = deserializeTreasureRunState(payload.treasureRunState);
@@ -109,5 +115,11 @@ export function hydrateRunSave(payload, ctx) {
   }
   if (ctx.runPresetIdRef) {
     ctx.runPresetIdRef.value = String(payload.runPresetId ?? "preset_01");
+  }
+  if (ctx.runDifficultyIndexRef) {
+    ctx.runDifficultyIndexRef.value = Math.max(
+      0,
+      Math.min(7, Math.floor(Number(payload.runDifficultyIndex) || 0)),
+    );
   }
 }

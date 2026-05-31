@@ -187,15 +187,21 @@
                     treasure.lengthBadgeLabel || treasure.lengthLabel
                   }}</span>
                 </template>
-                <span
-                  v-if="accessoryChipVisual"
-                  class="treasure-accessory-chip"
-                  :class="accessoryChipVisual.chipClass"
+                <div
+                  v-if="accessoryChipVisuals.length"
+                  class="treasure-accessory-chip-stack treasure-accessory-chip-stack--detail"
                   aria-hidden="true"
                 >
-                  <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
-                  <i class="treasure-accessory-chip-icon" :class="accessoryChipVisual.iconClass" aria-hidden="true" />
-                </span>
+                  <span
+                    v-for="(chip, chipIx) in accessoryChipVisuals"
+                    :key="`${chip.chipClass}-${chipIx}`"
+                    class="treasure-accessory-chip"
+                    :class="chip.chipClass"
+                  >
+                    <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+                    <i class="treasure-accessory-chip-icon" :class="chip.iconClass" aria-hidden="true" />
+                  </span>
+                </div>
                 <i
                   v-if="chargeVisualState != null"
                   class="treasure-charge-corner-icon treasure-detail-disabled-mark ri-flashlight-fill"
@@ -436,26 +442,30 @@
           </div>
 
           <div
-            v-if="showTreasureAccessoryPanel && !isDeckOffer"
+            v-if="showTreasureAccessoryPanels"
             ref="accessoryPanelRef"
             class="treasure-detail-extra-regions treasure-detail-stagger-el"
           >
-            <div class="treasure-detail-desc-card treasure-detail-accessory-card">
+            <div
+              v-for="panel in treasureAccessoryPanels"
+              :key="'treasure-acc-' + panel.id"
+              class="treasure-detail-desc-card treasure-detail-accessory-card"
+            >
               <div class="treasure-detail-desc-panel-title-row">
                 <span
-                  v-if="accessoryChipVisual"
+                  v-if="panel.chip"
                   class="treasure-accessory-chip detail-panel-accessory-chip-inline"
-                  :class="accessoryChipVisual.chipClass"
+                  :class="panel.chip.chipClass"
                   aria-hidden="true"
                 >
                   <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
-                  <i class="treasure-accessory-chip-icon" :class="accessoryChipVisual.iconClass" aria-hidden="true" />
+                  <i class="treasure-accessory-chip-icon" :class="panel.chip.iconClass" aria-hidden="true" />
                 </span>
-                <span class="treasure-detail-desc-panel-title-text">{{ treasureAccessoryPanelTitle }}</span>
+                <span class="treasure-detail-desc-panel-title-text">{{ panel.title }}</span>
               </div>
               <TreasureDescRichText
                 class="treasure-detail-desc-panel-rich"
-                :description="treasureAccessoryPanelBody"
+                :description="panel.body"
                 :panel-body="true"
               />
             </div>
@@ -496,6 +506,7 @@
               v-if="isOwnedMode"
               type="button"
               class="shop-btn shop-btn--reroll"
+              :class="{ 'shop-btn--sell-blocked': sellBlockedByNoSell }"
               :disabled="!sellEnabled"
               @click="emit('sell')"
             >
@@ -608,15 +619,21 @@
               treasure.lengthBadgeLabel || treasure.lengthLabel
             }}</span>
           </template>
-          <span
-            v-if="accessoryChipVisual"
-            class="treasure-accessory-chip"
-            :class="accessoryChipVisual.chipClass"
+          <div
+            v-if="accessoryChipVisuals.length"
+            class="treasure-accessory-chip-stack treasure-accessory-chip-stack--detail"
             aria-hidden="true"
           >
-            <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
-            <i class="treasure-accessory-chip-icon" :class="accessoryChipVisual.iconClass" aria-hidden="true" />
-          </span>
+            <span
+              v-for="(chip, chipIx) in accessoryChipVisuals"
+              :key="`${chip.chipClass}-${chipIx}`"
+              class="treasure-accessory-chip"
+              :class="chip.chipClass"
+            >
+              <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+              <i class="treasure-accessory-chip-icon" :class="chip.iconClass" aria-hidden="true" />
+            </span>
+          </div>
           <i
             v-if="chargeVisualState != null"
             class="treasure-charge-corner-icon treasure-detail-disabled-mark ri-flashlight-fill"
@@ -644,9 +661,12 @@ import { computed, nextTick, onBeforeUpdate, onMounted, onUnmounted, ref, useId,
 import { EASE_TRANSFORM } from "../constants.js";
 import {
   getTreasureAccessoryChipVisual,
+  getTreasureAccessoryChipVisualsFromEntity,
   getTreasureAccessoryPanelTitle,
   getTreasureAccessoryPanelDescription,
 } from "../game/treasureAccessories.js";
+import { readTreasureAccessoryIds } from "../accessories/accessoryState.js";
+import { ownedTreasureHasNoSellAccessory } from "../game/runDifficultyRuntime.js";
 import { getTileAccessoryChipVisual } from "../game/tileAccessories.js";
 import { getTileMaterialEffectDescription, getTileAccessoryEffectDescription } from "../game/tileDetailDescriptions.js";
 import {
@@ -716,7 +736,10 @@ const hasTreasureDescBody = computed(() => {
 });
 
 const isOwnedMode = computed(() => props.mode === "owned-shop" || props.mode === "owned-game");
-const sellEnabled = computed(() => isOwnedMode.value);
+const sellBlockedByNoSell = computed(
+  () => isOwnedMode.value && ownedTreasureHasNoSellAccessory(props.treasure),
+);
+const sellEnabled = computed(() => isOwnedMode.value && !sellBlockedByNoSell.value);
 
 /** 局内棋盘打开宝藏详情（owned-game）不重复显示余额，与主界面顶栏一致 */
 const showHeaderWallet = computed(
@@ -768,10 +791,30 @@ const deckOfferTreasureAccessoryId = computed(() => {
   return s || undefined;
 });
 
-const offerTreasureAccessoryId = computed(() => {
-  if (props.treasure?.offerType === "deckTile") return deckOfferTreasureAccessoryId.value ?? null;
-  return props.treasure?.treasureAccessoryId ?? null;
+const offerTreasureAccessoryIds = computed(() => {
+  if (props.treasure?.offerType === "deckTile") {
+    const id = deckOfferTreasureAccessoryId.value;
+    return id ? [id] : [];
+  }
+  return readTreasureAccessoryIds(props.treasure);
 });
+
+const accessoryChipVisuals = computed(() => getTreasureAccessoryChipVisualsFromEntity(props.treasure));
+
+const treasureAccessoryPanels = computed(() =>
+  offerTreasureAccessoryIds.value
+    .map((id) => ({
+      id,
+      chip: getTreasureAccessoryChipVisual(id),
+      title: getTreasureAccessoryPanelTitle(id),
+      body: getTreasureAccessoryPanelDescription(id),
+    }))
+    .filter((p) => Boolean(String(p.body ?? "").trim())),
+);
+
+const showTreasureAccessoryPanels = computed(
+  () => !isDeckOffer.value && treasureAccessoryPanels.value.length > 0,
+);
 
 const deckOfferRarityKey = computed(() => {
   const raw = String(props.treasure?.deckLetterRaw ?? "").toLowerCase();
@@ -986,16 +1029,6 @@ const showDetailRarityTag = computed(
     props.treasure?.offerType !== "voucher",
 );
 
-const accessoryChipVisual = computed(() => getTreasureAccessoryChipVisual(offerTreasureAccessoryId.value));
-
-const treasureAccessoryPanelTitle = computed(() =>
-  getTreasureAccessoryPanelTitle(offerTreasureAccessoryId.value),
-);
-const treasureAccessoryPanelBody = computed(() =>
-  getTreasureAccessoryPanelDescription(offerTreasureAccessoryId.value),
-);
-const showTreasureAccessoryPanel = computed(() => Boolean(String(treasureAccessoryPanelBody.value ?? "").trim()));
-
 const spellGainPanelContent = computed(() => {
   if (!isSpellOffer.value) return null;
   const sid = String(props.treasure?.spellId ?? "").trim();
@@ -1033,8 +1066,8 @@ function descriptionConceptExcludeTitles() {
   if (tg) exclude.add(tg);
   const sg = spellGainPanelContent.value?.title;
   if (sg) exclude.add(sg);
-  const ta = treasureAccessoryPanelTitle.value;
-  if (ta) exclude.add(ta);
+  const ta = treasureAccessoryPanels.value.map((p) => p.title).filter(Boolean);
+  for (const t of ta) exclude.add(t);
   if (showDeckOfferMaterialRegion.value && deckOfferMaterialTitle.value) {
     exclude.add(deckOfferMaterialTitle.value);
   }

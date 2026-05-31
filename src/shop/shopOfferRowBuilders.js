@@ -4,7 +4,8 @@
 import { resolveRestartEffectiveSpellId } from "../game/inRunGrantFlow.js";
 import { getSpellDefinition, getSpellShopPrice } from "../spells/spellDefinitions.js";
 import { LETTER_RARITY_ORDER, getRarityForLetter } from "../composables/useScoring.js";
-import { getShopTreasureAccessoryPriceAdd, rollShopTreasureAccessoryId } from "../treasures/shopTreasureAccessoryRoll.js";
+import { getShopTreasureAccessoryPriceAddFromIds, rollShopTreasureAccessoryId } from "../accessories/accessoryResolve.js";
+import { rollDifficultyNegativeTreasureAccessoryIds, treasureOfferHasRentalAccessory } from "../game/runDifficultyRuntime.js";
 import {
   SHOP_SINGLE_ROW_PRICES,
   SHOP_TILE_PACK_MATERIAL_IDS,
@@ -134,21 +135,38 @@ export function buildRarityUpgradeShopRow(nextOfferInstanceId, rk) {
  * @param {import("../treasures/treasureTypes.js").TreasureDef} def
  * @param {() => number} rng
  * @param {number} [accessoryChanceMult=1]
+ * @param {number | null | undefined} [runDifficultyIndex=null] 非 null 时启用难度负面配饰掷骰
  */
-export function buildTreasureShopRowFromDef(nextOfferInstanceId, def, rng, accessoryChanceMult = 1) {
-  const treasureAccessoryId = rollShopTreasureAccessoryId(rng, accessoryChanceMult);
-  const priceAdd = getShopTreasureAccessoryPriceAdd(treasureAccessoryId);
+export function buildTreasureShopRowFromDef(
+  nextOfferInstanceId,
+  def,
+  rng,
+  accessoryChanceMult = 1,
+  runDifficultyIndex = null,
+) {
+  /** @type {string[]} */
+  const ids = [];
+  if (runDifficultyIndex != null) {
+    ids.push(...rollDifficultyNegativeTreasureAccessoryIds(rng, runDifficultyIndex));
+  }
+  const positive = rollShopTreasureAccessoryId(rng, accessoryChanceMult);
+  if (positive) ids.push(positive);
+  const uniqueIds = [...new Set(ids)];
+  let price = def.price + getShopTreasureAccessoryPriceAddFromIds(uniqueIds);
+  if (treasureOfferHasRentalAccessory(uniqueIds)) price = 1;
+  const legacyId = uniqueIds[0] ?? null;
   return {
     kind: "offer",
     offerInstanceId: nextOfferInstanceId(),
     offerType: "treasure",
     treasureId: def.treasureId,
-    price: def.price + priceAdd,
+    price,
     rarity: def.rarity,
     name: def.name,
     emoji: def.emoji,
     description: def.description,
-    treasureAccessoryId: treasureAccessoryId ?? null,
+    treasureAccessoryIds: uniqueIds,
+    treasureAccessoryId: legacyId,
   };
 }
 

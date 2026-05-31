@@ -6,42 +6,26 @@
  * - 棋盘配饰 ≈ Seal：20%（四种均匀）
  *
  * 材质与配饰独立掷骰；普通配饰与宝藏配饰互斥（若同时命中，保留普通配饰）。
+ * 配饰定义与掷骰池见 `accessories/accessoryCatalog.js`。
  */
+import { DECK_TILE_BOARD_ACCESSORY_CHANCE } from "../accessories/accessoryCatalog.js";
 import {
-  TREASURE_ACCESSORY_DROP,
-  TREASURE_ACCESSORY_FIRE,
-  TREASURE_ACCESSORY_WRENCH,
-} from "../game/treasureAccessories.js";
+  getAccessoryTitle,
+  rollDeckTileBoardAccessoryId,
+  rollDeckTileEditionAccessoryId,
+} from "../accessories/accessoryResolve.js";
 import {
-  getTileBoardAccessoryTitle,
-  getTileMaterialBlockTitle,
-  getTreasureAccessoryPanelTitle,
-} from "../game/gameConceptCopy.js";
-import {
-  TILE_ACCESSORY_COIN,
-  TILE_ACCESSORY_LEVEL_UPGRADE,
-  TILE_ACCESSORY_REWIND,
-  TILE_ACCESSORY_VIP_DIAMOND,
-} from "../game/tileAccessories.js";
+  deckTileOfferHasAccessoryGain,
+  normalizeExclusiveTileAccessoryPair,
+} from "../accessories/accessoryState.js";
+import { getTileMaterialBlockTitle } from "../game/gameConceptCopy.js";
 import { SHOP_TILE_PACK_MATERIAL_IDS } from "./shopPackEconomy.js";
 
 /** Balatro Enhancement（材质） */
 export const DECK_TILE_MATERIAL_CHANCE = 0.4;
 
 /** Balatro Seal（棋盘配饰） */
-export const DECK_TILE_BOARD_ACCESSORY_CHANCE = 0.2;
-
-/** Balatro Edition 分档（无券）；对应水滴 / 火焰 / 扳手 */
-const EDITION_RATE_DROP = 0.04;
-const EDITION_RATE_FIRE = 0.028;
-const EDITION_RATE_WRENCH = 0.012;
-
-const TILE_BOARD_ACC_POOL = Object.freeze([
-  TILE_ACCESSORY_LEVEL_UPGRADE,
-  TILE_ACCESSORY_VIP_DIAMOND,
-  TILE_ACCESSORY_REWIND,
-  TILE_ACCESSORY_COIN,
-]);
+export { DECK_TILE_BOARD_ACCESSORY_CHANCE };
 
 /**
  * @param {() => number} rng
@@ -55,42 +39,16 @@ export function rollDeckTileMaterialId(rng, materialIds = SHOP_TILE_PACK_MATERIA
   return ids[Math.floor(rng() * ids.length)] ?? null;
 }
 
-/**
- * @param {() => number} rng
- * @param {number} [honeAccessoryMult=1] 宝石券：2× / 4×
- * @returns {string | null}
- */
-export function rollDeckTileTreasureAccessoryId(rng, honeAccessoryMult = 1) {
-  if (typeof rng !== "function") return null;
-  const m = Math.min(4, Math.max(1, Number(honeAccessoryMult) || 1));
-  const poly = EDITION_RATE_WRENCH * m;
-  const holo = EDITION_RATE_FIRE * m;
-  const foil = EDITION_RATE_DROP * m;
-  const u = rng();
-  if (u < poly) return TREASURE_ACCESSORY_WRENCH;
-  if (u < poly + holo) return TREASURE_ACCESSORY_FIRE;
-  if (u < poly + holo + foil) return TREASURE_ACCESSORY_DROP;
-  return null;
-}
+/** @deprecated 请用 `rollDeckTileEditionAccessoryId` */
+export const rollDeckTileTreasureAccessoryId = rollDeckTileEditionAccessoryId;
 
-/**
- * @param {() => number} rng
- * @returns {string | null}
- */
-export function rollDeckTileBoardAccessoryId(rng) {
-  if (typeof rng !== "function" || rng() >= DECK_TILE_BOARD_ACCESSORY_CHANCE) return null;
-  return TILE_BOARD_ACC_POOL[Math.floor(rng() * TILE_BOARD_ACC_POOL.length)] ?? null;
-}
+export { rollDeckTileBoardAccessoryId };
 
 /**
  * @param {{ materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null }} mods
  */
 export function deckTileOfferHasGain(mods) {
-  if (!mods || typeof mods !== "object") return false;
-  if (String(mods.materialId ?? "").trim()) return true;
-  if (String(mods.accessoryId ?? "").trim()) return true;
-  if (String(mods.treasureAccessoryId ?? "").trim()) return true;
-  return false;
+  return deckTileOfferHasAccessoryGain(mods);
 }
 
 /**
@@ -103,7 +61,7 @@ export function rollDeckTileModifiers(rng, opts = {}) {
   }
   const hone = opts.honeAccessoryMult ?? 1;
   const mats = opts.materialIds ?? SHOP_TILE_PACK_MATERIAL_IDS;
-  const treasureAccessoryId = rollDeckTileTreasureAccessoryId(rng, hone);
+  const treasureAccessoryId = rollDeckTileEditionAccessoryId(rng, hone);
   const accessoryId = rollDeckTileBoardAccessoryId(rng);
   return {
     materialId: rollDeckTileMaterialId(rng, mats),
@@ -121,16 +79,18 @@ export function buildDeckTileOfferDisplay(letterDisp, mods) {
   const mat = mods.materialId != null ? String(mods.materialId).trim() : "";
   if (mat) parts.push(getTileMaterialBlockTitle(mat) || mat);
   const tAcc = mods.treasureAccessoryId != null ? String(mods.treasureAccessoryId).trim() : "";
-  if (tAcc) parts.push(getTreasureAccessoryPanelTitle(tAcc) || tAcc);
+  if (tAcc) parts.push(getAccessoryTitle(tAcc) || tAcc);
   const bAcc = mods.accessoryId != null ? String(mods.accessoryId).trim() : "";
-  if (bAcc) parts.push(getTileBoardAccessoryTitle(bAcc) || bAcc);
+  if (bAcc) parts.push(getAccessoryTitle(bAcc) || bAcc);
   const name = parts.length ? `${parts.join(" · ")} · ${letterDisp}` : `字母 ${letterDisp}`;
   const descParts = [];
   if (mat) descParts.push(`「${getTileMaterialBlockTitle(mat) || mat}」材质`);
-  if (tAcc) descParts.push(`「${getTreasureAccessoryPanelTitle(tAcc) || tAcc}」`);
-  if (bAcc) descParts.push(`「${getTileBoardAccessoryTitle(bAcc) || bAcc}」`);
+  if (tAcc) descParts.push(`「${getAccessoryTitle(tAcc) || tAcc}」`);
+  if (bAcc) descParts.push(`「${getAccessoryTitle(bAcc) || bAcc}」`);
   const description = descParts.length
     ? `${descParts.join("、")}的「${letterDisp}」加入牌库`
     : `「${letterDisp}」加入牌库${mods.rarityLabel ? `（${mods.rarityLabel}）` : ""}`;
   return { name, description };
 }
+
+export { normalizeExclusiveTileAccessoryPair };

@@ -97,19 +97,25 @@
                         aria-hidden="true"
                       />
                       <span class="shop-treasure-emoji" role="img">{{ opt.emoji }}</span>
-                      <span
-                        v-if="treasureAccessoryChip(opt)"
-                        class="treasure-accessory-chip"
-                        :class="treasureAccessoryChip(opt).chipClass"
+                      <div
+                        v-if="treasureAccessoryChips(opt).length"
+                        class="treasure-accessory-chip-stack"
                         aria-hidden="true"
                       >
-                        <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
-                        <i
-                          class="treasure-accessory-chip-icon"
-                          :class="treasureAccessoryChip(opt).iconClass"
-                          aria-hidden="true"
-                        />
-                      </span>
+                        <span
+                          v-for="(chip, chipIx) in treasureAccessoryChips(opt)"
+                          :key="`${chip.chipClass}-${chipIx}`"
+                          class="treasure-accessory-chip"
+                          :class="chip.chipClass"
+                        >
+                          <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+                          <i
+                            class="treasure-accessory-chip-icon"
+                            :class="chip.iconClass"
+                            aria-hidden="true"
+                          />
+                        </span>
+                      </div>
                     </template>
                   </div>
                   <div class="shop-treasure-price" aria-label="参考售价">
@@ -139,7 +145,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from "v
 import gsap from "gsap";
 import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
 import LetterTile from "./LetterTile.vue";
-import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories.js";
+import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { EASE_TRANSFORM } from "../constants.js";
@@ -312,9 +318,9 @@ function isSingleDigitLabel(label) {
   return /^\d$/.test(String(label ?? "").trim());
 }
 
-function treasureAccessoryChip(opt) {
-  if (!opt || opt.offerType !== "treasure") return null;
-  return getTreasureAccessoryChipVisual(opt.treasureAccessoryId);
+function treasureAccessoryChips(opt) {
+  if (!opt || opt.offerType !== "treasure") return [];
+  return getTreasureAccessoryChipVisualsFromEntity(opt);
 }
 
 function frameClassFor(opt) {

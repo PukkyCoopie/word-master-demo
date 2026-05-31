@@ -32,6 +32,7 @@ import { getWordLengthJudgmentBonus } from "../vouchers/voucherRuntime.js";
 import { applyBossTileDebuffState } from "../game/bossTileDebuff.js";
 import { vowelDisplayLetter } from "../game/vowelNeighborSubstitute.js";
 import { resolvedWordToRemovalLetterRaws } from "../treasures/treasureLogicShared.js";
+import { normalizeExclusiveTileAccessoryPair } from "../accessories/accessoryState.js";
 
 const VOWEL_LETTERS = new Set(["a", "e", "i", "o", "u"]);
 
@@ -86,19 +87,6 @@ export function setDeckCardUidSeq(next) {
 
 function defaultRng() {
   return Math.random();
-}
-
-/**
- * 字母块配饰互斥：同一牌张/格子最多保留一种配饰（普通配饰优先）。
- * @param {unknown} accessoryId
- * @param {unknown} treasureAccessoryId
- */
-function normalizeExclusiveTileAccessoryPair(accessoryId, treasureAccessoryId) {
-  const acc = accessoryId != null ? String(accessoryId).trim() : "";
-  const tAcc = treasureAccessoryId != null ? String(treasureAccessoryId).trim() : "";
-  if (acc) return { accessoryId: acc, treasureAccessoryId: null };
-  if (tAcc) return { accessoryId: null, treasureAccessoryId: tAcc };
-  return { accessoryId: null, treasureAccessoryId: null };
 }
 
 /**

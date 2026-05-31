@@ -9,6 +9,7 @@
  * @property {(string | null)[]} ownedTreasureEmojis
  * @property {number} savedAt
  * @property {string} [runPresetId]
+ * @property {number} [runDifficultyIndex]
  */
 
 /** @typedef {Object} SlotCareerStats
@@ -24,6 +25,9 @@
  * @property {number | null} lastRunEndedAt
  * @property {string[]} presetsWonWith
  * @property {string} [lastSelectedPresetId]
+ * @property {number} [highestDifficultyBeaten]
+ * @property {Record<string, number>} [presetHighestDifficultyWon]
+ * @property {number} [lastSelectedDifficultyIndex]
  */
 
 /** @typedef {Object} RunSaveSlot
@@ -68,6 +72,9 @@ export function createEmptySlotCareerStats() {
     lastRunEndedAt: null,
     presetsWonWith: [],
     lastSelectedPresetId: "",
+    highestDifficultyBeaten: -1,
+    presetHighestDifficultyWon: {},
+    lastSelectedDifficultyIndex: 0,
   };
 }
 

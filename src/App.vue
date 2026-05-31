@@ -36,6 +36,7 @@
             :run-seed="sessionRunSeed"
             :run-seed-display="sessionRunSeedDisplay"
             :run-preset-id="sessionRunPresetId"
+            :run-difficulty-index="sessionRunDifficultyIndex"
             :restored-save="sessionRestoredSave"
             :save-slot-index="sessionSaveSlotIndex"
             @request-restart="onGameRequestRestart"
@@ -53,6 +54,8 @@
         :initial-seed="runStartPrefillSeed"
         :continue-snapshot="runStartContinueSnapshot"
         :slot-career="runStartSlotCareer"
+        :fresh-unlock-preset-ids="runStartFreshUnlocks.presetIds"
+        :fresh-unlock-difficulty-indices="runStartFreshUnlocks.difficultyIndices"
         @confirm="onRunStartConfirm"
         @cancel="onRunStartCancel"
       />
@@ -137,7 +140,10 @@ import {
   normalizeSlotCareerStats,
 } from "./save/slotCareerStats.js";
 import { normalizeRunPresetId } from "./game/runPresetDefinitions.js";
+import { normalizeRunDifficultyIndex } from "./game/runDifficultyDefinitions.js";
 import { recordPresetWin, setLastSelectedPresetId } from "./game/runPresetProgress.js";
+import { recordDifficultyWin, setLastSelectedDifficultyIndex } from "./game/runDifficultyProgress.js";
+import { collectFreshUnlocksFromWin } from "./game/runStartFreshUnlock.js";
 import { createEmptySlotCareerStats } from "./save/runSaveSchema.js";
 
 useScale();
@@ -165,11 +171,14 @@ const pendingNewRunSlotIndex = ref(null);
 const sessionRunSeed = ref(0);
 const sessionRunSeedDisplay = ref("");
 const sessionRunPresetId = ref("preset_01");
+const sessionRunDifficultyIndex = ref(0);
 /** @type {import('vue').Ref<import('./save/runSavePayload.js').RunSavePayload | null>} */
 const sessionRestoredSave = ref(null);
 const sessionSaveSlotIndex = ref(0);
 const runStartPrefillSeed = ref("");
 const saveUiRefreshKey = ref(0);
+/** @type {import('vue').Ref<{ presetIds: string[], difficultyIndices: number[] }>} */
+const runStartFreshUnlocks = ref({ presetIds: [], difficultyIndices: [] });
 const IRIS_COLOR = "#5a8fb8";
 const irisFxRef = ref(null);
 const transitionBusy = ref(false);
@@ -190,6 +199,7 @@ const runStartContinueSnapshot = computed(() => {
     money: meta.money,
     isEndlessRun: meta.isEndlessRun === true,
     presetId: String(meta.runPresetId ?? "preset_01"),
+    difficultyIndex: Math.max(0, Math.min(7, Math.floor(Number(meta.runDifficultyIndex) || 0))),
   };
 });
 
@@ -216,14 +226,29 @@ provide("requestNewRun", (opts = {}) => {
 
 provide("activeSaveSlotIndex", activeSaveSlotIndex);
 
-provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId }) => {
+provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyIndex }) => {
   const ix = sessionSaveSlotIndex.value;
   const slot = loadSaveEnvelope().slots[ix];
   if (!slot) return;
   const career = normalizeSlotCareerStats(slot.career);
+  const careerBefore = normalizeSlotCareerStats(JSON.parse(JSON.stringify(career)));
   mergeRunMatchStatsIntoCareer(career, stats, outcome);
   if (outcome === "win") {
-    recordPresetWin(career, normalizeRunPresetId(runPresetId));
+    const presetWinNew = recordPresetWin(career, normalizeRunPresetId(runPresetId));
+    recordDifficultyWin(
+      career,
+      normalizeRunDifficultyIndex(runDifficultyIndex),
+      normalizeRunPresetId(runPresetId),
+    );
+    const fresh = collectFreshUnlocksFromWin(careerBefore, career, presetWinNew);
+    if (fresh.presetIds.length || fresh.difficultyIndices.length) {
+      runStartFreshUnlocks.value = {
+        presetIds: [...new Set([...runStartFreshUnlocks.value.presetIds, ...fresh.presetIds])],
+        difficultyIndices: [
+          ...new Set([...runStartFreshUnlocks.value.difficultyIndices, ...fresh.difficultyIndices]),
+        ],
+      };
+    }
   }
   const envelope = structuredClone(loadSaveEnvelope());
   if (envelope.slots[ix]) {
@@ -323,6 +348,7 @@ async function startLoadSlot(index) {
   sessionRunSeed.value = coerceRunSeedNumeric(payload.runSeedNumeric);
   sessionRunSeedDisplay.value = String(payload.runSeedDisplay ?? "");
   sessionRunPresetId.value = normalizeRunPresetId(payload.runPresetId);
+  sessionRunDifficultyIndex.value = normalizeRunDifficultyIndex(payload.runDifficultyIndex);
   transitionBusy.value = true;
   await irisFxRef.value?.play({
     onCovered: () => {
@@ -424,10 +450,15 @@ function onMenuRequestStart() {
   showRunStartDialog.value = true;
 }
 
+function clearRunStartFreshUnlocks() {
+  runStartFreshUnlocks.value = { presetIds: [], difficultyIndices: [] };
+}
+
 async function onRunStartConfirm(payload) {
   if (transitionBusy.value) return;
   runStartPrefillSeed.value = "";
   showRunStartDialog.value = false;
+  clearRunStartFreshUnlocks();
 
   const slotIx =
     pendingNewRunSlotIndex.value != null ? pendingNewRunSlotIndex.value : getActiveSaveSlotIndex();
@@ -442,11 +473,13 @@ async function onRunStartConfirm(payload) {
   const seedNumeric = coerceRunSeedNumeric(payload.seedNumeric);
   const seedDisplay = String(payload.seedDisplay ?? "");
   const presetId = normalizeRunPresetId(payload.presetId);
+  const difficultyIndex = normalizeRunDifficultyIndex(payload.difficultyIndex);
 
   const careerForSlot = normalizeSlotCareerStats(
     getSlotCareer(slotIx) ?? createEmptySlotCareerStats(),
   );
   setLastSelectedPresetId(careerForSlot, presetId);
+  setLastSelectedDifficultyIndex(careerForSlot, difficultyIndex);
   try {
     const envelope = structuredClone(loadSaveEnvelope());
     if (envelope.slots[slotIx]) {
@@ -460,6 +493,7 @@ async function onRunStartConfirm(payload) {
   }
 
   sessionRunPresetId.value = presetId;
+  sessionRunDifficultyIndex.value = difficultyIndex;
 
   if (runStartMode.value === "menu" && !isSlotOccupied(slotIx)) {
     const resetProfile = !isSlotProfileActivated(slotIx);
@@ -493,6 +527,7 @@ function onRunStartCancel() {
   showRunStartDialog.value = false;
   runStartPrefillSeed.value = "";
   pendingNewRunSlotIndex.value = null;
+  clearRunStartFreshUnlocks();
 }
 
 function onGameRequestRestart(payload) {

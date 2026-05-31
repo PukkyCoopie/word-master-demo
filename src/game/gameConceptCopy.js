@@ -4,7 +4,7 @@
  * 材质 / 棋盘配饰 / 宝藏装备配饰 / 简介触发的机制词等，凡面向玩家的**名称 + 效果说明**均集中在此；
  * 其他模块（详情浮层、法术卡、商店等）只通过本文件导出的 getter 读取，避免同一机制多处手写分叉。
  *
- * - 材质、配饰：见下方 `TILE_*` / `TREASURE_ACCESSORY_*` 表。
+ * - 材质：见下方 `TILE_*` 表；配饰定义见 `accessories/accessoryCatalog.js`，玩家向文案见下方 `TILE_BOARD_ACCESSORY_*` / `TREASURE_ACCESSORY_*` 表。
  * - 机制词：在 `GAME_TERM_CONCEPT_BY_LABEL` 登记后，简介里用 `concept('词')` 显式标记 → 详情/法术选格在主描述下补充分区（不做全文匹配）。
  *
  * @see `tileDetailDescriptions.js` 仅作向后兼容 re-export，新代码请直接 import 本文件。
@@ -145,6 +145,18 @@ export const TREASURE_ACCESSORY_CONCEPT_BY_ID = Object.freeze({
   treasure_acc_crop: Object.freeze({
     title: "裁剪配饰",
     effectDescription: "+1 宝藏栏位",
+  }),
+  treasure_acc_no_sell: Object.freeze({
+    title: "禁售配饰",
+    effectDescription: "不能被卖出或摧毁",
+  }),
+  treasure_acc_hourglass: Object.freeze({
+    title: "沙漏配饰",
+    effectDescription: "在5个关卡后失效",
+  }),
+  treasure_acc_rental: Object.freeze({
+    title: "租赁配饰",
+    effectDescription: "可以花费$1元购买，但关卡结束时扣除$3",
   }),
 });
 

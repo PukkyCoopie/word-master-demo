@@ -77,6 +77,15 @@
             <RunStartPresetPicker
               v-model="presetDraft"
               :slot-career="slotCareer"
+              :fresh-unlock-preset-ids="freshUnlockPresetIds"
+            />
+          </div>
+          <div class="run-start-dialog-seed-row run-start-dialog-preset-row">
+            <span class="run-start-dialog-seed-label">难度</span>
+            <RunStartDifficultyPicker
+              v-model="difficultyDraft"
+              :slot-career="slotCareer"
+              :fresh-unlock-difficulty-indices="freshUnlockDifficultyIndices"
             />
           </div>
         </template>
@@ -120,6 +129,15 @@
               <RunStartPresetPicker
                 v-model="presetDraft"
                 :slot-career="slotCareer"
+                :fresh-unlock-preset-ids="freshUnlockPresetIds"
+              />
+            </div>
+            <div class="run-start-dialog-seed-row run-start-dialog-preset-row">
+              <span class="run-start-dialog-seed-label">难度</span>
+              <RunStartDifficultyPicker
+                v-model="difficultyDraft"
+                :slot-career="slotCareer"
+                :fresh-unlock-difficulty-indices="freshUnlockDifficultyIndices"
               />
             </div>
           </div>
@@ -142,19 +160,31 @@
               </div>
             </div>
 
-            <div class="run-start-dialog-seed-row run-start-dialog-preset-row">
-              <span class="run-start-dialog-seed-label">预设</span>
-              <div class="run-start-dialog-preset-readonly-card">
-                <div class="run-start-dialog-preset-readonly-head">
-                  <span class="run-start-dialog-preset-emoji" aria-hidden="true">{{ continuePresetEmoji }}</span>
-                  <span class="run-start-dialog-preset-name">{{ continuePresetName }}</span>
+            <div class="run-start-dialog-continue-meta-row">
+              <div class="run-start-dialog-continue-meta-cell">
+                <span class="run-start-dialog-seed-label">预设</span>
+                <div class="run-start-dialog-preset-readonly-card">
+                  <div class="run-start-dialog-preset-readonly-head">
+                    <span class="run-start-dialog-preset-emoji" aria-hidden="true">{{ continuePresetEmoji }}</span>
+                    <span class="run-start-dialog-preset-name">{{ continuePresetName }}</span>
+                  </div>
+                  <div class="run-start-dialog-preset-readonly-desc">
+                    <PresetDescRichText
+                      :description="continuePresetDef.description"
+                      :size="continuePresetDescLayoutTier"
+                      @preview-voucher="onContinuePreviewVoucher"
+                      @preview-wildcard="onContinuePreviewWildcard"
+                    />
+                  </div>
                 </div>
-                <div class="run-start-dialog-preset-readonly-desc">
-                  <PresetDescRichText
-                    :description="continuePresetDef.description"
-                    :size="continuePresetDescLayoutTier"
-                    @preview-voucher="onContinuePreviewVoucher"
-                    @preview-wildcard="onContinuePreviewWildcard"
+              </div>
+
+              <div class="run-start-dialog-continue-meta-cell run-start-dialog-continue-meta-cell--difficulty">
+                <span class="run-start-dialog-seed-label">难度</span>
+                <div class="run-start-dialog-difficulty-readonly-card">
+                  <DifficultyPill
+                    class="run-start-dialog-continue-difficulty-pill"
+                    :index="continueDifficultyIndex"
                   />
                 </div>
               </div>
@@ -218,13 +248,20 @@ import { recordPointerClientFromEvent } from "../game/lastPointerClient.js";
 import { generateRandomRunSeedString, normalizeRunSeedInput, resolveRunSeedFromDialog } from "../game/runRng.js";
 import { getPresetDescriptionLayoutTier, getRunPresetDef, normalizeRunPresetId } from "../game/runPresetDefinitions.js";
 import { getLastSelectedPresetId, isPresetUnlocked } from "../game/runPresetProgress.js";
+import {
+  getLastSelectedDifficultyBrowseIndex,
+  isDifficultyUnlocked,
+} from "../game/runDifficultyProgress.js";
+import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
+import DifficultyPill from "./DifficultyPill.vue";
+import RunStartDifficultyPicker from "./RunStartDifficultyPicker.vue";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import PresetDescRichText from "./PresetDescRichText.vue";
 import RunStartPresetPicker from "./RunStartPresetPicker.vue";
 import TileDetailLayer from "./TileDetailLayer.vue";
 import TreasureDetailLayer from "./TreasureDetailLayer.vue";
 
-/** @typedef {{ seedDisplay: string, levelId: string, money: number, isEndlessRun?: boolean, presetId?: string }} RunContinueSnapshot */
+/** @typedef {{ seedDisplay: string, levelId: string, money: number, isEndlessRun?: boolean, presetId?: string, difficultyIndex?: number }} RunContinueSnapshot */
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -234,6 +271,10 @@ const props = defineProps({
   continueSnapshot: { type: /** @type {import('vue').PropType<RunContinueSnapshot | null>} */ (Object), default: null },
   /** 当前存档槽 career（预设解锁） */
   slotCareer: { type: Object, default: null },
+  /** 本局通关后新解锁的预设 id（会话内「新！」角标） */
+  freshUnlockPresetIds: { type: Array, default: () => [] },
+  /** 本局通关后新解锁的难度 index */
+  freshUnlockDifficultyIndices: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(["confirm", "cancel"]);
@@ -257,6 +298,7 @@ const seedDraft = ref("");
 /** @type {import('vue').Ref<'new' | 'continue'>} */
 const activeTab = ref("new");
 const presetDraft = ref("preset_01");
+const difficultyDraft = ref(0);
 
 const normalizedCareer = computed(() => normalizeSlotCareerStats(props.slotCareer));
 
@@ -299,12 +341,23 @@ const continueLevelLabel = computed(() => {
   return props.continueSnapshot?.isEndlessRun ? `${id}（无尽）` : id;
 });
 const continueMoney = computed(() => Math.max(0, Math.floor(Number(props.continueSnapshot?.money) || 0)));
+const continueDifficultyIndex = computed(() =>
+  normalizeRunDifficultyIndex(props.continueSnapshot?.difficultyIndex ?? 0),
+);
 const presetLockedForNew = computed(() => !isPresetUnlocked(presetDraft.value, normalizedCareer.value));
+const difficultyLockedForNew = computed(
+  () => !isDifficultyUnlocked(difficultyDraft.value, normalizedCareer.value),
+);
 const primaryButtonLabel = computed(() => {
   if (activeTab.value === "continue") return "继续游戏";
-  return presetLockedForNew.value ? "预设未解锁" : "开始游戏";
+  if (presetLockedForNew.value) return "预设未解锁";
+  if (difficultyLockedForNew.value) return "难度未解锁";
+  return "开始游戏";
 });
-const primaryButtonDisabled = computed(() => activeTab.value === "new" && presetLockedForNew.value);
+const primaryButtonDisabled = computed(
+  () =>
+    activeTab.value === "new" && (presetLockedForNew.value || difficultyLockedForNew.value),
+);
 
 watch(
   () => [props.open, props.initialSeed, props.continueSnapshot, props.slotCareer],
@@ -313,6 +366,7 @@ watch(
     seedDraft.value = props.initialSeed ? normalizeRunSeedInput(String(props.initialSeed)) : "";
     activeTab.value = props.continueSnapshot != null ? "continue" : "new";
     presetDraft.value = getLastSelectedPresetId(normalizedCareer.value);
+    difficultyDraft.value = getLastSelectedDifficultyBrowseIndex(normalizedCareer.value);
   },
 );
 
@@ -332,12 +386,14 @@ function onConfirm(event) {
     return;
   }
   if (!isPresetUnlocked(presetDraft.value, normalizedCareer.value)) return;
+  if (!isDifficultyUnlocked(difficultyDraft.value, normalizedCareer.value)) return;
   const { seedNumeric, seedDisplay } = resolveRunSeedFromDialog(seedDraft.value);
   emit("confirm", {
     mode: "new",
     seedNumeric,
     seedDisplay,
     presetId: normalizeRunPresetId(presetDraft.value),
+    difficultyIndex: normalizeRunDifficultyIndex(difficultyDraft.value),
   });
 }
 
@@ -365,7 +421,7 @@ function onCancel() {
 .run-start-dialog-card {
   position: relative;
   z-index: 1;
-  width: min(100%, calc(520 * var(--rpx)));
+  width: min(100%, calc(600 * var(--rpx)));
   background: var(--card-bright, #faf8ef);
   border-radius: calc(12 * var(--rpx));
   box-shadow: var(--shadow);
@@ -611,6 +667,39 @@ function onCancel() {
   font-size: calc(20 * var(--rpx));
   font-weight: 700;
   color: rgba(60, 58, 50, 0.62);
+}
+
+.run-start-dialog-continue-meta-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: calc(10 * var(--rpx));
+  margin-top: calc(10 * var(--rpx));
+}
+
+.run-start-dialog-continue-meta-cell {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--rpx));
+  min-width: 0;
+}
+
+.run-start-dialog-difficulty-readonly-card {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: calc(142 * var(--rpx));
+  border-radius: var(--radius);
+  background: var(--card, #eee4da);
+  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.run-start-dialog-continue-difficulty-pill :deep(.difficulty-pill) {
+  font-size: calc(22 * var(--rpx));
+  padding: calc(4 * var(--rpx)) calc(14 * var(--rpx));
 }
 
 .run-start-dialog-preset-readonly-card {

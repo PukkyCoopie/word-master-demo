@@ -1,6 +1,6 @@
 import { computeWordScoreDetailed } from "../composables/useScoring.js";
 import { isBossTileDebuffed } from "../game/bossTileDebuff.js";
-import { TILE_ACCESSORY_REWIND } from "../game/tileAccessories.js";
+import { tileHasRewindAccessory } from "../accessories/accessoryScoring.js";
 import { TREASURE_HOOKS_BY_ID } from "./treasureRegistry.js";
 import { iterTreasureHookContributions } from "../game/treasureBlueprintMirror.js";
 import { buildTreasureLogicConditions } from "./treasureLogicShared.js";
@@ -106,12 +106,16 @@ function buildPostLetterTreasureSteps(
   };
 
   const pushAccessoryForSlot = (si) => {
-    const accStep = buildTreasureAccessoryPostLetterStepForSlot(
-      si,
-      slots[si],
-      accessoryRow[si],
-    );
-    if (accStep) steps.push(accStep);
+    const raw = accessoryRow[si];
+    const accIds = Array.isArray(raw)
+      ? raw.map((x) => String(x ?? "").trim()).filter(Boolean)
+      : raw != null && String(raw).trim()
+        ? [String(raw).trim()]
+        : [];
+    for (const aid of accIds) {
+      const accStep = buildTreasureAccessoryPostLetterStepForSlot(si, slots[si], aid);
+      if (accStep) steps.push(accStep);
+    }
   };
 
   let lastSlotIndex = -1;
@@ -161,7 +165,7 @@ function applyPostLetterMultPipeline(multBeforePost, postSteps) {
 }
 
 function hasRewindAccessory(tile) {
-  return tile?.accessoryId === TILE_ACCESSORY_REWIND;
+  return tileHasRewindAccessory(tile);
 }
 
 export function isBossDebuffedSubmitTile(tile) {

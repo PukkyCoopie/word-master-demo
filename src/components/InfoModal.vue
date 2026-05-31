@@ -325,9 +325,13 @@
           <div class="info-preset-row info-stagger-el">
             <span class="info-preset-field-label">难度</span>
             <div class="info-preset-difficulty-card">
-              <div class="info-preset-soon">
-                <i class="ri-hourglass-line info-preset-soon-icon" aria-hidden="true" />
-                <span class="info-preset-soon-text">即将推出</span>
+              <DifficultyPill :index="runDifficultyIndex" />
+              <div class="info-preset-difficulty-desc">
+                <DifficultyDescText
+                  :description="runDifficultyDef.description"
+                  :size="runDifficultyDescSizeTier"
+                />
+                <p v-if="runDifficultyIndex > 0" class="info-preset-difficulty-desc-stack">之前的难度也会生效</p>
               </div>
             </div>
           </div>
@@ -386,6 +390,9 @@ import {
 } from "../game/infoModalTabEnterAnim.js";
 import { formatCompactOneDecimal } from "./detailLayerFormatters.js";
 import { getRunPresetDef, getPresetDescriptionLayoutTier, normalizeRunPresetId } from "../game/runPresetDefinitions.js";
+import { getRunDifficultyDef, normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
+import DifficultyPill from "./DifficultyPill.vue";
+import DifficultyDescText from "./DifficultyDescText.vue";
 import PresetDescRichText from "./PresetDescRichText.vue";
 import TreasureDetailLayer from "./TreasureDetailLayer.vue";
 import TileDetailLayer from "./TileDetailLayer.vue";
@@ -424,6 +431,7 @@ const props = defineProps({
   isEndlessRun: { type: Boolean, default: false },
   /** 本局预设 id */
   runPresetId: { type: String, default: "preset_01" },
+  runDifficultyIndex: { type: Number, default: 0 },
 });
 
 const emit = defineEmits(["update:modelValue", "select-owned-voucher"]);
@@ -461,6 +469,14 @@ const INFO_TAB_PANEL_REF = {
 };
 
 const runPresetDef = computed(() => getRunPresetDef(normalizeRunPresetId(props.runPresetId)));
+const runDifficultyIndex = computed(() => normalizeRunDifficultyIndex(props.runDifficultyIndex));
+const runDifficultyDef = computed(() => getRunDifficultyDef(runDifficultyIndex.value));
+const runDifficultyDescSizeTier = computed(() => {
+  const len = String(runDifficultyDef.value.description ?? "").length;
+  if (len > 34) return "long";
+  if (len > 18) return "medium";
+  return "normal";
+});
 const runPresetDescTier = computed(() => {
   const tier = getPresetDescriptionLayoutTier(runPresetDef.value);
   return tier === "normal" ? "medium" : "compact";
@@ -1790,24 +1806,35 @@ function close() {
 }
 
 .info-preset-difficulty-card {
-  height: calc(170 * var(--rpx));
-  min-height: calc(170 * var(--rpx));
-  max-height: calc(170 * var(--rpx));
+  min-height: calc(142 * var(--rpx));
   border-radius: var(--radius);
   background: var(--card, #eee4da);
-  padding: calc(14 * var(--rpx)) calc(16 * var(--rpx));
+  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.info-preset-soon {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: calc(8 * var(--rpx));
+  text-align: center;
+}
+
+.info-preset-difficulty-desc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(4 * var(--rpx));
+  width: 100%;
+  min-width: 0;
+  max-height: calc(88 * var(--rpx));
+  overflow: hidden;
+}
+
+.info-preset-difficulty-desc-stack {
+  margin: 0;
+  font-size: calc(18 * var(--rpx));
+  line-height: 1.3;
+  color: rgba(60, 58, 50, 0.62);
 }
 
 .info-preset-soon-icon {

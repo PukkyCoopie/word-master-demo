@@ -26,6 +26,20 @@ export function normalizeSlotCareerStats(raw) {
       ? o.presetsWonWith.map(String).filter(Boolean)
       : [],
     lastSelectedPresetId: typeof o.lastSelectedPresetId === "string" ? o.lastSelectedPresetId : "",
+    highestDifficultyBeaten: Number.isFinite(Number(o.highestDifficultyBeaten))
+      ? Math.max(-1, Math.min(7, Math.floor(Number(o.highestDifficultyBeaten))))
+      : -1,
+    presetHighestDifficultyWon:
+      o.presetHighestDifficultyWon && typeof o.presetHighestDifficultyWon === "object"
+        ? Object.fromEntries(
+            Object.entries(/** @type {Record<string, unknown>} */ (o.presetHighestDifficultyWon)).map(
+              ([k, v]) => [String(k), Math.max(-1, Math.min(7, Math.floor(Number(v) || 0)))],
+            ),
+          )
+        : {},
+    lastSelectedDifficultyIndex: Number.isFinite(Number(o.lastSelectedDifficultyIndex))
+      ? Math.max(0, Math.min(7, Math.floor(Number(o.lastSelectedDifficultyIndex))))
+      : 0,
   };
 }
 

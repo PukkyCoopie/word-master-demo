@@ -9,6 +9,7 @@
         'treasure-slot--effect-charge': chargeState != null,
         'treasure-slot--effect-charge-active': chargeState === 'active',
         'treasure-slot--boss-hand-disabled': crimsonHandDisabled,
+        'treasure-slot--accessory-expired': accessoryExpired,
       },
     ]"
     :style="{ '--charge-progress': String(clampedChargeProgress) }"
@@ -16,15 +17,21 @@
     <template v-if="treasure">
       <span class="letter-gem" :class="gemClass" aria-hidden="true" />
       <span class="treasure-slot-emoji" role="img">{{ amberBossMask ? "?" : treasure.emoji }}</span>
-      <span
-        v-if="accessoryChipVisual && !amberBossMask"
-        class="treasure-accessory-chip"
-        :class="accessoryChipVisual.chipClass"
+      <div
+        v-if="accessoryChipVisuals.length && !amberBossMask"
+        class="treasure-accessory-chip-stack"
         aria-hidden="true"
       >
-        <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
-        <i class="treasure-accessory-chip-icon" :class="accessoryChipVisual.iconClass" aria-hidden="true" />
-      </span>
+        <span
+          v-for="(chip, i) in accessoryChipVisuals"
+          :key="`${chip.chipClass}-${i}`"
+          class="treasure-accessory-chip"
+          :class="chip.chipClass"
+        >
+          <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+          <i class="treasure-accessory-chip-icon" :class="chip.iconClass" aria-hidden="true" />
+        </span>
+      </div>
       <i v-if="chargeState != null" class="treasure-charge-corner-icon ri-flashlight-fill" aria-hidden="true"></i>
       <i v-if="crimsonHandDisabled" class="treasure-boss-hand-lock ri-lock-fill" aria-hidden="true"></i>
     </template>
@@ -33,7 +40,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
-import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories.js";
+import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
 
 const props = defineProps({
   treasure: { type: Object, default: null },
@@ -49,9 +56,11 @@ const props = defineProps({
 
 const rootRef = ref(null);
 
-const accessoryChipVisual = computed(() =>
-  props.treasure ? getTreasureAccessoryChipVisual(props.treasure.treasureAccessoryId) : null,
+const accessoryChipVisuals = computed(() =>
+  props.treasure ? getTreasureAccessoryChipVisualsFromEntity(props.treasure) : [],
 );
+
+const accessoryExpired = computed(() => props.treasure?.treasureAccessoryExpired === true);
 
 const clampedChargeProgress = computed(() => {
   const n = Number(props.chargeProgress);

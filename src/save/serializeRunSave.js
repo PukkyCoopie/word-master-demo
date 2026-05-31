@@ -60,6 +60,7 @@ export function serializeRunSave(ctx) {
     runMatchStats: serializeRunMatchStats(ctx.runMatchStats),
     runEndOutcome: ctx.runEndOutcome === "win" ? "win" : "fail",
     runPresetId: String(ctx.runPresetId ?? "preset_01"),
+    runDifficultyIndex: Math.max(0, Math.min(7, Math.floor(Number(ctx.runDifficultyIndex) || 0))),
   };
 }
 
@@ -85,5 +86,6 @@ export function buildRunSaveMetaFromPayload(payload, levelIndex) {
     ownedTreasureEmojis: emojis.slice(0, 5),
     savedAt: Date.now(),
     runPresetId: String(payload.runPresetId ?? "preset_01"),
+    runDifficultyIndex: Math.max(0, Math.min(7, Math.floor(Number(payload.runDifficultyIndex) || 0))),
   };
 }

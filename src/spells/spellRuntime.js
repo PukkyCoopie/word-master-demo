@@ -18,23 +18,11 @@ import { applyRandomUpgradePick, rollRandomUpgradePicks } from "../shop/randomUp
 import { SHOP_TILE_PACK_MATERIAL_IDS } from "../shop/shopPackEconomy.js";
 import { spellHasTag } from "./spellTags.js";
 import { SPELL_TAG_SPECTRAL } from "./spellTags.js";
+import { normalizeExclusiveTileAccessoryPair, writeEntityAccessory } from "../accessories/accessoryState.js";
 
 const WATER_MATERIAL_SCORE_BONUS = 30;
 const FIRE_MATERIAL_MULT_BONUS = 4;
 const VOWEL_SET = new Set(["a", "e", "i", "o", "u"]);
-
-/**
- * 字母块配饰互斥：同一格/牌张最多保留一种配饰（普通配饰优先）。
- * @param {unknown} accessoryId
- * @param {unknown} treasureAccessoryId
- */
-function normalizeExclusiveTileAccessoryPair(accessoryId, treasureAccessoryId) {
-  const acc = accessoryId != null ? String(accessoryId).trim() : "";
-  const tAcc = treasureAccessoryId != null ? String(treasureAccessoryId).trim() : "";
-  if (acc) return { accessoryId: acc, treasureAccessoryId: null };
-  if (tAcc) return { accessoryId: null, treasureAccessoryId: tAcc };
-  return { accessoryId: null, treasureAccessoryId: null };
-}
 
 function rngU(rng) {
   const f = typeof rng === "function" ? rng : Math.random;
@@ -306,14 +294,9 @@ const TILE_AURA_ACCESSORY_POOL = Object.freeze([
 /** @param {Record<string, unknown>} tile @param {string} accessoryId */
 function applyTileBoardAccessory(tile, accessoryId) {
   const gains = snapshotMaxIntrinsicGainsFromTile(tile);
-  const normalizedAccessory = normalizeExclusiveTileAccessoryPair(accessoryId, null);
-  tile.accessoryId = normalizedAccessory.accessoryId;
-  tile.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
+  writeEntityAccessory(tile, accessoryId, "tile");
   const c = tile._deckCard;
-  if (c && typeof c === "object") {
-    c.accessoryId = normalizedAccessory.accessoryId;
-    c.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
-  }
+  if (c && typeof c === "object") writeEntityAccessory(c, accessoryId, "tile");
   applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
   syncTileStateToDeckCard(tile);
 }
@@ -321,14 +304,9 @@ function applyTileBoardAccessory(tile, accessoryId) {
 /** @param {Record<string, unknown>} tile @param {string} treasureAccessoryId */
 function applyTileTreasureAccessory(tile, treasureAccessoryId) {
   const gains = snapshotMaxIntrinsicGainsFromTile(tile);
-  const normalizedAccessory = normalizeExclusiveTileAccessoryPair(null, treasureAccessoryId);
-  tile.accessoryId = normalizedAccessory.accessoryId;
-  tile.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
+  writeEntityAccessory(tile, treasureAccessoryId, "tile");
   const c = tile._deckCard;
-  if (c && typeof c === "object") {
-    c.accessoryId = normalizedAccessory.accessoryId;
-    c.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
-  }
+  if (c && typeof c === "object") writeEntityAccessory(c, treasureAccessoryId, "tile");
   applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
   syncTileStateToDeckCard(tile);
 }

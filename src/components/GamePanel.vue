@@ -17,6 +17,7 @@
           :treasure-charge-progress-by-slot="treasureChargeProgressBySlot"
           :treasure-slots-layout-class="treasureSlotsLayoutClass"
           :run-preset-id="runPresetId"
+        :run-difficulty-index="runDifficultyIndex"
           @open-options="openPauseOptionsFromShop"
           @view-deck="showDeckLayer = true"
           @view-round-info="openInfoModal('level')"
@@ -222,7 +223,9 @@
           @keydown.enter.prevent="openInfoModal('stage')"
           @keydown.space.prevent="openInfoModal('stage')"
         >
-          {{ levelTitleLabel }}</div>
+          <span class="header-level-title-text">{{ levelTitleLabel }}</span>
+          <DifficultyPill class="header-level-difficulty-pill" :index="runDifficultyIndex" />
+        </div>
         <div
           class="header-box header-box-split header-box-reward-dollars"
           :title="`本关通关基础奖励 ${stageRewardYuan} 元`"
@@ -680,6 +683,7 @@
         :active-boss-slug="activeBossSlug"
         :is-endless-run="isEndlessRun"
         :run-preset-id="runPresetId"
+        :run-difficulty-index="runDifficultyIndex"
         @select-owned-voucher="onInfoSelectOwnedVoucher"
       />
       </Transition>
@@ -913,6 +917,23 @@ import {
   presetDisablesInterest,
 } from "../game/runPresetRuntime.js";
 import { normalizeRunPresetId } from "../game/runPresetDefinitions.js";
+import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
+import {
+  getDifficultyRemovalsDelta,
+  getDifficultyScoreTableTier,
+  getDifficultyStageRewardDelta,
+  ownedTreasureHasNoSellAccessory,
+} from "../game/runDifficultyRuntime.js";
+import {
+  countOwnedRentalTreasures,
+  getTreasureAccessoryExpiredSlotIndices,
+  incrementHourglassOnSlot,
+} from "../game/treasureHourglassRuntime.js";
+import {
+  normalizeOwnedTreasureSlot,
+  readTreasureAccessoryIds,
+} from "../accessories/accessoryState.js";
+import DifficultyPill from "./DifficultyPill.vue";
 import {
   clampRemainingWordsForBossMechanics,
   getBaseHandsPerLevel,
@@ -1030,12 +1051,16 @@ const props = defineProps({
   runSeed: { type: Number, default: 0 },
   runSeedDisplay: { type: String, default: "" },
   runPresetId: { type: String, default: "preset_01" },
+  runDifficultyIndex: { type: Number, default: 0 },
   restoredSave: { type: Object, default: null },
   saveSlotIndex: { type: Number, default: 0 },
 });
 
 const runPresetId = ref(
   normalizeRunPresetId(props.restoredSave?.runPresetId ?? props.runPresetId),
+);
+const runDifficultyIndex = ref(
+  normalizeRunDifficultyIndex(props.restoredSave?.runDifficultyIndex ?? props.runDifficultyIndex),
 );
 
 const { portalFullscreenTarget } = useViewportLayoutMode();
@@ -1446,8 +1471,12 @@ function buildLevelResetRunOpts(levelDef) {
   const slug =
     override && parseLevelSubFromId(id) === 3 ? override : pickBossSlugForLevel(id, getRunSeedNumeric());
   const mechSlug = resolveBossSlugForMechanics(slug, ownedSlotTreasureIdListEarly());
-  const ts = resolveLevelTargetScore(id, mechSlug);
-  let rem = getBaseRemovalsPerLevel(ownedVoucherIds.value) + getPresetRemovalsPerLevelDelta(runPresetId.value);
+  const scoreTier = getDifficultyScoreTableTier(runDifficultyIndex.value);
+  const ts = resolveLevelTargetScore(id, mechSlug, scoreTier);
+  let rem =
+    getBaseRemovalsPerLevel(ownedVoucherIds.value) +
+    getPresetRemovalsPerLevelDelta(runPresetId.value) +
+    getDifficultyRemovalsDelta(runDifficultyIndex.value);
   if (mechSlug === "the_water") rem = 0;
   let hands = getBaseHandsPerLevel(ownedVoucherIds.value) + getPresetHandsPerLevelDelta(runPresetId.value);
   if (mechSlug === "the_needle") hands = getSubmitHandsForNeedleBoss(hands);
@@ -1558,7 +1587,11 @@ const levelTitleLabel = computed(() => {
   const id = currentLevel.value?.id ?? "1-1";
   return `关卡 ${id}`;
 });
-const stageRewardYuan = computed(() => currentLevel.value?.rewardYuan ?? 3);
+const stageRewardYuan = computed(() => {
+  const base = currentLevel.value?.rewardYuan ?? 3;
+  const delta = getDifficultyStageRewardDelta(runDifficultyIndex.value);
+  return Math.max(0, base + delta);
+});
 const rewardDollarMarks = computed(() => dollarMarks(stageRewardYuan.value));
 
 const money = ref(0);
@@ -2121,6 +2154,7 @@ function rollPackStock(rng = Math.random, sessionExcludeTreasureIds = null) {
     ownedVoucherIds: ownedVoucherIds.value,
     spellCountsByLength: spellCountsByLength.value,
     honeAccessoryMult: getShopAccessoryChanceMultiplier(ownedVoucherIds.value),
+    runDifficultyIndex: runDifficultyIndex.value,
   });
   if (guarantee) balatroFirstShopPackConsumed.value = true;
   return rows;
@@ -2143,6 +2177,7 @@ function buildShopRandomCardRollCtx(sessionExcludeTreasureIds = null) {
     shopTreasurePool: shopTreasurePool.value,
     ownedVoucherIds: ownedVoucherIds.value,
     honeAccessoryMult: getShopAccessoryChanceMultiplier(ownedVoucherIds.value),
+    runDifficultyIndex: runDifficultyIndex.value,
   };
 }
 
@@ -2579,15 +2614,16 @@ async function fulfillTreasureAfterPackPayment(t, fromEl) {
     toTarget = shop?.getOwnedSlotEl?.(ix) ?? null;
   }
   if (frameEl && toTarget) await animateTreasureFrameFly(frameEl, toTarget);
-  ownedTreasures.value[ix] = {
+  ownedTreasures.value[ix] = normalizeOwnedTreasureSlot({
     treasureId: t.treasureId,
     price: t.price,
     rarity: t.rarity,
     name: t.name,
     emoji: t.emoji,
     description: t.description,
-    treasureAccessoryId: t.treasureAccessoryId ?? null,
-  };
+    treasureAccessoryIds: readTreasureAccessoryIds(t),
+    treasureAccessoryId: readTreasureAccessoryIds(t)[0] ?? null,
+  });
   initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
   applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
 }
@@ -2956,12 +2992,12 @@ function applyTreasureAcquireImmediateEffectsForRun(treasureId) {
   });
 }
 
-/** @param {{ treasureAccessoryId?: string | null } | null | undefined} offer */
+/** @param {{ treasureAccessoryId?: string | null, treasureAccessoryIds?: string[] } | null | undefined} offer */
 function canPlaceTreasureOffer(offer) {
   return canAcquireTreasureOffer(
     ownedTreasures.value,
     treasureVoucherExtraSlots(),
-    offer?.treasureAccessoryId ?? null,
+    readTreasureAccessoryIds(offer),
   );
 }
 
@@ -2970,7 +3006,7 @@ function findTreasurePlacementIndex(offer) {
   const slots = ownedTreasures.value;
   const ix = slots.findIndex((s) => s == null);
   if (ix >= 0) return ix;
-  if (willCropAccessoryExpandSlots(slots, treasureVoucherExtraSlots(), offer?.treasureAccessoryId ?? null)) {
+  if (willCropAccessoryExpandSlots(slots, treasureVoucherExtraSlots(), readTreasureAccessoryIds(offer))) {
     const next = [...slots, null];
     ownedTreasures.value = next;
     const keys = [...gameOwnedKeyOrder.value];
@@ -3114,6 +3150,8 @@ async function shrinkTreasureSlotAndClear(treasureId, el, bubble, sp) {
 async function destroyOwnedTreasureWithFx(treasureId) {
   const ix = findOwnedTreasureSlotIndex(treasureId);
   if (ix < 0) return;
+  const slot = ownedTreasures.value[ix];
+  if (ownedTreasureHasNoSellAccessory(slot)) return;
   const el = getOwnedTreasureSlotEl(ix);
   if (!el) {
     clearOwnedTreasureSlotById(treasureId);
@@ -3130,6 +3168,8 @@ async function destroyOtherOwnedTreasureFromSourceFx(sourceTreasureId, victimTre
   const sourceId = String(sourceTreasureId ?? "");
   const victimId = String(victimTreasureId ?? "");
   if (!victimId) return;
+  const victimIx = findOwnedTreasureSlotIndex(victimId);
+  if (victimIx >= 0 && ownedTreasureHasNoSellAccessory(ownedTreasures.value[victimIx])) return;
   if (sourceId) await playOwnedTreasureWobbleOnlyFx(sourceId);
   const ix = findOwnedTreasureSlotIndex(victimId);
   if (ix < 0) return;
@@ -3230,6 +3270,50 @@ async function wobbleOwnedTreasureById(treasureId) {
   await nextTick();
   await wobbleGameTreasureSlot(ix);
   shopOverlayLayersSuppressed.value = false;
+}
+
+async function runHourglassStageEndFx() {
+  const slots = ownedTreasures.value;
+  let changed = false;
+  for (let i = 0; i < slots.length; i += 1) {
+    const slot = slots[i];
+    if (!slot || typeof slot !== "object") continue;
+    const result = incrementHourglassOnSlot(/** @type {Record<string, unknown>} */ (slot));
+    if (result.kind === "none") continue;
+    changed = true;
+    await wobbleGameTreasureSlot(i);
+    if (result.kind === "tick") {
+      await playTreasureSlotHourglassBubbleAtPeak(i);
+    } else if (result.kind === "expired") {
+      await playTreasureSlotExpiredBubbleAtPeak(i);
+    }
+  }
+  if (changed) {
+    ownedTreasures.value = [...ownedTreasures.value];
+    scheduleRunAutoSave();
+  }
+}
+
+/** @param {number} slotIndex */
+async function playTreasureSlotHourglassBubbleAtPeak(slotIndex) {
+  const el = getOwnedTreasureSlotEl(slotIndex);
+  if (!el || slotIndex < 0) return;
+  const sp = 1;
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  const bubble = showScoreBubble(el, "", "hourglass", sp);
+  scheduleSmallPlusBubbleOutro(bubble, sp);
+  await scoringSleep(SCORING_LETTER_GAP_MS, sp);
+}
+
+/** @param {number} slotIndex */
+async function playTreasureSlotExpiredBubbleAtPeak(slotIndex) {
+  const el = getOwnedTreasureSlotEl(slotIndex);
+  if (!el || slotIndex < 0) return;
+  const sp = 1;
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  const bubble = showScoreBubble(el, "失效！", "accessory-expired", sp);
+  scheduleSmallPlusBubbleOutro(bubble, sp);
+  await scoringSleep(SCORING_LETTER_GAP_MS, sp);
 }
 
 async function runTreasureLevelCompleteHooks() {
@@ -3422,20 +3506,28 @@ const settlementDisplayRows = computed(() => {
   const s = settlementSnapshot.value;
   if (!s) return [];
   if (s.mode === "convertRemainsNoInterest") {
-    return [
+    const rows = [
       { key: "clear", label: "关卡奖励", countKey: "clearReward" },
       { key: "spareWords", label: "剩余拼写", countKey: "spareWordsReward" },
       { key: "spareDiscards", label: "剩余丢弃", countKey: "spareDiscardsReward" },
       { key: "interest", label: "利息", countKey: "interest" },
-      { key: "total", label: "本关共计", countKey: "total", isTotal: true },
     ];
+    if ((s.rentalDeduction ?? 0) > 0) {
+      rows.push({ key: "rental", label: "租赁扣费", countKey: "rentalDeduction" });
+    }
+    rows.push({ key: "total", label: "本关共计", countKey: "total", isTotal: true });
+    return rows;
   }
-  return [
+  const rows = [
     { key: "clear", label: "关卡奖励", countKey: "clearReward" },
     { key: "spare", label: "剩余次数", countKey: "spareMoves" },
     { key: "interest", label: "利息", countKey: "interest" },
-    { key: "total", label: "本关共计", countKey: "total", isTotal: true },
   ];
+  if ((s.rentalDeduction ?? 0) > 0) {
+    rows.push({ key: "rental", label: "租赁扣费", countKey: "rentalDeduction" });
+  }
+  rows.push({ key: "total", label: "本关共计", countKey: "total", isTotal: true });
+  return rows;
 });
 
 /** @param {{ countKey: string }} row */
@@ -5691,6 +5783,7 @@ function buildLocalSaveContext() {
     showSettlement: showSettlement.value,
     showRunEnd: showRunEnd.value,
     runPresetId: runPresetId.value,
+    runDifficultyIndex: runDifficultyIndex.value,
   };
 }
 
@@ -5729,6 +5822,7 @@ function buildHydrateContext() {
     packPickSessionRef: packPickSession,
     bossRerollSessionRef: bossRerollSession,
     runPresetIdRef: runPresetId,
+    runDifficultyIndexRef: runDifficultyIndex,
   };
 }
 
@@ -5777,12 +5871,13 @@ watch(
 function buildSettlementSnapshot() {
   const moneyBefore = money.value;
   const clearReward = stageRewardYuan.value;
+  const rentalDeduction = countOwnedRentalTreasures(ownedTreasures.value) * 3;
   const mode = getPresetSettlementMode(runPresetId.value);
   if (mode === "convertRemainsNoInterest") {
     const spareWordsReward = Math.max(0, remainingWords.value) * 2;
     const spareDiscardsReward = Math.max(0, remainingRemovals.value);
     const interest = 0;
-    const total = clearReward + spareWordsReward + spareDiscardsReward + interest;
+    const total = clearReward + spareWordsReward + spareDiscardsReward + interest - rentalDeduction;
     return {
       mode,
       moneyBefore,
@@ -5791,6 +5886,7 @@ function buildSettlementSnapshot() {
       spareDiscardsReward,
       spareMoves: 0,
       interest,
+      rentalDeduction,
       total,
     };
   }
@@ -5799,7 +5895,7 @@ function buildSettlementSnapshot() {
   const interest = presetDisablesInterest(runPresetId.value)
     ? 0
     : computeWalletInterest(moneyBefore, cap);
-  const total = clearReward + spareMoves + interest;
+  const total = clearReward + spareMoves + interest - rentalDeduction;
   return {
     mode: "default",
     moneyBefore,
@@ -5808,6 +5904,7 @@ function buildSettlementSnapshot() {
     spareWordsReward: 0,
     spareDiscardsReward: 0,
     interest,
+    rentalDeduction,
     total,
   };
 }
@@ -5820,6 +5917,7 @@ function resetSettlementAnimValues() {
 }
 
 async function openStageSettlement() {
+  await runHourglassStageEndFx();
   await runTreasureLevelCompleteHooks();
   disableSettlementLayerAnim.value = false;
   settlementSnapshot.value = buildSettlementSnapshot();
@@ -5842,6 +5940,7 @@ async function openRunEnd(outcome, opts = {}) {
     outcome: runEndOutcome.value,
     stats: runMatchStats.value,
     runPresetId: runPresetId.value,
+    runDifficultyIndex: runDifficultyIndex.value,
   });
   showDeckLayer.value = false;
   showInfoLayer.value = false;
@@ -6603,15 +6702,16 @@ function grantRandomShopTreasureByRarity(rarityFilter) {
   if (!picks[0]) return { ok: false, slotIndex: -1 };
   const row = toShopOfferRows([picks[0]], runRandom)[0];
   const slots = [...ownedTreasures.value];
-  slots[ix] = {
+  slots[ix] = normalizeOwnedTreasureSlot({
     treasureId: row.treasureId,
     price: row.price,
     rarity: row.rarity,
     name: row.name,
     emoji: row.emoji,
     description: row.description,
-    treasureAccessoryId: row.treasureAccessoryId ?? null,
-  };
+    treasureAccessoryIds: readTreasureAccessoryIds(row),
+    treasureAccessoryId: readTreasureAccessoryIds(row)[0] ?? null,
+  });
   ownedTreasures.value = slots;
   initTreasureBankOnAcquire(row.treasureId, treasureRunState.value);
   applyTreasureAcquireImmediateEffectsForRun(row.treasureId);
@@ -8191,15 +8291,16 @@ async function onTreasurePurchase() {
 
   money.value -= pay;
   noteRunShopPurchase();
-  ownedTreasures.value[ix] = {
+  ownedTreasures.value[ix] = normalizeOwnedTreasureSlot({
     treasureId: t.treasureId,
     price: pay,
     rarity: t.rarity,
     name: t.name,
     emoji: t.emoji,
     description: t.description,
-    treasureAccessoryId: t.treasureAccessoryId ?? null,
-  };
+    treasureAccessoryIds: readTreasureAccessoryIds(t),
+    treasureAccessoryId: readTreasureAccessoryIds(t)[0] ?? null,
+  });
   initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
   applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
   clearOfferSlotAfterPurchase(t);
@@ -8215,6 +8316,7 @@ async function onTreasureSell() {
   const ix = d.slotIndex;
   const cur = ownedTreasures.value[ix];
   if (!cur) return;
+  if (ownedTreasureHasNoSellAccessory(cur)) return;
 
   await treasureDetailLayerRef.value?.playClose?.();
   money.value += Math.floor(Number(cur.price) / 2);
@@ -8907,8 +9009,16 @@ function showScoreBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
               ? "score-popup-bubble score-popup-bubble--ice-shatter"
               : kind === "skip"
                 ? "score-popup-bubble score-popup-bubble--skip"
+                : kind === "hourglass"
+                  ? "score-popup-bubble score-popup-bubble--hourglass"
+                  : kind === "accessory-expired"
+                    ? "score-popup-bubble score-popup-bubble--accessory-expired"
                 : "score-popup-bubble";
-  div.textContent = displayText;
+  if (kind === "hourglass") {
+    div.innerHTML = '<i class="ri-hourglass-fill score-popup-bubble-hourglass-icon" aria-hidden="true"></i>';
+  } else {
+    div.textContent = displayText;
+  }
   document.body.appendChild(div);
   const rpx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
   /** 气泡底边与字母块顶边的间距，整块在槽位上方、槽外 */
@@ -10672,7 +10782,8 @@ async function submitWord() {
   for (const t of tiles) {
     if (t?.letter) applyBossTileDebuffState(t, bossSlugSubmit, debuffCtx);
   }
-  const ownedSlotTreasureAccessoryIds = ownedTreasures.value.map((s) => s?.treasureAccessoryId ?? null);
+  const ownedSlotTreasureAccessoryIds = ownedTreasures.value.map((s) => readTreasureAccessoryIds(s));
+  const expiredSlotIndices = getTreasureAccessoryExpiredSlotIndices(ownedTreasures.value);
   /** 与号角等一致：仅当本手消耗关内最后一次出牌机会（提交前剩余 1 次） */
   const isLastSubmitChance = remainingWords.value === 1;
   const gSubmit = grid.value;
@@ -10727,6 +10838,9 @@ async function submitWord() {
       crimsonSet = new Set([ix]);
       crimsonTreasureDisabledSlotIndex.value = ix;
     }
+  }
+  if (expiredSlotIndices.length) {
+    crimsonSet = crimsonSet ? new Set([...crimsonSet, ...expiredSlotIndices]) : new Set(expiredSlotIndices);
   }
   let detailed = computeWordScoreDetailedForSubmit(
     tiles,
@@ -11184,6 +11298,9 @@ onMounted(async () => {
 
   ensureBigramTargetPair(treasureRunState.value, rollRandomBigramForTreasure);
   runPresetId.value = normalizeRunPresetId(props.runPresetId);
+  runDifficultyIndex.value = normalizeRunDifficultyIndex(
+    props.restoredSave?.runDifficultyIndex ?? props.runDifficultyIndex,
+  );
   applyRunPresetStartEffects();
   mountE2eHarnessIfNeeded();
   slotRafLastTime = performance.now();

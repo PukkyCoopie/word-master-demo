@@ -1,23 +1,12 @@
 const WILDCARD_MATERIAL_ID = "wildcard";
 
+import { normalizeExclusiveTileAccessoryPair } from "../accessories/accessoryState.js";
+
 /** 棋盘/牌库展示：字母显示串 -> 小写 raw（q 表示 Qu） */
 function tileLetterToRawLowerForDeck(letter) {
   const L = String(letter ?? "").trim().toLowerCase();
   if (!L) return "";
   return L === "qu" ? "q" : L.charAt(0);
-}
-
-/**
- * 字母块配饰互斥：同一牌张/格子最多保留一种配饰（普通配饰优先）。
- * @param {unknown} accessoryId
- * @param {unknown} treasureAccessoryId
- */
-function normalizeExclusiveTileAccessoryPair(accessoryId, treasureAccessoryId) {
-  const acc = accessoryId != null ? String(accessoryId).trim() : "";
-  const tAcc = treasureAccessoryId != null ? String(treasureAccessoryId).trim() : "";
-  if (acc) return { accessoryId: acc, treasureAccessoryId: null };
-  if (tAcc) return { accessoryId: null, treasureAccessoryId: tAcc };
-  return { accessoryId: null, treasureAccessoryId: null };
 }
 
 /** @param {unknown} card */

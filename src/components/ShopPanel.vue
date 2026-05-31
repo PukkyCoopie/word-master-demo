@@ -102,19 +102,25 @@
                           aria-hidden="true"
                         />
                         <span class="shop-treasure-emoji" role="img">{{ slot.emoji }}</span>
-                        <span
-                          v-if="shopOfferTreasureAccessoryChip(slot)"
-                          class="treasure-accessory-chip"
-                          :class="shopOfferTreasureAccessoryChip(slot).chipClass"
+                        <div
+                          v-if="shopOfferTreasureAccessoryChips(slot).length"
+                          class="treasure-accessory-chip-stack"
                           aria-hidden="true"
                         >
-                          <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
-                          <i
-                            class="treasure-accessory-chip-icon"
-                            :class="shopOfferTreasureAccessoryChip(slot).iconClass"
-                            aria-hidden="true"
-                          />
-                        </span>
+                          <span
+                            v-for="(chip, chipIx) in shopOfferTreasureAccessoryChips(slot)"
+                            :key="`${chip.chipClass}-${chipIx}`"
+                            class="treasure-accessory-chip"
+                            :class="chip.chipClass"
+                          >
+                            <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+                            <i
+                              class="treasure-accessory-chip-icon"
+                              :class="chip.iconClass"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </div>
                       </template>
                     </div>
                     <div class="shop-treasure-price" aria-label="售价">
@@ -340,7 +346,7 @@ import {
   RARITY_UPGRADE_BALANCE,
 } from "../composables/useScoring";
 import { resolveUpgradePlaybackSpeed } from "../shop/randomUpgradeRoll.js";
-import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories.js";
+import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
 import { applyPresetAndShopDiscountPrice } from "../game/runPresetRuntime.js";
 import { isSingleDigitLabel } from "./detailLayerFormatters.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
@@ -401,9 +407,9 @@ function shopMarkPrice(base, offer = {}) {
 }
 
 /** @param {object} slot shopOffers 项 */
-function shopOfferTreasureAccessoryChip(slot) {
-  if (!slot || slot.kind !== "offer" || slot.offerType !== "treasure") return null;
-  return getTreasureAccessoryChipVisual(slot.treasureAccessoryId);
+function shopOfferTreasureAccessoryChips(slot) {
+  if (!slot || slot.kind !== "offer" || slot.offerType !== "treasure") return [];
+  return getTreasureAccessoryChipVisualsFromEntity(slot);
 }
 
 /** @param {object} slot */

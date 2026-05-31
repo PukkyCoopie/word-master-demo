@@ -11,6 +11,7 @@
         </button>
 
         <div class="run-start-preset-content">
+          <UnlockFreshPill v-if="showFreshBadge" />
           <button
             v-if="isCurrentLocked"
             type="button"
@@ -29,6 +30,11 @@
           >
             <i class="ri-check-line" aria-hidden="true" />
           </button>
+          <DifficultyPill
+            v-if="isCurrentWon && presetHighestDifficultyWon >= 0"
+            class="run-start-preset-won-difficulty-pill"
+            :index="presetHighestDifficultyWon"
+          />
           <div
             class="run-start-preset-inner"
             :class="{ 'run-start-preset-inner--locked': isCurrentLocked }"
@@ -47,6 +53,21 @@
               />
             </div>
           </div>
+          <div class="run-start-preset-pagination" role="navigation" aria-label="预设分页">
+            <button
+              v-for="(preset, i) in RUN_PRESET_DEFINITIONS"
+              :key="preset.id"
+              type="button"
+              class="run-start-preset-dot"
+              :class="{
+                'run-start-preset-dot--active': i === browseIndex,
+                'run-start-preset-dot--locked': !isPresetIndexUnlocked(i),
+              }"
+              :aria-label="`${preset.name}${isPresetIndexUnlocked(i) ? '' : '（未解锁）'}`"
+              :aria-current="i === browseIndex ? 'true' : undefined"
+              @click="goToIndex(i)"
+            />
+          </div>
         </div>
 
         <button
@@ -57,22 +78,6 @@
         >
           <i class="ri-arrow-right-s-line" aria-hidden="true" />
         </button>
-      </div>
-
-      <div class="run-start-preset-pagination" role="navigation" aria-label="预设分页">
-        <button
-          v-for="(preset, i) in RUN_PRESET_DEFINITIONS"
-          :key="preset.id"
-          type="button"
-          class="run-start-preset-dot"
-          :class="{
-            'run-start-preset-dot--active': i === browseIndex,
-            'run-start-preset-dot--locked': !isPresetIndexUnlocked(i),
-          }"
-          :aria-label="`${preset.name}${isPresetIndexUnlocked(i) ? '' : '（未解锁）'}`"
-          :aria-current="i === browseIndex ? 'true' : undefined"
-          @click="goToIndex(i)"
-        />
       </div>
   </div>
 
@@ -127,6 +132,9 @@ import {
   isPresetWonWith,
   stepPresetBrowseIndex,
 } from "../game/runPresetProgress.js";
+import { getPresetHighestDifficultyWon } from "../game/runDifficultyProgress.js";
+import DifficultyPill from "./DifficultyPill.vue";
+import UnlockFreshPill from "./UnlockFreshPill.vue";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import PresetDescRichText from "./PresetDescRichText.vue";
 import TreasureDetailLayer from "./TreasureDetailLayer.vue";
@@ -135,6 +143,7 @@ import TileDetailLayer from "./TileDetailLayer.vue";
 const props = defineProps({
   modelValue: { type: String, default: "preset_01" },
   slotCareer: { type: Object, default: null },
+  freshUnlockPresetIds: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -143,6 +152,8 @@ const normalizedCareer = computed(() => normalizeSlotCareerStats(props.slotCaree
 const presetTotal = RUN_PRESET_DEFINITIONS.length;
 
 const browseIndex = ref(0);
+/** @type {import('vue').Ref<Set<string>>} */
+const dismissedFreshPresetIds = ref(new Set());
 
 watch(
   () => props.modelValue,
@@ -152,10 +163,27 @@ watch(
   { immediate: true },
 );
 
+watch(browseIndex, (_newIx, oldIx) => {
+  if (oldIx === undefined) return;
+  dismissedFreshPresetIds.value = new Set([
+    ...dismissedFreshPresetIds.value,
+    getPresetIdAtBrowseIndex(oldIx),
+  ]);
+});
+
 const currentDef = computed(() => getRunPresetDef(getPresetIdAtBrowseIndex(browseIndex.value)));
 
 const isCurrentLocked = computed(() => !isPresetUnlocked(currentDef.value.id, normalizedCareer.value));
 const isCurrentWon = computed(() => isPresetWonWith(currentDef.value.id, normalizedCareer.value));
+const presetHighestDifficultyWon = computed(() =>
+  getPresetHighestDifficultyWon(normalizedCareer.value, currentDef.value.id),
+);
+
+const showFreshBadge = computed(() => {
+  const id = currentDef.value.id;
+  if (dismissedFreshPresetIds.value.has(id)) return false;
+  return props.freshUnlockPresetIds.some((pid) => String(pid) === id);
+});
 
 /** @type {import('vue').Ref<'lock' | 'won' | null>} */
 const statusHint = ref(null);
@@ -244,9 +272,7 @@ defineExpose({
 
 <style scoped>
 .run-start-preset-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: calc(10 * var(--rpx));
+  width: 100%;
 }
 
 .run-start-preset-browser {
@@ -284,7 +310,7 @@ defineExpose({
   max-height: calc(142 * var(--rpx));
   border-radius: var(--radius);
   background: var(--card, #eee4da);
-  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
+  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx)) calc(26 * var(--rpx));
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -323,6 +349,13 @@ defineExpose({
 
 .run-start-preset-status-badge--won {
   background: #4a9c6d;
+}
+
+.run-start-preset-won-difficulty-pill {
+  position: absolute;
+  top: calc(44 * var(--rpx));
+  right: calc(8 * var(--rpx));
+  z-index: 2;
 }
 
 .run-start-preset-status-badge:active {
@@ -369,7 +402,7 @@ defineExpose({
   justify-content: center;
   width: 100%;
   min-width: 0;
-  max-height: calc(88 * var(--rpx));
+  max-height: calc(72 * var(--rpx));
   overflow: hidden;
 }
 
@@ -398,11 +431,16 @@ defineExpose({
 }
 
 .run-start-preset-pagination {
+  position: absolute;
+  left: calc(14 * var(--rpx));
+  right: calc(14 * var(--rpx));
+  bottom: calc(8 * var(--rpx));
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: calc(6 * var(--rpx));
   max-width: 100%;
+  pointer-events: auto;
 }
 
 .run-start-preset-dot {
