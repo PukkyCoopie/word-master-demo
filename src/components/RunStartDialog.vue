@@ -3,23 +3,25 @@
   <div
     v-if="open"
     class="run-start-dialog-backdrop"
+    :class="{ 'run-start-dialog--stagger-guard': openingStaggerGuard }"
     :style="backdropStackStyle"
     role="presentation"
     @click.self="onCancel"
   >
     <div class="run-start-dialog-scrim" aria-hidden="true" />
     <div
+      ref="dialogCardRef"
       class="run-start-dialog-card"
       role="dialog"
       aria-modal="true"
       aria-labelledby="run-start-dialog-title"
       @click.stop
     >
-      <h2 id="run-start-dialog-title" class="run-start-dialog-title">开始游戏</h2>
+      <h2 id="run-start-dialog-title" class="run-start-dialog-title run-start-stagger-el">开始游戏</h2>
 
       <div
         v-if="hasContinueTab"
-        class="run-start-dialog-tabs"
+        class="run-start-dialog-tabs run-start-stagger-el"
         role="tablist"
         aria-label="开始方式"
       >
@@ -47,7 +49,7 @@
 
       <div class="run-start-dialog-body">
         <template v-if="!hasContinueTab">
-          <div class="run-start-dialog-seed-row">
+          <div class="run-start-dialog-seed-row run-start-stagger-el">
             <label class="run-start-dialog-seed-label" for="run-start-seed-input">种子</label>
             <div class="run-start-dialog-seed-field">
               <input
@@ -72,7 +74,7 @@
               </button>
             </div>
           </div>
-          <div class="run-start-dialog-seed-row run-start-dialog-preset-row">
+          <div class="run-start-dialog-seed-row run-start-dialog-preset-row run-start-stagger-el">
             <span class="run-start-dialog-seed-label">预设</span>
             <RunStartPresetPicker
               v-model="presetDraft"
@@ -80,7 +82,7 @@
               :fresh-unlock-preset-ids="freshUnlockPresetIds"
             />
           </div>
-          <div class="run-start-dialog-seed-row run-start-dialog-preset-row">
+          <div class="run-start-dialog-seed-row run-start-dialog-preset-row run-start-stagger-el">
             <span class="run-start-dialog-seed-label">难度</span>
             <RunStartDifficultyPicker
               v-model="difficultyDraft"
@@ -92,6 +94,7 @@
 
         <div v-else class="run-start-dialog-panels">
           <div
+            ref="newGamePanelRef"
             role="tabpanel"
             aria-label="新游戏"
             class="run-start-dialog-panel"
@@ -99,7 +102,7 @@
             :aria-hidden="activeTab !== 'new'"
             :inert="activeTab !== 'new'"
           >
-            <div class="run-start-dialog-seed-row">
+            <div class="run-start-dialog-seed-row run-start-stagger-el">
               <label class="run-start-dialog-seed-label" for="run-start-seed-input-tab">种子</label>
               <div class="run-start-dialog-seed-field">
                 <input
@@ -124,7 +127,7 @@
                 </button>
               </div>
             </div>
-            <div class="run-start-dialog-seed-row run-start-dialog-preset-row">
+            <div class="run-start-dialog-seed-row run-start-dialog-preset-row run-start-stagger-el">
               <span class="run-start-dialog-seed-label">预设</span>
               <RunStartPresetPicker
                 v-model="presetDraft"
@@ -132,7 +135,7 @@
                 :fresh-unlock-preset-ids="freshUnlockPresetIds"
               />
             </div>
-            <div class="run-start-dialog-seed-row run-start-dialog-preset-row">
+            <div class="run-start-dialog-seed-row run-start-dialog-preset-row run-start-stagger-el">
               <span class="run-start-dialog-seed-label">难度</span>
               <RunStartDifficultyPicker
                 v-model="difficultyDraft"
@@ -143,6 +146,7 @@
           </div>
 
           <div
+            ref="continuePanelRef"
             role="tabpanel"
             aria-label="继续"
             class="run-start-dialog-panel"
@@ -150,7 +154,7 @@
             :aria-hidden="activeTab !== 'continue'"
             :inert="activeTab !== 'continue'"
           >
-            <div class="run-start-dialog-seed-row">
+            <div class="run-start-dialog-seed-row run-start-stagger-el">
               <span class="run-start-dialog-seed-label">种子</span>
               <div
                 class="run-start-dialog-seed-readonly"
@@ -160,7 +164,7 @@
               </div>
             </div>
 
-            <div class="run-start-dialog-continue-meta-row">
+            <div class="run-start-dialog-continue-meta-row run-start-stagger-el">
               <div class="run-start-dialog-continue-meta-cell">
                 <span class="run-start-dialog-seed-label">预设</span>
                 <div class="run-start-dialog-preset-readonly-card">
@@ -190,7 +194,7 @@
               </div>
             </div>
 
-            <div class="run-start-dialog-progress">
+            <div class="run-start-dialog-progress run-start-stagger-el">
               <span class="run-start-dialog-seed-label">游戏进度</span>
               <div class="run-start-dialog-progress-grid">
                 <div class="run-start-dialog-progress-cell">
@@ -212,13 +216,13 @@
       <div class="run-start-dialog-footer">
         <button
           type="button"
-          class="run-start-dialog-btn run-start-dialog-btn--primary"
+          class="run-start-dialog-btn run-start-dialog-btn--primary run-start-stagger-el"
           :disabled="primaryButtonDisabled"
           @click="onConfirm($event)"
         >
           {{ primaryButtonLabel }}
         </button>
-        <button type="button" class="run-start-dialog-btn run-start-dialog-btn--secondary" @click="onCancel">
+        <button type="button" class="run-start-dialog-btn run-start-dialog-btn--secondary run-start-stagger-el" @click="onCancel">
           取消
         </button>
       </div>
@@ -242,7 +246,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { recordPointerClientFromEvent } from "../game/lastPointerClient.js";
 import { generateRandomRunSeedString, normalizeRunSeedInput, resolveRunSeedFromDialog } from "../game/runRng.js";
@@ -253,6 +257,11 @@ import {
   isDifficultyUnlocked,
 } from "../game/runDifficultyProgress.js";
 import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
+import {
+  killRunStartDialogEnterTweens,
+  playRunStartDialogEnter,
+  prepareRunStartDialogEnterHidden,
+} from "../game/runStartDialogEnterAnim.js";
 import DifficultyPill from "./DifficultyPill.vue";
 import RunStartDifficultyPicker from "./RunStartDifficultyPicker.vue";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
@@ -281,6 +290,82 @@ const emit = defineEmits(["confirm", "cancel"]);
 
 const stackZ = ref(0);
 const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
+
+/** @type {import('vue').Ref<HTMLElement | null>} */
+const dialogCardRef = ref(null);
+/** @type {import('vue').Ref<HTMLElement | null>} */
+const newGamePanelRef = ref(null);
+/** @type {import('vue').Ref<HTMLElement | null>} */
+const continuePanelRef = ref(null);
+const openingStaggerGuard = ref(true);
+let skipTabSwitchAnim = false;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let openEnterAnimTimer = null;
+
+function collectActivePanelStaggerTargets() {
+  if (!hasContinueTab.value) {
+    const body = dialogCardRef.value?.querySelector(".run-start-dialog-body");
+    return body ? [...body.querySelectorAll(".run-start-stagger-el")] : [];
+  }
+  const panel = activeTab.value === "new" ? newGamePanelRef.value : continuePanelRef.value;
+  return panel ? [...panel.querySelectorAll(".run-start-stagger-el")] : [];
+}
+
+function collectFullOpenStaggerTargets() {
+  const card = dialogCardRef.value;
+  if (!card) return [];
+  /** @type {HTMLElement[]} */
+  const els = [];
+  const title = card.querySelector(".run-start-dialog-title.run-start-stagger-el");
+  if (title instanceof HTMLElement) els.push(title);
+  const tabs = card.querySelector(".run-start-dialog-tabs.run-start-stagger-el");
+  if (tabs instanceof HTMLElement) els.push(tabs);
+  els.push(...collectActivePanelStaggerTargets());
+  els.push(...card.querySelectorAll(".run-start-dialog-footer .run-start-stagger-el"));
+  return els;
+}
+
+function killAllDialogStaggerTweens() {
+  const card = dialogCardRef.value;
+  if (!card) return;
+  killRunStartDialogEnterTweens([...card.querySelectorAll(".run-start-stagger-el")]);
+}
+
+function runDialogOpenEnterAnim() {
+  const targets = collectFullOpenStaggerTargets();
+  prepareRunStartDialogEnterHidden(targets);
+  openingStaggerGuard.value = false;
+  playRunStartDialogEnter(targets);
+}
+
+function runActiveTabEnterAnim() {
+  if (!props.open) return;
+  const targets = collectActivePanelStaggerTargets();
+  prepareRunStartDialogEnterHidden(targets);
+  playRunStartDialogEnter(targets);
+}
+
+function applyDialogOpenState() {
+  skipTabSwitchAnim = true;
+  openingStaggerGuard.value = true;
+  if (openEnterAnimTimer) {
+    clearTimeout(openEnterAnimTimer);
+    openEnterAnimTimer = null;
+  }
+  nextTick(() => {
+    prepareRunStartDialogEnterHidden(collectFullOpenStaggerTargets());
+    openEnterAnimTimer = setTimeout(() => {
+      openEnterAnimTimer = null;
+      runDialogOpenEnterAnim();
+      skipTabSwitchAnim = false;
+    }, 120);
+  });
+}
+
+onBeforeUnmount(() => {
+  if (openEnterAnimTimer) clearTimeout(openEnterAnimTimer);
+  killAllDialogStaggerTweens();
+});
 
 watch(
   () => props.open,
@@ -361,14 +446,32 @@ const primaryButtonDisabled = computed(
 
 watch(
   () => [props.open, props.initialSeed, props.continueSnapshot, props.slotCareer],
-  ([isOpen]) => {
-    if (!isOpen) return;
+  ([isOpen], oldTuple) => {
+    const wasOpen = oldTuple?.[0] ?? false;
+    if (!isOpen) {
+      openingStaggerGuard.value = true;
+      if (openEnterAnimTimer) {
+        clearTimeout(openEnterAnimTimer);
+        openEnterAnimTimer = null;
+      }
+      killAllDialogStaggerTweens();
+      return;
+    }
     seedDraft.value = props.initialSeed ? normalizeRunSeedInput(String(props.initialSeed)) : "";
     activeTab.value = props.continueSnapshot != null ? "continue" : "new";
     presetDraft.value = getLastSelectedPresetId(normalizedCareer.value);
     difficultyDraft.value = getLastSelectedDifficultyBrowseIndex(normalizedCareer.value);
+    if (!wasOpen) {
+      applyDialogOpenState();
+    }
   },
 );
+
+watch(activeTab, () => {
+  if (!props.open || skipTabSwitchAnim || !hasContinueTab.value) return;
+  killAllDialogStaggerTweens();
+  nextTick(() => runActiveTabEnterAnim());
+});
 
 function onSeedInput() {
   seedDraft.value = normalizeRunSeedInput(seedDraft.value);
@@ -428,6 +531,15 @@ function onCancel() {
   padding: calc(28 * var(--rpx)) calc(24 * var(--rpx)) calc(22 * var(--rpx));
   box-sizing: border-box;
   transform-origin: center bottom;
+}
+
+.run-start-stagger-el {
+  will-change: transform, opacity;
+}
+
+.run-start-dialog-enter-active .run-start-stagger-el,
+.run-start-dialog--stagger-guard .run-start-stagger-el {
+  opacity: 0;
 }
 
 .run-start-dialog-enter-active {

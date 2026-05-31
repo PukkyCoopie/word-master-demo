@@ -10,7 +10,7 @@
         <i class="ri-arrow-left-s-line" aria-hidden="true" />
       </button>
 
-      <div class="run-start-difficulty-content">
+      <div ref="contentEl" class="run-start-difficulty-content">
         <UnlockFreshPill v-if="showFreshBadge" />
         <button
           v-if="isCurrentLocked"
@@ -89,7 +89,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import {
   getRunDifficultyDef,
@@ -103,6 +103,10 @@ import {
   stepDifficultyBrowseIndex,
 } from "../game/runDifficultyProgress.js";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
+import {
+  playRunStartContentJellySwap,
+  resetRunStartContentJellyTransform,
+} from "../utils/runStartContentJellyFx.js";
 import DifficultyPill from "./DifficultyPill.vue";
 import DifficultyDescText from "./DifficultyDescText.vue";
 import UnlockFreshPill from "./UnlockFreshPill.vue";
@@ -118,6 +122,10 @@ const emit = defineEmits(["update:modelValue"]);
 
 const normalizedCareer = computed(() => normalizeSlotCareerStats(props.slotCareer));
 const browseIndex = ref(0);
+/** @type {import('vue').Ref<HTMLElement | null>} */
+const contentEl = ref(null);
+/** @type {import('gsap').core.Timeline | null} */
+let contentJellyTl = null;
 /** @type {import('vue').Ref<Set<number>>} */
 const dismissedFreshDifficultyIndices = ref(new Set());
 
@@ -171,27 +179,57 @@ function isDifficultyIndexUnlocked(index) {
   return isDifficultyUnlocked(index, normalizedCareer.value);
 }
 
-function setBrowseIndex(index) {
+function setBrowseIndex(index, direction = 1) {
   if (props.readonly) return;
-  browseIndex.value = normalizeRunDifficultyIndex(index);
-  emit("update:modelValue", browseIndex.value);
+  const clamped = normalizeRunDifficultyIndex(index);
+  if (clamped === browseIndex.value && !contentJellyTl?.isActive()) return;
+
+  const dir = direction >= 0 ? 1 : -1;
+  let swapped = false;
+  const applySwap = () => {
+    if (swapped) return;
+    swapped = true;
+    browseIndex.value = clamped;
+    emit("update:modelValue", browseIndex.value);
+  };
+
+  contentJellyTl?.kill();
+  resetRunStartContentJellyTransform(contentEl.value);
+
+  contentJellyTl = playRunStartContentJellySwap(contentEl.value, dir, applySwap);
+  if (!contentJellyTl) {
+    applySwap();
+    return;
+  }
+
+  contentJellyTl.eventCallback("onInterrupt", () => {
+    applySwap();
+    resetRunStartContentJellyTransform(contentEl.value);
+  });
 }
 
 function onPrev() {
   if (props.readonly) return;
-  setBrowseIndex(stepDifficultyBrowseIndex(browseIndex.value, -1));
+  setBrowseIndex(stepDifficultyBrowseIndex(browseIndex.value, -1), -1);
 }
 
 function onNext() {
   if (props.readonly) return;
-  setBrowseIndex(stepDifficultyBrowseIndex(browseIndex.value, 1));
+  setBrowseIndex(stepDifficultyBrowseIndex(browseIndex.value, 1), 1);
 }
 
 /** @param {number} index */
 function goToIndex(index) {
   if (props.readonly) return;
-  setBrowseIndex(index);
+  const clamped = normalizeRunDifficultyIndex(index);
+  const direction = clamped >= browseIndex.value ? 1 : -1;
+  setBrowseIndex(clamped, direction);
 }
+
+onBeforeUnmount(() => {
+  contentJellyTl?.kill();
+  resetRunStartContentJellyTransform(contentEl.value);
+});
 
 defineExpose({
   resetToDefault() {
@@ -253,6 +291,7 @@ defineExpose({
   justify-content: center;
   text-align: center;
   overflow: hidden;
+  transform-origin: 50% 50%;
 }
 
 .run-start-difficulty-inner {

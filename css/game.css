@@ -413,7 +413,12 @@ textarea::-moz-placeholder {
 	animation: boss-tape-attention 0.85s ease-out 1;
 }
 
+.boss-tape-wrap:has(.boss-tape--wobble) {
+	z-index: 2;
+}
+
 .boss-tape--wobble {
+	transform-origin: 50% 55%;
 	animation: boss-tape-wobble 0.52s ease-out 1;
 }
 
@@ -461,24 +466,28 @@ textarea::-moz-placeholder {
 	.boss-tape-wrap--violate .boss-tape {
 		box-shadow: 0 0 0 calc(3 * var(--rpx)) var(--boss-tape-glow);
 	}
+
+	.boss-tape--wobble {
+		animation: none;
+	}
 }
 
 @keyframes boss-tape-wobble {
 	0%,
 	100% {
-		transform: translateX(0);
+		transform: rotate(0deg) scale(1);
 	}
-	20% {
-		transform: translateX(calc(-6 * var(--rpx)));
+	14% {
+		transform: rotate(0deg) scale(0.94);
 	}
-	40% {
-		transform: translateX(calc(5 * var(--rpx)));
+	36% {
+		transform: rotate(1.3deg) scale(1.04);
 	}
-	60% {
-		transform: translateX(calc(-3 * var(--rpx)));
+	58% {
+		transform: rotate(-0.95deg) scale(1.02);
 	}
-	80% {
-		transform: translateX(calc(2 * var(--rpx)));
+	78% {
+		transform: rotate(0.25deg) scale(1);
 	}
 }
 

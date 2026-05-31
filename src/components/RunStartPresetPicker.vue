@@ -10,7 +10,7 @@
           <i class="ri-arrow-left-s-line" aria-hidden="true" />
         </button>
 
-        <div class="run-start-preset-content">
+        <div ref="contentEl" class="run-start-preset-content">
           <UnlockFreshPill v-if="showFreshBadge" />
           <button
             v-if="isCurrentLocked"
@@ -121,7 +121,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { getRunPresetDef, getPresetDescriptionLayoutTier, normalizeRunPresetId, RUN_PRESET_DEFINITIONS } from "../game/runPresetDefinitions.js";
 import {
@@ -133,6 +133,10 @@ import {
   stepPresetBrowseIndex,
 } from "../game/runPresetProgress.js";
 import { getPresetHighestDifficultyWon } from "../game/runDifficultyProgress.js";
+import {
+  playRunStartContentJellySwap,
+  resetRunStartContentJellyTransform,
+} from "../utils/runStartContentJellyFx.js";
 import DifficultyPill from "./DifficultyPill.vue";
 import UnlockFreshPill from "./UnlockFreshPill.vue";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
@@ -152,6 +156,10 @@ const normalizedCareer = computed(() => normalizeSlotCareerStats(props.slotCaree
 const presetTotal = RUN_PRESET_DEFINITIONS.length;
 
 const browseIndex = ref(0);
+/** @type {import('vue').Ref<HTMLElement | null>} */
+const contentEl = ref(null);
+/** @type {import('gsap').core.Timeline | null} */
+let contentJellyTl = null;
 /** @type {import('vue').Ref<Set<string>>} */
 const dismissedFreshPresetIds = ref(new Set());
 
@@ -233,23 +241,53 @@ function isPresetIndexUnlocked(index) {
   return isPresetUnlocked(id, normalizedCareer.value);
 }
 
-function setBrowseIndex(index) {
-  browseIndex.value = Math.max(0, Math.min(presetTotal - 1, Math.floor(Number(index) || 0)));
-  emit("update:modelValue", getPresetIdAtBrowseIndex(browseIndex.value));
+function setBrowseIndex(index, direction = 1) {
+  const clamped = Math.max(0, Math.min(presetTotal - 1, Math.floor(Number(index) || 0)));
+  if (clamped === browseIndex.value && !contentJellyTl?.isActive()) return;
+
+  const dir = direction >= 0 ? 1 : -1;
+  let swapped = false;
+  const applySwap = () => {
+    if (swapped) return;
+    swapped = true;
+    browseIndex.value = clamped;
+    emit("update:modelValue", getPresetIdAtBrowseIndex(clamped));
+  };
+
+  contentJellyTl?.kill();
+  resetRunStartContentJellyTransform(contentEl.value);
+
+  contentJellyTl = playRunStartContentJellySwap(contentEl.value, dir, applySwap);
+  if (!contentJellyTl) {
+    applySwap();
+    return;
+  }
+
+  contentJellyTl.eventCallback("onInterrupt", () => {
+    applySwap();
+    resetRunStartContentJellyTransform(contentEl.value);
+  });
 }
 
 function onPrev() {
-  setBrowseIndex(stepPresetBrowseIndex(browseIndex.value, -1));
+  setBrowseIndex(stepPresetBrowseIndex(browseIndex.value, -1), -1);
 }
 
 function onNext() {
-  setBrowseIndex(stepPresetBrowseIndex(browseIndex.value, 1));
+  setBrowseIndex(stepPresetBrowseIndex(browseIndex.value, 1), 1);
 }
 
 /** @param {number} index */
 function goToIndex(index) {
-  setBrowseIndex(index);
+  const clamped = Math.max(0, Math.min(presetTotal - 1, Math.floor(Number(index) || 0)));
+  const direction = clamped >= browseIndex.value ? 1 : -1;
+  setBrowseIndex(clamped, direction);
 }
+
+onBeforeUnmount(() => {
+  contentJellyTl?.kill();
+  resetRunStartContentJellyTransform(contentEl.value);
+});
 
 /** @param {{ detail: object }} payload */
 function onPreviewVoucher(payload) {
@@ -317,6 +355,7 @@ defineExpose({
   justify-content: center;
   text-align: center;
   overflow: hidden;
+  transform-origin: 50% 50%;
 }
 
 .run-start-preset-inner--locked {
