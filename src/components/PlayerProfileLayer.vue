@@ -444,8 +444,8 @@ onUnmounted(() => {
 }
 
 .profile-section-title {
-  margin: 0 0 calc(10 * var(--rpx));
-  font-size: calc(24 * var(--rpx));
+  margin: 0 0 calc(12 * var(--rpx));
+  font-size: calc(28 * var(--rpx));
   font-weight: 700;
   color: var(--text-dark, #3c3a32);
 }
@@ -488,7 +488,7 @@ onUnmounted(() => {
 }
 
 .profile-avatar-hint {
-  font-size: calc(20 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
   color: var(--text-muted, #776e65);
 }
 
@@ -540,8 +540,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: calc(52 * var(--rpx));
-  height: calc(52 * var(--rpx));
+  width: calc(56 * var(--rpx));
+  height: calc(56 * var(--rpx));
   padding: 0;
   border: none;
   border-radius: calc(8 * var(--rpx));
@@ -552,7 +552,7 @@ onUnmounted(() => {
 }
 
 .profile-icon-btn i {
-  font-size: calc(28 * var(--rpx));
+  font-size: calc(32 * var(--rpx));
   line-height: 1;
 }
 
@@ -575,7 +575,7 @@ onUnmounted(() => {
   border: none;
   background: none;
   font-family: inherit;
-  font-size: calc(20 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
   color: var(--text-muted, #776e65);
   cursor: pointer;
   text-decoration: underline;
@@ -584,33 +584,33 @@ onUnmounted(() => {
 .profile-stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: calc(8 * var(--rpx));
+  gap: calc(10 * var(--rpx));
 }
 
 .profile-stat-cell {
   background: var(--card);
   border-radius: calc(8 * var(--rpx));
-  padding: calc(12 * var(--rpx));
+  padding: calc(14 * var(--rpx));
   display: flex;
   flex-direction: column;
-  gap: calc(4 * var(--rpx));
+  gap: calc(6 * var(--rpx));
 }
 
 .profile-stat-value {
-  font-size: calc(22 * var(--rpx));
+  font-size: calc(28 * var(--rpx));
   font-weight: 700;
   color: var(--text-dark, #3c3a32);
   word-break: break-word;
 }
 
 .profile-stat-label {
-  font-size: calc(18 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
   color: var(--text-muted, #776e65);
 }
 
 .profile-error {
   margin: calc(10 * var(--rpx)) 0 0;
-  font-size: calc(20 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
   color: #c85a54;
   text-align: center;
 }

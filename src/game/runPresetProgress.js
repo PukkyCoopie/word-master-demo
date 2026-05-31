@@ -73,6 +73,15 @@ export function isPresetUnlocked(presetId, career) {
 }
 
 /**
+ * @param {string} presetId
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats | null | undefined} career
+ */
+export function isPresetWonWith(presetId, career) {
+  const id = normalizeRunPresetId(presetId);
+  return getPresetsWonWith(career).includes(id);
+}
+
+/**
  * @param {import('../save/runSaveSchema.js').SlotCareerStats | null | undefined} career
  * @param {number} delta -1 上一项，+1 下一项
  * @param {string} currentId

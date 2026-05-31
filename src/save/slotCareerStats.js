@@ -75,3 +75,12 @@ export function getSlotCareerStatRows(career) {
     { label: "累计重掷", value: c.totalRerolls > 0 ? String(c.totalRerolls) : "—" },
   ];
 }
+
+/** 存档栏位卡片摘要：仅开局次数与胜利局数 */
+export function getSlotCareerSummaryRows(career) {
+  const c = normalizeSlotCareerStats(career);
+  return [
+    { label: "开局次数", value: String(c.runsStarted) },
+    { label: "胜利局数", value: String(c.runsWon) },
+  ];
+}

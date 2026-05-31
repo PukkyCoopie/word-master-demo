@@ -46,17 +46,12 @@
                   </span>
                   <div class="save-slot-card-head-text">
                     <span class="save-slot-index">{{ slotTitle(index, entry) }}</span>
-                    <span
-                      v-if="entry.hasSave && entry.meta"
-                      class="save-slot-phase"
-                      :class="`save-slot-phase--${entry.meta.phase}`"
-                    >{{ formatSavePhaseLabel(entry.meta.phase) }}</span>
                   </div>
                 </div>
 
                 <div class="save-slot-stats-grid">
                   <div
-                    v-for="row in getCareerSummaryRows(entry.career)"
+                    v-for="row in getSlotCareerSummaryRows(entry.career)"
                     :key="row.label"
                     class="save-slot-stat-cell"
                   >
@@ -146,8 +141,8 @@
 import { computed, ref, watch } from "vue";
 import { getProfileInitialLetter, getSlotProfile, isSlotProfileActivated } from "../profile/playerProfile.js";
 import { listAllSlotEntries } from "../save/runSaveStorage.js";
-import { formatRelativeSaveTime, formatSavePhaseLabel } from "../save/saveDisplayUtils.js";
-import { getSlotCareerStatRows } from "../save/slotCareerStats.js";
+import { formatRelativeSaveTime } from "../save/saveDisplayUtils.js";
+import { getSlotCareerSummaryRows } from "../save/slotCareerStats.js";
 
 /** @typedef {'select' | 'load' | 'new'} SaveSlotMode */
 
@@ -214,11 +209,6 @@ function getOccupiedSlotAvatarStyle(index, occupied) {
   const ch = getProfileInitialLetter(index).charCodeAt(0) || 80;
   const hue = (ch * 17) % 360;
   return { background: `hsl(${hue} 42% 62%)` };
-}
-
-/** @param {import('../save/runSaveSchema.js').SlotCareerStats} career */
-function getCareerSummaryRows(career) {
-  return getSlotCareerStatRows(career).slice(0, 3);
 }
 
 /** @param {number} index */
@@ -370,8 +360,8 @@ function onBackdropClick() {
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
-  gap: calc(8 * var(--rpx));
-  min-width: calc(72 * var(--rpx));
+  gap: calc(10 * var(--rpx));
+  min-width: calc(96 * var(--rpx));
   align-self: center;
 }
 
@@ -384,8 +374,8 @@ function onBackdropClick() {
 
 .save-slot-avatar {
   flex-shrink: 0;
-  width: calc(48 * var(--rpx));
-  height: calc(48 * var(--rpx));
+  width: calc(56 * var(--rpx));
+  height: calc(56 * var(--rpx));
   border-radius: calc(8 * var(--rpx));
   overflow: hidden;
   display: flex;
@@ -406,7 +396,7 @@ function onBackdropClick() {
 }
 
 .save-slot-avatar-letter {
-  font-size: calc(24 * var(--rpx));
+  font-size: calc(28 * var(--rpx));
   font-weight: 800;
   color: #f9f6f2;
   line-height: 1;
@@ -429,67 +419,42 @@ function onBackdropClick() {
 }
 
 .save-slot-index {
-  font-size: calc(24 * var(--rpx));
+  font-size: calc(28 * var(--rpx));
   font-weight: 800;
   color: var(--text-dark, #3c3a32);
 }
 
-.save-slot-phase {
-  font-size: calc(18 * var(--rpx));
-  font-weight: 700;
-  padding: calc(4 * var(--rpx)) calc(10 * var(--rpx));
-  border-radius: calc(6 * var(--rpx));
-  color: #f9f6f2;
-  background: #5a8fb8;
-}
-
-.save-slot-phase--shop {
-  background: #d4954a;
-}
-
-.save-slot-phase--settlement {
-  background: #8b7355;
-}
-
-.save-slot-phase--run_end_win {
-  background: #7cb342;
-}
-
-.save-slot-phase--run_end_fail {
-  background: #c85a54;
-}
-
 .save-slot-stats-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: calc(8 * var(--rpx));
+  grid-template-columns: 1fr 1fr;
+  gap: calc(10 * var(--rpx));
 }
 
 .save-slot-stat-cell {
   background: var(--card);
   border-radius: calc(8 * var(--rpx));
-  padding: calc(10 * var(--rpx));
+  padding: calc(12 * var(--rpx));
   display: flex;
   flex-direction: column;
-  gap: calc(4 * var(--rpx));
+  gap: calc(6 * var(--rpx));
   min-width: 0;
 }
 
 .save-slot-stat-value {
-  font-size: calc(20 * var(--rpx));
+  font-size: calc(28 * var(--rpx));
   font-weight: 700;
   color: var(--text-dark, #3c3a32);
   word-break: break-word;
 }
 
 .save-slot-stat-label {
-  font-size: calc(16 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
   color: var(--text-muted, #776e65);
 }
 
 .save-slot-time {
   margin: calc(10 * var(--rpx)) 0 0;
-  font-size: calc(18 * var(--rpx));
+  font-size: calc(22 * var(--rpx));
   color: var(--text-muted, #776e65);
 }
 
@@ -497,9 +462,9 @@ function onBackdropClick() {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: calc(44 * var(--rpx));
-  padding: 0 calc(8 * var(--rpx));
-  font-size: calc(22 * var(--rpx));
+  min-height: calc(52 * var(--rpx));
+  padding: 0 calc(10 * var(--rpx));
+  font-size: calc(26 * var(--rpx));
   font-weight: 800;
   color: #5a8fb8;
 }
@@ -507,9 +472,10 @@ function onBackdropClick() {
 .save-slot-side-btn {
   border: none;
   border-radius: calc(8 * var(--rpx));
-  padding: calc(10 * var(--rpx)) calc(8 * var(--rpx));
+  min-height: calc(52 * var(--rpx));
+  padding: calc(12 * var(--rpx)) calc(10 * var(--rpx));
   font-family: inherit;
-  font-size: calc(20 * var(--rpx));
+  font-size: calc(26 * var(--rpx));
   font-weight: 700;
   cursor: pointer;
   text-align: center;
@@ -546,7 +512,7 @@ function onBackdropClick() {
 
 .save-slot-confirm-text {
   margin: 0;
-  font-size: calc(20 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
   font-weight: 700;
   color: #8b3a34;
   text-align: center;
@@ -561,9 +527,10 @@ function onBackdropClick() {
   flex: 0 0 auto;
   border: none;
   border-radius: calc(8 * var(--rpx));
-  padding: calc(10 * var(--rpx)) calc(16 * var(--rpx));
+  min-height: calc(48 * var(--rpx));
+  padding: calc(12 * var(--rpx)) calc(18 * var(--rpx));
   font-family: inherit;
-  font-size: calc(20 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
   font-weight: 700;
   cursor: pointer;
   color: #f9f6f2;
