@@ -26,7 +26,7 @@
             <h2 :id="titleId" class="treasure-detail-name">{{ session.spellName }}</h2>
           </div>
 
-          <div ref="iconColumnRef" class="treasure-detail-icon-column spell-target-stagger-el">
+          <div ref="iconColumnRef" class="treasure-detail-icon-column spell-target-stagger-el spell-target-icon-column-boot-hide">
             <div class="shop-treasure-visual shop-treasure-visual--detail">
               <div
                 class="shop-treasure-frame shop-treasure-frame--detail shop-treasure-frame--spell-offer spell-target-op-frame"
@@ -706,8 +706,8 @@ function runEnterAnimation() {
   gsap.killTweensOf([backdrop, ...staggerEls].filter(Boolean));
   gsap.set(backdrop, portalScrimGsapVars("rgba(72, 90, 58, 0)"));
   gsap.set(staggerEls, { opacity: 0, y: 8 });
-  backdrop.classList.remove("spell-target-backdrop--boot");
 
+  /* 遮罩立刻从透明匀缓加深，避免等 RAF 后再起 tween 像闪一下 */
   gsap.fromTo(
     backdrop,
     portalScrimGsapVars("rgba(72, 90, 58, 0)"),
@@ -717,6 +717,8 @@ function runEnterAnimation() {
       ease: EASE_TRANSFORM,
     },
   );
+
+  backdrop.classList.remove("spell-target-backdrop--boot");
 
   enterTl = gsap.timeline();
   enterTl.to(
@@ -734,9 +736,11 @@ function runEnterAnimation() {
 }
 
 onMounted(() => {
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => runEnterAnimation());
-  });
+  if (backdropRef.value) {
+    runEnterAnimation();
+    return;
+  }
+  requestAnimationFrame(() => runEnterAnimation());
 });
 
 onUnmounted(() => {

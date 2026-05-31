@@ -69,6 +69,7 @@ function pickWeightedCategory(keys, weights, rng) {
  *   ownedTreasureIdSet: Set<string>,
  *   sessionExcludeTreasureIds?: Set<string>, // 宝藏 id；另含 spell_*、upgrade_* 单卡区互斥键
  *   lastReplayableSpellId: string | null,
+ *   spellCastHistory?: string[],
  *   shopTreasurePool: import("../treasures/treasureTypes.js").TreasureDef[],
  *   ownedVoucherIds?: Iterable<string>,
  *   honeAccessoryMult?: number,
@@ -83,6 +84,7 @@ function createShopRandomCardRoller(ctx) {
   const sessionExcluded = ctx.sessionExcludeTreasureIds ?? null;
   const pool = Array.isArray(ctx.shopTreasurePool) ? ctx.shopTreasurePool : [];
   const lastReplay = ctx.lastReplayableSpellId ? String(ctx.lastReplayableSpellId) : null;
+  const spellCastHistory = Array.isArray(ctx.spellCastHistory) ? ctx.spellCastHistory : [];
   const ownedV = ctx.ownedVoucherIds != null ? new Set([...ctx.ownedVoucherIds]) : new Set();
   const spellWt = getSpellCategoryWeightMultiplier(ownedV);
   const upgradeWt = getUpgradeCategoryWeightMultiplier(ownedV);
@@ -91,7 +93,7 @@ function createShopRandomCardRoller(ctx) {
   const illusionOwned = hasIllusion(ownedV);
   const letterRaws = allLetterRaws();
 
-  const spellDefsAll = filterSpellDefsForShop(lastReplay, SPELL_DEFINITIONS);
+  const spellDefsAll = filterSpellDefsForShop(lastReplay, SPELL_DEFINITIONS, spellCastHistory);
   const rarityKeys = letterRarityOrderKeys();
 
   const makeEmpty = () => ({ kind: "empty", emptySlotId: ctx.nextShopEmptySlotId() });

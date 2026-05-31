@@ -147,6 +147,7 @@
       :spell-replay-target-spell-id="lastReplayableSpellId"
       :rarity-levels-by-rarity="rarityLevelsByRarity"
       :probability-display-doubled="treasureProbabilityDisplayDoubled"
+      :spell-grant-flow="treasureDetail.spellGrantFlow === true"
       @close="onTreasureDetailClose"
       @purchase="onTreasurePurchase"
       @sell="onTreasureSell"
@@ -881,6 +882,7 @@ import {
   rollExtraShopRandomCardOffers,
   rollShopRandomCardOffers,
 } from "../shop/rollShopRandomCardStock.js";
+import { canPurchaseRestartSpellInShop } from "../shop/shopOfferRowBuilders.js";
 import {
   applyRandomUpgradePick,
   buildRandomUpgradeAnimPayload,
@@ -1003,6 +1005,7 @@ import {
   scoringSleep,
 } from "../game/submitScoringTiming.js";
 import { isE2eMode } from "../e2e/isE2eMode.js";
+import { BACKDROP_SELF_CLOSE_GUARD_MS } from "../game/backdropSelfCloseGuard.js";
 import { registerGameTestHarness } from "../e2e/registerGameTestHarness.js";
 import { computeWordScore } from "../composables/useScoring.js";
 
@@ -1774,6 +1777,18 @@ const UPGRADE_RARITY_LETTER_LABEL = Object.freeze({
 /** 法术预览层关闭时 resolve（`runSpellPreviewChain`） */
 let spellPreviewFlowResolve =
   /** @type {null | ((r: import("../game/inRunGrantFlow.js").SpellPreviewFlowResult) => void)} */ (null);
+/** 骰子/重播等：先开商店法术详情，点「施放」后再 resolve */
+let spellGrantDetailResolve =
+  /** @type {null | ((r: import("../game/inRunGrantFlow.js").SpellPreviewFlowResult) => void)} */ (null);
+/** @type {number} 避免购买骰子/重播后同一次点击误触新开的详情「购买」 */
+let spellGrantDetailOpenGuardUntil = 0;
+/** @type {null | {
+ *   purchasedSpellId: string,
+ *   context: 'shop' | 'inRun',
+ *   offerDeckSource: 'fullDeck' | 'remainingDeck',
+ *   overrides: Record<string, unknown>,
+ * }} */
+let spellGrantDetailPending = null;
 /** 对局内/包内多选层关闭时 resolve（`runInRunPackPickFlow`） */
 let packPickFlowResolve = /** @type {null | (() => void)} */ (null);
 /** 对局内升级动效（顶栏计分板，与商店同款） */
@@ -2077,6 +2092,7 @@ function rollPackStock(rng = Math.random, sessionExcludeTreasureIds = null) {
     sessionExcludeTreasureIds: sessionExcludeTreasureIds ?? undefined,
     emptyTreasureSlots: ownedTreasures.value.filter((s) => s == null).length,
     lastReplayableSpellId: lastReplayableSpellId.value,
+    spellCastHistory: spellCastHistory.value,
     shopTreasurePool: shopTreasurePool.value,
     guaranteeBalatroFirstShopBuffoonSlot: guarantee,
     ownedVoucherIds: ownedVoucherIds.value,
@@ -2100,6 +2116,7 @@ function buildShopRandomCardRollCtx(sessionExcludeTreasureIds = null) {
     ownedTreasureIdSet: ownedTreasureIdSet.value,
     sessionExcludeTreasureIds: sessionExcludeTreasureIds ?? undefined,
     lastReplayableSpellId: lastReplayableSpellId.value,
+    spellCastHistory: spellCastHistory.value,
     shopTreasurePool: shopTreasurePool.value,
     ownedVoucherIds: ownedVoucherIds.value,
     honeAccessoryMult: getShopAccessoryChanceMultiplier(ownedVoucherIds.value),
@@ -2222,6 +2239,7 @@ function buildRollInRunBundlePackCtx() {
     ownedTreasureIdSet: ownedTreasureIdSet.value,
     emptyTreasureSlots: ownedTreasures.value.filter((s) => s == null).length,
     lastReplayableSpellId: lastReplayableSpellId.value,
+    spellCastHistory: spellCastHistory.value,
     shopTreasurePool: shopTreasurePool.value,
     guaranteeBalatroFirstShopBuffoonSlot: false,
     ownedVoucherIds: ownedVoucherIds.value,
@@ -2785,6 +2803,7 @@ const treasurePackInnerAlreadyClaimed = computed(() => {
 const treasureCanBuyOffer = computed(() => {
   const d = treasureDetail.value;
   if (!d) return false;
+  if (d.spellGrantFlow === true) return true;
   const t = d.treasure;
   if (!t) return false;
 
@@ -2816,6 +2835,9 @@ const treasureCanBuyOffer = computed(() => {
   if (t.offerType === "bundlePack") return w >= p;
   if (t.offerType === "spell") {
     const sid = String(t.spellId ?? "");
+    if (sid === "restart" && !canPurchaseRestartSpellInShop(lastReplayableSpellId.value, spellCastHistory.value)) {
+      return false;
+    }
     return w >= p;
   }
   if (t.offerType === "upgrade") return w >= p;
@@ -7442,6 +7464,16 @@ function onOpenSpellReplayTargetPreview() {
 }
 
 function onTreasureDetailClose() {
+  if (treasureDetail.value?.spellGrantFlow === true) {
+    if (performance.now() < spellGrantDetailOpenGuardUntil) return;
+    const resolve = spellGrantDetailResolve;
+    spellGrantDetailPending = null;
+    spellGrantDetailResolve = null;
+    treasureDetail.value = null;
+    spellReferencePreview.value = null;
+    resolve?.({ confirmed: false, skipped: true });
+    return;
+  }
   treasureDetail.value = null;
   spellReferencePreview.value = null;
 }
@@ -7513,6 +7545,88 @@ function resolveSpellPreviewFlow(previewResult) {
   const r = spellPreviewFlowResolve;
   spellPreviewFlowResolve = null;
   r?.(previewResult ?? { confirmed: false, skipped: true });
+}
+
+/**
+ * 详情层点「施放」后：无选格则即时结算，否则打开 SpellTargetLayer。
+ * @param {string} purchasedSpellId
+ * @param {'shop' | 'inRun'} context
+ * @param {'fullDeck' | 'remainingDeck'} offerDeckSource
+ * @param {Parameters<typeof buildSpellTargetSessionFields>[4]} [overrides]
+ */
+async function runSpellCastAfterDetailPreview(purchasedSpellId, context, offerDeckSource, overrides = {}) {
+  const pid = String(purchasedSpellId ?? "");
+  const replayTarget = resolveRestartEffectiveSpellId(spellCastHistory.value, lastReplayableSpellId.value);
+  const openTargetLayer =
+    context === "inRun"
+      ? shouldOpenInRunSpellPreview(pid)
+      : shouldOpenSpellTargetLayer(pid, replayTarget);
+
+  if (!openTargetLayer) {
+    await applyInstantSpellWithoutPreview(pid, context, offerDeckSource);
+    return { confirmed: true, skipped: false };
+  }
+  return openSingleSpellPreviewSession(pid, context, offerDeckSource, overrides);
+}
+
+/**
+ * 先开商店同款法术详情（TreasureDetailLayer），点「施放」后再进入选格/结算。
+ * @param {string} purchasedSpellId
+ * @param {string} displaySpellId 详情层展示的法术 id
+ * @param {'shop' | 'inRun'} context
+ * @param {'fullDeck' | 'remainingDeck'} offerDeckSource
+ * @param {Parameters<typeof buildSpellTargetSessionFields>[4]} [overrides]
+ */
+function openSpellGrantDetailPreviewThenCast(purchasedSpellId, displaySpellId, context, offerDeckSource, overrides = {}) {
+  const offer = buildSpellOfferPreviewFromId(displaySpellId);
+  if (!offer) return Promise.resolve({ confirmed: false, skipped: true });
+
+  return new Promise((resolve) => {
+    spellGrantDetailResolve = resolve;
+    spellGrantDetailPending = {
+      purchasedSpellId: String(purchasedSpellId ?? ""),
+      context,
+      offerDeckSource,
+      overrides,
+    };
+    spellGrantDetailOpenGuardUntil = performance.now() + BACKDROP_SELF_CLOSE_GUARD_MS;
+    treasureDetail.value = {
+      kind: "offer",
+      spellGrantFlow: true,
+      treasure: offer,
+      originRect: null,
+    };
+  });
+}
+
+async function fulfillSpellGrantDetailCast() {
+  const pending = spellGrantDetailPending;
+  const resolve = spellGrantDetailResolve;
+  if (!pending || !resolve) return;
+  spellGrantDetailPending = null;
+  spellGrantDetailResolve = null;
+  const result = await runSpellPreviewChainAfterDetailClose(() =>
+    runSpellCastAfterDetailPreview(
+      pending.purchasedSpellId,
+      pending.context,
+      pending.offerDeckSource,
+      pending.overrides,
+    ),
+  );
+  resolve(result);
+}
+
+/**
+ * 先挂载法术操作层，再淡出详情层，避免两浮层切换时空档闪屏。
+ * @param {() => Promise<import('../game/inRunGrantFlow.js').SpellPreviewFlowResult>} startPreviewChain
+ */
+async function runSpellPreviewChainAfterDetailClose(startPreviewChain) {
+  const previewPromise = startPreviewChain();
+  await nextTick();
+  const layer = treasureDetailLayerRef.value;
+  await layer?.playClose?.();
+  treasureDetail.value = null;
+  return previewPromise;
 }
 
 /**
@@ -7613,11 +7727,16 @@ async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, 
     void spellName;
     void spellIconClass;
     void spellRarity;
-    return runSpellPreviewChain(replayTarget, context, offerDeckSource, {
-      ...restartRestOverrides,
-      replayAsPurchasedId: "restart",
-      forcePreview: true,
-    });
+    return openSpellGrantDetailPreviewThenCast(
+      replayTarget,
+      replayTarget,
+      context,
+      offerDeckSource,
+      {
+        ...restartRestOverrides,
+        replayAsPurchasedId: "restart",
+      },
+    );
   }
 
   if (pid === "dice") {
@@ -7628,10 +7747,14 @@ async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, 
     void spellIconClass;
     void spellRarity;
     for (const subId of pickDiceChainSpellIds(runRandom)) {
-      await runSpellPreviewChain(subId, context, offerDeckSource, {
-        ...diceRestOverrides,
-        forcePreview: true,
-      });
+      const result = await openSpellGrantDetailPreviewThenCast(
+        subId,
+        subId,
+        context,
+        offerDeckSource,
+        diceRestOverrides,
+      );
+      if (!result.confirmed) return result;
     }
     return { confirmed: true, skipped: false };
   }
@@ -7692,8 +7815,8 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
 
   const offerSlotsList = Array.isArray(s.offerSlots) ? s.offerSlots : [];
   let confirmSelectionSlotIndices = selectionSlotIndices;
-  let resolvedOrdered = Array.isArray(selectionSlotIndices)
-      ? selectionSlotIndices
+  let resolvedOrdered = Array.isArray(confirmSelectionSlotIndices)
+      ? confirmSelectionSlotIndices
           .map((ix) => {
             const sl = offerSlotsList[ix];
             if (!sl || sl.empty) return null;
@@ -7822,6 +7945,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
     const r = applySpell(ctx, s.purchasedSpellId, s.effectiveSpellId, resolvedOrdered, { rng: runRandom });
     lastSpellFx = r?.spellFx ?? null;
   };
+  const oldSnaps = targets.map(({ row, col }) => cloneGridTileSnapshot(g[row][col]));
   await nextTick();
   const playedOnOffer =
     (await spellTargetLayerRef.value?.playConfirmAppearanceAnim?.({
@@ -7889,6 +8013,11 @@ async function onTreasurePurchase() {
   const d = treasureDetail.value;
   if (!d) return;
   try {
+  if (d.spellGrantFlow === true) {
+    if (performance.now() < spellGrantDetailOpenGuardUntil) return;
+    await fulfillSpellGrantDetailCast();
+    return;
+  }
   if (d.kind === "pack-inner") {
     await onPackInnerClaim();
     return;
@@ -7958,18 +8087,32 @@ async function onTreasurePurchase() {
   if (t.offerType === "spell") {
     const spellId = String(t.spellId ?? "");
     if (!spellId) return;
-    const layer = treasureDetailLayerRef.value;
-    await layer?.playClose?.();
+    if (spellId === "restart" && !canPurchaseRestartSpellInShop(lastReplayableSpellId.value, spellCastHistory.value)) {
+      return;
+    }
     money.value -= pay;
     noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
-    treasureDetail.value = null;
-    await runSpellPreviewChain(spellId, "shop", "fullDeck", {
-      spellDescription: t.description,
-      spellName: t.name,
-      spellIconClass: t.iconClass,
-      spellRarity: t.rarity,
-    });
+    if (spellId === "dice" || spellId === "restart") {
+      treasureDetail.value = null;
+      await nextTick();
+      await new Promise((r) => requestAnimationFrame(r));
+      await runSpellPreviewChain(spellId, "shop", "fullDeck", {
+        spellDescription: t.description,
+        spellName: t.name,
+        spellIconClass: t.iconClass,
+        spellRarity: t.rarity,
+      });
+      return;
+    }
+    await runSpellPreviewChainAfterDetailClose(() =>
+      runSpellPreviewChain(spellId, "shop", "fullDeck", {
+        spellDescription: t.description,
+        spellName: t.name,
+        spellIconClass: t.iconClass,
+        spellRarity: t.rarity,
+      }),
+    );
     return;
   }
 
@@ -10721,6 +10864,9 @@ function e2eCanBuyShopOffer(t) {
   if (t.offerType === "bundlePack") return w >= p;
   if (t.offerType === "spell") {
     const sid = String(t.spellId ?? "");
+    if (sid === "restart" && !canPurchaseRestartSpellInShop(lastReplayableSpellId.value, spellCastHistory.value)) {
+      return false;
+    }
     return w >= p;
   }
   if (t.offerType === "upgrade") return w >= p;

@@ -110,6 +110,7 @@ function ensureTelescopeLengthUpgradeInBundleOpts(opts, mostLen, makeLengthUpgra
  *   sessionExcludeTreasureIds?: Set<string>,
  *   emptyTreasureSlots: number,
  *   lastReplayableSpellId: string | null,
+ *   spellCastHistory?: string[],
  *   shopTreasurePool: import("../treasures/treasureTypes.js").TreasureDef[],
  *   guaranteeBalatroFirstShopBuffoonSlot?: boolean,
  *   ownedVoucherIds?: Iterable<string>,
@@ -123,6 +124,7 @@ export function rollPackOfferStock(ctx) {
   const sessionExcluded = ctx.sessionExcludeTreasureIds ?? null;
   const emptySlots = Math.max(0, Math.floor(Number(ctx.emptyTreasureSlots) || 0));
   const lastReplay = ctx.lastReplayableSpellId ? String(ctx.lastReplayableSpellId) : null;
+  const spellCastHistory = Array.isArray(ctx.spellCastHistory) ? ctx.spellCastHistory : [];
   const pool = Array.isArray(ctx.shopTreasurePool) ? ctx.shopTreasurePool : [];
 
   const ownedV = ctx.ownedVoucherIds != null ? new Set([...ctx.ownedVoucherIds]) : new Set();
@@ -134,7 +136,7 @@ export function rollPackOfferStock(ctx) {
     ? getMostPlayedWordLength(ctx.spellCountsByLength ?? null)
     : 0;
 
-  const spellDefsAll = filterSpellDefsForShop(lastReplay, SPELL_DEFINITIONS);
+  const spellDefsAll = filterSpellDefsForShop(lastReplay, SPELL_DEFINITIONS, spellCastHistory);
   const nextPackId = () => ctx.nextPackOfferInstanceId();
 
   const makeEmpty = () => ({ kind: "empty", emptySlotId: ctx.nextPackEmptySlotId() });

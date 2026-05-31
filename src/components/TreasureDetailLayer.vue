@@ -461,9 +461,21 @@
             </div>
           </div>
 
-          <div ref="actionsRef" class="treasure-detail-actions treasure-detail-stagger-el">
+          <div
+            ref="actionsRef"
+            class="treasure-detail-actions treasure-detail-stagger-el"
+            :class="{ 'treasure-detail-actions--spell-grant': mode === 'offer' && spellGrantFlow }"
+          >
             <button
-              v-if="mode === 'offer'"
+              v-if="mode === 'offer' && spellGrantFlow"
+              type="button"
+              class="shop-btn shop-btn--use"
+              @click="emit('purchase')"
+            >
+              使用
+            </button>
+            <button
+              v-else-if="mode === 'offer'"
               type="button"
               class="shop-btn shop-btn--buy"
               :disabled="!canBuyOffer"
@@ -489,7 +501,14 @@
             >
               卖出 ${{ sellRefund }}
             </button>
-            <button type="button" class="shop-btn shop-btn--next" @click="requestClose">返回</button>
+            <button
+              v-if="!(mode === 'offer' && spellGrantFlow)"
+              type="button"
+              class="shop-btn shop-btn--next"
+              @click="requestClose"
+            >
+              返回
+            </button>
           </div>
         </div>
       </div>
@@ -681,6 +700,8 @@ const props = defineProps({
   rarityLevelsByRarity: { type: Object, default: null },
   /** 已拥有打字机时宝藏简介概率显示翻倍 */
   probabilityDisplayDoubled: { type: Boolean, default: false },
+  /** 骰子/重播释法：主按钮为「使用」（绿），非商店购买 */
+  spellGrantFlow: { type: Boolean, default: false },
 });
 
 const offerPriceDisplayed = computed(() =>

@@ -2483,6 +2483,11 @@
 	color: var(--btn-white);
 }
 
+.shop-btn--use {
+	background: var(--btn-green);
+	color: var(--btn-white);
+}
+
 /* ----- 商店宝藏方框（货架格与详情 icon 共用） ----- */
 .shop-treasure-frame {
 	position: relative;
@@ -3696,6 +3701,16 @@
 	padding: calc(18 * var(--rpx)) calc(16 * var(--rpx));
 }
 
+.treasure-detail-actions--spell-grant {
+	justify-content: center;
+}
+
+.treasure-detail-actions--spell-grant .shop-btn {
+	flex: 0 1 auto;
+	min-width: calc(200 * var(--rpx));
+	max-width: calc(320 * var(--rpx));
+}
+
 /* ----- 商店组合包：多选确认层（Teleport → #game-view-portal） ----- */
 .pack-pick-backdrop {
 	position: absolute;
@@ -4048,8 +4063,14 @@
 	justify-content: center;
 	padding: calc(28 * var(--rpx)) calc(22 * var(--rpx));
 	box-sizing: border-box;
-	background: rgba(72, 90, 58, 0.78);
+	/* 由 GSAP 从透明淡入，避免首帧实色再被 set 成透明造成闪一下 */
+	background: transparent;
 	border-radius: calc(12 * var(--rpx));
+}
+
+.spell-target-backdrop--boot {
+	background: transparent;
+	box-shadow: none;
 }
 
 .spell-target-backdrop--closing {
@@ -4058,6 +4079,11 @@
 
 /* 首帧：与宝藏详情 `.treasure-detail-backdrop--boot` 相同思路，避免首 paint 在 GSAP 写入前闪一帧 */
 .spell-target-backdrop--boot .spell-target-stagger-el {
+	opacity: 0;
+}
+
+.spell-target-backdrop--boot .spell-target-icon-column-boot-hide,
+.spell-target-backdrop--boot .treasure-detail-icon-column {
 	opacity: 0;
 }
 

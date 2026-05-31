@@ -1,6 +1,7 @@
 /**
  * 商店单格商品行：单卡区（宝藏/法术/升级/字母块）与牌包区内选项共用。
  */
+import { resolveRestartEffectiveSpellId } from "../game/inRunGrantFlow.js";
 import { getSpellDefinition, getSpellShopPrice } from "../spells/spellDefinitions.js";
 import { LETTER_RARITY_ORDER, getRarityForLetter } from "../composables/useScoring.js";
 import { getShopTreasureAccessoryPriceAdd, rollShopTreasureAccessoryId } from "../treasures/shopTreasureAccessoryRoll.js";
@@ -32,17 +33,29 @@ export const UPGRADE_RARITY_LETTER_LABEL = Object.freeze({
 /**
  * @param {string | null | undefined} lastReplayableSpellId
  * @param {import("../spells/spellDefinitions.js").SpellDefinition[]} allDefs
+ * @param {string[]} [spellCastHistory]
  */
-export function filterSpellDefsForShop(lastReplayableSpellId, allDefs) {
-  const lastReplay = lastReplayableSpellId ? String(lastReplayableSpellId) : null;
+export function filterSpellDefsForShop(lastReplayableSpellId, allDefs, spellCastHistory = []) {
+  const replayTarget = resolveRestartEffectiveSpellId(spellCastHistory, lastReplayableSpellId);
   return allDefs.filter((d) => {
     if (d.id === "restart") {
-      if (!lastReplay) return false;
-      const prev = getSpellDefinition(lastReplay);
+      if (!replayTarget) return false;
+      const prev = getSpellDefinition(replayTarget);
       return Boolean(prev && prev.pickCount >= 0);
     }
     return true;
   });
+}
+
+/**
+ * @param {string | null | undefined} lastReplayableSpellId
+ * @param {string[]} [spellCastHistory]
+ */
+export function canPurchaseRestartSpellInShop(lastReplayableSpellId, spellCastHistory = []) {
+  const replayTarget = resolveRestartEffectiveSpellId(spellCastHistory, lastReplayableSpellId);
+  if (!replayTarget) return false;
+  const prev = getSpellDefinition(replayTarget);
+  return Boolean(prev && prev.pickCount >= 0);
 }
 
 /**
