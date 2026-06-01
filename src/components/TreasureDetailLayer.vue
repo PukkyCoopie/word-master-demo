@@ -1253,10 +1253,18 @@ const flyCloneStyle = computed(() => {
   };
 });
 
-/** @param {HTMLElement} backdrop @param {HTMLElement[]} staggerEls @param {HTMLElement | null} targetVisual */
-function applyEnterInitialHide(backdrop, staggerEls, targetVisual) {
-  gsap.killTweensOf([backdrop, targetVisual, ...staggerEls].filter(Boolean));
-  gsap.set(backdrop, portalScrimGsapVars("rgba(14, 12, 10, 0)"));
+/**
+ * @param {HTMLElement} backdrop
+ * @param {HTMLElement[]} staggerEls
+ * @param {HTMLElement | null} targetVisual
+ * @param {boolean} resetBackdrop
+ */
+function applyEnterInitialHide(backdrop, staggerEls, targetVisual, resetBackdrop = true) {
+  gsap.killTweensOf([targetVisual, ...staggerEls].filter(Boolean));
+  if (resetBackdrop) {
+    gsap.killTweensOf(backdrop);
+    gsap.set(backdrop, portalScrimGsapVars("rgba(14, 12, 10, 0)"));
+  }
   gsap.set(staggerEls, { opacity: 0, y: 7 });
   if (targetVisual) {
     gsap.set(targetVisual, { opacity: 0, pointerEvents: "none" });
@@ -1311,7 +1319,8 @@ function runEnterAnimation() {
       if (!backdropLive || !targetVisualLive) return;
 
       const staggerLive = staggerTargets();
-      applyEnterInitialHide(backdropLive, staggerLive, targetVisualLive);
+      /* 二次重置仅处理子块；保留 backdrop 正在进行的渐变，避免瞬间跳黑 */
+      applyEnterInitialHide(backdropLive, staggerLive, targetVisualLive, false);
       if (!hasFly) {
         gsap.set(targetVisualLive, { scale: 0.94, transformOrigin: "50% 50%" });
       }
