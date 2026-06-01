@@ -352,7 +352,7 @@ const WATER_MATERIAL_SCORE_BONUS = 30;
 const FIRE_MATERIAL_MULT_BONUS = 4;
 
 /** 单次移除棋盘上已选字母上限（与 remove 按钮可用条件一致） */
-export const MAX_LETTERS_PER_REMOVAL = 8;
+export const MAX_LETTERS_PER_REMOVAL = 12;
 
 
 

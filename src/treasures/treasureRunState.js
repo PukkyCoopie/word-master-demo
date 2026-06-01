@@ -20,6 +20,7 @@
  * @property {number} rotatingRarityMultIndex 轮换稀有度倍率档位 0..3
  * @property {string | null} bigramTargetPair 两字母 bigram，如 "na"
  * @property {boolean} levelDiscardsUsed 本小关是否使用过丢弃
+ * @property {Set<string>} levelCoin27PaidContributions 硬币（27）本关已结算的 hook 贡献键（防重复触发）
  * @property {number} shopFreeRerollsRemaining 本段商店停留内剩余免费刷新次数（小票等）
  * @property {number | null} jokerForcedDrawUid 鬼牌：下一局 buildGrid 首抽强制牌张 _dcUid
  * @property {Set<string>} chapterPosSpelledThisChapter 本大关内已拼写过的词性 n | adj | v
@@ -103,6 +104,7 @@ export function resetTreasureLevelScopedState(state) {
   state.levelFirstWordSubmitted = false;
   state.levelFirstWordLength = null;
   state.levelDiscardsUsed = false;
+  state.levelCoin27PaidContributions = new Set();
   state.levelVowelsUsedThisLevel = new Set();
   state.levelFirstFullWordDiscardDone = false;
 }

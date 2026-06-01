@@ -506,6 +506,32 @@ defineExpose({
   background: rgba(60, 58, 50, 0.45);
 }
 
+.run-start-preset-hint-enter-active,
+.run-start-preset-hint-leave-active {
+  transition: opacity 0.18s ease-out;
+}
+
+.run-start-preset-hint-enter-active .run-start-preset-hint-card,
+.run-start-preset-hint-leave-active .run-start-preset-hint-card {
+  transition:
+    opacity 0.18s ease-out,
+    transform 0.18s ease-out;
+}
+
+.run-start-preset-hint-enter-from,
+.run-start-preset-hint-leave-to {
+  opacity: 0;
+}
+
+.run-start-preset-hint-enter-from .run-start-preset-hint-card,
+.run-start-preset-hint-leave-to .run-start-preset-hint-card {
+  opacity: 0;
+  transform: translateY(calc(10 * var(--rpx)));
+}
+</style>
+
+<!-- Teleport 到 portal，须非 scoped 才能生效 -->
+<style>
 .run-start-preset-hint-backdrop {
   display: flex;
   align-items: center;
@@ -555,28 +581,5 @@ defineExpose({
 
 .run-start-preset-hint-btn:active {
   filter: brightness(0.92);
-}
-
-.run-start-preset-hint-enter-active,
-.run-start-preset-hint-leave-active {
-  transition: opacity 0.18s ease-out;
-}
-
-.run-start-preset-hint-enter-active .run-start-preset-hint-card,
-.run-start-preset-hint-leave-active .run-start-preset-hint-card {
-  transition:
-    opacity 0.18s ease-out,
-    transform 0.18s ease-out;
-}
-
-.run-start-preset-hint-enter-from,
-.run-start-preset-hint-leave-to {
-  opacity: 0;
-}
-
-.run-start-preset-hint-enter-from .run-start-preset-hint-card,
-.run-start-preset-hint-leave-to .run-start-preset-hint-card {
-  opacity: 0;
-  transform: translateY(calc(10 * var(--rpx)));
 }
 </style>

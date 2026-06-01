@@ -114,9 +114,11 @@ export async function notifyOwnedTreasuresOnLevelEnter(ownedSlotTreasureIds, ctx
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureLevelCompleteContext} ctx */
 export async function notifyOwnedTreasuresOnLevelComplete(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onLevelComplete;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn({ ...ctx, hookSlotIndex: slotIndex, hookSource: source }))
+      : undefined;
   });
 }
 

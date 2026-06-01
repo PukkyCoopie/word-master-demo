@@ -2,6 +2,10 @@ import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
 import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
 import { sortElementsTopLeftToBottomRight } from "../game/deckLayerEnterAnim.js";
+import {
+  instantRevealGsapTargets,
+  shouldSkipDecorativeMotion,
+} from "../settings/animationSpeed.js";
 
 const ENTER_DURATION = 0.48;
 const SCRIM_DURATION = 0.36;
@@ -353,6 +357,31 @@ export function playProfileLayerEnter(refs, originRects) {
     nameFly,
     enterStaggerEls,
   } = refs;
+
+  if (shouldSkipDecorativeMotion()) {
+    const reduceTargets = [
+      backdrop,
+      scrim,
+      card,
+      avatarFly,
+      avatarFlyLetter,
+      nameFly,
+      ...enterStaggerEls,
+    ].filter(Boolean);
+    gsap.killTweensOf(reduceTargets);
+    if (scrim) gsap.set(scrim, portalScrimGsapVars("rgba(60, 58, 50, 0.45)"));
+    if (card) {
+      gsap.set(card, { opacity: 1, clearProps: "transform,overflow,backgroundColor,boxShadow" });
+    }
+    hideAvatarFlyClone(refs);
+    hideNameFlyClone(refs);
+    instantRevealGsapTargets(collectProfileEnterStaggerEls(card), {
+      opacity: 1,
+      y: 0,
+      clearProps: "opacity,transform",
+    });
+    return gsap.timeline();
+  }
 
   const targets = [
     backdrop,

@@ -4,6 +4,7 @@ import {
   snapshotMaxIntrinsicGainsFromTile,
   applyIntrinsicGainsToTileAndLinkedCard,
 } from "./tileIntrinsicGains.js";
+import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 const SHRINK = 0.26;
 const STAGGER = 0.1;
@@ -139,6 +140,14 @@ export async function runSpellTileAppearanceAnim(opts) {
   const { spellId, targets, oldSnaps, newSnaps, getNewSnapsAtMid, grid, touchGrid, getTileEl, nextTick } =
     opts;
   if (!targets.length) return;
+
+  if (shouldSkipDecorativeMotion()) {
+    const snaps = typeof getNewSnapsAtMid === "function" ? getNewSnapsAtMid() : newSnaps;
+    assignTargetsFromSnaps(grid, targets, snaps ?? newSnaps);
+    touchGrid();
+    await nextTick();
+    return;
+  }
 
   const sid = String(spellId ?? "");
   assignTargetsFromSnaps(grid, targets, oldSnaps);
@@ -406,6 +415,13 @@ export async function runDetachedDeleteBackConfirmAnim(opts) {
   const { targetCount, getTileEl, nextTick } = opts;
   if (targetCount <= 0) return;
   await nextTick();
+  if (shouldSkipDecorativeMotion()) {
+    for (let i = 0; i < targetCount; i++) {
+      const el = getTileEl(i);
+      if (el instanceof HTMLElement) gsap.set(el, { scale: 0, opacity: 0 });
+    }
+    return;
+  }
   await Promise.all(
     Array.from({ length: targetCount }, (_, i) =>
       new Promise((resolve) => {
@@ -446,6 +462,14 @@ export async function runDetachedSpellTileAppearanceAnim(opts) {
   const { spellId, targetCount, getTileEl, onMidAtIndex, onMidShrinkAll, nextTick } = opts;
   if (targetCount <= 0) return;
   await nextTick();
+  if (shouldSkipDecorativeMotion()) {
+    if (typeof onMidShrinkAll === "function") {
+      onMidShrinkAll();
+    } else {
+      for (let i = 0; i < targetCount; i++) onMidAtIndex?.(i);
+    }
+    return;
+  }
   const sid = String(spellId ?? "");
   /** 材质类确认：多格同步缩至谷底再换图，避免逐格错峰时提前读到已施法状态 */
   if (sid === "seedling" || sid === "dice" || typeof onMidShrinkAll === "function") {

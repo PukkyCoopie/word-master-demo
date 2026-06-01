@@ -1,3 +1,5 @@
+import { getEffectiveAnimSpeed } from "../settings/animationSpeed.js";
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -69,6 +71,6 @@ export function getSubmitScoringBeatSpeed(beatIndex, totalBeats) {
 }
 
 export async function scoringSleep(ms, speed) {
-  const s = Math.max(0.01, Number(speed) || 1);
+  const s = getEffectiveAnimSpeed(speed);
   return sleep(Math.max(1, Math.round(ms / s)));
 }

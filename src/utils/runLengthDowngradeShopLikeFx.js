@@ -8,6 +8,7 @@ import {
   getLengthMultiplier,
   getLengthUpgradeStepAdds,
 } from "../composables/useScoring.js";
+import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -50,7 +51,7 @@ function bubbleAt(targetEl, text, kind) {
 }
 
 function wobblePanelLikeScoreSlot(el, delayS = 0, speed = 1) {
-  if (!el) return;
+  if (!el || shouldSkipDecorativeMotion()) return;
   const s = Math.max(0.01, Number(speed) || 1);
   gsap.killTweensOf(el, "rotation,scale,x,y");
   const tCompress = 0.11;
@@ -75,7 +76,9 @@ async function runPanelWobbleAndBubble(panelEl, text, kind, speed = 1) {
   if (!panelEl) return;
   const s = Math.max(0.01, Number(speed) || 1);
   wobblePanelLikeScoreSlot(panelEl, 0, s);
-  await sleep(Math.round(145 / s));
+  if (!shouldSkipDecorativeMotion()) {
+    await sleep(Math.round(145 / s));
+  }
   bubbleAt(panelEl, text, kind);
 }
 
@@ -83,6 +86,10 @@ function popSettle(el, speed = 1) {
   if (!el) return;
   const s = Math.max(0.01, Number(speed) || 1);
   gsap.killTweensOf(el);
+  if (shouldSkipDecorativeMotion()) {
+    gsap.set(el, { transformOrigin: "50% 55%", scale: 1 });
+    return;
+  }
   gsap.set(el, { transformOrigin: "50% 55%", scale: 1.22 });
   gsap.to(el, { scale: 1, duration: 0.55 / s, ease: "expo.out" });
 }

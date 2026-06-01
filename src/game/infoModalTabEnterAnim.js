@@ -1,5 +1,9 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
+import {
+  instantRevealGsapTargets,
+  shouldSkipDecorativeMotion,
+} from "../settings/animationSpeed.js";
 
 /** 各元素 stagger 均分的时间窗（单元素 duration 另计） */
 const GRID_STAGGER_SPREAD = 0.34;
@@ -23,6 +27,10 @@ function evenStagger(count, totalSpread) {
  */
 export function prepareInfoGridTabEnter(targets) {
   if (!targets.length) return;
+  if (shouldSkipDecorativeMotion()) {
+    instantRevealGsapTargets(targets);
+    return;
+  }
   gsap.killTweensOf(targets);
   gsap.set(targets, { opacity: 0, y: TABLE_Y, scale: 1 });
 }
@@ -32,6 +40,10 @@ export function prepareInfoGridTabEnter(targets) {
  */
 export function prepareInfoCouponTabEnter(targets) {
   if (!targets.length) return;
+  if (shouldSkipDecorativeMotion()) {
+    instantRevealGsapTargets(targets, { opacity: 1, scale: 1, y: 0 });
+    return;
+  }
   gsap.killTweensOf(targets);
   gsap.set(targets, { opacity: 0, scale: 0.68, y: 0 });
 }
@@ -41,6 +53,10 @@ export function prepareInfoCouponTabEnter(targets) {
  */
 export function playInfoGridTabEnter(targets) {
   if (!targets.length) return;
+  if (shouldSkipDecorativeMotion()) {
+    instantRevealGsapTargets(targets);
+    return;
+  }
   prepareInfoGridTabEnter(targets);
   gsap.to(targets, {
     opacity: 1,
@@ -56,6 +72,10 @@ export function playInfoGridTabEnter(targets) {
  */
 export function playInfoCouponTabEnter(targets) {
   if (!targets.length) return;
+  if (shouldSkipDecorativeMotion()) {
+    instantRevealGsapTargets(targets, { opacity: 1, scale: 1, y: 0 });
+    return;
+  }
   prepareInfoCouponTabEnter(targets);
   gsap.to(targets, {
     opacity: 1,

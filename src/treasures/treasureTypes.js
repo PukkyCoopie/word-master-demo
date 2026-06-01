@@ -170,6 +170,7 @@
  * @property {(ctx: { realTile: object | null, band: 'score' | 'mult', delta: number }) => boolean} [persistTileAfterPerLetterTreasureCue] 逐字「宝藏 +Δ」与词槽 wobble 同节拍前写回 tile/_deckCard；返回 true 表示已改角标（调用方 `nextTick` 后再建含角标的 wobble timeline）
  * @property {(ctx: { ownedSlotTreasureIds: (string | null | undefined)[] }, part: { letter?: string, rarity?: string }, letterIndex: number) => { delta: number, label?: string } | null | undefined} [getPerLetterScoreCue]
  * @property {boolean} [perLetterScoreCueDepositsTreasureBank] 为 true 时：逐字 cue 仅累加宝藏分数银行并在宝藏槽弹出 +Δ，不入词槽公式；入账在字后 `buildPostLetterStep` 的 `scoreAdd`（如 B 键 80）
+ * @property {boolean} [showPerLetterScoreCueBubble] 与 `perLetterScoreCueDepositsTreasureBank` 配套：设为 false 时，逐字仅 wobble 宝藏槽并入账，不显示 +Δ 气泡（如 B 键 80）
  * @property {boolean} [mergeLetterScoreCueIntoIntrinsicLetterScoreStep] 为 true 时：`getPerLetterScoreCue` 的平面分增量与单字母「本体分数」（稀有度+tile 平面分+材质平面分）**同一拍**展示——词槽一次 wobble/气泡、`animScoreSum` 一次加上该增量，且不再单独走 `runSlotPerLetterTreasureScoreStep`；须与 `persistTileAfterPerLetterTreasureCue`（band `score`）写回角标一致（如剪贴板）。**仅**「增益落在 tile 角标/本体」类；元音、指定字母等条件宝藏勿开。
  * @property {(ctx: { ownedSlotTreasureIds: (string | null | undefined)[] }, part: { letter?: string, rarity?: string }, letterIndex: number) => { delta: number, label?: string } | null | undefined} [getPerLetterMultCue]
  * @property {boolean} [mergeLetterMultCueIntoIntrinsicLetterMultStep] 为 true 时：`getPerLetterMultCue` 的倍率增量与单字母「本体倍率」（稀有度+材质+tile 角标）**同一拍**展示——词槽一次 wobble/气泡、`animMultTotal` 一次加上该增量，且不再单独走 `runSlotPerLetterTreasureMultStep`；须与 `persistTileAfterPerLetterTreasureCue`（band `mult`）写回角标一致（如回形针）。**仅**「增益落在 tile 角标/本体」类；元音倍率等条件宝藏勿开。
@@ -257,9 +258,11 @@
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(amount: number) => void} [addMoney]
- * @property {(treasureId: string, amount: number) => Promise<void>} [playOwnedTreasureMoneyFx] 宝藏槽 wobble + +$n 气泡并入账
+ * @property {(treasureId: string, amount: number, opts?: { slotIndex?: number }) => Promise<void>} [playOwnedTreasureMoneyFx] 宝藏槽 wobble + +$n 气泡并入账
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx] 宝藏槽 wobble + 自定义气泡（不入账）
  * @property {number} [remainingRemovals] 小关结束时剩余丢弃次数
+ * @property {number} [hookSlotIndex] 本次 hook 对应的栏位下标（面具镜像时为面具槽）
+ * @property {'self' | 'blueprint'} [hookSource] 本次贡献来自实体宝藏或面具镜像
  * @property {(treasureId: string, amount: number) => void} [bumpOwnedTreasurePriceById] 提高已拥有实例的购入价（影响卖出价）
  */
 

@@ -1,6 +1,6 @@
 import { dictionaryPosMatchesTreasureLevelKey } from "../../game/wordPosMatch.js";
 import { describe, mult } from "../treasureDescription.js";
-import { bankMultAddGain, getMultAddBank } from "../treasureBankHelpers.js";
+import { addMultAddBank, getMultAddBank } from "../treasureBankHelpers.js";
 
 const ID = "40";
 
@@ -48,11 +48,14 @@ export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription: buildBookDescription,
   buildPostLetterStep(ctx) {
-    const v = getMultAddBank(ctx.treasureRun, ID);
-    return v !== 0 ? { multAdd: v } : null;
+    const base = getMultAddBank(ctx.treasureRun, ID);
+    const pendingGain = isNonNounSubmittedWord(ctx) ? 2 : 0;
+    const total = base + pendingGain;
+    return total !== 0 ? { multAdd: total } : null;
   },
-  async onSuccessfulWordSubmit(ctx) {
+  onSuccessfulWordSubmit(ctx) {
     if (!isNonNounSubmittedWord(ctx)) return;
-    await bankMultAddGain(ctx, ID, 2);
+    // 不再单独播 +2 气泡：只在字后步展示“总倍率”气泡。
+    addMultAddBank(ctx.treasureRun, ID, 2);
   },
 };

@@ -22,21 +22,35 @@
         type="button"
         class="taptap-poster-layer-poster-btn"
         :aria-label="promoLabel"
+        :aria-busy="!posterLoaded"
         @click.stop="onPosterClick"
       >
-        <img
-          class="taptap-poster-layer-poster"
-          :src="TAP_TAP_POSTER_SRC"
-          alt="Word Master TapTap 海报"
-          draggable="false"
-        />
+        <div class="taptap-poster-layer-poster-frame">
+          <div
+            v-if="!posterLoaded"
+            class="taptap-poster-layer-poster-loading"
+            aria-hidden="true"
+          >
+            <span class="taptap-poster-layer-poster-spinner"></span>
+          </div>
+          <img
+            ref="posterImgRef"
+            class="taptap-poster-layer-poster"
+            :class="{ 'taptap-poster-layer-poster--loaded': posterLoaded }"
+            :src="TAP_TAP_POSTER_SRC"
+            alt="Word Master TapTap 海报"
+            draggable="false"
+            @load="onPosterLoad"
+            @error="onPosterLoad"
+          />
+        </div>
       </button>
     </div>
   </Transition>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import {
   getTapTapPromoLabel,
   openTapTapAppPage,
@@ -46,11 +60,32 @@ import {
 
 const promoLabel = computed(() => getTapTapPromoLabel());
 
-defineProps({
+const props = defineProps({
   open: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["close"]);
+
+const posterLoaded = ref(false);
+/** @type {import('vue').Ref<HTMLImageElement | null>} */
+const posterImgRef = ref(null);
+
+watch(
+  () => props.open,
+  async (isOpen) => {
+    posterLoaded.value = false;
+    if (!isOpen) return;
+    await nextTick();
+    const img = posterImgRef.value;
+    if (img?.complete && img.naturalWidth > 0) {
+      posterLoaded.value = true;
+    }
+  },
+);
+
+function onPosterLoad() {
+  posterLoaded.value = true;
+}
 
 function onPosterClick() {
   openTapTapAppPage();
@@ -122,6 +157,36 @@ function onBackdropClick(e) {
   max-height: min(86vh, calc(1100 * var(--rpx)));
 }
 
+.taptap-poster-layer-poster-frame {
+  position: relative;
+  display: block;
+}
+
+.taptap-poster-layer-poster-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(92vw, calc(640 * var(--rpx)));
+  aspect-ratio: 640 / 1100;
+  max-height: min(86vh, calc(1100 * var(--rpx)));
+  background: #f5f0e8;
+}
+
+.taptap-poster-layer-poster-spinner {
+  width: calc(40 * var(--rpx));
+  height: calc(40 * var(--rpx));
+  border-radius: 50%;
+  border: calc(4 * var(--rpx)) solid rgba(90, 143, 184, 0.22);
+  border-top-color: #5a8fb8;
+  animation: taptap-poster-layer-spin calc(0.8s / var(--anim-speed-scale, 1)) linear infinite;
+}
+
+@keyframes taptap-poster-layer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .taptap-poster-layer-poster {
   display: block;
   width: auto;
@@ -129,6 +194,12 @@ function onBackdropClick(e) {
   max-width: min(92vw, calc(640 * var(--rpx)));
   max-height: min(86vh, calc(1100 * var(--rpx)));
   object-fit: contain;
+  opacity: 0;
+  transition: opacity calc(0.2s / var(--anim-speed-scale, 1)) ease;
+}
+
+.taptap-poster-layer-poster--loaded {
+  opacity: 1;
 }
 
 .taptap-poster-layer-enter-active,

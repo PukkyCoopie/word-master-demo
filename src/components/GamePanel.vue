@@ -1026,6 +1026,7 @@ import {
   getSubmitScoringTotalBeats,
   scoringSleep,
 } from "../game/submitScoringTiming.js";
+import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { isE2eMode } from "../e2e/isE2eMode.js";
 import { BACKDROP_SELF_CLOSE_GUARD_MS } from "../game/backdropSelfCloseGuard.js";
 import { registerGameTestHarness } from "../e2e/registerGameTestHarness.js";
@@ -3131,16 +3132,20 @@ async function wobbleTreasureSlotWithDestroyBubbleConcurrent(slotIndex, el, sp) 
 /** @param {HTMLElement} el @param {ReturnType<typeof showScoreBubble>} bubble @param {string} treasureId @param {number} sp */
 async function shrinkTreasureSlotAndClear(treasureId, el, bubble, sp) {
   gsap.killTweensOf(el);
-  await new Promise((resolve) => {
-    gsap.to(el, {
-      scale: 0,
-      opacity: 0,
-      duration: 0.35,
-      ease: EASE_TRANSFORM,
-      transformOrigin: "50% 50%",
-      onComplete: resolve,
+  if (!shouldSkipDecorativeMotion()) {
+    await new Promise((resolve) => {
+      gsap.to(el, {
+        scale: 0,
+        opacity: 0,
+        duration: 0.35,
+        ease: EASE_TRANSFORM,
+        transformOrigin: "50% 50%",
+        onComplete: resolve,
+      });
     });
-  });
+  } else {
+    gsap.set(el, { scale: 0, opacity: 0 });
+  }
   scheduleSmallPlusBubbleOutro(bubble, sp);
   gsap.set(el, { clearProps: "scale,opacity,transform" });
   clearOwnedTreasureSlotById(treasureId);
@@ -3325,8 +3330,8 @@ async function runTreasureLevelCompleteHooks() {
     destroyTreasureSlotById: destroyOwnedTreasureWithFx,
     findOwnedTreasureSlotIndex,
     wobbleOwnedTreasureById,
-    playOwnedTreasureMoneyFx: (treasureId, amount) =>
-      playOwnedTreasureMoneyFx(treasureId, amount, { awaitOutro: true }),
+    playOwnedTreasureMoneyFx: (treasureId, amount, fxOpts) =>
+      playOwnedTreasureMoneyFx(treasureId, amount, { ...fxOpts, awaitOutro: true }),
     playOwnedTreasureBubbleFx,
     remainingRemovals: remainingRemovals.value,
     addMoney: (n) => {
@@ -4055,6 +4060,23 @@ function submitWordLeaveStagger(letterCount) {
   const base = 0.082;
   const taper = 0.0042;
   return Math.max(0.03, base - extra * taper);
+}
+
+/** 丢弃后词槽/棋盘格依次消失：格数越多略加快，避免 12 格整体过久 */
+function discardLeaveStagger(letterCount) {
+  const n = Math.max(1, Math.min(MAX_LETTERS_PER_REMOVAL, Math.round(Number(letterCount) || 1)));
+  const extra = Math.max(0, n - 4);
+  const base = REMOVE_SLOT_STAGGER;
+  const taper = 0.0022;
+  return Math.max(0.034, base - extra * taper);
+}
+
+function discardLeaveDuration(letterCount) {
+  const n = Math.max(1, Math.min(MAX_LETTERS_PER_REMOVAL, Math.round(Number(letterCount) || 1)));
+  const extra = Math.max(0, n - 4);
+  const base = REMOVE_SLOT_FADE_DURATION;
+  const taper = 0.0035;
+  return Math.max(0.14, base - extra * taper);
 }
 
 function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
@@ -6761,11 +6783,14 @@ async function playTreasureSlotMoneyBurstAtPeak(slotIndex, amount, opts = {}) {
   }
 }
 
-/** @param {string} treasureId @param {number} amount @param {{ awaitOutro?: boolean }} [opts] */
+/** @param {string} treasureId @param {number} amount @param {{ awaitOutro?: boolean, slotIndex?: number }} [opts] */
 async function playOwnedTreasureMoneyFx(treasureId, amount, opts = {}) {
-  const ix = findOwnedTreasureSlotIndex(treasureId);
-  if (ix < 0) return;
-  await playTreasureSlotMoneyBurstAtPeak(ix, amount, opts);
+  const slotIx =
+    typeof opts.slotIndex === "number" && opts.slotIndex >= 0
+      ? opts.slotIndex
+      : findOwnedTreasureSlotIndex(treasureId);
+  if (slotIx < 0) return;
+  await playTreasureSlotMoneyBurstAtPeak(slotIx, amount, opts);
 }
 
 /** @param {number} slotIndex @param {string} text @param {string} [kind] */
@@ -8777,6 +8802,7 @@ const TILE_AUGMENT_BADGE_BOUNCE_SCALE = 2;
 
 function createWobbleScoreSlotTimeline(slotEl, pillAugment) {
   if (!slotEl) return null;
+  if (shouldSkipDecorativeMotion()) return null;
   gsap.killTweensOf(slotEl, "rotation,scale,x,y");
   const origin = "50% 55%";
   gsap.set(slotEl, { x: 0, y: 0, rotation: 0, scale: 1, transformOrigin: origin });
@@ -10503,8 +10529,8 @@ async function onRemoveClick() {
     removeGridLeaveEls,
     discardedLettersForHooks,
     {
-      duration: REMOVE_SLOT_FADE_DURATION,
-      stagger: REMOVE_SLOT_STAGGER,
+      duration: discardLeaveDuration(nSel),
+      stagger: discardLeaveStagger(nSel),
     },
   );
   const result = removeSelectedLetters({
@@ -10962,6 +10988,8 @@ async function submitWord() {
       const isFinalStandardWin =
         !isEndlessRun.value && isStandardRunFinalLevelIndex(levelIndex.value);
       if (isFinalStandardWin) {
+        await runHourglassStageEndFx();
+        await runTreasureLevelCompleteHooks();
         settlementSnapshot.value = buildSettlementSnapshot();
         await openRunEnd("win", { preserveSettlement: true });
       } else {

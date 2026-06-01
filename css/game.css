@@ -1,5 +1,6 @@
 /* Word Master - 逻辑画布 750×1500，所有尺寸用 --rpx，contain 适配由 .game-scaler 宽高 + 居中实现 */
 /* 动画约定：位移/尺寸/缩放/旋转 → expo.out（--ease-expo-out）；见 src/constants.js、.cursor/rules/animation-easing.mdc */
+/* 动画速度 / 减少动画：见 src/settings/animationSpeed.js、.cursor/rules/animation-speed.mdc */
 /* --rpx 由 JS 根据视口设置，1 逻辑单位 = var(--rpx)，如 750 * var(--rpx) = 画布宽 */
 
 @font-face {
@@ -20,6 +21,7 @@
 
 :root {
 	--rpx: 1px;
+	--anim-speed-scale: 1;
 	--logic-w: calc(750 * var(--rpx));
 	--logic-h: calc(1500 * var(--rpx));
 	--bg: #faf8ef;
@@ -4548,4 +4550,39 @@ textarea::-moz-placeholder {
 	padding: calc(16 * var(--rpx)) calc(22 * var(--rpx));
 	font-size: calc(28 * var(--rpx));
 	font-weight: 700;
+}
+
+/* 减少动画：跳过 Vue 浮层 enter/leave（计分 bubble 等 GSAP 仍保留） */
+html.reduce-motion [class*="-enter-active"],
+html.reduce-motion [class*="-leave-active"] {
+	transition-duration: 0.001ms !important;
+	transition-delay: 0ms !important;
+	animation-duration: 0.001ms !important;
+	animation-delay: 0ms !important;
+}
+
+html.reduce-motion [class*="-enter-from"],
+html.reduce-motion [class*="-leave-to"] {
+	opacity: 1 !important;
+	transform: none !important;
+}
+
+html.reduce-motion .boss-tape-ripple {
+	animation: none;
+	opacity: 0.45;
+	inset: calc(-4 * var(--rpx));
+}
+
+html.reduce-motion .boss-tape-wrap--trigger-impact .boss-tape-ripple {
+	animation: none;
+	opacity: 0.5;
+	inset: calc(-18 * var(--rpx));
+}
+
+html.reduce-motion .boss-tape-wrap--violate .boss-tape {
+	box-shadow: 0 0 0 calc(3 * var(--rpx)) var(--boss-tape-glow);
+}
+
+html.reduce-motion .boss-tape--wobble {
+	animation: none;
 }

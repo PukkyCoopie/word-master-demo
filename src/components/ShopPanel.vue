@@ -346,6 +346,7 @@ import {
   RARITY_UPGRADE_BALANCE,
 } from "../composables/useScoring";
 import { resolveUpgradePlaybackSpeed } from "../shop/randomUpgradeRoll.js";
+import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
 import { applyPresetAndShopDiscountPrice } from "../game/runPresetRuntime.js";
 import { isSingleDigitLabel } from "./detailLayerFormatters.js";
@@ -528,7 +529,7 @@ function bubbleAt(targetEl, text, kind) {
 }
 
 function wobblePanelLikeScoreSlot(el, delayS = 0, speed = 1) {
-  if (!el) return;
+  if (!el || shouldSkipDecorativeMotion()) return;
   const s = Math.max(0.01, Number(speed) || 1);
   gsap.killTweensOf(el, "rotation,scale,x,y");
   const tCompress = 0.11;
@@ -553,8 +554,9 @@ async function runPanelWobbleAndBubble(panelEl, text, kind, speed = 1) {
   if (!panelEl) return;
   const s = Math.max(0.01, Number(speed) || 1);
   wobblePanelLikeScoreSlot(panelEl, 0, s);
-  // 与记分 letter-tile 一致：在缩小+放大到约 80% 进度时弹出 +x
-  await sleep(Math.round(145 / s));
+  if (!shouldSkipDecorativeMotion()) {
+    await sleep(Math.round(145 / s));
+  }
   bubbleAt(panelEl, text, kind);
 }
 
@@ -581,6 +583,10 @@ function popSettle(el, speed = 1) {
   if (!el) return;
   const s = Math.max(0.01, Number(speed) || 1);
   gsap.killTweensOf(el);
+  if (shouldSkipDecorativeMotion()) {
+    gsap.set(el, { transformOrigin: "50% 55%", scale: 1 });
+    return;
+  }
   gsap.set(el, { transformOrigin: "50% 55%", scale: 1.22 });
   gsap.to(el, { scale: 1, duration: 0.55 / s, ease: "expo.out" });
 }
@@ -1219,17 +1225,9 @@ defineExpose({
 .shop-actions-col .shop-btn-reroll-price {
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
-  font-size: calc(30 * var(--rpx));
-  font-weight: 800;
-  line-height: 1.1;
-  color: var(--shop-reroll-price-accent, var(--btn-yellow));
-  text-shadow:
-    0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.42),
-    0 0 calc(1 * var(--rpx)) rgba(0, 0, 0, 0.28);
 }
 
 .shop-actions-col .shop-btn-reroll-dollar {
-  font-weight: 800;
   margin-right: calc(1 * var(--rpx));
 }
 

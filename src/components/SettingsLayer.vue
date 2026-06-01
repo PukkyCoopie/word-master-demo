@@ -93,6 +93,32 @@
             </div>
           </div>
 
+          <div class="settings-row settings-row--segment">
+            <span class="settings-row-label">动画速度</span>
+            <SettingsSegmentControl
+              :options="ANIMATION_SPEED_OPTIONS"
+              :model-value="animationSpeedTier"
+              :disabled="reduceMotionEnabled"
+              aria-label="动画速度"
+              @update:model-value="onAnimationSpeedChange"
+            />
+          </div>
+
+          <label class="settings-row">
+            <span class="settings-row-label">减少动画</span>
+            <button
+              type="button"
+              class="settings-toggle"
+              role="switch"
+              :aria-checked="reduceMotionEnabled"
+              @click="onToggleReduceMotion"
+            >
+              <span class="settings-toggle-track" :class="{ 'settings-toggle-track--on': reduceMotionEnabled }">
+                <span class="settings-toggle-thumb" />
+              </span>
+            </button>
+          </label>
+
           <label class="settings-row">
             <span class="settings-row-label">对调时标记</span>
             <button
@@ -121,6 +147,8 @@
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import SettingsSegmentControl from "./SettingsSegmentControl.vue";
+import { ANIMATION_SPEED_OPTIONS } from "../settings/animationSpeed.js";
 import {
   UI_SCALE_MAX,
   UI_SCALE_MIN,
@@ -128,7 +156,9 @@ import {
   clampUiScalePercent,
   gameSettings,
   setAllowSpellingAbbreviations,
+  setAnimationSpeedTier,
   setMarkOnSwap,
+  setReduceMotion,
   setUiScalePercent,
   stepSwapButtonMode,
 } from "../settings/gameSettings.js";
@@ -159,6 +189,17 @@ const titleId = "settings-layer-title";
 const allowAbbrev = computed(() => gameSettings.allowSpellingAbbreviations === true);
 const markOnSwap = computed(() => gameSettings.markOnSwap !== false);
 const uiScalePercent = computed(() => gameSettings.uiScalePercent);
+const animationSpeedTier = computed(() => gameSettings.animationSpeedTier);
+const reduceMotionEnabled = computed(() => gameSettings.reduceMotion === true);
+
+/** @param {string} tier */
+function onAnimationSpeedChange(tier) {
+  setAnimationSpeedTier(/** @type {import('../settings/gameSettings.js').AnimationSpeedTier} */ (tier));
+}
+
+function onToggleReduceMotion() {
+  setReduceMotion(!reduceMotionEnabled.value);
+}
 
 const swapModeSizerLabel = SWAP_BUTTON_MODE_OPTIONS.reduce((a, b) =>
   a.label.length >= b.label.length ? a : b,
@@ -333,6 +374,14 @@ function onScaleInputEnter(e) {
 
 .settings-toggle-track--on .settings-toggle-thumb {
   transform: translateX(calc(24 * var(--rpx)));
+}
+
+.settings-row--segment {
+  cursor: default;
+}
+
+.settings-row--segment .settings-row-label {
+  flex-shrink: 0;
 }
 
 .settings-row--cycle {
@@ -550,14 +599,14 @@ function onScaleInputEnter(e) {
 
 .settings-layer-enter-active,
 .settings-layer-leave-active {
-  transition: opacity 0.28s var(--ease-expo-out, ease-out);
+  transition: opacity calc(0.28s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out);
 }
 
 .settings-layer-enter-active .settings-layer-card,
 .settings-layer-leave-active .settings-layer-card {
   transition:
-    opacity 0.32s var(--ease-expo-out, ease-out),
-    transform 0.32s var(--ease-expo-out, ease-out);
+    opacity calc(0.32s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out),
+    transform calc(0.32s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out);
 }
 
 .settings-layer-enter-from,

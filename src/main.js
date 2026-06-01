@@ -5,7 +5,7 @@ import "../css/game.layout.css";
 import App from "./App.vue";
 import { warmupAllReglMaterialHubs } from "./lib/reglMaterialWarmup.js";
 import { startRemixIconFontLoad } from "./composables/useRemixIconFont.js";
-
+import { initAnimationSpeedSettings } from "./settings/animationSpeed.js";
 function disableNativeWebNotificationPrompt() {
   if (typeof window === "undefined" || !window.Capacitor?.isNativePlatform?.()) {
     return;
@@ -46,4 +46,5 @@ warmupAllReglMaterialHubs();
 document.addEventListener("contextmenu", (e) => e.preventDefault(), { capture: true });
 
 const app = createApp(App);
+initAnimationSpeedSettings();
 app.mount("#app");

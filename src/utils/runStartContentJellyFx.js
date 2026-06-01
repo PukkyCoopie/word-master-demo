@@ -1,16 +1,5 @@
 import gsap from "gsap";
-
-/** @type {boolean | null} */
-let reducedMotionCached = null;
-
-function prefersReducedMotion() {
-  if (reducedMotionCached === null) {
-    reducedMotionCached =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  }
-  return reducedMotionCached;
-}
+import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 /**
  * 开局预设/难度卡片切换：横向挤压 → 内容交换 → 弹性回弹（jelly）。
@@ -29,7 +18,7 @@ export function playRunStartContentJellySwap(el, direction, onSwap) {
 
   const dir = direction >= 0 ? 1 : -1;
 
-  if (prefersReducedMotion()) {
+  if (shouldSkipDecorativeMotion()) {
     onSwap?.();
     return null;
   }
@@ -50,7 +39,6 @@ export function playRunStartContentJellySwap(el, direction, onSwap) {
     },
   });
 
-  // 开头极快挤压换内容，之后以正常节奏弹性回正
   tl.to(el, {
     scaleX: 0.82,
     scaleY: 1.14,

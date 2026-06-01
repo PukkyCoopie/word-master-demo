@@ -30,12 +30,26 @@ export function normalizeSwapButtonMode(value) {
     : "bottom8";
 }
 
-/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; swapButtonMode: SwapButtonMode; markOnSwap: boolean }} */
+/** @typedef {'slow' | 'normal' | 'fast'} AnimationSpeedTier */
+
+const ANIMATION_SPEED_TIER_IDS = new Set(["slow", "normal", "fast"]);
+
+/** @param {unknown} value @returns {AnimationSpeedTier} */
+export function normalizeAnimationSpeedTier(value) {
+  const s = String(value ?? "");
+  return ANIMATION_SPEED_TIER_IDS.has(/** @type {AnimationSpeedTier} */ (s))
+    ? /** @type {AnimationSpeedTier} */ (s)
+    : "normal";
+}
+
+/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; reduceMotion: boolean }} */
 export const gameSettings = reactive({
   allowSpellingAbbreviations: false,
   uiScalePercent: UI_SCALE_DEFAULT,
   swapButtonMode: "bottom8",
   markOnSwap: true,
+  animationSpeedTier: "normal",
+  reduceMotion: false,
 });
 
 /**
@@ -65,6 +79,12 @@ export function loadGameSettings() {
     if (typeof parsed.markOnSwap === "boolean") {
       gameSettings.markOnSwap = parsed.markOnSwap;
     }
+    if (parsed.animationSpeedTier != null) {
+      gameSettings.animationSpeedTier = normalizeAnimationSpeedTier(parsed.animationSpeedTier);
+    }
+    if (typeof parsed.reduceMotion === "boolean") {
+      gameSettings.reduceMotion = parsed.reduceMotion;
+    }
   } catch {
     /* 损坏或不可读时沿用默认 */
   }
@@ -79,6 +99,8 @@ export function persistGameSettings() {
         uiScalePercent: gameSettings.uiScalePercent,
         swapButtonMode: gameSettings.swapButtonMode,
         markOnSwap: gameSettings.markOnSwap,
+        animationSpeedTier: gameSettings.animationSpeedTier,
+        reduceMotion: gameSettings.reduceMotion,
       }),
     );
   } catch {
@@ -146,6 +168,28 @@ export function stepSwapButtonMode(delta) {
  */
 export function setMarkOnSwap(enabled) {
   gameSettings.markOnSwap = Boolean(enabled);
+  persistGameSettings();
+}
+
+/** @returns {AnimationSpeedTier} */
+export function getAnimationSpeedTier() {
+  return normalizeAnimationSpeedTier(gameSettings.animationSpeedTier);
+}
+
+/** @param {AnimationSpeedTier} tier */
+export function setAnimationSpeedTier(tier) {
+  gameSettings.animationSpeedTier = normalizeAnimationSpeedTier(tier);
+  persistGameSettings();
+}
+
+/** @returns {boolean} */
+export function getReduceMotion() {
+  return gameSettings.reduceMotion === true;
+}
+
+/** @param {boolean} enabled */
+export function setReduceMotion(enabled) {
+  gameSettings.reduceMotion = Boolean(enabled);
   persistGameSettings();
 }
 
