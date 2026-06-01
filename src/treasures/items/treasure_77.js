@@ -1,6 +1,7 @@
 import { getTileMaterialBlockTitle, getTileMaterialEffectDescription } from "../../game/gameConceptCopy.js";
 import { describe, gain } from "../treasureDescription.js";
 
+const ID = "77";
 /** @type {import('../treasureTypes.js').TreasureBaseDef} */
 export default {
   price: 6,
@@ -25,7 +26,12 @@ export const treasureHooks = {
       distinct.add(String(m));
     }
     if (distinct.size < MIN_DISTINCT_MATERIALS) return;
-    await ctx.mutateRandomNonWildcardLetterTileToWildcard?.();
+    const wobbleTask =
+      typeof ctx.playOwnedTreasureWobbleOnlyFx === "function"
+        ? ctx.playOwnedTreasureWobbleOnlyFx(ID)
+        : Promise.resolve(ctx.wobbleOwnedTreasureById?.(ID));
+    const mutateTask = Promise.resolve(ctx.mutateRandomNonWildcardLetterTileToWildcard?.());
+    await Promise.all([wobbleTask, mutateTask]);
   },
   getDetailGainPanel() {
     return {

@@ -1286,10 +1286,12 @@ const {
  */
 async function mutateRandomNonWildcardLetterTileToWildcard() {
   const g = grid.value;
+  const selectedGridKeys = gridSelectedPositionKeySet(selectedTiles.value);
   /** @type {{ row: number, col: number }[]} */
   const candidates = [];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
+      if (selectedGridKeys.has(`${r},${c}`)) continue;
       const tile = g[r]?.[c];
       if (!tile?.letter) continue;
       if (isWildcardMaterialTile(tile)) continue;
@@ -1302,6 +1304,9 @@ async function mutateRandomNonWildcardLetterTileToWildcard() {
   const draft = cloneGridTileSnapshot(g[row][col]);
   if (!oldSnap || !draft) return;
   markTileAsWildcard(draft);
+  draft.letter = "?";
+  draft.isWildcard = true;
+  draft.materialId = "wildcard";
   await queueOrRunSpellTileAppearanceAnim({
     spellId: "lightbulb",
     targets: [{ row, col }],
@@ -1312,6 +1317,8 @@ async function mutateRandomNonWildcardLetterTileToWildcard() {
     getTileEl: (r, c) => getGridTileElByIndex(r * COLS + c),
     nextTick,
   });
+  const liveTile = grid.value[row]?.[col];
+  if (liveTile?.letter) syncTileStateToDeckCard(liveTile);
 }
 
 const showInfoLayer = ref(false);
