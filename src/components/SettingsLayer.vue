@@ -16,124 +16,190 @@
       >
         <h2 :id="titleId" class="settings-layer-title">设置</h2>
 
-        <div class="settings-layer-body">
-        <div class="settings-layer-list">
-          <label class="settings-row">
-            <span class="settings-row-label">允许拼写缩写</span>
-            <button
-              type="button"
-              class="settings-toggle"
-              role="switch"
-              :aria-checked="allowAbbrev"
-              @click="onToggleAbbrev"
-            >
-              <span class="settings-toggle-track" :class="{ 'settings-toggle-track--on': allowAbbrev }">
-                <span class="settings-toggle-thumb" />
-              </span>
-            </button>
-          </label>
-
-          <div class="settings-row settings-row--scale">
-            <span class="settings-row-label">界面缩放</span>
-            <div class="settings-scale-controls">
-              <input
-                type="range"
-                class="settings-scale-slider"
-                :min="UI_SCALE_MIN"
-                :max="UI_SCALE_MAX"
-                step="1"
-                :value="uiScalePercent"
-                :aria-valuemin="UI_SCALE_MIN"
-                :aria-valuemax="UI_SCALE_MAX"
-                :aria-valuenow="uiScalePercent"
-                aria-label="界面缩放百分比"
-                :style="scaleSliderStyle"
-                @input="onScaleSliderInput"
-              />
-              <div class="settings-scale-input-wrap">
-                <input
-                  type="text"
-                  inputmode="numeric"
-                  pattern="[0-9]*"
-                  class="settings-scale-input"
-                  :value="scaleInputText"
-                  aria-label="界面缩放百分比数值"
-                  @input="onScaleTextInput"
-                  @blur="commitScaleInput"
-                  @keydown.enter.prevent="onScaleInputEnter"
-                />
-                <span class="settings-scale-suffix" aria-hidden="true">%</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="settings-row settings-row--cycle">
-            <span class="settings-row-label">对调按钮</span>
-            <div class="settings-cycle" role="group" aria-label="对调按钮范围">
-              <button
-                type="button"
-                class="settings-cycle-arrow"
-                aria-label="上一项"
-                @click="onSwapModePrev"
-              >
-                <i class="ri-arrow-left-s-line" aria-hidden="true" />
-              </button>
-              <span class="settings-cycle-value" aria-live="polite">
-                <span class="settings-cycle-value-sizer" aria-hidden="true">{{ swapModeSizerLabel }}</span>
-                <span class="settings-cycle-value-text">{{ swapModeLabel }}</span>
-              </span>
-              <button
-                type="button"
-                class="settings-cycle-arrow"
-                aria-label="下一项"
-                @click="onSwapModeNext"
-              >
-                <i class="ri-arrow-right-s-line" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-
-          <div class="settings-row settings-row--segment">
-            <span class="settings-row-label">动画速度</span>
-            <SettingsSegmentControl
-              :options="ANIMATION_SPEED_OPTIONS"
-              :model-value="animationSpeedTier"
-              :disabled="reduceMotionEnabled"
-              aria-label="动画速度"
-              @update:model-value="onAnimationSpeedChange"
-            />
-          </div>
-
-          <label class="settings-row">
-            <span class="settings-row-label">减少动画</span>
-            <button
-              type="button"
-              class="settings-toggle"
-              role="switch"
-              :aria-checked="reduceMotionEnabled"
-              @click="onToggleReduceMotion"
-            >
-              <span class="settings-toggle-track" :class="{ 'settings-toggle-track--on': reduceMotionEnabled }">
-                <span class="settings-toggle-thumb" />
-              </span>
-            </button>
-          </label>
-
-          <label class="settings-row">
-            <span class="settings-row-label">对调时标记</span>
-            <button
-              type="button"
-              class="settings-toggle"
-              role="switch"
-              :aria-checked="markOnSwap"
-              @click="onToggleMarkOnSwap"
-            >
-              <span class="settings-toggle-track" :class="{ 'settings-toggle-track--on': markOnSwap }">
-                <span class="settings-toggle-thumb" />
-              </span>
-            </button>
-          </label>
+        <div class="settings-layer-tabs" role="tablist" aria-label="设置分组">
+          <button
+            type="button"
+            class="settings-layer-tab"
+            role="tab"
+            :class="{ 'settings-layer-tab--active': activeTab === 'ui' }"
+            :aria-selected="activeTab === 'ui'"
+            @click="activeTab = 'ui'"
+          >
+            界面
+          </button>
+          <button
+            type="button"
+            class="settings-layer-tab"
+            role="tab"
+            :class="{ 'settings-layer-tab--active': activeTab === 'gameplay' }"
+            :aria-selected="activeTab === 'gameplay'"
+            @click="activeTab = 'gameplay'"
+          >
+            游戏性
+          </button>
+          <button
+            type="button"
+            class="settings-layer-tab"
+            role="tab"
+            :class="{ 'settings-layer-tab--active': activeTab === 'controls' }"
+            :aria-selected="activeTab === 'controls'"
+            @click="activeTab = 'controls'"
+          >
+            操作
+          </button>
         </div>
+
+        <div class="settings-layer-body">
+          <div class="settings-layer-panels">
+            <section
+              role="tabpanel"
+              class="settings-layer-panel"
+              :class="{ 'settings-layer-panel--active': activeTab === 'ui' }"
+              :aria-hidden="activeTab !== 'ui'"
+              :inert="activeTab !== 'ui'"
+            >
+              <div class="settings-layer-list">
+                <div class="settings-row settings-row--scale">
+                  <span class="settings-row-label">界面缩放</span>
+                  <div class="settings-scale-controls">
+                    <input
+                      type="range"
+                      class="settings-scale-slider"
+                      :min="UI_SCALE_MIN"
+                      :max="UI_SCALE_MAX"
+                      step="1"
+                      :value="uiScalePercent"
+                      :aria-valuemin="UI_SCALE_MIN"
+                      :aria-valuemax="UI_SCALE_MAX"
+                      :aria-valuenow="uiScalePercent"
+                      aria-label="界面缩放百分比"
+                      :style="scaleSliderStyle"
+                      @input="onScaleSliderInput"
+                    />
+                    <div class="settings-scale-input-wrap">
+                      <input
+                        type="text"
+                        inputmode="numeric"
+                        pattern="[0-9]*"
+                        class="settings-scale-input"
+                        :value="scaleInputText"
+                        aria-label="界面缩放百分比数值"
+                        @input="onScaleTextInput"
+                        @blur="commitScaleInput"
+                        @keydown.enter.prevent="onScaleInputEnter"
+                      />
+                      <span class="settings-scale-suffix" aria-hidden="true">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-row settings-row--segment">
+                  <span class="settings-row-label">动画速度</span>
+                  <SettingsSegmentControl
+                    :options="ANIMATION_SPEED_OPTIONS"
+                    :model-value="animationSpeedTier"
+                    :disabled="reduceMotionEnabled"
+                    aria-label="动画速度"
+                    @update:model-value="onAnimationSpeedChange"
+                  />
+                </div>
+
+                <label class="settings-row">
+                  <span class="settings-row-label">减少动画</span>
+                  <button
+                    type="button"
+                    class="settings-toggle"
+                    role="switch"
+                    :aria-checked="reduceMotionEnabled"
+                    @click="onToggleReduceMotion"
+                  >
+                    <span
+                      class="settings-toggle-track"
+                      :class="{ 'settings-toggle-track--on': reduceMotionEnabled }"
+                    >
+                      <span class="settings-toggle-thumb" />
+                    </span>
+                  </button>
+                </label>
+              </div>
+            </section>
+
+            <section
+              role="tabpanel"
+              class="settings-layer-panel"
+              :class="{ 'settings-layer-panel--active': activeTab === 'gameplay' }"
+              :aria-hidden="activeTab !== 'gameplay'"
+              :inert="activeTab !== 'gameplay'"
+            >
+              <div class="settings-layer-list">
+                <label class="settings-row">
+                  <span class="settings-row-label">允许拼写缩写</span>
+                  <button
+                    type="button"
+                    class="settings-toggle"
+                    role="switch"
+                    :aria-checked="allowAbbrev"
+                    @click="onToggleAbbrev"
+                  >
+                    <span class="settings-toggle-track" :class="{ 'settings-toggle-track--on': allowAbbrev }">
+                      <span class="settings-toggle-thumb" />
+                    </span>
+                  </button>
+                </label>
+              </div>
+            </section>
+
+            <section
+              role="tabpanel"
+              class="settings-layer-panel"
+              :class="{ 'settings-layer-panel--active': activeTab === 'controls' }"
+              :aria-hidden="activeTab !== 'controls'"
+              :inert="activeTab !== 'controls'"
+            >
+              <div class="settings-layer-list">
+                <div class="settings-row settings-row--cycle">
+                  <span class="settings-row-label">对调按钮</span>
+                  <div class="settings-cycle" role="group" aria-label="对调按钮范围">
+                    <button
+                      type="button"
+                      class="settings-cycle-arrow"
+                      aria-label="上一项"
+                      @click="onSwapModePrev"
+                    >
+                      <i class="ri-arrow-left-s-line" aria-hidden="true" />
+                    </button>
+                    <span class="settings-cycle-value" aria-live="polite">
+                      <span class="settings-cycle-value-sizer" aria-hidden="true">{{ swapModeSizerLabel }}</span>
+                      <span class="settings-cycle-value-text">{{ swapModeLabel }}</span>
+                    </span>
+                    <button
+                      type="button"
+                      class="settings-cycle-arrow"
+                      aria-label="下一项"
+                      @click="onSwapModeNext"
+                    >
+                      <i class="ri-arrow-right-s-line" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+
+                <label class="settings-row">
+                  <span class="settings-row-label">对调时标记</span>
+                  <button
+                    type="button"
+                    class="settings-toggle"
+                    role="switch"
+                    :aria-checked="markOnSwap"
+                    @click="onToggleMarkOnSwap"
+                  >
+                    <span class="settings-toggle-track" :class="{ 'settings-toggle-track--on': markOnSwap }">
+                      <span class="settings-toggle-thumb" />
+                    </span>
+                  </button>
+                </label>
+              </div>
+            </section>
+          </div>
         </div>
 
         <div class="settings-layer-footer">
@@ -185,6 +251,7 @@ watch(
 );
 
 const titleId = "settings-layer-title";
+const activeTab = ref("ui");
 
 const allowAbbrev = computed(() => gameSettings.allowSpellingAbbreviations === true);
 const markOnSwap = computed(() => gameSettings.markOnSwap !== false);
@@ -306,6 +373,50 @@ function onScaleInputEnter(e) {
   font-weight: 800;
   color: var(--text-dark, #3c3a32);
   text-align: center;
+}
+
+.settings-layer-tabs {
+  display: flex;
+  gap: calc(8 * var(--rpx));
+  margin: calc(-6 * var(--rpx)) 0 calc(18 * var(--rpx));
+  padding: calc(4 * var(--rpx));
+  border-radius: var(--radius);
+  background: var(--card, #eee4da);
+}
+
+.settings-layer-tab {
+  flex: 1;
+  border: none;
+  border-radius: calc(8 * var(--rpx));
+  padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
+  font-family: inherit;
+  font-size: calc(24 * var(--rpx));
+  font-weight: 700;
+  color: var(--text-dark, #3c3a32);
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.72;
+}
+
+.settings-layer-tab--active {
+  background: var(--card-bright, #faf8ef);
+  box-shadow: var(--shadow);
+  opacity: 1;
+}
+
+.settings-layer-panels {
+  display: grid;
+}
+
+.settings-layer-panel {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.settings-layer-panel--active {
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .settings-layer-list {

@@ -2,6 +2,7 @@ import { getTileMaterialBlockTitle, getTileMaterialEffectDescription } from "../
 import { describe, gain } from "../treasureDescription.js";
 
 const ID = "77";
+const WILDCARD_MATERIAL_ID = "wildcard";
 /** @type {import('../treasureTypes.js').TreasureBaseDef} */
 export default {
   price: 6,
@@ -23,7 +24,9 @@ export const treasureHooks = {
     for (const p of parts) {
       const m = p?.materialId;
       if (m == null || m === "") continue;
-      distinct.add(String(m));
+      const mid = String(m);
+      if (mid === WILDCARD_MATERIAL_ID) continue;
+      distinct.add(mid);
     }
     if (distinct.size < MIN_DISTINCT_MATERIALS) return;
     const wobbleTask =

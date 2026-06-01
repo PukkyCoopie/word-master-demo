@@ -28,11 +28,8 @@ function materialGainPanelForMaterialId(materialId) {
   return { title, description };
 }
 
-/** 法术卡「增益说明」：仅展示带计分/倍率/金额等增益的材质；万能块为变形规则，不展示 */
 function spellMaterialGainPanel(materialId) {
-  const id = String(materialId ?? "").trim();
-  if (id === "wildcard") return null;
-  return materialGainPanelForMaterialId(id);
+  return materialGainPanelForMaterialId(materialId);
 }
 
 /**
@@ -83,6 +80,8 @@ export function getSpellGainPanel(spellId, opts = {}) {
       return spellMaterialGainPanel("steel");
     case "snowflake":
       return spellMaterialGainPanel("ice");
+    case "lightbulb":
+      return spellMaterialGainPanel("wildcard");
     case "flask":
       return spellMaterialGainPanel("gold");
     case "diamond":

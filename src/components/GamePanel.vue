@@ -5986,7 +5986,7 @@ async function openRunEnd(outcome, opts = {}) {
 }
 
 function onRunEndRetry() {
-  emit("request-restart", { prefillSeed: runEndOutcome.value === "fail" });
+  emit("request-restart", { prefillSeed: false });
 }
 
 function onRunEndMainMenu() {
