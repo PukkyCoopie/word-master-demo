@@ -24,11 +24,7 @@ export function runTreasureGrantPopAnim(slotEl) {
     }
     gsap.set(slotEl, { transformOrigin: "50% 50%", scale: 0, opacity: 1 });
     const tl = gsap.timeline({ onComplete: resolve });
-    tl.to(
-      slotEl,
-      { scale: GRANT_POP_OVERSHOOT, duration: GRANT_POP_IN_S, ease: "back.out(2.35)" },
-      0,
-    );
-    tl.to(slotEl, { scale: 1, duration: GRANT_POP_SETTLE_S, ease: "power3.out" }, 0);
+    tl.to(slotEl, { scale: GRANT_POP_OVERSHOOT, duration: GRANT_POP_IN_S, ease: "back.out(2.35)" });
+    tl.to(slotEl, { scale: 1, duration: GRANT_POP_SETTLE_S, ease: "power3.out" });
   });
 }

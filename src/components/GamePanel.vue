@@ -3095,6 +3095,24 @@ function grantRandomOwnedTreasuresInRun(maxCount = 1) {
   return granted;
 }
 
+/** @param {number} [maxCount] @returns {Promise<number>} */
+async function grantRandomOwnedTreasuresInRunWithPopAnim(maxCount = 1) {
+  const cap = Math.max(0, Math.floor(Number(maxCount) || 0));
+  let granted = 0;
+  shopOverlayLayersSuppressed.value = true;
+  await nextTick();
+  for (let i = 0; i < cap; i += 1) {
+    const r = grantRandomShopTreasureByRarity(null);
+    if (!r.ok) break;
+    granted += 1;
+    await nextTick();
+    const el = gameTreasureSlotRefs[r.slotIndex];
+    if (el) await runTreasureGrantPopAnim(el);
+  }
+  shopOverlayLayersSuppressed.value = false;
+  return granted;
+}
+
 function noteDiscardExhaustedForChapterUnlock() {
   if (remainingRemovals.value > 0) return;
   const sub = parseLevelSubFromId(currentLevel.value?.id ?? "1-1");
@@ -3260,6 +3278,7 @@ async function runTreasureLevelEnterHooks(levelId) {
     playOwnedTreasureBubbleFx,
     clearTreasureSlotById: clearOwnedTreasureSlotById,
     grantRandomOwnedTreasure: grantRandomOwnedTreasuresInRun,
+    grantRandomOwnedTreasureWithPopAnim: grantRandomOwnedTreasuresInRunWithPopAnim,
     requestInRunSpellGrant: async (opts = {}) => {
       const spellId = opts.spellId ?? pickRandomInRunSpellId(runRandom);
       if (!spellId) return;

@@ -242,6 +242,7 @@
  * @property {(fn: () => void | Promise<void>) => void} [scheduleAfterGridTilesSettled] 棋盘字母块落位稳定后执行（进关 grid intro 结束）
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  * @property {(count?: number) => number} [grantRandomOwnedTreasure] 本关赠送随机宝藏次数，返回实际获得数
+ * @property {(count?: number) => Promise<number>} [grantRandomOwnedTreasureWithPopAnim] 同上，新宝藏槽 scale 0→过冲→1 入场
  * @property {(n: number) => void} [addRemainingWords]
  * @property {(n: number) => void} [addRemainingRemovals]
  * @property {(tiles: object[]) => void} [stripEnhancementsFromScoringTiles]

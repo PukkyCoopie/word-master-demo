@@ -12,9 +12,9 @@ export default {
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   async onLevelEnter(ctx) {
-    const grant = ctx.grantRandomOwnedTreasure;
+    const grant = ctx.grantRandomOwnedTreasureWithPopAnim ?? ctx.grantRandomOwnedTreasure;
     if (typeof grant !== "function") return;
     await ctx.wobbleOwnedTreasureById?.(ID);
-    grant(2);
+    await grant(2);
   },
 };
