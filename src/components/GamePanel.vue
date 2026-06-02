@@ -931,9 +931,9 @@ import {
   incrementHourglassOnSlot,
 } from "../game/treasureHourglassRuntime.js";
 import {
-  normalizeOwnedTreasureSlot,
   readTreasureAccessoryIds,
 } from "../accessories/accessoryState.js";
+import { buildOwnedTreasureSlot } from "../treasures/ownedTreasureSlot.js";
 import DifficultyPill from "./DifficultyPill.vue";
 import {
   clampRemainingWordsForBossMechanics,
@@ -1320,6 +1320,7 @@ async function mutateRandomNonWildcardLetterTileToWildcard() {
   });
   const liveTile = grid.value[row]?.[col];
   if (liveTile?.letter) syncTileStateToDeckCard(liveTile);
+  noteCollectionMaterialAcquired("wildcard");
 }
 
 const showInfoLayer = ref(false);
@@ -1922,6 +1923,7 @@ function applyRunPresetStartEffects() {
   for (const vid of getPresetStartVoucherIds(pid)) {
     if (!ownedVoucherIds.value.includes(vid)) {
       ownedVoucherIds.value = [...ownedVoucherIds.value, vid];
+      noteCollectionVoucherAcquired(vid);
     }
   }
   const moneyBonus = getPresetStartMoneyBonus(pid);
@@ -2623,15 +2625,10 @@ async function fulfillTreasureAfterPackPayment(t, fromEl) {
     toTarget = shop?.getOwnedSlotEl?.(ix) ?? null;
   }
   if (frameEl && toTarget) await animateTreasureFrameFly(frameEl, toTarget);
-  ownedTreasures.value[ix] = normalizeOwnedTreasureSlot({
+  grantOwnedTreasureAt(ix, {
     treasureId: t.treasureId,
     price: t.price,
-    rarity: t.rarity,
-    name: t.name,
-    emoji: t.emoji,
-    description: t.description,
     treasureAccessoryIds: readTreasureAccessoryIds(t),
-    treasureAccessoryId: readTreasureAccessoryIds(t)[0] ?? null,
   });
   initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
   applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
@@ -2927,6 +2924,71 @@ const irisTransition = inject("irisTransition", null);
 const requestNewRun = inject("requestNewRun", null);
 const openSettings = inject("openSettings", null);
 const mergeCareerOnRunEnd = inject("mergeCareerOnRunEnd", null);
+const recordCollectionDiscovery = inject("recordCollectionDiscovery", null);
+const recordCollectionWordSubmit = inject("recordCollectionWordSubmit", null);
+
+/** @param {string} treasureId */
+function noteCollectionTreasureAcquired(treasureId) {
+  const tid = String(treasureId ?? "").trim();
+  if (!tid) return;
+  recordCollectionDiscovery?.({ treasureId: tid });
+}
+
+/** @param {string} voucherId */
+function noteCollectionVoucherAcquired(voucherId) {
+  const vid = String(voucherId ?? "").trim();
+  if (!vid) return;
+  recordCollectionDiscovery?.({ voucherId: vid });
+}
+
+/** @param {string} materialId */
+function noteCollectionMaterialAcquired(materialId) {
+  const id = String(materialId ?? "").trim();
+  if (!id) return;
+  recordCollectionDiscovery?.({ materialId: id });
+}
+
+/** @param {string} accessoryId */
+function noteCollectionAccessoryAcquired(accessoryId) {
+  const id = String(accessoryId ?? "").trim();
+  if (!id) return;
+  recordCollectionDiscovery?.({ accessoryId: id });
+}
+
+/**
+ * @param {{ materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null } | null | undefined} entry
+ */
+function noteCollectionDeckEntryModifiers(entry) {
+  if (!entry) return;
+  noteCollectionMaterialAcquired(entry.materialId);
+  if (entry.accessoryId) noteCollectionAccessoryAcquired(entry.accessoryId);
+  if (entry.treasureAccessoryId) noteCollectionAccessoryAcquired(entry.treasureAccessoryId);
+}
+
+/** @param {{ treasureAccessoryId?: string | null, treasureAccessoryIds?: string[] } | null | undefined} input */
+function noteCollectionTreasureSlotAccessories(input) {
+  for (const id of readTreasureAccessoryIds(input ?? {})) {
+    noteCollectionAccessoryAcquired(id);
+  }
+}
+
+/**
+ * @param {number} ix
+ * @param {import('../treasures/ownedTreasureSlot.js').OwnedTreasureSlotPersisted | Record<string, unknown>} input
+ */
+function grantOwnedTreasureAt(ix, input) {
+  ownedTreasures.value[ix] = buildOwnedTreasureSlot(input);
+  noteCollectionTreasureAcquired(String(input?.treasureId ?? ""));
+  noteCollectionTreasureSlotAccessories(input);
+}
+
+/** @param {{ word: string, score: number, length: number, tiles: unknown[] }} payload */
+function noteCollectionWordSubmitted(payload) {
+  recordCollectionWordSubmit?.({
+    ...payload,
+    ownedTreasures: ownedTreasures.value.filter(Boolean),
+  });
+}
 
 /** 暂停选项层 */
 const showPauseOptions = ref(false);
@@ -2972,16 +3034,12 @@ function grantCopyOfRandomOwnedTreasure(excludeTreasureId = "104", targetSlotInd
       ? preferred
       : findTreasurePlacementIndex(null);
   if (ix < 0) return false;
-  slots[ix] = {
+  slots[ix] = buildOwnedTreasureSlot({
     treasureId: def.treasureId,
     price: def.price,
-    rarity: def.rarity,
-    name: def.name,
-    emoji: def.emoji,
-    description: def.description,
-    treasureAccessoryId: null,
-  };
+  });
   ownedTreasures.value = slots;
+  noteCollectionTreasureAcquired(def.treasureId);
   initTreasureBankOnAcquire(def.treasureId, treasureRunState.value);
   applyTreasureAcquireImmediateEffectsForRun(def.treasureId);
   return true;
@@ -3058,6 +3116,7 @@ function removeDeckLettersByRawsWithTreasureNotify(raws) {
  * @param {{ raw: string, materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null }[]} entries
  */
 function appendShopDeckEntriesAndNotify(entries) {
+  for (const entry of entries ?? []) noteCollectionDeckEntryModifiers(entry);
   const created = appendShopDeckEntries(entries);
   const n = created.length;
   if (!n) return created;
@@ -3073,6 +3132,7 @@ function appendShopDeckEntriesAndNotify(entries) {
 
 /** @param {Parameters<typeof appendDeckCardSpecToInitialSnapshot>[0]} spec */
 function appendDeckCardSpecToInitialSnapshotAndNotify(spec) {
+  noteCollectionDeckEntryModifiers(spec);
   const card = appendDeckCardSpecToInitialSnapshot(spec);
   if (!card) return card;
   void notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIdList(), {
@@ -6770,17 +6830,14 @@ function grantRandomShopTreasureByRarity(rarityFilter) {
   if (!picks[0]) return { ok: false, slotIndex: -1 };
   const row = toShopOfferRows([picks[0]], runRandom)[0];
   const slots = [...ownedTreasures.value];
-  slots[ix] = normalizeOwnedTreasureSlot({
+  slots[ix] = buildOwnedTreasureSlot({
     treasureId: row.treasureId,
     price: row.price,
-    rarity: row.rarity,
-    name: row.name,
-    emoji: row.emoji,
-    description: row.description,
     treasureAccessoryIds: readTreasureAccessoryIds(row),
-    treasureAccessoryId: readTreasureAccessoryIds(row)[0] ?? null,
   });
   ownedTreasures.value = slots;
+  noteCollectionTreasureAcquired(row.treasureId);
+  noteCollectionTreasureSlotAccessories(row);
   initTreasureBankOnAcquire(row.treasureId, treasureRunState.value);
   applyTreasureAcquireImmediateEffectsForRun(row.treasureId);
   return { ok: true, slotIndex: ix };
@@ -7346,7 +7403,10 @@ function buildSpellRuntimeContext() {
           spellCountsByLength.value,
         ),
       }),
-    markTileAsWildcard,
+    markTileAsWildcard: (tile) => {
+      markTileAsWildcard(tile);
+      noteCollectionMaterialAcquired("wildcard");
+    },
     touchGrid,
     removeDeckLetterInstancesByRaws: removeDeckLettersByRawsWithTreasureNotify,
     removeDeckCardsForSubmittedWord,
@@ -7366,6 +7426,8 @@ function buildSpellRuntimeContext() {
     },
     refreshBossTileDebuffOnTile: refreshBossTileDebuffOnTile,
     onUpgradeUsed: () => noteTreasureRunUpgradeUsed(treasureRunState.value),
+    onMaterialAcquired: noteCollectionMaterialAcquired,
+    onAccessoryAcquired: noteCollectionAccessoryAcquired,
   };
 }
 
@@ -7644,6 +7706,7 @@ function noteSpellCastForReplay(purchasedSpellId) {
   const sid = String(purchasedSpellId ?? "");
   if (!sid || sid === "restart" || sid === "dice") return;
   spellCastHistory.value = [...spellCastHistory.value, sid];
+  recordCollectionDiscovery?.({ spellId: sid });
   noteTreasureRunSpellCast(treasureRunState.value);
   treasureRunState.value.lastSpellIdBeforeShopLeave = sid;
 }
@@ -8261,6 +8324,7 @@ async function onTreasurePurchase() {
       getShopRandomCardSlotBonus(ownedVoucherIds.value),
     );
     ownedVoucherIds.value = [...ownedVoucherIds.value, vid];
+    noteCollectionVoucherAcquired(vid);
     const slotsToAdd =
       getShopRandomCardSlotCount(getShopRandomCardSlotBonus(ownedVoucherIds.value)) - slotCountBefore;
     appendShopRandomCardSlotsAfterPurchase(slotsToAdd);
@@ -8362,15 +8426,10 @@ async function onTreasurePurchase() {
 
   money.value -= pay;
   noteRunShopPurchase();
-  ownedTreasures.value[ix] = normalizeOwnedTreasureSlot({
+  grantOwnedTreasureAt(ix, {
     treasureId: t.treasureId,
     price: pay,
-    rarity: t.rarity,
-    name: t.name,
-    emoji: t.emoji,
-    description: t.description,
     treasureAccessoryIds: readTreasureAccessoryIds(t),
-    treasureAccessoryId: readTreasureAccessoryIds(t)[0] ?? null,
   });
   initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
   applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
@@ -10977,6 +11036,14 @@ async function submitWord() {
     score: detailed.finalScore,
     length: judgedLenTable,
   });
+  if (!submitViolated) {
+    noteCollectionWordSubmitted({
+      word: resolvedWord,
+      score: detailed.finalScore,
+      length: judgedLenTable,
+      tiles,
+    });
+  }
   recordTreasureChapterWordPos(treasureRunState.value, resolvedWord, getWordDefinition);
   recordTreasureLevelVowelLetters(
     treasureRunState.value,

@@ -48,6 +48,8 @@ const props = defineProps({
   /** 元音邻位替换（宝藏 95）：左上/右下半透明邻元音 */
   vowelGhostPrev: { type: String, default: null },
   vowelGhostNext: { type: String, default: null },
+  /** 不渲染字母（如材质预览） */
+  hideLetter: { type: Boolean, default: false },
   /** 不渲染左下角稀有度 gem（如预设描述预览万能块） */
   hideRarityGem: { type: Boolean, default: false },
 });
@@ -215,7 +217,7 @@ const treasureAccessoryChipVisual = computed(() => {
       aria-hidden="true"
       >{{ vowelGhostPrev }}</span
     >
-    <span class="letter-tile-char">{{ letter }}</span>
+    <span v-if="!hideLetter" class="letter-tile-char">{{ letter }}</span>
     <span
       v-if="vowelGhostNext && showVowelGhost"
       class="vowel-ghost vowel-ghost--next"

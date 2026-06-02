@@ -4,6 +4,8 @@ import { normalizeRunSavePhase } from "./runSaveSchema.js";
 import { serializeRunMatchStats } from "./runMatchStatsCodec.js";
 import { serializeTreasureRunState } from "./treasureRunStateCodec.js";
 import { cloneSaveData } from "./saveDataClone.js";
+import { serializeOwnedTreasureSlots } from "../treasures/ownedTreasureSlot.js";
+import { getTreasureDef } from "../treasures/treasureRegistry.js";
 
 /**
  * @param {Record<string, unknown>} ctx
@@ -33,7 +35,7 @@ export function serializeRunSave(ctx) {
     phase,
     activeSlotIndex: Math.max(0, Math.floor(Number(ctx.activeSlotIndex) || 0)),
     deckState,
-    ownedTreasures: cloneSaveData(ctx.ownedTreasures ?? []),
+    ownedTreasures: serializeOwnedTreasureSlots(ctx.ownedTreasures ?? []),
     ownedVoucherIds: [...(ctx.ownedVoucherIds ?? [])].map(String),
     treasureRunState: serializeTreasureRunState(ctx.treasureRunState),
     spellCastHistory: [...(ctx.spellCastHistory ?? [])].map(String),
@@ -71,11 +73,16 @@ export function serializeRunSave(ctx) {
  */
 export function buildRunSaveMetaFromPayload(payload, levelIndex) {
   const levelDef = getRunLevelAtIndex(levelIndex);
-  const emojis = (payload.ownedTreasures ?? []).map((t) =>
-    t && typeof t === "object" && /** @type {{ emoji?: string }} */ (t).emoji
-      ? String(/** @type {{ emoji?: string }} */ (t).emoji)
-      : null,
-  );
+  const emojis = (payload.ownedTreasures ?? []).map((t) => {
+    if (!t || typeof t !== "object") return null;
+    const tid = String(/** @type {{ treasureId?: string }} */ (t).treasureId ?? "").trim();
+    if (tid) {
+      const def = getTreasureDef(tid);
+      if (def?.emoji) return String(def.emoji);
+    }
+    const legacy = /** @type {{ emoji?: string }} */ (t).emoji;
+    return legacy ? String(legacy) : null;
+  });
   while (emojis.length < 5) emojis.push(null);
   return {
     seedDisplay: String(payload.runSeedDisplay ?? ""),

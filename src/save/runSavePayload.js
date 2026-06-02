@@ -58,6 +58,14 @@
  * @property {unknown[]} ownedUpgrades
  */
 
+/** @typedef {Object} SerializedOwnedTreasureSlot
+ * @property {string} treasureId
+ * @property {number} [price]
+ * @property {string[]} [treasureAccessoryIds]
+ * @property {number} [hourglassStagesElapsed]
+ * @property {boolean} [treasureAccessoryExpired]
+ */
+
 /** @typedef {Object} RunSavePayload
  * @property {number} runSeedNumeric
  * @property {string} runSeedDisplay
@@ -70,7 +78,7 @@
  * @property {import('./runSaveSchema.js').RunSavePhase} phase
  * @property {number} activeSlotIndex
  * @property {SerializedDeckState} deckState
- * @property {unknown[]} ownedTreasures
+ * @property {SerializedOwnedTreasureSlot[]} ownedTreasures
  * @property {string[]} ownedVoucherIds
  * @property {unknown} treasureRunState
  * @property {string[]} spellCastHistory

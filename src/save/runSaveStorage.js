@@ -136,6 +136,39 @@ export function updateSlotCareer(index, career) {
   return persistEnvelope(envelope);
 }
 
+/**
+ * @param {number} index
+ * @param {(career: import('./runSaveSchema.js').SlotCareerStats) => void} mutator
+ */
+export function mutateSlotCareer(index, mutator) {
+  const ix = clampSaveSlotIndex(index);
+  const envelope = structuredClone(getSaveEnvelope());
+  let slot = envelope.slots[ix];
+  if (!slot) {
+    const savedAt = Date.now();
+    envelope.slots[ix] = {
+      savedAt,
+      appVersion: APP_VERSION,
+      meta: {
+        seedDisplay: "",
+        levelId: "",
+        money: 0,
+        isEndlessRun: false,
+        phase: "playing",
+        ownedTreasureEmojis: [null, null, null, null, null],
+        savedAt,
+      },
+      career: createEmptySlotCareerStats(),
+      payload: null,
+    };
+    slot = envelope.slots[ix];
+  }
+  const career = normalizeSlotCareerStats(slot.career);
+  mutator(career);
+  slot.career = career;
+  return persistEnvelope(envelope);
+}
+
 /** @param {number} index */
 export function clearSlot(index) {
   const ix = clampSaveSlotIndex(index);

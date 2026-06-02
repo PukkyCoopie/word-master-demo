@@ -5,6 +5,7 @@
         class="game-surface"
         :class="{
           'game-surface--menu': showMenu,
+          'game-surface--collection': showCollection,
           'game-surface--run-start-open': showRunStartDialog,
         }"
       >
@@ -29,6 +30,14 @@
           @open-profile="openPlayerProfile"
           @open-settings="openSettings"
           @open-about="openAbout"
+          @open-collection="openCollection"
+        />
+        <CollectionPage
+          v-else-if="showCollection"
+          :key="collectionRefreshKey"
+          :career="collectionCareer"
+          :initial-enter-delay-ms="COLLECTION_PAGE_INITIAL_ENTER_DELAY_MS"
+          @back="closeCollection"
         />
         <div v-else-if="showGame" class="game-session-stack">
           <GamePanel
@@ -46,7 +55,7 @@
       </div>
     </div>
     <Teleport to="#game-view-portal">
-      <IrisTransition ref="irisFxRef" :color="IRIS_COLOR" />
+      <IrisTransition ref="irisFxRef" :color="irisTransitionColor" />
     </Teleport>
     <Teleport defer to="#game-view-portal-frame">
       <RunStartDialog
@@ -97,6 +106,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from "vue";
 import MainMenu from "./components/MainMenu.vue";
+import CollectionPage from "./components/CollectionPage.vue";
 import GamePanel from "./components/GamePanel.vue";
 import RunStartDialog from "./components/RunStartDialog.vue";
 import SettingsLayer from "./components/SettingsLayer.vue";
@@ -136,7 +146,18 @@ import {
   hasContinuableRun,
   isSlotOccupied,
   loadSaveEnvelope,
+  mutateSlotCareer,
 } from "./save/runSaveStorage.js";
+import {
+  recordAccessoryDiscovered,
+  recordMaterialDiscovered,
+  recordSpellDiscovered,
+  recordTreasureDiscovered,
+  recordVoucherDiscovered,
+  tryInsertLengthLeaderboard,
+  tryInsertScoreLeaderboard,
+} from "./collection/collectionCareer.js";
+import { buildSubmitWordRecord } from "./collection/collectionWordRecord.js";
 import {
   mergeRunMatchStatsIntoCareer,
   normalizeSlotCareerStats,
@@ -179,9 +200,14 @@ const sessionRestoredSave = ref(null);
 const sessionSaveSlotIndex = ref(0);
 const runStartPrefillSeed = ref("");
 const saveUiRefreshKey = ref(0);
+const collectionRefreshKey = ref(0);
 /** @type {import('vue').Ref<{ presetIds: string[], difficultyIndices: number[] }>} */
 const runStartFreshUnlocks = ref({ presetIds: [], difficultyIndices: [] });
 const IRIS_COLOR = "#5a8fb8";
+const COLLECTION_IRIS_COLOR = "#7b68a8";
+/** 与 IrisTransition revealMs 默认一致：收藏页首屏入场延后到 iris 揭开之后 */
+const COLLECTION_PAGE_INITIAL_ENTER_DELAY_MS = 520;
+const irisTransitionColor = ref(IRIS_COLOR);
 const irisFxRef = ref(null);
 const transitionBusy = ref(false);
 const showTapTapPoster = ref(false);
@@ -227,6 +253,25 @@ provide("requestNewRun", (opts = {}) => {
 });
 
 provide("activeSaveSlotIndex", activeSaveSlotIndex);
+
+provide("recordCollectionDiscovery", ({ treasureId, spellId, voucherId, materialId, accessoryId } = {}) => {
+  const ix = screen.value === "game" ? sessionSaveSlotIndex.value : getActiveSaveSlotIndex();
+  persistCollectionCareer(ix, (career) => {
+    if (treasureId) recordTreasureDiscovered(career, treasureId);
+    if (spellId) recordSpellDiscovered(career, spellId);
+    if (voucherId) recordVoucherDiscovered(career, voucherId);
+    if (materialId) recordMaterialDiscovered(career, materialId);
+    if (accessoryId) recordAccessoryDiscovered(career, accessoryId);
+  });
+});
+
+provide("recordCollectionWordSubmit", ({ word, score, length, tiles, ownedTreasures }) => {
+  const record = buildSubmitWordRecord({ word, score, length, tiles, ownedTreasures });
+  persistCollectionCareer(sessionSaveSlotIndex.value, (career) => {
+    tryInsertScoreLeaderboard(career, record);
+    tryInsertLengthLeaderboard(career, record);
+  });
+});
 
 provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyIndex }) => {
   const ix = sessionSaveSlotIndex.value;
@@ -281,6 +326,32 @@ function closeAbout() {
   showAbout.value = false;
 }
 
+async function openCollection() {
+  if (transitionBusy.value) return;
+  transitionBusy.value = true;
+  irisTransitionColor.value = COLLECTION_IRIS_COLOR;
+  await irisFxRef.value?.play({
+    onCovered: () => {
+      screen.value = "collection";
+    },
+  });
+  irisTransitionColor.value = IRIS_COLOR;
+  transitionBusy.value = false;
+}
+
+async function closeCollection() {
+  if (transitionBusy.value) return;
+  transitionBusy.value = true;
+  irisTransitionColor.value = COLLECTION_IRIS_COLOR;
+  await irisFxRef.value?.play({
+    onCovered: () => {
+      screen.value = "menu";
+    },
+  });
+  irisTransitionColor.value = IRIS_COLOR;
+  transitionBusy.value = false;
+}
+
 function openTapTapPoster() {
   showTapTapPoster.value = true;
 }
@@ -312,6 +383,17 @@ function closeSaveSlots() {
 
 function bumpSaveUi() {
   saveUiRefreshKey.value += 1;
+}
+
+function bumpCollectionUi() {
+  collectionRefreshKey.value += 1;
+  bumpSaveUi();
+}
+
+/** @param {number} slotIndex @param {(career: import('./save/runSaveSchema.js').SlotCareerStats) => void} mutator */
+function persistCollectionCareer(slotIndex, mutator) {
+  mutateSlotCareer(slotIndex, mutator);
+  bumpCollectionUi();
 }
 
 /** @param {{ index: number, mode: string }} payload */
@@ -382,7 +464,13 @@ async function startNewRunAtSlot(index, seedNumeric, seedDisplay, resetProfile =
 
 const appBootReady = computed(() => dictionaryReady.value && remixIconReady.value);
 const showMenu = computed(() => appBootReady.value && screen.value === "menu");
+const showCollection = computed(() => appBootReady.value && screen.value === "collection");
 const showGame = computed(() => appBootReady.value && screen.value === "game");
+
+const collectionCareer = computed(() => {
+  void collectionRefreshKey.value;
+  return normalizeSlotCareerStats(getSlotCareer(getActiveSaveSlotIndex()));
+});
 const dictGate = computed(() => !appBootReady.value);
 const dictBootError = computed(() => !dictLoading.value && !!dictError.value);
 const dictBarPct = computed(() => {

@@ -1,4 +1,5 @@
 import { createEmptySlotCareerStats } from "./runSaveSchema.js";
+import { normalizeCollectionCareerFields } from "../collection/collectionCareer.js";
 
 /**
  * @param {unknown} raw
@@ -8,7 +9,9 @@ export function normalizeSlotCareerStats(raw) {
   const base = createEmptySlotCareerStats();
   if (!raw || typeof raw !== "object") return base;
   const o = /** @type {Record<string, unknown>} */ (raw);
-  return {
+  /** @type {import('./runSaveSchema.js').SlotCareerStats} */
+  const career = {
+    ...base,
     runsStarted: Math.max(0, Math.floor(Number(o.runsStarted) || 0)),
     runsCompleted: Math.max(0, Math.floor(Number(o.runsCompleted) || 0)),
     runsWon: Math.max(0, Math.floor(Number(o.runsWon) || 0)),
@@ -41,6 +44,8 @@ export function normalizeSlotCareerStats(raw) {
       ? Math.max(0, Math.min(7, Math.floor(Number(o.lastSelectedDifficultyIndex))))
       : 0,
   };
+  normalizeCollectionCareerFields(career, o);
+  return career;
 }
 
 /**

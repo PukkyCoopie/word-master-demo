@@ -7,6 +7,16 @@ import {
   mergeRunMatchStatsIntoCareer,
   normalizeSlotCareerStats,
 } from "./slotCareerStats.js";
+import {
+  normalizeCollectionCareerFields,
+  recordAccessoryDiscovered,
+  recordMaterialDiscovered,
+  recordSpellDiscovered,
+  recordTreasureDiscovered,
+  recordVoucherDiscovered,
+  tryInsertLengthLeaderboard,
+  tryInsertScoreLeaderboard,
+} from "../collection/collectionCareer.js";
 import { createRunMatchStats } from "../game/runMatchStats.js";
 import { canSaveNow } from "./runSaveGuards.js";
 import { createRunAutoSave } from "./runAutoSave.js";
@@ -88,4 +98,60 @@ test("empty save envelope has three slots", () => {
   const env = createEmptySaveEnvelope();
   assert.equal(env.slots.length, SAVE_SLOT_COUNT);
   assert.equal(env.slots.every((s) => s == null), true);
+});
+
+test("collection career normalize defaults", () => {
+  const career = normalizeSlotCareerStats({});
+  assert.deepEqual(career.discoveredTreasureIds, []);
+  assert.deepEqual(career.discoveredSpellIds, []);
+  assert.deepEqual(career.discoveredVoucherTiers, {});
+  assert.deepEqual(career.discoveredMaterialIds, []);
+  assert.deepEqual(career.discoveredAccessoryIds, []);
+  assert.deepEqual(career.scoreLeaderboard, []);
+  assert.deepEqual(career.lengthLeaderboard, []);
+});
+
+test("collection treasure and spell discovery", () => {
+  const career = normalizeSlotCareerStats({});
+  assert.equal(recordTreasureDiscovered(career, "32"), true);
+  assert.equal(recordTreasureDiscovered(career, "32"), false);
+  assert.equal(recordSpellDiscovered(career, "cake"), true);
+  assert.equal(recordSpellDiscovered(career, "restart"), false);
+});
+
+test("collection voucher tier only upgrades", () => {
+  const career = normalizeSlotCareerStats({});
+  assert.equal(recordVoucherDiscovered(career, "v_overstock_1"), true);
+  assert.equal(career.discoveredVoucherTiers.overstock, 1);
+  assert.equal(recordVoucherDiscovered(career, "v_overstock_1"), false);
+  assert.equal(recordVoucherDiscovered(career, "v_overstock_2"), true);
+  assert.equal(career.discoveredVoucherTiers.overstock, 2);
+});
+
+test("collection material and accessory discovery", () => {
+  const career = normalizeSlotCareerStats({});
+  assert.equal(recordMaterialDiscovered(career, "water"), true);
+  assert.equal(recordMaterialDiscovered(career, "water"), false);
+  assert.equal(recordMaterialDiscovered(career, "not_a_material"), false);
+  assert.equal(recordAccessoryDiscovered(career, "coin"), true);
+  assert.equal(recordAccessoryDiscovered(career, "coin"), false);
+  assert.equal(recordAccessoryDiscovered(career, "missing"), false);
+});
+
+test("collection leaderboard keeps top ten by score", () => {
+  const career = normalizeSlotCareerStats({});
+  for (let i = 1; i <= 11; i++) {
+    tryInsertScoreLeaderboard(career, {
+      word: `w${i}`,
+      score: i * 10,
+      length: 3,
+      recordedAt: i,
+      tiles: [],
+      ownedTreasures: [],
+    });
+  }
+  assert.equal(career.scoreLeaderboard.length, 10);
+  assert.equal(career.scoreLeaderboard[0].score, 110);
+  assert.equal(career.scoreLeaderboard[9].score, 20);
+  assert.ok(!career.scoreLeaderboard.some((r) => r.score === 10));
 });

@@ -28,6 +28,13 @@
  * @property {number} [highestDifficultyBeaten]
  * @property {Record<string, number>} [presetHighestDifficultyWon]
  * @property {number} [lastSelectedDifficultyIndex]
+ * @property {string[]} [discoveredTreasureIds]
+ * @property {string[]} [discoveredSpellIds]
+ * @property {Record<string, 1 | 2>} [discoveredVoucherTiers]
+ * @property {string[]} [discoveredMaterialIds]
+ * @property {string[]} [discoveredAccessoryIds]
+ * @property {import('../collection/collectionTypes.js').CollectionWordRecord[]} [scoreLeaderboard]
+ * @property {import('../collection/collectionTypes.js').CollectionWordRecord[]} [lengthLeaderboard]
  */
 
 /** @typedef {Object} RunSaveSlot
@@ -75,6 +82,13 @@ export function createEmptySlotCareerStats() {
     highestDifficultyBeaten: -1,
     presetHighestDifficultyWon: {},
     lastSelectedDifficultyIndex: 0,
+    discoveredTreasureIds: [],
+    discoveredSpellIds: [],
+    discoveredVoucherTiers: {},
+    discoveredMaterialIds: [],
+    discoveredAccessoryIds: [],
+    scoreLeaderboard: [],
+    lengthLeaderboard: [],
   };
 }
 

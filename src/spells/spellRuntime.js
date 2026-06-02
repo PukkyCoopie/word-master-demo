@@ -19,6 +19,10 @@ import { SHOP_TILE_PACK_MATERIAL_IDS } from "../shop/shopPackEconomy.js";
 import { spellHasTag } from "./spellTags.js";
 import { SPELL_TAG_SPECTRAL } from "./spellTags.js";
 import { normalizeExclusiveTileAccessoryPair, writeEntityAccessory } from "../accessories/accessoryState.js";
+import {
+  buildOwnedTreasureSlot,
+  serializeOwnedTreasureSlot,
+} from "../treasures/ownedTreasureSlot.js";
 
 const WATER_MATERIAL_SCORE_BONUS = 30;
 const FIRE_MATERIAL_MULT_BONUS = 4;
@@ -211,8 +215,10 @@ function clearMaterialEconomy(tile) {
  * 仅改材质经济（materialId / materialScoreBonus / materialMultBonus / 非万能 isWildcard），
  * 保留 tileScoreBonus、letterMultBonus、配饰等其它持久增益。
  * @param {Record<string, unknown>} tile
+ * @param {string} materialId
+ * @param {SpellRuntimeContext} [ctx]
  */
-function applyPlainMaterial(tile, materialId) {
+function applyPlainMaterial(tile, materialId, ctx) {
   const gains = snapshotMaxIntrinsicGainsFromTile(tile);
   clearMaterialEconomy(tile);
   tile.materialId = materialId;
@@ -221,6 +227,7 @@ function applyPlainMaterial(tile, materialId) {
   if (materialId !== "wildcard") tile.isWildcard = false;
   applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
   syncTileStateToDeckCard(tile);
+  ctx?.onMaterialAcquired?.(String(materialId));
 }
 
 /** @param {Record<string, unknown>} tile */
@@ -291,24 +298,26 @@ const TILE_AURA_ACCESSORY_POOL = Object.freeze([
   ...TILE_ROLLABLE_TREASURE_ACCESSORY_IDS,
 ]);
 
-/** @param {Record<string, unknown>} tile @param {string} accessoryId */
-function applyTileBoardAccessory(tile, accessoryId) {
+/** @param {Record<string, unknown>} tile @param {string} accessoryId @param {SpellRuntimeContext} [ctx] */
+function applyTileBoardAccessory(tile, accessoryId, ctx) {
   const gains = snapshotMaxIntrinsicGainsFromTile(tile);
   writeEntityAccessory(tile, accessoryId, "tile");
   const c = tile._deckCard;
   if (c && typeof c === "object") writeEntityAccessory(c, accessoryId, "tile");
   applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
   syncTileStateToDeckCard(tile);
+  ctx?.onAccessoryAcquired?.(String(accessoryId));
 }
 
-/** @param {Record<string, unknown>} tile @param {string} treasureAccessoryId */
-function applyTileTreasureAccessory(tile, treasureAccessoryId) {
+/** @param {Record<string, unknown>} tile @param {string} treasureAccessoryId @param {SpellRuntimeContext} [ctx] */
+function applyTileTreasureAccessory(tile, treasureAccessoryId, ctx) {
   const gains = snapshotMaxIntrinsicGainsFromTile(tile);
   writeEntityAccessory(tile, treasureAccessoryId, "tile");
   const c = tile._deckCard;
   if (c && typeof c === "object") writeEntityAccessory(c, treasureAccessoryId, "tile");
   applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
   syncTileStateToDeckCard(tile);
+  ctx?.onAccessoryAcquired?.(String(treasureAccessoryId));
 }
 
 /**
@@ -525,6 +534,8 @@ function resolveSpellTargetTile(ctx, p) {
  *   showToast: (msg: string) => void,
  *   setLastReplayableSpellId?: (id: string) => void,
  *   refreshBossTileDebuffOnTile?: (tile: Record<string, unknown>) => void,
+ *   onMaterialAcquired?: (materialId: string) => void,
+ *   onAccessoryAcquired?: (accessoryId: string) => void,
  * }} SpellRuntimeContext
  */
 
@@ -582,7 +593,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of ordered) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        applyPlainMaterial(t, "lucky");
+        applyPlainMaterial(t, "lucky", ctx);
       }
       break;
     }
@@ -590,7 +601,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of ordered) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        applyPlainMaterial(t, "fire");
+        applyPlainMaterial(t, "fire", ctx);
       }
       break;
     }
@@ -598,7 +609,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of ordered) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        applyPlainMaterial(t, "water");
+        applyPlainMaterial(t, "water", ctx);
       }
       break;
     }
@@ -614,7 +625,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of ordered) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        applyPlainMaterial(t, "steel");
+        applyPlainMaterial(t, "steel", ctx);
       }
       break;
     }
@@ -622,7 +633,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of ordered) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        applyPlainMaterial(t, "ice");
+        applyPlainMaterial(t, "ice", ctx);
       }
       break;
     }
@@ -630,7 +641,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of ordered) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        applyPlainMaterial(t, "gold");
+        applyPlainMaterial(t, "gold", ctx);
       }
       break;
     }
@@ -722,6 +733,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
         const nextSlots = [...slots];
         nextSlots[ix] = { ...cur, treasureAccessoryId: acc };
         ctx.ownedTreasures.value = nextSlots;
+        ctx.onAccessoryAcquired?.(acc);
       }
       break;
     }
@@ -800,7 +812,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of pick) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        applyTileBoardAccessory(t, TILE_ACCESSORY_COIN);
+        applyTileBoardAccessory(t, TILE_ACCESSORY_COIN, ctx);
       }
       break;
     }
@@ -809,8 +821,8 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
         const t = tileAt(p);
         if (!t?.letter) continue;
         const acc = TILE_AURA_ACCESSORY_POOL[Math.floor(rngU(rng) * TILE_AURA_ACCESSORY_POOL.length)];
-        if (acc.startsWith("treasure_acc_")) applyTileTreasureAccessory(t, acc);
-        else applyTileBoardAccessory(t, acc);
+        if (acc.startsWith("treasure_acc_")) applyTileTreasureAccessory(t, acc, ctx);
+        else applyTileBoardAccessory(t, acc, ctx);
       }
       break;
     }
@@ -819,7 +831,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of pick) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        applyTileBoardAccessory(t, TILE_ACCESSORY_REWIND);
+        applyTileBoardAccessory(t, TILE_ACCESSORY_REWIND, ctx);
       }
       break;
     }
@@ -828,7 +840,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of pick) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        applyTileTreasureAccessory(t, TREASURE_ACCESSORY_WRENCH);
+        applyTileTreasureAccessory(t, TREASURE_ACCESSORY_WRENCH, ctx);
       }
       break;
     }
@@ -837,7 +849,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of pick) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        applyTileBoardAccessory(t, TILE_ACCESSORY_VIP_DIAMOND);
+        applyTileBoardAccessory(t, TILE_ACCESSORY_VIP_DIAMOND, ctx);
       }
       break;
     }
@@ -897,17 +909,9 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       if (!owned.length) break;
       const pick = owned[Math.floor(rngU(rng) * owned.length)];
       const proto = /** @type {Record<string, unknown>} */ (pick.t);
-      const kept = {
-        treasureId: proto.treasureId,
-        price: proto.price,
-        rarity: proto.rarity,
-        name: proto.name,
-        emoji: proto.emoji,
-        description: proto.description,
-        treasureAccessoryId: proto.treasureAccessoryId ?? null,
-      };
+      const kept = serializeOwnedTreasureSlot(proto);
       const newSlots = slots.map(() => null);
-      newSlots[pick.i] = { ...kept };
+      newSlots[pick.i] = buildOwnedTreasureSlot(kept);
       let copyIx = -1;
       for (let j = 0; j < newSlots.length; j++) {
         if (j !== pick.i && newSlots[j] == null) {
@@ -915,7 +919,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
           break;
         }
       }
-      if (copyIx >= 0) newSlots[copyIx] = { ...kept };
+      if (copyIx >= 0) newSlots[copyIx] = buildOwnedTreasureSlot(kept);
       ctx.ownedTreasures.value = newSlots;
       spellFx = { kind: "ankh", keptSlotIndex: pick.i, copySlotIndex: copyIx };
       break;

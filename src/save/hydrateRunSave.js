@@ -2,8 +2,8 @@ import { createRunRng } from "../game/runRng.js";
 import { deserializeRunMatchStats } from "./runMatchStatsCodec.js";
 import { deserializeTreasureRunState } from "./treasureRunStateCodec.js";
 import { normalizeRunSavePhase } from "./runSaveSchema.js";
-import { normalizeOwnedTreasureSlot } from "../accessories/accessoryState.js";
 import { cloneSaveData } from "./saveDataClone.js";
+import { hydrateOwnedTreasureSlots } from "../treasures/ownedTreasureSlot.js";
 
 /**
  * @param {import('./runSavePayload.js').RunSavePayload} payload
@@ -25,10 +25,7 @@ export function hydrateRunSave(payload, ctx) {
   if (ctx.moneyRef) ctx.moneyRef.value = Math.max(0, Math.floor(Number(payload.money) || 0));
 
   if (ctx.ownedTreasuresRef) {
-    const slots = cloneSaveData(payload.ownedTreasures ?? []).map((s) =>
-      s && typeof s === "object" ? normalizeOwnedTreasureSlot(/** @type {Record<string, unknown>} */ (s)) : s,
-    );
-    ctx.ownedTreasuresRef.value = slots;
+    ctx.ownedTreasuresRef.value = hydrateOwnedTreasureSlots(payload.ownedTreasures ?? []);
   }
   if (ctx.ownedVoucherIdsRef) ctx.ownedVoucherIdsRef.value = [...(payload.ownedVoucherIds ?? [])].map(String);
   if (ctx.treasureRunStateRef) {
