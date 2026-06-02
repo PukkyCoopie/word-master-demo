@@ -1,32 +1,45 @@
 <template>
-  <div class="collection-grid collection-grid--materials">
-    <article
-      v-for="item in entries"
-      :key="item.id"
-      class="collection-material-card"
-      :class="{ 'collection-material-card--unknown': !item.discovered }"
-    >
-      <div class="collection-material-tile-wrap">
-        <LetterTile
-          v-if="item.discovered"
-          variant="grid"
-          class="collection-material-tile shop-shelf-letter-tile"
-          letter="·"
-          hide-letter
-          hide-rarity-gem
-          :material-id="item.id"
-        />
-        <div v-else class="collection-material-tile collection-material-tile--unknown" aria-hidden="true">
-          <span class="collection-material-unknown__mark">?</span>
-        </div>
-      </div>
-      <h3 class="collection-material-title">{{ item.title }}</h3>
-      <p class="collection-material-desc treasure-detail-desc-body-text">
-        <TreasureDescSegmentList v-if="item.discovered" :segments="item.segments" />
-        <span v-else>{{ unknownLabel }}</span>
-      </p>
-    </article>
-  </div>
+  <table class="collection-material-table">
+    <tbody>
+      <tr
+        v-for="item in entries"
+        :key="item.id"
+        class="collection-material-row"
+        :class="{ 'collection-material-row--unknown': !item.discovered }"
+      >
+        <td class="collection-material-cell collection-material-cell--tile">
+          <div class="collection-material-tile-wrap">
+            <LetterTile
+              v-if="item.discovered"
+              variant="grid"
+              class="collection-material-tile shop-shelf-letter-tile"
+              letter="·"
+              hide-letter
+              hide-rarity-gem
+              :material-id="item.id"
+            />
+            <div
+              v-else
+              class="collection-material-tile collection-material-tile--unknown"
+              aria-hidden="true"
+            >
+              <span class="collection-material-unknown__mark">?</span>
+            </div>
+          </div>
+        </td>
+        <td class="collection-material-cell collection-material-cell--divider" aria-hidden="true" />
+        <td class="collection-material-cell collection-material-cell--text">
+          <div class="collection-material-text">
+            <h3 class="collection-material-title">{{ item.title }}</h3>
+            <p class="collection-material-desc">
+              <TreasureDescSegmentList v-if="item.discovered" :segments="item.segments" />
+              <span v-else>{{ unknownLabel }}</span>
+            </p>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
 </template>
 
 <script setup>
@@ -62,38 +75,59 @@ const entries = computed(() =>
 </script>
 
 <style scoped>
-.collection-grid--materials {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: 1fr;
-  gap: calc(16 * var(--rpx));
+.collection-material-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 calc(14 * var(--rpx));
 }
 
-.collection-material-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  min-height: calc(232 * var(--rpx));
-  height: 100%;
-  padding: calc(16 * var(--rpx)) calc(12 * var(--rpx)) calc(18 * var(--rpx));
-  border-radius: calc(12 * var(--rpx));
-  background: #353129;
-  box-sizing: border-box;
+.collection-material-row .collection-material-cell {
+  vertical-align: middle;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.045);
+  border-top: calc(1 * var(--rpx)) solid rgba(60, 58, 50, 0.08);
+  border-bottom: calc(1 * var(--rpx)) solid rgba(60, 58, 50, 0.08);
+}
+
+.collection-material-row--unknown {
+  opacity: 0.55;
+}
+
+.collection-material-row .collection-material-cell--tile {
+  width: calc(112 * var(--rpx));
+  padding: calc(14 * var(--rpx)) calc(12 * var(--rpx));
+  border-left: calc(1 * var(--rpx)) solid rgba(60, 58, 50, 0.08);
+  border-radius: calc(12 * var(--rpx)) 0 0 calc(12 * var(--rpx));
+}
+
+.collection-material-row .collection-material-cell--divider {
+  width: calc(1 * var(--rpx));
+  padding: 0;
+  background: rgba(60, 58, 50, 0.14);
+  border-top: none;
+  border-bottom: none;
+}
+
+.collection-material-row .collection-material-cell--text {
+  padding: calc(14 * var(--rpx)) calc(16 * var(--rpx)) calc(14 * var(--rpx)) calc(12 * var(--rpx));
+  border-right: calc(1 * var(--rpx)) solid rgba(60, 58, 50, 0.08);
+  border-radius: 0 calc(12 * var(--rpx)) calc(12 * var(--rpx)) 0;
 }
 
 .collection-material-tile-wrap {
   display: flex;
+  align-items: center;
   justify-content: center;
-  width: 100%;
-  flex-shrink: 0;
-  margin-bottom: calc(18 * var(--rpx));
+  pointer-events: none;
+  cursor: default;
 }
 
 .collection-material-tile {
-  width: calc(96 * var(--rpx));
-  height: calc(96 * var(--rpx));
+  width: calc(72 * var(--rpx));
+  height: calc(72 * var(--rpx));
   flex-shrink: 0;
+  pointer-events: none;
+  cursor: default;
 }
 
 .collection-material-tile--unknown {
@@ -101,42 +135,48 @@ const entries = computed(() =>
   align-items: center;
   justify-content: center;
   border-radius: calc(12 * var(--rpx));
-  background: rgba(249, 246, 242, 0.12);
-  box-shadow: inset 0 0 0 calc(2 * var(--rpx)) rgba(249, 246, 242, 0.08);
+  background: rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 0 0 calc(2 * var(--rpx)) rgba(60, 58, 50, 0.06);
 }
 
 .collection-material-unknown__mark {
-  font-size: calc(40 * var(--rpx));
+  font-size: calc(32 * var(--rpx));
   font-weight: 700;
-  color: rgba(249, 246, 242, 0.45);
+  color: var(--text-muted, #776e65);
   line-height: 1;
 }
 
-.collection-material-title {
-  margin: 0 0 calc(8 * var(--rpx));
-  font-size: calc(28 * var(--rpx));
-  font-weight: 800;
-  color: #f9f6f2;
-  text-align: center;
-  flex-shrink: 0;
+.collection-material-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(6 * var(--rpx));
+  text-align: left;
 }
 
-.collection-material-card--unknown .collection-material-title {
-  color: rgba(249, 246, 242, 0.45);
+.collection-material-title {
+  margin: 0;
+  font-size: calc(28 * var(--rpx));
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text-dark, #3c3a32);
+}
+
+.collection-material-row--unknown .collection-material-title {
+  color: var(--text-muted, #776e65);
 }
 
 .collection-material-desc {
   margin: 0;
   width: 100%;
-  flex: 1 1 auto;
   font-size: calc(24 * var(--rpx));
-  line-height: 1.5;
-  color: rgba(249, 246, 242, 0.82);
-  text-align: center;
-  text-wrap: balance;
+  line-height: 1.55;
+  color: var(--text-dark, #3c3a32);
+  text-align: left;
+  word-break: break-word;
 }
 
-.collection-material-card--unknown .collection-material-desc {
-  color: rgba(249, 246, 242, 0.45);
+.collection-material-row--unknown .collection-material-desc {
+  color: var(--text-muted, #776e65);
 }
 </style>

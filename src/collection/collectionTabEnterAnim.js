@@ -1,9 +1,7 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import {
-  instantRevealGsapTargets,
-  shouldSkipDecorativeMotion,
-} from "../settings/animationSpeed.js";
+import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
+import { collectionEnterOpacityForTarget } from "./collectionDisplayUtils.js";
 
 const PANEL_Y = 10;
 const PANEL_DURATION = 0.42;
@@ -19,10 +17,27 @@ function collectEnterTargets(root) {
   if (!root) return [];
   const items = [
     ...root.querySelectorAll(
-      ".collection-shop-cell, .collection-voucher-cell, .collection-material-card, .collection-accessory-row, .collection-leaderboard-entry, .collection-empty-tab",
+      ".collection-shop-cell, .collection-voucher-cell, .collection-material-row, .collection-accessory-row, .collection-leaderboard-entry, .collection-empty-tab",
     ),
   ];
   return items.length ? items : [root];
+}
+
+/** @param {HTMLElement[]} targets */
+function instantRevealCollectionEnter(targets) {
+  gsap.killTweensOf(targets);
+  for (const el of targets) {
+    gsap.set(el, {
+      opacity: collectionEnterOpacityForTarget(el),
+      y: 0,
+      scale: 1,
+    });
+  }
+}
+
+/** @param {HTMLElement[]} targets */
+function clearCollectionEnterOpacityProps(targets) {
+  gsap.set(targets, { clearProps: "opacity" });
 }
 
 /**
@@ -32,7 +47,7 @@ export function prepareCollectionTabEnter(root) {
   const targets = collectEnterTargets(root);
   if (!targets.length) return;
   if (shouldSkipDecorativeMotion()) {
-    instantRevealGsapTargets(targets, { opacity: 1, y: 0, scale: 1 });
+    instantRevealCollectionEnter(targets);
     return;
   }
   gsap.killTweensOf(targets);
@@ -53,7 +68,7 @@ export function playCollectionTabEnter(root, options = {}) {
   const targets = collectEnterTargets(root);
   if (!targets.length) return null;
   if (shouldSkipDecorativeMotion()) {
-    instantRevealGsapTargets(targets, { opacity: 1, y: 0, scale: 1 });
+    instantRevealCollectionEnter(targets);
     return null;
   }
   prepareCollectionTabEnter(root);
@@ -69,11 +84,12 @@ export function playCollectionTabEnter(root, options = {}) {
   const stagger =
     targets.length > 1 ? ITEM_STAGGER_SPREAD / (targets.length - 1) : 0;
   return gsap.to(targets, {
-    opacity: 1,
+    opacity: (_index, el) => collectionEnterOpacityForTarget(el),
     y: 0,
     duration: ITEM_DURATION,
     delay: delaySec,
     stagger,
     ease: EASE_TRANSFORM,
+    onComplete: () => clearCollectionEnterOpacityProps(targets),
   });
 }

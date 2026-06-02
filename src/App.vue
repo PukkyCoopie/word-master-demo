@@ -155,6 +155,7 @@ import {
   recordUpgradeDiscovered,
   recordTreasureDiscovered,
   recordVoucherDiscovered,
+  syncCollectionAccessoriesFromDifficultyUnlock,
   tryInsertLengthLeaderboard,
   tryInsertScoreLeaderboard,
 } from "./collection/collectionCareer.js";
@@ -296,6 +297,7 @@ provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyInde
       normalizeRunDifficultyIndex(runDifficultyIndex),
       normalizeRunPresetId(runPresetId),
     );
+    syncCollectionAccessoriesFromDifficultyUnlock(career);
     const fresh = collectFreshUnlocksFromWin(careerBefore, career, presetWinNew);
     if (fresh.presetIds.length || fresh.difficultyIndices.length) {
       runStartFreshUnlocks.value = {

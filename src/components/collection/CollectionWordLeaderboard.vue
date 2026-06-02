@@ -6,6 +6,9 @@
       :key="`${record.word}-${record.recordedAt}-${index}`"
       class="collection-leaderboard-entry"
     >
+      <div v-if="sortKey === 'score'" class="collection-leaderboard-meta">
+        <span class="collection-leaderboard-stat">{{ record.score.toLocaleString("zh-CN") }}</span>
+      </div>
       <div class="collection-leaderboard-tiles" role="group" :aria-label="record.word">
         <button
           v-for="(tile, tileIx) in record.tiles"
@@ -29,9 +32,6 @@
             :vowel-ghost-next="tile.vowelGhostNext"
           />
         </button>
-      </div>
-      <div v-if="sortKey === 'score'" class="collection-leaderboard-meta">
-        <span class="collection-leaderboard-stat">{{ record.score.toLocaleString("zh-CN") }}</span>
       </div>
       <div v-if="hydratedTreasures(record).length" class="collection-leaderboard-treasures">
         <button
@@ -170,7 +170,7 @@ function onTreasureClick(slot, event) {
 .collection-leaderboard-meta {
   display: flex;
   justify-content: center;
-  margin-bottom: calc(10 * var(--rpx));
+  margin: 0 0 calc(10 * var(--rpx));
 }
 
 .collection-leaderboard-stat {

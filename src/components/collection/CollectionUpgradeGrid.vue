@@ -82,6 +82,6 @@ const sections = computed(() => [
   text-align: center;
   font-size: calc(28 * var(--rpx));
   font-weight: 800;
-  color: #f9f6f2;
+  color: var(--text-dark, #3c3a32);
 }
 </style>

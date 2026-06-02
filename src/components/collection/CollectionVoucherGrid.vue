@@ -108,6 +108,7 @@ function onCellClick(pair, event) {
 
 .collection-voucher-cell--unknown {
   cursor: default;
+  opacity: 0.55;
 }
 
 .collection-voucher-stamp__frame--unknown {

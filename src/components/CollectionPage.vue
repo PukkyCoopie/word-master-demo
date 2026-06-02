@@ -422,6 +422,20 @@ onMounted(async () => {
   justify-content: center;
 }
 
+.collection-page .collection-upgrade-section__title {
+  color: var(--text-dark, #3c3a32);
+}
+
+.collection-page .shop-treasure-frame--length-offer .shop-upgrade-length,
+.collection-page .shop-treasure-frame--pack-rarity .shop-pack-rarity-caption {
+  color: var(--text-dark, #3c3a32);
+}
+
+.collection-page .shop-treasure-frame--length-offer .shop-treasure-emoji--icon,
+.collection-page .shop-treasure-frame--pack-rarity .shop-treasure-emoji--icon {
+  color: var(--text-dark, #3c3a32);
+}
+
 .collection-page .collection-grid--vouchers {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -484,5 +498,9 @@ onMounted(async () => {
 .collection-page .collection-leaderboard-treasure-hit .treasure-slot {
   width: calc(72 * var(--rpx));
   height: calc(72 * var(--rpx));
+}
+
+.collection-page .collection-material-tile.grid-tile {
+  cursor: default;
 }
 </style>

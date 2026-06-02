@@ -130,6 +130,7 @@ function onClick(event) {
 
 .collection-shop-cell--unknown {
   cursor: default;
+  opacity: 0.55;
 }
 
 .collection-shop-cell__frame--unknown {
