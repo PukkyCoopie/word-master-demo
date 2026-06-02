@@ -1,6 +1,7 @@
 <template>
   <span
     class="difficulty-pill"
+    :class="`difficulty-pill--${props.size}`"
     :style="pillStyle"
   >
     {{ displayLabel }}
@@ -9,11 +10,16 @@
 
 <script setup>
 import { computed } from "vue";
-import { getRunDifficultyDef, normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
+import { getRunDifficultyDef } from "../game/runDifficultyDefinitions.js";
 
 const props = defineProps({
   index: { type: Number, default: 0 },
   label: { type: String, default: "" },
+  size: {
+    type: String,
+    default: "md",
+    validator: (v) => ["md", "lg"].includes(String(v)),
+  },
 });
 
 const def = computed(() => getRunDifficultyDef(props.index));
@@ -42,5 +48,11 @@ const pillStyle = computed(() => ({
   font-weight: 700;
   line-height: 1.2;
   box-shadow: var(--shadow, 0 calc(2 * var(--rpx)) calc(4 * var(--rpx)) rgba(0, 0, 0, 0.12));
+}
+
+.difficulty-pill--lg {
+  padding: calc(8 * var(--rpx)) calc(20 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
+  font-weight: 800;
 }
 </style>

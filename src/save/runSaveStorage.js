@@ -56,6 +56,32 @@ export function isSlotOccupied(index) {
   return getSaveEnvelope().slots[ix] != null;
 }
 
+/** @param {number} index 槽位是否存在可恢复的局内进度（payload） */
+export function hasContinuableRun(index) {
+  const ix = clampSaveSlotIndex(index);
+  return getSaveEnvelope().slots[ix]?.payload != null;
+}
+
+/**
+ * 清除可继续的局内进度，保留栏位生涯（profile / 解锁进度等）。
+ * @param {number} index
+ */
+export function clearSlotRunProgress(index) {
+  const ix = clampSaveSlotIndex(index);
+  const envelope = structuredClone(getSaveEnvelope());
+  const slot = envelope.slots[ix];
+  if (!slot?.payload) return persistEnvelope(envelope);
+  const career = normalizeSlotCareerStats(slot.career);
+  envelope.slots[ix] = {
+    savedAt: slot.savedAt ?? Date.now(),
+    appVersion: slot.appVersion ?? APP_VERSION,
+    meta: slot.meta ?? null,
+    career,
+    payload: null,
+  };
+  return persistEnvelope(envelope);
+}
+
 export function getOccupiedSlotCount() {
   return getSaveEnvelope().slots.filter((s) => s != null).length;
 }
@@ -136,7 +162,7 @@ export function listAllSlotEntries() {
       };
     }
     return {
-      hasSave: true,
+      hasSave: s.payload != null,
       meta: s.meta ?? null,
       career: normalizeSlotCareerStats(s.career),
     };

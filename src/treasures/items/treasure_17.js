@@ -6,6 +6,14 @@ function chairTimesMultFromOwnedSlots(ownedSlotTreasureIds) {
   return Math.max(1, emptySlotCount);
 }
 
+function resolveChairTimesMultFromPatchContext(ctx) {
+  const slots = Array.isArray(ctx?.ownedSlotTreasureIds) ? ctx.ownedSlotTreasureIds : null;
+  if (slots?.length) return chairTimesMultFromOwnedSlots(slots);
+  const ownedCount = Array.isArray(ctx?.ownedTreasureInstances) ? ctx.ownedTreasureInstances.length : 0;
+  const fallbackSlots = Math.max(0, 5 - ownedCount);
+  return Math.max(1, fallbackSlots);
+}
+
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 8,
@@ -15,6 +23,10 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  patchDescription(ctx) {
+    const m = resolveChairTimesMultFromPatchContext(ctx);
+    return describe("（当前", mult(`x${m}`), "）");
+  },
   buildPostLetterStep(ctx) {
     const m = chairTimesMultFromOwnedSlots(ctx.ownedSlotTreasureIds);
     return m > 1 ? { multMul: m } : null;

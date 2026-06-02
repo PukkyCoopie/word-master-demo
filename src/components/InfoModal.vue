@@ -325,10 +325,15 @@
           <div class="info-preset-row info-stagger-el">
             <span class="info-preset-field-label">难度</span>
             <div class="info-preset-difficulty-card">
-              <DifficultyPill :index="runDifficultyIndex" />
+              <DifficultyPill :index="runDifficultyIndex" size="lg" />
               <div class="info-preset-difficulty-desc">
-                <DifficultyDescText :description="runDifficultyDef.description" />
-                <p v-if="runDifficultyIndex > 0" class="info-preset-difficulty-desc-stack">之前的难度也会生效</p>
+                <template v-if="runDifficultyBuffDefs.length">
+                  <div v-for="def in runDifficultyBuffDefs" :key="def.index" class="info-preset-difficulty-buff-item">
+                    <span class="info-preset-difficulty-buff-label">{{ def.label }}</span>
+                    <DifficultyDescText :description="def.description" :unclamped="true" />
+                  </div>
+                </template>
+                <DifficultyDescText v-else :description="runDifficultyDef.description" :unclamped="true" />
               </div>
             </div>
           </div>
@@ -387,7 +392,11 @@ import {
 } from "../game/infoModalTabEnterAnim.js";
 import { formatCompactOneDecimal } from "./detailLayerFormatters.js";
 import { getRunPresetDef, getPresetDescriptionLayoutTier, normalizeRunPresetId } from "../game/runPresetDefinitions.js";
-import { getRunDifficultyDef, normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
+import {
+  getRunDifficultyDef,
+  normalizeRunDifficultyIndex,
+  RUN_DIFFICULTY_DEFINITIONS,
+} from "../game/runDifficultyDefinitions.js";
 import DifficultyPill from "./DifficultyPill.vue";
 import DifficultyDescText from "./DifficultyDescText.vue";
 import PresetDescRichText from "./PresetDescRichText.vue";
@@ -468,6 +477,11 @@ const INFO_TAB_PANEL_REF = {
 const runPresetDef = computed(() => getRunPresetDef(normalizeRunPresetId(props.runPresetId)));
 const runDifficultyIndex = computed(() => normalizeRunDifficultyIndex(props.runDifficultyIndex));
 const runDifficultyDef = computed(() => getRunDifficultyDef(runDifficultyIndex.value));
+const runDifficultyBuffDefs = computed(() => {
+  const ix = runDifficultyIndex.value;
+  if (ix <= 0) return [];
+  return RUN_DIFFICULTY_DEFINITIONS.slice(1, ix + 1);
+});
 const runPresetDescTier = computed(() => {
   const tier = getPresetDescriptionLayoutTier(runPresetDef.value);
   return tier === "normal" ? "medium" : "compact";
@@ -1797,35 +1811,52 @@ function close() {
 }
 
 .info-preset-difficulty-card {
-  min-height: calc(152 * var(--rpx));
+  min-height: calc(176 * var(--rpx));
   border-radius: var(--radius);
   background: var(--bg, #faf8ef);
-  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
+  padding: calc(14 * var(--rpx)) calc(16 * var(--rpx));
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: calc(8 * var(--rpx));
-  text-align: center;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: calc(10 * var(--rpx));
+  text-align: left;
 }
 
 .info-preset-difficulty-desc {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: calc(4 * var(--rpx));
+  align-items: stretch;
+  gap: calc(8 * var(--rpx));
   width: 100%;
   min-width: 0;
-  max-height: calc(98 * var(--rpx));
-  overflow: hidden;
+  max-height: none;
+  overflow: visible;
 }
 
-.info-preset-difficulty-desc-stack {
-  margin: 0;
-  font-size: calc(19 * var(--rpx));
-  line-height: 1.3;
-  color: rgba(60, 58, 50, 0.62);
+.info-preset-difficulty-buff-item {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2 * var(--rpx));
+}
+
+.info-preset-difficulty-buff-label {
+  font-size: calc(23 * var(--rpx));
+  font-weight: 800;
+  line-height: 1.2;
+  color: rgba(60, 58, 50, 0.72);
+}
+
+.info-preset-difficulty-card :deep(.difficulty-desc-text) {
+  align-items: flex-start;
+  gap: calc(3 * var(--rpx));
+}
+
+.info-preset-difficulty-card :deep(.difficulty-desc-line) {
+  font-size: calc(24 * var(--rpx));
+  line-height: 1.4;
+  text-align: left;
 }
 
 .info-preset-soon-icon {

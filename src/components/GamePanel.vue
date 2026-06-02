@@ -820,6 +820,7 @@ import {
   saveGamePanelToSlot,
 } from "../save/gamePanelSaveApi.js";
 import { createRunAutoSave } from "../save/runAutoSave.js";
+import { clearSlotRunProgress } from "../save/runSaveStorage.js";
 import {
   createRunMatchStats,
   getRunMatchStatsRows,
@@ -2730,6 +2731,7 @@ function buildTreasurePatchDescriptionContext() {
     rollRandomBigram: rollRandomBigramForTreasure,
     rng: runRandom,
     money: money.value,
+    ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null),
     ownedTreasureInstances: ownedTreasures.value.filter(Boolean),
   };
 }
@@ -5989,7 +5991,24 @@ function onRunEndRetry() {
   emit("request-restart", { prefillSeed: false });
 }
 
+/** 标准通关 8-3 后回主菜单：视为放弃无尽接续，仅保留生涯统计 */
+function shouldAbandonStandardWinAtMenu() {
+  return (
+    showRunEnd.value &&
+    runEndOutcome.value === "win" &&
+    !isEndlessRun.value &&
+    isStandardRunFinalLevelIndex(levelIndex.value)
+  );
+}
+
+function abandonStandardWinRunProgressIfNeeded() {
+  if (!shouldAbandonStandardWinAtMenu()) return;
+  clearSlotRunProgress(props.saveSlotIndex);
+}
+
 function onRunEndMainMenu() {
+  runAutoSave.tryFlush();
+  abandonStandardWinRunProgressIfNeeded();
   emit("exit-to-menu");
 }
 
@@ -6032,6 +6051,7 @@ function onPauseSettings() {
 function onPauseMainMenu() {
   closePauseOptions();
   runAutoSave.tryFlush();
+  abandonStandardWinRunProgressIfNeeded();
   emit("exit-to-menu");
 }
 

@@ -39,9 +39,14 @@
           type="button"
           role="tab"
           class="run-start-dialog-tab"
-          :class="{ 'run-start-dialog-tab--active': activeTab === 'continue' }"
+          :class="{
+            'run-start-dialog-tab--active': activeTab === 'continue',
+            'run-start-dialog-tab--disabled': !continueEnabled,
+          }"
           :aria-selected="activeTab === 'continue'"
-          @click="activeTab = 'continue'"
+          :aria-disabled="!continueEnabled"
+          :disabled="!continueEnabled"
+          @click="onContinueTabClick"
         >
           继续
         </button>
@@ -150,9 +155,12 @@
             role="tabpanel"
             aria-label="继续"
             class="run-start-dialog-panel"
-            :class="{ 'run-start-dialog-panel--active': activeTab === 'continue' }"
+            :class="{
+              'run-start-dialog-panel--active': activeTab === 'continue',
+              'run-start-dialog-panel--disabled': !continueEnabled,
+            }"
             :aria-hidden="activeTab !== 'continue'"
-            :inert="activeTab !== 'continue'"
+            :inert="activeTab !== 'continue' || !continueEnabled"
           >
             <div class="run-start-dialog-seed-row run-start-stagger-el">
               <span class="run-start-dialog-seed-label">种子</span>
@@ -270,7 +278,7 @@ import RunStartPresetPicker from "./RunStartPresetPicker.vue";
 import TileDetailLayer from "./TileDetailLayer.vue";
 import TreasureDetailLayer from "./TreasureDetailLayer.vue";
 
-/** @typedef {{ seedDisplay: string, levelId: string, money: number, isEndlessRun?: boolean, presetId?: string, difficultyIndex?: number }} RunContinueSnapshot */
+/** @typedef {{ seedDisplay: string, levelId: string, money: number, isEndlessRun?: boolean, presetId?: string, difficultyIndex?: number, continueEnabled?: boolean }} RunContinueSnapshot */
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -388,6 +396,7 @@ const difficultyDraft = ref(0);
 const normalizedCareer = computed(() => normalizeSlotCareerStats(props.slotCareer));
 
 const hasContinueTab = computed(() => props.continueSnapshot != null);
+const continueEnabled = computed(() => props.continueSnapshot?.continueEnabled !== false);
 const continueSeedDisplay = computed(() => String(props.continueSnapshot?.seedDisplay ?? "").trim());
 const continuePresetDef = computed(() =>
   getRunPresetDef(String(props.continueSnapshot?.presetId ?? "preset_01")),
@@ -434,14 +443,17 @@ const difficultyLockedForNew = computed(
   () => !isDifficultyUnlocked(difficultyDraft.value, normalizedCareer.value),
 );
 const primaryButtonLabel = computed(() => {
-  if (activeTab.value === "continue") return "继续游戏";
+  if (activeTab.value === "continue") {
+    return continueEnabled.value ? "继续游戏" : "本局已结束";
+  }
   if (presetLockedForNew.value) return "预设未解锁";
   if (difficultyLockedForNew.value) return "难度未解锁";
   return "开始游戏";
 });
 const primaryButtonDisabled = computed(
   () =>
-    activeTab.value === "new" && (presetLockedForNew.value || difficultyLockedForNew.value),
+    (activeTab.value === "continue" && !continueEnabled.value) ||
+    (activeTab.value === "new" && (presetLockedForNew.value || difficultyLockedForNew.value)),
 );
 
 watch(
@@ -458,7 +470,10 @@ watch(
       return;
     }
     seedDraft.value = props.initialSeed ? normalizeRunSeedInput(String(props.initialSeed)) : "";
-    activeTab.value = props.continueSnapshot != null ? "continue" : "new";
+    activeTab.value =
+      props.continueSnapshot != null && props.continueSnapshot.continueEnabled !== false
+        ? "continue"
+        : "new";
     presetDraft.value = getLastSelectedPresetId(normalizedCareer.value);
     difficultyDraft.value = getLastSelectedDifficultyBrowseIndex(normalizedCareer.value);
     if (!wasOpen) {
@@ -481,10 +496,15 @@ function onRandomSeed() {
   seedDraft.value = generateRandomRunSeedString();
 }
 
+function onContinueTabClick() {
+  if (!continueEnabled.value) return;
+  activeTab.value = "continue";
+}
+
 /** @param {MouseEvent} event */
 function onConfirm(event) {
   recordPointerClientFromEvent(event);
-  if (activeTab.value === "continue" && hasContinueTab.value) {
+  if (activeTab.value === "continue" && hasContinueTab.value && continueEnabled.value) {
     emit("confirm", { mode: "continue" });
     return;
   }
@@ -652,6 +672,21 @@ function onCancel() {
   background: var(--card-bright, #faf8ef);
   box-shadow: var(--shadow);
   opacity: 1;
+}
+
+.run-start-dialog-tab--disabled,
+.run-start-dialog-tab:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.run-start-dialog-tab--disabled.run-start-dialog-tab--active {
+  background: transparent;
+  box-shadow: none;
+}
+
+.run-start-dialog-panel--disabled {
+  opacity: 0.45;
 }
 
 .run-start-dialog-body {

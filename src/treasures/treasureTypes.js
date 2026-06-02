@@ -209,6 +209,7 @@
  * @property {() => number} [rng]
  * @property {number} [money] 当前钱包（动态简介用）
  * @property {readonly unknown[]} [fullDeck] 本局完整牌库 multiset（动态简介用）
+ * @property {(string | null | undefined)[]} [ownedSlotTreasureIds] 当前宝藏槽位（含空槽）
  * @property {object[]} [ownedTreasureInstances] 当前已拥有宝藏实例（动态简介用）
  */
 

@@ -7,7 +7,7 @@ const BIGRAM_MULT = 2.5;
 export default {
   price: 5,
   rarity: "rare",
-  description: describe("每一个拼出的双字母组合提供", mult("x2.5"), "倍率"),
+  description: describe("每一个拼出的双字母组合提供", mult("x2.5"), "倍率", "（字母每个关卡都会变化）"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -17,7 +17,7 @@ export const treasureHooks = {
     const pair = String(
       ensureBigramTargetPair(ctx.treasureRun, ctx.rollRandomBigram) ?? "??",
     ).toUpperCase();
-    return describe(`每一个拼出的${pair}提供`, mult("x2.5"), "倍率");
+    return describe(`每一个拼出的${pair}提供`, mult("x2.5"), "倍率", "（字母每个关卡都会变化）");
   },
   buildPostLetterStep(ctx) {
     const pair = ctx.treasureRun?.bigramTargetPair;

@@ -212,7 +212,7 @@
 
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
-import { bumpOverlayZ } from "../game/overlayStack.js";
+import { settingsOverlayZ } from "../game/overlayStack.js";
 import SettingsSegmentControl from "./SettingsSegmentControl.vue";
 import { ANIMATION_SPEED_OPTIONS } from "../settings/animationSpeed.js";
 import {
@@ -243,7 +243,7 @@ watch(
   (v) => {
     if (v) {
       nextTick(() => {
-        stackZ.value = bumpOverlayZ();
+        stackZ.value = settingsOverlayZ();
       });
     }
   },

@@ -1,6 +1,6 @@
 <template>
   <div class="difficulty-desc-text">
-    <p class="difficulty-desc-line">
+    <p :class="['difficulty-desc-line', { 'difficulty-desc-line--unclamped': props.unclamped }]">
       <template v-for="(seg, i) in mainSegments" :key="`m-${i}`">
         <span v-if="seg.type === 'text'">{{ seg.v }}</span>
         <span v-else-if="seg.type === 'money'" class="difficulty-desc-money">
@@ -8,7 +8,14 @@
         </span>
       </template>
     </p>
-    <p v-if="parenSegments.length" class="difficulty-desc-line difficulty-desc-line--paren">
+    <p
+      v-if="parenSegments.length"
+      :class="[
+        'difficulty-desc-line',
+        'difficulty-desc-line--paren',
+        { 'difficulty-desc-line--unclamped': props.unclamped },
+      ]"
+    >
       <template v-for="(seg, i) in parenSegments" :key="`p-${i}`">
         <span v-if="seg.type === 'text'">{{ seg.v }}</span>
         <span v-else-if="seg.type === 'money'" class="difficulty-desc-money">
@@ -25,6 +32,7 @@ import { parsePlainEffectCopyToSegments } from "../treasures/treasureDescription
 
 const props = defineProps({
   description: { type: String, default: "" },
+  unclamped: { type: Boolean, default: false },
 });
 
 /** @param {string} text */
@@ -70,6 +78,12 @@ const parenSegments = computed(() =>
 .difficulty-desc-line--paren {
   -webkit-line-clamp: 1;
   opacity: 0.88;
+}
+
+.difficulty-desc-line--unclamped {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 
 .difficulty-desc-money {

@@ -129,9 +129,11 @@ import {
 } from "./profile/playerProfile.js";
 import {
   clearSlot,
+  clearSlotRunProgress,
   getSlotCareer,
   getSlotMeta,
   getSlotPayload,
+  hasContinuableRun,
   isSlotOccupied,
   loadSaveEnvelope,
 } from "./save/runSaveStorage.js";
@@ -190,7 +192,6 @@ const activeSaveSlotIndex = computed(() => getActiveSaveSlotIndex());
 const runStartContinueSnapshot = computed(() => {
   if (runStartMode.value !== "menu") return null;
   const ix = pendingNewRunSlotIndex.value ?? getActiveSaveSlotIndex();
-  if (!isSlotOccupied(ix)) return null;
   const meta = getSlotMeta(ix);
   if (!meta) return null;
   return {
@@ -200,6 +201,7 @@ const runStartContinueSnapshot = computed(() => {
     isEndlessRun: meta.isEndlessRun === true,
     presetId: String(meta.runPresetId ?? "preset_01"),
     difficultyIndex: Math.max(0, Math.min(7, Math.floor(Number(meta.runDifficultyIndex) || 0))),
+    continueEnabled: hasContinuableRun(ix),
   };
 });
 
@@ -465,6 +467,7 @@ async function onRunStartConfirm(payload) {
   pendingNewRunSlotIndex.value = null;
 
   if (payload.mode === "continue") {
+    if (!hasContinuableRun(slotIx)) return;
     runStartMode.value = "menu";
     await startLoadSlot(slotIx);
     return;
@@ -502,8 +505,8 @@ async function onRunStartConfirm(payload) {
     return;
   }
 
-  if (isSlotOccupied(slotIx)) {
-    clearSlot(slotIx);
+  if (hasContinuableRun(slotIx)) {
+    clearSlotRunProgress(slotIx);
     bumpSaveUi();
   }
 
