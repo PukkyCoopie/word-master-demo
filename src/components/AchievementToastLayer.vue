@@ -9,7 +9,8 @@ const props = defineProps({
   queue: { type: Object, required: true },
 });
 
-const rootRef = ref(null);
+const backdropRef = ref(null);
+const contentRef = ref(null);
 
 const stackStyle = computed(() => ({
   zIndex: getOverlayStackTop() + 20,
@@ -20,31 +21,67 @@ const activeDef = computed(() => props.queue.active.value);
 const iconUrl = computed(() => (activeDef.value ? getAchievementIconUrl(activeDef.value) : ""));
 
 const glowClass = computed(() =>
-  shouldSkipDecorativeMotion() ? "achievement-toast__glow achievement-toast__glow--static" : "achievement-toast__glow",
+  shouldSkipDecorativeMotion()
+    ? "achievement-toast__icon-glow achievement-toast__icon-glow--static"
+    : "achievement-toast__icon-glow",
 );
+
+/** @param {boolean} skip */
+function setAchievementToastRest(skip) {
+  const backdrop = backdropRef.value;
+  const content = contentRef.value;
+  if (backdrop) {
+    gsap.killTweensOf(backdrop);
+    gsap.set(backdrop, skip ? { y: 0, opacity: 1 } : { y: "-100%", opacity: 0 });
+  }
+  if (content) {
+    gsap.killTweensOf(content);
+    gsap.set(content, skip ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -20, scale: 0.96 });
+  }
+}
 
 watch(
   () => props.queue.playing.value,
   async (playing) => {
     if (!playing || !activeDef.value) return;
     await animSleep(0);
-    const el = rootRef.value;
+    const backdrop = backdropRef.value;
+    const content = contentRef.value;
     const skip = shouldSkipDecorativeMotion();
-    if (el && !skip) {
-      gsap.killTweensOf(el);
-      await gsap.fromTo(
-        el,
-        { opacity: 0, y: -24 },
-        { opacity: 1, y: 0, duration: 0.42, ease: "power2.out" },
-      );
-    } else if (el) {
-      gsap.set(el, { opacity: 1, y: 0 });
+    setAchievementToastRest(skip);
+
+    if (!skip) {
+      const tl = gsap.timeline();
+      if (backdrop) {
+        tl.to(
+          backdrop,
+          { y: 0, opacity: 1, duration: 0.44, ease: "power2.out" },
+          0,
+        );
+      }
+      if (content) {
+        tl.to(
+          content,
+          { opacity: 1, y: 0, scale: 1, duration: 0.44, ease: "power2.out" },
+          0.08,
+        );
+      }
+      await tl;
     }
+
     await animSleep(4000);
-    if (el && !skip) {
-      gsap.killTweensOf(el);
-      await gsap.to(el, { opacity: 0, y: -20, duration: 0.32, ease: "power2.in" });
+
+    if (!skip) {
+      const tl = gsap.timeline();
+      if (content) {
+        tl.to(content, { opacity: 0, y: -16, scale: 0.98, duration: 0.28, ease: "power2.in" }, 0);
+      }
+      if (backdrop) {
+        tl.to(backdrop, { y: "-100%", opacity: 0, duration: 0.36, ease: "power2.in" }, 0.06);
+      }
+      await tl;
     }
+
     props.queue.notifyItemDone();
   },
 );
@@ -58,19 +95,24 @@ watch(
       :style="stackStyle"
       aria-live="polite"
     >
-      <div class="achievement-toast__shade" aria-hidden="true" />
-      <div v-if="activeDef" ref="rootRef" class="achievement-toast__panel">
-        <div :class="glowClass" aria-hidden="true" />
-        <p class="achievement-toast__heading">已完成成就</p>
-        <div class="achievement-toast__body">
-          <img
-            class="achievement-toast__icon"
-            :src="iconUrl"
-            :alt="activeDef.name"
-            width="256"
-            height="256"
-            decoding="async"
-          />
+      <div ref="backdropRef" class="achievement-toast__backdrop" aria-hidden="true">
+        <div class="achievement-toast__solid" />
+        <div class="achievement-toast__fade" />
+      </div>
+      <div v-if="activeDef" ref="contentRef" class="achievement-toast__content">
+        <p class="achievement-toast__badge">已完成成就</p>
+        <div class="achievement-toast__card">
+          <div class="achievement-toast__icon-wrap">
+            <div :class="glowClass" aria-hidden="true" />
+            <img
+              class="achievement-toast__icon"
+              :src="iconUrl"
+              :alt="activeDef.name"
+              width="256"
+              height="256"
+              decoding="async"
+            />
+          </div>
           <div class="achievement-toast__text">
             <p class="achievement-toast__name">{{ activeDef.name }}</p>
             <p class="achievement-toast__desc">{{ activeDef.description }}</p>
@@ -83,108 +125,154 @@ watch(
 
 <style scoped>
 .achievement-toast {
+  --achievement-toast-solid-h: calc(268 * var(--rpx));
+  --achievement-toast-fade-h: calc(56 * var(--rpx));
   position: absolute;
   inset: 0 auto auto 0;
   width: 100%;
-  height: calc(250 * var(--rpx));
+  height: calc(var(--achievement-toast-solid-h) + var(--achievement-toast-fade-h));
   pointer-events: none;
   overflow: hidden;
 }
 
-.achievement-toast__shade {
+.achievement-toast__backdrop {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0.08) 72%, rgba(0, 0, 0, 0) 100%);
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 
-.achievement-toast__panel {
-  position: relative;
+.achievement-toast__solid {
+  flex: 0 0 var(--achievement-toast-solid-h);
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.achievement-toast__fade {
+  flex: 0 0 var(--achievement-toast-fade-h);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
+}
+
+.achievement-toast__content {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--achievement-toast-solid-h);
   z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  padding: calc(12 * var(--rpx)) calc(20 * var(--rpx)) calc(16 * var(--rpx));
+  padding: calc(32 * var(--rpx)) calc(24 * var(--rpx));
   box-sizing: border-box;
+  will-change: transform, opacity;
 }
 
-.achievement-toast__glow {
-  position: absolute;
-  left: 50%;
-  top: 42%;
-  width: calc(320 * var(--rpx));
-  height: calc(320 * var(--rpx));
-  margin-left: calc(-160 * var(--rpx));
-  margin-top: calc(-160 * var(--rpx));
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(255, 220, 140, 0.45),
-    rgba(255, 255, 255, 0.08),
-    rgba(200, 170, 255, 0.35),
-    rgba(255, 255, 255, 0.06),
-    rgba(255, 220, 140, 0.45)
-  );
-  filter: blur(calc(18 * var(--rpx)));
-  opacity: 0.55;
-  animation: achievement-toast-glow-spin 6s linear infinite;
-  pointer-events: none;
-}
-
-.achievement-toast__glow--static {
-  animation: none;
-}
-
-@keyframes achievement-toast-glow-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.achievement-toast__heading {
-  margin: 0 0 calc(10 * var(--rpx));
-  font-size: calc(22 * var(--rpx));
+.achievement-toast__badge {
+  margin: 0 0 calc(16 * var(--rpx));
+  padding: 0;
+  font-size: calc(26 * var(--rpx));
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
-  letter-spacing: calc(1 * var(--rpx));
+  line-height: 1.2;
+  color: rgba(255, 236, 180, 0.92);
+  letter-spacing: 0.12em;
+  text-align: center;
 }
 
-.achievement-toast__body {
+.achievement-toast__badge::after {
+  content: "";
+  display: block;
+  width: calc(52 * var(--rpx));
+  height: calc(2 * var(--rpx));
+  margin: calc(10 * var(--rpx)) auto 0;
+  background: rgba(237, 194, 46, 0.5);
+  border-radius: calc(1 * var(--rpx));
+}
+
+.achievement-toast__card {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: calc(14 * var(--rpx));
-  max-width: 100%;
+  gap: calc(18 * var(--rpx));
+  width: min(100%, calc(640 * var(--rpx)));
+  padding: calc(16 * var(--rpx)) calc(20 * var(--rpx));
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: calc(12 * var(--rpx));
+  border: calc(1 * var(--rpx)) solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 calc(4 * var(--rpx)) calc(16 * var(--rpx)) rgba(0, 0, 0, 0.22);
+}
+
+.achievement-toast__icon-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: calc(96 * var(--rpx));
+  height: calc(96 * var(--rpx));
+  display: grid;
+  place-items: center;
+}
+
+.achievement-toast__icon-glow {
+  position: absolute;
+  inset: calc(-6 * var(--rpx));
+  border-radius: calc(16 * var(--rpx));
+  background: radial-gradient(circle, rgba(237, 194, 46, 0.42) 0%, rgba(237, 194, 46, 0) 72%);
+  opacity: 0.85;
+  animation: achievement-toast-icon-pulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.achievement-toast__icon-glow--static {
+  animation: none;
+}
+
+@keyframes achievement-toast-icon-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.04);
+  }
 }
 
 .achievement-toast__icon {
-  width: calc(72 * var(--rpx));
-  height: calc(72 * var(--rpx));
-  flex-shrink: 0;
-  border-radius: calc(10 * var(--rpx));
+  position: relative;
+  z-index: 1;
+  width: calc(88 * var(--rpx));
+  height: calc(88 * var(--rpx));
+  border-radius: calc(12 * var(--rpx));
   object-fit: cover;
-  box-shadow: 0 calc(4 * var(--rpx)) calc(12 * var(--rpx)) rgba(0, 0, 0, 0.28);
+  border: calc(2 * var(--rpx)) solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 calc(4 * var(--rpx)) calc(14 * var(--rpx)) rgba(0, 0, 0, 0.35),
+    inset 0 calc(1 * var(--rpx)) 0 rgba(255, 255, 255, 0.12);
 }
 
 .achievement-toast__text {
   min-width: 0;
-  max-width: calc(520 * var(--rpx));
+  flex: 1 1 auto;
   text-align: left;
 }
 
 .achievement-toast__name {
-  margin: 0 0 calc(4 * var(--rpx));
-  font-size: calc(24 * var(--rpx));
-  font-weight: 700;
-  color: #fff;
+  margin: 0 0 calc(6 * var(--rpx));
+  font-size: calc(32 * var(--rpx));
+  font-weight: 800;
+  line-height: 1.2;
+  color: rgba(252, 248, 242, 0.98);
 }
 
 .achievement-toast__desc {
   margin: 0;
-  font-size: calc(18 * var(--rpx));
-  line-height: 1.35;
-  color: rgba(255, 255, 255, 0.82);
+  font-size: calc(24 * var(--rpx));
+  line-height: 1.45;
+  font-weight: 500;
+  color: rgba(248, 244, 238, 0.86);
 }
 </style>

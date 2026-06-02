@@ -1,5 +1,6 @@
 <template>
   <div
+    ref="layerRef"
     class="info-layer"
     :class="{
       'portal-overlay--shop-upgrade-suppressed': overlaySuppressed,
@@ -341,23 +342,23 @@
         </div>
       </div>
 
-      <button type="button" class="info-back-btn" @click="close">返回</button>
+      <button type="button" class="info-back-btn" :disabled="closing" @click="close">返回</button>
     </div>
+
+    <TreasureDetailLayer
+      v-if="presetVoucherDetail"
+      :treasure="presetVoucherDetail"
+      mode="offer"
+      :wallet-amount="0"
+      @close="presetVoucherDetail = null"
+    />
+
+    <TileDetailLayer
+      v-if="presetWildcardDetailOpen"
+      :payload="presetWildcardDetailPayload"
+      @close="presetWildcardDetailOpen = false"
+    />
   </div>
-
-  <TreasureDetailLayer
-    v-if="presetVoucherDetail"
-    :treasure="presetVoucherDetail"
-    mode="offer"
-    :wallet-amount="0"
-    @close="presetVoucherDetail = null"
-  />
-
-  <TileDetailLayer
-    v-if="presetWildcardDetailOpen"
-    :payload="presetWildcardDetailPayload"
-    @close="presetWildcardDetailOpen = false"
-  />
 </template>
 
 <script setup>
@@ -384,9 +385,13 @@ import {
 } from "../vouchers/voucherOwnedDisplay.js";
 import VoucherStampStack from "./VoucherStampStack.vue";
 import gsap from "gsap";
+import { EASE_TRANSFORM } from "../constants.js";
+import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import {
   playInfoCouponTabEnter,
+  playInfoCouponTabLeave,
   playInfoGridTabEnter,
+  playInfoGridTabLeave,
   prepareInfoCouponTabEnter,
   prepareInfoGridTabEnter,
 } from "../game/infoModalTabEnterAnim.js";
@@ -443,6 +448,8 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "select-owned-voucher"]);
 
 const stackZ = ref(0);
+const layerRef = ref(/** @type {HTMLElement | null} */ (null));
+const closing = ref(false);
 const layerStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
 
 watch(
@@ -708,8 +715,7 @@ watch(
     if (open) {
       applyInfoModalOpenState();
     } else {
-      openingStaggerGuard.value = true;
-      panelMinHeightPx.value = 0;
+      killAllInfoStaggerTweens();
     }
   },
 );
@@ -845,8 +851,84 @@ function onOwnedVoucherClick(group, event) {
 
 const formatMult = formatCompactOneDecimal;
 
-function close() {
+function resolveLayerInnerShiftY() {
+  const rpx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx")) || 1;
+  return 12 * rpx;
+}
+
+function finishInfoModalClose() {
+  panelMinHeightPx.value = 0;
+  closing.value = false;
   emit("update:modelValue", false);
+}
+
+function runCloseAnimation() {
+  if (closing.value || !props.modelValue) return Promise.resolve();
+  closing.value = true;
+  presetVoucherDetail.value = null;
+  presetWildcardDetailOpen.value = false;
+  killAllInfoStaggerTweens();
+
+  if (shouldSkipDecorativeMotion()) {
+    finishInfoModalClose();
+    return Promise.resolve();
+  }
+
+  const tab = activeTab.value;
+  const targets = collectActiveTabStaggerTargets();
+  const staggerPromise =
+    tab === "coupon" ? playInfoCouponTabLeave(targets) : playInfoGridTabLeave(targets);
+  const inner = layerInnerRef.value;
+  const layer = layerRef.value;
+  const shiftY = resolveLayerInnerShiftY();
+
+  return new Promise((resolve) => {
+    const tl = gsap.timeline({
+      onComplete: () => {
+        finishInfoModalClose();
+        resolve(undefined);
+      },
+    });
+
+    void staggerPromise;
+
+    if (inner) {
+      gsap.killTweensOf(inner);
+      tl.to(
+        inner,
+        {
+          opacity: 0,
+          scale: 0.94,
+          y: shiftY,
+          duration: 0.32,
+          ease: EASE_TRANSFORM,
+        },
+        0,
+      );
+    }
+
+    if (layer) {
+      gsap.killTweensOf(layer);
+      tl.to(
+        layer,
+        {
+          opacity: 0,
+          duration: 0.28,
+          ease: EASE_TRANSFORM,
+        },
+        0,
+      );
+    }
+
+    if (!inner && !layer) {
+      finishInfoModalClose();
+      resolve(undefined);
+    }
+  });
+}
+
+function close() {
+  void runCloseAnimation();
 }
 </script>
 
@@ -1677,6 +1759,11 @@ function close() {
   filter: brightness(0.95);
 }
 
+.info-back-btn:disabled {
+  opacity: 0.72;
+  cursor: default;
+}
+
 /* 开闭：与 PauseOptionsLayer 同款蒙层淡入 + 卡片缩放 */
 .info-layer-enter-active,
 .info-layer-leave-active {
@@ -1818,16 +1905,22 @@ function close() {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: calc(10 * var(--rpx));
-  text-align: left;
+  text-align: center;
+}
+
+.info-preset-difficulty-card :deep(.difficulty-pill) {
+  align-self: center;
+  width: auto;
+  max-width: 100%;
 }
 
 .info-preset-difficulty-desc {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   gap: calc(8 * var(--rpx));
   width: 100%;
   min-width: 0;
@@ -1838,7 +1931,9 @@ function close() {
 .info-preset-difficulty-buff-item {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: calc(2 * var(--rpx));
+  width: 100%;
 }
 
 .info-preset-difficulty-buff-label {
@@ -1846,17 +1941,20 @@ function close() {
   font-weight: 800;
   line-height: 1.2;
   color: rgba(60, 58, 50, 0.72);
+  text-align: center;
 }
 
 .info-preset-difficulty-card :deep(.difficulty-desc-text) {
-  align-items: flex-start;
+  align-items: center;
   gap: calc(3 * var(--rpx));
 }
 
 .info-preset-difficulty-card :deep(.difficulty-desc-line) {
   font-size: calc(24 * var(--rpx));
   line-height: 1.4;
-  text-align: left;
+  text-align: center;
+  width: auto;
+  max-width: 100%;
 }
 
 .info-preset-soon-icon {

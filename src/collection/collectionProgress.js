@@ -7,9 +7,9 @@ import { COLLECTION_UPGRADE_TOTAL, COLLECTION_UPGRADE_TREASURE_IDS } from "./col
 import { ACHIEVEMENT_TOTAL } from "../achievements/achievementDefinitions.js";
 import { countUnlockedAchievements } from "../achievements/achievementCareer.js";
 
-/** 收藏全库进度统计用的 tab（不含成就 tab；成就单独展示 n/总数） */
+/** 收藏全库进度统计用的 tab（含成就；用于生涯 profile 收藏解锁进度） */
 const COLLECTION_ITEM_TAB_IDS = Object.freeze(
-  new Set(["treasures", "spells", "upgrades", "vouchers", "materials", "accessories"]),
+  new Set(["treasures", "spells", "upgrades", "vouchers", "materials", "accessories", "achievements"]),
 );
 
 /** 收藏页需在标题后展示（n/x）解锁进度的 tab */
@@ -116,7 +116,7 @@ export function formatCollectionTabTitle(baseLabel, tabId, career) {
 }
 
 /**
- * 收藏全库解锁进度（宝藏/法术/升级/优惠券/材质/配饰合计；不含成就 tab）。
+ * 收藏全库解锁进度（宝藏/法术/升级/优惠券/材质/配饰/成就合计）。
  * @param {import('../save/runSaveSchema.js').SlotCareerStats | Record<string, unknown>} career
  * @returns {{ unlocked: number, total: number, percent: number }}
  */

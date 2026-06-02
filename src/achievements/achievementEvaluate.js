@@ -10,7 +10,6 @@ import { checkOneWordPerLevelWin } from "./achievementRunState.js";
  * @property {boolean} [allWildcard]
  * @property {number} [iceShatterCount]
  * @property {number} [maxLetterScoreTriggers]
- * @property {number} [deckSize]
  */
 
 /**
@@ -22,7 +21,7 @@ import { checkOneWordPerLevelWin } from "./achievementRunState.js";
  * @property {number} [ownedVoucherCount]
  * @property {number} [maxLengthLevel]
  * @property {number} [maxRarityLevel]
- * @property {number} [deckSize]
+ * @property {number} [deckSize] 完整牌库 multiset 张数；仅在永久增删牌张后传入
  * @property {import('../game/runMatchStats.js').RunMatchStats} [runMatchStats]
  * @property {import('./achievementRunState.js').AchievementRunState} [achievementRun]
  * @property {readonly string[]} [completedLevelIds]
@@ -93,8 +92,9 @@ function isConditionMet(career, def, ctx) {
       return len >= (c.threshold ?? 0);
     }
     case "deck_size": {
-      const size = ctx.submit?.deckSize ?? ctx.deckSize ?? 0;
-      if (c.threshold === 40 && c.exactLength === false) return size > 0 && size <= 40;
+      const size = ctx.deckSize ?? 0;
+      if (size <= 0) return false;
+      if (c.exactLength === false) return size <= (c.threshold ?? 0);
       return size >= (c.threshold ?? 0);
     }
     case "discover_all_treasures": {

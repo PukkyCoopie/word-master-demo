@@ -7,8 +7,9 @@
       role="dialog"
       aria-modal="true"
       :aria-labelledby="titleId"
+      @click.self="onBackdropSelfClick"
     >
-      <div class="pause-options-card">
+      <div class="pause-options-card" @click.stop>
         <h2 :id="titleId" class="pause-options-title">选项</h2>
 
         <div class="pause-options-actions">
@@ -31,14 +32,29 @@
 </template>
 
 <script setup>
-defineProps({
+import { watch } from "vue";
+import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
+
+const props = defineProps({
   open: { type: Boolean, default: false },
   portalStackStyle: { type: Object, default: () => ({}) },
 });
 
-defineEmits(["continue", "new-run", "settings", "main-menu"]);
+const emit = defineEmits(["continue", "new-run", "settings", "main-menu"]);
 
 const titleId = "pause-options-title";
+const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
+
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) backdropSelfCloseGuard.arm();
+  },
+);
+
+function onBackdropSelfClick() {
+  backdropSelfCloseGuard.onBackdropSelfClick(() => emit("continue"));
+}
 </script>
 
 <style scoped>

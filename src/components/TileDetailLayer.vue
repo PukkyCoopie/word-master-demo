@@ -158,7 +158,7 @@
             <div class="tile-detail-fly-clone-inner">
               <LetterTile
                 variant="grid"
-                class="tile-detail-preview-tile"
+                class="tile-detail-preview-tile shop-shelf-letter-tile"
                 :letter="payload.letter"
                 :rarity="payload.rarity"
                 :material-id="payload.materialId"
@@ -845,6 +845,15 @@ const showTreasureAccessoryRegion = computed(
   display: flex;
   align-items: stretch;
   justify-content: stretch;
+}
+
+/* 飞行克隆：铺满逻辑盒并用 @container 缩放字/宝石（与收藏单词榜等小尺寸源一致） */
+.tile-detail-fly-clone-inner :deep(.shop-shelf-letter-tile.grid-tile) {
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  max-width: none;
+  box-sizing: border-box;
 }
 
 .tile-detail-regions {

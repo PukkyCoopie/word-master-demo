@@ -27,6 +27,7 @@ import {
   createAchievementRunState,
 } from "../achievements/achievementRunState.js";
 import { unlockAchievementId } from "../achievements/achievementUnlock.js";
+import { evaluateAndUnlockAchievements } from "../achievements/achievementEvaluate.js";
 import { getCollectionUnlockProgress } from "../collection/collectionProgress.js";
 
 test("mulberry32 state roundtrip", () => {
@@ -191,10 +192,37 @@ test("achievement run state codec roundtrip", () => {
   assert.equal(back.discardUsesCount, 3);
 });
 
-test("collection unlock progress excludes achievements tab", () => {
+test("deck size achievements use full multiset only when deckSize is provided", () => {
   const career = normalizeSlotCareerStats({});
+
+  assert.deepEqual(evaluateAndUnlockAchievements(career, {}), []);
+  assert.deepEqual(evaluateAndUnlockAchievements(career, { submit: {} }), []);
+  assert.ok(!career.unlockedAchievementIds.includes("deck_40"));
+  assert.ok(!career.unlockedAchievementIds.includes("deck_100"));
+
+  const deck40 = evaluateAndUnlockAchievements(career, { deckSize: 40 });
+  assert.deepEqual(
+    deck40.map((d) => d.id),
+    ["deck_40"],
+  );
+
+  const career2 = normalizeSlotCareerStats({});
+  const deck100 = evaluateAndUnlockAchievements(career2, { deckSize: 100 });
+  assert.deepEqual(
+    deck100.map((d) => d.id),
+    ["deck_100"],
+  );
+
+  const career3 = normalizeSlotCareerStats({});
+  assert.deepEqual(evaluateAndUnlockAchievements(career3, { deckSize: 52 }), []);
+});
+
+test("collection unlock progress includes achievements tab", () => {
+  const career = normalizeSlotCareerStats({});
+  const before = getCollectionUnlockProgress(career);
   unlockAchievementId(career, "win_run");
-  const p = getCollectionUnlockProgress(career);
-  assert.equal(p.unlocked, 0);
-  assert.ok(p.total > 0);
+  const after = getCollectionUnlockProgress(career);
+  assert.equal(after.unlocked, before.unlocked + 1);
+  assert.equal(after.total, before.total);
+  assert.ok(after.total > before.unlocked);
 });

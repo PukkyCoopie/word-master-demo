@@ -50,7 +50,9 @@
           class="deck-layer-inner"
           :class="{ 'deck-layer-inner--enter-boot': deckLayerEnterBoot }"
         >
-          <div class="deck-layer-title deck-layer-enter-stagger">牌库</div>
+          <div class="deck-layer-title deck-layer-enter-stagger">
+            <span class="deck-layer-title-main">牌库</span><span class="deck-layer-title-count"> ({{ deckLayerRemainingCount }}/{{ deckLayerTotalCount }})</span>
+          </div>
           <div class="deck-layer-grid-slot">
             <div class="deck-layer-stacks">
               <button
@@ -811,6 +813,7 @@ import RunEndLayer from "./RunEndLayer.vue";
 import PauseOptionsLayer from "./PauseOptionsLayer.vue";
 import AchievementToastLayer from "./AchievementToastLayer.vue";
 import { createAchievementToastQueue } from "../achievements/achievementToastQueue.js";
+import { ACHIEVEMENT_DEFINITIONS } from "../achievements/achievementDefinitions.js";
 import {
   createAchievementRunState,
   recordAchievementRunDiscardUse,
@@ -1643,6 +1646,13 @@ const walletHeaderShown = computed(() => {
 let walletGainTl = null;
 
 const showDeckLayer = ref(false);
+const deckLayerRemainingCount = computed(() =>
+  Math.max(0, Math.floor(Number(deckCount.value) || 0)),
+);
+const deckLayerTotalCount = computed(() => {
+  const snap = initialDeckSnapshot.value;
+  return Array.isArray(snap) ? snap.filter((c) => c && typeof c === "object").length : 0;
+});
 const deckLayerInnerRef = ref(/** @type {HTMLElement | null} */ (null));
 const deckLayerEnterBoot = ref(false);
 /** 牌库内展开的字母 raw（与 `deckStacksView[].raw` 一致，含 `?` 通配符） */
@@ -2985,6 +2995,10 @@ const recordCollectionDiscovery = inject("recordCollectionDiscovery", null);
 const recordCollectionWordSubmit = inject("recordCollectionWordSubmit", null);
 
 const achievementToastQueue = createAchievementToastQueue();
+
+/** 控制台预览成就 Toast（不写入解锁进度）：`__WM_previewAchievementToast()` */
+globalThis.__WM_previewAchievementToast = () =>
+  achievementToastQueue.previewRandom(ACHIEVEMENT_DEFINITIONS, runRandom);
 const achievementRunState = ref(createAchievementRunState());
 
 function getCompletedLevelIdsForWin() {
@@ -3009,7 +3023,6 @@ function buildAchievementEvalContext(overrides = {}) {
     ownedVoucherCount: (ownedVoucherIds.value ?? []).length,
     maxLengthLevel,
     maxRarityLevel,
-    deckSize: Array.isArray(deck.value) ? deck.value.length : 0,
     runMatchStats: runMatchStats.value,
     achievementRun: achievementRunState.value,
     runDifficultyIndex: runDifficultyIndex.value,
@@ -3049,8 +3062,17 @@ function buildSubmitAchievementSnapshot(tiles, detailed, iceShatterCount) {
     allWildcard: list.length > 0 && list.every((t) => isWildcardMaterialTile(t)),
     iceShatterCount: Math.max(0, Math.floor(Number(iceShatterCount) || 0)),
     maxLetterScoreTriggers: computeMaxLetterScoreTriggers(detailed),
-    deckSize: Array.isArray(deck.value) ? deck.value.length : 0,
   };
+}
+
+function getFullDeckMultisetSize() {
+  const snap = initialDeckSnapshot.value;
+  return Array.isArray(snap) ? snap.filter((c) => c && typeof c === "object").length : 0;
+}
+
+/** 牌库 multiset 永久增删后检查「大道至简 / 包罗万象」等成就 */
+function flushDeckMultisetAchievements() {
+  flushAchievementUnlocks({ deckSize: getFullDeckMultisetSize() });
 }
 
 /** @param {unknown[]} tiles @param {Record<string, unknown>} detailed @param {number} iceShatterCount */
@@ -3279,6 +3301,7 @@ async function notifyTreasureDeckCardsRemovedByRaws(raws) {
 function removeDeckLettersByRawsWithTreasureNotify(raws) {
   removeDeckLetterInstancesByRaws(raws);
   notifyTreasureDeckCardsRemovedByRaws(raws);
+  flushDeckMultisetAchievements();
 }
 
 /**
@@ -3296,6 +3319,7 @@ function appendShopDeckEntriesAndNotify(entries) {
     wobbleOwnedTreasureById,
     playOwnedTreasureBubbleFx,
   });
+  flushDeckMultisetAchievements();
   return created;
 }
 
@@ -3311,7 +3335,21 @@ function appendDeckCardSpecToInitialSnapshotAndNotify(spec) {
     wobbleOwnedTreasureById,
     playOwnedTreasureBubbleFx,
   });
+  flushDeckMultisetAchievements();
   return card;
+}
+
+/** @param {number} uid @param {{ clearGrid?: boolean }} [options] */
+function removeDeckCardByUidAndNotify(uid, options = {}) {
+  const removed = removeDeckCardByUid(uid, options);
+  if (removed) flushDeckMultisetAchievements();
+  return removed;
+}
+
+/** @param {unknown[]} tiles @param {string | null | undefined} resolvedWord */
+function removeDeckCardsForSubmittedWordAndNotify(tiles, resolvedWord) {
+  removeDeckCardsForSubmittedWord(tiles, resolvedWord);
+  flushDeckMultisetAchievements();
 }
 
 /** @param {number} [maxCount] */
@@ -3723,7 +3761,7 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
     destroyTreasureSlotById: destroyOwnedTreasureWithFx,
     playSubmitWordLetterRemoveAndRewardLeave,
     removeDeckLettersByRaws: (raws) => removeDeckLettersByRawsWithTreasureNotify(raws),
-    removeDeckCardsForSubmittedWord: (word) => removeDeckCardsForSubmittedWord(tiles, word),
+    removeDeckCardsForSubmittedWord: (word) => removeDeckCardsForSubmittedWordAndNotify(tiles, word),
     ownedTreasureInstances: owned,
     rng: runRandom,
     moneyAfterSubmit: money.value,
@@ -7594,8 +7632,8 @@ function buildSpellRuntimeContext() {
     },
     touchGrid,
     removeDeckLetterInstancesByRaws: removeDeckLettersByRawsWithTreasureNotify,
-    removeDeckCardsForSubmittedWord,
-    removeDeckCardByUid,
+    removeDeckCardsForSubmittedWord: removeDeckCardsForSubmittedWordAndNotify,
+    removeDeckCardByUid: removeDeckCardByUidAndNotify,
     appendShopDeckEntries: appendShopDeckEntriesAndNotify,
     remapTileFromRawLetter,
     money,
@@ -11688,6 +11726,7 @@ onMounted(async () => {
 onUnmounted(() => {
   runAutoSave.cancelPending();
   runEndConfettiController.dispose();
+  delete globalThis.__WM_previewAchievementToast;
   disposeE2eHarness?.();
   disposeE2eHarness = null;
   gamePanelAlive = false;
@@ -11896,7 +11935,7 @@ onUnmounted(() => {
   background: #7a6f65;
   border-radius: calc(14 * var(--rpx));
   box-shadow: 0 calc(12 * var(--rpx)) calc(40 * var(--rpx)) rgba(0, 0, 0, 0.35);
-  padding: calc(18 * var(--rpx)) calc(20 * var(--rpx)) calc(16 * var(--rpx));
+  padding: calc(30 * var(--rpx)) calc(20 * var(--rpx)) calc(36 * var(--rpx));
   box-sizing: border-box;
   width: min(calc(100% - 32 * var(--rpx)), min(96vw, calc(920 * var(--rpx))));
   max-width: min(96vw, calc(920 * var(--rpx)));
@@ -11906,17 +11945,25 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: calc(14 * var(--rpx));
+  gap: calc(30 * var(--rpx));
   border: calc(2 * var(--rpx)) solid rgba(255, 255, 255, 0.12);
 }
 .deck-layer-title {
   position: relative;
   z-index: 3;
-  font-size: calc(30 * var(--rpx));
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.95);
   letter-spacing: 0.04em;
   text-shadow: 0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.2);
+}
+.deck-layer-title-main {
+  font-size: calc(33 * var(--rpx));
+  color: rgba(255, 255, 255, 0.95);
+}
+.deck-layer-title-count {
+  font-size: calc(26 * var(--rpx));
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.68);
+  letter-spacing: 0.02em;
 }
 .dict-fatal-layer {
   position: absolute;
@@ -12356,9 +12403,9 @@ onUnmounted(() => {
   width: 100%;
   border: none;
   border-radius: var(--radius);
-  padding: calc(19 * var(--rpx)) calc(28 * var(--rpx));
+  padding: calc(16 * var(--rpx)) calc(20 * var(--rpx));
   font-family: inherit;
-  font-size: calc(33 * var(--rpx));
+  font-size: calc(28 * var(--rpx));
   font-weight: 700;
   color: #f9f6f2;
   background: #5a8fb8;

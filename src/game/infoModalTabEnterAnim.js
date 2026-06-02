@@ -85,3 +85,55 @@ export function playInfoCouponTabEnter(targets) {
     stagger: evenStagger(targets.length, COUPON_STAGGER_SPREAD),
   });
 }
+
+const GRID_LEAVE_DURATION = 0.11;
+const GRID_LEAVE_STAGGER = 0.028;
+const GRID_LEAVE_Y = 5;
+
+/**
+ * @param {HTMLElement[]} targets
+ * @returns {Promise<void>}
+ */
+export function playInfoGridTabLeave(targets) {
+  if (!targets.length) return Promise.resolve();
+  if (shouldSkipDecorativeMotion()) {
+    gsap.killTweensOf(targets);
+    return Promise.resolve();
+  }
+  gsap.killTweensOf(targets);
+  const rev = [...targets].reverse();
+  return new Promise((resolve) => {
+    gsap.to(rev, {
+      opacity: 0,
+      y: GRID_LEAVE_Y,
+      duration: GRID_LEAVE_DURATION,
+      stagger: GRID_LEAVE_STAGGER,
+      ease: EASE_TRANSFORM,
+      onComplete: resolve,
+    });
+  });
+}
+
+/**
+ * @param {HTMLElement[]} targets
+ * @returns {Promise<void>}
+ */
+export function playInfoCouponTabLeave(targets) {
+  if (!targets.length) return Promise.resolve();
+  if (shouldSkipDecorativeMotion()) {
+    gsap.killTweensOf(targets);
+    return Promise.resolve();
+  }
+  gsap.killTweensOf(targets);
+  const rev = [...targets].reverse();
+  return new Promise((resolve) => {
+    gsap.to(rev, {
+      opacity: 0,
+      scale: 0.92,
+      duration: 0.15,
+      stagger: 0.03,
+      ease: EASE_TRANSFORM,
+      onComplete: resolve,
+    });
+  });
+}

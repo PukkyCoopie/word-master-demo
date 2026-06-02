@@ -7,6 +7,7 @@ import { ref, shallowRef } from "vue";
  *   active: import('vue').ShallowRef<AchievementDefinition | null>,
  *   playing: import('vue').Ref<boolean>,
  *   enqueue: (defs: AchievementDefinition[]) => void,
+ *   previewRandom: (defs: readonly AchievementDefinition[], rng?: () => number) => AchievementDefinition | null,
  *   notifyItemDone: () => void,
  * }}
  */
@@ -49,5 +50,17 @@ export function createAchievementToastQueue() {
     resolveItem = null;
   }
 
-  return { active, playing, enqueue, notifyItemDone };
+  /**
+   * 仅预览 Toast，不写入成就解锁进度。
+   * @param {readonly AchievementDefinition[]} defs
+   * @param {() => number} [rng]
+   */
+  function previewRandom(defs, rng = Math.random) {
+    if (!defs?.length) return null;
+    const def = defs[Math.floor(rng() * defs.length)];
+    enqueue([def]);
+    return def;
+  }
+
+  return { active, playing, enqueue, previewRandom, notifyItemDone };
 }
