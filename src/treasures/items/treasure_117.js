@@ -4,7 +4,7 @@ const ID = "117";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 0,
+  price: 10,
   rarity: "legendary",
   shopEligible: false,
   description: describe("在离开商店时，重复你释放的上一个法术卡"),

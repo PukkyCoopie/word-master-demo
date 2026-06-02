@@ -2,7 +2,7 @@ import { describe } from "../treasureDescription.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 0,
+  price: 10,
   rarity: "legendary",
   shopEligible: false,
   description: describe("所有Boss限制与能力失效"),

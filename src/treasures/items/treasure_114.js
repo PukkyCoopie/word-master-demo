@@ -12,7 +12,7 @@ function isJkqLetterPart(part) {
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 0,
+  price: 10,
   rarity: "legendary",
   shopEligible: false,
   description: describe("每个 J、Qu、K 在计分时提供", mult("x2"), "倍率"),

@@ -7,7 +7,7 @@ const ID = "113";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 0,
+  price: 10,
   rarity: "legendary",
   shopEligible: false,
   description: describe("每当你从牌库中移除1张元音字母，获得", mult("x0.5"), "倍率"),

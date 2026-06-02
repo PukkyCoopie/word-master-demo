@@ -8,7 +8,7 @@ const LETTERS_PER_STEP = 26;
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 0,
+  price: 10,
   rarity: "legendary",
   shopEligible: false,
   description: describe("你每弃掉26个字母块，便获得", mult("x1"), "倍率"),
