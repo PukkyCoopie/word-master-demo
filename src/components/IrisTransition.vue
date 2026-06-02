@@ -11,6 +11,10 @@
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from "vue";
 import { attachLastPointerClientTracking, getLastPointerClientPoint } from "../game/lastPointerClient.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import {
+  getAnimationSpeedScale,
+  shouldSkipDecorativeMotion,
+} from "../settings/animationSpeed.js";
 
 const props = defineProps({
   color: { type: String, default: "#5a8fb8" },
@@ -107,7 +111,17 @@ function waitRaf(n = 2) {
   });
 }
 
+/** @param {number} baseMs */
+function effectiveIrisDurationMs(baseMs) {
+  const scale = getAnimationSpeedScale();
+  return Math.max(1, Math.round(baseMs / scale));
+}
+
 function animateIrisR(from, to, durationMs) {
+  if (durationMs <= 0) {
+    iris.r = to;
+    return Promise.resolve();
+  }
   return new Promise((resolve) => {
     const t0 = performance.now();
     function tick(now) {
@@ -160,13 +174,17 @@ async function play(_ignored, opts) {
 
   overlayEl.style.zIndex = String(bumpOverlayZ());
 
+  const skipMotion = shouldSkipDecorativeMotion();
+  const coverDur = skipMotion ? 0 : effectiveIrisDurationMs(props.coverMs);
+  const revealDur = skipMotion ? 0 : effectiveIrisDurationMs(props.revealMs);
+
   await nextTick();
-  await animateIrisR(0, iris.maxR, props.coverMs);
+  await animateIrisR(0, iris.maxR, coverDur);
 
   await resolvedOpts?.onCovered?.();
 
   await nextTick();
-  await waitRaf(2);
+  if (!skipMotion) await waitRaf(2);
 
   // 第二阶段：镂空圆从同一圆心扩大（onCovered 后布局可能变化，用百分比还原圆心）
   const rect2 = overlayEl.getBoundingClientRect();
@@ -178,7 +196,7 @@ async function play(_ignored, opts) {
   iris.maxR = maxCoverRadiusPx(origin.x, origin.y, w2, h2);
   iris.phase = "reveal";
   iris.r = 0;
-  await animateIrisR(0, iris.maxR, props.revealMs);
+  await animateIrisR(0, iris.maxR, revealDur);
 
   iris.active = false;
   overlayEl.style.zIndex = "";

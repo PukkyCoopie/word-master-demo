@@ -1255,10 +1255,7 @@ textarea::-moz-placeholder {
 	z-index: 1;
 }
 
-.grid-tile .vowel-ghost,
-.word-slots .word-slot-content .vowel-ghost,
-.fly-letter .vowel-ghost,
-.fly-letter-back .vowel-ghost {
+.grid-tile .vowel-ghost {
 	position: absolute;
 	width: 0.75em;
 	font-size: calc(24 * var(--rpx));
@@ -1272,20 +1269,45 @@ textarea::-moz-placeholder {
 	user-select: none;
 }
 
-.grid-tile .vowel-ghost--prev,
-.word-slots .word-slot-content .vowel-ghost--prev,
-.fly-letter .vowel-ghost--prev,
-.fly-letter-back .vowel-ghost--prev {
+/* 词槽缩小时与主字母同比例（--slot-scale 由 GamePanel RAF / 飞字 GSAP 写入） */
+.word-slots .word-slot-content .vowel-ghost,
+.fly-letter .vowel-ghost,
+.fly-letter-back .vowel-ghost {
+	position: absolute;
+	width: 0.75em;
+	font-size: calc(24 * var(--rpx) * var(--slot-scale, 1));
+	font-weight: 700;
+	line-height: 1;
+	text-align: center;
+	color: #2a2a2a;
+	opacity: 0.25;
+	pointer-events: none;
+	z-index: 0;
+	user-select: none;
+}
+
+.grid-tile .vowel-ghost--prev {
 	top: calc(20 * var(--rpx));
 	left: calc(24 * var(--rpx));
 }
 
-.grid-tile .vowel-ghost--next,
+.word-slots .word-slot-content .vowel-ghost--prev,
+.fly-letter .vowel-ghost--prev,
+.fly-letter-back .vowel-ghost--prev {
+	top: calc(20 * var(--rpx) * var(--slot-scale, 1));
+	left: calc(24 * var(--rpx) * var(--slot-scale, 1));
+}
+
+.grid-tile .vowel-ghost--next {
+	right: calc(24 * var(--rpx));
+	bottom: calc(20 * var(--rpx));
+}
+
 .word-slots .word-slot-content .vowel-ghost--next,
 .fly-letter .vowel-ghost--next,
 .fly-letter-back .vowel-ghost--next {
-	right: calc(24 * var(--rpx));
-	bottom: calc(20 * var(--rpx));
+	right: calc(24 * var(--rpx) * var(--slot-scale, 1));
+	bottom: calc(20 * var(--rpx) * var(--slot-scale, 1));
 }
 
 .grid-tile .letter-tile-cerulean-lock-icon,

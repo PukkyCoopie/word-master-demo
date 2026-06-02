@@ -100,7 +100,7 @@ defineEmits(["open-poster"]);
 .taptap-promo-icon-wrap--viewport-fixed .taptap-promo-icon-btn {
   position: relative;
   z-index: 1;
-  border-radius: 10px;
+  border-radius: calc(18 * var(--rpx));
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
 }
 
@@ -158,7 +158,7 @@ defineEmits(["open-poster"]);
   border: none;
   background: transparent;
   cursor: pointer;
-  border-radius: calc(8 * var(--rpx));
+  border-radius: calc(18 * var(--rpx));
   line-height: 0;
   box-shadow: 0 calc(2 * var(--rpx)) calc(8 * var(--rpx)) rgba(0, 0, 0, 0.12);
   transition: filter 0.12s ease, transform 0.12s ease;

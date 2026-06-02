@@ -47,7 +47,7 @@ export function vowelNeighborLetters(ch) {
 }
 
 /**
- * 嘴（±试管）下该自然字母的三邻位：aeiou 走元音链；试管+嘴时对其它 a–z 走字母表前后位。
+ * 嘴（±试管）下该自然字母的三邻位：仅嘴时 aeiou 走元音链；试管+嘴时所有 a–z 走字母表前后位。
  * @param {string} ch
  * @param {(string | null | undefined)[]} [ownedSlotTreasureIds]
  * @returns {{ prev: string | null, self: string, next: string | null } | null}
@@ -55,10 +55,10 @@ export function vowelNeighborLetters(ch) {
 export function letterSubstituteNeighborTrio(ch, ownedSlotTreasureIds = []) {
   const c = normalizeSubstLetter(ch);
   if (!c) return null;
-  const vowelTrio = vowelNeighborLetters(c);
-  if (vowelTrio) return vowelTrio;
-  if (!hasTestTubeAllVowelsForMouth(ownedSlotTreasureIds)) return null;
-  return alphabetNeighborTrio(c);
+  if (hasTestTubeAllVowelsForMouth(ownedSlotTreasureIds)) {
+    return alphabetNeighborTrio(c);
+  }
+  return vowelNeighborLetters(c);
 }
 
 /** @param {string} ch */
