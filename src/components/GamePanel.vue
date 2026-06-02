@@ -9144,10 +9144,15 @@ async function runLetterScoringSkipStep(slotEl, speed = 1, slotIndex = -1) {
  * 按字母稀有度的宝藏倍率（铅笔/钢笔 +n；棱光等 ×n）：宝藏槽与词槽同时 wobble，字母上出倍率气泡。
  * @param {object} part letterParts[i]
  * @param {HTMLElement | null | undefined} slotEl
- * @param {{ treasureId: string, multDelta?: number, multMul?: number, bubbleLabel: string, rarity: string, active: boolean, slotIndex?: number }} cfg
+ * @param {{ treasureId: string, multDelta?: number, multMul?: number, bubbleLabel: string, rarity?: string, active: boolean, slotIndex?: number, matchesPart?: (part: object) => boolean }} cfg
  */
 async function runLetterRarityTreasureMultStep(part, slotEl, cfg, speed = 1) {
-  if (!cfg.active || part.rarity !== cfg.rarity || !slotEl) return false;
+  if (!cfg.active || !slotEl) return false;
+  if (typeof cfg.matchesPart === "function") {
+    if (!cfg.matchesPart(part)) return false;
+  } else if (cfg.rarity != null && part.rarity !== cfg.rarity) {
+    return false;
+  }
   const multMul = Number(cfg.multMul) || 0;
   const multDelta = Number(cfg.multDelta) || 0;
   if (multMul <= 1 && multDelta <= 0) return false;
@@ -9655,6 +9660,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
       multMul: animCfg.multMul,
       bubbleLabel: animCfg.bubbleLabel,
       rarity: animCfg.targetRarity,
+      matchesPart: animCfg.matchesPart,
       active: true,
     }, sp);
     if (didRarity) wordSlotIntrinsicWobblePlayed = true;

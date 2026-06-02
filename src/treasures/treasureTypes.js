@@ -162,7 +162,7 @@
  * @property {(ctx: TreasureLogicContext) => number} [getLetterRarityMultAdd]
  * @property {(part: { letter?: string, rarity?: string }) => number} [getLetterRarityMultDeltaForLetterPart] replay 时该字母上本宝藏贡献的倍率加量（与 `getLetterRarityMultAdd` 规则一致）
  * @property {(part: { letter?: string, rarity?: string }, ctx: TreasureLogicContext) => number} [getLetterRarityMultMulForLetterPart] 该字母计分（含 replay 轮）时乘上的倍率因子（>1 才生效；与 `getLetterRarityMultAnimConfig` 的 `multMul` 对齐）
- * @property {(ctx?: import('./treasureTypes.js').TreasureLogicContext) => { targetRarity: string, multDelta?: number, multMul?: number, bubbleLabel: string }} [getLetterRarityMultAnimConfig] 记分动画：与 `runLetterRarityTreasureMultStep` 对齐；`multMul` 为逐字乘法，`multDelta` 为加法
+ * @property {(ctx?: import('./treasureTypes.js').TreasureLogicContext) => { targetRarity?: string, multDelta?: number, multMul?: number, bubbleLabel: string, matchesPart?: (part: { letter?: string, rarity?: string }) => boolean }} [getLetterRarityMultAnimConfig] 记分动画：与 `runLetterRarityTreasureMultStep` 对齐；`multMul` 为逐字乘法，`multDelta` 为加法；`matchesPart` 优先于 `targetRarity`（如棋子按 J/Qu/K 判定）
  * @property {(ctx: TreasureLogicContext) => number} [getExtraLetterScoringPasses] - 整词额外几轮逐字母 replay（每轮每字母 +1，与动画轮数一致）
  * @property {(ctx: TreasureLogicContext, part: { letter?: string, rarity?: string }, letterIndex: number) => number} [getLetterReplayCountForLetter]
  * @property {(ctx: TreasureLogicContext) => TreasurePostStep | null | undefined} [buildPostLetterReplayStep]

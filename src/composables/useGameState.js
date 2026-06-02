@@ -1439,6 +1439,8 @@ export function useGameState(gameOpts = {}) {
   function removeDeckLetterInstancesByRaws(raws) {
     const snap = [...initialDeckSnapshot.value];
     const d = [...deck.value];
+    /** @type {Set<string>} */
+    const touchedRaws = new Set();
     for (const raw0 of raws) {
       let raw = String(raw0 ?? "").toLowerCase();
       if (raw === "qu") raw = "q";
@@ -1449,10 +1451,13 @@ export function useGameState(gameOpts = {}) {
       snap.splice(si, 1);
       const di = d.indexOf(removed);
       if (di >= 0) d.splice(di, 1);
-      noteDeckStackDepletedIfEmpty(raw);
+      touchedRaws.add(raw);
     }
     deck.value = d;
     initialDeckSnapshot.value = snap;
+    for (const raw of touchedRaws) {
+      noteDeckStackDepletedIfEmpty(raw);
+    }
   }
 
   /**
@@ -1502,7 +1507,7 @@ export function useGameState(gameOpts = {}) {
     const d = [...deck.value];
     const di = d.indexOf(removed);
     if (di >= 0) d.splice(di, 1);
-    noteDeckStackDepletedIfEmpty(deckCardRaw(removed));
+    const depletedRaw = deckCardRaw(removed);
     if (clearGrid) {
       const g = grid.value;
       for (let r = 0; r < ROWS; r++) {
@@ -1517,6 +1522,7 @@ export function useGameState(gameOpts = {}) {
     }
     deck.value = d;
     initialDeckSnapshot.value = snap;
+    noteDeckStackDepletedIfEmpty(depletedRaw);
     return true;
   }
 
