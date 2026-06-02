@@ -190,6 +190,23 @@
                     <VoucherStamp empty reserve-price-slot />
                   </div>
                 </div>
+                <div
+                  v-if="voucherBonusSlot?.kind === 'offer'"
+                  :key="'vb-' + voucherBonusSlot.offerInstanceId"
+                  ref="voucherBonusProductRef"
+                  class="shop-treasure-product shop-treasure-product--voucher-bonus"
+                >
+                  <div
+                    class="shop-treasure-visual"
+                    @click.stop="!interactionsDisabled && onSelectVoucher(voucherBonusSlot, $event)"
+                  >
+                    <VoucherStamp
+                      :emoji="voucherBonusSlot.emoji"
+                      :display-name="voucherBonusSlot.name"
+                      :price="shopMarkPrice(voucherBonusSlot.price, voucherBonusSlot)"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -351,6 +368,8 @@ import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAcces
 import { applyPresetAndShopDiscountPrice } from "../game/runPresetRuntime.js";
 import { isSingleDigitLabel } from "./detailLayerFormatters.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
+import { runVoucherShelfEnterPopAnim } from "../game/voucherShelfEnterAnim.js";
+import { resolveOfferFlyOriginEl } from "../game/offerFlyOrigin.js";
 
 const props = defineProps({
   walletAmount: { type: Number, default: 0 },
@@ -360,6 +379,11 @@ const props = defineProps({
   voucherSlot: {
     type: Object,
     default: () => ({ kind: "empty", emptySlotId: 0 }),
+  },
+  /** 法术「派券」追加的额外优惠券（至多 1 张） */
+  voucherBonusSlot: {
+    type: Object,
+    default: null,
   },
   ownedVoucherIds: { type: Array, default: () => [] },
   /** 动态长度（默认 5；装备裁剪配饰时可扩栏）：(Treasure | null)[] */
@@ -862,13 +886,7 @@ function gemClassForTreasureRarity(rarity) {
 
 /** 飞入详情：起点用 icon 框，不用含价签的整列 shop-treasure-visual */
 function shopOfferFlyOriginEl(root) {
-  if (!root) return root;
-  return (
-    root.querySelector(".shop-shelf-letter-tile") ??
-    root.querySelector(".shop-treasure-frame") ??
-    root.querySelector(".voucher-stamp__frame") ??
-    root
-  );
+  return resolveOfferFlyOriginEl(root) ?? root;
 }
 
 function onSelectOffer(slot, e) {
@@ -1024,12 +1042,26 @@ async function playGlyphRoundInfoFx(text, speed = 1) {
   await runPanelWobbleAndBubble(roundInfoBtnRef.value, text, "info", speed);
 }
 
+const voucherBonusProductRef = ref(null);
+
+/** 法术派券：额外优惠券格 scale 0 → 过冲 → 回落 */
+async function playVoucherBonusEnterAnim() {
+  await nextTick();
+  const root = voucherBonusProductRef.value;
+  const visual =
+    root instanceof HTMLElement
+      ? root.querySelector(".shop-treasure-visual") ?? root
+      : null;
+  await runVoucherShelfEnterPopAnim(visual);
+}
+
 defineExpose({
   getWalletEl: () => shopWalletBoxRef.value,
   getOwnedSlotEl: (i) => ownedCellEls[i] ?? null,
   getDeckViewBtnEl: () => deckViewBtnRef.value ?? null,
   playGlyphRoundInfoFx,
   playUpgradeResult,
+  playVoucherBonusEnterAnim,
 });
 </script>
 

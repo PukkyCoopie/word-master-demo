@@ -91,9 +91,9 @@ defineEmits(["open-poster"]);
 
 .taptap-promo-icon-wrap--viewport-fixed {
   position: fixed;
-  right: max(24px, env(safe-area-inset-right, 0px));
-  bottom: max(24px, env(safe-area-inset-bottom, 0px));
-  gap: 12px;
+  right: max(calc(24 * var(--rpx)), env(safe-area-inset-right, 0px));
+  bottom: max(calc(24 * var(--rpx)), env(safe-area-inset-bottom, 0px));
+  gap: calc(12 * var(--rpx));
   isolation: isolate;
 }
 
@@ -101,21 +101,21 @@ defineEmits(["open-poster"]);
   position: relative;
   z-index: 1;
   border-radius: calc(18 * var(--rpx));
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
+  box-shadow: 0 calc(2 * var(--rpx)) calc(12 * var(--rpx)) rgba(0, 0, 0, 0.14);
 }
 
 .taptap-promo-icon-wrap--viewport-fixed .taptap-promo-icon-img {
-  width: 64px;
-  height: 64px;
+  width: calc(64 * var(--rpx));
+  height: calc(64 * var(--rpx));
 }
 
 .taptap-promo-icon-wrap--viewport-fixed .taptap-promo-icon-label {
   z-index: 1;
-  right: 76px;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-size: 15px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  right: calc(76 * var(--rpx));
+  padding: calc(10 * var(--rpx)) calc(16 * var(--rpx));
+  border-radius: calc(8 * var(--rpx));
+  font-size: calc(15 * var(--rpx));
+  box-shadow: 0 calc(2 * var(--rpx)) calc(12 * var(--rpx)) rgba(0, 0, 0, 0.12);
 }
 
 .taptap-promo-icon-wrap--in-about {

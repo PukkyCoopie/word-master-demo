@@ -36,6 +36,10 @@
  * @property {string[]} [discoveredAccessoryIds]
  * @property {import('../collection/collectionTypes.js').CollectionWordRecord[]} [scoreLeaderboard]
  * @property {import('../collection/collectionTypes.js').CollectionWordRecord[]} [lengthLeaderboard]
+ * @property {string[]} [unlockedAchievementIds]
+ * @property {number} [totalWordsSubmitted]
+ * @property {number} [peakWalletAmount]
+ * @property {number} [maxLevelIndexReached]
  */
 
 /** @typedef {Object} RunSaveSlot
@@ -91,6 +95,10 @@ export function createEmptySlotCareerStats() {
     discoveredAccessoryIds: [],
     scoreLeaderboard: [],
     lengthLeaderboard: [],
+    unlockedAchievementIds: [],
+    totalWordsSubmitted: 0,
+    peakWalletAmount: 0,
+    maxLevelIndexReached: -1,
   };
 }
 

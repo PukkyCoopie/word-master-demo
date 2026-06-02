@@ -94,11 +94,13 @@
  * @property {unknown[]} shopOffers
  * @property {unknown[]} packOffers
  * @property {unknown} shopVoucherShelf
+ * @property {unknown} [shopVoucherBonusShelf]
  * @property {number} shopRerollsThisVisit
  * @property {number} shopVoucherShelfGeneration
  * @property {unknown} packPickSession
  * @property {unknown} bossRerollSession
  * @property {unknown} runMatchStats
+ * @property {unknown} [achievementRunState]
  * @property {'fail' | 'win'} [runEndOutcome]
  * @property {string} [runPresetId]
  * @property {number} [runDifficultyIndex]

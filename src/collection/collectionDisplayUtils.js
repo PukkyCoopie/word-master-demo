@@ -4,6 +4,17 @@ export const COLLECTION_UNKNOWN_LABEL = "???";
 /** 未解锁条目视觉透明度（与入场动画终点一致，避免 GSAP 写到 1 盖掉样式） */
 export const COLLECTION_UNKNOWN_OPACITY = 0.55;
 
+const COLLECTION_UPGRADE_LIST_NAME_PREFIX = "升级 · ";
+
+/** 收藏升级 tab 格子上方名称（去掉「升级 · 」，详情层仍用商店全名） */
+export function collectionUpgradeGridListName(fullName) {
+  const s = String(fullName ?? "").trim();
+  if (s.startsWith(COLLECTION_UPGRADE_LIST_NAME_PREFIX)) {
+    return s.slice(COLLECTION_UPGRADE_LIST_NAME_PREFIX.length).trim() || s;
+  }
+  return s;
+}
+
 const COLLECTION_UNKNOWN_ENTER_CLASS_NAMES = Object.freeze([
   "collection-shop-cell--unknown",
   "collection-voucher-cell--unknown",

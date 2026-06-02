@@ -155,7 +155,6 @@ import {
   recordUpgradeDiscovered,
   recordTreasureDiscovered,
   recordVoucherDiscovered,
-  syncCollectionAccessoriesFromDifficultyUnlock,
   tryInsertLengthLeaderboard,
   tryInsertScoreLeaderboard,
 } from "./collection/collectionCareer.js";
@@ -170,6 +169,7 @@ import { recordPresetWin, setLastSelectedPresetId } from "./game/runPresetProgre
 import { recordDifficultyWin, setLastSelectedDifficultyIndex } from "./game/runDifficultyProgress.js";
 import { collectFreshUnlocksFromWin } from "./game/runStartFreshUnlock.js";
 import { createEmptySlotCareerStats } from "./save/runSaveSchema.js";
+import { tryUnlockAchievementsInCareer } from "./achievements/achievementUnlock.js";
 
 useScale();
 const { isDesktopLayout } = useWebLayoutMode();
@@ -297,7 +297,6 @@ provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyInde
       normalizeRunDifficultyIndex(runDifficultyIndex),
       normalizeRunPresetId(runPresetId),
     );
-    syncCollectionAccessoriesFromDifficultyUnlock(career);
     const fresh = collectFreshUnlocksFromWin(careerBefore, career, presetWinNew);
     if (fresh.presetIds.length || fresh.difficultyIndices.length) {
       runStartFreshUnlocks.value = {
@@ -400,6 +399,23 @@ function bumpCollectionUi() {
   collectionRefreshKey.value += 1;
   bumpSaveUi();
 }
+
+/**
+ * @param {import('./achievements/achievementEvaluate.js').AchievementEvalContext} ctx
+ * @returns {import('./achievements/achievementTypes.js').AchievementDefinition[]}
+ */
+function unlockAchievementsWithCtx(ctx) {
+  const ix = screen.value === "game" ? sessionSaveSlotIndex.value : getActiveSaveSlotIndex();
+  /** @type {import('./achievements/achievementTypes.js').AchievementDefinition[]} */
+  let newly = [];
+  mutateSlotCareer(ix, (career) => {
+    newly = tryUnlockAchievementsInCareer(career, ctx);
+  });
+  if (newly.length) bumpCollectionUi();
+  return newly;
+}
+
+provide("tryUnlockAchievements", unlockAchievementsWithCtx);
 
 /** @param {number} slotIndex @param {(career: import('./save/runSaveSchema.js').SlotCareerStats) => void} mutator */
 function persistCollectionCareer(slotIndex, mutator) {

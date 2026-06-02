@@ -118,7 +118,7 @@ const rows = computed(() =>
 .collection-accessory-table {
   width: 100%;
   border-collapse: separate;
-  border-spacing: 0 calc(14 * var(--rpx));
+  border-spacing: 0 calc(11 * var(--rpx));
 }
 
 .collection-accessory-row .collection-accessory-cell {
@@ -134,8 +134,8 @@ const rows = computed(() =>
 }
 
 .collection-accessory-row .collection-accessory-cell--chip {
-  width: calc(112 * var(--rpx));
-  padding: calc(14 * var(--rpx)) calc(12 * var(--rpx));
+  width: calc(106 * var(--rpx));
+  padding: calc(11 * var(--rpx)) calc(10 * var(--rpx));
   border-left: calc(1 * var(--rpx)) solid rgba(60, 58, 50, 0.08);
   border-radius: calc(12 * var(--rpx)) 0 0 calc(12 * var(--rpx));
 }
@@ -149,7 +149,7 @@ const rows = computed(() =>
 }
 
 .collection-accessory-row .collection-accessory-cell--text {
-  padding: calc(14 * var(--rpx)) calc(16 * var(--rpx)) calc(14 * var(--rpx)) calc(12 * var(--rpx));
+  padding: calc(11 * var(--rpx)) calc(14 * var(--rpx)) calc(11 * var(--rpx)) calc(10 * var(--rpx));
   border-right: calc(1 * var(--rpx)) solid rgba(60, 58, 50, 0.08);
   border-radius: 0 calc(12 * var(--rpx)) calc(12 * var(--rpx)) 0;
 }
@@ -165,15 +165,15 @@ const rows = computed(() =>
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: calc(6 * var(--rpx));
+  gap: calc(4 * var(--rpx));
   text-align: left;
 }
 
 .collection-accessory-title {
   margin: 0;
-  font-size: calc(28 * var(--rpx));
+  font-size: calc(26 * var(--rpx));
   font-weight: 800;
-  line-height: 1.25;
+  line-height: 1.22;
   color: var(--text-dark, #3c3a32);
 }
 
@@ -184,8 +184,8 @@ const rows = computed(() =>
 .collection-accessory-desc {
   margin: 0;
   width: 100%;
-  font-size: calc(24 * var(--rpx));
-  line-height: 1.55;
+  font-size: calc(22 * var(--rpx));
+  line-height: 1.48;
   color: var(--text-dark, #3c3a32);
   text-align: left;
   word-break: break-word;
@@ -211,36 +211,36 @@ const rows = computed(() =>
 }
 
 .collection-accessory-chip-showcase.tile-accessory-chip {
-  width: calc(56 * var(--rpx));
-  height: calc(56 * var(--rpx));
-  border-radius: calc(12 * var(--rpx));
+  width: calc(53 * var(--rpx));
+  height: calc(53 * var(--rpx));
+  border-radius: calc(10 * var(--rpx));
 }
 
 .collection-accessory-chip-showcase.tile-accessory-chip .tile-accessory-chip-icon {
-  font-size: calc(30 * var(--rpx));
+  font-size: calc(28 * var(--rpx));
   line-height: 1;
   display: block;
 }
 
 .collection-accessory-chip-showcase.treasure-accessory-chip {
-  width: calc(56 * var(--rpx));
-  height: calc(56 * var(--rpx));
-  border-radius: calc(12 * var(--rpx));
+  width: calc(53 * var(--rpx));
+  height: calc(53 * var(--rpx));
+  border-radius: calc(10 * var(--rpx));
 }
 
 .collection-accessory-chip-showcase.treasure-accessory-chip .treasure-accessory-chip-icon {
-  font-size: calc(30 * var(--rpx));
+  font-size: calc(28 * var(--rpx));
   line-height: 1;
   display: block;
 }
 
 .collection-accessory-chip-showcase--unknown {
-  width: calc(56 * var(--rpx));
-  height: calc(56 * var(--rpx));
-  border-radius: calc(12 * var(--rpx));
+  width: calc(53 * var(--rpx));
+  height: calc(53 * var(--rpx));
+  border-radius: calc(10 * var(--rpx));
   background: rgba(0, 0, 0, 0.08);
   color: var(--text-muted, #776e65);
-  font-size: calc(30 * var(--rpx));
+  font-size: calc(28 * var(--rpx));
   font-weight: 700;
   line-height: 1;
 }

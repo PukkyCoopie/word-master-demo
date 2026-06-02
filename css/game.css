@@ -3275,6 +3275,10 @@ textarea::-moz-placeholder {
 	z-index: 2;
 }
 
+.voucher-stamp-stack--stacked .voucher-stamp-stack__front .voucher-stamp__frame {
+	filter: drop-shadow(0 calc(2 * var(--rpx)) calc(5 * var(--rpx)) rgba(0, 0, 0, 0.22));
+}
+
 /* 详情层：两级优惠券叠放（与货架邮票圆角一致） */
 .voucher-detail-stamp-stack {
 	position: relative;
@@ -3300,6 +3304,12 @@ textarea::-moz-placeholder {
 
 .voucher-detail-stamp-stack__front {
 	z-index: 2;
+	filter: drop-shadow(0 calc(2 * var(--rpx)) calc(5 * var(--rpx)) rgba(0, 0, 0, 0.22));
+}
+
+.treasure-detail-fly-clone-root--voucher-stack .voucher-detail-stamp-stack {
+	width: 100%;
+	height: 100%;
 }
 
 /* 商店：优惠券区（第二行左栏；单卡区见 ShopPanel .shop-row--single-card-actions） */

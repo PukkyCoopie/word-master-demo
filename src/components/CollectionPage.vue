@@ -2,9 +2,31 @@
   <div class="collection-page">
     <header class="collection-header">
       <button type="button" class="collection-back-btn" aria-label="返回主菜单" @click="$emit('back')">
-        <i class="ri-arrow-left-line" aria-hidden="true"></i>
+        <i class="ri-arrow-left-line collection-back-btn__icon" aria-hidden="true"></i>
+        <span class="collection-back-btn__label">返回</span>
       </button>
-      <h1 class="collection-title">{{ activeTitle }}</h1>
+      <div class="collection-title-nav">
+        <button
+          type="button"
+          class="collection-tab-step-btn"
+          aria-label="上一个分类"
+          @click="onPrevTab"
+        >
+          <i class="ri-arrow-left-s-line" aria-hidden="true"></i>
+        </button>
+        <h1 class="collection-title">
+          <span class="collection-title__label">{{ activeTitleLabel }}</span>
+          <span v-if="activeProgressLine" class="collection-title__progress">{{ activeProgressLine }}</span>
+        </h1>
+        <button
+          type="button"
+          class="collection-tab-step-btn"
+          aria-label="下一个分类"
+          @click="onNextTab"
+        >
+          <i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+        </button>
+      </div>
     </header>
 
     <CollectionIconSegmentControl v-model="activeTab" class="collection-tabs" :options="COLLECTION_TABS" />
@@ -45,22 +67,17 @@
             v-else-if="activeTab === 'accessories'"
             :discovered-accessory-ids="career.discoveredAccessoryIds"
           />
-          <div v-else-if="activeTab === 'achievements'" class="collection-empty-tab">
-            <p>成就系统开发中</p>
-          </div>
-          <CollectionWordLeaderboard
-            v-else-if="activeTab === 'score'"
-            sort-key="score"
-            :records="career.scoreLeaderboard"
-            @select-tile="onLeaderboardTileSelect"
-            @select-treasure="onLeaderboardTreasureSelect"
+          <CollectionAchievementGrid
+            v-else-if="activeTab === 'achievements'"
+            :unlocked-achievement-ids="career.unlockedAchievementIds"
           />
-          <CollectionWordLeaderboard
-            v-else-if="activeTab === 'length'"
-            sort-key="length"
-            :records="career.lengthLeaderboard"
+          <CollectionWordLeaderboardPanel
+            v-else-if="activeTab === 'words'"
+            :score-records="career.scoreLeaderboard"
+            :length-records="career.lengthLeaderboard"
             @select-tile="onLeaderboardTileSelect"
             @select-treasure="onLeaderboardTreasureSelect"
+            @sub-tab-change="onWordLeaderboardSubTabChange"
           />
         </div>
       </div>
@@ -118,13 +135,14 @@ import CollectionUpgradeGrid from "./collection/CollectionUpgradeGrid.vue";
 import CollectionVoucherGrid from "./collection/CollectionVoucherGrid.vue";
 import CollectionMaterialGrid from "./collection/CollectionMaterialGrid.vue";
 import CollectionAccessoryTable from "./collection/CollectionAccessoryTable.vue";
-import CollectionWordLeaderboard from "./collection/CollectionWordLeaderboard.vue";
+import CollectionAchievementGrid from "./collection/CollectionAchievementGrid.vue";
+import CollectionWordLeaderboardPanel from "./collection/CollectionWordLeaderboardPanel.vue";
 import { usePanelScrollbar } from "../composables/usePanelScrollbar.js";
 import {
   playCollectionTabEnter,
   prepareCollectionTabEnter,
 } from "../collection/collectionTabEnterAnim.js";
-import { formatCollectionTabTitle } from "../collection/collectionProgress.js";
+import { formatCollectionTabProgressLine } from "../collection/collectionProgress.js";
 
 const props = defineProps({
   career: { type: Object, required: true },
@@ -142,9 +160,10 @@ const COLLECTION_TABS = Object.freeze([
   { id: "materials", label: "材质", iconClass: "ri-stack-line" },
   { id: "accessories", label: "配饰", iconClass: "ri-sparkling-line" },
   { id: "achievements", label: "成就", iconClass: "ri-medal-line" },
-  { id: "score", label: "分数榜", iconClass: "ri-trophy-line" },
-  { id: "length", label: "长度榜", iconClass: "ri-ruler-line" },
+  { id: "words", label: "单词榜", iconClass: "ri-file-text-line" },
 ]);
+
+const TAB_IDS = Object.freeze(COLLECTION_TABS.map((t) => t.id));
 
 const TAB_TITLES = Object.freeze(
   Object.fromEntries(COLLECTION_TABS.map((t) => [t.id, t.label])),
@@ -161,10 +180,26 @@ const collectionTileDetailPayload = ref(null);
 /** @type {import('vue').Ref<{ left: number, top: number, width: number, height: number } | null>} */
 const collectionTileDetailOriginRect = ref(null);
 
-const activeTitle = computed(() => {
-  const base = TAB_TITLES[activeTab.value] ?? "收藏";
-  return formatCollectionTabTitle(base, activeTab.value, props.career);
-});
+const activeTitleLabel = computed(() => TAB_TITLES[activeTab.value] ?? "收藏");
+
+const activeProgressLine = computed(() =>
+  formatCollectionTabProgressLine(activeTab.value, props.career),
+);
+
+/** @param {number} delta */
+function stepTab(delta) {
+  const idx = TAB_IDS.indexOf(activeTab.value);
+  if (idx < 0) return;
+  activeTab.value = TAB_IDS[(idx + delta + TAB_IDS.length) % TAB_IDS.length];
+}
+
+function onPrevTab() {
+  stepTab(-1);
+}
+
+function onNextTab() {
+  stepTab(1);
+}
 
 const {
   scrollBodyRef,
@@ -260,6 +295,11 @@ function onLeaderboardTreasureSelect(payload) {
   openCollectionTreasurePreview(treasure, payload.originEl, null);
 }
 
+function onWordLeaderboardSubTabChange() {
+  scrollBodyRef.value?.scrollTo({ top: 0, behavior: "auto" });
+  updateScrollbarMetrics();
+}
+
 watch(activeTab, async () => {
   closeCollectionPreviews();
   if (!tabEnterReady.value) return;
@@ -280,7 +320,12 @@ onMounted(async () => {
   position: relative;
   width: 100%;
   height: 100%;
+  --collection-purple: #7b68a8;
+  --collection-purple-dark: #554a72;
+  --collection-purple-fg: #f9f6f2;
   --collection-padding: calc(30 * var(--rpx));
+  --collection-action-btn-size: calc(60 * var(--rpx));
+  --collection-title-width: calc(180 * var(--rpx));
   --collection-shop-cell-size: calc(118 * var(--rpx));
   background: var(--card);
   border-radius: calc(12 * var(--rpx));
@@ -299,7 +344,8 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  min-height: calc(56 * var(--rpx));
+  height: calc(72 * var(--rpx));
+  min-height: calc(72 * var(--rpx));
   margin-bottom: calc(6 * var(--rpx));
 }
 
@@ -309,24 +355,110 @@ onMounted(async () => {
   top: 50%;
   transform: translateY(-50%);
   border: none;
-  width: calc(52 * var(--rpx));
-  height: calc(52 * var(--rpx));
+  width: auto;
+  height: var(--collection-action-btn-size);
+  min-width: calc(96 * var(--rpx));
+  padding: 0 calc(24 * var(--rpx)) 0 calc(16 * var(--rpx));
   border-radius: calc(8 * var(--rpx));
-  background: rgba(0, 0, 0, 0.08);
-  color: var(--text-dark, #3c3a32);
+  background: var(--collection-purple);
+  color: var(--collection-purple-fg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: calc(2 * var(--rpx));
+  transition: filter 0.12s ease;
+}
+
+.collection-back-btn__icon {
   font-size: calc(28 * var(--rpx));
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.collection-back-btn__label {
+  font-size: calc(26 * var(--rpx));
+  font-weight: 700;
+  line-height: 1;
+}
+
+.collection-back-btn:hover {
+  filter: brightness(1.08);
+}
+
+.collection-back-btn:active {
+  filter: brightness(0.92);
+}
+
+.collection-back-btn:focus-visible {
+  outline: calc(2 * var(--rpx)) solid var(--collection-purple);
+  outline-offset: calc(2 * var(--rpx));
+}
+
+.collection-title-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(10 * var(--rpx));
+  max-width: 100%;
+}
+
+.collection-tab-step-btn {
+  flex-shrink: 0;
+  width: var(--collection-action-btn-size);
+  height: var(--collection-action-btn-size);
+  border: none;
+  border-radius: calc(8 * var(--rpx));
+  background: var(--collection-purple);
+  color: var(--collection-purple-fg);
+  font-size: calc(28 * var(--rpx));
+  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: filter 0.12s ease;
+}
+
+.collection-tab-step-btn:hover {
+  filter: brightness(1.08);
+}
+
+.collection-tab-step-btn:active {
+  filter: brightness(0.92);
+}
+
+.collection-tab-step-btn:focus-visible {
+  outline: calc(2 * var(--rpx)) solid var(--collection-purple);
+  outline-offset: calc(2 * var(--rpx));
 }
 
 .collection-title {
   margin: 0;
+  flex: 0 0 var(--collection-title-width);
+  width: var(--collection-title-width);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(4 * var(--rpx));
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.collection-title__label {
   font-size: calc(40 * var(--rpx));
   font-weight: 800;
+  line-height: 1.15;
   color: var(--text-dark, #3c3a32);
-  text-align: center;
+}
+
+.collection-title__progress {
+  font-size: calc(26 * var(--rpx));
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-muted, #776e65);
 }
 
 .collection-tabs {
@@ -438,23 +570,43 @@ onMounted(async () => {
 
 .collection-page .collection-grid--vouchers {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  justify-items: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-items: stretch;
   align-content: flex-start;
-  row-gap: calc(18 * var(--rpx));
-  column-gap: calc(10 * var(--rpx));
+  row-gap: calc(32 * var(--rpx));
+  column-gap: calc(16 * var(--rpx));
+  padding-top: calc(32 * var(--rpx));
 }
 
 .collection-page .collection-grid--vouchers .shop-treasure-product {
   width: 100%;
-  max-width: var(--collection-shop-cell-size);
-  flex: 0 1 var(--collection-shop-cell-size);
+  max-width: none;
+  flex: 1 1 auto;
+}
+
+.collection-page .collection-grid--vouchers .shop-treasure-visual {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .collection-page .collection-grid--vouchers .voucher-stamp-stack {
   width: 100%;
   max-width: var(--collection-shop-cell-size);
   margin: 0 auto;
+}
+
+.collection-page .collection-grid--vouchers .voucher-stamp {
+  width: 100%;
+  max-width: var(--collection-shop-cell-size);
+}
+
+.collection-page .collection-grid--vouchers .shop-treasure-price {
+  width: 100%;
+  max-width: var(--collection-shop-cell-size);
+  align-self: center;
+  box-sizing: border-box;
 }
 
 .collection-page .collection-grid--vouchers .voucher-stamp-stack--stacked {
@@ -501,6 +653,8 @@ onMounted(async () => {
 }
 
 .collection-page .collection-material-tile.grid-tile {
+  width: calc(100 * var(--rpx));
+  height: calc(100 * var(--rpx));
   cursor: default;
 }
 </style>

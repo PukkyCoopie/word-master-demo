@@ -133,7 +133,7 @@ function onCellClick(pair, event) {
   font-weight: 700;
   line-height: 1.25;
   color: var(--text-dark, #3c3a32);
-  word-break: break-word;
+  white-space: nowrap;
 }
 
 .collection-shop-cell__name--unknown {

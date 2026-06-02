@@ -52,14 +52,14 @@ function onSelect(id) {
 
 <style scoped>
 .collection-icon-segment {
-  --seg-pad: calc(5 * var(--rpx));
+  --seg-pad: calc(5 * var(--rpx) * 1.1);
   position: relative;
   display: flex;
   width: 100%;
   gap: 0;
   padding: var(--seg-pad);
   border-radius: calc(8 * var(--rpx));
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--collection-purple, #7b68a8);
   box-sizing: border-box;
 }
 
@@ -70,8 +70,8 @@ function onSelect(id) {
   left: var(--seg-pad);
   width: calc((100% - 2 * var(--seg-pad)) / var(--seg-count));
   border-radius: calc(6 * var(--rpx));
-  background: var(--card-bright, #f9f6f2);
-  box-shadow: var(--shadow);
+  background: var(--collection-purple-dark, #554a72);
+  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.18);
   pointer-events: none;
   transition: transform 0.22s var(--ease-expo-out, ease-out);
   transform: translateX(calc(var(--seg-index) * 100%));
@@ -84,14 +84,14 @@ function onSelect(id) {
   position: relative;
   z-index: 1;
   border: none;
-  padding: calc(12 * var(--rpx)) calc(4 * var(--rpx));
-  font-size: calc(36 * var(--rpx));
+  padding: calc(12 * var(--rpx) * 1.1) calc(4 * var(--rpx));
+  font-size: calc(36 * var(--rpx) * 1.1);
   line-height: 1;
-  color: var(--text-dark, #3c3a32);
+  color: var(--collection-purple-fg, #f9f6f2);
   background: transparent;
   cursor: pointer;
   border-radius: calc(6 * var(--rpx));
-  opacity: 0.72;
+  opacity: 0.62;
   transition: opacity 0.12s ease;
   display: flex;
   align-items: center;
@@ -103,11 +103,11 @@ function onSelect(id) {
 }
 
 .collection-icon-segment-btn:hover:not(.collection-icon-segment-btn--active) {
-  opacity: 0.88;
+  opacity: 0.82;
 }
 
 .collection-icon-segment-btn:focus-visible {
-  outline: calc(2 * var(--rpx)) solid #7b68a8;
+  outline: calc(2 * var(--rpx)) solid var(--collection-purple-fg, #f9f6f2);
   outline-offset: calc(1 * var(--rpx));
 }
 

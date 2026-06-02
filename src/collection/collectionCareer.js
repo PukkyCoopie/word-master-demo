@@ -1,21 +1,8 @@
 import { VOUCHERS_BY_ID } from "../vouchers/voucherDefinitions.js";
-import {
-  ACCESSORY_CATALOG,
-  ACCESSORY_HOURGLASS,
-  ACCESSORY_NO_SELL,
-  ACCESSORY_RENTAL,
-} from "../accessories/accessoryCatalog.js";
+import { ACCESSORY_CATALOG } from "../accessories/accessoryCatalog.js";
 import { TILE_MATERIAL_CONCEPT_BY_ID } from "../game/gameConceptCopy.js";
-import { isDifficultyUnlocked } from "../game/runDifficultyProgress.js";
 import { COLLECTION_UPGRADE_TREASURE_IDS } from "./collectionUpgradeCatalog.js";
 import { COLLECTION_LEADERBOARD_MAX } from "./collectionTypes.js";
-
-/** 难度解锁后在收藏中自动展示的负面宝藏配饰（与 runDifficultyDefinitions 描述一致） */
-export const COLLECTION_ACCESSORIES_BY_DIFFICULTY_INDEX = Object.freeze([
-  Object.freeze({ difficultyIndex: 3, accessoryId: ACCESSORY_NO_SELL }),
-  Object.freeze({ difficultyIndex: 6, accessoryId: ACCESSORY_HOURGLASS }),
-  Object.freeze({ difficultyIndex: 7, accessoryId: ACCESSORY_RENTAL }),
-]);
 
 /** @param {unknown} raw @returns {string[]} */
 function normalizeIdList(raw) {
@@ -137,19 +124,6 @@ export function normalizeCollectionCareerFields(career, raw) {
     0,
     COLLECTION_LEADERBOARD_MAX,
   );
-  syncCollectionAccessoriesFromDifficultyUnlock(career);
-}
-
-/**
- * 已解锁的难度 4 / 7 / 8 对应禁售、沙漏、租赁配饰在收藏中视为已发现。
- * @param {import('../save/runSaveSchema.js').SlotCareerStats} career
- */
-export function syncCollectionAccessoriesFromDifficultyUnlock(career) {
-  for (const { difficultyIndex, accessoryId } of COLLECTION_ACCESSORIES_BY_DIFFICULTY_INDEX) {
-    if (isDifficultyUnlocked(difficultyIndex, career)) {
-      recordAccessoryDiscovered(career, accessoryId);
-    }
-  }
 }
 
 /**

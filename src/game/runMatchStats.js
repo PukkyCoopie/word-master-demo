@@ -8,6 +8,7 @@
  *   lengthCounts: Map<number, number>,
  *   lettersUsed: number,
  *   lettersDiscarded: number,
+ *   wordsSubmitted: number,
  *   shopPurchases: number,
  *   rerolls: number,
  * }} RunMatchStats
@@ -23,6 +24,7 @@ export function createRunMatchStats() {
     lengthCounts: new Map(),
     lettersUsed: 0,
     lettersDiscarded: 0,
+    wordsSubmitted: 0,
     shopPurchases: 0,
     rerolls: 0,
   };
@@ -40,6 +42,7 @@ export function recordWordSubmit(stats, { word, score, length }) {
     stats.lengthCounts.set(len, (stats.lengthCounts.get(len) ?? 0) + 1);
   }
   if (len > 0) stats.lettersUsed += len;
+  stats.wordsSubmitted += 1;
   if (w && sc >= stats.bestWordScore) {
     stats.bestWord = w;
     stats.bestWordScore = sc;

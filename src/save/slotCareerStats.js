@@ -1,5 +1,6 @@
 import { createEmptySlotCareerStats } from "./runSaveSchema.js";
 import { normalizeCollectionCareerFields } from "../collection/collectionCareer.js";
+import { normalizeAchievementCareerFields } from "../achievements/achievementCareer.js";
 import { formatCollectionUnlockProgressDisplay } from "../collection/collectionProgress.js";
 
 /**
@@ -46,6 +47,7 @@ export function normalizeSlotCareerStats(raw) {
       : 0,
   };
   normalizeCollectionCareerFields(career, o);
+  normalizeAchievementCareerFields(career, o);
   return career;
 }
 
@@ -59,6 +61,9 @@ export function mergeRunMatchStatsIntoCareer(career, runStats, outcome) {
   if (outcome === "win") career.runsWon += 1;
   career.totalLettersUsed += Math.max(0, Math.floor(Number(runStats.lettersUsed) || 0));
   career.totalLettersDiscarded += Math.max(0, Math.floor(Number(runStats.lettersDiscarded) || 0));
+  career.totalWordsSubmitted =
+    Math.max(0, Math.floor(Number(career.totalWordsSubmitted) || 0)) +
+    Math.max(0, Math.floor(Number(runStats.wordsSubmitted) || 0));
   career.totalShopPurchases += Math.max(0, Math.floor(Number(runStats.shopPurchases) || 0));
   career.totalRerolls += Math.max(0, Math.floor(Number(runStats.rerolls) || 0));
   const sc = Math.max(0, Math.floor(Number(runStats.bestWordScore) || 0));

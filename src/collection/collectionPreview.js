@@ -1,3 +1,4 @@
+import { offerFlyOriginRectFromEl, resolveOfferFlyOriginEl } from "../game/offerFlyOrigin.js";
 import { readTreasureAccessoryIds } from "../accessories/accessoryState.js";
 import { buildTreasureShopRowFromDef } from "../shop/shopOfferRowBuilders.js";
 import { buildSpellOfferPreviewFromId } from "../spells/spellReplayUi.js";
@@ -14,16 +15,7 @@ let previewOfferInstanceSeq = 0;
  * @returns {HTMLElement | null}
  */
 export function collectionFlyOriginEl(root) {
-  if (!root || !(root instanceof HTMLElement)) return null;
-  return (
-    root.querySelector(".shop-shelf-letter-tile") ??
-    root.querySelector(".shop-treasure-frame") ??
-    root.querySelector(".voucher-stamp-stack__front .voucher-stamp__frame") ??
-    root.querySelector(".voucher-stamp-stack .voucher-stamp__frame") ??
-    root.querySelector(".voucher-stamp__frame") ??
-    root.querySelector(".treasure-slot") ??
-    root
-  );
+  return resolveOfferFlyOriginEl(root);
 }
 
 /**
@@ -31,11 +23,7 @@ export function collectionFlyOriginEl(root) {
  * @returns {{ left: number, top: number, width: number, height: number } | null}
  */
 export function collectionFlyOriginRectFromEl(el) {
-  const node = collectionFlyOriginEl(el instanceof HTMLElement ? el : null);
-  if (!node || typeof node.getBoundingClientRect !== "function") return null;
-  const r = node.getBoundingClientRect();
-  if (r.width < 2 || r.height < 2) return null;
-  return { left: r.left, top: r.top, width: r.width, height: r.height };
+  return offerFlyOriginRectFromEl(el);
 }
 
 /**

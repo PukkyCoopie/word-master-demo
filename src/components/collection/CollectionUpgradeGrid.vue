@@ -32,6 +32,7 @@ import {
   COLLECTION_LENGTH_UPGRADE_CATALOG,
   COLLECTION_RARITY_UPGRADE_CATALOG,
 } from "../../collection/collectionUpgradeCatalog.js";
+import { collectionUpgradeGridListName } from "../../collection/collectionDisplayUtils.js";
 import CollectionShopTreasureCell from "./CollectionShopTreasureCell.vue";
 
 const props = defineProps({
@@ -47,7 +48,7 @@ function mapUpgradeEntries(catalog) {
   return catalog.map((offer) => ({
     treasureId: String(offer.treasureId ?? ""),
     discovered: discoveredSet.value.has(String(offer.treasureId ?? "")),
-    name: offer.name,
+    name: collectionUpgradeGridListName(offer.name),
     iconClass: offer.iconClass,
     upgradeKind: offer.upgradeKind,
     lengthBadgeLabel: offer.lengthBadgeLabel,

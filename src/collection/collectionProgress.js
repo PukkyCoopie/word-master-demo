@@ -4,10 +4,17 @@ import { TREASURE_CATALOG } from "../treasures/treasureCatalog.js";
 import { VOUCHER_PAIR_ORDER } from "../vouchers/voucherDefinitions.js";
 import { COLLECTION_MATERIAL_DISPLAY_ORDER } from "./collectionMaterialRichDesc.js";
 import { COLLECTION_UPGRADE_TOTAL, COLLECTION_UPGRADE_TREASURE_IDS } from "./collectionUpgradeCatalog.js";
+import { ACHIEVEMENT_TOTAL } from "../achievements/achievementDefinitions.js";
+import { countUnlockedAchievements } from "../achievements/achievementCareer.js";
+
+/** 收藏全库进度统计用的 tab（不含成就 tab；成就单独展示 n/总数） */
+const COLLECTION_ITEM_TAB_IDS = Object.freeze(
+  new Set(["treasures", "spells", "upgrades", "vouchers", "materials", "accessories"]),
+);
 
 /** 收藏页需在标题后展示（n/x）解锁进度的 tab */
 export const COLLECTION_UNLOCK_TAB_IDS = Object.freeze(
-  new Set(["treasures", "spells", "upgrades", "vouchers", "materials", "accessories"]),
+  new Set(["treasures", "spells", "upgrades", "vouchers", "materials", "accessories", "achievements"]),
 );
 
 const TREASURE_TOTAL = TREASURE_CATALOG.length;
@@ -76,9 +83,25 @@ export function getCollectionTabProgress(career, tabId) {
       }
       return { unlocked, total: ACCESSORY_TOTAL };
     }
+    case "achievements":
+      return {
+        unlocked: countUnlockedAchievements(career),
+        total: ACHIEVEMENT_TOTAL,
+      };
     default:
       return null;
   }
+}
+
+/**
+ * @param {string} tabId
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats | Record<string, unknown>} career
+ * @returns {string | null}
+ */
+export function formatCollectionTabProgressLine(tabId, career) {
+  const progress = getCollectionTabProgress(career, tabId);
+  if (!progress) return null;
+  return `${progress.unlocked} / ${progress.total}`;
 }
 
 /**
@@ -93,14 +116,14 @@ export function formatCollectionTabTitle(baseLabel, tabId, career) {
 }
 
 /**
- * 收藏全库解锁进度（宝藏/法术/升级/优惠券/材质/配饰合计）。
+ * 收藏全库解锁进度（宝藏/法术/升级/优惠券/材质/配饰合计；不含成就 tab）。
  * @param {import('../save/runSaveSchema.js').SlotCareerStats | Record<string, unknown>} career
  * @returns {{ unlocked: number, total: number, percent: number }}
  */
 export function getCollectionUnlockProgress(career) {
   let unlocked = 0;
   let total = 0;
-  for (const tabId of COLLECTION_UNLOCK_TAB_IDS) {
+  for (const tabId of COLLECTION_ITEM_TAB_IDS) {
     const p = getCollectionTabProgress(career, tabId);
     if (!p) continue;
     unlocked += p.unlocked;

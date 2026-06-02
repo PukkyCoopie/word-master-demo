@@ -1,6 +1,7 @@
 import { createRunRng } from "../game/runRng.js";
 import { deserializeRunMatchStats } from "./runMatchStatsCodec.js";
 import { deserializeTreasureRunState } from "./treasureRunStateCodec.js";
+import { deserializeAchievementRunState } from "../achievements/achievementRunState.js";
 import { normalizeRunSavePhase } from "./runSaveSchema.js";
 import { cloneSaveData } from "./saveDataClone.js";
 import { hydrateOwnedTreasureSlots } from "../treasures/ownedTreasureSlot.js";
@@ -76,6 +77,9 @@ export function hydrateRunSave(payload, ctx) {
   if (ctx.runMatchStatsRef) {
     ctx.runMatchStatsRef.value = deserializeRunMatchStats(payload.runMatchStats);
   }
+  if (ctx.achievementRunStateRef) {
+    ctx.achievementRunStateRef.value = deserializeAchievementRunState(payload.achievementRunState);
+  }
   if (ctx.runEndOutcomeRef) {
     ctx.runEndOutcomeRef.value = payload.runEndOutcome === "win" ? "win" : "fail";
   }
@@ -94,6 +98,11 @@ export function hydrateRunSave(payload, ctx) {
   if (ctx.shopVoucherShelfRef) {
     ctx.shopVoucherShelfRef.value = payload.shopVoucherShelf
       ? cloneSaveData(payload.shopVoucherShelf)
+      : null;
+  }
+  if (ctx.shopVoucherBonusShelfRef) {
+    ctx.shopVoucherBonusShelfRef.value = payload.shopVoucherBonusShelf
+      ? cloneSaveData(payload.shopVoucherBonusShelf)
       : null;
   }
   if (ctx.shopRerollsThisVisitRef) {

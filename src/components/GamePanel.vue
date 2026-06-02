@@ -1,5 +1,6 @@
 <template>
   <div class="game-container">
+    <AchievementToastLayer :queue="achievementToastQueue" />
     <Teleport defer to="#game-view-portal-frame">
       <div v-if="showShop" class="portal-overlay-fill shop-portal-root" :style="shopPortalStackStyle">
         <ShopPanel
@@ -8,6 +9,7 @@
           :shop-offers="shopOffers"
           :pack-offers="packOffers"
           :voucher-slot="shopVoucherShelfResolved"
+          :voucher-bonus-slot="shopVoucherBonusShelf"
           :owned-voucher-ids="ownedVoucherIds"
           :owned-treasures="ownedTreasures"
           :shop-reroll-cost="shopNextRerollCostDisplay"
@@ -807,6 +809,19 @@ import {
 } from "../levelDefinitions";
 import RunEndLayer from "./RunEndLayer.vue";
 import PauseOptionsLayer from "./PauseOptionsLayer.vue";
+import AchievementToastLayer from "./AchievementToastLayer.vue";
+import { createAchievementToastQueue } from "../achievements/achievementToastQueue.js";
+import {
+  createAchievementRunState,
+  recordAchievementRunDiscardUse,
+  recordAchievementRunInterest,
+  recordAchievementRunMoneySpent,
+  recordAchievementRunWordSubmitted,
+} from "../achievements/achievementRunState.js";
+import {
+  resolveMaxLengthAndRarityLevel,
+} from "../achievements/achievementEvaluate.js";
+import { computeMaxLetterScoreTriggers } from "../achievements/achievementSubmitMetrics.js";
 import { pickBossSlugForLevel } from "../game/bossRoll.js";
 import {
   applyBossTileDebuffState,
@@ -902,8 +917,8 @@ import {
   resolveUpgradePlaybackSpeed,
   rollRandomUpgradePicks,
 } from "../shop/randomUpgradeRoll.js";
-import { formatVoucherDisplayName } from "../vouchers/voucherDisplay.js";
-import { pairHasTier2Owned } from "../vouchers/voucherDefinitions.js";
+import { buildVoucherShopOfferRow } from "../vouchers/shopVoucherOfferBuild.js";
+import { offerFlyOriginRectFromEl } from "../game/offerFlyOrigin.js";
 import {
   buildOwnedVoucherDetailTreasure,
   buildOwnedVoucherPairGroups,
@@ -1798,9 +1813,46 @@ const shopVoucherShelf = ref(null);
 
 const shopVoucherShelfEmpty = Object.freeze({ kind: "empty", emptySlotId: 0 });
 const shopVoucherShelfResolved = computed(() => shopVoucherShelf.value ?? shopVoucherShelfEmpty);
+/** 法术派券追加的优惠券（至多 1 张，至下个 Boss 关前进店时清除） */
+/** @type {import('vue').Ref<null | object>} */
+const shopVoucherBonusShelf = ref(null);
 
 function makeEmptyVoucherSlot() {
   return { kind: "empty", emptySlotId: nextVoucherEmptySlotId.value++ };
+}
+
+function clearShopVoucherBonusShelf() {
+  shopVoucherBonusShelf.value = null;
+}
+
+/** @returns {{ ok: boolean }} */
+function grantSpellBonusShopVoucher() {
+  if (shopVoucherBonusShelf.value?.kind === "offer") {
+    showToast("优惠券区已有额外一张");
+    return { ok: false };
+  }
+  const d = rollShopVoucherOfferDef(ownedVoucherIds.value, runRandom);
+  if (!d) {
+    showToast("暂无随机优惠券可添加");
+    return { ok: false };
+  }
+  shopVoucherBonusShelf.value = buildVoucherShopOfferRow(
+    d,
+    nextVoucherOfferInstanceId.value++,
+    ownedVoucherIds.value,
+    { spellGranted: true },
+  );
+  return { ok: true };
+}
+
+/**
+ * @param {Record<string, unknown> | null | undefined} spellFx
+ */
+async function playSpellVoucherBonusShelfEnterFx(spellFx) {
+  const fx = spellFx && typeof spellFx === "object" ? spellFx : null;
+  if (fx?.kind !== "voucher_bonus" || fx.granted !== true) return;
+  if (!showShop.value) return;
+  await shopPanelRef.value?.playVoucherBonusEnterAnim?.();
 }
 /** @type {import('vue').Ref<Array<import('../treasures/treasureTypes.js').ShopOfferSlot>>} */
 const shopOffers = ref([]);
@@ -2235,10 +2287,7 @@ const deckBtnRef = ref(null);
 const packPickLayerRef = ref(null);
 
 function treasureOriginRectFromEl(el) {
-  if (!el || typeof el.getBoundingClientRect !== "function") return null;
-  const r = el.getBoundingClientRect();
-  if (r.width < 2 || r.height < 2) return null;
-  return { left: r.left, top: r.top, width: r.width, height: r.height };
+  return offerFlyOriginRectFromEl(el);
 }
 
 function onShopSelectOffer(payload) {
@@ -2931,34 +2980,117 @@ const irisTransition = inject("irisTransition", null);
 const requestNewRun = inject("requestNewRun", null);
 const openSettings = inject("openSettings", null);
 const mergeCareerOnRunEnd = inject("mergeCareerOnRunEnd", null);
+const tryUnlockAchievementsInject = inject("tryUnlockAchievements", null);
 const recordCollectionDiscovery = inject("recordCollectionDiscovery", null);
 const recordCollectionWordSubmit = inject("recordCollectionWordSubmit", null);
+
+const achievementToastQueue = createAchievementToastQueue();
+const achievementRunState = ref(createAchievementRunState());
+
+function getCompletedLevelIdsForWin() {
+  const idx = Math.max(0, Math.floor(Number(levelIndex.value) || 0));
+  /** @type {string[]} */
+  const ids = [];
+  for (let i = RUN_START_LEVEL_INDEX; i <= idx && i < LEVELS.length; i++) {
+    ids.push(LEVELS[i].id);
+  }
+  return ids;
+}
+
+/** @param {import('../achievements/achievementEvaluate.js').AchievementEvalContext} [overrides] */
+function buildAchievementEvalContext(overrides = {}) {
+  const { maxLengthLevel, maxRarityLevel } = resolveMaxLengthAndRarityLevel(
+    lengthLevelsByLength.value,
+    rarityLevelsByRarity.value,
+  );
+  return {
+    currentLevelId: currentLevel.value?.id ?? "1-1",
+    wallet: money.value,
+    ownedVoucherCount: (ownedVoucherIds.value ?? []).length,
+    maxLengthLevel,
+    maxRarityLevel,
+    deckSize: Array.isArray(deck.value) ? deck.value.length : 0,
+    runMatchStats: runMatchStats.value,
+    achievementRun: achievementRunState.value,
+    runDifficultyIndex: runDifficultyIndex.value,
+    ...overrides,
+  };
+}
+
+/** @param {import('../achievements/achievementEvaluate.js').AchievementEvalContext} [overrides] */
+function flushAchievementUnlocks(overrides = {}) {
+  const unlockFn = tryUnlockAchievementsInject ?? ((ctx) => {
+    /** @type {import('../achievements/achievementTypes.js').AchievementDefinition[]} */
+    const newly = [];
+    return newly;
+  });
+  const newly = unlockFn(buildAchievementEvalContext(overrides));
+  if (newly?.length) achievementToastQueue.enqueue(newly);
+}
+
+function noteRunMoneySpent(amount) {
+  recordAchievementRunMoneySpent(achievementRunState.value, amount);
+  flushAchievementUnlocks();
+}
+
+/**
+ * @param {unknown[]} tiles
+ * @param {Record<string, unknown>} detailed
+ * @param {number} iceShatterCount
+ */
+function buildSubmitAchievementSnapshot(tiles, detailed, iceShatterCount) {
+  const list = Array.isArray(tiles) ? tiles : [];
+  return {
+    score: Math.round(Number(detailed.finalScore) || 0),
+    wordLength: Math.max(
+      0,
+      Math.floor(Number(detailed.lengthTableLen ?? list.length) || list.length),
+    ),
+    allWildcard: list.length > 0 && list.every((t) => isWildcardMaterialTile(t)),
+    iceShatterCount: Math.max(0, Math.floor(Number(iceShatterCount) || 0)),
+    maxLetterScoreTriggers: computeMaxLetterScoreTriggers(detailed),
+    deckSize: Array.isArray(deck.value) ? deck.value.length : 0,
+  };
+}
+
+/** @param {unknown[]} tiles @param {Record<string, unknown>} detailed @param {number} iceShatterCount */
+function flushSubmitAchievements(tiles, detailed, iceShatterCount) {
+  recordAchievementRunWordSubmitted(achievementRunState.value, currentLevel.value?.id ?? "1-1");
+  flushAchievementUnlocks({
+    submit: buildSubmitAchievementSnapshot(tiles, detailed, iceShatterCount),
+  });
+}
+
+function noteCollectionDiscovery(payload) {
+  recordCollectionDiscovery?.(payload);
+  flushAchievementUnlocks();
+}
 
 /** @param {string} treasureId */
 function noteCollectionTreasureAcquired(treasureId) {
   const tid = String(treasureId ?? "").trim();
   if (!tid) return;
-  recordCollectionDiscovery?.({ treasureId: tid });
+  noteCollectionDiscovery({ treasureId: tid });
 }
 
 /** @param {string} voucherId */
 function noteCollectionVoucherAcquired(voucherId) {
   const vid = String(voucherId ?? "").trim();
   if (!vid) return;
-  recordCollectionDiscovery?.({ voucherId: vid });
+  noteCollectionDiscovery({ voucherId: vid });
 }
 
 /** @param {string} materialId */
 function noteCollectionMaterialAcquired(materialId) {
   const id = String(materialId ?? "").trim();
   if (!id) return;
-  recordCollectionDiscovery?.({ materialId: id });
+  noteCollectionDiscovery({ materialId: id });
 }
 
 function noteCollectionUpgradeUsed(upgradeTreasureId) {
   const id = String(upgradeTreasureId ?? "").trim();
   if (!id) return;
-  recordCollectionDiscovery?.({ upgradeId: id });
+  noteCollectionDiscovery({ upgradeId: id });
 }
 
 /** @param {{ kind: "rarity", rk: string } | { kind: "length", g: { key?: string } }} pick */
@@ -2989,7 +3121,7 @@ function noteCollectionAllRarityUpgrades() {
 function noteCollectionAccessoryAcquired(accessoryId) {
   const id = String(accessoryId ?? "").trim();
   if (!id) return;
-  recordCollectionDiscovery?.({ accessoryId: id });
+  noteCollectionDiscovery({ accessoryId: id });
 }
 
 /**
@@ -3934,25 +4066,16 @@ watch(showShop, async (open) => {
     playOwnedTreasureBubbleFx,
   });
   const levelId = currentLevel.value?.id ?? "1-1";
+  if (parseLevelSubFromId(levelId) === 3) {
+    clearShopVoucherBonusShelf();
+  }
   const shelfGen = getVoucherShelfGeneration(levelId);
   if (shopVoucherShelfGeneration.value !== shelfGen) {
     shopVoucherShelfGeneration.value = shelfGen;
+    clearShopVoucherBonusShelf();
     const d = rollShopVoucherOfferDef(ownedVoucherIds.value, runRandom);
     shopVoucherShelf.value = d
-      ? {
-          kind: "offer",
-          offerType: "voucher",
-          offerInstanceId: nextVoucherOfferInstanceId.value++,
-          voucherId: d.id,
-          price: d.price,
-          name: formatVoucherDisplayName(d, {
-            pairHasTier2Owned: pairHasTier2Owned(d.pairId, ownedVoucherIds.value),
-          }),
-          description: d.description,
-          emoji: d.emoji,
-          rarity: "common",
-          treasureId: `voucher_${d.id}`,
-        }
+      ? buildVoucherShopOfferRow(d, nextVoucherOfferInstanceId.value++, ownedVoucherIds.value)
       : makeEmptyVoucherSlot();
   }
   const visitStock = rollShopVisitStock(runRandom);
@@ -5922,11 +6045,13 @@ function buildLocalSaveContext() {
     shopOffers: shopOffers.value,
     packOffers: packOffers.value,
     shopVoucherShelf: shopVoucherShelf.value,
+    shopVoucherBonusShelf: shopVoucherBonusShelf.value,
     shopRerollsThisVisit: shopRerollsThisVisit.value,
     shopVoucherShelfGeneration: shopVoucherShelfGeneration.value,
     packPickSession: packPickSession.value,
     bossRerollSession: bossRerollSession.value,
     runMatchStats: runMatchStats.value,
+    achievementRunState: achievementRunState.value,
     runEndOutcome: runEndOutcome.value,
     showShop: showShop.value,
     showSettlement: showSettlement.value,
@@ -5958,6 +6083,7 @@ function buildHydrateContext() {
     hydrateDeckState,
     ownedUpgradesRef: ownedUpgrades,
     runMatchStatsRef: runMatchStats,
+    achievementRunStateRef: achievementRunState,
     runEndOutcomeRef: runEndOutcome,
     showSettlementRef: showSettlement,
     showShopRef: showShop,
@@ -5966,6 +6092,7 @@ function buildHydrateContext() {
     shopOffersRef: shopOffers,
     packOffersRef: packOffers,
     shopVoucherShelfRef: shopVoucherShelf,
+    shopVoucherBonusShelfRef: shopVoucherBonusShelf,
     shopRerollsThisVisitRef: shopRerollsThisVisit,
     shopVoucherShelfGenerationRef: shopVoucherShelfGeneration,
     packPickSessionRef: packPickSession,
@@ -6084,7 +6211,14 @@ async function openStageSettlement() {
  * @param {{ preserveSettlement?: boolean }} [opts] 标准通关最后一关：保留结算快照供「无尽模式」接续
  */
 async function openRunEnd(outcome, opts = {}) {
-  runEndOutcome.value = outcome === "win" ? "win" : "fail";
+  const won = outcome === "win";
+  if (won) {
+    flushAchievementUnlocks({
+      runWon: true,
+      completedLevelIds: getCompletedLevelIdsForWin(),
+    });
+  }
+  runEndOutcome.value = won ? "win" : "fail";
   mergeCareerOnRunEnd?.({
     outcome: runEndOutcome.value,
     stats: runMatchStats.value,
@@ -6438,6 +6572,11 @@ async function onSettlementContinue(event) {
   const s = settlementSnapshot.value;
   if (!s) return;
 
+  recordAchievementRunInterest(
+    achievementRunState.value,
+    Math.max(0, Math.round(Number(s.interest) || 0)),
+  );
+
   finishSettlementIntroInstant();
 
   // 商店切换要求在转场“覆盖满屏”时刻就完成切换，
@@ -6471,6 +6610,7 @@ async function onSettlementContinue(event) {
   transitionBusy.value = false;
   const shopWalletEl = shopPanelRef.value?.getWalletEl?.();
   await playWalletHeaderGainAnim(startMoney, endMoney, shopWalletEl);
+  flushAchievementUnlocks();
   scheduleRunAutoSave();
 }
 
@@ -7128,14 +7268,16 @@ async function playIceTileShatterWobbleAndBubble(slotEl, gridEl, speed = 1) {
   await scoringSleep(SCORING_STEP_BEAT_MS, sp);
 }
 
-/** 提交计分结束后、词槽消失前：碎冰块 1/4 概率碎裂动效 + 宝藏钩子 */
+/** 提交计分结束后、词槽消失前：碎冰块 1/4 概率碎裂动效 + 宝藏钩子；返回本次碎裂块数 */
 async function runSubmittedIceShatterEffects(tiles) {
   const list = Array.isArray(tiles) ? tiles : [];
   const gridEls = getSelectedGridTileElsInOrder();
+  let shatterCount = 0;
   for (let i = 0; i < list.length; i += 1) {
     const t = list[i];
     if (t?.materialId !== "ice" || isBossTileDebuffed(t)) continue;
     if (runRandom() >= ICE_MATERIAL_SELF_DESTRUCT_CHANCE) continue;
+    shatterCount += 1;
     const slotEl = wordSlotRefs[i];
     const gridEl = gridEls[i];
     await playIceTileShatterWobbleAndBubble(slotEl, gridEl);
@@ -7145,6 +7287,7 @@ async function runSubmittedIceShatterEffects(tiles) {
       playOwnedTreasureBubbleFx,
     });
   }
+  return shatterCount;
 }
 
 /**
@@ -7471,6 +7614,7 @@ function buildSpellRuntimeContext() {
     onUpgradeDiscovered: noteCollectionUpgradeFromRandomPick,
     onMaterialAcquired: noteCollectionMaterialAcquired,
     onAccessoryAcquired: noteCollectionAccessoryAcquired,
+    grantSpellBonusShopVoucher,
   };
 }
 
@@ -7749,7 +7893,7 @@ function noteSpellCastForReplay(purchasedSpellId) {
   const sid = String(purchasedSpellId ?? "");
   if (!sid || sid === "restart" || sid === "dice") return;
   spellCastHistory.value = [...spellCastHistory.value, sid];
-  recordCollectionDiscovery?.({ spellId: sid });
+  noteCollectionDiscovery({ spellId: sid });
   noteTreasureRunSpellCast(treasureRunState.value);
   treasureRunState.value.lastSpellIdBeforeShopLeave = sid;
 }
@@ -7990,6 +8134,7 @@ async function applyInstantSpellWithoutPreview(purchasedSpellId, context, offerD
   const applyOpts =
     pid === "dice" ? { rng: runRandom, skipDiceInline: true } : { rng: runRandom };
   const spellResult = applySpell(buildSpellRuntimeContext(), pid, effectiveSpellId, [], applyOpts);
+  await playSpellVoucherBonusShelfEnterFx(spellResult?.spellFx ?? null);
   if (showShop.value && context === "shop") {
     await playInstantSpellShopFx(effectiveSpellId);
   }
@@ -8246,6 +8391,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
     }
     await sleep(playedOnOffer ? 1000 : 0);
     await playSpectralSpellResultFx(lastSpellFx, sid);
+    await playSpellVoucherBonusShelfEnterFx(lastSpellFx);
     if (deferInRunUpgradeFxApply) await playInstantSpellInRunFx(sid);
     syncGridTilesToLinkedDeckCards();
     noteSpellCastForReplay(s.purchasedSpellId);
@@ -8294,6 +8440,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
   }
   await sleep(playedOnOffer ? 1000 : 500);
   await playSpectralSpellResultFx(lastSpellFx, sid);
+  await playSpellVoucherBonusShelfEnterFx(lastSpellFx);
   if (deferInRunUpgradeFxApply) await playInstantSpellInRunFx(sid);
   syncGridTilesToLinkedDeckCards();
   noteSpellCastForReplay(s.purchasedSpellId);
@@ -8308,6 +8455,9 @@ function clearOfferSlotAfterPurchase(t) {
   if (t?.offerType === "voucher") {
     if (shopVoucherShelf.value?.kind === "offer" && isOfferPid(shopVoucherShelf.value)) {
       shopVoucherShelf.value = makeEmptyVoucherSlot();
+    }
+    if (shopVoucherBonusShelf.value?.kind === "offer" && isOfferPid(shopVoucherBonusShelf.value)) {
+      clearShopVoucherBonusShelf();
     }
     return;
   }
@@ -8346,6 +8496,7 @@ async function onTreasurePurchase() {
     const layer = treasureDetailLayerRef.value;
     await layer?.playClose?.();
     money.value -= pay;
+    noteRunMoneySpent(pay);
     noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
     treasureDetail.value = null;
@@ -8361,6 +8512,7 @@ async function onTreasurePurchase() {
     const layer = treasureDetailLayerRef.value;
     await layer?.playClose?.();
     money.value -= pay;
+    noteRunMoneySpent(pay);
     noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
     const slotCountBefore = getShopRandomCardSlotCount(
@@ -8393,6 +8545,7 @@ async function onTreasurePurchase() {
     const fromEl = layer?.getFlyFrameEl?.();
     await layer?.playClose?.();
     money.value -= pay;
+    noteRunMoneySpent(pay);
     noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
     treasureDetail.value = null;
@@ -8407,6 +8560,7 @@ async function onTreasurePurchase() {
       return;
     }
     money.value -= pay;
+    noteRunMoneySpent(pay);
     noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
     if (spellId === "dice" || spellId === "restart") {
@@ -8436,6 +8590,7 @@ async function onTreasurePurchase() {
     const layer = treasureDetailLayerRef.value;
     await layer?.playClose?.();
     money.value -= pay;
+    noteRunMoneySpent(pay);
     noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
     treasureDetail.value = null;
@@ -8468,6 +8623,7 @@ async function onTreasurePurchase() {
   await Promise.all([closePromise, flyPromise]);
 
   money.value -= pay;
+  noteRunMoneySpent(pay);
   noteRunShopPurchase();
   grantOwnedTreasureAt(ix, {
     treasureId: t.treasureId,
@@ -8532,6 +8688,7 @@ async function onShopReroll() {
   const rs = treasureRunState.value;
   if (cost > 0) {
     money.value -= cost;
+    noteRunMoneySpent(cost);
   } else if ((rs.shopFreeRerollsRemaining ?? 0) > 0) {
     rs.shopFreeRerollsRemaining -= 1;
   }
@@ -8571,6 +8728,7 @@ function onBossBlindRerollPaid() {
   if (!s) return;
   if (!canPayBossBlindReroll(ownedVoucherIds.value, s.rerollsUsed, money.value)) return;
   money.value -= BOSS_BLIND_REROLL_COST_DOLLARS;
+  noteRunMoneySpent(BOSS_BLIND_REROLL_COST_DOLLARS);
   const rerollNonce = s.rerollNonce + 1;
   const rerollsUsed = s.rerollsUsed + 1;
   const slug = pickBossSlugForLevel(s.levelId, getRunSeedNumeric(), rerollNonce);
@@ -8627,6 +8785,7 @@ async function executeShopLeaveToNextLevel(event) {
   if (!showRunEnd.value) {
     await Promise.all([runGridIntroAfterReset(), playLevelAdvanceHeaderFx()]);
   }
+  flushAchievementUnlocks();
   transitionBusy.value = false;
   scheduleRunAutoSave();
 }
@@ -10157,6 +10316,7 @@ function seedAnimFormulaFromSubmitDetailed(detailed) {
 async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, isLastSubmitChance = false) {
   scoringTreasureBarIndex.value = null;
   submitBossToothTapeCuePlayed = false;
+  let iceShatterCount = 0;
   try {
   hideResultWordLengthBeforeTotal.value = false;
   suppressResultWordLengthUntilScoringEnd.value = false;
@@ -10376,9 +10536,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   await new Promise((r) => requestAnimationFrame(r));
 
   if (detailed.bossSoftViolation !== true) {
-    await runSubmittedIceShatterEffects(tiles);
+    iceShatterCount = await runSubmittedIceShatterEffects(tiles);
   }
-
   /** @type {import('../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[]} */
   let submitWordLeaveFx = [];
   /** @type {(() => Promise<void>)[]} */
@@ -10528,6 +10687,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   await nextTick();
   updateSlotPositions(true);
   scheduleRunAutoSave();
+  return iceShatterCount;
   } finally {
     submitUpgradeFxRegistrar = null;
     scoringTreasureBarIndex.value = null;
@@ -10713,6 +10873,8 @@ async function onRemoveClick() {
   }
 
   recordLettersDiscarded(runMatchStats.value, nSel);
+  recordAchievementRunDiscardUse(achievementRunState.value);
+  flushAchievementUnlocks();
 
   treasureRunState.value.levelDiscardsUsed = true;
   addTreasureRunLettersDiscarded(treasureRunState.value, nSel);
@@ -11104,7 +11266,10 @@ async function submitWord() {
   await nextTick();
   await sleep(ACTION_COUNT_DELTA_BEAT_MS);
   scoringLetterIndex.value = -1;
-    await runSubmitScoringSequence(tiles, detailed, resolvedWord, isLastSubmitChance);
+    const iceShatterCount = await runSubmitScoringSequence(tiles, detailed, resolvedWord, isLastSubmitChance);
+    if (!submitViolated) {
+      flushSubmitAchievements(tiles, detailed, iceShatterCount);
+    }
     if (!submitViolated) {
       if (
         parseLevelSubFromId(currentLevel.value?.id ?? "1-1") === 3 &&
@@ -11231,6 +11396,7 @@ function findShopOfferById(offerInstanceId) {
     ...shopOffers.value,
     ...packOffers.value,
     shopVoucherShelf.value,
+    shopVoucherBonusShelf.value,
   ];
   for (const s of sources) {
     if (s?.kind === "offer" && Number(s.offerInstanceId) === pid) return s;
@@ -11267,6 +11433,8 @@ function getE2eShopSnapshot() {
   }
   const v = view(shopVoucherShelf.value, "voucher");
   if (v) offers.push(v);
+  const vb = view(shopVoucherBonusShelf.value, "voucher_bonus");
+  if (vb) offers.push(vb);
   return {
     money: money.value,
     offers,
@@ -11485,6 +11653,7 @@ onMounted(async () => {
     tryCeruleanBellFlyInAfterGridStable();
     updateSlotPositions(true);
     scheduleRunAutoSave();
+    flushAchievementUnlocks();
     return;
   }
 
@@ -11514,6 +11683,7 @@ onMounted(async () => {
     await runGridIntroAfterReset();
   }
   scheduleRunAutoSave();
+  flushAchievementUnlocks();
 });
 onUnmounted(() => {
   runAutoSave.cancelPending();

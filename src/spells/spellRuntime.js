@@ -536,6 +536,7 @@ function resolveSpellTargetTile(ctx, p) {
  *   refreshBossTileDebuffOnTile?: (tile: Record<string, unknown>) => void,
  *   onMaterialAcquired?: (materialId: string) => void,
  *   onAccessoryAcquired?: (accessoryId: string) => void,
+ *   grantSpellBonusShopVoucher?: () => { ok: boolean },
  * }} SpellRuntimeContext
  */
 
@@ -948,6 +949,11 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       const r = ctx.grantRandomShopTreasureByRarity?.(null);
       if (!r?.ok) ctx.showToast?.("没有空宝藏槽或无可售宝藏");
       else spellFx = { kind: "treasure_grant", slotIndex: r.slotIndex };
+      break;
+    }
+    case "coupon_drop": {
+      const r = ctx.grantSpellBonusShopVoucher?.();
+      spellFx = { kind: "voucher_bonus", granted: r?.ok === true };
       break;
     }
     default:

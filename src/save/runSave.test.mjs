@@ -21,6 +21,13 @@ import { createRunMatchStats } from "../game/runMatchStats.js";
 import { canSaveNow } from "./runSaveGuards.js";
 import { createRunAutoSave } from "./runAutoSave.js";
 import { createEmptySaveEnvelope, SAVE_SLOT_COUNT } from "./runSaveSchema.js";
+import {
+  serializeAchievementRunState,
+  deserializeAchievementRunState,
+  createAchievementRunState,
+} from "../achievements/achievementRunState.js";
+import { unlockAchievementId } from "../achievements/achievementUnlock.js";
+import { getCollectionUnlockProgress } from "../collection/collectionProgress.js";
 
 test("mulberry32 state roundtrip", () => {
   const core = mulberry32WithState(12345);
@@ -154,4 +161,40 @@ test("collection leaderboard keeps top ten by score", () => {
   assert.equal(career.scoreLeaderboard[0].score, 110);
   assert.equal(career.scoreLeaderboard[9].score, 20);
   assert.ok(!career.scoreLeaderboard.some((r) => r.score === 10));
+});
+
+test("achievement career normalize defaults", () => {
+  const career = normalizeSlotCareerStats({});
+  assert.deepEqual(career.unlockedAchievementIds, []);
+  assert.equal(career.totalWordsSubmitted, 0);
+  assert.equal(career.peakWalletAmount, 0);
+  assert.equal(career.maxLevelIndexReached, -1);
+});
+
+test("achievement unlock writes career ids once", () => {
+  const career = normalizeSlotCareerStats({});
+  assert.equal(unlockAchievementId(career, "win_run"), true);
+  assert.equal(unlockAchievementId(career, "win_run"), false);
+  assert.deepEqual(career.unlockedAchievementIds, ["win_run"]);
+});
+
+test("achievement run state codec roundtrip", () => {
+  const state = createAchievementRunState();
+  state.wordsPerLevelId["1-1"] = 2;
+  state.interestEarnedTotal = 50;
+  state.moneySpentTotal = 120;
+  state.discardUsesCount = 3;
+  const back = deserializeAchievementRunState(serializeAchievementRunState(state));
+  assert.equal(back.wordsPerLevelId["1-1"], 2);
+  assert.equal(back.interestEarnedTotal, 50);
+  assert.equal(back.moneySpentTotal, 120);
+  assert.equal(back.discardUsesCount, 3);
+});
+
+test("collection unlock progress excludes achievements tab", () => {
+  const career = normalizeSlotCareerStats({});
+  unlockAchievementId(career, "win_run");
+  const p = getCollectionUnlockProgress(career);
+  assert.equal(p.unlocked, 0);
+  assert.ok(p.total > 0);
 });

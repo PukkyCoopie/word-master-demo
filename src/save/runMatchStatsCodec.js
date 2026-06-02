@@ -15,6 +15,7 @@ export function serializeRunMatchStats(stats) {
     lengthCounts,
     lettersUsed: Math.max(0, Math.floor(Number(stats.lettersUsed) || 0)),
     lettersDiscarded: Math.max(0, Math.floor(Number(stats.lettersDiscarded) || 0)),
+    wordsSubmitted: Math.max(0, Math.floor(Number(stats.wordsSubmitted) || 0)),
     shopPurchases: Math.max(0, Math.floor(Number(stats.shopPurchases) || 0)),
     rerolls: Math.max(0, Math.floor(Number(stats.rerolls) || 0)),
   };
@@ -31,6 +32,7 @@ export function deserializeRunMatchStats(raw) {
   stats.longestWordLength = Math.max(0, Math.floor(Number(o.longestWordLength) || 0));
   stats.lettersUsed = Math.max(0, Math.floor(Number(o.lettersUsed) || 0));
   stats.lettersDiscarded = Math.max(0, Math.floor(Number(o.lettersDiscarded) || 0));
+  stats.wordsSubmitted = Math.max(0, Math.floor(Number(o.wordsSubmitted) || 0));
   stats.shopPurchases = Math.max(0, Math.floor(Number(o.shopPurchases) || 0));
   stats.rerolls = Math.max(0, Math.floor(Number(o.rerolls) || 0));
   stats.lengthCounts = new Map();

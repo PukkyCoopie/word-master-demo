@@ -163,6 +163,15 @@ function buildSpellDefinitions() {
       description: "获得金币，数值相当于当前所有宝藏的售出价值总和",
     },
     {
+      id: "coupon_drop",
+      name: "派券",
+      iconClass: "ri-ticket-2-fill",
+      pickCount: 0,
+      shopPrice: 5,
+      description:
+        "向商店优惠券区添加一张随机优惠券，持续到下个 Boss 关前（至多额外 1 张）",
+    },
+    {
       id: "flask",
       name: "炼金",
       iconClass: "ri-flask-fill",
@@ -214,7 +223,7 @@ function buildSpellDefinitions() {
     {
       id: "familiar",
       name: "家猫",
-      iconClass: "ri-bear-smile-line",
+      iconClass: "ri-bear-smile-fill",
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,
@@ -339,7 +348,7 @@ function buildSpellDefinitions() {
     {
       id: "diamond",
       name: "钻石",
-      iconClass: "ri-vip-diamond-line",
+      iconClass: "ri-vip-diamond-fill",
       pickCount: 0,
       pickMode: "confirm_all",
       tags: SPECTRAL,

@@ -16,14 +16,20 @@
       >
         <h2 :id="titleId" class="settings-layer-title">设置</h2>
 
-        <div class="settings-layer-tabs" role="tablist" aria-label="设置分组">
+        <div
+          class="settings-layer-tabs"
+          role="tablist"
+          aria-label="设置分组"
+          :style="tabSlideStyle"
+        >
+          <div class="settings-layer-tabs-thumb" aria-hidden="true" />
           <button
             type="button"
             class="settings-layer-tab"
             role="tab"
             :class="{ 'settings-layer-tab--active': activeTab === 'ui' }"
             :aria-selected="activeTab === 'ui'"
-            @click="activeTab = 'ui'"
+            @click="setActiveTab('ui')"
           >
             界面
           </button>
@@ -33,7 +39,7 @@
             role="tab"
             :class="{ 'settings-layer-tab--active': activeTab === 'gameplay' }"
             :aria-selected="activeTab === 'gameplay'"
-            @click="activeTab = 'gameplay'"
+            @click="setActiveTab('gameplay')"
           >
             游戏性
           </button>
@@ -43,7 +49,7 @@
             role="tab"
             :class="{ 'settings-layer-tab--active': activeTab === 'controls' }"
             :aria-selected="activeTab === 'controls'"
-            @click="activeTab = 'controls'"
+            @click="setActiveTab('controls')"
           >
             操作
           </button>
@@ -251,7 +257,29 @@ watch(
 );
 
 const titleId = "settings-layer-title";
+
+const SETTINGS_TAB_IDS = Object.freeze(["ui", "gameplay", "controls"]);
+
+/** @typedef {'ui' | 'gameplay' | 'controls'} SettingsTabId */
+
+/** @type {import('vue').Ref<SettingsTabId>} */
 const activeTab = ref("ui");
+
+const activeTabIndex = computed(() => {
+  const idx = SETTINGS_TAB_IDS.indexOf(activeTab.value);
+  return idx >= 0 ? idx : 0;
+});
+
+const tabSlideStyle = computed(() => ({
+  "--settings-tab-count": String(SETTINGS_TAB_IDS.length),
+  "--settings-tab-index": String(activeTabIndex.value),
+}));
+
+/** @param {SettingsTabId} id */
+function setActiveTab(id) {
+  if (activeTab.value === id) return;
+  activeTab.value = id;
+}
 
 const allowAbbrev = computed(() => gameSettings.allowSpellingAbbreviations === true);
 const markOnSwap = computed(() => gameSettings.markOnSwap !== false);
@@ -376,16 +404,35 @@ function onScaleInputEnter(e) {
 }
 
 .settings-layer-tabs {
+  --settings-tab-pad: calc(4 * var(--rpx));
+  position: relative;
   display: flex;
-  gap: calc(8 * var(--rpx));
+  gap: 0;
   margin: calc(-6 * var(--rpx)) 0 calc(18 * var(--rpx));
-  padding: calc(4 * var(--rpx));
+  padding: var(--settings-tab-pad);
   border-radius: var(--radius);
   background: var(--card, #eee4da);
 }
 
+.settings-layer-tabs-thumb {
+  position: absolute;
+  top: var(--settings-tab-pad);
+  bottom: var(--settings-tab-pad);
+  left: var(--settings-tab-pad);
+  width: calc((100% - 2 * var(--settings-tab-pad)) / var(--settings-tab-count));
+  border-radius: calc(8 * var(--rpx));
+  background: var(--card-bright, #faf8ef);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  transition: transform calc(0.22s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out);
+  transform: translateX(calc(var(--settings-tab-index) * 100%));
+  z-index: 0;
+}
+
 .settings-layer-tab {
   flex: 1;
+  position: relative;
+  z-index: 1;
   border: none;
   border-radius: calc(8 * var(--rpx));
   padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
@@ -396,11 +443,10 @@ function onScaleInputEnter(e) {
   background: transparent;
   cursor: pointer;
   opacity: 0.72;
+  transition: opacity 0.12s ease;
 }
 
 .settings-layer-tab--active {
-  background: var(--card-bright, #faf8ef);
-  box-shadow: var(--shadow);
   opacity: 1;
 }
 
@@ -729,5 +775,9 @@ function onScaleInputEnter(e) {
 .settings-layer-leave-to .settings-layer-card {
   opacity: 0;
   transform: scale(0.94) translateY(calc(12 * var(--rpx)));
+}
+
+:global(html.reduce-motion) .settings-layer-tabs-thumb {
+  transition: none;
 }
 </style>

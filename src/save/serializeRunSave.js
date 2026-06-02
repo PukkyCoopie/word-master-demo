@@ -3,6 +3,7 @@ import { getDeckCardUidSeq } from "../composables/useGameState.js";
 import { normalizeRunSavePhase } from "./runSaveSchema.js";
 import { serializeRunMatchStats } from "./runMatchStatsCodec.js";
 import { serializeTreasureRunState } from "./treasureRunStateCodec.js";
+import { serializeAchievementRunState } from "../achievements/achievementRunState.js";
 import { cloneSaveData } from "./saveDataClone.js";
 import { serializeOwnedTreasureSlots } from "../treasures/ownedTreasureSlot.js";
 import { getTreasureDef } from "../treasures/treasureRegistry.js";
@@ -55,11 +56,17 @@ export function serializeRunSave(ctx) {
     shopOffers: cloneSaveData(ctx.shopOffers ?? []),
     packOffers: cloneSaveData(ctx.packOffers ?? []),
     shopVoucherShelf: ctx.shopVoucherShelf ? cloneSaveData(ctx.shopVoucherShelf) : null,
+    shopVoucherBonusShelf: ctx.shopVoucherBonusShelf ? cloneSaveData(ctx.shopVoucherBonusShelf) : null,
     shopRerollsThisVisit: Math.max(0, Math.floor(Number(ctx.shopRerollsThisVisit) || 0)),
     shopVoucherShelfGeneration: Math.floor(Number(ctx.shopVoucherShelfGeneration) || -1),
     packPickSession: ctx.packPickSession ? cloneSaveData(ctx.packPickSession) : null,
     bossRerollSession: ctx.bossRerollSession ? cloneSaveData(ctx.bossRerollSession) : null,
     runMatchStats: serializeRunMatchStats(ctx.runMatchStats),
+    achievementRunState: serializeAchievementRunState(
+      /** @type {import('../achievements/achievementRunState.js').AchievementRunState} */ (
+        ctx.achievementRunState ?? { wordsPerLevelId: {}, interestEarnedTotal: 0, moneySpentTotal: 0, discardUsesCount: 0 }
+      ),
+    ),
     runEndOutcome: ctx.runEndOutcome === "win" ? "win" : "fail",
     runPresetId: String(ctx.runPresetId ?? "preset_01"),
     runDifficultyIndex: Math.max(0, Math.min(7, Math.floor(Number(ctx.runDifficultyIndex) || 0))),

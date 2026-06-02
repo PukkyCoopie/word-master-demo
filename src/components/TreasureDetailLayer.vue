@@ -291,6 +291,23 @@
           </div>
 
           <div
+            v-if="showCollectionUnlockPrerequisitePanel"
+            ref="collectionUnlockPrerequisitePanelRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span class="treasure-detail-desc-panel-title-text">{{
+                collectionUnlockPrerequisitePanel?.title
+              }}</span>
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="collectionUnlockPrerequisitePanel.description"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
             v-for="(panel, tierPanelIdx) in voucherOwnedTierPanels"
             :key="'voucher-tier-' + panel.tier"
             :ref="(el) => setVoucherTierPanelRef(tierPanelIdx, el)"
@@ -532,7 +549,10 @@
         v-if="originRect && flyCloneActive"
         ref="flyCloneRef"
         class="treasure-detail-fly-clone-root"
-        :class="isDeckOffer ? 'treasure-detail-fly-clone-root--deck-tile' : undefined"
+        :class="{
+          'treasure-detail-fly-clone-root--deck-tile': isDeckOffer,
+          'treasure-detail-fly-clone-root--voucher-stack': isVoucherOffer && voucherDetailStacked,
+        }"
         :style="flyCloneStyle"
         aria-hidden="true"
       >
@@ -542,6 +562,26 @@
           class="shop-shelf-letter-tile"
           v-bind="deckOfferLetterTileBind"
         />
+        <div
+          v-else-if="isVoucherOffer && voucherDetailStacked"
+          class="voucher-detail-stamp-stack"
+        >
+          <div
+            class="shop-treasure-frame shop-treasure-frame--detail shop-treasure-frame--voucher-stamp voucher-detail-stamp-stack__back"
+            aria-hidden="true"
+          >
+            <span class="shop-treasure-emoji shop-treasure-emoji--detail" role="img">{{
+              voucherOwnedTierPanels[0]?.emoji ?? treasure.emoji
+            }}</span>
+          </div>
+          <div
+            class="shop-treasure-frame shop-treasure-frame--detail shop-treasure-frame--voucher-stamp voucher-detail-stamp-stack__front"
+          >
+            <span class="shop-treasure-emoji shop-treasure-emoji--detail" role="img">{{
+              voucherOwnedTierPanels[1]?.emoji ?? treasure.emoji
+            }}</span>
+          </div>
+        </div>
         <div
           v-else
           class="shop-treasure-frame shop-treasure-frame--detail"
@@ -677,6 +717,7 @@ import {
   getTileAccessoryLinkedConceptPanels,
 } from "../game/gameConceptCopy.js";
 import { resolveTreasureDetailGainPanel } from "../treasures/treasureRegistry.js";
+import { resolveTreasureUnlockPrerequisitePanel } from "../treasures/treasureUnlockPrerequisiteCopy.js";
 import { getSpellGainPanel } from "../spells/spellGainPanel.js";
 import { getSpellDefinition, getSpellShopPrice } from "../spells/spellDefinitions.js";
 import ShopSpellShelfCell from "./ShopSpellShelfCell.vue";
@@ -1084,6 +1125,26 @@ function treasureGainDescriptionNonEmpty(desc) {
   return Array.isArray(desc) && desc.length > 0;
 }
 
+const collectionUnlockPrerequisitePanel = computed(() => {
+  if (!isCollectionPreviewMode.value) return null;
+  if (
+    isSpellOffer.value ||
+    isUpgradeOffer.value ||
+    isVoucherOffer.value ||
+    isDeckOffer.value ||
+    isBundlePack.value
+  ) {
+    return null;
+  }
+  const tid = String(props.treasure?.treasureId ?? "").trim();
+  if (!tid) return null;
+  return resolveTreasureUnlockPrerequisitePanel(tid);
+});
+
+const showCollectionUnlockPrerequisitePanel = computed(
+  () => treasureGainDescriptionNonEmpty(collectionUnlockPrerequisitePanel.value?.description),
+);
+
 const showTreasureGainPanel = computed(
   () =>
     Boolean(treasureGainPanelContent.value?.title) &&
@@ -1162,6 +1223,7 @@ const deckOfferAccessoryRef = ref(null);
 const deckOfferTreasureAccessoryRef = ref(null);
 const spellGainPanelRef = ref(null);
 const treasureGainPanelRef = ref(null);
+const collectionUnlockPrerequisitePanelRef = ref(null);
 const accessoryPanelRef = ref(null);
 const actionsRef = ref(null);
 const titleGroupRef = ref(null);
@@ -1195,6 +1257,7 @@ function staggerTargets() {
     deckOfferAccessoryRef.value,
     deckOfferTreasureAccessoryRef.value,
     treasureGainPanelRef.value,
+    collectionUnlockPrerequisitePanelRef.value,
     spellGainPanelRef.value,
     ...descriptionConceptPanelRefs.filter((el) => el instanceof HTMLElement),
     accessoryPanelRef.value,
