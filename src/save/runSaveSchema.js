@@ -30,6 +30,7 @@
  * @property {number} [lastSelectedDifficultyIndex]
  * @property {string[]} [discoveredTreasureIds]
  * @property {string[]} [discoveredSpellIds]
+ * @property {string[]} [discoveredUpgradeIds]
  * @property {Record<string, 1 | 2>} [discoveredVoucherTiers]
  * @property {string[]} [discoveredMaterialIds]
  * @property {string[]} [discoveredAccessoryIds]
@@ -84,6 +85,7 @@ export function createEmptySlotCareerStats() {
     lastSelectedDifficultyIndex: 0,
     discoveredTreasureIds: [],
     discoveredSpellIds: [],
+    discoveredUpgradeIds: [],
     discoveredVoucherTiers: {},
     discoveredMaterialIds: [],
     discoveredAccessoryIds: [],

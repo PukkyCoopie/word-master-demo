@@ -152,6 +152,7 @@ import {
   recordAccessoryDiscovered,
   recordMaterialDiscovered,
   recordSpellDiscovered,
+  recordUpgradeDiscovered,
   recordTreasureDiscovered,
   recordVoucherDiscovered,
   tryInsertLengthLeaderboard,
@@ -254,11 +255,19 @@ provide("requestNewRun", (opts = {}) => {
 
 provide("activeSaveSlotIndex", activeSaveSlotIndex);
 
-provide("recordCollectionDiscovery", ({ treasureId, spellId, voucherId, materialId, accessoryId } = {}) => {
+provide("recordCollectionDiscovery", ({
+  treasureId,
+  spellId,
+  upgradeId,
+  voucherId,
+  materialId,
+  accessoryId,
+} = {}) => {
   const ix = screen.value === "game" ? sessionSaveSlotIndex.value : getActiveSaveSlotIndex();
   persistCollectionCareer(ix, (career) => {
     if (treasureId) recordTreasureDiscovered(career, treasureId);
     if (spellId) recordSpellDiscovered(career, spellId);
+    if (upgradeId) recordUpgradeDiscovered(career, upgradeId);
     if (voucherId) recordVoucherDiscovered(career, voucherId);
     if (materialId) recordMaterialDiscovered(career, materialId);
     if (accessoryId) recordAccessoryDiscovered(career, accessoryId);

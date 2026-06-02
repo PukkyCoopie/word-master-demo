@@ -1,0 +1,87 @@
+<template>
+  <div class="collection-upgrade-sections">
+    <section
+      v-for="section in sections"
+      :key="section.id"
+      class="collection-upgrade-section"
+    >
+      <h2 class="collection-upgrade-section__title">{{ section.title }}</h2>
+      <div class="collection-grid collection-grid--shop-cells collection-grid--upgrades">
+        <CollectionShopTreasureCell
+          v-for="entry in section.entries"
+          :key="entry.treasureId"
+          upgrade-offer
+          :unknown="!entry.discovered"
+          :treasure-id="entry.treasureId"
+          :name="entry.name"
+          :icon-class="entry.iconClass"
+          :upgrade-kind="entry.upgradeKind"
+          :length-badge-label="entry.lengthBadgeLabel"
+          :length-label="entry.lengthLabel"
+          :price="entry.price"
+          @select="$emit('select-upgrade', $event)"
+        />
+      </div>
+    </section>
+  </div>
+</template>
+
+<script setup>
+import { computed } from "vue";
+import {
+  COLLECTION_LENGTH_UPGRADE_CATALOG,
+  COLLECTION_RARITY_UPGRADE_CATALOG,
+} from "../../collection/collectionUpgradeCatalog.js";
+import CollectionShopTreasureCell from "./CollectionShopTreasureCell.vue";
+
+const props = defineProps({
+  discoveredUpgradeIds: { type: Array, default: () => [] },
+});
+
+defineEmits(["select-upgrade"]);
+
+const discoveredSet = computed(() => new Set((props.discoveredUpgradeIds ?? []).map(String)));
+
+/** @param {typeof COLLECTION_LENGTH_UPGRADE_CATALOG[number][]} catalog */
+function mapUpgradeEntries(catalog) {
+  return catalog.map((offer) => ({
+    treasureId: String(offer.treasureId ?? ""),
+    discovered: discoveredSet.value.has(String(offer.treasureId ?? "")),
+    name: offer.name,
+    iconClass: offer.iconClass,
+    upgradeKind: offer.upgradeKind,
+    lengthBadgeLabel: offer.lengthBadgeLabel,
+    lengthLabel: offer.lengthLabel,
+    price: offer.price,
+  }));
+}
+
+const sections = computed(() => [
+  {
+    id: "length",
+    title: "长度升级",
+    entries: mapUpgradeEntries(COLLECTION_LENGTH_UPGRADE_CATALOG),
+  },
+  {
+    id: "rarity",
+    title: "稀有度升级",
+    entries: mapUpgradeEntries(COLLECTION_RARITY_UPGRADE_CATALOG),
+  },
+]);
+</script>
+
+<style scoped>
+.collection-upgrade-sections {
+  display: flex;
+  flex-direction: column;
+  gap: calc(32 * var(--rpx));
+}
+
+.collection-upgrade-section__title {
+  margin: 0 0 calc(14 * var(--rpx));
+  text-align: center;
+  font-size: calc(28 * var(--rpx));
+  font-weight: 800;
+  color: #f9f6f2;
+}
+</style>

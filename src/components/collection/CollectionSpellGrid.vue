@@ -5,9 +5,11 @@
       :key="spell.id"
       spell-offer
       :unknown="!spell.discovered"
+      :spell-id="spell.id"
       :name="spell.name"
       :icon-class="spell.iconClass"
       :price="spell.price"
+      @select="$emit('select-spell', $event)"
     />
   </div>
 </template>
@@ -20,6 +22,8 @@ import CollectionShopTreasureCell from "./CollectionShopTreasureCell.vue";
 const props = defineProps({
   discoveredSpellIds: { type: Array, default: () => [] },
 });
+
+defineEmits(["select-spell"]);
 
 const discoveredSet = computed(() => new Set((props.discoveredSpellIds ?? []).map(String)));
 

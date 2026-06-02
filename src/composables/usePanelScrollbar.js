@@ -5,10 +5,11 @@ const SCROLLBAR_MIN_THUMB = 28;
 
 /**
  * 与关于弹窗一致的自定义滚动条（隐藏原生条 + 右侧 track/thumb）。
- * @param {{ thumbColor?: string }} [options]
+ * @param {{ thumbColor?: string, contentRef?: import('vue').Ref<HTMLElement | null | undefined> }} [options]
  */
 export function usePanelScrollbar(options = {}) {
   const thumbColor = options.thumbColor ?? "#8a8580";
+  const contentRef = options.contentRef;
 
   const scrollBodyRef = ref(null);
   const scrollTrackRef = ref(null);
@@ -109,6 +110,8 @@ export function usePanelScrollbar(options = {}) {
     resizeObserver?.disconnect();
     resizeObserver = new ResizeObserver(() => updateScrollbarMetrics());
     resizeObserver.observe(container);
+    const content = contentRef?.value;
+    if (content instanceof HTMLElement) resizeObserver.observe(content);
   }
 
   onMounted(() => {

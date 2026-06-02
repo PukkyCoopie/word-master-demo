@@ -890,6 +890,11 @@ import {
 } from "../shop/rollShopRandomCardStock.js";
 import { canPurchaseRestartSpellInShop } from "../shop/shopOfferRowBuilders.js";
 import {
+  getUpgradeTreasureIdForRandomPick,
+  getUpgradeTreasureIdForRarityKey,
+  getUpgradeTreasureIdForWordLen,
+} from "../collection/collectionUpgradeCatalog.js";
+import {
   applyRandomUpgradePick,
   buildRandomUpgradeAnimPayload,
   ECLIPSE_UPGRADE_ANIM_SPEED_SCALE,
@@ -2052,6 +2057,7 @@ function buildUpgradeAnimPayloadFromOffer(t) {
 
 function applyUpgradeFromOffer(t, { price = 0 } = {}) {
   noteTreasureRunUpgradeUsed(treasureRunState.value);
+  noteCollectionUpgradeUsed(t?.treasureId);
   const isRarity = t.upgradeKind === "rarity";
   if (isRarity) {
     const rk = String(t.rarityKey ?? "");
@@ -2138,6 +2144,7 @@ async function playArrowUpShopUpgradeSequence({ restoreLayersAfter = false } = {
     ),
     apply: () => {
       applyRandomUpgradePick(pick, buildSpellRuntimeContext());
+      noteCollectionUpgradeFromRandomPick(pick);
       if (pick.kind === "rarity") refreshGridTileBaseScoresFromLevels();
     },
   }));
@@ -2948,6 +2955,36 @@ function noteCollectionMaterialAcquired(materialId) {
   recordCollectionDiscovery?.({ materialId: id });
 }
 
+function noteCollectionUpgradeUsed(upgradeTreasureId) {
+  const id = String(upgradeTreasureId ?? "").trim();
+  if (!id) return;
+  recordCollectionDiscovery?.({ upgradeId: id });
+}
+
+/** @param {{ kind: "rarity", rk: string } | { kind: "length", g: { key?: string } }} pick */
+function noteCollectionUpgradeFromRandomPick(pick) {
+  const id = getUpgradeTreasureIdForRandomPick(pick);
+  if (id) noteCollectionUpgradeUsed(id);
+}
+
+/** @param {number} len */
+function noteCollectionUpgradeForWordLen(len) {
+  const id = getUpgradeTreasureIdForWordLen(len);
+  if (id) noteCollectionUpgradeUsed(id);
+}
+
+function noteCollectionAllLengthUpgrades() {
+  for (const g of UPGRADE_LENGTH_GROUPS) {
+    noteCollectionUpgradeUsed(`upgrade_${g.key}`);
+  }
+}
+
+function noteCollectionAllRarityUpgrades() {
+  for (const rk of Object.keys(UPGRADE_RARITY_LETTER_LABEL)) {
+    noteCollectionUpgradeUsed(getUpgradeTreasureIdForRarityKey(rk));
+  }
+}
+
 /** @param {string} accessoryId */
 function noteCollectionAccessoryAcquired(accessoryId) {
   const id = String(accessoryId ?? "").trim();
@@ -3467,6 +3504,7 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
       },
       apply: () => {
         noteTreasureRunUpgradeUsed(treasureRunState.value);
+        noteCollectionUpgradeForWordLen(L);
         bumpWordLengthLevel(L, { observatoryBoost: obs });
       },
     };
@@ -3563,6 +3601,7 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
     },
     bumpWordLengthLevel: (len) => {
       noteTreasureRunUpgradeUsed(treasureRunState.value);
+      noteCollectionUpgradeForWordLen(len);
       bumpWordLengthLevel(len, {
         observatoryBoost: isLengthObservatoryBoosted(
           ownedVoucherIds.value,
@@ -7244,6 +7283,7 @@ function buildEclipseLengthUpgradeSteps() {
       },
       apply: () => {
         noteTreasureRunUpgradeUsed(treasureRunState.value);
+        noteCollectionAllLengthUpgrades();
         for (let len = 3; len <= 16; len++) {
           bumpWordLengthLevel(len, { observatoryBoost: obsFn(len) });
         }
@@ -7267,6 +7307,7 @@ function buildEclipseRarityUpgradeSteps() {
       },
       apply: () => {
         noteTreasureRunUpgradeUsed(treasureRunState.value);
+        noteCollectionAllRarityUpgrades();
         for (const { rarityKey: rk } of rarities) {
           const cur = Math.max(1, Math.round(Number(rarityLevelsByRarity.value?.[rk])) || 1);
           setRarityLevelWithTreasurePairs(rk, cur + 1);
@@ -7301,6 +7342,7 @@ async function playInstantSpellInRunFx(effectiveSpellId) {
       ),
       apply: () => {
         applyRandomUpgradePick(pick, buildSpellRuntimeContext());
+        noteCollectionUpgradeFromRandomPick(pick);
         if (pick.kind === "rarity") refreshGridTileBaseScoresFromLevels();
       },
     }));
@@ -7426,6 +7468,7 @@ function buildSpellRuntimeContext() {
     },
     refreshBossTileDebuffOnTile: refreshBossTileDebuffOnTile,
     onUpgradeUsed: () => noteTreasureRunUpgradeUsed(treasureRunState.value),
+    onUpgradeDiscovered: noteCollectionUpgradeFromRandomPick,
     onMaterialAcquired: noteCollectionMaterialAcquired,
     onAccessoryAcquired: noteCollectionAccessoryAcquired,
   };
@@ -9995,6 +10038,7 @@ async function runClearWinVipDiamondRarityPostScoreFx(rk, beforeLevel) {
   shopOverlayLayersSuppressed.value = true;
   await nextTick();
   try {
+    noteCollectionUpgradeUsed(getUpgradeTreasureIdForRarityKey(rk));
     setRarityLevelWithTreasurePairs(rk, beforeLevel + 1);
     refreshGridTileBaseScoresFromLevels();
     await runInGameRarityUpgradeShopLikeFx({
@@ -10040,6 +10084,7 @@ async function runClearWinLengthUpgradeAccessoryTileFx(r, c, len) {
     spellCountsByLength.value,
   );
   noteTreasureRunUpgradeUsed(treasureRunState.value);
+  noteCollectionUpgradeForWordLen(len);
   bumpWordLengthLevel(len, { observatoryBoost });
   await runClearWinLengthUpgradeShopLikeFx({
     areaRef: gameResultAreaRef,
@@ -10702,6 +10747,7 @@ async function onRemoveClick() {
       resolveDiscardedWord: (w) => getWordDefinition(w),
       bumpWordLengthLevel: (len) => {
         noteTreasureRunUpgradeUsed(treasureRunState.value);
+        noteCollectionUpgradeForWordLen(len);
         bumpWordLengthLevel(len, {
           observatoryBoost: isLengthObservatoryBoosted(
             ownedVoucherIds.value,

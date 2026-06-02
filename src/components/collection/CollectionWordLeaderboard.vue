@@ -1,41 +1,52 @@
 <template>
   <div class="collection-leaderboard">
     <p v-if="!sortedRecords.length" class="collection-leaderboard__empty">暂无记录</p>
-    <article v-for="(record, index) in sortedRecords" :key="`${record.word}-${record.recordedAt}-${index}`" class="collection-leaderboard-entry">
-      <div class="collection-leaderboard-tiles" role="img" :aria-label="record.word">
-        <LetterTile
+    <article
+      v-for="(record, index) in sortedRecords"
+      :key="`${record.word}-${record.recordedAt}-${index}`"
+      class="collection-leaderboard-entry"
+    >
+      <div class="collection-leaderboard-tiles" role="group" :aria-label="record.word">
+        <button
           v-for="(tile, tileIx) in record.tiles"
           :key="`${index}-${tileIx}-${tile.letter}`"
-          variant="grid"
-          class="collection-leaderboard-tile"
-          :letter="displayLetter(tile)"
-          :rarity="tile.rarity"
-          :material-id="tile.materialId"
-          :tile-score-bonus="tile.tileScoreBonus"
-          :tile-mult-bonus="tile.letterMultBonus"
-          :accessory-id="tile.accessoryId"
-          :treasure-accessory-id="tile.treasureAccessoryId"
-          :vowel-ghost-prev="tile.vowelGhostPrev"
-          :vowel-ghost-next="tile.vowelGhostNext"
-        />
+          type="button"
+          class="collection-leaderboard-tile-hit"
+          :aria-label="`预览字母 ${displayLetter(tile)}`"
+          @click="onTileClick(tile, $event)"
+        >
+          <LetterTile
+            variant="grid"
+            class="collection-leaderboard-tile shop-shelf-letter-tile"
+            :letter="displayLetter(tile)"
+            :rarity="tile.rarity"
+            :material-id="tile.materialId"
+            :tile-score-bonus="tile.tileScoreBonus"
+            :tile-mult-bonus="tile.letterMultBonus"
+            :accessory-id="tile.accessoryId"
+            :treasure-accessory-id="tile.treasureAccessoryId"
+            :vowel-ghost-prev="tile.vowelGhostPrev"
+            :vowel-ghost-next="tile.vowelGhostNext"
+          />
+        </button>
       </div>
-      <div class="collection-leaderboard-meta">
-        <span class="collection-leaderboard-word">{{ record.word.toUpperCase() }}</span>
-        <span class="collection-leaderboard-stat">分数 {{ record.score.toLocaleString("zh-CN") }}</span>
-        <span class="collection-leaderboard-stat">长度 {{ record.length }}</span>
+      <div v-if="sortKey === 'score'" class="collection-leaderboard-meta">
+        <span class="collection-leaderboard-stat">{{ record.score.toLocaleString("zh-CN") }}</span>
       </div>
       <div v-if="hydratedTreasures(record).length" class="collection-leaderboard-treasures">
-        <div
+        <button
           v-for="(slot, slotIx) in hydratedTreasures(record)"
           :key="`${index}-treasure-${slotIx}`"
-          class="collection-leaderboard-treasure-item"
+          type="button"
+          class="collection-leaderboard-treasure-hit"
+          :aria-label="`预览宝藏 ${slot?.name ?? ''}`"
+          @click="onTreasureClick(slot, $event)"
         >
           <TreasureSlot
             :treasure="slot"
             :gem-class="gemClassForTreasureRarity(String(slot?.rarity ?? 'rare'))"
           />
-          <span class="collection-leaderboard-treasure-name">{{ slot?.name ?? "" }}</span>
-        </div>
+        </button>
       </div>
     </article>
   </div>
@@ -56,6 +67,8 @@ const props = defineProps({
     validator: (v) => v === "score" || v === "length",
   },
 });
+
+const emit = defineEmits(["select-tile", "select-treasure"]);
 
 const sortedRecords = computed(() => {
   const list = [...(props.records ?? [])];
@@ -79,6 +92,24 @@ function hydratedTreasures(record) {
   return (record.ownedTreasures ?? [])
     .map((saved) => buildOwnedTreasureSlot(saved))
     .filter(Boolean);
+}
+
+/** @param {import('../../collection/collectionTypes.js').CollectionSubmitTileSnapshot} tile @param {MouseEvent} event */
+function onTileClick(tile, event) {
+  const el = event.currentTarget;
+  emit("select-tile", {
+    tile,
+    originEl: el instanceof HTMLElement ? el : null,
+  });
+}
+
+/** @param {Record<string, unknown>} slot @param {MouseEvent} event */
+function onTreasureClick(slot, event) {
+  const el = event.currentTarget;
+  emit("select-treasure", {
+    saved: slot,
+    originEl: el instanceof HTMLElement ? el : null,
+  });
 }
 </script>
 
@@ -105,54 +136,76 @@ function hydratedTreasures(record) {
 .collection-leaderboard-tiles {
   display: flex;
   flex-wrap: wrap;
-  gap: calc(6 * var(--rpx));
+  justify-content: center;
+  gap: calc(4 * var(--rpx));
   margin-bottom: calc(10 * var(--rpx));
+}
+
+.collection-leaderboard-tile-hit {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  border-radius: calc(4 * var(--rpx));
+  line-height: 0;
+  transition: filter 0.1s ease;
+}
+
+.collection-leaderboard-tile-hit:hover {
+  filter: brightness(1.04);
+}
+
+.collection-leaderboard-tile-hit:active {
+  filter: brightness(0.96);
 }
 
 .collection-leaderboard-tile {
   width: calc(64 * var(--rpx));
   height: calc(64 * var(--rpx));
   flex: 0 0 auto;
+  pointer-events: none;
 }
 
 .collection-leaderboard-meta {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: calc(8 * var(--rpx)) calc(16 * var(--rpx));
+  justify-content: center;
   margin-bottom: calc(10 * var(--rpx));
 }
 
-.collection-leaderboard-word {
-  font-size: calc(30 * var(--rpx));
-  font-weight: 700;
-  color: var(--text-dark, #3c3a32);
-}
-
 .collection-leaderboard-stat {
-  font-size: calc(24 * var(--rpx));
-  color: var(--text-muted, #776e65);
+  font-size: calc(26 * var(--rpx));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dark, #3c3a32);
 }
 
 .collection-leaderboard-treasures {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: calc(10 * var(--rpx));
 }
 
-.collection-leaderboard-treasure-item {
+.collection-leaderboard-treasure-hit {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: calc(4 * var(--rpx));
   width: calc(72 * var(--rpx));
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  border-radius: calc(4 * var(--rpx));
+  transition: filter 0.1s ease;
 }
 
-.collection-leaderboard-treasure-name {
-  font-size: calc(20 * var(--rpx));
-  line-height: 1.2;
-  text-align: center;
-  color: var(--text-dark, #3c3a32);
-  word-break: break-word;
+.collection-leaderboard-treasure-hit:hover {
+  filter: brightness(1.04);
+}
+
+.collection-leaderboard-treasure-hit:active {
+  filter: brightness(0.96);
 }
 </style>

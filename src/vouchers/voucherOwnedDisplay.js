@@ -88,7 +88,21 @@ export function buildOwnedVoucherDetailTreasure(group) {
   const tier2Description = tier2?.description ?? tier2Def?.description ?? "";
   /** @type {Array<{ tier: number, title: string, description: string, emoji: string }>} */
   const ownedVoucherTiers = [];
-  if (tier1) {
+  const tier1ForPanels = tier1 ?? tier1Def;
+  if (tier2 && tier1ForPanels) {
+    ownedVoucherTiers.push({
+      tier: 1,
+      title: "一级",
+      description: tier1?.description ?? tier1Def?.description ?? "",
+      emoji: tier1ForPanels.emoji,
+    });
+    ownedVoucherTiers.push({
+      tier: 2,
+      title: "二级",
+      description: tier2Description,
+      emoji: tier2.emoji,
+    });
+  } else if (tier1) {
     ownedVoucherTiers.push({
       tier: 1,
       title: "一级",
@@ -96,12 +110,55 @@ export function buildOwnedVoucherDetailTreasure(group) {
       emoji: tier1.emoji,
     });
   }
-  if (tier2) {
+  const singleTierDescription = ownedVoucherTiers[0]?.description ?? "";
+  return {
+    offerType: "voucher",
+    pairId,
+    voucherId: top.id,
+    emoji: top.emoji,
+    name: formatVoucherDisplayName(top, { pairHasTier2Owned: hasT2 }),
+    description: ownedVoucherTiers.length === 1 ? singleTierDescription : "",
+    ownedVoucherTiers,
+    price: top.price,
+    rarity: "common",
+    treasureId: `voucher_${top.id}`,
+  };
+}
+
+/**
+ * 收藏图鉴：按已发现最高 tier 构建优惠券详情（二级点开时展示一级+二级两框）。
+ * @param {string} pairId
+ * @param {0 | 1 | 2} discoveredTier
+ */
+export function buildDiscoveredVoucherDetailTreasure(pairId, discoveredTier) {
+  const tier = /** @type {0 | 1 | 2} */ (Math.max(0, Math.min(2, Math.floor(Number(discoveredTier) || 0))));
+  if (tier < 1) return null;
+  const tier1Def = getTier1DefForPair(pairId);
+  const tier2Def = getTier2DefForPair(pairId);
+  if (!tier1Def) return null;
+  const top = tier >= 2 && tier2Def ? tier2Def : tier1Def;
+  const hasT2 = tier >= 2 && Boolean(tier2Def);
+  /** @type {Array<{ tier: number, title: string, description: string, emoji: string }>} */
+  const ownedVoucherTiers = [];
+  if (tier >= 2 && tier2Def) {
+    ownedVoucherTiers.push({
+      tier: 1,
+      title: "一级",
+      description: tier1Def.description ?? "",
+      emoji: tier1Def.emoji,
+    });
     ownedVoucherTiers.push({
       tier: 2,
       title: "二级",
-      description: tier2Description,
-      emoji: tier2.emoji,
+      description: tier2Def.description ?? "",
+      emoji: tier2Def.emoji,
+    });
+  } else {
+    ownedVoucherTiers.push({
+      tier: 1,
+      title: "一级",
+      description: tier1Def.description ?? "",
+      emoji: tier1Def.emoji,
     });
   }
   const singleTierDescription = ownedVoucherTiers[0]?.description ?? "";

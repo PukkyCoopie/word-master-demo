@@ -4180,6 +4180,43 @@ textarea::-moz-placeholder {
 		font-size: calc(100cqmin * 13 / 108);
 	}
 
+	.shop-shelf-letter-tile.grid-tile .tile-bonus-pill,
+	.desc-inline-entity__letter.grid-tile .tile-bonus-pill {
+		min-width: calc(100cqmin * 18 / 108);
+		padding: calc(100cqmin * 2 / 108) calc(100cqmin * 5 / 108);
+		border-radius: calc(100cqmin * 5 / 108);
+		font-size: calc(100cqmin * 14 / 108);
+	}
+
+	.shop-shelf-letter-tile.grid-tile .tile-bonus-pill--score,
+	.desc-inline-entity__letter.grid-tile .tile-bonus-pill--score {
+		top: calc(100cqmin * 4 / 108);
+		left: calc(100cqmin * 4 / 108);
+	}
+
+	.shop-shelf-letter-tile.grid-tile .tile-bonus-pill--mult,
+	.desc-inline-entity__letter.grid-tile .tile-bonus-pill--mult {
+		top: calc(100cqmin * 4 / 108);
+		right: calc(100cqmin * 4 / 108);
+	}
+
+	.shop-shelf-letter-tile.grid-tile .vowel-ghost,
+	.desc-inline-entity__letter.grid-tile .vowel-ghost {
+		font-size: calc(100cqmin * 24 / 108);
+	}
+
+	.shop-shelf-letter-tile.grid-tile .vowel-ghost--prev,
+	.desc-inline-entity__letter.grid-tile .vowel-ghost--prev {
+		top: calc(100cqmin * 20 / 108);
+		left: calc(100cqmin * 24 / 108);
+	}
+
+	.shop-shelf-letter-tile.grid-tile .vowel-ghost--next,
+	.desc-inline-entity__letter.grid-tile .vowel-ghost--next {
+		right: calc(100cqmin * 24 / 108);
+		bottom: calc(100cqmin * 20 / 108);
+	}
+
 	.grid-tile.tile-material-wildcard .letter-tile-char,
 	.desc-inline-entity__letter.grid-tile.tile-material-wildcard .letter-tile-char {
 		font-size: calc(100cqmin * 42 / 108);

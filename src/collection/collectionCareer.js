@@ -1,6 +1,7 @@
 import { VOUCHERS_BY_ID } from "../vouchers/voucherDefinitions.js";
 import { ACCESSORY_CATALOG } from "../accessories/accessoryCatalog.js";
 import { TILE_MATERIAL_CONCEPT_BY_ID } from "../game/gameConceptCopy.js";
+import { COLLECTION_UPGRADE_TREASURE_IDS } from "./collectionUpgradeCatalog.js";
 import { COLLECTION_LEADERBOARD_MAX } from "./collectionTypes.js";
 
 /** @param {unknown} raw @returns {string[]} */
@@ -114,6 +115,7 @@ function normalizeWordRecords(raw) {
 export function normalizeCollectionCareerFields(career, raw) {
   career.discoveredTreasureIds = normalizeIdList(raw.discoveredTreasureIds);
   career.discoveredSpellIds = normalizeIdList(raw.discoveredSpellIds);
+  career.discoveredUpgradeIds = normalizeIdList(raw.discoveredUpgradeIds);
   career.discoveredVoucherTiers = normalizeVoucherTiers(raw.discoveredVoucherTiers);
   career.discoveredMaterialIds = normalizeIdList(raw.discoveredMaterialIds);
   career.discoveredAccessoryIds = normalizeIdList(raw.discoveredAccessoryIds);
@@ -147,6 +149,19 @@ export function recordSpellDiscovered(career, spellId) {
   if (!Array.isArray(career.discoveredSpellIds)) career.discoveredSpellIds = [];
   if (career.discoveredSpellIds.includes(id)) return false;
   career.discoveredSpellIds.push(id);
+  return true;
+}
+
+/**
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats} career
+ * @param {string} upgradeTreasureId 升级 catalog id，如 upgrade_len3、upgrade_rarity_common（任意来源触发均可）
+ */
+export function recordUpgradeDiscovered(career, upgradeTreasureId) {
+  const id = String(upgradeTreasureId ?? "").trim();
+  if (!id || !COLLECTION_UPGRADE_TREASURE_IDS.has(id)) return false;
+  if (!Array.isArray(career.discoveredUpgradeIds)) career.discoveredUpgradeIds = [];
+  if (career.discoveredUpgradeIds.includes(id)) return false;
+  career.discoveredUpgradeIds.push(id);
   return true;
 }
 

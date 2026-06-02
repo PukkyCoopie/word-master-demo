@@ -151,7 +151,7 @@ export async function runSpellOfferRandomPickAnim(opts) {
   };
 
   const n = indices.length;
-  const minAdvances = Math.max(Math.floor(n * 2.2), 6);
+  const minAdvances = Math.max(Math.floor(n * 1.1), 3);
   const totalAdvances = planAdvanceCount(n, winPos, minAdvances);
 
   let pos = 0;

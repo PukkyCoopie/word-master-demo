@@ -1,5 +1,6 @@
 import { createEmptySlotCareerStats } from "./runSaveSchema.js";
 import { normalizeCollectionCareerFields } from "../collection/collectionCareer.js";
+import { formatCollectionUnlockProgressDisplay } from "../collection/collectionProgress.js";
 
 /**
  * @param {unknown} raw
@@ -85,13 +86,13 @@ export function getSlotCareerStatRows(career) {
     : "—";
   return [
     { label: "开局次数", value: String(c.runsStarted) },
-    { label: "完成局数", value: String(c.runsCompleted) },
     { label: "胜利局数", value: String(c.runsWon) },
     { label: "历史最佳单词", value: best },
     { label: "累计拼词", value: c.totalLettersUsed > 0 ? String(c.totalLettersUsed) : "—" },
     { label: "累计弃牌", value: c.totalLettersDiscarded > 0 ? String(c.totalLettersDiscarded) : "—" },
     { label: "累计购物", value: c.totalShopPurchases > 0 ? String(c.totalShopPurchases) : "—" },
     { label: "累计重掷", value: c.totalRerolls > 0 ? String(c.totalRerolls) : "—" },
+    { label: "收藏解锁进度", value: formatCollectionUnlockProgressDisplay(c) },
   ];
 }
 

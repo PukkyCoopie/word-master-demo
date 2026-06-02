@@ -209,23 +209,26 @@
                 ></i>
               </div>
               <div
-                v-if="!isDeckOffer && !isVoucherOwnedMode"
+                v-if="!isDeckOffer && showDetailShelfPrice"
                 class="shop-treasure-price"
-                :aria-label="mode === 'pack-inner' ? '参考售价' : mode === 'offer' ? '售价' : '回收价'"
+                :aria-label="mode === 'pack-inner' ? '参考售价' : mode === 'offer' || isCollectionPreviewMode ? '售价' : '回收价'"
               >
                 <div
                   class="shop-treasure-price-inner"
                   :class="{ 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' }"
                 >
-                  <template v-if="mode === 'offer'">${{ offerPriceDisplayed }}</template>
-                  <template v-else-if="mode === 'pack-inner'">${{ offerPriceDisplayed }}</template>
-                  <template v-else>${{ sellRefund }}</template>
+                  <template v-if="shelfPriceKind === 'sell' || (shelfPriceKind == null && isOwnedMode)">${{ sellRefund }}</template>
+                  <template v-else>${{ offerPriceDisplayed }}</template>
                 </div>
               </div>
             </div>
           </div>
 
-          <div ref="descRef" class="treasure-detail-desc-card treasure-detail-stagger-el">
+          <div
+            v-if="showTreasureMainDescCard"
+            ref="descRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
             <template v-if="isDeckOffer">
               <div v-if="showDetailRarityTag" class="treasure-detail-rarity-row">
                 <span
@@ -477,7 +480,7 @@
             :class="{ 'treasure-detail-actions--spell-grant': mode === 'offer' && spellGrantFlow }"
           >
             <button
-              v-if="mode === 'offer' && spellGrantFlow"
+              v-if="mode === 'offer' && !isCollectionPreviewMode && spellGrantFlow"
               type="button"
               class="shop-btn shop-btn--use"
               @click="emit('purchase')"
@@ -485,7 +488,7 @@
               使用
             </button>
             <button
-              v-else-if="mode === 'offer'"
+              v-else-if="mode === 'offer' && !isCollectionPreviewMode"
               type="button"
               class="shop-btn shop-btn--buy"
               :disabled="!canBuyOffer"
@@ -513,7 +516,7 @@
               卖出 ${{ sellRefund }}
             </button>
             <button
-              v-if="!(mode === 'offer' && spellGrantFlow)"
+              v-if="!(mode === 'offer' && !isCollectionPreviewMode && spellGrantFlow)"
               type="button"
               class="shop-btn shop-btn--next"
               @click="requestClose"
@@ -640,13 +643,13 @@
             aria-hidden="true"
           ></i>
         </div>
-        <div v-if="!isDeckOffer && !isVoucherOwnedMode" class="shop-treasure-price">
+        <div v-if="!isDeckOffer && showDetailShelfPrice" class="shop-treasure-price">
           <div
             class="shop-treasure-price-inner"
             :class="{ 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' }"
           >
-            <template v-if="mode === 'offer' || mode === 'pack-inner'">${{ offerPriceDisplayed }}</template>
-            <template v-else>${{ sellRefund }}</template>
+            <template v-if="shelfPriceKind === 'sell' || (shelfPriceKind == null && isOwnedMode)">${{ sellRefund }}</template>
+            <template v-else>${{ offerPriceDisplayed }}</template>
           </div>
         </div>
       </div>
@@ -722,11 +725,27 @@ const props = defineProps({
   probabilityDisplayDoubled: { type: Boolean, default: false },
   /** 骰子/重播释法：主按钮为「使用」（绿），非商店购买 */
   spellGrantFlow: { type: Boolean, default: false },
+  /** null=按 mode 推断；offer=货架标价（收藏图鉴）；sell=卖出价 */
+  shelfPriceKind: {
+    type: String,
+    default: null,
+    validator: (v) => v == null || v === "offer" || v === "sell",
+  },
 });
 
-const offerPriceDisplayed = computed(() =>
-  applyShopDiscountPrice(Number(props.treasure?.price) || 0, props.ownedVoucherIds ?? []),
-);
+const isCollectionPreviewMode = computed(() => props.mode === "collection-preview");
+
+const showDetailShelfPrice = computed(() => {
+  if (props.shelfPriceKind === "offer" || props.shelfPriceKind === "sell") return true;
+  if (isCollectionPreviewMode.value) return false;
+  return props.mode !== "voucher-owned";
+});
+
+const offerPriceDisplayed = computed(() => {
+  const base = Math.max(0, Math.floor(Number(props.treasure?.price) || 0));
+  if (isCollectionPreviewMode.value || props.shelfPriceKind === "offer") return base;
+  return applyShopDiscountPrice(base, props.ownedVoucherIds ?? []);
+});
 
 const hasTreasureDescBody = computed(() => {
   const raw = props.descriptionOverride ?? props.treasure?.description;
@@ -1000,6 +1019,17 @@ const voucherDetailStacked = computed(() => voucherOwnedTierPanels.value.length 
 const showVoucherTierPanels = computed(() => voucherOwnedTierPanels.value.length >= 2);
 
 const showMainVoucherDesc = computed(() => !showVoucherTierPanels.value);
+
+const showTreasureMainDescCard = computed(() => {
+  if (isDeckOffer.value) return true;
+  if (isVoucherOffer.value && showVoucherTierPanels.value) return false;
+  if (showSpellReplayTargetRow.value) return true;
+  if (showDetailRarityTag.value) return true;
+  if (hasTreasureDescBody.value) {
+    return !isVoucherOffer.value || showMainVoucherDesc.value;
+  }
+  return false;
+});
 
 const bundlePackTypeLabel = computed(() => {
   if (!isBundlePack.value) return "";

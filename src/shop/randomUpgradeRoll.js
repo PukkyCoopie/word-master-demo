@@ -41,6 +41,7 @@ export function applyRandomUpgradePick(pick, ctx) {
       ctx.setRarityLevel(rk, cur + 1);
     }
     ctx.onUpgradeUsed?.();
+    ctx.onUpgradeDiscovered?.(pick);
     return;
   }
   const { minLen, maxLen } = pick.g;
@@ -53,6 +54,7 @@ export function applyRandomUpgradePick(pick, ctx) {
     }
   }
   ctx.onUpgradeUsed?.();
+  ctx.onUpgradeDiscovered?.(pick);
 }
 
 /**

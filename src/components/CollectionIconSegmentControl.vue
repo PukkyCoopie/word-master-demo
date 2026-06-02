@@ -85,7 +85,7 @@ function onSelect(id) {
   z-index: 1;
   border: none;
   padding: calc(12 * var(--rpx)) calc(4 * var(--rpx));
-  font-size: calc(45 * var(--rpx));
+  font-size: calc(36 * var(--rpx));
   line-height: 1;
   color: var(--text-dark, #3c3a32);
   background: transparent;

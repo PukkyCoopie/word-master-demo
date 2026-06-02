@@ -20,14 +20,22 @@
           <CollectionTreasureGrid
             v-if="activeTab === 'treasures'"
             :discovered-treasure-ids="career.discoveredTreasureIds"
+            @select-treasure="onCollectionTreasureSelect"
           />
           <CollectionSpellGrid
             v-else-if="activeTab === 'spells'"
             :discovered-spell-ids="career.discoveredSpellIds"
+            @select-spell="onCollectionSpellSelect"
+          />
+          <CollectionUpgradeGrid
+            v-else-if="activeTab === 'upgrades'"
+            :discovered-upgrade-ids="career.discoveredUpgradeIds"
+            @select-upgrade="onCollectionUpgradeSelect"
           />
           <CollectionVoucherGrid
             v-else-if="activeTab === 'vouchers'"
             :discovered-voucher-tiers="career.discoveredVoucherTiers"
+            @select-voucher="onCollectionVoucherSelect"
           />
           <CollectionMaterialGrid
             v-else-if="activeTab === 'materials'"
@@ -37,19 +45,23 @@
             v-else-if="activeTab === 'accessories'"
             :discovered-accessory-ids="career.discoveredAccessoryIds"
           />
+          <div v-else-if="activeTab === 'achievements'" class="collection-empty-tab">
+            <p>成就系统开发中</p>
+          </div>
           <CollectionWordLeaderboard
             v-else-if="activeTab === 'score'"
             sort-key="score"
             :records="career.scoreLeaderboard"
+            @select-tile="onLeaderboardTileSelect"
+            @select-treasure="onLeaderboardTreasureSelect"
           />
           <CollectionWordLeaderboard
             v-else-if="activeTab === 'length'"
             sort-key="length"
             :records="career.lengthLeaderboard"
+            @select-tile="onLeaderboardTileSelect"
+            @select-treasure="onLeaderboardTreasureSelect"
           />
-          <div v-else-if="activeTab === 'achievements'" class="collection-empty-tab">
-            <p>成就系统开发中</p>
-          </div>
         </div>
       </div>
       <div
@@ -66,14 +78,43 @@
         />
       </div>
     </div>
+
+    <TreasureDetailLayer
+      v-if="collectionTreasureDetail"
+      :treasure="collectionTreasureDetail.treasure"
+      mode="collection-preview"
+      :origin-rect="collectionTreasureDetail.originRect"
+      :shelf-price-kind="collectionTreasureDetail.shelfPriceKind"
+      :wallet-amount="0"
+      @close="collectionTreasureDetail = null"
+    />
+
+    <TileDetailLayer
+      v-if="collectionTileDetailPayload"
+      :payload="collectionTileDetailPayload"
+      :origin-rect="collectionTileDetailOriginRect"
+      @close="closeCollectionTileDetail"
+    />
   </div>
 </template>
 
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import TreasureDetailLayer from "./TreasureDetailLayer.vue";
+import TileDetailLayer from "./TileDetailLayer.vue";
+import { buildDiscoveredVoucherDetailTreasure } from "../vouchers/voucherOwnedDisplay.js";
+import {
+  buildCollectionOwnedTreasurePreview,
+  buildCollectionSpellPreview,
+  buildCollectionUpgradePreview,
+  buildCollectionTreasurePreview,
+  buildTileDetailPayloadFromCollectionSnapshot,
+  collectionFlyOriginRectFromEl,
+} from "../collection/collectionPreview.js";
 import CollectionIconSegmentControl from "./CollectionIconSegmentControl.vue";
 import CollectionTreasureGrid from "./collection/CollectionTreasureGrid.vue";
 import CollectionSpellGrid from "./collection/CollectionSpellGrid.vue";
+import CollectionUpgradeGrid from "./collection/CollectionUpgradeGrid.vue";
 import CollectionVoucherGrid from "./collection/CollectionVoucherGrid.vue";
 import CollectionMaterialGrid from "./collection/CollectionMaterialGrid.vue";
 import CollectionAccessoryTable from "./collection/CollectionAccessoryTable.vue";
@@ -83,6 +124,7 @@ import {
   playCollectionTabEnter,
   prepareCollectionTabEnter,
 } from "../collection/collectionTabEnterAnim.js";
+import { formatCollectionTabTitle } from "../collection/collectionProgress.js";
 
 const props = defineProps({
   career: { type: Object, required: true },
@@ -95,12 +137,13 @@ defineEmits(["back"]);
 const COLLECTION_TABS = Object.freeze([
   { id: "treasures", label: "宝藏", iconClass: "ri-gift-2-line" },
   { id: "spells", label: "法术", iconClass: "ri-magic-line" },
+  { id: "upgrades", label: "升级", iconClass: "ri-arrow-up-box-fill" },
   { id: "vouchers", label: "优惠券", iconClass: "ri-coupon-3-line" },
   { id: "materials", label: "材质", iconClass: "ri-stack-line" },
   { id: "accessories", label: "配饰", iconClass: "ri-sparkling-line" },
+  { id: "achievements", label: "成就", iconClass: "ri-medal-line" },
   { id: "score", label: "分数榜", iconClass: "ri-trophy-line" },
   { id: "length", label: "长度榜", iconClass: "ri-ruler-line" },
-  { id: "achievements", label: "成就", iconClass: "ri-medal-line" },
 ]);
 
 const TAB_TITLES = Object.freeze(
@@ -111,7 +154,17 @@ const activeTab = ref("treasures");
 const tabPanelRef = ref(null);
 const tabEnterReady = ref(false);
 
-const activeTitle = computed(() => TAB_TITLES[activeTab.value] ?? "收藏");
+/** @type {import('vue').Ref<{ treasure: object, originRect: object | null, shelfPriceKind: 'offer' | null } | null>} */
+const collectionTreasureDetail = ref(null);
+/** @type {import('vue').Ref<Record<string, unknown> | null>} */
+const collectionTileDetailPayload = ref(null);
+/** @type {import('vue').Ref<{ left: number, top: number, width: number, height: number } | null>} */
+const collectionTileDetailOriginRect = ref(null);
+
+const activeTitle = computed(() => {
+  const base = TAB_TITLES[activeTab.value] ?? "收藏";
+  return formatCollectionTabTitle(base, activeTab.value, props.career);
+});
 
 const {
   scrollBodyRef,
@@ -122,7 +175,7 @@ const {
   onScrollBody,
   onThumbPointerDown,
   updateScrollbarMetrics,
-} = usePanelScrollbar({ thumbColor: "#8a8580" });
+} = usePanelScrollbar({ thumbColor: "#8a8580", contentRef: tabPanelRef });
 
 async function runTabEnterAnimation(enterDelayMs = 0) {
   await nextTick();
@@ -134,7 +187,81 @@ async function runTabEnterAnimation(enterDelayMs = 0) {
   updateScrollbarMetrics();
 }
 
+function closeCollectionPreviews() {
+  collectionTreasureDetail.value = null;
+  closeCollectionTileDetail();
+}
+
+function closeCollectionTileDetail() {
+  collectionTileDetailPayload.value = null;
+  collectionTileDetailOriginRect.value = null;
+}
+
+/**
+ * @param {object} treasure
+ * @param {HTMLElement | null | undefined} originEl
+ * @param {'offer' | null} shelfPriceKind
+ */
+function openCollectionTreasurePreview(treasure, originEl, shelfPriceKind) {
+  if (!treasure) return;
+  closeCollectionTileDetail();
+  collectionTreasureDetail.value = {
+    treasure,
+    originRect: collectionFlyOriginRectFromEl(originEl),
+    shelfPriceKind,
+  };
+}
+
+/** @param {{ treasureId?: string, originEl?: HTMLElement | null }} payload */
+function onCollectionTreasureSelect(payload) {
+  const tid = String(payload?.treasureId ?? "").trim();
+  if (!tid) return;
+  const treasure = buildCollectionTreasurePreview(tid);
+  openCollectionTreasurePreview(treasure, payload.originEl, "offer");
+}
+
+/** @param {{ spellId?: string, originEl?: HTMLElement | null }} payload */
+function onCollectionSpellSelect(payload) {
+  const sid = String(payload?.spellId ?? "").trim();
+  if (!sid) return;
+  const treasure = buildCollectionSpellPreview(sid);
+  openCollectionTreasurePreview(treasure, payload.originEl, "offer");
+}
+
+/** @param {{ treasureId?: string, originEl?: HTMLElement | null }} payload */
+function onCollectionUpgradeSelect(payload) {
+  const tid = String(payload?.treasureId ?? "").trim();
+  if (!tid) return;
+  const treasure = buildCollectionUpgradePreview(tid);
+  openCollectionTreasurePreview(treasure, payload.originEl, "offer");
+}
+
+/** @param {{ pairId: string, discoveredTier: number, originEl?: HTMLElement | null }} payload */
+function onCollectionVoucherSelect(payload) {
+  const pairId = String(payload?.pairId ?? "").trim();
+  const tier = Math.max(0, Math.min(2, Math.floor(Number(payload?.discoveredTier) || 0)));
+  if (!pairId || tier < 1) return;
+  const treasure = buildDiscoveredVoucherDetailTreasure(pairId, /** @type {0 | 1 | 2} */ (tier));
+  openCollectionTreasurePreview(treasure, payload.originEl, "offer");
+}
+
+/** @param {{ tile: import('../collection/collectionTypes.js').CollectionSubmitTileSnapshot, originEl?: HTMLElement | null }} payload */
+function onLeaderboardTileSelect(payload) {
+  const tilePayload = buildTileDetailPayloadFromCollectionSnapshot(payload?.tile);
+  if (!tilePayload) return;
+  collectionTreasureDetail.value = null;
+  collectionTileDetailPayload.value = tilePayload;
+  collectionTileDetailOriginRect.value = collectionFlyOriginRectFromEl(payload?.originEl);
+}
+
+/** @param {{ saved: Record<string, unknown>, originEl?: HTMLElement | null }} payload */
+function onLeaderboardTreasureSelect(payload) {
+  const treasure = buildCollectionOwnedTreasurePreview(payload?.saved);
+  openCollectionTreasurePreview(treasure, payload.originEl, null);
+}
+
 watch(activeTab, async () => {
+  closeCollectionPreviews();
   if (!tabEnterReady.value) return;
   scrollBodyRef.value?.scrollTo({ top: 0, behavior: "auto" });
   await runTabEnterAnimation(0);
@@ -291,12 +418,37 @@ onMounted(async () => {
   column-gap: calc(16 * var(--rpx));
 }
 
+.collection-page .collection-grid--upgrades {
+  justify-content: center;
+}
+
 .collection-page .collection-grid--vouchers {
   display: grid;
-  grid-template-columns: repeat(4, var(--collection-shop-cell-size));
-  justify-content: start;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  justify-items: center;
+  align-content: flex-start;
   row-gap: calc(18 * var(--rpx));
-  column-gap: calc(14 * var(--rpx));
+  column-gap: calc(10 * var(--rpx));
+}
+
+.collection-page .collection-grid--vouchers .shop-treasure-product {
+  width: 100%;
+  max-width: var(--collection-shop-cell-size);
+  flex: 0 1 var(--collection-shop-cell-size);
+}
+
+.collection-page .collection-grid--vouchers .voucher-stamp-stack {
+  width: 100%;
+  max-width: var(--collection-shop-cell-size);
+  margin: 0 auto;
+}
+
+.collection-page .collection-grid--vouchers .voucher-stamp-stack--stacked {
+  height: var(--collection-shop-cell-size);
+}
+
+.collection-page .collection-grid--vouchers .voucher-stamp__frame {
+  height: var(--collection-shop-cell-size);
 }
 
 .collection-page .shop-treasure-product {
@@ -327,5 +479,10 @@ onMounted(async () => {
 
 .collection-page .voucher-stamp-stack {
   width: 100%;
+}
+
+.collection-page .collection-leaderboard-treasure-hit .treasure-slot {
+  width: calc(72 * var(--rpx));
+  height: calc(72 * var(--rpx));
 }
 </style>

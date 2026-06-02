@@ -4,10 +4,12 @@
       v-for="entry in entries"
       :key="entry.treasureId"
       :unknown="!entry.discovered"
+      :treasure-id="entry.treasureId"
       :name="entry.name"
       :emoji="entry.emoji"
       :rarity="entry.rarity"
       :price="entry.price"
+      @select="$emit('select-treasure', $event)"
     />
   </div>
 </template>
@@ -21,6 +23,8 @@ import CollectionShopTreasureCell from "./CollectionShopTreasureCell.vue";
 const props = defineProps({
   discoveredTreasureIds: { type: Array, default: () => [] },
 });
+
+defineEmits(["select-treasure"]);
 
 const discoveredSet = computed(() => new Set((props.discoveredTreasureIds ?? []).map(String)));
 
