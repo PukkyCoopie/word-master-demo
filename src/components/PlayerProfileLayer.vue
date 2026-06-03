@@ -26,24 +26,11 @@
       </button>
 
       <section class="profile-section">
-        <button
-          type="button"
-          class="profile-avatar-btn profile-layer-enter-stagger profile-layer-enter-sync-avatar-fly"
-          @click="triggerAvatarPick"
-        >
+        <div class="profile-avatar-display profile-layer-enter-stagger profile-layer-enter-sync-avatar-fly">
           <span ref="avatarMeasureRef" class="profile-avatar-large" :style="avatarBlockStyle">
-            <img v-if="avatarUrl" :src="avatarUrl" alt="" class="profile-avatar-img" />
-            <span v-else class="profile-avatar-letter">{{ initialLetter }}</span>
+            <span class="profile-avatar-letter">{{ initialLetter }}</span>
           </span>
-          <span class="profile-avatar-hint profile-layer-enter-stagger">点击更换头像</span>
-        </button>
-        <input
-          ref="fileInputRef"
-          type="file"
-          accept="image/*"
-          class="profile-file-input"
-          @change="onAvatarFileChange"
-        />
+        </div>
         <div class="profile-name-toolbar profile-layer-enter-stagger profile-layer-enter-sync-name-fly">
           <div class="profile-name-input-shell">
             <input
@@ -69,14 +56,6 @@
             <i class="ri-arrow-left-right-line" aria-hidden="true" />
           </button>
         </div>
-        <button
-          v-if="avatarUrl"
-          type="button"
-          class="profile-clear-avatar profile-layer-enter-stagger"
-          @click="onClearAvatar"
-        >
-          清除头像
-        </button>
       </section>
 
       <section class="profile-section">
@@ -92,8 +71,6 @@
           </div>
         </div>
       </section>
-
-      <p v-if="avatarError" class="profile-error profile-layer-enter-stagger" role="alert">{{ avatarError }}</p>
     </div>
 
     <div v-if="flyClonesActive" class="profile-fly-layer" aria-hidden="true">
@@ -102,8 +79,7 @@
         class="profile-fly-clone profile-fly-clone--avatar"
         :style="[avatarFlyBoxStyle, avatarBlockStyle]"
       >
-        <img v-if="avatarUrl" :src="avatarUrl" alt="" class="profile-fly-clone-img" />
-        <span v-else ref="avatarFlyLetterRef" class="profile-fly-clone-letter">{{ initialLetter }}</span>
+        <span ref="avatarFlyLetterRef" class="profile-fly-clone-letter">{{ initialLetter }}</span>
       </div>
       <div ref="nameFlyRef" class="profile-fly-clone profile-fly-clone--name" :style="nameFlyBoxStyle">
         {{ displayName }}
@@ -115,10 +91,9 @@
 <script setup>
 import { computed, nextTick, onUnmounted, ref, watch } from "vue";
 import {
-  clearAvatar,
   getProfileInitialLetter,
+  getProfileInitialLetterStyle,
   playerProfile,
-  setAvatarFromFile,
   setDisplayName,
 } from "../profile/playerProfile.js";
 import {
@@ -144,8 +119,6 @@ const emit = defineEmits(["close", "switch-save"]);
 
 const nameInputId = "player-profile-name";
 const nameDraft = ref(playerProfile.displayName);
-const fileInputRef = ref(/** @type {HTMLInputElement | null} */ (null));
-const avatarError = ref("");
 const closing = ref(false);
 const flyClonesActive = ref(false);
 const enterPending = ref(false);
@@ -163,15 +136,8 @@ const nameFlyRef = ref(/** @type {HTMLElement | null} */ (null));
 let enterTl = null;
 
 const displayName = computed(() => playerProfile.displayName || "Player");
-const avatarUrl = computed(() => playerProfile.avatarDataUrl);
 const initialLetter = computed(() => getProfileInitialLetter());
-
-const avatarBlockStyle = computed(() => {
-  if (avatarUrl.value) return undefined;
-  const ch = initialLetter.value.charCodeAt(0) || 80;
-  const hue = (ch * 17) % 360;
-  return { background: `hsl(${hue} 42% 62%)` };
-});
+const avatarBlockStyle = computed(() => getProfileInitialLetterStyle());
 
 const careerRows = computed(() => {
   void props.refreshKey;
@@ -266,7 +232,6 @@ watch(
     if (v) {
       enterPending.value = true;
       nameDraft.value = playerProfile.displayName;
-      avatarError.value = "";
       runEnterAnimation();
       return;
     }
@@ -283,26 +248,6 @@ watch(
 function commitName() {
   setDisplayName(nameDraft.value);
   nameDraft.value = playerProfile.displayName;
-}
-
-function triggerAvatarPick() {
-  fileInputRef.value?.click();
-}
-
-/** @param {Event} e */
-async function onAvatarFileChange(e) {
-  const input = /** @type {HTMLInputElement} */ (e.target);
-  const file = input.files?.[0];
-  input.value = "";
-  if (!file) return;
-  avatarError.value = "";
-  const ok = await setAvatarFromFile(file, "upload");
-  if (!ok) avatarError.value = "头像过大或格式不支持，请换一张较小的图片";
-}
-
-function onClearAvatar() {
-  clearAvatar();
-  avatarError.value = "";
 }
 
 onUnmounted(() => {
@@ -375,14 +320,6 @@ onUnmounted(() => {
 
 .profile-fly-clone--avatar {
   border-radius: calc(8 * var(--rpx));
-  background: #5a8fb8;
-}
-
-.profile-fly-clone-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 .profile-fly-clone-letter {
@@ -450,17 +387,10 @@ onUnmounted(() => {
   color: var(--text-dark, #3c3a32);
 }
 
-.profile-avatar-btn {
+.profile-avatar-display {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: calc(8 * var(--rpx));
+  justify-content: center;
   margin: 0 auto calc(14 * var(--rpx));
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-family: inherit;
 }
 
 .profile-avatar-large {
@@ -471,29 +401,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #5a8fb8;
   box-shadow: var(--shadow);
-}
-
-.profile-avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .profile-avatar-letter {
   font-size: calc(42 * var(--rpx));
   font-weight: 800;
   color: #f9f6f2;
-}
-
-.profile-avatar-hint {
-  font-size: calc(24 * var(--rpx));
-  color: var(--text-muted, #776e65);
-}
-
-.profile-file-input {
-  display: none;
 }
 
 .profile-name-toolbar {
@@ -569,18 +483,6 @@ onUnmounted(() => {
   filter: brightness(0.92);
 }
 
-.profile-clear-avatar {
-  margin-top: calc(8 * var(--rpx));
-  padding: 0;
-  border: none;
-  background: none;
-  font-family: inherit;
-  font-size: calc(24 * var(--rpx));
-  color: var(--text-muted, #776e65);
-  cursor: pointer;
-  text-decoration: underline;
-}
-
 .profile-stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -606,12 +508,5 @@ onUnmounted(() => {
 .profile-stat-label {
   font-size: calc(24 * var(--rpx));
   color: var(--text-muted, #776e65);
-}
-
-.profile-error {
-  margin: calc(10 * var(--rpx)) 0 0;
-  font-size: calc(24 * var(--rpx));
-  color: #c85a54;
-  text-align: center;
 }
 </style>

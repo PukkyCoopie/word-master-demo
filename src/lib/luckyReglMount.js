@@ -3,6 +3,12 @@
  */
 import createREGL from "regl";
 import { materialHubSubscribeTick, materialHubUnsubscribeTick } from "./reglMaterialTicker.js";
+import {
+  anyReglSubscriberAnimated,
+  applyReglSubscriberAnimated,
+  blitReglOffscreenToSubscriber,
+  findReglSubscriberByCanvas,
+} from "./reglSubscriberAnimation.js";
 import { forceLoseWebglContext } from "./reglDebugLog.js";
 
 const LUCKY_VERT = `
@@ -92,40 +98,41 @@ function destroyLuckyHub() {
   luckyHub = null;
 }
 
-/** @typedef {{ canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number }} LuckySubscriber */
+/** @typedef {import("./reglSubscriberAnimation.js").ReglDisplaySubscriber} LuckySubscriber */
 
 /** @type {Set<LuckySubscriber>} */
 const luckySubscribers = new Set();
 
-function luckyHubTick() {
-  if (luckySubscribers.size === 0 || !luckyHub) return;
-  const { offscreen, regl, draw } = luckyHub;
+function drawLuckyHubFrame() {
+  if (!luckyHub) return;
+  const { regl, draw } = luckyHub;
   regl.poll();
   draw({ viewport: { x: 0, y: 0, width: OFFSCREEN_TEX_PX, height: OFFSCREEN_TEX_PX } });
+}
+
+function blitLuckySubscriber(sub) {
+  if (!luckyHub) return;
+  blitReglOffscreenToSubscriber(sub, luckyHub.offscreen, OFFSCREEN_TEX_PX);
+}
+
+function paintLuckySubscriberOnce(sub) {
+  ensureLuckyHub();
+  drawLuckyHubFrame();
+  blitLuckySubscriber(sub);
+}
+
+const luckyHubControls = {
+  paintSubscriberOnce: paintLuckySubscriberOnce,
+  ensureTick: ensureLuckyTick,
+  stopTickIfIdle: stopLuckyTickIfIdle,
+};
+
+function luckyHubTick() {
+  if (!anyReglSubscriberAnimated(luckySubscribers) || !luckyHub) return;
+  drawLuckyHubFrame();
   for (const sub of luckySubscribers) {
-    let cssW = sub.canvas.clientWidth;
-    let cssH = sub.canvas.clientHeight;
-    const useFixed =
-      typeof sub.fixedCssWidth === "number" &&
-      typeof sub.fixedCssHeight === "number" &&
-      Number.isFinite(sub.fixedCssWidth) &&
-      Number.isFinite(sub.fixedCssHeight) &&
-      sub.fixedCssWidth > 0 &&
-      sub.fixedCssHeight > 0;
-    if (useFixed) {
-      cssW = sub.fixedCssWidth;
-      cssH = sub.fixedCssHeight;
-    }
-    if (cssW <= 0 || cssH <= 0) continue;
-    const pw = Math.max(2, Math.ceil(cssW * sub.dpr));
-    const ph = Math.max(2, Math.ceil(cssH * sub.dpr));
-    if (sub.canvas.width !== pw || sub.canvas.height !== ph) {
-      sub.canvas.width = pw;
-      sub.canvas.height = ph;
-    }
-    sub.ctx.imageSmoothingEnabled = true;
-    sub.ctx.imageSmoothingQuality = "high";
-    sub.ctx.drawImage(offscreen, 0, 0, OFFSCREEN_TEX_PX, OFFSCREEN_TEX_PX, 0, 0, pw, ph);
+    if (sub.animated === false) continue;
+    blitLuckySubscriber(sub);
   }
 }
 
@@ -138,7 +145,7 @@ function ensureLuckyTick() {
 }
 
 function stopLuckyTickIfIdle() {
-  if (luckySubscribers.size > 0) return;
+  if (anyReglSubscriberAnimated(luckySubscribers)) return;
   if (luckyTickRegistered) {
     materialHubUnsubscribeTick(luckyHubTick);
     luckyTickRegistered = false;
@@ -162,7 +169,7 @@ if (import.meta.hot) {
 
 /**
  * @param {HTMLCanvasElement} canvas 展示用 2D 画布
- * @param {{ fixedCssWidth?: number, fixedCssHeight?: number }} [options]
+ * @param {{ fixedCssWidth?: number, fixedCssHeight?: number, animated?: boolean }} [options]
  * @returns {() => void} dispose
  */
 export function attachLuckyRegl(canvas, options = {}) {
@@ -176,6 +183,7 @@ export function attachLuckyRegl(canvas, options = {}) {
     Number.isFinite(fixedH) &&
     fixedW > 0 &&
     fixedH > 0;
+  const animated = options.animated !== false;
 
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: false });
   if (!ctx) {
@@ -189,17 +197,29 @@ export function attachLuckyRegl(canvas, options = {}) {
     dpr,
     fixedCssWidth: useFixedLayout ? fixedW : undefined,
     fixedCssHeight: useFixedLayout ? fixedH : undefined,
+    animated,
   };
 
   ensureLuckyHub();
   luckySubscribers.add(sub);
-  ensureLuckyTick();
-  luckyHubTick();
+  if (animated) {
+    ensureLuckyTick();
+    luckyHubTick();
+  } else {
+    paintLuckySubscriberOnce(sub);
+  }
 
   return function disposeLuckyRegl() {
     luckySubscribers.delete(sub);
     stopLuckyTickIfIdle();
   };
+}
+
+/** @param {HTMLCanvasElement} canvas @param {boolean} animated */
+export function setLuckyReglAnimated(canvas, animated) {
+  const sub = findReglSubscriberByCanvas(luckySubscribers, canvas);
+  if (!sub) return;
+  applyReglSubscriberAnimated(sub, animated, luckyHubControls);
 }
 
 /** 启动时预创建 WebGL / 编译 shader；无订阅者时不参与每帧离屏绘制。 */

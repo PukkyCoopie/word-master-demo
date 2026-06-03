@@ -647,11 +647,6 @@ onMounted(async () => {
   width: 100%;
 }
 
-.collection-page .collection-leaderboard-treasure-hit .treasure-slot {
-  width: calc(72 * var(--rpx));
-  height: calc(72 * var(--rpx));
-}
-
 .collection-page .collection-material-tile.grid-tile {
   width: calc(100 * var(--rpx));
   height: calc(100 * var(--rpx));

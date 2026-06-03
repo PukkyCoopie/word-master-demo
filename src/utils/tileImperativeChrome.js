@@ -1,7 +1,8 @@
 /**
- * 无法挂载 LetterTile 时（如飞回 body 上的纯 DOM），在此挂载与 Vue 模板一致的「配饰」子树。
+ * 无法挂载 LetterTile 时（如飞回 body 上的纯 DOM），在此挂载与 Vue 模板一致的「角标 / 配饰」子树。
  *
  * 约定：凡创建与棋盘格视觉等价的 imperative 节点（fly-letter-back、将来其他飞行/克隆），
+ * 在 append 字母/宝石前调用 `appendImperativeAugmentBadges(root, item)`（tileScoreBonus / tileMultBonus），
  * 在 append 字母/宝石后调用 `appendImperativeTileChrome(root, item)`，且 `item` 须携带与格上相同的
  * `accessoryId`（以及已有的 materialId 等由各自模块处理）。
  *
@@ -85,6 +86,33 @@ const ACCESSORY_BUILDERS = new Map([
     },
   ],
 ]);
+
+/**
+ * @param {HTMLElement | null | undefined} rootEl
+ * @param {{ tileScoreBonus?: number; tileMultBonus?: number; letterMultBonus?: number }} item
+ */
+export function appendImperativeAugmentBadges(rootEl, item) {
+  if (!rootEl || !item) return;
+  const score = Math.max(0, Math.round(Number(item.tileScoreBonus) || 0));
+  const mult = Math.max(
+    0,
+    Math.round(Number(item.tileMultBonus ?? item.letterMultBonus) || 0),
+  );
+  if (score > 0) {
+    const pill = document.createElement("span");
+    pill.className = "tile-bonus-pill tile-bonus-pill--score";
+    pill.setAttribute("aria-hidden", "true");
+    pill.textContent = `+${score}`;
+    rootEl.appendChild(pill);
+  }
+  if (mult > 0) {
+    const pill = document.createElement("span");
+    pill.className = "tile-bonus-pill tile-bonus-pill--mult";
+    pill.setAttribute("aria-hidden", "true");
+    pill.textContent = `+${mult}`;
+    rootEl.appendChild(pill);
+  }
+}
 
 /**
  * @param {HTMLElement | null | undefined} rootEl 根节点须 `position: relative`（与 .grid-tile / .fly-letter-back 一致）

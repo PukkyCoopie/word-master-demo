@@ -1,9 +1,10 @@
 <script setup>
-/**
- * 冰裂底纹：展示为 2D canvas，由 iceReglMount 离屏单 regl 每帧贴图。
- */
-import { ref, onMounted, onUnmounted } from "vue";
-import { attachIceRegl } from "../lib/iceReglMount.js";
+import { ref, onMounted, onUnmounted, watch } from "vue";
+import { attachIceRegl, setIceReglAnimated } from "../lib/iceReglMount.js";
+
+const props = defineProps({
+  animated: { type: Boolean, default: true },
+});
 
 const canvasRef = ref(null);
 let dispose = null;
@@ -11,14 +12,19 @@ let dispose = null;
 onMounted(() => {
   const c = canvasRef.value;
   if (!c) return;
-  const ownerClass = c.parentElement?.className || "";
-    dispose = attachIceRegl(c);
+  dispose = attachIceRegl(c, { animated: props.animated });
 });
 
+watch(
+  () => props.animated,
+  (animated) => {
+    const c = canvasRef.value;
+    if (c) setIceReglAnimated(c, animated);
+  },
+);
+
 onUnmounted(() => {
-  const c = canvasRef.value;
-  const ownerClass = c?.parentElement?.className || "";
-    if (dispose) {
+  if (dispose) {
     dispose();
     dispose = null;
   }

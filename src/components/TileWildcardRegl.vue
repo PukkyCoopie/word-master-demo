@@ -1,9 +1,10 @@
 <script setup>
-/**
- * 万能符材质：固定的单面 Liquid Squircle 观感（无旋转动画）。
- */
-import { ref, onMounted, onUnmounted } from "vue";
-import { attachWildcardRegl } from "../lib/wildcardReglMount.js";
+import { ref, onMounted, onUnmounted, watch } from "vue";
+import { attachWildcardRegl, setWildcardReglAnimated } from "../lib/wildcardReglMount.js";
+
+const props = defineProps({
+  animated: { type: Boolean, default: true },
+});
 
 const canvasRef = ref(null);
 let dispose = null;
@@ -11,8 +12,16 @@ let dispose = null;
 onMounted(() => {
   const c = canvasRef.value;
   if (!c) return;
-  dispose = attachWildcardRegl(c);
+  dispose = attachWildcardRegl(c, { animated: props.animated });
 });
+
+watch(
+  () => props.animated,
+  (animated) => {
+    const c = canvasRef.value;
+    if (c) setWildcardReglAnimated(c, animated);
+  },
+);
 
 onUnmounted(() => {
   if (dispose) {

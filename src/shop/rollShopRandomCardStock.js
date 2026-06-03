@@ -94,7 +94,12 @@ function createShopRandomCardRoller(ctx) {
   const illusionOwned = hasIllusion(ownedV);
   const letterRaws = allLetterRaws();
 
-  const spellDefsAll = filterSpellDefsForShop(lastReplay, SPELL_DEFINITIONS, spellCastHistory);
+  const spellDefsAll = filterSpellDefsForShop(
+    lastReplay,
+    SPELL_DEFINITIONS,
+    spellCastHistory,
+    ctx.excludeSpellIds,
+  );
   const rarityKeys = letterRarityOrderKeys();
 
   const makeEmpty = () => ({ kind: "empty", emptySlotId: ctx.nextShopEmptySlotId() });

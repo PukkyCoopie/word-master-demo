@@ -170,6 +170,11 @@ const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.v
 
 /** @type {gsap.core.Timeline | null} */
 let enterTl = null;
+/** @type {gsap.core.Timeline | null} */
+let closeTl = null;
+const closing = ref(false);
+
+const PACK_PICK_SCRIM_TRANSPARENT = "rgba(42, 38, 48, 0)";
 
 /** @type {Map<string, HTMLElement | null>} */
 const cellRoots = new Map();
@@ -201,6 +206,10 @@ function killEnterTweens() {
   if (enterTl) {
     enterTl.kill();
     enterTl = null;
+  }
+  if (closeTl) {
+    closeTl.kill();
+    closeTl = null;
   }
   const backdrop = backdropRef.value;
   const staggerEls = collectEnterStaggerEls();
@@ -247,7 +256,72 @@ function runEnterAnimation() {
   );
 }
 
-defineExpose({ getFlySourceEl, playEnter: runEnterAnimation });
+/**
+ * 与 SpellTargetLayer / TreasureDetailLayer 同款：淡出遮罩 + 子块逆序收起，再由父级卸载。
+ * @returns {Promise<void>}
+ */
+function playClose() {
+  if (closing.value) return Promise.resolve();
+  closing.value = true;
+
+  const backdrop = backdropRef.value;
+  const staggerEls = collectEnterStaggerEls();
+
+  if (enterTl) {
+    enterTl.kill();
+    enterTl = null;
+  }
+  if (closeTl) {
+    closeTl.kill();
+    closeTl = null;
+  }
+
+  gsap.killTweensOf([backdrop, ...staggerEls].filter(Boolean));
+
+  if (!backdrop && !staggerEls.length) {
+    closing.value = false;
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    closeTl = gsap.timeline({
+      onComplete: () => {
+        closeTl = null;
+        closing.value = false;
+        resolve(undefined);
+      },
+    });
+
+    if (backdrop) {
+      closeTl.to(
+        backdrop,
+        {
+          ...portalScrimGsapVars(PACK_PICK_SCRIM_TRANSPARENT),
+          duration: 0.22,
+          ease: EASE_TRANSFORM,
+        },
+        0,
+      );
+    }
+
+    const rev = [...staggerEls].reverse();
+    if (rev.length) {
+      closeTl.to(
+        rev,
+        {
+          opacity: 0,
+          y: 5,
+          duration: 0.12,
+          stagger: 0.028,
+          ease: EASE_TRANSFORM,
+        },
+        0,
+      );
+    }
+  });
+}
+
+defineExpose({ getFlySourceEl, playEnter: runEnterAnimation, playClose });
 
 const requiredPicks = computed(() => {
   const pc = Math.max(1, Math.floor(Number(props.session?.pickCount) || 1));
@@ -385,6 +459,7 @@ onUnmounted(() => {
   stackZ.value = 0;
   cellRoots.clear();
   killEnterTweens();
+  closing.value = false;
   enterBoot.value = true;
 });
 </script>

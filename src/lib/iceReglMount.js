@@ -4,6 +4,12 @@
  */
 import createREGL from "regl";
 import { materialHubSubscribeTick, materialHubUnsubscribeTick } from "./reglMaterialTicker.js";
+import {
+  anyReglSubscriberAnimated,
+  applyReglSubscriberAnimated,
+  blitReglOffscreenToSubscriber,
+  findReglSubscriberByCanvas,
+} from "./reglSubscriberAnimation.js";
 import { forceLoseWebglContext } from "./reglDebugLog.js";
 
 const ICE_VERT = `
@@ -456,40 +462,41 @@ function destroyIceHub() {
   iceHub = null;
 }
 
-/** @typedef {{ canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number }} IceSubscriber */
+/** @typedef {import("./reglSubscriberAnimation.js").ReglDisplaySubscriber} IceSubscriber */
 
 /** @type {Set<IceSubscriber>} */
 const iceSubscribers = new Set();
 
-function iceHubTick() {
-  if (iceSubscribers.size === 0 || !iceHub) return;
-  const { offscreen, regl, draw } = iceHub;
+function drawIceHubFrame() {
+  if (!iceHub) return;
+  const { regl, draw } = iceHub;
   regl.poll();
   draw({ viewport: { x: 0, y: 0, width: OFFSCREEN_TEX_PX, height: OFFSCREEN_TEX_PX } });
+}
+
+function blitIceSubscriber(sub) {
+  if (!iceHub) return;
+  blitReglOffscreenToSubscriber(sub, iceHub.offscreen, OFFSCREEN_TEX_PX);
+}
+
+function paintIceSubscriberOnce(sub) {
+  ensureIceHub();
+  drawIceHubFrame();
+  blitIceSubscriber(sub);
+}
+
+const iceHubControls = {
+  paintSubscriberOnce: paintIceSubscriberOnce,
+  ensureTick: ensureIceTick,
+  stopTickIfIdle: stopIceTickIfIdle,
+};
+
+function iceHubTick() {
+  if (!anyReglSubscriberAnimated(iceSubscribers) || !iceHub) return;
+  drawIceHubFrame();
   for (const sub of iceSubscribers) {
-    let cssW = sub.canvas.clientWidth;
-    let cssH = sub.canvas.clientHeight;
-    const useFixed =
-      typeof sub.fixedCssWidth === "number" &&
-      typeof sub.fixedCssHeight === "number" &&
-      Number.isFinite(sub.fixedCssWidth) &&
-      Number.isFinite(sub.fixedCssHeight) &&
-      sub.fixedCssWidth > 0 &&
-      sub.fixedCssHeight > 0;
-    if (useFixed) {
-      cssW = sub.fixedCssWidth;
-      cssH = sub.fixedCssHeight;
-    }
-    if (cssW <= 0 || cssH <= 0) continue;
-    const pw = Math.max(2, Math.ceil(cssW * sub.dpr));
-    const ph = Math.max(2, Math.ceil(cssH * sub.dpr));
-    if (sub.canvas.width !== pw || sub.canvas.height !== ph) {
-      sub.canvas.width = pw;
-      sub.canvas.height = ph;
-    }
-    sub.ctx.imageSmoothingEnabled = true;
-    sub.ctx.imageSmoothingQuality = "high";
-    sub.ctx.drawImage(offscreen, 0, 0, OFFSCREEN_TEX_PX, OFFSCREEN_TEX_PX, 0, 0, pw, ph);
+    if (sub.animated === false) continue;
+    blitIceSubscriber(sub);
   }
 }
 
@@ -502,7 +509,7 @@ function ensureIceTick() {
 }
 
 function stopIceTickIfIdle() {
-  if (iceSubscribers.size > 0) return;
+  if (anyReglSubscriberAnimated(iceSubscribers)) return;
   if (iceTickRegistered) {
     materialHubUnsubscribeTick(iceHubTick);
     iceTickRegistered = false;
@@ -526,7 +533,7 @@ if (import.meta.hot) {
 
 /**
  * @param {HTMLCanvasElement} canvas 展示用 2D 画布
- * @param {{ fixedCssWidth?: number, fixedCssHeight?: number }} [options]
+ * @param {{ fixedCssWidth?: number, fixedCssHeight?: number, animated?: boolean }} [options]
  * @returns {() => void} dispose
  */
 export function attachIceRegl(canvas, options = {}) {
@@ -540,6 +547,7 @@ export function attachIceRegl(canvas, options = {}) {
     Number.isFinite(fixedH) &&
     fixedW > 0 &&
     fixedH > 0;
+  const animated = options.animated !== false;
 
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: false });
   if (!ctx) return () => {};
@@ -551,17 +559,29 @@ export function attachIceRegl(canvas, options = {}) {
     dpr,
     fixedCssWidth: useFixedLayout ? fixedW : undefined,
     fixedCssHeight: useFixedLayout ? fixedH : undefined,
+    animated,
   };
 
   ensureIceHub();
   iceSubscribers.add(sub);
-  ensureIceTick();
-  iceHubTick();
+  if (animated) {
+    ensureIceTick();
+    iceHubTick();
+  } else {
+    paintIceSubscriberOnce(sub);
+  }
 
   return function disposeIceRegl() {
     iceSubscribers.delete(sub);
     stopIceTickIfIdle();
   };
+}
+
+/** @param {HTMLCanvasElement} canvas @param {boolean} animated */
+export function setIceReglAnimated(canvas, animated) {
+  const sub = findReglSubscriberByCanvas(iceSubscribers, canvas);
+  if (!sub) return;
+  applyReglSubscriberAnimated(sub, animated, iceHubControls);
 }
 
 /** 启动时预创建 WebGL / 编译 shader；无订阅者时不参与每帧离屏绘制。 */

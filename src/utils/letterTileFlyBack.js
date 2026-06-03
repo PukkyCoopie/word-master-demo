@@ -12,7 +12,7 @@ import { attachLuckyRegl } from "../lib/luckyReglMount.js";
 import { attachSteelRegl } from "../lib/steelReglMount.js";
 import { attachWildcardRegl } from "../lib/wildcardReglMount.js";
 import { attachWaterRegl } from "../lib/waterReglMount.js";
-import { appendImperativeTileChrome } from "./tileImperativeChrome.js";
+import { appendImperativeAugmentBadges, appendImperativeTileChrome } from "./tileImperativeChrome.js";
 
 const flyMaterialReglDisposeByEl = new WeakMap();
 
@@ -92,6 +92,8 @@ export function createFlyBackTileElement(item) {
                   : attachLuckyRegl;
     pushDispose(el, attach(canvas, reglOpts));
   }
+
+  appendImperativeAugmentBadges(el, item);
 
   if (item.bossTileDebuffed === true) {
     const bossX = document.createElement("span");

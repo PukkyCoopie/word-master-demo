@@ -75,26 +75,25 @@ function normalizeWordRecords(raw) {
             .filter(Boolean)
         : [];
       const ownedTreasures = Array.isArray(o.ownedTreasures)
-        ? o.ownedTreasures
-            .map((s) => {
-              if (!s || typeof s !== "object") return null;
-              const slot = /** @type {Record<string, unknown>} */ (s);
-              const treasureId = String(slot.treasureId ?? "").trim();
-              if (!treasureId) return null;
-              /** @type {import('../save/runSavePayload.js').SerializedOwnedTreasureSlot} */
-              const out = {
-                treasureId,
-                price: Math.max(0, Math.floor(Number(slot.price) || 0)),
-              };
-              if (Array.isArray(slot.treasureAccessoryIds) && slot.treasureAccessoryIds.length) {
-                out.treasureAccessoryIds = slot.treasureAccessoryIds.map(String).filter(Boolean);
-              }
-              const elapsed = Math.floor(Number(slot.hourglassStagesElapsed) || 0);
-              if (elapsed > 0) out.hourglassStagesElapsed = elapsed;
-              if (slot.treasureAccessoryExpired === true) out.treasureAccessoryExpired = true;
-              return out;
-            })
-            .filter(Boolean)
+        ? o.ownedTreasures.map((s) => {
+            if (s == null) return null;
+            if (typeof s !== "object") return null;
+            const slot = /** @type {Record<string, unknown>} */ (s);
+            const treasureId = String(slot.treasureId ?? "").trim();
+            if (!treasureId) return null;
+            /** @type {import('../save/runSavePayload.js').SerializedOwnedTreasureSlot} */
+            const out = {
+              treasureId,
+              price: Math.max(0, Math.floor(Number(slot.price) || 0)),
+            };
+            if (Array.isArray(slot.treasureAccessoryIds) && slot.treasureAccessoryIds.length) {
+              out.treasureAccessoryIds = slot.treasureAccessoryIds.map(String).filter(Boolean);
+            }
+            const elapsed = Math.floor(Number(slot.hourglassStagesElapsed) || 0);
+            if (elapsed > 0) out.hourglassStagesElapsed = elapsed;
+            if (slot.treasureAccessoryExpired === true) out.treasureAccessoryExpired = true;
+            return out;
+          })
         : [];
       return /** @type {import('./collectionTypes.js').CollectionWordRecord} */ ({
         word,

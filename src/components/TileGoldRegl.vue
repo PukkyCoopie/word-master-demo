@@ -2,8 +2,12 @@
 /**
  * 流动黄金底纹：展示为 2D canvas，由 goldReglMount 离屏单 regl 每帧贴图（避免每格独立 WebGL 上下文）。
  */
-import { ref, onMounted, onUnmounted } from "vue";
-import { attachGoldRegl } from "../lib/goldReglMount.js";
+import { ref, onMounted, onUnmounted, watch } from "vue";
+import { attachGoldRegl, setGoldReglAnimated } from "../lib/goldReglMount.js";
+
+const props = defineProps({
+  animated: { type: Boolean, default: true },
+});
 
 const canvasRef = ref(null);
 let dispose = null;
@@ -11,14 +15,19 @@ let dispose = null;
 onMounted(() => {
   const c = canvasRef.value;
   if (!c) return;
-  const ownerClass = c.parentElement?.className || "";
-    dispose = attachGoldRegl(c);
+  dispose = attachGoldRegl(c, { animated: props.animated });
 });
 
+watch(
+  () => props.animated,
+  (animated) => {
+    const c = canvasRef.value;
+    if (c) setGoldReglAnimated(c, animated);
+  },
+);
+
 onUnmounted(() => {
-  const c = canvasRef.value;
-  const ownerClass = c?.parentElement?.className || "";
-    if (dispose) {
+  if (dispose) {
     dispose();
     dispose = null;
   }

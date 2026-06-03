@@ -6,9 +6,10 @@ import LetterTile from "../components/LetterTile.vue";
  * @param {HTMLElement} host
  * @param {Record<string, unknown>} snap `buildSpellOfferSnapshotFromDeckCard` 形态
  * @param {"grid" | "fly" | "deck"} [variant]
+ * @param {{ tileClass?: string }} [options]
  * @returns {() => void} unmount
  */
-export function mountLetterTileClone(host, snap, variant = "grid") {
+export function mountLetterTileClone(host, snap, variant = "grid", options = {}) {
   const props = {
     variant,
     letter: String(snap.letter ?? "E"),
@@ -27,8 +28,9 @@ export function mountLetterTileClone(host, snap, variant = "grid") {
   mountPoint.className = "letter-tile-mount-host";
   mountPoint.style.cssText = "width:100%;height:100%;position:relative;box-sizing:border-box;";
   host.appendChild(mountPoint);
+  const tileClass = options.tileClass ?? "";
   const app = createApp({
-    render: () => h(LetterTile, props),
+    render: () => h(LetterTile, { ...props, class: tileClass || undefined }),
   });
   app.mount(mountPoint);
   return () => {

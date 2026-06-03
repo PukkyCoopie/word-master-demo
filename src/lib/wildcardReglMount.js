@@ -4,6 +4,11 @@
  */
 import createREGL from "regl";
 import { materialHubSubscribeTick, materialHubUnsubscribeTick } from "./reglMaterialTicker.js";
+import {
+  anyReglSubscriberAnimated,
+  applyReglSubscriberAnimated,
+  findReglSubscriberByCanvas,
+} from "./reglSubscriberAnimation.js";
 import { forceLoseWebglContext } from "./reglDebugLog.js";
 
 const WILDCARD_VERT = `
@@ -135,43 +140,67 @@ function destroyWildcardHub() {
   wildcardHub = null;
 }
 
-/** @typedef {{ canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number }} WildcardSubscriber */
+/** @typedef {import("./reglSubscriberAnimation.js").ReglDisplaySubscriber} WildcardSubscriber */
 /** @type {Set<WildcardSubscriber>} */
 const wildcardSubscribers = new Set();
 
-function wildcardHubTick() {
-  if (wildcardSubscribers.size === 0 || !wildcardHub) return;
-  const { offscreen, regl, draw } = wildcardHub;
+function drawWildcardHubFrame() {
+  if (!wildcardHub) return;
+  const { regl, draw } = wildcardHub;
   regl.poll();
   draw({ viewport: { x: 0, y: 0, width: OFFSCREEN_TEX_PX, height: OFFSCREEN_TEX_PX } });
+}
+
+function blitWildcardSubscriber(sub) {
+  if (!wildcardHub) return;
+  const offscreen = wildcardHub.offscreen;
+  let cssW = sub.canvas.clientWidth;
+  let cssH = sub.canvas.clientHeight;
+  const useFixed =
+    typeof sub.fixedCssWidth === "number" &&
+    typeof sub.fixedCssHeight === "number" &&
+    Number.isFinite(sub.fixedCssWidth) &&
+    Number.isFinite(sub.fixedCssHeight) &&
+    sub.fixedCssWidth > 0 &&
+    sub.fixedCssHeight > 0;
+  if (useFixed) {
+    cssW = sub.fixedCssWidth;
+    cssH = sub.fixedCssHeight;
+  }
+  if (cssW <= 0 || cssH <= 0) return;
+  const pw = Math.max(2, Math.ceil(cssW * sub.dpr));
+  const ph = Math.max(2, Math.ceil(cssH * sub.dpr));
+  if (sub.canvas.width !== pw || sub.canvas.height !== ph) {
+    sub.canvas.width = pw;
+    sub.canvas.height = ph;
+  }
+  sub.ctx.imageSmoothingEnabled = true;
+  sub.ctx.imageSmoothingQuality = "high";
+  const downsampleRatio = OFFSCREEN_TEX_PX / Math.max(1, Math.max(pw, ph));
+  const blurPx = downsampleRatio > 1.0 ? Math.min(0.35, (downsampleRatio - 1.0) * 0.2) : 0.0;
+  sub.ctx.filter = blurPx > 0.0 ? `blur(${blurPx.toFixed(3)}px)` : "none";
+  sub.ctx.drawImage(offscreen, 0, 0, OFFSCREEN_TEX_PX, OFFSCREEN_TEX_PX, 0, 0, pw, ph);
+  sub.ctx.filter = "none";
+}
+
+function paintWildcardSubscriberOnce(sub) {
+  ensureWildcardHub();
+  drawWildcardHubFrame();
+  blitWildcardSubscriber(sub);
+}
+
+const wildcardHubControls = {
+  paintSubscriberOnce: paintWildcardSubscriberOnce,
+  ensureTick: ensureWildcardTick,
+  stopTickIfIdle: stopWildcardTickIfIdle,
+};
+
+function wildcardHubTick() {
+  if (!anyReglSubscriberAnimated(wildcardSubscribers) || !wildcardHub) return;
+  drawWildcardHubFrame();
   for (const sub of wildcardSubscribers) {
-    let cssW = sub.canvas.clientWidth;
-    let cssH = sub.canvas.clientHeight;
-    const useFixed =
-      typeof sub.fixedCssWidth === "number" &&
-      typeof sub.fixedCssHeight === "number" &&
-      Number.isFinite(sub.fixedCssWidth) &&
-      Number.isFinite(sub.fixedCssHeight) &&
-      sub.fixedCssWidth > 0 &&
-      sub.fixedCssHeight > 0;
-    if (useFixed) {
-      cssW = sub.fixedCssWidth;
-      cssH = sub.fixedCssHeight;
-    }
-    if (cssW <= 0 || cssH <= 0) continue;
-    const pw = Math.max(2, Math.ceil(cssW * sub.dpr));
-    const ph = Math.max(2, Math.ceil(cssH * sub.dpr));
-    if (sub.canvas.width !== pw || sub.canvas.height !== ph) {
-      sub.canvas.width = pw;
-      sub.canvas.height = ph;
-    }
-    sub.ctx.imageSmoothingEnabled = true;
-    sub.ctx.imageSmoothingQuality = "high";
-    const downsampleRatio = OFFSCREEN_TEX_PX / Math.max(1, Math.max(pw, ph));
-    const blurPx = downsampleRatio > 1.0 ? Math.min(0.35, (downsampleRatio - 1.0) * 0.2) : 0.0;
-    sub.ctx.filter = blurPx > 0.0 ? `blur(${blurPx.toFixed(3)}px)` : "none";
-    sub.ctx.drawImage(offscreen, 0, 0, OFFSCREEN_TEX_PX, OFFSCREEN_TEX_PX, 0, 0, pw, ph);
-    sub.ctx.filter = "none";
+    if (sub.animated === false) continue;
+    blitWildcardSubscriber(sub);
   }
 }
 
@@ -184,7 +213,7 @@ function ensureWildcardTick() {
 }
 
 function stopWildcardTickIfIdle() {
-  if (wildcardSubscribers.size > 0) return;
+  if (anyReglSubscriberAnimated(wildcardSubscribers)) return;
   if (wildcardTickRegistered) {
     materialHubUnsubscribeTick(wildcardHubTick);
     wildcardTickRegistered = false;
@@ -208,7 +237,7 @@ if (import.meta.hot) {
 
 /**
  * @param {HTMLCanvasElement} canvas 展示用 2D 画布
- * @param {{ fixedCssWidth?: number, fixedCssHeight?: number }} [options]
+ * @param {{ fixedCssWidth?: number, fixedCssHeight?: number, animated?: boolean }} [options]
  * @returns {() => void} dispose
  */
 export function attachWildcardRegl(canvas, options = {}) {
@@ -222,6 +251,7 @@ export function attachWildcardRegl(canvas, options = {}) {
     Number.isFinite(fixedH) &&
     fixedW > 0 &&
     fixedH > 0;
+  const animated = options.animated !== false;
 
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: false });
   if (!ctx) return () => {};
@@ -233,17 +263,29 @@ export function attachWildcardRegl(canvas, options = {}) {
     dpr,
     fixedCssWidth: useFixedLayout ? fixedW : undefined,
     fixedCssHeight: useFixedLayout ? fixedH : undefined,
+    animated,
   };
 
   ensureWildcardHub();
   wildcardSubscribers.add(sub);
-  ensureWildcardTick();
-  wildcardHubTick();
+  if (animated) {
+    ensureWildcardTick();
+    wildcardHubTick();
+  } else {
+    paintWildcardSubscriberOnce(sub);
+  }
 
   return function disposeWildcardRegl() {
     wildcardSubscribers.delete(sub);
     stopWildcardTickIfIdle();
   };
+}
+
+/** @param {HTMLCanvasElement} canvas @param {boolean} animated */
+export function setWildcardReglAnimated(canvas, animated) {
+  const sub = findReglSubscriberByCanvas(wildcardSubscribers, canvas);
+  if (!sub) return;
+  applyReglSubscriberAnimated(sub, animated, wildcardHubControls);
 }
 
 /** 启动时预创建 WebGL / 编译 shader；无订阅者时不参与每帧离屏绘制。 */

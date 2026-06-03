@@ -35,10 +35,20 @@ export const UPGRADE_RARITY_LETTER_LABEL = Object.freeze({
  * @param {string | null | undefined} lastReplayableSpellId
  * @param {import("../spells/spellDefinitions.js").SpellDefinition[]} allDefs
  * @param {string[]} [spellCastHistory]
+ * @param {string[]} [excludeSpellIds]
  */
-export function filterSpellDefsForShop(lastReplayableSpellId, allDefs, spellCastHistory = []) {
+export function filterSpellDefsForShop(
+  lastReplayableSpellId,
+  allDefs,
+  spellCastHistory = [],
+  excludeSpellIds = [],
+) {
   const replayTarget = resolveRestartEffectiveSpellId(spellCastHistory, lastReplayableSpellId);
+  const exclude = new Set(
+    (Array.isArray(excludeSpellIds) ? excludeSpellIds : []).map((id) => String(id)),
+  );
   return allDefs.filter((d) => {
+    if (exclude.has(d.id)) return false;
     if (d.id === "restart") {
       if (!replayTarget) return false;
       const prev = getSpellDefinition(replayTarget);

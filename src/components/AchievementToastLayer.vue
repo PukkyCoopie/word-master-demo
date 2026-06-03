@@ -140,10 +140,12 @@ watch(
 
 <style scoped>
 .achievement-toast {
-  --achievement-toast-solid-h: calc(268 * var(--rpx));
+  --achievement-toast-margin-v: calc(80 * var(--rpx));
+  --achievement-toast-solid-h: calc(268 * var(--rpx) + var(--achievement-toast-margin-v));
   --achievement-toast-fade-h: calc(56 * var(--rpx));
+  --achievement-toast-bg-opacity: 0.8;
   position: absolute;
-  inset: 0 auto auto 0;
+  inset: var(--achievement-toast-margin-v) auto auto 0;
   width: 100%;
   height: calc(var(--achievement-toast-solid-h) + var(--achievement-toast-fade-h));
   pointer-events: none;
@@ -161,12 +163,16 @@ watch(
 
 .achievement-toast__solid {
   flex: 0 0 var(--achievement-toast-solid-h);
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, var(--achievement-toast-bg-opacity));
 }
 
 .achievement-toast__fade {
   flex: 0 0 var(--achievement-toast-fade-h);
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, var(--achievement-toast-bg-opacity)) 0%,
+    rgba(0, 0, 0, 0) 100%
+  );
 }
 
 .achievement-toast__content {
@@ -180,7 +186,8 @@ watch(
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: calc(32 * var(--rpx)) calc(24 * var(--rpx));
+  padding: calc(32 * var(--rpx)) calc(24 * var(--rpx))
+    calc(32 * var(--rpx) + var(--achievement-toast-margin-v));
   box-sizing: border-box;
   will-change: transform, opacity;
 }

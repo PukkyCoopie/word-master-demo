@@ -4,6 +4,12 @@
  */
 import createREGL from "regl";
 import { materialHubSubscribeTick, materialHubUnsubscribeTick } from "./reglMaterialTicker.js";
+import {
+  anyReglSubscriberAnimated,
+  applyReglSubscriberAnimated,
+  blitReglOffscreenToSubscriber,
+  findReglSubscriberByCanvas,
+} from "./reglSubscriberAnimation.js";
 import { forceLoseWebglContext } from "./reglDebugLog.js";
 
 const WATER_VERT = `
@@ -101,40 +107,41 @@ function destroyWaterHub() {
   waterHub = null;
 }
 
-/** @typedef {{ canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number }} WaterSubscriber */
+/** @typedef {import("./reglSubscriberAnimation.js").ReglDisplaySubscriber} WaterSubscriber */
 
 /** @type {Set<WaterSubscriber>} */
 const waterSubscribers = new Set();
 
-function waterHubTick() {
-  if (waterSubscribers.size === 0 || !waterHub) return;
-  const { offscreen, regl, draw } = waterHub;
+function drawWaterHubFrame() {
+  if (!waterHub) return;
+  const { regl, draw } = waterHub;
   regl.poll();
   draw({ viewport: { x: 0, y: 0, width: OFFSCREEN_TEX_PX, height: OFFSCREEN_TEX_PX } });
+}
+
+function blitWaterSubscriber(sub) {
+  if (!waterHub) return;
+  blitReglOffscreenToSubscriber(sub, waterHub.offscreen, OFFSCREEN_TEX_PX);
+}
+
+function paintWaterSubscriberOnce(sub) {
+  ensureWaterHub();
+  drawWaterHubFrame();
+  blitWaterSubscriber(sub);
+}
+
+const waterHubControls = {
+  paintSubscriberOnce: paintWaterSubscriberOnce,
+  ensureTick: ensureWaterTick,
+  stopTickIfIdle: stopWaterTickIfIdle,
+};
+
+function waterHubTick() {
+  if (!anyReglSubscriberAnimated(waterSubscribers) || !waterHub) return;
+  drawWaterHubFrame();
   for (const sub of waterSubscribers) {
-    let cssW = sub.canvas.clientWidth;
-    let cssH = sub.canvas.clientHeight;
-    const useFixed =
-      typeof sub.fixedCssWidth === "number" &&
-      typeof sub.fixedCssHeight === "number" &&
-      Number.isFinite(sub.fixedCssWidth) &&
-      Number.isFinite(sub.fixedCssHeight) &&
-      sub.fixedCssWidth > 0 &&
-      sub.fixedCssHeight > 0;
-    if (useFixed) {
-      cssW = sub.fixedCssWidth;
-      cssH = sub.fixedCssHeight;
-    }
-    if (cssW <= 0 || cssH <= 0) continue;
-    const pw = Math.max(2, Math.ceil(cssW * sub.dpr));
-    const ph = Math.max(2, Math.ceil(cssH * sub.dpr));
-    if (sub.canvas.width !== pw || sub.canvas.height !== ph) {
-      sub.canvas.width = pw;
-      sub.canvas.height = ph;
-    }
-    sub.ctx.imageSmoothingEnabled = true;
-    sub.ctx.imageSmoothingQuality = "high";
-    sub.ctx.drawImage(offscreen, 0, 0, OFFSCREEN_TEX_PX, OFFSCREEN_TEX_PX, 0, 0, pw, ph);
+    if (sub.animated === false) continue;
+    blitWaterSubscriber(sub);
   }
 }
 
@@ -147,7 +154,7 @@ function ensureWaterTick() {
 }
 
 function stopWaterTickIfIdle() {
-  if (waterSubscribers.size > 0) return;
+  if (anyReglSubscriberAnimated(waterSubscribers)) return;
   if (waterTickRegistered) {
     materialHubUnsubscribeTick(waterHubTick);
     waterTickRegistered = false;
@@ -171,7 +178,7 @@ if (import.meta.hot) {
 
 /**
  * @param {HTMLCanvasElement} canvas 展示用 2D 画布
- * @param {{ fixedCssWidth?: number, fixedCssHeight?: number }} [options]
+ * @param {{ fixedCssWidth?: number, fixedCssHeight?: number, animated?: boolean }} [options]
  * @returns {() => void} dispose
  */
 export function attachWaterRegl(canvas, options = {}) {
@@ -185,6 +192,7 @@ export function attachWaterRegl(canvas, options = {}) {
     Number.isFinite(fixedH) &&
     fixedW > 0 &&
     fixedH > 0;
+  const animated = options.animated !== false;
 
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: false });
   if (!ctx) {
@@ -198,17 +206,29 @@ export function attachWaterRegl(canvas, options = {}) {
     dpr,
     fixedCssWidth: useFixedLayout ? fixedW : undefined,
     fixedCssHeight: useFixedLayout ? fixedH : undefined,
+    animated,
   };
 
   ensureWaterHub();
   waterSubscribers.add(sub);
-  ensureWaterTick();
-  waterHubTick();
+  if (animated) {
+    ensureWaterTick();
+    waterHubTick();
+  } else {
+    paintWaterSubscriberOnce(sub);
+  }
 
   return function disposeWaterRegl() {
     waterSubscribers.delete(sub);
     stopWaterTickIfIdle();
   };
+}
+
+/** @param {HTMLCanvasElement} canvas @param {boolean} animated */
+export function setWaterReglAnimated(canvas, animated) {
+  const sub = findReglSubscriberByCanvas(waterSubscribers, canvas);
+  if (!sub) return;
+  applyReglSubscriberAnimated(sub, animated, waterHubControls);
 }
 
 /** 启动时预创建 WebGL / 编译 shader；无订阅者时不参与每帧离屏绘制。 */

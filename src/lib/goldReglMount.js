@@ -4,6 +4,12 @@
  */
 import createREGL from "regl";
 import { materialHubSubscribeTick, materialHubUnsubscribeTick } from "./reglMaterialTicker.js";
+import {
+  anyReglSubscriberAnimated,
+  applyReglSubscriberAnimated,
+  blitReglOffscreenToSubscriber,
+  findReglSubscriberByCanvas,
+} from "./reglSubscriberAnimation.js";
 import { forceLoseWebglContext } from "./reglDebugLog.js";
 
 const GOLD_FRAG = `
@@ -108,41 +114,41 @@ function destroyGoldHub() {
   goldHub = null;
 }
 
-/** @typedef {{ canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number }} GoldSubscriber */
+/** @typedef {import("./reglSubscriberAnimation.js").ReglDisplaySubscriber} GoldSubscriber */
 
 /** @type {Set<GoldSubscriber>} */
 const goldSubscribers = new Set();
 
-function goldHubTick() {
-  if (goldSubscribers.size === 0 || !goldHub) return;
-  const { offscreen, regl, draw } = goldHub;
+function drawGoldHubFrame() {
+  if (!goldHub) return;
+  const { regl, draw } = goldHub;
   regl.poll();
   draw({ viewport: { x: 0, y: 0, width: OFFSCREEN_TEX_PX, height: OFFSCREEN_TEX_PX } });
+}
+
+function blitGoldSubscriber(sub) {
+  if (!goldHub) return;
+  blitReglOffscreenToSubscriber(sub, goldHub.offscreen, OFFSCREEN_TEX_PX);
+}
+
+function paintGoldSubscriberOnce(sub) {
+  ensureGoldHub();
+  drawGoldHubFrame();
+  blitGoldSubscriber(sub);
+}
+
+const goldHubControls = {
+  paintSubscriberOnce: paintGoldSubscriberOnce,
+  ensureTick: ensureGoldTick,
+  stopTickIfIdle: stopGoldTickIfIdle,
+};
+
+function goldHubTick() {
+  if (!anyReglSubscriberAnimated(goldSubscribers) || !goldHub) return;
+  drawGoldHubFrame();
   for (const sub of goldSubscribers) {
-    let cssW = sub.canvas.clientWidth;
-    let cssH = sub.canvas.clientHeight;
-    const useFixed =
-      typeof sub.fixedCssWidth === "number" &&
-      typeof sub.fixedCssHeight === "number" &&
-      Number.isFinite(sub.fixedCssWidth) &&
-      Number.isFinite(sub.fixedCssHeight) &&
-      sub.fixedCssWidth > 0 &&
-      sub.fixedCssHeight > 0;
-    if (useFixed) {
-      cssW = sub.fixedCssWidth;
-      cssH = sub.fixedCssHeight;
-    }
-    if (cssW <= 0 || cssH <= 0) continue;
-    const pw = Math.max(2, Math.ceil(cssW * sub.dpr));
-    const ph = Math.max(2, Math.ceil(cssH * sub.dpr));
-    if (sub.canvas.width !== pw || sub.canvas.height !== ph) {
-      sub.canvas.width = pw;
-      sub.canvas.height = ph;
-    }
-    sub.ctx.imageSmoothingEnabled = true;
-    sub.ctx.imageSmoothingQuality = "high";
-    /* 128×128 离屏整幅 stretch 填满展示位（fill） */
-    sub.ctx.drawImage(offscreen, 0, 0, OFFSCREEN_TEX_PX, OFFSCREEN_TEX_PX, 0, 0, pw, ph);
+    if (sub.animated === false) continue;
+    blitGoldSubscriber(sub);
   }
 }
 
@@ -155,7 +161,7 @@ function ensureGoldTick() {
 }
 
 function stopGoldTickIfIdle() {
-  if (goldSubscribers.size > 0) return;
+  if (anyReglSubscriberAnimated(goldSubscribers)) return;
   if (goldTickRegistered) {
     materialHubUnsubscribeTick(goldHubTick);
     goldTickRegistered = false;
@@ -179,7 +185,7 @@ if (import.meta.hot) {
 
 /**
  * @param {HTMLCanvasElement} canvas 展示用 2D 画布（与 TileGoldRegl / 飞回 DOM 共用类名即可）
- * @param {{ fixedCssWidth?: number, fixedCssHeight?: number }} [options] 飞回动画连续改宽高时用固定 CSS 尺寸，不挂 ResizeObserver
+ * @param {{ fixedCssWidth?: number, fixedCssHeight?: number, animated?: boolean }} [options] 飞回动画连续改宽高时用固定 CSS 尺寸，不挂 ResizeObserver
  * @returns {() => void} dispose
  */
 export function attachGoldRegl(canvas, options = {}) {
@@ -193,6 +199,7 @@ export function attachGoldRegl(canvas, options = {}) {
     Number.isFinite(fixedH) &&
     fixedW > 0 &&
     fixedH > 0;
+  const animated = options.animated !== false;
 
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: false });
   if (!ctx) {
@@ -206,17 +213,29 @@ export function attachGoldRegl(canvas, options = {}) {
     dpr,
     fixedCssWidth: useFixedLayout ? fixedW : undefined,
     fixedCssHeight: useFixedLayout ? fixedH : undefined,
+    animated,
   };
 
   ensureGoldHub();
   goldSubscribers.add(sub);
-  ensureGoldTick();
-  goldHubTick();
+  if (animated) {
+    ensureGoldTick();
+    goldHubTick();
+  } else {
+    paintGoldSubscriberOnce(sub);
+  }
 
   return function disposeGoldRegl() {
     goldSubscribers.delete(sub);
     stopGoldTickIfIdle();
   };
+}
+
+/** @param {HTMLCanvasElement} canvas @param {boolean} animated */
+export function setGoldReglAnimated(canvas, animated) {
+  const sub = findReglSubscriberByCanvas(goldSubscribers, canvas);
+  if (!sub) return;
+  applyReglSubscriberAnimated(sub, animated, goldHubControls);
 }
 
 /** 启动时预创建 WebGL / 编译 shader；无订阅者时不参与每帧离屏绘制。 */

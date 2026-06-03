@@ -60,5 +60,5 @@ export function snapshotSubmitTiles(tiles) {
  * @returns {import('../save/runSavePayload.js').SerializedOwnedTreasureSlot[]}
  */
 export function snapshotOwnedTreasuresForCollection(ownedTreasureSlots) {
-  return serializeOwnedTreasureSlots(ownedTreasureSlots ?? []).filter(Boolean);
+  return serializeOwnedTreasureSlots(ownedTreasureSlots ?? []);
 }

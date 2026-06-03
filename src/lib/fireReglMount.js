@@ -3,6 +3,12 @@
  */
 import createREGL from "regl";
 import { materialHubSubscribeTick, materialHubUnsubscribeTick } from "./reglMaterialTicker.js";
+import {
+  anyReglSubscriberAnimated,
+  applyReglSubscriberAnimated,
+  blitReglOffscreenToSubscriber,
+  findReglSubscriberByCanvas,
+} from "./reglSubscriberAnimation.js";
 import { forceLoseWebglContext } from "./reglDebugLog.js";
 
 const FIRE_VERT = `
@@ -146,40 +152,41 @@ function destroyFireHub() {
   fireHub = null;
 }
 
-/** @typedef {{ canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number }} FireSubscriber */
+/** @typedef {import("./reglSubscriberAnimation.js").ReglDisplaySubscriber} FireSubscriber */
 
 /** @type {Set<FireSubscriber>} */
 const fireSubscribers = new Set();
 
-function fireHubTick() {
-  if (fireSubscribers.size === 0 || !fireHub) return;
-  const { offscreen, regl, draw } = fireHub;
+function drawFireHubFrame() {
+  if (!fireHub) return;
+  const { regl, draw } = fireHub;
   regl.poll();
   draw({ viewport: { x: 0, y: 0, width: OFFSCREEN_TEX_PX, height: OFFSCREEN_TEX_PX } });
+}
+
+function blitFireSubscriber(sub) {
+  if (!fireHub) return;
+  blitReglOffscreenToSubscriber(sub, fireHub.offscreen, OFFSCREEN_TEX_PX);
+}
+
+function paintFireSubscriberOnce(sub) {
+  ensureFireHub();
+  drawFireHubFrame();
+  blitFireSubscriber(sub);
+}
+
+const fireHubControls = {
+  paintSubscriberOnce: paintFireSubscriberOnce,
+  ensureTick: ensureFireTick,
+  stopTickIfIdle: stopFireTickIfIdle,
+};
+
+function fireHubTick() {
+  if (!anyReglSubscriberAnimated(fireSubscribers) || !fireHub) return;
+  drawFireHubFrame();
   for (const sub of fireSubscribers) {
-    let cssW = sub.canvas.clientWidth;
-    let cssH = sub.canvas.clientHeight;
-    const useFixed =
-      typeof sub.fixedCssWidth === "number" &&
-      typeof sub.fixedCssHeight === "number" &&
-      Number.isFinite(sub.fixedCssWidth) &&
-      Number.isFinite(sub.fixedCssHeight) &&
-      sub.fixedCssWidth > 0 &&
-      sub.fixedCssHeight > 0;
-    if (useFixed) {
-      cssW = sub.fixedCssWidth;
-      cssH = sub.fixedCssHeight;
-    }
-    if (cssW <= 0 || cssH <= 0) continue;
-    const pw = Math.max(2, Math.ceil(cssW * sub.dpr));
-    const ph = Math.max(2, Math.ceil(cssH * sub.dpr));
-    if (sub.canvas.width !== pw || sub.canvas.height !== ph) {
-      sub.canvas.width = pw;
-      sub.canvas.height = ph;
-    }
-    sub.ctx.imageSmoothingEnabled = true;
-    sub.ctx.imageSmoothingQuality = "high";
-    sub.ctx.drawImage(offscreen, 0, 0, OFFSCREEN_TEX_PX, OFFSCREEN_TEX_PX, 0, 0, pw, ph);
+    if (sub.animated === false) continue;
+    blitFireSubscriber(sub);
   }
 }
 
@@ -192,7 +199,7 @@ function ensureFireTick() {
 }
 
 function stopFireTickIfIdle() {
-  if (fireSubscribers.size > 0) return;
+  if (anyReglSubscriberAnimated(fireSubscribers)) return;
   if (fireTickRegistered) {
     materialHubUnsubscribeTick(fireHubTick);
     fireTickRegistered = false;
@@ -216,7 +223,7 @@ if (import.meta.hot) {
 
 /**
  * @param {HTMLCanvasElement} canvas 展示用 2D 画布
- * @param {{ fixedCssWidth?: number, fixedCssHeight?: number }} [options]
+ * @param {{ fixedCssWidth?: number, fixedCssHeight?: number, animated?: boolean }} [options]
  * @returns {() => void} dispose
  */
 export function attachFireRegl(canvas, options = {}) {
@@ -230,6 +237,7 @@ export function attachFireRegl(canvas, options = {}) {
     Number.isFinite(fixedH) &&
     fixedW > 0 &&
     fixedH > 0;
+  const animated = options.animated !== false;
 
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: false });
   if (!ctx) return () => {};
@@ -241,17 +249,29 @@ export function attachFireRegl(canvas, options = {}) {
     dpr,
     fixedCssWidth: useFixedLayout ? fixedW : undefined,
     fixedCssHeight: useFixedLayout ? fixedH : undefined,
+    animated,
   };
 
   ensureFireHub();
   fireSubscribers.add(sub);
-  ensureFireTick();
-  fireHubTick();
+  if (animated) {
+    ensureFireTick();
+    fireHubTick();
+  } else {
+    paintFireSubscriberOnce(sub);
+  }
 
   return function disposeFireRegl() {
     fireSubscribers.delete(sub);
     stopFireTickIfIdle();
   };
+}
+
+/** @param {HTMLCanvasElement} canvas @param {boolean} animated */
+export function setFireReglAnimated(canvas, animated) {
+  const sub = findReglSubscriberByCanvas(fireSubscribers, canvas);
+  if (!sub) return;
+  applyReglSubscriberAnimated(sub, animated, fireHubControls);
 }
 
 /** 启动时预创建 WebGL / 编译 shader；无订阅者时不参与每帧离屏绘制。 */

@@ -119,6 +119,12 @@ export function normalizeRunSavePhase(phase) {
   );
 }
 
+/** 局内进度是否仍可从主菜单「继续」恢复（整局结束后的存档不算可继续） */
+export function isContinuableRunPhase(phase) {
+  const normalized = normalizeRunSavePhase(phase);
+  return normalized !== "run_end_win" && normalized !== "run_end_fail";
+}
+
 /** @param {unknown} value @returns {number} */
 export function clampSaveSlotIndex(value) {
   const n = Math.floor(Number(value));

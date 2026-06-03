@@ -20,7 +20,11 @@ import {
 import { createRunMatchStats } from "../game/runMatchStats.js";
 import { canSaveNow } from "./runSaveGuards.js";
 import { createRunAutoSave } from "./runAutoSave.js";
-import { createEmptySaveEnvelope, SAVE_SLOT_COUNT } from "./runSaveSchema.js";
+import {
+  createEmptySaveEnvelope,
+  isContinuableRunPhase,
+  SAVE_SLOT_COUNT,
+} from "./runSaveSchema.js";
 import {
   serializeAchievementRunState,
   deserializeAchievementRunState,
@@ -28,7 +32,10 @@ import {
 } from "../achievements/achievementRunState.js";
 import { unlockAchievementId } from "../achievements/achievementUnlock.js";
 import { evaluateAndUnlockAchievements } from "../achievements/achievementEvaluate.js";
-import { getCollectionUnlockProgress } from "../collection/collectionProgress.js";
+import {
+  getCollectionTabProgress,
+  getCollectionUnlockProgress,
+} from "../collection/collectionProgress.js";
 
 test("mulberry32 state roundtrip", () => {
   const core = mulberry32WithState(12345);
@@ -108,6 +115,14 @@ test("empty save envelope has three slots", () => {
   assert.equal(env.slots.every((s) => s == null), true);
 });
 
+test("isContinuableRunPhase excludes run end phases", () => {
+  assert.equal(isContinuableRunPhase("playing"), true);
+  assert.equal(isContinuableRunPhase("shop"), true);
+  assert.equal(isContinuableRunPhase("settlement"), true);
+  assert.equal(isContinuableRunPhase("run_end_win"), false);
+  assert.equal(isContinuableRunPhase("run_end_fail"), false);
+});
+
 test("collection career normalize defaults", () => {
   const career = normalizeSlotCareerStats({});
   assert.deepEqual(career.discoveredTreasureIds, []);
@@ -134,6 +149,27 @@ test("collection voucher tier only upgrades", () => {
   assert.equal(recordVoucherDiscovered(career, "v_overstock_1"), false);
   assert.equal(recordVoucherDiscovered(career, "v_overstock_2"), true);
   assert.equal(career.discoveredVoucherTiers.overstock, 2);
+});
+
+test("collection voucher global progress counts tiers; tab display counts pairs", () => {
+  const career = normalizeSlotCareerStats({});
+  const emptyGlobal = getCollectionUnlockProgress(career);
+  const emptyTab = getCollectionTabProgress(career, "vouchers");
+  assert.equal(emptyTab.unlocked, 0);
+
+  recordVoucherDiscovered(career, "v_overstock_1");
+  const afterT1Global = getCollectionUnlockProgress(career);
+  const afterT1Tab = getCollectionTabProgress(career, "vouchers");
+  assert.equal(afterT1Global.unlocked, emptyGlobal.unlocked + 1);
+  assert.equal(afterT1Global.total, emptyGlobal.total);
+  assert.equal(afterT1Tab.unlocked, 1);
+  assert.equal(afterT1Tab.total, emptyTab.total);
+
+  recordVoucherDiscovered(career, "v_overstock_2");
+  const afterT2Global = getCollectionUnlockProgress(career);
+  const afterT2Tab = getCollectionTabProgress(career, "vouchers");
+  assert.equal(afterT2Global.unlocked, afterT1Global.unlocked + 1);
+  assert.equal(afterT2Tab.unlocked, 1);
 });
 
 test("collection material and accessory discovery", () => {

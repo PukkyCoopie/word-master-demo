@@ -137,7 +137,12 @@ export function rollPackOfferStock(ctx) {
     ? getMostPlayedWordLength(ctx.spellCountsByLength ?? null)
     : 0;
 
-  const spellDefsAll = filterSpellDefsForShop(lastReplay, SPELL_DEFINITIONS, spellCastHistory);
+  const spellDefsAll = filterSpellDefsForShop(
+    lastReplay,
+    SPELL_DEFINITIONS,
+    spellCastHistory,
+    ctx.excludeSpellIds,
+  );
   const nextPackId = () => ctx.nextPackOfferInstanceId();
 
   const makeEmpty = () => ({ kind: "empty", emptySlotId: ctx.nextPackEmptySlotId() });

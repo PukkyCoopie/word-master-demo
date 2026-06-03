@@ -52,6 +52,8 @@ const props = defineProps({
   hideLetter: { type: Boolean, default: false },
   /** 不渲染左下角稀有度 gem（如预设描述预览万能块） */
   hideRarityGem: { type: Boolean, default: false },
+  /** regl 材质 canvas 是否逐帧动画；牌库未展开 stack 传 false 只绘一帧 */
+  materialAnimate: { type: Boolean, default: true },
 });
 
 const attrs = useAttrs();
@@ -171,7 +173,7 @@ const scoreBadge = computed(() => Math.max(0, Math.round(Number(props.tileScoreB
 const multBadge = computed(() => Math.max(0, Math.round(Number(props.tileMultBonus) || 0)));
 
 const showAugmentBadges = computed(() =>
-  ["grid", "wordSlotContent", "deck"].includes(props.variant),
+  ["grid", "wordSlotContent", "deck", "fly"].includes(props.variant),
 );
 
 const accessoryChipVisual = computed(() => {
@@ -189,13 +191,13 @@ const treasureAccessoryChipVisual = computed(() => {
 
 <template>
   <component :is="rootTag" :class="mergedClass" :style="mergedStyle" v-bind="restAttrs">
-    <TileGoldRegl v-if="showGoldMaterial" class="tile-material-gold-canvas" />
-    <TileSteelRegl v-if="showSteelMaterial" class="tile-material-steel-canvas" />
-    <TileIceRegl v-if="showIceMaterial" class="tile-material-ice-canvas" />
-    <TileWaterRegl v-if="showWaterMaterial" class="tile-material-water-canvas" />
-    <TileFireRegl v-if="showFireMaterial" class="tile-material-fire-canvas" />
-    <TileWildcardRegl v-if="showWildcardMaterial" class="tile-material-wildcard-canvas" />
-    <TileLuckyRegl v-if="showLuckyMaterial" class="tile-material-lucky-canvas" />
+    <TileGoldRegl v-if="showGoldMaterial" class="tile-material-gold-canvas" :animated="materialAnimate" />
+    <TileSteelRegl v-if="showSteelMaterial" class="tile-material-steel-canvas" :animated="materialAnimate" />
+    <TileIceRegl v-if="showIceMaterial" class="tile-material-ice-canvas" :animated="materialAnimate" />
+    <TileWaterRegl v-if="showWaterMaterial" class="tile-material-water-canvas" :animated="materialAnimate" />
+    <TileFireRegl v-if="showFireMaterial" class="tile-material-fire-canvas" :animated="materialAnimate" />
+    <TileWildcardRegl v-if="showWildcardMaterial" class="tile-material-wildcard-canvas" :animated="materialAnimate" />
+    <TileLuckyRegl v-if="showLuckyMaterial" class="tile-material-lucky-canvas" :animated="materialAnimate" />
     <template v-if="showAugmentBadges">
       <span v-if="scoreBadge > 0" class="tile-bonus-pill tile-bonus-pill--score" aria-hidden="true"
         >+{{ scoreBadge }}</span

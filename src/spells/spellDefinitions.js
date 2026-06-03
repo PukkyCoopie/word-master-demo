@@ -164,7 +164,7 @@ function buildSpellDefinitions() {
     },
     {
       id: "coupon_drop",
-      name: "派券",
+      name: "促销",
       iconClass: "ri-ticket-2-fill",
       pickCount: 0,
       shopPrice: 5,

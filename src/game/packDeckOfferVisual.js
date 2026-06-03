@@ -71,3 +71,17 @@ export function buildPackDeckOfferFlySnapshot(offer) {
     letterMultBonus: p.tileMultBonus,
   };
 }
+
+/**
+ * 飞行动画起点/终点框：取较大边作正方形，避免非正方形容器把字母块拉扁。
+ * @param {DOMRect | { left: number; top: number; width: number; height: number }} rect
+ */
+export function normalizeSquareFlyRect(rect) {
+  const side = Math.max(rect.width, rect.height, 1);
+  return {
+    left: rect.left + (rect.width - side) * 0.5,
+    top: rect.top + (rect.height - side) * 0.5,
+    width: side,
+    height: side,
+  };
+}

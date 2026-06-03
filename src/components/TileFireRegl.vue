@@ -2,8 +2,13 @@
 /**
  * 火焰底纹：展示为 2D canvas，由 fireReglMount 离屏单 regl 每帧贴图。
  */
-import { ref, onMounted, onUnmounted, nextTick } from "vue";
-import { attachFireRegl } from "../lib/fireReglMount.js";
+import { ref, onMounted, onUnmounted, watch } from "vue";
+import { attachFireRegl, setFireReglAnimated } from "../lib/fireReglMount.js";
+
+const props = defineProps({
+  /** false 时只绘制一帧并保持静态（牌库未展开 stack 等） */
+  animated: { type: Boolean, default: true },
+});
 
 const canvasRef = ref(null);
 let dispose = null;
@@ -11,14 +16,19 @@ let dispose = null;
 onMounted(() => {
   const c = canvasRef.value;
   if (!c) return;
-  const ownerClass = c.parentElement?.className || "";
-    dispose = attachFireRegl(c);
+  dispose = attachFireRegl(c, { animated: props.animated });
 });
 
+watch(
+  () => props.animated,
+  (animated) => {
+    const c = canvasRef.value;
+    if (c) setFireReglAnimated(c, animated);
+  },
+);
+
 onUnmounted(() => {
-  const c = canvasRef.value;
-  const ownerClass = c?.parentElement?.className || "";
-    if (dispose) {
+  if (dispose) {
     dispose();
     dispose = null;
   }

@@ -2,17 +2,11 @@ import { reactive } from "vue";
 import { clampSaveSlotIndex, SAVE_SLOT_COUNT } from "../save/runSaveSchema.js";
 
 const STORAGE_KEY = "word_master_player_profile_v1";
-const PROFILE_SCHEMA_VERSION = 2;
+const PROFILE_SCHEMA_VERSION = 3;
 const DISPLAY_NAME_MAX = 16;
-const AVATAR_MAX_BYTES = 80 * 1024;
-const AVATAR_SIZE = 128;
-
-/** @typedef {'none' | 'taptap' | 'upload'} AvatarSource */
 
 /** @typedef {Object} SlotProfile
  * @property {string} displayName
- * @property {string | null} avatarDataUrl
- * @property {AvatarSource} avatarSource
  * @property {boolean} initialized
  */
 
@@ -23,8 +17,6 @@ const slotProfiles = reactive(Array.from({ length: SAVE_SLOT_COUNT }, () => crea
 export const playerProfile = reactive({
   schemaVersion: PROFILE_SCHEMA_VERSION,
   displayName: "Player",
-  avatarDataUrl: null,
-  avatarSource: "none",
   initialized: false,
   activeSaveSlotIndex: 0,
 });
@@ -33,8 +25,6 @@ export const playerProfile = reactive({
 function createDefaultSlotProfile() {
   return {
     displayName: "Player",
-    avatarDataUrl: null,
-    avatarSource: "none",
     initialized: false,
   };
 }
@@ -46,11 +36,6 @@ function normalizeSlotProfile(raw) {
   if (typeof raw.displayName === "string" && raw.displayName.trim()) {
     prof.displayName = normalizeDisplayName(raw.displayName);
   }
-  if (raw.avatarDataUrl != null && String(raw.avatarDataUrl).startsWith("data:image/")) {
-    prof.avatarDataUrl = String(raw.avatarDataUrl);
-  }
-  const src = String(raw.avatarSource ?? "none");
-  prof.avatarSource = src === "taptap" || src === "upload" ? src : "none";
   prof.initialized = raw.initialized === true;
   return prof;
 }
@@ -59,8 +44,6 @@ function normalizeSlotProfile(raw) {
 function syncReactiveFromSlot(index) {
   const prof = slotProfiles[clampSaveSlotIndex(index)];
   playerProfile.displayName = prof.displayName;
-  playerProfile.avatarDataUrl = prof.avatarDataUrl;
-  playerProfile.avatarSource = prof.avatarSource;
   playerProfile.initialized = prof.initialized;
 }
 
@@ -69,8 +52,6 @@ function syncSlotFromReactive(index) {
   const ix = clampSaveSlotIndex(index);
   const prof = slotProfiles[ix];
   prof.displayName = playerProfile.displayName;
-  prof.avatarDataUrl = playerProfile.avatarDataUrl;
-  prof.avatarSource = playerProfile.avatarSource;
   prof.initialized = playerProfile.initialized;
 }
 
@@ -145,14 +126,16 @@ export function loadPlayerProfile() {
         slotProfiles[legacyIx],
         normalizeSlotProfile({
           displayName: parsed.displayName,
-          avatarDataUrl: parsed.avatarDataUrl,
-          avatarSource: parsed.avatarSource,
           initialized: parsed.initialized,
         }),
       );
     }
 
     syncReactiveFromSlot(getActiveSaveSlotIndex());
+
+    if (parsed.schemaVersion == null || parsed.schemaVersion < PROFILE_SCHEMA_VERSION) {
+      persistPlayerProfile();
+    }
   } catch {
     syncReactiveFromSlot(0);
   }
@@ -167,8 +150,6 @@ export function persistPlayerProfile() {
         activeSaveSlotIndex: getActiveSaveSlotIndex(),
         slotProfiles: slotProfiles.map((prof) => ({
           displayName: prof.displayName,
-          avatarDataUrl: prof.avatarDataUrl,
-          avatarSource: prof.avatarSource,
           initialized: prof.initialized,
         })),
       }),
@@ -192,116 +173,12 @@ export function setDisplayName(name) {
   persistPlayerProfile();
 }
 
-/** @param {number} [slotIndex] */
-export function clearAvatar(slotIndex = getActiveSaveSlotIndex()) {
-  const ix = clampSaveSlotIndex(slotIndex);
-  const prof = slotProfiles[ix];
-  prof.avatarDataUrl = null;
-  prof.avatarSource = "none";
-  if (ix === getActiveSaveSlotIndex()) {
-    playerProfile.avatarDataUrl = null;
-    playerProfile.avatarSource = "none";
-  }
-  persistPlayerProfile();
-}
-
 /**
- * @param {string} url
- * @param {'taptap' | 'upload'} source
- * @param {number} [slotIndex]
- */
-export function setAvatarDataUrl(url, source, slotIndex = getActiveSaveSlotIndex()) {
-  const ix = clampSaveSlotIndex(slotIndex);
-  const prof = slotProfiles[ix];
-  const s = String(url ?? "");
-  if (!s.startsWith("data:image/")) {
-    clearAvatar(ix);
-    return false;
-  }
-  if (s.length > AVATAR_MAX_BYTES * 1.4) return false;
-  prof.avatarDataUrl = s;
-  prof.avatarSource = source;
-  if (ix === getActiveSaveSlotIndex()) {
-    playerProfile.avatarDataUrl = s;
-    playerProfile.avatarSource = source;
-  }
-  persistPlayerProfile();
-  return true;
-}
-
-/**
- * @param {string} imageUrl
- * @param {number} [slotIndex]
- * @returns {Promise<boolean>}
- */
-export async function fetchAvatarAsDataUrl(imageUrl, slotIndex = getActiveSaveSlotIndex()) {
-  const url = String(imageUrl ?? "").trim();
-  if (!url) return false;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return false;
-    const blob = await res.blob();
-    const file = new File([blob], "avatar.jpg", { type: blob.type || "image/jpeg" });
-    return setAvatarFromFile(file, "taptap", slotIndex);
-  } catch {
-    return false;
-  }
-}
-
-/**
- * @param {File} file
- * @param {'taptap' | 'upload'} [source='upload']
- * @param {number} [slotIndex]
- * @returns {Promise<boolean>}
- */
-export function setAvatarFromFile(file, source = "upload", slotIndex = getActiveSaveSlotIndex()) {
-  return new Promise((resolve) => {
-    if (!file || !String(file.type ?? "").startsWith("image/")) {
-      resolve(false);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = AVATAR_SIZE;
-        canvas.height = AVATAR_SIZE;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          resolve(false);
-          return;
-        }
-        const side = Math.min(img.width, img.height);
-        const sx = (img.width - side) / 2;
-        const sy = (img.height - side) / 2;
-        ctx.drawImage(img, sx, sy, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
-        let quality = 0.85;
-        let dataUrl = canvas.toDataURL("image/jpeg", quality);
-        while (dataUrl.length > AVATAR_MAX_BYTES * 1.4 && quality > 0.4) {
-          quality -= 0.1;
-          dataUrl = canvas.toDataURL("image/jpeg", quality);
-        }
-        if (dataUrl.length > AVATAR_MAX_BYTES * 1.4) {
-          resolve(false);
-          return;
-        }
-        resolve(setAvatarDataUrl(dataUrl, source, slotIndex));
-      };
-      img.onerror = () => resolve(false);
-      img.src = String(reader.result ?? "");
-    };
-    reader.onerror = () => resolve(false);
-    reader.readAsDataURL(file);
-  });
-}
-
-/**
- * 将指定槽位的展示名与头像重置为 TapTap 账号信息；无 TapTap 时为 Player + 无头像。
+ * 将指定槽位的展示名重置为 TapTap 账号昵称；无 TapTap 时为默认 Player 名。
  * @param {import('../taptap/tapTapPlugin.js').TapTapAccount | null} account
  * @param {number} [slotIndex]
  */
-export async function applyProfileDefaultsFromTapTap(account, slotIndex = getActiveSaveSlotIndex()) {
+export function applyProfileDefaultsFromTapTap(account, slotIndex = getActiveSaveSlotIndex()) {
   const ix = clampSaveSlotIndex(slotIndex);
   const prof = slotProfiles[ix];
   let name;
@@ -313,13 +190,6 @@ export async function applyProfileDefaultsFromTapTap(account, slotIndex = getAct
   prof.displayName = name;
   prof.initialized = true;
 
-  if (account?.avatar) {
-    const avatarOk = await fetchAvatarAsDataUrl(account.avatar, ix);
-    if (!avatarOk) clearAvatar(ix);
-  } else {
-    clearAvatar(ix);
-  }
-
   if (ix === getActiveSaveSlotIndex()) {
     syncReactiveFromSlot(ix);
   }
@@ -329,10 +199,10 @@ export async function applyProfileDefaultsFromTapTap(account, slotIndex = getAct
 /**
  * @param {import('../taptap/tapTapPlugin.js').TapTapAccount | null} account
  */
-export async function initializeProfileFromTapTap(account) {
+export function initializeProfileFromTapTap(account) {
   const ix = getActiveSaveSlotIndex();
   if (slotProfiles[ix].initialized) return;
-  await applyProfileDefaultsFromTapTap(account, ix);
+  applyProfileDefaultsFromTapTap(account, ix);
 }
 
 /** @param {number} index */
@@ -350,4 +220,11 @@ export function getProfileInitialLetter(slotIndex = getActiveSaveSlotIndex()) {
   const n = getSlotProfile(slotIndex).displayName.trim();
   if (!n) return "P";
   return n.charAt(0).toUpperCase();
+}
+
+/** @param {number} [slotIndex] @returns {{ background: string }} */
+export function getProfileInitialLetterStyle(slotIndex = getActiveSaveSlotIndex()) {
+  const ch = getProfileInitialLetter(slotIndex).charCodeAt(0) || 80;
+  const hue = (ch * 17) % 360;
+  return { background: `hsl(${hue} 42% 62%)` };
 }

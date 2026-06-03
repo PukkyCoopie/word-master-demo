@@ -8,8 +8,7 @@
     @click="onOpenProfile"
   >
     <span class="profile-chip-avatar" :style="avatarStyle">
-      <img v-if="avatarUrl" :src="avatarUrl" alt="" class="profile-chip-avatar-img" />
-      <span v-else class="profile-chip-avatar-letter">{{ initialLetter }}</span>
+      <span class="profile-chip-avatar-letter">{{ initialLetter }}</span>
     </span>
     <span class="profile-chip-name">{{ displayName }}</span>
   </button>
@@ -17,7 +16,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
-import { getProfileInitialLetter, playerProfile } from "../profile/playerProfile.js";
+import { getProfileInitialLetter, getProfileInitialLetterStyle, playerProfile } from "../profile/playerProfile.js";
 
 defineProps({
   suppressed: { type: Boolean, default: false },
@@ -48,15 +47,8 @@ function onOpenProfile() {
 }
 
 const displayName = computed(() => playerProfile.displayName || "Player");
-const avatarUrl = computed(() => playerProfile.avatarDataUrl);
 const initialLetter = computed(() => getProfileInitialLetter());
-
-const avatarStyle = computed(() => {
-  if (avatarUrl.value) return undefined;
-  const ch = initialLetter.value.charCodeAt(0) || 80;
-  const hue = (ch * 17) % 360;
-  return { background: `hsl(${hue} 42% 62%)` };
-});
+const avatarStyle = computed(() => getProfileInitialLetterStyle());
 </script>
 
 <style scoped>
@@ -103,13 +95,6 @@ const avatarStyle = computed(() => {
   align-items: center;
   justify-content: center;
   background: #5a8fb8;
-}
-
-.profile-chip-avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 .profile-chip-avatar-letter {

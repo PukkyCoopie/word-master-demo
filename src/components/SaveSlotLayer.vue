@@ -33,13 +33,7 @@
                     :class="{ 'save-slot-avatar--empty': !slotCountsAsOccupied(index, entry) }"
                     :style="getOccupiedSlotAvatarStyle(index, slotCountsAsOccupied(index, entry))"
                   >
-                    <img
-                      v-if="slotCountsAsOccupied(index, entry) && getSlotAvatarUrl(index)"
-                      :src="getSlotAvatarUrl(index)"
-                      alt=""
-                      class="save-slot-avatar-img"
-                    />
-                    <span v-else-if="slotCountsAsOccupied(index, entry)" class="save-slot-avatar-letter">{{
+                    <span v-if="slotCountsAsOccupied(index, entry)" class="save-slot-avatar-letter">{{
                       getProfileInitialLetter(index)
                     }}</span>
                     <span v-else class="save-slot-avatar-placeholder" aria-hidden="true">?</span>
@@ -139,7 +133,7 @@
 
 <script setup>
 import { computed, ref, watch } from "vue";
-import { getProfileInitialLetter, getSlotProfile, isSlotProfileActivated } from "../profile/playerProfile.js";
+import { getProfileInitialLetter, getProfileInitialLetterStyle, getSlotProfile, isSlotProfileActivated } from "../profile/playerProfile.js";
 import { listAllSlotEntries } from "../save/runSaveStorage.js";
 import { formatRelativeSaveTime } from "../save/saveDisplayUtils.js";
 import { getSlotCareerSummaryRows } from "../save/slotCareerStats.js";
@@ -188,11 +182,6 @@ function slotTitle(index, entry) {
   return `栏位 ${index + 1}`;
 }
 
-/** @param {number} index */
-function getSlotAvatarUrl(index) {
-  return getSlotProfile(index).avatarDataUrl;
-}
-
 /** @param {number} index @param {{ hasSave: boolean }} entry */
 function slotCountsAsOccupied(index, entry) {
   return entry.hasSave || isSlotProfileActivated(index);
@@ -205,10 +194,8 @@ function slotCanDelete(index, entry) {
 
 /** @param {number} index @param {boolean} occupied */
 function getOccupiedSlotAvatarStyle(index, occupied) {
-  if (!occupied || getSlotAvatarUrl(index)) return undefined;
-  const ch = getProfileInitialLetter(index).charCodeAt(0) || 80;
-  const hue = (ch * 17) % 360;
-  return { background: `hsl(${hue} 42% 62%)` };
+  if (!occupied) return undefined;
+  return getProfileInitialLetterStyle(index);
 }
 
 /** @param {number} index */
@@ -386,13 +373,6 @@ function onBackdropClick() {
 
 .save-slot-avatar--empty {
   background: #b0a89c;
-}
-
-.save-slot-avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 .save-slot-avatar-letter {

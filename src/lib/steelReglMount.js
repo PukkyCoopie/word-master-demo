@@ -5,6 +5,12 @@
  */
 import createREGL from "regl";
 import { materialHubSubscribeTick, materialHubUnsubscribeTick } from "./reglMaterialTicker.js";
+import {
+  anyReglSubscriberAnimated,
+  applyReglSubscriberAnimated,
+  blitReglOffscreenToSubscriber,
+  findReglSubscriberByCanvas,
+} from "./reglSubscriberAnimation.js";
 import { forceLoseWebglContext } from "./reglDebugLog.js";
 
 const STEEL_VERT = `
@@ -408,40 +414,41 @@ function destroySteelHub() {
   steelHub = null;
 }
 
-/** @typedef {{ canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number }} SteelSubscriber */
+/** @typedef {import("./reglSubscriberAnimation.js").ReglDisplaySubscriber} SteelSubscriber */
 
 /** @type {Set<SteelSubscriber>} */
 const steelSubscribers = new Set();
 
-function steelHubTick() {
-  if (steelSubscribers.size === 0 || !steelHub) return;
-  const { offscreen, regl, draw } = steelHub;
+function drawSteelHubFrame() {
+  if (!steelHub) return;
+  const { regl, draw } = steelHub;
   regl.poll();
   draw({ viewport: { x: 0, y: 0, width: OFFSCREEN_TEX_PX, height: OFFSCREEN_TEX_PX } });
+}
+
+function blitSteelSubscriber(sub) {
+  if (!steelHub) return;
+  blitReglOffscreenToSubscriber(sub, steelHub.offscreen, OFFSCREEN_TEX_PX);
+}
+
+function paintSteelSubscriberOnce(sub) {
+  ensureSteelHub();
+  drawSteelHubFrame();
+  blitSteelSubscriber(sub);
+}
+
+const steelHubControls = {
+  paintSubscriberOnce: paintSteelSubscriberOnce,
+  ensureTick: ensureSteelTick,
+  stopTickIfIdle: stopSteelTickIfIdle,
+};
+
+function steelHubTick() {
+  if (!anyReglSubscriberAnimated(steelSubscribers) || !steelHub) return;
+  drawSteelHubFrame();
   for (const sub of steelSubscribers) {
-    let cssW = sub.canvas.clientWidth;
-    let cssH = sub.canvas.clientHeight;
-    const useFixed =
-      typeof sub.fixedCssWidth === "number" &&
-      typeof sub.fixedCssHeight === "number" &&
-      Number.isFinite(sub.fixedCssWidth) &&
-      Number.isFinite(sub.fixedCssHeight) &&
-      sub.fixedCssWidth > 0 &&
-      sub.fixedCssHeight > 0;
-    if (useFixed) {
-      cssW = sub.fixedCssWidth;
-      cssH = sub.fixedCssHeight;
-    }
-    if (cssW <= 0 || cssH <= 0) continue;
-    const pw = Math.max(2, Math.ceil(cssW * sub.dpr));
-    const ph = Math.max(2, Math.ceil(cssH * sub.dpr));
-    if (sub.canvas.width !== pw || sub.canvas.height !== ph) {
-      sub.canvas.width = pw;
-      sub.canvas.height = ph;
-    }
-    sub.ctx.imageSmoothingEnabled = true;
-    sub.ctx.imageSmoothingQuality = "high";
-    sub.ctx.drawImage(offscreen, 0, 0, OFFSCREEN_TEX_PX, OFFSCREEN_TEX_PX, 0, 0, pw, ph);
+    if (sub.animated === false) continue;
+    blitSteelSubscriber(sub);
   }
 }
 
@@ -454,7 +461,7 @@ function ensureSteelTick() {
 }
 
 function stopSteelTickIfIdle() {
-  if (steelSubscribers.size > 0) return;
+  if (anyReglSubscriberAnimated(steelSubscribers)) return;
   if (steelTickRegistered) {
     materialHubUnsubscribeTick(steelHubTick);
     steelTickRegistered = false;
@@ -478,7 +485,7 @@ if (import.meta.hot) {
 
 /**
  * @param {HTMLCanvasElement} canvas 展示用 2D 画布
- * @param {{ fixedCssWidth?: number, fixedCssHeight?: number }} [options]
+ * @param {{ fixedCssWidth?: number, fixedCssHeight?: number, animated?: boolean }} [options]
  * @returns {() => void} dispose
  */
 export function attachSteelRegl(canvas, options = {}) {
@@ -492,6 +499,7 @@ export function attachSteelRegl(canvas, options = {}) {
     Number.isFinite(fixedH) &&
     fixedW > 0 &&
     fixedH > 0;
+  const animated = options.animated !== false;
 
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: false });
   if (!ctx) {
@@ -505,17 +513,29 @@ export function attachSteelRegl(canvas, options = {}) {
     dpr,
     fixedCssWidth: useFixedLayout ? fixedW : undefined,
     fixedCssHeight: useFixedLayout ? fixedH : undefined,
+    animated,
   };
 
   ensureSteelHub();
   steelSubscribers.add(sub);
-  ensureSteelTick();
-  steelHubTick();
+  if (animated) {
+    ensureSteelTick();
+    steelHubTick();
+  } else {
+    paintSteelSubscriberOnce(sub);
+  }
 
   return function disposeSteelRegl() {
     steelSubscribers.delete(sub);
     stopSteelTickIfIdle();
   };
+}
+
+/** @param {HTMLCanvasElement} canvas @param {boolean} animated */
+export function setSteelReglAnimated(canvas, animated) {
+  const sub = findReglSubscriberByCanvas(steelSubscribers, canvas);
+  if (!sub) return;
+  applyReglSubscriberAnimated(sub, animated, steelHubControls);
 }
 
 /** 启动时预创建 WebGL / 编译 shader；无订阅者时不参与每帧离屏绘制。 */

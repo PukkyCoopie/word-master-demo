@@ -444,7 +444,7 @@ function runEnterAnimation() {
     });
 }
 
-function runCloseAnimation() {
+function runCloseAnimation(shouldEmit = true) {
   if (closing.value) {
     return Promise.resolve();
   }
@@ -454,6 +454,13 @@ function runCloseAnimation() {
   const targetFade = targetVisualRef.value;
   const clone = flyCloneRef.value;
   const staggerEls = staggerTargets();
+
+  /** @param {() => void} resolve */
+  const finish = (resolve) => {
+    closing.value = false;
+    if (shouldEmit) emit("close");
+    resolve(undefined);
+  };
 
   if (enterTl) {
     enterTl.kill();
@@ -489,9 +496,7 @@ function runCloseAnimation() {
         .then(() => {
           const c = flyCloneRef.value;
           if (!c || !backdrop || !targetFade) {
-            closing.value = false;
-            emit("close");
-            resolve(undefined);
+            finish(resolve);
             return;
           }
 
@@ -513,10 +518,8 @@ function runCloseAnimation() {
             onComplete: () => {
               flyCloneActive.value = false;
               flyCloneAnchorRect.value = null;
-              closing.value = false;
               gsap.set(c, { clearProps: "transform" });
-              emit("close");
-              resolve(undefined);
+              finish(resolve);
             },
           });
 
@@ -562,11 +565,7 @@ function runCloseAnimation() {
     }
 
     const tl = gsap.timeline({
-      onComplete: () => {
-        closing.value = false;
-        emit("close");
-        resolve(undefined);
-      },
+      onComplete: () => finish(resolve),
     });
 
     if (backdrop) {
@@ -613,7 +612,11 @@ function runCloseAnimation() {
 
 function requestClose() {
   if (closing.value) return;
-  void runCloseAnimation();
+  void runCloseAnimation(true);
+}
+
+function playClose() {
+  return runCloseAnimation(false);
 }
 
 function onDocumentKeydown(e) {
@@ -650,6 +653,8 @@ onUnmounted(() => {
     enterTl = null;
   }
 });
+
+defineExpose({ playClose });
 
 const rarityKey = computed(() => {
   const r = String(props.payload?.rarity ?? "common");

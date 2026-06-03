@@ -1898,7 +1898,9 @@ textarea::-moz-placeholder {
 /* 字母块角标：tile 自带额外分 / 额外倍率（与记分气泡配色一致） */
 .grid-tile .tile-bonus-pill,
 .deck-layer-tile .tile-bonus-pill,
-.word-slots .word-slot-content .tile-bonus-pill {
+.word-slots .word-slot-content .tile-bonus-pill,
+.fly-letter .tile-bonus-pill,
+.fly-letter-back .tile-bonus-pill {
 	position: absolute;
 	z-index: 2;
 	min-width: calc(18 * var(--rpx));
@@ -1913,32 +1915,47 @@ textarea::-moz-placeholder {
 }
 .grid-tile .tile-bonus-pill--score,
 .deck-layer-tile .tile-bonus-pill--score,
-.word-slots .word-slot-content .tile-bonus-pill--score {
+.word-slots .word-slot-content .tile-bonus-pill--score,
+.fly-letter .tile-bonus-pill--score,
+.fly-letter-back .tile-bonus-pill--score {
 	top: calc(4 * var(--rpx));
 	left: calc(4 * var(--rpx));
 	background: #6ec4f0;
 }
 .grid-tile .tile-bonus-pill--mult,
 .deck-layer-tile .tile-bonus-pill--mult,
-.word-slots .word-slot-content .tile-bonus-pill--mult {
+.word-slots .word-slot-content .tile-bonus-pill--mult,
+.fly-letter .tile-bonus-pill--mult,
+.fly-letter-back .tile-bonus-pill--mult {
 	top: calc(4 * var(--rpx));
 	right: calc(4 * var(--rpx));
 	left: auto;
 	background: var(--mult-accent);
 }
 /* 与 .grid-tile 角标同基准，仅按 --slot-scale 缩放（缩槽时同比例缩小） */
-.word-slots .word-slot-content .tile-bonus-pill {
+.word-slots .word-slot-content .tile-bonus-pill,
+.fly-letter .tile-bonus-pill,
+.fly-letter-back .tile-bonus-pill {
 	min-width: calc(18 * var(--rpx) * var(--slot-scale, 1));
 	font-size: calc(14 * var(--rpx) * var(--slot-scale, 1));
 	padding: calc(2 * var(--rpx) * var(--slot-scale, 1)) calc(5 * var(--rpx) * var(--slot-scale, 1));
 	border-radius: calc(5 * var(--rpx) * var(--slot-scale, 1));
 	top: calc(4 * var(--rpx) * var(--slot-scale, 1));
 }
-.word-slots .word-slot-content .tile-bonus-pill--score {
+.word-slots .word-slot-content .tile-bonus-pill--score,
+.fly-letter .tile-bonus-pill--score,
+.fly-letter-back .tile-bonus-pill--score {
 	left: calc(4 * var(--rpx) * var(--slot-scale, 1));
 }
-.word-slots .word-slot-content .tile-bonus-pill--mult {
+.word-slots .word-slot-content .tile-bonus-pill--mult,
+.fly-letter .tile-bonus-pill--mult,
+.fly-letter-back .tile-bonus-pill--mult {
 	right: calc(4 * var(--rpx) * var(--slot-scale, 1));
+}
+
+.fly-letter[class*="tile-material-"] .tile-bonus-pill,
+.fly-letter-back[class*="tile-material-"] .tile-bonus-pill {
+	z-index: 4;
 }
 
 /* 字母块配饰：LetterTile + tileImperativeChrome（飞回等）共用类名；--slot-scale 在词槽/飞字上随槽缩放 */
@@ -3172,6 +3189,13 @@ textarea::-moz-placeholder {
 .run-end-discovery-chip__frame.shop-treasure-frame {
 	container-type: size;
 	container-name: treasure-cell;
+	width: 100%;
+	height: 100%;
+	min-width: 100%;
+	min-height: 100%;
+	max-width: 100%;
+	max-height: 100%;
+	flex-shrink: 0;
 }
 
 @container treasure-cell (min-width: 0px) {
@@ -4296,6 +4320,37 @@ textarea::-moz-placeholder {
 	pointer-events: none;
 	overflow: hidden;
 	border-radius: calc(8 * var(--rpx));
+}
+
+/* 包内/商店字母块飞入牌库：与详情层 fly-clone 一致，内块铺满正方形容器 */
+.pack-tile-purchase-fly-clone--deck-tile {
+	display: flex;
+	align-items: stretch;
+	justify-content: stretch;
+	overflow: visible;
+}
+
+.pack-tile-purchase-fly-clone--deck-tile .letter-tile-mount-host {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: stretch;
+	justify-content: stretch;
+}
+
+.pack-tile-purchase-fly-clone--deck-tile .shop-shelf-letter-tile,
+.pack-tile-purchase-fly-clone--deck-tile .grid-tile {
+	width: 100%;
+	height: 100%;
+	flex: 1 1 auto;
+	max-width: none;
+	box-sizing: border-box;
+}
+
+.pack-tile-purchase-fly-clone--deck-tile.shop-shelf-letter-tile.grid-tile {
+	width: 100%;
+	height: 100%;
+	max-width: none;
 }
 
 /* 详情层：组合包 */

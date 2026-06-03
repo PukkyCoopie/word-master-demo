@@ -5,6 +5,7 @@ import {
   clampSaveSlotIndex,
   createEmptySaveEnvelope,
   createEmptySlotCareerStats,
+  isContinuableRunPhase,
   normalizeRunSavePhase,
 } from "./runSaveSchema.js";
 import { normalizeSlotCareerStats } from "./slotCareerStats.js";
@@ -56,10 +57,13 @@ export function isSlotOccupied(index) {
   return getSaveEnvelope().slots[ix] != null;
 }
 
-/** @param {number} index 槽位是否存在可恢复的局内进度（payload） */
+/** @param {number} index 槽位是否存在可恢复的局内进度（进行中，非整局结束） */
 export function hasContinuableRun(index) {
   const ix = clampSaveSlotIndex(index);
-  return getSaveEnvelope().slots[ix]?.payload != null;
+  const slot = getSaveEnvelope().slots[ix];
+  if (!slot?.payload) return false;
+  const phase = normalizeRunSavePhase(slot.payload.phase ?? slot.meta?.phase);
+  return isContinuableRunPhase(phase);
 }
 
 /**

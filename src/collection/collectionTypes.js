@@ -21,7 +21,7 @@
  * @property {number} length
  * @property {number} recordedAt
  * @property {CollectionSubmitTileSnapshot[]} tiles
- * @property {import('../save/runSavePayload.js').SerializedOwnedTreasureSlot[]} ownedTreasures
+ * @property {(import('../save/runSavePayload.js').SerializedOwnedTreasureSlot | null)[]} ownedTreasures
  */
 
 export const COLLECTION_LEADERBOARD_MAX = 10;

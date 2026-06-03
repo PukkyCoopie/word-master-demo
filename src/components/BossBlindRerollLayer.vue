@@ -9,7 +9,7 @@
       aria-modal="true"
       :aria-labelledby="titleId"
     >
-      <div class="treasure-detail-header-panel">
+      <div class="treasure-detail-header-panel boss-blind-reroll-stagger">
         <div class="treasure-detail-header-logo-sizer" aria-hidden="true"></div>
         <div
           class="header-box header-box-split header-box-wallet treasure-detail-wallet"
@@ -26,13 +26,13 @@
 
       <div class="treasure-detail-body">
         <div class="treasure-detail-stack">
-          <div class="treasure-detail-title-group">
+          <div class="treasure-detail-title-group boss-blind-reroll-stagger">
             <p class="treasure-detail-kind-caption">Boss 关</p>
             <h2 :id="titleId" class="treasure-detail-name">可用的重掷机会</h2>
             <p class="boss-blind-reroll-remaining">{{ rerollRemainingLine }}</p>
           </div>
 
-          <div class="treasure-detail-icon-column">
+          <div class="treasure-detail-icon-column boss-blind-reroll-stagger">
             <div class="shop-treasure-visual shop-treasure-visual--detail">
               <div class="shop-treasure-frame shop-treasure-frame--detail shop-treasure-frame--voucher-stamp">
                 <span class="shop-treasure-emoji shop-treasure-emoji--detail" role="img">{{ voucherEmoji }}</span>
@@ -41,7 +41,7 @@
             <p class="boss-blind-reroll-voucher-name">{{ voucherDisplayName }}</p>
           </div>
 
-          <div v-if="bossDef" class="treasure-detail-desc-card">
+          <div v-if="bossDef" class="treasure-detail-desc-card boss-blind-reroll-stagger">
             <div class="treasure-detail-desc-panel-title-row">
               <span class="treasure-detail-desc-panel-title-text">下一关 Boss</span>
             </div>
@@ -49,7 +49,7 @@
             <TreasureDescRichText :description="bossDef.uiDescription" />
           </div>
 
-          <div class="treasure-detail-actions">
+          <div class="treasure-detail-actions boss-blind-reroll-stagger">
             <button
               type="button"
               class="shop-btn shop-btn--reroll boss-blind-reroll-btn"
@@ -72,7 +72,10 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, useId } from "vue";
+import { computed, onMounted, onUnmounted, ref, useId } from "vue";
+import gsap from "gsap";
+import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
+import { EASE_TRANSFORM } from "../constants.js";
 import { getBossDef } from "../game/bossBlindDefinitions.js";
 import { formatVoucherDisplayName } from "../vouchers/voucherDisplay.js";
 import { pairHasTier2Owned, getTier2DefForPair } from "../vouchers/voucherDefinitions.js";
@@ -96,8 +99,82 @@ const props = defineProps({
 const emit = defineEmits(["reroll", "continue"]);
 
 const titleId = useId();
+const backdropRef = ref(null);
 const stackZ = ref(0);
+const closing = ref(false);
 const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
+
+const BOSS_BLIND_SCRIM_TRANSPARENT = "rgba(14, 12, 10, 0)";
+
+/** @type {gsap.core.Timeline | null} */
+let closeTl = null;
+
+function collectStaggerEls() {
+  const root = backdropRef.value;
+  if (!root) return [];
+  return Array.from(root.querySelectorAll(".boss-blind-reroll-stagger"));
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+function playClose() {
+  if (closing.value) return Promise.resolve();
+  closing.value = true;
+
+  const backdrop = backdropRef.value;
+  const staggerEls = collectStaggerEls();
+
+  if (closeTl) {
+    closeTl.kill();
+    closeTl = null;
+  }
+  gsap.killTweensOf([backdrop, ...staggerEls].filter(Boolean));
+
+  if (!backdrop && !staggerEls.length) {
+    closing.value = false;
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    closeTl = gsap.timeline({
+      onComplete: () => {
+        closeTl = null;
+        closing.value = false;
+        resolve(undefined);
+      },
+    });
+
+    if (backdrop) {
+      closeTl.to(
+        backdrop,
+        {
+          ...portalScrimGsapVars(BOSS_BLIND_SCRIM_TRANSPARENT),
+          duration: 0.22,
+          ease: EASE_TRANSFORM,
+        },
+        0,
+      );
+    }
+
+    const rev = [...staggerEls].reverse();
+    if (rev.length) {
+      closeTl.to(
+        rev,
+        {
+          opacity: 0,
+          y: 5,
+          duration: 0.12,
+          stagger: 0.028,
+          ease: EASE_TRANSFORM,
+        },
+        0,
+      );
+    }
+  });
+}
+
+defineExpose({ playClose });
 
 const rerollCost = BOSS_BLIND_REROLL_COST_DOLLARS;
 
@@ -141,5 +218,12 @@ function formatWallet(n) {
 
 onMounted(() => {
   stackZ.value = bumpOverlayZ();
+});
+
+onUnmounted(() => {
+  if (closeTl) {
+    closeTl.kill();
+    closeTl = null;
+  }
 });
 </script>

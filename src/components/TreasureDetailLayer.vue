@@ -500,6 +500,7 @@
               v-if="mode === 'offer' && !isCollectionPreviewMode && spellGrantFlow"
               type="button"
               class="shop-btn shop-btn--use"
+              :disabled="!canBuyOffer"
               @click="emit('purchase')"
             >
               使用

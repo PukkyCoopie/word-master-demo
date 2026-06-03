@@ -20,6 +20,8 @@ export const COLLECTION_UNLOCK_TAB_IDS = Object.freeze(
 const TREASURE_TOTAL = TREASURE_CATALOG.length;
 const SPELL_TOTAL = SPELL_DEFINITIONS.length;
 const VOUCHER_PAIR_TOTAL = VOUCHER_PAIR_ORDER.size;
+/** 全库进度：每对优惠券按 1 级、2 级各计 1 项 */
+const VOUCHER_TIER_TOTAL = VOUCHER_PAIR_TOTAL * 2;
 const MATERIAL_TOTAL = COLLECTION_MATERIAL_DISPLAY_ORDER.length;
 const ACCESSORY_TOTAL = Object.keys(ACCESSORY_CATALOG).length;
 
@@ -27,6 +29,38 @@ const ACCESSORY_TOTAL = Object.keys(ACCESSORY_CATALOG).length;
 function normalizeIdSet(raw) {
   const arr = Array.isArray(raw) ? raw : [];
   return new Set(arr.map((id) => String(id ?? "").trim()).filter(Boolean));
+}
+
+/** @param {import('../save/runSaveSchema.js').SlotCareerStats | Record<string, unknown>} career */
+function getDiscoveredVoucherTiers(career) {
+  const tiers = career?.discoveredVoucherTiers;
+  return tiers && typeof tiers === "object" ? tiers : {};
+}
+
+/**
+ * 优惠券 tab 标题进度：按「对」计数（发现 1 级即解锁该对，与 UI 网格一致）。
+ * @param {Record<string, number>} tiers
+ */
+function countVoucherPairDisplayProgress(tiers) {
+  let unlocked = 0;
+  for (const pairId of VOUCHER_PAIR_ORDER.keys()) {
+    if ((tiers[pairId] ?? 0) >= 1) unlocked += 1;
+  }
+  return { unlocked, total: VOUCHER_PAIR_TOTAL };
+}
+
+/**
+ * 收藏全库进度：每对优惠券的 1 级、2 级各计 1 项。
+ * @param {Record<string, number>} tiers
+ */
+function countVoucherTierCollectionProgress(tiers) {
+  let unlocked = 0;
+  for (const pairId of VOUCHER_PAIR_ORDER.keys()) {
+    const tier = tiers[pairId] ?? 0;
+    if (tier >= 1) unlocked += 1;
+    if (tier >= 2) unlocked += 1;
+  }
+  return { unlocked, total: VOUCHER_TIER_TOTAL };
 }
 
 /**
@@ -56,17 +90,8 @@ export function getCollectionTabProgress(career, tabId) {
       }
       return { unlocked, total: COLLECTION_UPGRADE_TOTAL };
     }
-    case "vouchers": {
-      const tiers =
-        career?.discoveredVoucherTiers && typeof career.discoveredVoucherTiers === "object"
-          ? career.discoveredVoucherTiers
-          : {};
-      let unlocked = 0;
-      for (const pairId of VOUCHER_PAIR_ORDER.keys()) {
-        if ((tiers[pairId] ?? 0) >= 1) unlocked += 1;
-      }
-      return { unlocked, total: VOUCHER_PAIR_TOTAL };
-    }
+    case "vouchers":
+      return countVoucherPairDisplayProgress(getDiscoveredVoucherTiers(career));
     case "materials": {
       const discovered = normalizeIdSet(career?.discoveredMaterialIds);
       let unlocked = 0;
@@ -124,6 +149,12 @@ export function getCollectionUnlockProgress(career) {
   let unlocked = 0;
   let total = 0;
   for (const tabId of COLLECTION_ITEM_TAB_IDS) {
+    if (tabId === "vouchers") {
+      const p = countVoucherTierCollectionProgress(getDiscoveredVoucherTiers(career));
+      unlocked += p.unlocked;
+      total += p.total;
+      continue;
+    }
     const p = getCollectionTabProgress(career, tabId);
     if (!p) continue;
     unlocked += p.unlocked;

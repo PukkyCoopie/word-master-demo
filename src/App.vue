@@ -71,13 +71,14 @@
       />
       <RunStartQuickConfirmLayer
         :open="runStartQuickConfirm.open"
+        :kind="runStartQuickConfirm.kind"
         :title="runStartQuickConfirm.title"
         :message="runStartQuickConfirm.message"
         :confirm-label="runStartQuickConfirm.confirmLabel"
         :cancel-label="runStartQuickConfirm.cancelLabel"
-        :backdrop-dismiss="runStartQuickConfirm.backdropDismiss"
         @confirm="onRunStartQuickConfirm"
         @cancel="onRunStartQuickCancel"
+        @dismiss="onRunStartQuickDismiss"
       />
       <SettingsLayer :open="showSettings" @close="closeSettings" />
       <AboutLayer :open="showAbout" @close="closeAbout" />
@@ -227,7 +228,7 @@ const saveUiRefreshKey = ref(0);
 const collectionRefreshKey = ref(0);
 /** @type {import('vue').Ref<{ presetIds: string[], difficultyIndices: number[] }>} */
 const runStartFreshUnlocks = ref({ presetIds: [], difficultyIndices: [] });
-/** @type {import('vue').Ref<{ open: boolean, kind: 'continue' | 'new-run', slotIx: number, mode: 'menu' | 'restart', title: string, message: string, confirmLabel: string, cancelLabel: string, backdropDismiss: boolean }>} */
+/** @type {import('vue').Ref<{ open: boolean, kind: 'continue' | 'new-run', slotIx: number, mode: 'menu' | 'restart', title: string, message: string, confirmLabel: string, cancelLabel: string }>} */
 const runStartQuickConfirm = ref({
   open: false,
   kind: "continue",
@@ -237,7 +238,6 @@ const runStartQuickConfirm = ref({
   message: "",
   confirmLabel: "",
   cancelLabel: "",
-  backdropDismiss: false,
 });
 const IRIS_COLOR = "#5a8fb8";
 const COLLECTION_IRIS_COLOR = "#7b68a8";
@@ -621,7 +621,6 @@ function openRunStartQuickConfirm(payload) {
     message: payload.message,
     confirmLabel: payload.confirmLabel,
     cancelLabel: payload.cancelLabel,
-    backdropDismiss: payload.backdropDismiss === true,
   };
 }
 
@@ -712,7 +711,6 @@ function openRunStartFlow({ mode, prefillSeed = "" }) {
       message: "是否继续之前的进度？",
       confirmLabel: "继续",
       cancelLabel: "开始新游戏",
-      backdropDismiss: false,
     });
     return;
   }
@@ -726,7 +724,6 @@ function openRunStartFlow({ mode, prefillSeed = "" }) {
       message: "是否开始新的一轮？本轮进度不会保存。",
       confirmLabel: "开始",
       cancelLabel: "取消",
-      backdropDismiss: true,
     });
     return;
   }
@@ -750,6 +747,10 @@ function onRunStartQuickCancel() {
   if (kind === "continue") {
     void startDirectNewRun(slotIx, mode);
   }
+}
+
+function onRunStartQuickDismiss() {
+  closeRunStartQuickConfirm();
 }
 
 function onMenuRequestStart() {

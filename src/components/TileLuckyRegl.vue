@@ -1,9 +1,10 @@
 <script setup>
-/**
- * Lucky 底纹：展示为 2D canvas，由 luckyReglMount 离屏单 regl 每帧贴图。
- */
-import { ref, onMounted, onUnmounted } from "vue";
-import { attachLuckyRegl } from "../lib/luckyReglMount.js";
+import { ref, onMounted, onUnmounted, watch } from "vue";
+import { attachLuckyRegl, setLuckyReglAnimated } from "../lib/luckyReglMount.js";
+
+const props = defineProps({
+  animated: { type: Boolean, default: true },
+});
 
 const canvasRef = ref(null);
 let dispose = null;
@@ -11,8 +12,16 @@ let dispose = null;
 onMounted(() => {
   const c = canvasRef.value;
   if (!c) return;
-  dispose = attachLuckyRegl(c);
+  dispose = attachLuckyRegl(c, { animated: props.animated });
 });
+
+watch(
+  () => props.animated,
+  (animated) => {
+    const c = canvasRef.value;
+    if (c) setLuckyReglAnimated(c, animated);
+  },
+);
 
 onUnmounted(() => {
   if (dispose) {

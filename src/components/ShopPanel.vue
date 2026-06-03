@@ -380,7 +380,7 @@ const props = defineProps({
     type: Object,
     default: () => ({ kind: "empty", emptySlotId: 0 }),
   },
-  /** 法术「派券」追加的额外优惠券（至多 1 张） */
+  /** 法术「促销」追加的额外优惠券（至多 1 张） */
   voucherBonusSlot: {
     type: Object,
     default: null,
@@ -1044,7 +1044,7 @@ async function playGlyphRoundInfoFx(text, speed = 1) {
 
 const voucherBonusProductRef = ref(null);
 
-/** 法术派券：额外优惠券格 scale 0 → 过冲 → 回落 */
+/** 法术促销：额外优惠券格 scale 0 → 过冲 → 回落 */
 async function playVoucherBonusEnterAnim() {
   await nextTick();
   const root = voucherBonusProductRef.value;
