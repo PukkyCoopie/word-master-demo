@@ -26,6 +26,43 @@ export function shouldSkipDecorativeMotion() {
   return prefersReducedMotion();
 }
 
+/**
+ * 减少动画：保留 stagger 间隔，元素瞬间隐藏（无位移/透明度 tween）。
+ * @param {HTMLElement[]} slotEls
+ * @param {HTMLElement[]} gridEls
+ * @param {{ stagger?: number }} [options]
+ * @returns {Promise<void>}
+ */
+export function runStaggeredInstantLeave(slotEls, gridEls, options = {}) {
+  const stagger = Number.isFinite(options.stagger) ? options.stagger : 0.12;
+  const slots = Array.isArray(slotEls) ? slotEls.filter(Boolean) : [];
+  const grids = Array.isArray(gridEls) ? gridEls.filter(Boolean) : [];
+  const count = Math.max(slots.length, grids.length);
+  if (count === 0) return Promise.resolve();
+
+  /** @param {HTMLElement} el */
+  const hideInstant = (el) => {
+    gsap.killTweensOf(el);
+    gsap.set(el, { opacity: 0, visibility: "hidden", pointerEvents: "none" });
+  };
+
+  return new Promise((resolve) => {
+    let pending = count;
+    const tick = () => {
+      pending -= 1;
+      if (pending <= 0) resolve();
+    };
+    for (let i = 0; i < count; i += 1) {
+      const delayMs = Math.max(0, Math.round(i * stagger * 1000));
+      window.setTimeout(() => {
+        if (slots[i]) hideInstant(slots[i]);
+        if (grids[i]) hideInstant(grids[i]);
+        tick();
+      }, delayMs);
+    }
+  });
+}
+
 /** @returns {number} 用户动画速度倍率（减少动画模式下固定为 1） */
 export function getAnimationSpeedScale() {
   if (prefersReducedMotion()) return 1;

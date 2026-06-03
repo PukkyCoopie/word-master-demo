@@ -19,14 +19,22 @@
 
       <div v-else-if="showAuthBlocked || phase === 'error'" class="menu-auth-status menu-auth-status--blocked">
         <p class="menu-auth-message">{{ authMessage || "暂时无法进入游戏。" }}</p>
-        <button
-          v-if="phase === 'error'"
-          type="button"
-          class="menu-btn menu-btn--settings menu-auth-retry"
-          @click="retryAuth"
-        >
-          重试
-        </button>
+        <div v-if="phase === 'error'" class="menu-auth-actions">
+          <button
+            type="button"
+            class="menu-btn menu-btn--settings menu-auth-action"
+            @click="retryAuth"
+          >
+            重试
+          </button>
+          <button
+            type="button"
+            class="menu-btn menu-btn--about menu-auth-action"
+            @click="playOffline"
+          >
+            离线游玩
+          </button>
+        </div>
       </div>
 
       <nav v-else-if="showLoginButton" class="menu-actions menu-actions--login" aria-label="TapTap 登录">
@@ -96,6 +104,7 @@ const {
   showAuthBlocked,
   loginWithTapTap,
   retryAuth,
+  playOffline,
 } = useTapTapAuth();
 
 const { isMobileLayout } = useWebLayoutMode();
@@ -257,8 +266,16 @@ const showcaseRows = [
   color: var(--text-muted, #776e65);
 }
 
-.menu-auth-retry {
-  max-width: calc(320 * var(--rpx));
+.menu-auth-actions {
+  display: flex;
+  gap: calc(12 * var(--rpx));
+  width: 100%;
+  max-width: calc(520 * var(--rpx));
+}
+
+.menu-auth-action {
+  flex: 1;
+  min-width: 0;
 }
 
 .menu-auth-spinner {

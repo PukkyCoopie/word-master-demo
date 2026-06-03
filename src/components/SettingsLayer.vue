@@ -405,13 +405,17 @@ function onScaleInputEnter(e) {
 
 .settings-layer-tabs {
   --settings-tab-pad: calc(4 * var(--rpx));
+  --settings-orange: #d4954a;
+  --settings-orange-dark: #b87a3a;
+  --settings-orange-fg: #f9f6f2;
   position: relative;
   display: flex;
   gap: 0;
   margin: calc(-6 * var(--rpx)) 0 calc(18 * var(--rpx));
   padding: var(--settings-tab-pad);
-  border-radius: var(--radius);
-  background: var(--card, #eee4da);
+  border-radius: calc(8 * var(--rpx));
+  background: var(--settings-orange);
+  box-sizing: border-box;
 }
 
 .settings-layer-tabs-thumb {
@@ -420,9 +424,9 @@ function onScaleInputEnter(e) {
   bottom: var(--settings-tab-pad);
   left: var(--settings-tab-pad);
   width: calc((100% - 2 * var(--settings-tab-pad)) / var(--settings-tab-count));
-  border-radius: calc(8 * var(--rpx));
-  background: var(--card-bright, #faf8ef);
-  box-shadow: var(--shadow);
+  border-radius: calc(6 * var(--rpx));
+  background: var(--settings-orange-dark);
+  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.18);
   pointer-events: none;
   transition: transform calc(0.22s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out);
   transform: translateX(calc(var(--settings-tab-index) * 100%));
@@ -431,23 +435,33 @@ function onScaleInputEnter(e) {
 
 .settings-layer-tab {
   flex: 1;
+  min-width: 0;
   position: relative;
   z-index: 1;
   border: none;
-  border-radius: calc(8 * var(--rpx));
+  border-radius: calc(6 * var(--rpx));
   padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
   font-family: inherit;
   font-size: calc(24 * var(--rpx));
   font-weight: 700;
-  color: var(--text-dark, #3c3a32);
+  color: var(--settings-orange-fg);
   background: transparent;
   cursor: pointer;
-  opacity: 0.72;
+  opacity: 0.62;
   transition: opacity 0.12s ease;
 }
 
 .settings-layer-tab--active {
   opacity: 1;
+}
+
+.settings-layer-tab:hover:not(.settings-layer-tab--active) {
+  opacity: 0.82;
+}
+
+.settings-layer-tab:focus-visible {
+  outline: calc(2 * var(--rpx)) solid var(--settings-orange-fg);
+  outline-offset: calc(1 * var(--rpx));
 }
 
 .settings-layer-panels {

@@ -9,6 +9,7 @@ import {
   RARITY_UPGRADE_BALANCE,
 } from "../composables/useScoring.js";
 import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
+import { bubbleAtShopPanel } from "../game/popupBubbleFx.js";
 
 const RARITY_RESULT_LINE = Object.freeze({
   common: "稀有度 · 普通",
@@ -22,39 +23,7 @@ function sleep(ms) {
 }
 
 function bubbleAt(targetEl, text, kind) {
-  if (!targetEl) return;
-  const rect = targetEl.getBoundingClientRect();
-  const div = document.createElement("div");
-  if (kind === "mult") div.className = "mult-popup-bubble";
-  else if (kind === "level") div.className = "score-popup-bubble shop-level-popup-bubble";
-  else div.className = "score-popup-bubble";
-  div.textContent = text;
-  document.body.appendChild(div);
-  const rpx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
-  gsap.set(div, {
-    position: "fixed",
-    left: rect.left + rect.width / 2,
-    top: rect.top - 12 * rpx,
-    xPercent: -50,
-    yPercent: -100,
-    transformOrigin: "50% 100%",
-    force3D: true,
-    zIndex: 350,
-  });
-  gsap.fromTo(
-    div,
-    { opacity: 0, y: 18, scale: 0.5 },
-    { opacity: 1, y: 0, scale: 1, duration: 0.3, ease: "expo.out" },
-  );
-  gsap.to(div, {
-    opacity: 0,
-    y: -14,
-    scale: 0.92,
-    duration: 0.28,
-    delay: 0.4,
-    ease: "expo.out",
-    onComplete: () => div.remove(),
-  });
+  bubbleAtShopPanel(targetEl, text, kind);
 }
 
 function wobblePanelLikeScoreSlot(el, delayS = 0, speed = 1) {
@@ -102,6 +71,11 @@ function popSettle(el, speed = 1) {
 }
 
 async function tweenResultValues(model, toScore, toMult, durationS = 0.44) {
+  if (shouldSkipDecorativeMotion()) {
+    model.scoreValue.value = Math.max(0, Math.round(toScore));
+    model.multValue.value = Math.max(0, Math.round(toMult));
+    return;
+  }
   const state = { s: model.scoreValue.value, m: model.multValue.value };
   await new Promise((resolve) => {
     gsap.to(state, {

@@ -14,7 +14,39 @@
 @font-face {
 	font-family: "Poppins";
 	src: url("/fonts/Poppins-Medium.woff2") format("woff2");
-	font-weight: 400;
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Poppins";
+	src: url("/fonts/Poppins-SemiBold.woff2") format("woff2");
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Poppins";
+	src: url("/fonts/Poppins-Bold.woff2") format("woff2");
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Poppins";
+	src: url("/fonts/Poppins-ExtraBold.woff2") format("woff2");
+	font-weight: 800;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Poppins";
+	src: url("/fonts/Poppins-Black.woff2") format("woff2");
+	font-weight: 900;
 	font-style: normal;
 	font-display: swap;
 }
@@ -3992,11 +4024,11 @@ textarea::-moz-placeholder {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: calc(64 * var(--rpx));
-	height: calc(64 * var(--rpx));
+	width: calc(52 * var(--rpx));
+	height: calc(156 * var(--rpx));
 	padding: 0;
 	border: none;
-	border-radius: calc(12 * var(--rpx));
+	border-radius: calc(14 * var(--rpx));
 	background: rgba(255, 255, 255, 0.12);
 	color: #f9f6f2;
 	font-size: calc(36 * var(--rpx));
@@ -4031,10 +4063,14 @@ textarea::-moz-placeholder {
 }
 
 .preview-group-nav__progress {
-	font-size: calc(26 * var(--rpx));
+	display: inline-block;
+	padding: calc(12 * var(--rpx)) calc(32 * var(--rpx));
+	border-radius: calc(12 * var(--rpx));
+	background: rgba(0, 0, 0, 0.8);
+	font-size: calc(34 * var(--rpx));
 	font-weight: 700;
-	color: rgba(249, 246, 242, 0.78);
-	min-width: calc(72 * var(--rpx));
+	color: rgba(249, 246, 242, 0.92);
+	min-width: calc(96 * var(--rpx));
 	text-align: center;
 	line-height: 1.2;
 }
@@ -4760,7 +4796,7 @@ textarea::-moz-placeholder {
 	font-weight: 700;
 }
 
-/* 减少动画：跳过 Vue 浮层 enter/leave（计分 bubble 等 GSAP 仍保留） */
+/* 减少动画：跳过 Vue 浮层 enter/leave；计分气泡等见 popupBubbleFx.js / shouldSkipDecorativeMotion */
 html.reduce-motion [class*="-enter-active"],
 html.reduce-motion [class*="-leave-active"] {
 	transition-duration: 0.001ms !important;
@@ -4806,4 +4842,12 @@ html.reduce-motion .treasure-charge-icon-nudge {
 html.reduce-motion .tile-accessory-chip-ripple,
 html.reduce-motion .treasure-accessory-chip-ripple {
 	animation: none;
+}
+
+/* 减少动画：分段/tab 背景块切换时不滑动 */
+html.reduce-motion .settings-segment-thumb,
+html.reduce-motion .collection-icon-segment-thumb,
+html.reduce-motion .settings-layer-tabs-thumb,
+html.reduce-motion .run-start-dialog-tab-thumb {
+	transition: none !important;
 }

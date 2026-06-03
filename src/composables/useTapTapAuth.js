@@ -165,6 +165,13 @@ export function useTapTapAuth() {
     await bootstrapAuth();
   }
 
+  /** 跳过 TapTap 登录与防沉迷，直接进入主菜单。 */
+  function playOffline() {
+    authMessage.value = "";
+    account.value = null;
+    phase.value = "ready";
+  }
+
   onMounted(async () => {
     authMountCount += 1;
     if (bypassAuth) return;
@@ -197,5 +204,6 @@ export function useTapTapAuth() {
     showAuthBlocked,
     loginWithTapTap,
     retryAuth,
+    playOffline,
   };
 }

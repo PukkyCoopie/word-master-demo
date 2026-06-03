@@ -24,7 +24,9 @@
         class="run-start-dialog-tabs run-start-stagger-el"
         role="tablist"
         aria-label="开始方式"
+        :style="runStartTabStyle"
       >
+        <div class="run-start-dialog-tab-thumb" aria-hidden="true" />
         <button
           type="button"
           role="tab"
@@ -397,6 +399,9 @@ const normalizedCareer = computed(() => normalizeSlotCareerStats(props.slotCaree
 
 const hasContinueTab = computed(() => props.continueSnapshot != null);
 const continueEnabled = computed(() => props.continueSnapshot?.continueEnabled !== false);
+const runStartTabStyle = computed(() => ({
+  "--run-start-tab-index": activeTab.value === "continue" ? "1" : "0",
+}));
 const continueSeedDisplay = computed(() => String(props.continueSnapshot?.seedDisplay ?? "").trim());
 const continuePresetDef = computed(() =>
   getRunPresetDef(String(props.continueSnapshot?.presetId ?? "preset_01")),
@@ -649,32 +654,59 @@ function onCancel() {
 }
 
 .run-start-dialog-tabs {
+  --run-start-tab-pad: calc(4 * var(--rpx));
+  --run-start-blue: #5a8fb8;
+  --run-start-blue-dark: #456b8a;
+  --run-start-blue-fg: #f9f6f2;
+  position: relative;
   display: flex;
-  gap: calc(8 * var(--rpx));
+  gap: 0;
   margin: calc(-6 * var(--rpx)) 0 calc(18 * var(--rpx));
-  padding: calc(4 * var(--rpx));
-  border-radius: var(--radius);
-  background: var(--card, #eee4da);
+  padding: var(--run-start-tab-pad);
+  border-radius: calc(8 * var(--rpx));
+  background: var(--run-start-blue);
+  box-sizing: border-box;
+}
+
+.run-start-dialog-tab-thumb {
+  position: absolute;
+  top: var(--run-start-tab-pad);
+  bottom: var(--run-start-tab-pad);
+  left: var(--run-start-tab-pad);
+  width: calc((100% - 2 * var(--run-start-tab-pad)) / 2);
+  border-radius: calc(6 * var(--rpx));
+  background: var(--run-start-blue-dark);
+  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  transition: transform 0.22s var(--ease-expo-out, ease-out);
+  transform: translateX(calc(var(--run-start-tab-index, 0) * 100%));
+  z-index: 0;
 }
 
 .run-start-dialog-tab {
   flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
   border: none;
-  border-radius: calc(8 * var(--rpx));
+  border-radius: calc(6 * var(--rpx));
   padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
   font-family: inherit;
   font-size: calc(24 * var(--rpx));
   font-weight: 700;
-  color: var(--text-dark, #3c3a32);
+  color: var(--run-start-blue-fg);
   background: transparent;
   cursor: pointer;
-  opacity: 0.72;
+  opacity: 0.62;
+  transition: opacity 0.12s ease;
 }
 
 .run-start-dialog-tab--active {
-  background: var(--card-bright, #faf8ef);
-  box-shadow: var(--shadow);
   opacity: 1;
+}
+
+.run-start-dialog-tab:hover:not(.run-start-dialog-tab--active):not(:disabled) {
+  opacity: 0.82;
 }
 
 .run-start-dialog-tab--disabled,
@@ -684,8 +716,16 @@ function onCancel() {
 }
 
 .run-start-dialog-tab--disabled.run-start-dialog-tab--active {
-  background: transparent;
-  box-shadow: none;
+  opacity: 0.38;
+}
+
+.run-start-dialog-tab:focus-visible {
+  outline: calc(2 * var(--rpx)) solid var(--run-start-blue-fg);
+  outline-offset: calc(1 * var(--rpx));
+}
+
+:global(html.reduce-motion) .run-start-dialog-tab-thumb {
+  transition: none;
 }
 
 .run-start-dialog-panel--disabled {
@@ -714,15 +754,7 @@ function onCancel() {
   pointer-events: none;
 }
 
-.run-start-dialog-panel:not(.run-start-dialog-panel--active) {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-}
-
 .run-start-dialog-panel--active {
-  position: relative;
   visibility: visible;
   pointer-events: auto;
 }

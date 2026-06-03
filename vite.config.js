@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { devRecentTreasuresPlugin } from "./vite-plugin-dev-recent-treasures.js";
 import { changelogFromMarkdownPlugin } from "./vite-plugin-changelog.mjs";
+import { remixiconWoff2Only } from "./vite-plugin-remixicon-woff2-only.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DICT_SRC = path.join(__dirname, "data", "dictionary", "dict.json");
@@ -54,5 +55,5 @@ export default defineConfig({
   base: "./",
   root: ".",
   publicDir: "public",
-  plugins: [changelogFromMarkdownPlugin(), dictionaryFromDataDir(), devRecentTreasuresPlugin(), vue()],
+  plugins: [changelogFromMarkdownPlugin(), remixiconWoff2Only(), dictionaryFromDataDir(), devRecentTreasuresPlugin(), vue()],
 });

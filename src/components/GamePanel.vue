@@ -1098,7 +1098,11 @@ import {
   getSubmitScoringTotalBeats,
   scoringSleep,
 } from "../game/submitScoringTiming.js";
-import { animSleep, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
+import { animSleep, runStaggeredInstantLeave, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
+import {
+  schedulePopupBubbleDismiss,
+  setPopupBubbleVisibleInstant,
+} from "../game/popupBubbleFx.js";
 import { isE2eMode } from "../e2e/isE2eMode.js";
 import { BACKDROP_SELF_CLOSE_GUARD_MS } from "../game/backdropSelfCloseGuard.js";
 import { registerGameTestHarness } from "../e2e/registerGameTestHarness.js";
@@ -4326,7 +4330,9 @@ watch(showRunEnd, (open) => {
     void dismissTileDetailLayer();
     showShop.value = false;
     nextTick(() => {
-      if (runEndOutcome.value === "win") runEndConfettiController.triggerWin();
+      if (runEndOutcome.value === "win" && !shouldSkipDecorativeMotion()) {
+        runEndConfettiController.triggerWin();
+      }
     });
   } else {
     runEndConfettiController.dispose();
@@ -4619,6 +4625,9 @@ function discardLeaveDuration(letterCount) {
 function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
   const duration = Number.isFinite(options.duration) ? options.duration : 0.28;
   const stagger = Number.isFinite(options.stagger) ? options.stagger : 0.12;
+  if (shouldSkipDecorativeMotion()) {
+    return runStaggeredInstantLeave(slotEls, gridEls, { stagger });
+  }
   return new Promise((resolve) => {
     let done = 0;
     const need = (slotEls.length > 0 ? 1 : 0) + (gridEls.length > 0 ? 1 : 0);
@@ -4670,6 +4679,13 @@ const DISCARD_TRASH_FX_HOLD_MS = Math.round(200 * SCORING_GAP_SCALE);
  * @param {number} duration
  */
 function animateOneDiscardTileLeave(slotEl, gridEl, duration) {
+  if (shouldSkipDecorativeMotion()) {
+    return runStaggeredInstantLeave(
+      slotEl ? [slotEl] : [],
+      gridEl ? [gridEl] : [],
+      { stagger: 0 },
+    );
+  }
   return new Promise((resolve) => {
     let done = 0;
     const need = (slotEl ? 1 : 0) + (gridEl ? 1 : 0);
@@ -6738,6 +6754,11 @@ function runSettlementIntro() {
       resolve();
       return;
     }
+    if (shouldSkipDecorativeMotion()) {
+      finishSettlementIntroInstant();
+      resolve();
+      return;
+    }
     gsap.killTweensOf(card);
     for (const el of settlementRowEls) {
       if (el) gsap.killTweensOf(el);
@@ -7678,16 +7699,21 @@ const TOOLBOX_REMOVE_BUBBLE_OUTRO_DURATION_S = 0.24;
 
 /** @param {HTMLElement | null | undefined} el @param {number} [speed] */
 function scheduleToolboxRemoveBubbleOutro(el, speed = 1) {
-  if (!el) return;
-  const s = Math.max(0.01, Number(speed) || 1);
-  gsap.to(el, {
-    opacity: 0,
-    y: -10,
-    scale: PLUS_BUBBLE_OUTRO_SCALE,
-    duration: TOOLBOX_REMOVE_BUBBLE_OUTRO_DURATION_S / s,
-    delay: TOOLBOX_REMOVE_BUBBLE_OUTRO_DELAY_S / s,
-    ease: EASE_TRANSFORM,
-    onComplete: () => el.remove(),
+  schedulePopupBubbleDismiss(el, {
+    delayS: TOOLBOX_REMOVE_BUBBLE_OUTRO_DELAY_S,
+    durationS: TOOLBOX_REMOVE_BUBBLE_OUTRO_DURATION_S,
+    speed,
+    onAnimateOutro: (s) => {
+      gsap.to(el, {
+        opacity: 0,
+        y: -10,
+        scale: PLUS_BUBBLE_OUTRO_SCALE,
+        duration: TOOLBOX_REMOVE_BUBBLE_OUTRO_DURATION_S / s,
+        delay: TOOLBOX_REMOVE_BUBBLE_OUTRO_DELAY_S / s,
+        ease: EASE_TRANSFORM,
+        onComplete: () => el.remove(),
+      });
+    },
   });
 }
 
@@ -7929,6 +7955,10 @@ function showBundlePackBubble(slotEl, _bundleKind, speed = 1) {
     pointerEvents: "none",
     force3D: true,
   });
+  if (shouldSkipDecorativeMotion()) {
+    setPopupBubbleVisibleInstant(div);
+    return div;
+  }
   gsap.fromTo(
     div,
     { opacity: 0, y: 18, scale: 0.5 },
@@ -9632,6 +9662,10 @@ function pulseFill(el) {
 function pulseFormulaPanelNum(el) {
   if (!el) return;
   gsap.killTweensOf(el);
+  if (shouldSkipDecorativeMotion()) {
+    gsap.set(el, { scale: 1, transformOrigin: "50% 55%" });
+    return;
+  }
   gsap.set(el, {
     scale: VALUE_NUM_PULSE_PEAK_SCALE,
     transformOrigin: "50% 55%",
@@ -9647,6 +9681,10 @@ function pulseFormulaPanelNum(el) {
 function pulseFormulaMultMultiplyBurst(el) {
   if (!el) return;
   gsap.killTweensOf(el);
+  if (shouldSkipDecorativeMotion()) {
+    gsap.set(el, { transformOrigin: "50% 55%", scale: 1 });
+    return;
+  }
   gsap.set(el, { transformOrigin: "50% 55%", scale: 1 });
   gsap.set(el, { scale: 1.72 });
   gsap.to(el, {
@@ -9685,6 +9723,10 @@ function showMultMultiplyBubble(slotEl, factor, speed = 1) {
     force3D: true,
     zIndex: 360,
   });
+  if (shouldSkipDecorativeMotion()) {
+    setPopupBubbleVisibleInstant(div);
+    return div;
+  }
   gsap.fromTo(
     div,
     { opacity: 0, scale: 0.22, y: 36, rotation: -14 },
@@ -9704,6 +9746,29 @@ function showMultMultiplyBubble(slotEl, factor, speed = 1) {
     delay: 0.1 / s,
   });
   return div;
+}
+
+const MULT_MULTIPLY_BUBBLE_OUTRO_DELAY_S = 0.38;
+const MULT_MULTIPLY_BUBBLE_OUTRO_DURATION_S = 0.22;
+
+/** @param {HTMLElement | null | undefined} el @param {number} [speed] */
+function scheduleMultMultiplyBubbleOutro(el, speed = 1) {
+  schedulePopupBubbleDismiss(el, {
+    delayS: MULT_MULTIPLY_BUBBLE_OUTRO_DELAY_S,
+    durationS: MULT_MULTIPLY_BUBBLE_OUTRO_DURATION_S,
+    speed,
+    onAnimateOutro: (s) => {
+      gsap.to(el, {
+        opacity: 0,
+        y: -22,
+        scale: 0.85,
+        duration: MULT_MULTIPLY_BUBBLE_OUTRO_DURATION_S / s,
+        delay: MULT_MULTIPLY_BUBBLE_OUTRO_DELAY_S / s,
+        ease: EASE_TRANSFORM,
+        onComplete: () => el.remove(),
+      });
+    },
+  });
 }
 
 /**
@@ -9975,6 +10040,10 @@ function showScoreBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
     pointerEvents: "none",
     force3D: true,
   });
+  if (shouldSkipDecorativeMotion()) {
+    setPopupBubbleVisibleInstant(div);
+    return div;
+  }
   if (kind === "skip") {
     const risePx = Math.max(10 * rpx, rect.height * 0.2);
     gsap.fromTo(
@@ -9998,16 +10067,21 @@ function showScoreBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
 
 /** 小气泡淡出：在格子上多停一阵再离场，与记分步 sleep 解耦（可与其他气泡重叠） */
 function scheduleSmallPlusBubbleOutro(el, speed = 1) {
-  if (!el) return;
-  const s = Math.max(0.01, Number(speed) || 1);
-  gsap.to(el, {
-    opacity: 0,
-    y: -14,
-    scale: PLUS_BUBBLE_OUTRO_SCALE,
-    duration: PLUS_BUBBLE_OUTRO_DURATION_S / s,
-    delay: PLUS_BUBBLE_OUTRO_DELAY_S / s,
-    ease: EASE_TRANSFORM,
-    onComplete: () => el.remove(),
+  schedulePopupBubbleDismiss(el, {
+    delayS: PLUS_BUBBLE_OUTRO_DELAY_S,
+    durationS: PLUS_BUBBLE_OUTRO_DURATION_S,
+    speed,
+    onAnimateOutro: (s) => {
+      gsap.to(el, {
+        opacity: 0,
+        y: -14,
+        scale: PLUS_BUBBLE_OUTRO_SCALE,
+        duration: PLUS_BUBBLE_OUTRO_DURATION_S / s,
+        delay: PLUS_BUBBLE_OUTRO_DELAY_S / s,
+        ease: EASE_TRANSFORM,
+        onComplete: () => el.remove(),
+      });
+    },
   });
 }
 
@@ -10064,15 +10138,7 @@ async function runLetterRarityTreasureMultStep(part, slotEl, cfg, speed = 1) {
     await nextTick();
     const bubbleEl = showMultMultiplyBubble(slotEl, multMul, sp);
     pulseFormulaMultMultiplyBurst(getResultMultNumEl());
-    gsap.to(bubbleEl, {
-      opacity: 0,
-      y: -22,
-      scale: 0.85,
-      duration: 0.22 / sp,
-      delay: 0.38 / sp,
-      ease: EASE_TRANSFORM,
-      onComplete: () => bubbleEl.remove(),
-    });
+    scheduleMultMultiplyBubbleOutro(bubbleEl, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS + 120, sp);
   } else {
     animMultTotal.value += multDelta;
@@ -10294,15 +10360,7 @@ async function runTileTreasureAccessoryWrenchMultBurst(tile, slotEl, speed = 1) 
   await nextTick();
   const bubbleX = showMultMultiplyBubble(slotEl, multMul, sp);
   pulseFormulaMultMultiplyBurst(getResultMultNumEl());
-  gsap.to(bubbleX, {
-    opacity: 0,
-    y: -22,
-    scale: 0.85,
-    duration: 0.22 / sp,
-    delay: 0.38 / sp,
-    ease: EASE_TRANSFORM,
-    onComplete: () => bubbleX.remove(),
-  });
+  scheduleMultMultiplyBubbleOutro(bubbleX, sp);
   await scoringSleep(SCORING_STEP_BEAT_MS + 120, sp);
   return true;
 }
@@ -11052,15 +11110,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
         await nextTick();
         const bubbleX = showMultMultiplyBubble(fxTargetEl, multMul, spPost);
         pulseFormulaMultMultiplyBurst(getResultMultNumEl());
-        gsap.to(bubbleX, {
-          opacity: 0,
-          y: -22,
-          scale: 0.85,
-          duration: 0.22 / spPost,
-          delay: 0.38 / spPost,
-          ease: EASE_TRANSFORM,
-          onComplete: () => bubbleX.remove(),
-        });
+        scheduleMultMultiplyBubbleOutro(bubbleX, spPost);
         await scoringSleep(SCORING_STEP_BEAT_MS + 120, spPost);
       } else {
         await scoringSleep(SCORING_TREASURE_FALLBACK_MS, spPost);
@@ -11131,20 +11181,25 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   pulseFill(getResultTotalEl());
   await sleep(220);
 
-  await new Promise((resolve) => {
-    const o = { s: animScoreSum.value, m: animMultTotal.value };
-    gsap.to(o, {
-      s: 0,
-      m: 0,
-      duration: 0.5,
-      ease: EASE_TRANSFORM,
-      onUpdate: () => {
-        animScoreSum.value = Math.round(o.s);
-        animMultTotal.value = Math.round(o.m);
-      },
-      onComplete: resolve,
+  if (shouldSkipDecorativeMotion()) {
+    animScoreSum.value = 0;
+    animMultTotal.value = 0;
+  } else {
+    await new Promise((resolve) => {
+      const o = { s: animScoreSum.value, m: animMultTotal.value };
+      gsap.to(o, {
+        s: 0,
+        m: 0,
+        duration: 0.5,
+        ease: EASE_TRANSFORM,
+        onUpdate: () => {
+          animScoreSum.value = Math.round(o.s);
+          animMultTotal.value = Math.round(o.m);
+        },
+        onComplete: resolve,
+      });
     });
-  });
+  }
 
   await sleep(220);
 
@@ -11241,26 +11296,35 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     });
   })();
 
-  const scorePromise = new Promise((resolve) => {
-    const p = { t: 0 };
-    roundScoreOverride.value = startRound;
-    gsap.to(p, {
-      t: 1,
-      duration: 0.52,
-      ease: EASE_TRANSFORM,
-      onUpdate: () => {
-        animResultTotal.value = Math.round(detailed.finalScore * (1 - p.t));
-        roundScoreOverride.value = Math.round(startRound + (endRound - startRound) * p.t);
-      },
-      onComplete: () => {
-        currentScore.value = endRound;
-        roundScoreOverride.value = null;
-        animResultTotal.value = 0;
-        setLastWordFromSubmit(getWordDefinition, tiles, detailed, { resolvedWord: wordStr });
-        resolve();
-      },
+  const scorePromise = (async () => {
+    if (shouldSkipDecorativeMotion()) {
+      currentScore.value = endRound;
+      roundScoreOverride.value = null;
+      animResultTotal.value = 0;
+      setLastWordFromSubmit(getWordDefinition, tiles, detailed, { resolvedWord: wordStr });
+      return;
+    }
+    await new Promise((resolve) => {
+      const p = { t: 0 };
+      roundScoreOverride.value = startRound;
+      gsap.to(p, {
+        t: 1,
+        duration: 0.52,
+        ease: EASE_TRANSFORM,
+        onUpdate: () => {
+          animResultTotal.value = Math.round(detailed.finalScore * (1 - p.t));
+          roundScoreOverride.value = Math.round(startRound + (endRound - startRound) * p.t);
+        },
+        onComplete: () => {
+          currentScore.value = endRound;
+          roundScoreOverride.value = null;
+          animResultTotal.value = 0;
+          setLastWordFromSubmit(getWordDefinition, tiles, detailed, { resolvedWord: wordStr });
+          resolve();
+        },
+      });
     });
-  });
+  })();
 
   await leavePromise;
 
