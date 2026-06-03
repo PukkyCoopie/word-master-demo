@@ -1,6 +1,18 @@
 import gsap from "gsap";
 import { getEffectiveAnimSpeed, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
+/** @type {WeakMap<HTMLElement, { timeoutId?: ReturnType<typeof setTimeout>; outroTween?: gsap.core.Tween }>} */
+const dismissHandlesByEl = new WeakMap();
+
+/** 取消已排队的离场（不杀入场 tween，避免气泡卡在 opacity:0） */
+function cancelScheduledPopupBubbleDismiss(el) {
+  const prev = dismissHandlesByEl.get(el);
+  if (!prev) return;
+  if (prev.timeoutId != null) clearTimeout(prev.timeoutId);
+  prev.outroTween?.kill();
+  dismissHandlesByEl.delete(el);
+}
+
 /**
  * 气泡最终可见态（无入场位移/缩放/淡入）。
  * @param {HTMLElement} div
@@ -17,19 +29,27 @@ export function setPopupBubbleVisibleInstant(div) {
  * @param {number} opts.delayS
  * @param {number} opts.durationS
  * @param {number} [opts.speed]
- * @param {(speed: number) => void} [opts.onAnimateOutro]
+ * @param {(speed: number) => gsap.core.Tween | void} [opts.onAnimateOutro]
  */
 export function schedulePopupBubbleDismiss(el, opts) {
   if (!el) return;
   const speed = Math.max(0.01, Number(opts.speed) || 1);
-  gsap.killTweensOf(el);
+  cancelScheduledPopupBubbleDismiss(el);
   if (shouldSkipDecorativeMotion()) {
     const s = getEffectiveAnimSpeed(speed);
     const waitMs = Math.max(1, Math.round(((opts.delayS + opts.durationS) / s) * 1000));
-    window.setTimeout(() => el.remove(), waitMs);
+    const timeoutId = window.setTimeout(() => {
+      dismissHandlesByEl.delete(el);
+      el.remove();
+    }, waitMs);
+    dismissHandlesByEl.set(el, { timeoutId });
     return;
   }
-  opts.onAnimateOutro?.(speed);
+  const outroTween = opts.onAnimateOutro?.(speed);
+  if (outroTween && typeof outroTween.kill === "function") {
+    dismissHandlesByEl.set(el, { outroTween });
+    outroTween.eventCallback("onComplete", () => dismissHandlesByEl.delete(el));
+  }
 }
 
 /**
@@ -85,7 +105,7 @@ export function dismissShopStylePopupBubble(div, speed = 1) {
     delayS: 0.4,
     durationS: 0.28,
     speed,
-    onAnimateOutro: (s) => {
+    onAnimateOutro: (s) =>
       gsap.to(div, {
         opacity: 0,
         y: -14,
@@ -94,8 +114,7 @@ export function dismissShopStylePopupBubble(div, speed = 1) {
         delay: 0.4 / s,
         ease: "expo.out",
         onComplete: () => div.remove(),
-      });
-    },
+      }),
   });
 }
 

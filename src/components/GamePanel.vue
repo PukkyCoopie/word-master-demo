@@ -7771,7 +7771,7 @@ function scheduleToolboxRemoveBubbleOutro(el, speed = 1) {
     delayS: TOOLBOX_REMOVE_BUBBLE_OUTRO_DELAY_S,
     durationS: TOOLBOX_REMOVE_BUBBLE_OUTRO_DURATION_S,
     speed,
-    onAnimateOutro: (s) => {
+    onAnimateOutro: (s) =>
       gsap.to(el, {
         opacity: 0,
         y: -10,
@@ -7780,8 +7780,7 @@ function scheduleToolboxRemoveBubbleOutro(el, speed = 1) {
         delay: TOOLBOX_REMOVE_BUBBLE_OUTRO_DELAY_S / s,
         ease: EASE_TRANSFORM,
         onComplete: () => el.remove(),
-      });
-    },
+      }),
   });
 }
 
@@ -9825,7 +9824,7 @@ function scheduleMultMultiplyBubbleOutro(el, speed = 1) {
     delayS: MULT_MULTIPLY_BUBBLE_OUTRO_DELAY_S,
     durationS: MULT_MULTIPLY_BUBBLE_OUTRO_DURATION_S,
     speed,
-    onAnimateOutro: (s) => {
+    onAnimateOutro: (s) =>
       gsap.to(el, {
         opacity: 0,
         y: -22,
@@ -9834,8 +9833,7 @@ function scheduleMultMultiplyBubbleOutro(el, speed = 1) {
         delay: MULT_MULTIPLY_BUBBLE_OUTRO_DELAY_S / s,
         ease: EASE_TRANSFORM,
         onComplete: () => el.remove(),
-      });
-    },
+      }),
   });
 }
 
@@ -10139,7 +10137,7 @@ function scheduleSmallPlusBubbleOutro(el, speed = 1) {
     delayS: PLUS_BUBBLE_OUTRO_DELAY_S,
     durationS: PLUS_BUBBLE_OUTRO_DURATION_S,
     speed,
-    onAnimateOutro: (s) => {
+    onAnimateOutro: (s) =>
       gsap.to(el, {
         opacity: 0,
         y: -14,
@@ -10148,8 +10146,7 @@ function scheduleSmallPlusBubbleOutro(el, speed = 1) {
         delay: PLUS_BUBBLE_OUTRO_DELAY_S / s,
         ease: EASE_TRANSFORM,
         onComplete: () => el.remove(),
-      });
-    },
+      }),
   });
 }
 
@@ -12903,7 +12900,7 @@ onUnmounted(() => {
 }
 .deck-stack-ghost-char {
   font-size: calc(var(--deck-stack-size) * 0.36);
-  font-weight: 800;
+  font-weight: var(--tile-letter-weight);
   color: rgba(255, 255, 255, 0.85);
   letter-spacing: 0.02em;
 }

@@ -261,7 +261,6 @@ const treasureAccessoryChipVisual = computed(() => {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   font-size: calc(40 * var(--rpx));
-  font-weight: 700;
   color: var(--text);
   /* 装饰性 infinite，animation-easing 规则不强制 expo.out */
   animation: menu-logo-chase var(--menu-logo-cycle, 8s) ease-in-out infinite;

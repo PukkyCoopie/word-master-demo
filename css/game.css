@@ -72,6 +72,9 @@
 	--money-gold: #b8860b;
 	/* 倍率强调：与 .result-box-mult / .mult-popup-bubble 洋红一致 */
 	--mult-accent: #d86b94;
+	/* 字母 tile 字重：普通块（棋盘/词槽/货架/招牌）与材质块 */
+	--tile-letter-weight: 600;
+	--tile-material-letter-weight: 800;
 	/* 宝藏简介富文本（见 treasureDescriptionSpec.md） */
 	--treasure-desc-mult: var(--mult-accent);
 	--treasure-desc-score: #5ba3f5;
@@ -910,7 +913,7 @@ textarea::-moz-placeholder {
 	align-items: center;
 	justify-content: center;
 	font-size: calc(38 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 600;
+	font-weight: var(--tile-letter-weight);
 	color: var(--text);
 	box-shadow: var(--shadow);
 	cursor: pointer;
@@ -1300,7 +1303,7 @@ textarea::-moz-placeholder {
 	position: absolute;
 	width: 0.75em;
 	font-size: calc(24 * var(--rpx));
-	font-weight: 600;
+	font-weight: var(--tile-letter-weight);
 	line-height: 1;
 	text-align: center;
 	color: #2a2a2a;
@@ -1317,7 +1320,7 @@ textarea::-moz-placeholder {
 	position: absolute;
 	width: 0.75em;
 	font-size: calc(24 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 600;
+	font-weight: var(--tile-letter-weight);
 	line-height: 1;
 	text-align: center;
 	color: #2a2a2a;
@@ -1427,7 +1430,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-gold-char);
 	font-size: calc(42 * var(--rpx));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx)) var(--tile-gold-char-outline);
@@ -1445,7 +1448,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-gold-char);
 	font-size: calc(42 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx) * var(--slot-scale, 1));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx) * var(--slot-scale, 1)) var(--tile-gold-char-outline);
@@ -1463,7 +1466,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-gold-char);
 	font-size: calc(42 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx) * var(--slot-scale, 1));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx) * var(--slot-scale, 1)) var(--tile-gold-char-outline);
@@ -1503,7 +1506,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-steel-char);
 	font-size: calc(42 * var(--rpx));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx)) var(--tile-steel-char-outline);
@@ -1521,7 +1524,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-steel-char);
 	font-size: calc(42 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx) * var(--slot-scale, 1));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx) * var(--slot-scale, 1)) var(--tile-steel-char-outline);
@@ -1539,7 +1542,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-steel-char);
 	font-size: calc(42 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx) * var(--slot-scale, 1));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx) * var(--slot-scale, 1)) var(--tile-steel-char-outline);
@@ -1579,7 +1582,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-ice-char);
 	font-size: calc(42 * var(--rpx));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx)) var(--tile-ice-char-outline);
@@ -1597,7 +1600,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-ice-char);
 	font-size: calc(42 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx) * var(--slot-scale, 1));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx) * var(--slot-scale, 1)) var(--tile-ice-char-outline);
@@ -1615,7 +1618,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-ice-char);
 	font-size: calc(42 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx) * var(--slot-scale, 1));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx) * var(--slot-scale, 1)) var(--tile-ice-char-outline);
@@ -1655,7 +1658,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-water-char);
 	font-size: calc(42 * var(--rpx));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx)) var(--tile-water-char-outline);
@@ -1673,7 +1676,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-water-char);
 	font-size: calc(42 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx) * var(--slot-scale, 1));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx) * var(--slot-scale, 1)) var(--tile-water-char-outline);
@@ -1691,7 +1694,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-water-char);
 	font-size: calc(42 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx) * var(--slot-scale, 1));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx) * var(--slot-scale, 1)) var(--tile-water-char-outline);
@@ -1731,7 +1734,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-fire-char);
 	font-size: calc(42 * var(--rpx));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx)) var(--tile-fire-char-outline);
@@ -1749,7 +1752,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-fire-char);
 	font-size: calc(42 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx) * var(--slot-scale, 1));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx) * var(--slot-scale, 1)) var(--tile-fire-char-outline);
@@ -1767,7 +1770,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-fire-char);
 	font-size: calc(42 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx) * var(--slot-scale, 1));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx) * var(--slot-scale, 1)) var(--tile-fire-char-outline);
@@ -1812,7 +1815,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-wildcard-char);
 	font-size: calc(42 * var(--rpx));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx));
 	text-shadow: none;
 	-webkit-text-stroke: calc(1.32 * var(--rpx)) var(--tile-wildcard-char-outline);
@@ -1824,7 +1827,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-wildcard-char);
 	font-size: calc(42 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx) * var(--slot-scale, 1));
 	text-shadow: none;
 	-webkit-text-stroke: calc(1.32 * var(--rpx) * var(--slot-scale, 1)) var(--tile-wildcard-char-outline);
@@ -1873,7 +1876,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-lucky-char);
 	font-size: calc(42 * var(--rpx));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx)) var(--tile-lucky-char-outline);
@@ -1885,7 +1888,7 @@ textarea::-moz-placeholder {
 	z-index: 3;
 	color: var(--tile-lucky-char);
 	font-size: calc(42 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 800;
+	font-weight: var(--tile-material-letter-weight);
 	letter-spacing: calc(-0.35 * var(--rpx) * var(--slot-scale, 1));
 	text-shadow: none;
 	-webkit-text-stroke: calc(0.9 * var(--rpx) * var(--slot-scale, 1)) var(--tile-lucky-char-outline);
@@ -1894,6 +1897,11 @@ textarea::-moz-placeholder {
 .grid-tile.tile-material-lucky .tile-bonus-pill,
 .word-slots .word-slot-content.tile-material-lucky .tile-bonus-pill {
 	z-index: 4;
+}
+
+/* 主菜单 / 商店招牌（TileLetterShowcase · LetterTile variant=menu）与棋盘字母同字重 */
+.menu-logo-tile {
+	font-weight: var(--tile-letter-weight);
 }
 
 .grid-tile {
@@ -1905,7 +1913,7 @@ textarea::-moz-placeholder {
 	align-items: center;
 	justify-content: center;
 	font-size: calc(38 * var(--rpx));
-	font-weight: 600;
+	font-weight: var(--tile-letter-weight);
 	color: var(--text);
 	box-shadow: var(--shadow);
 	/* 避免 opacity 被过渡插值或与 GSAP 抢样式时出现「留在原地的闪」 */
@@ -2234,7 +2242,7 @@ textarea::-moz-placeholder {
 	min-width: 0;
 	min-height: 0;
 	font-size: calc(38 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 600;
+	font-weight: var(--tile-letter-weight);
 	color: var(--text);
 	background: var(--card-bright);
 	border-radius: calc(var(--radius) * var(--slot-scale, 1));
