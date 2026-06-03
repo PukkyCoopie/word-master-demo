@@ -907,7 +907,7 @@ textarea::-moz-placeholder {
 	align-items: center;
 	justify-content: center;
 	font-size: calc(38 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 700;
+	font-weight: 600;
 	color: var(--text);
 	box-shadow: var(--shadow);
 	cursor: pointer;
@@ -1297,7 +1297,7 @@ textarea::-moz-placeholder {
 	position: absolute;
 	width: 0.75em;
 	font-size: calc(24 * var(--rpx));
-	font-weight: 700;
+	font-weight: 600;
 	line-height: 1;
 	text-align: center;
 	color: #2a2a2a;
@@ -1314,7 +1314,7 @@ textarea::-moz-placeholder {
 	position: absolute;
 	width: 0.75em;
 	font-size: calc(24 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 700;
+	font-weight: 600;
 	line-height: 1;
 	text-align: center;
 	color: #2a2a2a;
@@ -1902,7 +1902,7 @@ textarea::-moz-placeholder {
 	align-items: center;
 	justify-content: center;
 	font-size: calc(38 * var(--rpx));
-	font-weight: 700;
+	font-weight: 600;
 	color: var(--text);
 	box-shadow: var(--shadow);
 	/* 避免 opacity 被过渡插值或与 GSAP 抢样式时出现「留在原地的闪」 */
@@ -2231,7 +2231,7 @@ textarea::-moz-placeholder {
 	min-width: 0;
 	min-height: 0;
 	font-size: calc(38 * var(--rpx) * var(--slot-scale, 1));
-	font-weight: 700;
+	font-weight: 600;
 	color: var(--text);
 	background: var(--card-bright);
 	border-radius: calc(var(--radius) * var(--slot-scale, 1));
@@ -4024,11 +4024,10 @@ textarea::-moz-placeholder {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: calc(52 * var(--rpx));
-	height: calc(156 * var(--rpx));
+	width: calc(78 * var(--rpx));
+	height: calc(195 * var(--rpx));
 	padding: 0;
 	border: none;
-	border-radius: calc(14 * var(--rpx));
 	background: rgba(255, 255, 255, 0.12);
 	color: #f9f6f2;
 	font-size: calc(36 * var(--rpx));
@@ -4044,11 +4043,13 @@ textarea::-moz-placeholder {
 }
 
 .preview-group-nav__side--prev {
-	left: calc(18 * var(--rpx));
+	left: 0;
+	border-radius: 0 calc(14 * var(--rpx)) calc(14 * var(--rpx)) 0;
 }
 
 .preview-group-nav__side--next {
-	right: calc(18 * var(--rpx));
+	right: 0;
+	border-radius: calc(14 * var(--rpx)) 0 0 calc(14 * var(--rpx));
 }
 
 .preview-group-nav__footer {
@@ -4066,13 +4067,59 @@ textarea::-moz-placeholder {
 	display: inline-block;
 	padding: calc(12 * var(--rpx)) calc(32 * var(--rpx));
 	border-radius: calc(12 * var(--rpx));
-	background: rgba(0, 0, 0, 0.8);
+	background: rgba(0, 0, 0, 0.48);
 	font-size: calc(34 * var(--rpx));
 	font-weight: 700;
 	color: rgba(249, 246, 242, 0.92);
 	min-width: calc(96 * var(--rpx));
 	text-align: center;
 	line-height: 1.2;
+}
+
+/* 收藏：出现前提感叹号角标（列表名前行 & 详情「前置条件」标题） */
+.collection-prerequisite-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: calc(28 * var(--rpx));
+	height: calc(28 * var(--rpx));
+	border-radius: calc(7 * var(--rpx));
+	background: #f5c842;
+	color: #3c3a32;
+	box-sizing: border-box;
+}
+
+.collection-prerequisite-badge--panel {
+	width: calc(34 * var(--rpx));
+	height: calc(34 * var(--rpx));
+	border-radius: calc(8 * var(--rpx));
+}
+
+.collection-prerequisite-badge__icon {
+	font-size: calc(18 * var(--rpx));
+	line-height: 1;
+}
+
+.collection-prerequisite-badge--panel .collection-prerequisite-badge__icon {
+	font-size: calc(22 * var(--rpx));
+}
+
+.treasure-detail-desc-panel-title-row .collection-prerequisite-badge {
+	margin-right: calc(8 * var(--rpx));
+}
+
+.shop-treasure-frame--collection-unknown {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.collection-detail-unknown-mark {
+	font-size: calc(100cqmin * 40 / 108);
+	font-weight: 700;
+	color: rgba(249, 246, 242, 0.55);
+	line-height: 1;
 }
 
 /* ----- 商店组合包：多选确认层（Teleport → #game-view-portal） ----- */

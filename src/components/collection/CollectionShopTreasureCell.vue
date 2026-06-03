@@ -2,9 +2,12 @@
   <button
     type="button"
     class="collection-shop-cell shop-treasure-product"
-    :class="{ 'collection-shop-cell--unknown': unknown }"
-    :disabled="unknown"
-    :aria-label="unknown ? displayName : `预览 ${displayName}`"
+    :class="{
+      'collection-shop-cell--unknown': unknown && !prerequisiteLocked,
+      'collection-shop-cell--prerequisite-locked': prerequisiteLocked,
+    }"
+    :disabled="unknown && !prerequisiteLocked"
+    :aria-label="cellAriaLabel"
     @click="onClick"
   >
     <div class="shop-treasure-visual">
@@ -15,10 +18,10 @@
           'shop-treasure-frame--length-offer':
             upgradeOffer && upgradeKind !== 'rarity' && (lengthBadgeLabel || lengthLabel),
           'shop-treasure-frame--pack-rarity': upgradeOffer && upgradeKind === 'rarity',
-          'collection-shop-cell__frame--unknown': unknown,
+          'collection-shop-cell__frame--unknown': showUnknownVisual,
         }"
       >
-        <template v-if="unknown">
+        <template v-if="showUnknownVisual">
           <span class="collection-shop-cell__unknown" aria-hidden="true">?</span>
         </template>
         <template v-else-if="spellOffer || upgradeOffer">
@@ -53,8 +56,12 @@
     </div>
     <p
       class="collection-shop-cell__name"
-      :class="{ 'collection-shop-cell__name--unknown': unknown }"
+      :class="{
+        'collection-shop-cell__name--unknown': showUnknownVisual,
+        'collection-shop-cell__name--prerequisite': prerequisiteLocked,
+      }"
     >
+      <CollectionPrerequisiteBadge v-if="prerequisiteLocked" class="collection-shop-cell__prerequisite-badge" />
       {{ displayName }}
     </p>
   </button>
@@ -64,9 +71,12 @@
 import { computed } from "vue";
 import { COLLECTION_UNKNOWN_LABEL, gemClassForTreasureRarity } from "../../collection/collectionDisplayUtils.js";
 import { isSingleDigitLabel } from "../detailLayerFormatters.js";
+import CollectionPrerequisiteBadge from "./CollectionPrerequisiteBadge.vue";
 
 const props = defineProps({
   unknown: { type: Boolean, default: false },
+  /** 未发现但有 unlockPrerequisite，可点开预览 */
+  prerequisiteLocked: { type: Boolean, default: false },
   spellOffer: { type: Boolean, default: false },
   upgradeOffer: { type: Boolean, default: false },
   upgradeKind: { type: String, default: "" },
@@ -85,19 +95,27 @@ const emit = defineEmits(["select"]);
 
 const gemClass = computed(() => gemClassForTreasureRarity(props.rarity));
 
+const showUnknownVisual = computed(() => props.unknown || props.prerequisiteLocked);
+
 const displayName = computed(() =>
-  props.unknown ? COLLECTION_UNKNOWN_LABEL : String(props.name ?? "").trim(),
+  showUnknownVisual.value ? COLLECTION_UNKNOWN_LABEL : String(props.name ?? "").trim(),
 );
 
 const priceLabel = computed(() => {
-  if (props.unknown) return "$?";
+  if (showUnknownVisual.value) return "$?";
   if (props.price == null || !Number.isFinite(Number(props.price))) return "$0";
   return `$${Math.max(0, Math.floor(Number(props.price) || 0))}`;
 });
 
+const cellAriaLabel = computed(() => {
+  if (props.prerequisiteLocked) return "预览未解锁宝藏（含前置条件）";
+  if (props.unknown) return displayName.value;
+  return `预览 ${displayName.value}`;
+});
+
 /** @param {MouseEvent} event */
 function onClick(event) {
-  if (props.unknown) return;
+  if (props.unknown && !props.prerequisiteLocked) return;
   const el = event.currentTarget;
   emit("select", {
     treasureId: props.treasureId,
@@ -133,6 +151,11 @@ function onClick(event) {
   opacity: 0.55;
 }
 
+.collection-shop-cell--prerequisite-locked {
+  cursor: pointer;
+  opacity: 0.78;
+}
+
 .collection-shop-cell__frame--unknown {
   display: flex;
   align-items: center;
@@ -149,6 +172,10 @@ function onClick(event) {
 .collection-shop-cell__name {
   margin: calc(6 * var(--rpx)) 0 0;
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(6 * var(--rpx));
   text-align: center;
   font-size: calc(24 * var(--rpx));
   font-weight: 700;
@@ -157,7 +184,12 @@ function onClick(event) {
   word-break: break-word;
 }
 
-.collection-shop-cell__name--unknown {
+.collection-shop-cell__name--unknown,
+.collection-shop-cell__name--prerequisite {
   color: var(--text-muted, #776e65);
+}
+
+.collection-shop-cell__prerequisite-badge {
+  flex-shrink: 0;
 }
 </style>

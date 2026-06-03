@@ -39,6 +39,7 @@
             v-if="!isDeckOffer"
             ref="titleGroupRef"
             class="treasure-detail-title-group treasure-detail-stagger-el"
+            :style="collectionLockedVisualStyle"
           >
             <p class="treasure-detail-kind-caption">{{ detailKindCaption }}</p>
             <h2 :id="titleId" ref="nameRef" class="treasure-detail-name">
@@ -46,7 +47,7 @@
             </h2>
           </div>
 
-          <div class="treasure-detail-icon-column">
+          <div class="treasure-detail-icon-column" :style="collectionLockedVisualStyle">
             <div
               ref="targetVisualRef"
               class="shop-treasure-visual shop-treasure-visual--detail"
@@ -109,12 +110,16 @@
                     treasure?.offerType === 'upgrade' && treasure?.upgradeKind === 'rarity',
                   'shop-treasure-frame--spell-offer': isSpellOffer,
                   'shop-treasure-frame--voucher-stamp': isVoucherOffer,
+                  'shop-treasure-frame--collection-unknown': isCollectionLockedPreview,
                   'treasure-detail-frame--charge-inactive': chargeVisualState === 'inactive',
                   'treasure-detail-frame--charge-active': chargeVisualState === 'active',
                 }"
                 :style="{ '--charge-progress': String(chargeProgress ?? 0) }"
               >
-                <template v-if="isUpgradeOffer">
+                <template v-if="isCollectionLockedPreview">
+                  <span ref="emojiRef" class="collection-detail-unknown-mark" aria-hidden="true">?</span>
+                </template>
+                <template v-else-if="isUpgradeOffer">
                   <i
                     v-if="treasure.iconClass"
                     ref="emojiRef"
@@ -188,7 +193,7 @@
                   }}</span>
                 </template>
                 <div
-                  v-if="accessoryChipVisuals.length"
+                  v-if="accessoryChipVisuals.length && !isCollectionLockedPreview"
                   class="treasure-accessory-chip-stack treasure-accessory-chip-stack--detail"
                   aria-hidden="true"
                 >
@@ -217,8 +222,7 @@
                   class="shop-treasure-price-inner"
                   :class="{ 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' }"
                 >
-                  <template v-if="shelfPriceKind === 'sell' || (shelfPriceKind == null && isOwnedMode)">${{ sellRefund }}</template>
-                  <template v-else>${{ offerPriceDisplayed }}</template>
+                  {{ detailShelfPriceText }}
                 </div>
               </div>
             </div>
@@ -296,6 +300,7 @@
             class="treasure-detail-desc-card treasure-detail-stagger-el"
           >
             <div class="treasure-detail-desc-panel-title-row">
+              <CollectionPrerequisiteBadge panel />
               <span class="treasure-detail-desc-panel-title-text">{{
                 collectionUnlockPrerequisitePanel?.title
               }}</span>
@@ -546,6 +551,7 @@
       </div>
 
       <PreviewGroupNav
+        ref="previewNavRef"
         :index="previewNavIndex"
         :total="previewNavTotal"
         @step="onPreviewNavStep"
@@ -695,8 +701,7 @@
             class="shop-treasure-price-inner"
             :class="{ 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' }"
           >
-            <template v-if="shelfPriceKind === 'sell' || (shelfPriceKind == null && isOwnedMode)">${{ sellRefund }}</template>
-            <template v-else>${{ offerPriceDisplayed }}</template>
+            {{ detailShelfPriceText }}
           </div>
         </div>
       </div>
@@ -753,6 +758,12 @@ import {
 import { formatCompactOneDecimal, formatWalletInteger, isSingleDigitLabel } from "./detailLayerFormatters.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
 import PreviewGroupNav from "./PreviewGroupNav.vue";
+import CollectionPrerequisiteBadge from "./collection/CollectionPrerequisiteBadge.vue";
+import { COLLECTION_UNKNOWN_LABEL } from "../collection/collectionDisplayUtils.js";
+import {
+  collectionEntryOpacityForState,
+  isCollectionEntryLocked,
+} from "../collection/collectionEntryState.js";
 
 const props = defineProps({
   treasure: { type: Object, required: true },
@@ -790,9 +801,32 @@ const props = defineProps({
   previewNavIndex: { type: Number, default: 0 },
   /** 同组项总数；≤1 时不显示翻页 */
   previewNavTotal: { type: Number, default: 0 },
+  /** 收藏图鉴：discovered | unknown | prerequisite-locked */
+  collectionEntryState: {
+    type: String,
+    default: "discovered",
+    validator: (v) => v === "discovered" || v === "unknown" || v === "prerequisite-locked",
+  },
 });
 
 const isCollectionPreviewMode = computed(() => props.mode === "collection-preview");
+
+const isCollectionLockedPreview = computed(
+  () => isCollectionPreviewMode.value && isCollectionEntryLocked(props.collectionEntryState),
+);
+
+const collectionLockedVisualStyle = computed(() => {
+  if (!isCollectionLockedPreview.value) return undefined;
+  return { opacity: String(collectionEntryOpacityForState(props.collectionEntryState)) };
+});
+
+const detailShelfPriceText = computed(() => {
+  if (isCollectionLockedPreview.value) return "$?";
+  if (props.shelfPriceKind === "sell" || (props.shelfPriceKind == null && isOwnedMode.value)) {
+    return `$${props.sellRefund}`;
+  }
+  return `$${offerPriceDisplayed.value}`;
+});
 
 const showDetailShelfPrice = computed(() => {
   if (props.shelfPriceKind === "offer" || props.shelfPriceKind === "sell") return true;
@@ -891,7 +925,7 @@ const treasureAccessoryPanels = computed(() =>
 );
 
 const showTreasureAccessoryPanels = computed(
-  () => !isDeckOffer.value && treasureAccessoryPanels.value.length > 0,
+  () => !isDeckOffer.value && !isCollectionLockedPreview.value && treasureAccessoryPanels.value.length > 0,
 );
 
 const deckOfferRarityKey = computed(() => {
@@ -1006,6 +1040,7 @@ const rarityTagLabel = computed(() => {
 
 /** 保证标题行在首帧即有占位高度，避免 flex 测量时 targetVisual 上移 */
 const displayTreasureName = computed(() => {
+  if (isCollectionLockedPreview.value) return COLLECTION_UNKNOWN_LABEL;
   const n = props.treasure?.name;
   if (n == null || String(n).trim() === "") return "\u00a0";
   return String(n);
@@ -1080,6 +1115,7 @@ const showVoucherTierPanels = computed(() => voucherOwnedTierPanels.value.length
 const showMainVoucherDesc = computed(() => !showVoucherTierPanels.value);
 
 const showTreasureMainDescCard = computed(() => {
+  if (isCollectionLockedPreview.value) return false;
   if (isDeckOffer.value) return true;
   if (isVoucherOffer.value && showVoucherTierPanels.value) return false;
   if (showSpellReplayTargetRow.value) return true;
@@ -1113,6 +1149,7 @@ const detailKindCaption = computed(() => {
 /** 牌包「升级卡」无宝藏稀有度，描述框不展示价签式稀有度 tag */
 const showDetailRarityTag = computed(
   () =>
+    !isCollectionLockedPreview.value &&
     props.treasure?.offerType !== "upgrade" &&
     props.treasure?.offerType !== "bundlePack" &&
     props.treasure?.offerType !== "voucher",
@@ -1125,7 +1162,11 @@ const spellGainPanelContent = computed(() => {
   return getSpellGainPanel(sid, { replayTargetSpellId: props.spellReplayTargetSpellId ?? null });
 });
 
-const showSpellGainPanel = computed(() => Boolean(String(spellGainPanelContent.value?.description ?? "").trim()));
+const showSpellGainPanel = computed(
+  () =>
+    !isCollectionLockedPreview.value &&
+    Boolean(String(spellGainPanelContent.value?.description ?? "").trim()),
+);
 
 const treasureGainPanelContent = computed(() => {
   if (isSpellOffer.value) return null;
@@ -1159,12 +1200,28 @@ const collectionUnlockPrerequisitePanel = computed(() => {
   return resolveTreasureUnlockPrerequisitePanel(tid);
 });
 
-const showCollectionUnlockPrerequisitePanel = computed(
-  () => treasureGainDescriptionNonEmpty(collectionUnlockPrerequisitePanel.value?.description),
-);
+const showCollectionUnlockPrerequisitePanel = computed(() => {
+  if (!isCollectionPreviewMode.value) return false;
+  if (
+    isSpellOffer.value ||
+    isUpgradeOffer.value ||
+    isVoucherOffer.value ||
+    isDeckOffer.value ||
+    isBundlePack.value
+  ) {
+    return false;
+  }
+  const panel = collectionUnlockPrerequisitePanel.value;
+  if (!treasureGainDescriptionNonEmpty(panel?.description)) return false;
+  if (isCollectionLockedPreview.value) {
+    return props.collectionEntryState === "prerequisite-locked";
+  }
+  return true;
+});
 
 const showTreasureGainPanel = computed(
   () =>
+    !isCollectionLockedPreview.value &&
     Boolean(treasureGainPanelContent.value?.title) &&
     treasureGainDescriptionNonEmpty(treasureGainPanelContent.value?.description),
 );
@@ -1190,7 +1247,7 @@ function descriptionConceptExcludeTitles() {
 }
 
 const descriptionConceptPanels = computed(() => {
-  if (isDeckOffer.value) return [];
+  if (isDeckOffer.value || isCollectionLockedPreview.value) return [];
   /** @type {unknown[]} */
   const sources = [];
   if (isVoucherOffer.value) {
@@ -1333,6 +1390,7 @@ function resolveDeckOfferFlyTargetRect() {
 
 const flyCloneActive = ref(validOrigin(props.originRect));
 const initialEnterDone = ref(false);
+const previewNavRef = ref(null);
 
 /** 首帧即落在起点，避免未定位前露在错误位置；显隐由 CSS visibility + RAF 内 GSAP 接管 */
 const flyCloneStyle = computed(() => {
@@ -1666,10 +1724,11 @@ function runCloseAnimation(shouldEmit) {
     enterTl = null;
   }
 
-  gsap.killTweensOf([backdrop, targetVisual, ...staggerEls].filter(Boolean));
+  gsap.killTweensOf([backdrop, targetVisual, ...staggerEls, ...(previewNavRef.value?.getAnimTargets?.() ?? [])].filter(Boolean));
 
   return new Promise((resolve) => {
     if (shouldSkipDecorativeMotion()) {
+      previewNavRef.value?.instantCloseHide?.();
       instantPortalLayerClose({ backdrop, staggerEls, primaryEl: targetVisual }).then(() => {
         if (shouldEmit) emit("close");
         resolve(undefined);
@@ -1685,6 +1744,8 @@ function runCloseAnimation(shouldEmit) {
         resolve(undefined);
       },
     });
+
+    previewNavRef.value?.appendCloseAnimation?.(tl, 0);
 
     if (backdrop) {
       tl.to(

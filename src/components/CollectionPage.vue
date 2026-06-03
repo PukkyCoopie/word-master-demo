@@ -105,6 +105,7 @@
       :wallet-amount="0"
       :preview-nav-index="collectionTreasurePreviewNavIndex"
       :preview-nav-total="collectionTreasurePreviewNavTotal"
+      :collection-entry-state="collectionTreasureDetail.collectionEntryState ?? 'discovered'"
       @close="collectionTreasureDetail = null"
       @preview-nav="onCollectionTreasurePreviewNav"
     />
@@ -122,7 +123,9 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { registerAndroidBackHandler } from "../platform/androidBackButton.js";
+import { handleCollectionAndroidBack } from "../platform/handleCollectionAndroidBack.js";
 import TreasureDetailLayer from "./TreasureDetailLayer.vue";
 import TileDetailLayer from "./TileDetailLayer.vue";
 import { buildDiscoveredVoucherDetailTreasure } from "../vouchers/voucherOwnedDisplay.js";
@@ -164,6 +167,11 @@ import {
   stepPreviewNavGroup,
   withPreviewNavKind,
 } from "../preview/previewGroupNav.js";
+import {
+  resolveCollectionSpellEntryState,
+  resolveCollectionTreasureEntryState,
+  resolveCollectionUpgradeEntryState,
+} from "../collection/collectionEntryState.js";
 
 const props = defineProps({
   career: { type: Object, required: true },
@@ -194,7 +202,7 @@ const activeTab = ref("treasures");
 const tabPanelRef = ref(null);
 const tabEnterReady = ref(false);
 
-/** @type {import('vue').Ref<{ treasure: object, originRect: object | null, shelfPriceKind: 'offer' | null, previewNav: import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> | null, previewNavKind: string | null } | null>} */
+/** @type {import('vue').Ref<{ treasure: object, originRect: object | null, shelfPriceKind: 'offer' | null, previewNav: import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> | null, previewNavKind: string | null, collectionEntryState: import('../collection/collectionEntryState.js').CollectionEntryState } | null>} */
 const collectionTreasureDetail = ref(null);
 /** @type {import('vue').Ref<Record<string, unknown> | null>} */
 const collectionTileDetailPayload = ref(null);
@@ -277,13 +285,39 @@ function buildCollectionUpgradePreviewNav(treasureId) {
 }
 
 /**
+ * @param {string | null | undefined} previewNavKind
+ * @param {unknown} key
+ * @returns {import('../collection/collectionEntryState.js').CollectionEntryState}
+ */
+function resolveCollectionPreviewEntryState(previewNavKind, key) {
+  const kind = String(previewNavKind ?? "");
+  if (kind === "collection-spell") {
+    return resolveCollectionSpellEntryState(String(key), props.career.discoveredSpellIds);
+  }
+  if (kind === "collection-upgrade") {
+    return resolveCollectionUpgradeEntryState(String(key), props.career.discoveredUpgradeIds);
+  }
+  if (kind === "collection-owned-treasure") return "discovered";
+  if (kind === "collection-voucher") return "discovered";
+  return resolveCollectionTreasureEntryState(String(key), props.career.discoveredTreasureIds);
+}
+
+/**
  * @param {object} treasure
  * @param {HTMLElement | null | undefined} originEl
  * @param {'offer' | null} shelfPriceKind
  * @param {import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> | null} previewNav
  * @param {string | null} previewNavKind
+ * @param {import('../collection/collectionEntryState.js').CollectionEntryState} [collectionEntryState]
  */
-function openCollectionTreasurePreview(treasure, originEl, shelfPriceKind, previewNav = null, previewNavKind = null) {
+function openCollectionTreasurePreview(
+  treasure,
+  originEl,
+  shelfPriceKind,
+  previewNav = null,
+  previewNavKind = null,
+  collectionEntryState = "discovered",
+) {
   if (!treasure) return;
   closeCollectionTileDetail();
   collectionTreasureDetail.value = {
@@ -292,6 +326,7 @@ function openCollectionTreasurePreview(treasure, originEl, shelfPriceKind, previ
     shelfPriceKind,
     previewNav,
     previewNavKind,
+    collectionEntryState,
   };
 }
 
@@ -323,6 +358,7 @@ function onCollectionTreasurePreviewNav(delta) {
   const nav = stepPreviewNavGroup(d.previewNav, delta);
   if (!nav || nav.index === d.previewNav.index) return;
   const kind = d.previewNavKind;
+  const entryState = resolveCollectionPreviewEntryState(kind, nav.items[nav.index]);
   if (kind === "collection-owned-treasure") {
     const item = nav.items[nav.index];
     const treasure = buildCollectionOwnedTreasurePreview(item?.saved);
@@ -332,6 +368,7 @@ function onCollectionTreasurePreviewNav(delta) {
       treasure,
       originRect: null,
       previewNav: nav,
+      collectionEntryState: entryState,
     };
     return;
   }
@@ -342,6 +379,7 @@ function onCollectionTreasurePreviewNav(delta) {
     treasure,
     originRect: null,
     previewNav: nav,
+    collectionEntryState: entryState,
   };
 }
 
@@ -376,6 +414,7 @@ function onCollectionTreasureSelect(payload) {
     "offer",
     createPreviewNavGroup(ids, ids.indexOf(tid)),
     "collection-treasure",
+    resolveCollectionTreasureEntryState(tid, props.career.discoveredTreasureIds),
   );
 }
 
@@ -391,6 +430,7 @@ function onCollectionSpellSelect(payload) {
     "offer",
     createPreviewNavGroup(ids, ids.indexOf(sid)),
     "collection-spell",
+    resolveCollectionSpellEntryState(sid, props.career.discoveredSpellIds),
   );
 }
 
@@ -405,6 +445,7 @@ function onCollectionUpgradeSelect(payload) {
     "offer",
     buildCollectionUpgradePreviewNav(tid),
     "collection-upgrade",
+    resolveCollectionUpgradeEntryState(tid, props.career.discoveredUpgradeIds),
   );
 }
 
@@ -472,11 +513,34 @@ watch(activeTab, async () => {
   await runTabEnterAnimation(0);
 });
 
+const ANDROID_BACK_COLLECTION_PRIORITY = 90;
+
+/** @type {(() => void) | null} */
+let unregisterCollectionAndroidBack = null;
+
+function handleCollectionPageAndroidBack() {
+  return handleCollectionAndroidBack({
+    collectionTreasureDetail,
+    collectionTileDetailPayload,
+    closeCollectionTileDetail,
+  });
+}
+
 onMounted(async () => {
+  unregisterCollectionAndroidBack = registerAndroidBackHandler(
+    ANDROID_BACK_COLLECTION_PRIORITY,
+    handleCollectionPageAndroidBack,
+  );
+
   await nextTick();
   prepareCollectionTabEnter(tabPanelRef.value);
   tabEnterReady.value = true;
   await runTabEnterAnimation(props.initialEnterDelayMs);
+});
+
+onBeforeUnmount(() => {
+  unregisterCollectionAndroidBack?.();
+  unregisterCollectionAndroidBack = null;
 });
 </script>
 

@@ -4,6 +4,7 @@
       v-for="entry in entries"
       :key="entry.treasureId"
       :unknown="!entry.discovered"
+      :prerequisite-locked="entry.prerequisiteLocked"
       :treasure-id="entry.treasureId"
       :name="entry.name"
       :emoji="entry.emoji"
@@ -18,6 +19,7 @@
 import { computed } from "vue";
 import { TREASURE_CATALOG } from "../../treasures/treasureCatalog.js";
 import { getTreasureDef } from "../../treasures/treasureRegistry.js";
+import { treasureHasUnlockPrerequisite } from "../../collection/collectionEntryState.js";
 import CollectionShopTreasureCell from "./CollectionShopTreasureCell.vue";
 
 const props = defineProps({
@@ -32,9 +34,11 @@ const entries = computed(() =>
   TREASURE_CATALOG.map((row) => {
     const discovered = discoveredSet.value.has(String(row.treasureId));
     const def = getTreasureDef(row.treasureId);
+    const hasPrerequisite = treasureHasUnlockPrerequisite(row.treasureId);
     return {
       treasureId: row.treasureId,
       discovered,
+      prerequisiteLocked: !discovered && hasPrerequisite,
       name: def?.name ?? row.name,
       emoji: def?.emoji ?? row.emoji,
       rarity: def?.rarity ?? "rare",

@@ -195,6 +195,8 @@ import { collectFreshUnlocksFromWin } from "./game/runStartFreshUnlock.js";
 import { createEmptySlotCareerStats } from "./save/runSaveSchema.js";
 import { tryUnlockAchievementsInCareer } from "./achievements/achievementUnlock.js";
 import { formatCollectionMenuProgressSuffix } from "./collection/collectionProgress.js";
+import { registerAndroidBackHandler } from "./platform/androidBackButton.js";
+import { handleAppAndroidBack } from "./platform/handleAppAndroidBack.js";
 
 useScale();
 const { isDesktopLayout } = useWebLayoutMode();
@@ -861,6 +863,43 @@ async function onGameExitToMenu() {
   });
   transitionBusy.value = false;
 }
+
+/** 全局 Teleport 浮层优先于局内/收藏（priority 150） */
+const ANDROID_BACK_APP_SHELL_PRIORITY = 150;
+
+/** @type {(() => void) | null} */
+let unregisterAppAndroidBack = null;
+
+onMounted(() => {
+  unregisterAppAndroidBack = registerAndroidBackHandler(ANDROID_BACK_APP_SHELL_PRIORITY, () =>
+    handleAppAndroidBack({
+      dictGate: () => dictGate.value,
+      transitionBusy,
+      showTapTapPoster,
+      showSaveSlots,
+      showPlayerProfile,
+      showSettings,
+      showAbout,
+      runStartQuickConfirm,
+      showRunStartDialog,
+      showCollection: () => showCollection.value,
+      showMenu: () => showMenu.value,
+      showGame: () => showGame.value,
+      closeSaveSlots,
+      closePlayerProfile,
+      closeSettings,
+      closeAbout,
+      dismissRunStartQuickConfirm: onRunStartQuickDismiss,
+      cancelRunStartDialog: onRunStartCancel,
+      closeCollection,
+    }),
+  );
+});
+
+onBeforeUnmount(() => {
+  unregisterAppAndroidBack?.();
+  unregisterAppAndroidBack = null;
+});
 
 </script>
 

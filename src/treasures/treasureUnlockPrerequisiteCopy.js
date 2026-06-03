@@ -66,7 +66,7 @@ export function resolveTreasureUnlockPrerequisitePanel(treasureId) {
   const plain = buildUnlockPrerequisitePlainText(pre);
   if (!plain) return null;
   return {
-    title: "出现前提",
+    title: "前置条件",
     description: describe(plain),
   };
 }

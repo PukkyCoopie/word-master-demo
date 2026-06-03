@@ -6,6 +6,7 @@ import App from "./App.vue";
 import { warmupAllReglMaterialHubs } from "./lib/reglMaterialWarmup.js";
 import { startRemixIconFontLoad } from "./composables/useRemixIconFont.js";
 import { initAnimationSpeedSettings } from "./settings/animationSpeed.js";
+import { initAndroidBackButton } from "./platform/androidBackButton.js";
 function disableNativeWebNotificationPrompt() {
   if (typeof window === "undefined" || !window.Capacitor?.isNativePlatform?.()) {
     return;
@@ -47,4 +48,5 @@ document.addEventListener("contextmenu", (e) => e.preventDefault(), { capture: t
 
 const app = createApp(App);
 initAnimationSpeedSettings();
+void initAndroidBackButton();
 app.mount("#app");

@@ -144,6 +144,7 @@
       </div>
 
       <PreviewGroupNav
+        ref="previewNavRef"
         :index="previewNavIndex"
         :total="previewNavTotal"
         @step="onPreviewNavStep"
@@ -244,6 +245,7 @@ const closing = ref(false);
 const bootMask = ref(true);
 const flyCloneActive = ref(validOrigin(props.originRect));
 const initialEnterDone = ref(false);
+const previewNavRef = ref(null);
 
 const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
 
@@ -564,7 +566,13 @@ function runCloseAnimation(shouldEmit = true) {
     enterTl = null;
   }
 
-  gsap.killTweensOf([backdrop, targetFade, clone, ...staggerEls].filter(Boolean));
+  gsap.killTweensOf([
+    backdrop,
+    targetFade,
+    clone,
+    ...staggerEls,
+    ...(previewNavRef.value?.getAnimTargets?.() ?? []),
+  ].filter(Boolean));
 
   const origin = props.originRect;
   const hasReturnFly = validOrigin(origin) && measureEl && targetFade;
@@ -573,6 +581,7 @@ function runCloseAnimation(shouldEmit = true) {
     if (shouldSkipDecorativeMotion()) {
       flyCloneActive.value = false;
       flyCloneAnchorRect.value = null;
+      previewNavRef.value?.instantCloseHide?.();
       instantPortalLayerClose({ backdrop, staggerEls, primaryEl: targetFade });
       finish(resolve);
       return;
@@ -628,6 +637,8 @@ function runCloseAnimation(shouldEmit = true) {
             },
           });
 
+          previewNavRef.value?.appendCloseAnimation?.(tl, 0);
+
           if (backdrop) {
             tl.to(
               backdrop,
@@ -672,6 +683,8 @@ function runCloseAnimation(shouldEmit = true) {
     const tl = gsap.timeline({
       onComplete: () => finish(resolve),
     });
+
+    previewNavRef.value?.appendCloseAnimation?.(tl, 0);
 
     if (backdrop) {
       tl.to(

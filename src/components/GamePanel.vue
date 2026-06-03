@@ -1081,6 +1081,8 @@ import TreasureSlot from "./TreasureSlot.vue";
 import ResultArea from "./ResultArea.vue";
 import { createFlyBackTileElement, disposeFlyBackTileElement } from "../utils/letterTileFlyBack.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { registerAndroidBackHandler } from "../platform/androidBackButton.js";
+import { handleGameAndroidBack } from "../platform/handleGameAndroidBack.js";
 import { recordPointerClientFromEvent } from "../game/lastPointerClient.js";
 import {
   killDeckLayerEnter,
@@ -6702,6 +6704,69 @@ function revealPauseOptionsLayer() {
 
 function closePauseOptions() {
   showPauseOptions.value = false;
+}
+
+const ANDROID_BACK_GAME_PRIORITY = 100;
+
+/** @type {(() => void) | null} */
+let unregisterGameAndroidBack = null;
+
+async function dismissBossRerollOnBack() {
+  if (!bossRerollSession.value) return;
+  const layer = bossBlindRerollLayerRef.value;
+  if (layer?.playClose) {
+    await layer.playClose();
+  }
+  bossRerollSession.value = null;
+}
+
+async function dismissTreasureDetailOnBack() {
+  if (!treasureDetail.value) return;
+  if (treasureDetail.value.spellGrantFlow === true) {
+    onTreasureDetailClose();
+    return;
+  }
+  const layer = treasureDetailLayerRef.value;
+  if (layer?.playClose) {
+    await layer.playClose();
+  }
+  onTreasureDetailClose();
+}
+
+function handleGamePanelAndroidBack() {
+  return handleGameAndroidBack({
+    transitionBusy,
+    shopUpgradeAnimating,
+    packPickBusy,
+    submitWordBusy,
+    scoringAnimating,
+    gridRefillAnimating,
+    spellTargetSession,
+    bossRerollSession,
+    packPickSession,
+    spellReferencePreview,
+    treasureDetail,
+    tileDetailPayload,
+    showShop,
+    showDeckLayer,
+    showInfoLayer,
+    showPauseOptions,
+    showSettlement,
+    showRunEnd,
+    dictFatalError,
+    isBlockingPauseOpen,
+    onSpellTargetCancel,
+    dismissBossReroll: dismissBossRerollOnBack,
+    onPackPickSkip,
+    dismissTreasureDetail: dismissTreasureDetailOnBack,
+    dismissTileDetail: dismissTileDetailLayer,
+    openPauseOptionsFromShop,
+    closePauseOptions,
+    settlementIntroPending: () => settlementIntroResolve != null,
+    finishSettlementIntroInstant,
+    onSettlementContinue,
+    openPauseOptions,
+  });
 }
 
 function onPauseContinue() {
@@ -12344,6 +12409,11 @@ function mountE2eHarnessIfNeeded() {
 }
 
 onMounted(async () => {
+  unregisterGameAndroidBack = registerAndroidBackHandler(
+    ANDROID_BACK_GAME_PRIORITY,
+    handleGamePanelAndroidBack,
+  );
+
   await loadDictionary({ shouldAbort: () => !gamePanelAlive });
   if (!gamePanelAlive) return;
 
@@ -12399,6 +12469,8 @@ onMounted(async () => {
   flushAchievementUnlocks();
 });
 onUnmounted(() => {
+  unregisterGameAndroidBack?.();
+  unregisterGameAndroidBack = null;
   runAutoSave.cancelPending();
   runEndConfettiController.dispose();
   delete globalThis.__WM_previewAchievementToast;
