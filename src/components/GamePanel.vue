@@ -154,10 +154,13 @@
       :rarity-levels-by-rarity="rarityLevelsByRarity"
       :probability-display-doubled="treasureProbabilityDisplayDoubled"
       :spell-grant-flow="treasureDetail.spellGrantFlow === true"
+      :preview-nav-index="treasureDetailPreviewNavIndex"
+      :preview-nav-total="treasureDetailPreviewNavTotal"
       @close="onTreasureDetailClose"
       @purchase="onTreasurePurchase"
       @sell="onTreasureSell"
       @open-spell-replay-target-preview="onOpenSpellReplayTargetPreview"
+      @preview-nav="onTreasurePreviewNav"
     />
     <TreasureDetailLayer
       v-if="spellReferencePreview"
@@ -206,7 +209,10 @@
       :payload="tileDetailPayload"
       :origin-rect="tileDetailOriginRect"
       :rarity-levels-by-rarity="rarityLevelsByRarity"
+      :preview-nav-index="tileDetailPreviewNavIndex"
+      :preview-nav-total="tileDetailPreviewNavTotal"
       @close="closeTileDetail"
+      @preview-nav="onTilePreviewNav"
     />
     <Teleport defer to="#game-view-portal-frame">
       <div v-if="dictFatalError" class="dict-fatal-layer portal-overlay-fill" :style="dictFatalPortalStackStyle">
@@ -877,6 +883,15 @@ import {
   buildMaterialTileDetailPayload,
   collectionFlyOriginRectFromEl,
 } from "../collection/collectionPreview.js";
+import {
+  createPreviewNavGroup,
+  createPreviewNavGroupFromItems,
+  previewNavIndex,
+  previewNavTotal,
+  stepPreviewNavGroup,
+  withPreviewNavKind,
+  sameRunDiscoveryDisplayItem,
+} from "../preview/previewGroupNav.js";
 import { createRunEndConfettiController } from "../game/runEndConfetti.js";
 import BossBlindRerollLayer from "./BossBlindRerollLayer.vue";
 import { getBossDef } from "../game/bossBlindDefinitions.js";
@@ -1392,6 +1407,8 @@ function openInfoModal(tab = "level") {
 /** 字母块详情（右键 / 长按） */
 const tileDetailPayload = ref(null);
 const tileDetailOriginRect = ref(/** @type {{ left: number, top: number, width: number, height: number } | null} */ (null));
+/** @type {import('vue').Ref<import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> | null>} */
+const tileDetailPreviewNav = ref(null);
 const suppressTilePrimaryClick = ref(false);
 
 const levelIndex = ref(RUN_START_LEVEL_INDEX);
@@ -2354,12 +2371,121 @@ function treasureOriginRectFromEl(el) {
   return offerFlyOriginRectFromEl(el);
 }
 
+function buildShopOwnedPreviewNavItems() {
+  return ownedTreasures.value
+    .map((treasure, index) => (treasure ? { index, treasure } : null))
+    .filter(Boolean);
+}
+
+const treasureDetailPreviewNavTotal = computed(() => previewNavTotal(treasureDetail.value?.previewNav));
+const treasureDetailPreviewNavIndex = computed(() => previewNavIndex(treasureDetail.value?.previewNav));
+const tileDetailPreviewNavTotal = computed(() => previewNavTotal(tileDetailPreviewNav.value));
+const tileDetailPreviewNavIndex = computed(() => previewNavIndex(tileDetailPreviewNav.value));
+
+/** @param {NonNullable<typeof treasureDetail.value>} d @param {import('../preview/previewGroupNav.js').PreviewNavGroup<unknown>} nav */
+function applyTreasureDetailAtPreviewNav(d, nav) {
+  if (nav.kind === "run-end-treasure") {
+    openRunEndDiscoveryTreasurePreview(
+      /** @type {import('../game/runCollectionDiscoveriesDisplay.js').RunDiscoveryDisplayItem} */ (
+        nav.items[nav.index]
+      ),
+      null,
+      nav,
+    );
+    return;
+  }
+  const kind = d.kind;
+  if (kind === "offer") {
+    treasureDetail.value = {
+      ...d,
+      treasure: nav.items[nav.index],
+      originRect: null,
+      previewNav: nav,
+    };
+    return;
+  }
+  if (kind === "owned") {
+    const slot = /** @type {{ index: number, treasure: object }} */ (nav.items[nav.index]);
+    treasureDetail.value = {
+      ...d,
+      slotIndex: slot.index,
+      treasure: slot.treasure,
+      originRect: null,
+      previewNav: nav,
+    };
+    return;
+  }
+  if (kind === "pack-inner") {
+    const item = nav.items[nav.index];
+    treasureDetail.value = {
+      ...d,
+      treasure: item,
+      packOptionKey: packPickOptionKeyOf(item),
+      originRect: null,
+      previewNav: nav,
+    };
+  }
+}
+
+/** @param {number} delta */
+function onTreasurePreviewNav(delta) {
+  const d = treasureDetail.value;
+  if (!d?.previewNav) return;
+  const nav = stepPreviewNavGroup(d.previewNav, delta);
+  if (!nav || nav.index === d.previewNav.index) return;
+  applyTreasureDetailAtPreviewNav(d, nav);
+}
+
+/** @param {import('../preview/previewGroupNav.js').PreviewNavGroup<unknown>} nav */
+function applyTileDetailAtPreviewNav(nav) {
+  const kind = nav.kind;
+  if (kind === "word-slot") {
+    const slotIndex = /** @type {number} */ (nav.items[nav.index]);
+    const p = buildWordSlotTileDetailPayload(slotIndex);
+    if (!p) return;
+    openTileDetail(p, null, nav);
+    return;
+  }
+  if (kind === "deck-expand") {
+    const entry = nav.items[nav.index];
+    const p = resolveDeckStackEntryDetail(entry);
+    if (!p) return;
+    openTileDetail(p, null, nav);
+    return;
+  }
+  if (kind === "run-end-tile") {
+    const item = /** @type {import('../game/runCollectionDiscoveriesDisplay.js').RunDiscoveryDisplayItem} */ (
+      nav.items[nav.index]
+    );
+    if (item.kind === "material") {
+      const tilePayload = buildMaterialTileDetailPayload(item.materialId);
+      if (tilePayload) openTileDetail(tilePayload, null, nav);
+      return;
+    }
+    if (item.kind === "accessory") {
+      const tilePayload = buildAccessoryTileDetailPayload(item.accessoryId);
+      if (tilePayload) openTileDetail(tilePayload, null, nav);
+    }
+  }
+}
+
+/** @param {number} delta */
+function onTilePreviewNav(delta) {
+  const nav = stepPreviewNavGroup(tileDetailPreviewNav.value, delta);
+  if (!nav || nav.index === tileDetailPreviewNav.value?.index) return;
+  applyTileDetailAtPreviewNav(nav);
+}
+
 function onShopSelectOffer(payload) {
   const root = payload.originEl;
   treasureDetail.value = {
     kind: "offer",
     treasure: payload.treasure,
     originRect: treasureOriginRectFromEl(root),
+    previewNav: createPreviewNavGroupFromItems(
+      shopOffers.value,
+      (o) => o.offerInstanceId === payload.treasure.offerInstanceId,
+    ),
   };
 }
 
@@ -2369,16 +2495,22 @@ function onShopSelectPackOffer(payload) {
     kind: "offer",
     treasure: payload.treasure,
     originRect: treasureOriginRectFromEl(root),
+    previewNav: createPreviewNavGroupFromItems(
+      packOffers.value,
+      (o) => o.offerInstanceId === payload.treasure.offerInstanceId,
+    ),
   };
 }
 
 function onShopSelectOwned(payload) {
   if (!payload?.treasure) return;
+  const items = buildShopOwnedPreviewNavItems();
   treasureDetail.value = {
     kind: "owned",
     slotIndex: payload.index,
     treasure: payload.treasure,
     originRect: treasureOriginRectFromEl(payload.originEl),
+    previewNav: createPreviewNavGroupFromItems(items, (x) => x.index === payload.index),
   };
 }
 
@@ -2650,11 +2782,16 @@ function onPackPickOpenItem(payload) {
   const item = payload?.item;
   if (!item) return;
   const root = payload?.originEl;
+  const options = packPickSession.value?.options ?? [];
   treasureDetail.value = {
     kind: "pack-inner",
     treasure: item,
     packOptionKey: String(payload?.optionKey ?? packPickOptionKeyOf(item)),
     originRect: treasureOriginRectFromEl(root),
+    previewNav: createPreviewNavGroupFromItems(
+      options,
+      (o) => packPickOptionKeyOf(o) === packPickOptionKeyOf(item),
+    ),
   };
 }
 
@@ -5530,8 +5667,11 @@ function tileOriginRectFromElement(el) {
   return { left: r.left, top: r.top, width: r.width, height: r.height };
 }
 
-function openTileDetail(payload, originRect = null) {
+function openTileDetail(payload, originRect = null, previewNav = null) {
   if (!payload) return;
+  if (previewNav?.kind === "run-end-tile") {
+    treasureDetail.value = null;
+  }
   tileDetailPayload.value = payload;
   const o = originRect;
   tileDetailOriginRect.value =
@@ -5542,11 +5682,13 @@ function openTileDetail(payload, originRect = null) {
     o.height > 2
       ? { left: o.left, top: o.top, width: o.width, height: o.height }
       : null;
+  tileDetailPreviewNav.value = previewNav;
 }
 
 function closeTileDetail() {
   tileDetailPayload.value = null;
   tileDetailOriginRect.value = null;
+  tileDetailPreviewNav.value = null;
   suppressTilePrimaryClick.value = false;
 }
 
@@ -5693,7 +5835,7 @@ function onWordSlotContextMenu(e, i) {
   const slotEl = wordSlotRefs[i];
   const inner = slotEl?.querySelector?.(".word-slot-content");
   const origin = tileOriginRectFromElement(inner ?? slotEl);
-  if (p) openTileDetail(p, origin);
+  if (p) openTileDetail(p, origin, buildWordSlotPreviewNav(i));
 }
 
 function onWordSlotDetailPointerDown(e, i) {
@@ -5713,7 +5855,7 @@ function onWordSlotDetailPointerDown(e, i) {
       const slotEl = wordSlotRefs[i];
       const inner = slotEl?.querySelector?.(".word-slot-content");
       const origin = tileOriginRectFromElement(inner ?? slotEl);
-      openTileDetail(p, origin);
+      openTileDetail(p, origin, buildWordSlotPreviewNav(i));
     }
   });
 }
@@ -5876,7 +6018,7 @@ function onDeckExpandedTileClick(entry, e) {
   const hit = e?.currentTarget;
   const face = hit?.querySelector?.(".deck-expand-face-tile");
   const origin = tileOriginRectFromElement(face ?? hit);
-  if (p) openTileDetail(p, origin);
+  if (p) openTileDetail(p, origin, buildDeckExpandPreviewNav(entry));
 }
 
 function onDeckExpandedTileContextMenu(e, entry) {
@@ -5886,7 +6028,7 @@ function onDeckExpandedTileContextMenu(e, entry) {
   const hit = e?.currentTarget;
   const face = hit?.querySelector?.(".deck-expand-face-tile");
   const origin = tileOriginRectFromElement(face ?? hit);
-  if (p) openTileDetail(p, origin);
+  if (p) openTileDetail(p, origin, buildDeckExpandPreviewNav(entry));
 }
 
 function onDeckExpandedTileDetailPointerDown(e, entry) {
@@ -5901,7 +6043,7 @@ function onDeckExpandedTileDetailPointerDown(e, entry) {
       const hit = e?.currentTarget;
       const face = hit?.querySelector?.(".deck-expand-face-tile");
       const origin = tileOriginRectFromElement(face ?? hit);
-      openTileDetail(p, origin);
+      openTileDetail(p, origin, buildDeckExpandPreviewNav(entry));
     }
   });
 }
@@ -6404,29 +6546,29 @@ function onRunEndRetry() {
 }
 
 /**
- * @param {{ item?: import('../game/runCollectionDiscoveriesDisplay.js').RunDiscoveryDisplayItem, originEl?: HTMLElement | null }} payload
+ * @param {import('../game/runCollectionDiscoveriesDisplay.js').RunDiscoveryDisplayItem} item
+ * @param {{ left: number, top: number, width: number, height: number } | null} originRect
+ * @param {import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> | null} [previewNav]
  */
-function onRunEndDiscoverySelect(payload) {
-  const item = payload?.item;
-  if (!item || typeof item !== "object") return;
-  const originRect = collectionFlyOriginRectFromEl(payload.originEl);
-
+function openRunEndDiscoveryTreasurePreview(item, originRect, previewNav = null) {
+  tileDetailPayload.value = null;
+  tileDetailPreviewNav.value = null;
   if (item.kind === "treasure") {
     const treasure = buildCollectionTreasurePreview(item.treasureId);
     if (!treasure) return;
-    treasureDetail.value = { kind: "offer", treasure, originRect };
+    treasureDetail.value = { kind: "offer", treasure, originRect, previewNav };
     return;
   }
   if (item.kind === "spell") {
     const treasure = buildCollectionSpellPreview(item.spellId);
     if (!treasure) return;
-    treasureDetail.value = { kind: "offer", treasure, originRect };
+    treasureDetail.value = { kind: "offer", treasure, originRect, previewNav };
     return;
   }
   if (item.kind === "upgrade") {
     const treasure = buildCollectionUpgradePreview(item.upgradeId);
     if (!treasure) return;
-    treasureDetail.value = { kind: "offer", treasure, originRect };
+    treasureDetail.value = { kind: "offer", treasure, originRect, previewNav };
     return;
   }
   if (item.kind === "voucher") {
@@ -6435,19 +6577,70 @@ function onRunEndDiscoverySelect(payload) {
     if (!tier1) return;
     const treasure = buildOwnedVoucherDetailTreasure({ pairId: item.pairId, tier1, tier2 });
     if (!treasure) return;
-    treasureDetail.value = { kind: "offer", treasure, originRect };
+    treasureDetail.value = { kind: "offer", treasure, originRect, previewNav };
+  }
+}
+
+/**
+ * @param {import('../game/runCollectionDiscoveriesDisplay.js').RunDiscoveryDisplayItem} item
+ */
+function buildRunEndDiscoveryTreasureNav(item) {
+  if (!item || item.kind === "material" || item.kind === "accessory") return null;
+  const items = runEndDiscoveryItems.value.filter((x) => x.kind === item.kind);
+  return withPreviewNavKind(
+    createPreviewNavGroupFromItems(items, (x) => sameRunDiscoveryDisplayItem(x, item)),
+    "run-end-treasure",
+  );
+}
+
+/**
+ * @param {import('../game/runCollectionDiscoveriesDisplay.js').RunDiscoveryDisplayItem} item
+ */
+function buildRunEndDiscoveryTileNav(item) {
+  if (!item || (item.kind !== "material" && item.kind !== "accessory")) return null;
+  const items = runEndDiscoveryItems.value.filter((x) => x.kind === item.kind);
+  return withPreviewNavKind(
+    createPreviewNavGroupFromItems(items, (x) => sameRunDiscoveryDisplayItem(x, item)),
+    "run-end-tile",
+  );
+}
+
+/** @param {number} slotIndex */
+function buildWordSlotPreviewNav(slotIndex) {
+  const order = selectedOrder.value;
+  return withPreviewNavKind(createPreviewNavGroup(order.map((_, i) => i), slotIndex), "word-slot");
+}
+
+/** @param {unknown} entry */
+function buildDeckExpandPreviewNav(entry) {
+  const stack = deckExpandedStack.value;
+  if (!stack) return null;
+  const items = stack.entries.filter((e) => resolveDeckStackEntryDetail(e));
+  return withPreviewNavKind(createPreviewNavGroupFromItems(items, (e) => e === entry), "deck-expand");
+}
+
+/**
+ * @param {{ item?: import('../game/runCollectionDiscoveriesDisplay.js').RunDiscoveryDisplayItem, originEl?: HTMLElement | null }} payload
+ */
+function onRunEndDiscoverySelect(payload) {
+  const item = payload?.item;
+  if (!item || typeof item !== "object") return;
+  const originRect = collectionFlyOriginRectFromEl(payload.originEl);
+
+  if (item.kind === "treasure" || item.kind === "spell" || item.kind === "upgrade" || item.kind === "voucher") {
+    openRunEndDiscoveryTreasurePreview(item, originRect, buildRunEndDiscoveryTreasureNav(item));
     return;
   }
   if (item.kind === "material") {
     const tilePayload = buildMaterialTileDetailPayload(item.materialId);
     if (!tilePayload) return;
-    openTileDetail(tilePayload, originRect);
+    openTileDetail(tilePayload, originRect, buildRunEndDiscoveryTileNav(item));
     return;
   }
   if (item.kind === "accessory") {
     const tilePayload = buildAccessoryTileDetailPayload(item.accessoryId);
     if (!tilePayload) return;
-    openTileDetail(tilePayload, originRect);
+    openTileDetail(tilePayload, originRect, buildRunEndDiscoveryTileNav(item));
   }
 }
 
@@ -6837,11 +7030,13 @@ async function onSettlementContinue(event) {
 function openGameTreasureDetail(ti, slot, ev) {
   if (!slot) return;
   const el = ev?.currentTarget ?? null;
+  const items = buildShopOwnedPreviewNavItems();
   treasureDetail.value = {
     kind: "owned",
     slotIndex: ti,
     treasure: slot,
     originRect: treasureOriginRectFromEl(el),
+    previewNav: createPreviewNavGroupFromItems(items, (x) => x.index === ti),
   };
 }
 

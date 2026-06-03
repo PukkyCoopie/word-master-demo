@@ -3979,6 +3979,66 @@ textarea::-moz-placeholder {
 	max-width: calc(320 * var(--rpx));
 }
 
+.preview-group-nav {
+	position: absolute;
+	inset: 0;
+	z-index: 12;
+	pointer-events: none;
+}
+
+.preview-group-nav__side {
+	position: absolute;
+	top: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: calc(64 * var(--rpx));
+	height: calc(64 * var(--rpx));
+	padding: 0;
+	border: none;
+	border-radius: calc(12 * var(--rpx));
+	background: rgba(255, 255, 255, 0.12);
+	color: #f9f6f2;
+	font-size: calc(36 * var(--rpx));
+	line-height: 1;
+	cursor: pointer;
+	transform: translateY(-50%);
+	pointer-events: auto;
+	transition: background calc(0.12s / var(--anim-speed-scale, 1)) ease;
+}
+
+.preview-group-nav__side:hover {
+	background: rgba(255, 255, 255, 0.2);
+}
+
+.preview-group-nav__side--prev {
+	left: calc(18 * var(--rpx));
+}
+
+.preview-group-nav__side--next {
+	right: calc(18 * var(--rpx));
+}
+
+.preview-group-nav__footer {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: calc(24 * var(--rpx));
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+}
+
+.preview-group-nav__progress {
+	font-size: calc(26 * var(--rpx));
+	font-weight: 700;
+	color: rgba(249, 246, 242, 0.78);
+	min-width: calc(72 * var(--rpx));
+	text-align: center;
+	line-height: 1.2;
+}
+
 /* ----- 商店组合包：多选确认层（Teleport → #game-view-portal） ----- */
 .pack-pick-backdrop {
 	position: absolute;

@@ -134,7 +134,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { getProfileInitialLetter, getProfileInitialLetterStyle, getSlotProfile, isSlotProfileActivated } from "../profile/playerProfile.js";
-import { listAllSlotEntries } from "../save/runSaveStorage.js";
+import { isSlotOccupied, listAllSlotEntries } from "../save/runSaveStorage.js";
 import { formatRelativeSaveTime } from "../save/saveDisplayUtils.js";
 import { getSlotCareerSummaryRows } from "../save/slotCareerStats.js";
 
@@ -183,8 +183,8 @@ function slotTitle(index, entry) {
 }
 
 /** @param {number} index @param {{ hasSave: boolean }} entry */
-function slotCountsAsOccupied(index, entry) {
-  return entry.hasSave || isSlotProfileActivated(index);
+function slotCountsAsOccupied(index, _entry) {
+  return isSlotOccupied(index) || isSlotProfileActivated(index);
 }
 
 /** @param {number} index @param {{ hasSave: boolean }} entry */

@@ -246,6 +246,15 @@ watch(
   { immediate: true, flush: "sync" },
 );
 
+watch(
+  () => props.activeSlot,
+  () => {
+    if (props.open) {
+      nameDraft.value = playerProfile.displayName;
+    }
+  },
+);
+
 function commitName() {
   setDisplayName(nameDraft.value);
   nameDraft.value = playerProfile.displayName;

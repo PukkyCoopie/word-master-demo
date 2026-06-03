@@ -545,6 +545,12 @@
         </div>
       </div>
 
+      <PreviewGroupNav
+        :index="previewNavIndex"
+        :total="previewNavTotal"
+        @step="onPreviewNavStep"
+      />
+
       <!-- 挂在 backdrop 内；position:fixed 相对视口，GSAP 写 left/top/width/height -->
       <div
         v-if="originRect && flyCloneActive"
@@ -729,6 +735,7 @@ import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js"
 import {
   instantPortalLayerClose,
   instantPortalLayerEnter,
+  instantRevealGsapTargets,
   shouldSkipDecorativeMotion,
 } from "../settings/animationSpeed.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
@@ -745,6 +752,7 @@ import {
 } from "../game/tileDetailLayerCopy.js";
 import { formatCompactOneDecimal, formatWalletInteger, isSingleDigitLabel } from "./detailLayerFormatters.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
+import PreviewGroupNav from "./PreviewGroupNav.vue";
 
 const props = defineProps({
   treasure: { type: Object, required: true },
@@ -778,6 +786,10 @@ const props = defineProps({
     default: null,
     validator: (v) => v == null || v === "offer" || v === "sell",
   },
+  /** 同组预览翻页：0-based 下标 */
+  previewNavIndex: { type: Number, default: 0 },
+  /** 同组项总数；≤1 时不显示翻页 */
+  previewNavTotal: { type: Number, default: 0 },
 });
 
 const isCollectionPreviewMode = computed(() => props.mode === "collection-preview");
@@ -1211,7 +1223,7 @@ onBeforeUpdate(() => {
   descriptionConceptPanelRefs.length = 0;
 });
 
-const emit = defineEmits(["close", "purchase", "sell", "openSpellReplayTargetPreview"]);
+const emit = defineEmits(["close", "purchase", "sell", "openSpellReplayTargetPreview", "preview-nav"]);
 
 const titleId = useId();
 const backdropRef = ref(null);
@@ -1320,6 +1332,7 @@ function resolveDeckOfferFlyTargetRect() {
 }
 
 const flyCloneActive = ref(validOrigin(props.originRect));
+const initialEnterDone = ref(false);
 
 /** 首帧即落在起点，避免未定位前露在错误位置；显隐由 CSS visibility + RAF 内 GSAP 接管 */
 const flyCloneStyle = computed(() => {
@@ -1389,6 +1402,7 @@ function runEnterAnimation() {
       staggerEls: staggerTargets(),
       primaryEl: targetVisual,
     });
+    initialEnterDone.value = true;
     return;
   }
 
@@ -1472,6 +1486,9 @@ function runEnterAnimation() {
             },
             0.05,
           );
+          enterTl.eventCallback("onComplete", () => {
+            initialEnterDone.value = true;
+          });
           return;
         }
 
@@ -1571,7 +1588,68 @@ function runEnterAnimation() {
         },
         hasFly ? 0.12 : 0.05,
       );
+      enterTl.eventCallback("onComplete", () => {
+        initialEnterDone.value = true;
+      });
     });
+}
+
+function runContentEnterAnimation() {
+  const backdrop = backdropRef.value;
+  const targetVisual = targetVisualRef.value;
+  if (!backdrop || !targetVisual) return;
+
+  flyCloneActive.value = false;
+
+  if (shouldSkipDecorativeMotion()) {
+    if (enterTl) {
+      enterTl.kill();
+      enterTl = null;
+    }
+    instantRevealGsapTargets(staggerTargets());
+    instantRevealGsapTargets([targetVisual]);
+    return;
+  }
+
+  if (enterTl) {
+    enterTl.kill();
+    enterTl = null;
+  }
+
+  const staggerEls = staggerTargets();
+  gsap.killTweensOf([targetVisual, ...staggerEls].filter(Boolean));
+  applyEnterInitialHide(backdrop, staggerEls, targetVisual, false);
+  gsap.set(targetVisual, { scale: 0.94, transformOrigin: "50% 50%" });
+
+  enterTl = gsap.timeline();
+  enterTl.to(
+    targetVisual,
+    {
+      opacity: 1,
+      scale: 1,
+      duration: 0.22,
+      ease: EASE_TRANSFORM,
+      clearProps: "opacity,scale,pointerEvents",
+    },
+    0,
+  );
+  enterTl.to(
+    staggerEls,
+    {
+      opacity: 1,
+      y: 0,
+      duration: 0.18,
+      stagger: 0.038,
+      ease: EASE_TRANSFORM,
+      clearProps: "opacity,transform",
+    },
+    0.05,
+  );
+}
+
+function onPreviewNavStep(delta) {
+  if (props.previewNavTotal <= 1) return;
+  emit("preview-nav", delta);
 }
 
 function runCloseAnimation(shouldEmit) {
@@ -1660,7 +1738,17 @@ function playClose() {
   return runCloseAnimation(false);
 }
 
-function onEsc(e) {
+function onDocumentKeydown(e) {
+  if (props.previewNavTotal > 1 && e.key === "ArrowLeft") {
+    e.preventDefault();
+    onPreviewNavStep(-1);
+    return;
+  }
+  if (props.previewNavTotal > 1 && e.key === "ArrowRight") {
+    e.preventDefault();
+    onPreviewNavStep(1);
+    return;
+  }
   if (e.key === "Escape") {
     e.preventDefault();
     requestClose();
@@ -1680,7 +1768,7 @@ watch(
 
 onMounted(() => {
   armBackdropSelfCloseGuard();
-  document.addEventListener("keydown", onEsc);
+  document.addEventListener("keydown", onDocumentKeydown);
   void nextTick(() => {
     const backdrop = backdropRef.value;
     const targetVisual = targetVisualRef.value;
@@ -1705,8 +1793,19 @@ watch(
   },
 );
 
+watch(
+  () => props.previewNavIndex,
+  (next, prev) => {
+    if (prev == null || next === prev || !initialEnterDone.value) return;
+    if (props.previewNavTotal <= 1) return;
+    void nextTick(() => {
+      requestAnimationFrame(() => runContentEnterAnimation());
+    });
+  },
+);
+
 onUnmounted(() => {
-  document.removeEventListener("keydown", onEsc);
+  document.removeEventListener("keydown", onDocumentKeydown);
   if (enterTl) {
     enterTl.kill();
     enterTl = null;

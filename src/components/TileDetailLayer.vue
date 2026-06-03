@@ -143,6 +143,12 @@
         </div>
       </div>
 
+      <PreviewGroupNav
+        :index="previewNavIndex"
+        :total="previewNavTotal"
+        @step="onPreviewNavStep"
+      />
+
       <div
         v-if="originRect && flyCloneActive"
         ref="flyCloneRef"
@@ -206,8 +212,10 @@ import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js"
 import {
   instantPortalLayerClose,
   instantPortalLayerEnter,
+  instantRevealGsapTargets,
   shouldSkipDecorativeMotion,
 } from "../settings/animationSpeed.js";
+import PreviewGroupNav from "./PreviewGroupNav.vue";
 
 const props = defineProps({
   /** @type {{ letter: string, rarity: string, tileScoreBonus?: number, tileMultBonus?: number, materialId?: string | null, materialScoreBonus?: number, materialMultBonus?: number, accessoryId?: string | null, foilOverlay?: boolean } | null} */
@@ -217,9 +225,11 @@ const props = defineProps({
   /** 各稀有度等级（与局内 `rarityLevelsByRarity` 一致） */
   rarityLevelsByRarity: { type: Object, default: null },
   overlaySuppressed: { type: Boolean, default: false },
+  previewNavIndex: { type: Number, default: 0 },
+  previewNavTotal: { type: Number, default: 0 },
 });
 
-const emit = defineEmits(["close"]);
+const emit = defineEmits(["close", "preview-nav"]);
 
 const backdropRef = ref(null);
 const stackZ = ref(0);
@@ -233,6 +243,7 @@ const flyCloneRef = ref(null);
 const closing = ref(false);
 const bootMask = ref(true);
 const flyCloneActive = ref(validOrigin(props.originRect));
+const initialEnterDone = ref(false);
 
 const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
 
@@ -332,6 +343,7 @@ function runEnterAnimation() {
       staggerEls: staggerTargets(),
       primaryEl: targetFade,
     });
+    initialEnterDone.value = true;
     return;
   }
 
@@ -463,7 +475,70 @@ function runEnterAnimation() {
       );
 
       enterTl = tl;
+      tl.eventCallback("onComplete", () => {
+        initialEnterDone.value = true;
+      });
     });
+}
+
+function runContentEnterAnimation() {
+  const backdrop = backdropRef.value;
+  const targetFade = targetVisualRef.value;
+  if (!backdrop || !targetFade) return;
+
+  flyCloneActive.value = false;
+  flyCloneAnchorRect.value = null;
+
+  if (shouldSkipDecorativeMotion()) {
+    if (enterTl) {
+      enterTl.kill();
+      enterTl = null;
+    }
+    instantRevealGsapTargets(staggerTargets());
+    instantRevealGsapTargets([targetFade]);
+    return;
+  }
+
+  if (enterTl) {
+    enterTl.kill();
+    enterTl = null;
+  }
+
+  const staggerEls = staggerTargets();
+  gsap.killTweensOf([targetFade, ...staggerEls].filter(Boolean));
+  gsap.set(staggerEls, { opacity: 0, y: 7 });
+  gsap.set(targetFade, { opacity: 0, y: 7, pointerEvents: "none" });
+
+  enterTl = gsap.timeline();
+  enterTl.to(
+    targetFade,
+    {
+      opacity: 1,
+      y: 0,
+      pointerEvents: "auto",
+      duration: 0.24,
+      ease: EASE_TRANSFORM,
+      clearProps: "transform",
+    },
+    0,
+  );
+  enterTl.to(
+    staggerEls,
+    {
+      opacity: 1,
+      y: 0,
+      duration: 0.18,
+      stagger: 0.038,
+      ease: EASE_TRANSFORM,
+      clearProps: "opacity,transform",
+    },
+    0.05,
+  );
+}
+
+function onPreviewNavStep(delta) {
+  if (props.previewNavTotal <= 1) return;
+  emit("preview-nav", delta);
 }
 
 function runCloseAnimation(shouldEmit = true) {
@@ -650,6 +725,16 @@ function playClose() {
 }
 
 function onDocumentKeydown(e) {
+  if (props.previewNavTotal > 1 && e.key === "ArrowLeft") {
+    e.preventDefault();
+    onPreviewNavStep(-1);
+    return;
+  }
+  if (props.previewNavTotal > 1 && e.key === "ArrowRight") {
+    e.preventDefault();
+    onPreviewNavStep(1);
+    return;
+  }
   if (e.key === "Escape") requestClose();
 }
 
@@ -665,6 +750,17 @@ watch(
     } else document.removeEventListener("keydown", onDocumentKeydown);
   },
   { immediate: true },
+);
+
+watch(
+  () => props.previewNavIndex,
+  (next, prev) => {
+    if (prev == null || next === prev || !initialEnterDone.value) return;
+    if (props.previewNavTotal <= 1) return;
+    void nextTick(() => {
+      requestAnimationFrame(() => runContentEnterAnimation());
+    });
+  },
 );
 
 onMounted(() => {

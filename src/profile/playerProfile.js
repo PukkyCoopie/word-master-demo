@@ -1,4 +1,5 @@
 import { reactive } from "vue";
+import { isSlotOccupied } from "../save/runSaveStorage.js";
 import { clampSaveSlotIndex, SAVE_SLOT_COUNT } from "../save/runSaveSchema.js";
 
 const STORAGE_KEY = "word_master_player_profile_v1";
@@ -169,8 +170,38 @@ export function normalizeDisplayName(name) {
 /** @param {string} name */
 export function setDisplayName(name) {
   playerProfile.displayName = normalizeDisplayName(name);
+  playerProfile.initialized = true;
   syncSlotFromReactive(getActiveSaveSlotIndex());
   persistPlayerProfile();
+}
+
+/** 已有展示名或存档壳时补标 initialized，不覆盖 displayName。 */
+export function ensureSlotProfileActivated(index) {
+  const ix = clampSaveSlotIndex(index);
+  const prof = slotProfiles[ix];
+  if (prof.initialized) return;
+  prof.initialized = true;
+  if (ix === getActiveSaveSlotIndex()) {
+    syncReactiveFromSlot(ix);
+  }
+  persistPlayerProfile();
+}
+
+/** 须在 loadSaveEnvelope 之后调用，修复 initialized 与存档壳不一致的旧数据。 */
+export function repairSlotProfilesAfterLoad() {
+  let changed = false;
+  for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
+    const prof = slotProfiles[i];
+    if (prof.initialized) continue;
+    if (isSlotOccupied(i) || prof.displayName !== "Player") {
+      prof.initialized = true;
+      changed = true;
+    }
+  }
+  if (changed) {
+    syncReactiveFromSlot(getActiveSaveSlotIndex());
+    persistPlayerProfile();
+  }
 }
 
 /**

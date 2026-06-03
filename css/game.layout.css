@@ -257,22 +257,19 @@ html.viewport-narrower-than-design #game-view-portal > .iris-overlay {
 }
 
 /*
- * 窄屏：蒙层类浮层 fixed 铺满视口（不用 box-shadow 延拓，避免被 frame overflow 裁切）。
- * 商店 .shop-portal-root 除外：与 .game-container 同框，保持 absolute + portal-frame 对齐。
+ * 窄屏：纯蒙层类浮层 fixed 铺满视口（不用 box-shadow 延拓，避免被 frame overflow 裁切）。
+ * 与 .game-container 同框的层保持 absolute + portal-frame：商店、宝藏/字母块详情、开包选牌等。
  * 宽屏：保持 absolute + frame overflow:hidden 裁剪。
  */
-html.viewport-narrower-than-design #game-view-portal-frame .portal-overlay-fill:not(.shop-portal-root),
+html.viewport-narrower-than-design #game-view-portal-frame .portal-overlay-fill:not(.shop-portal-root):not(.pack-pick-backdrop),
 html.viewport-narrower-than-design #game-view-portal-frame .deck-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .dict-fatal-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .stage-settlement-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .info-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .run-end-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .pause-options-layer,
-html.viewport-narrower-than-design #game-view-portal-frame .pack-pick-backdrop,
-html.viewport-narrower-than-design #game-view-portal-frame .treasure-detail-backdrop,
 html.viewport-narrower-than-design #game-view-portal-frame .spell-target-backdrop,
-html.viewport-narrower-than-design #game-view-portal-frame .tile-detail-backdrop,
-html.viewport-narrower-than-design #game-view-portal-frame .boss-blind-reroll-backdrop {
+html.viewport-narrower-than-design #game-view-portal-frame .tile-detail-backdrop {
 	position: fixed;
 	inset: 0;
 	border-radius: 0;

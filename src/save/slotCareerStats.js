@@ -1,7 +1,7 @@
 import { createEmptySlotCareerStats } from "./runSaveSchema.js";
 import { normalizeCollectionCareerFields } from "../collection/collectionCareer.js";
 import { normalizeAchievementCareerFields } from "../achievements/achievementCareer.js";
-import { formatCollectionUnlockProgressDisplay } from "../collection/collectionProgress.js";
+import { formatCollectionUnlockProgressDisplay, getCollectionUnlockProgress } from "../collection/collectionProgress.js";
 
 /**
  * @param {unknown} raw
@@ -111,6 +111,6 @@ export function getSlotCareerSummaryRows(career) {
   const c = normalizeSlotCareerStats(career);
   return [
     { label: "开局次数", value: String(c.runsStarted) },
-    { label: "收藏解锁进度", value: formatCollectionUnlockProgressDisplay(c) },
+    { label: "收藏解锁进度", value: `${getCollectionUnlockProgress(c).percent}%` },
   ];
 }

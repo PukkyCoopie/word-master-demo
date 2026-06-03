@@ -142,11 +142,13 @@ import { isTapTapWebPromoEnabled } from "./taptap/tapTapWebPromo.js";
 import { useWebLayoutMode } from "./composables/useWebLayoutMode.js";
 import {
   applyProfileDefaultsFromTapTap,
+  ensureSlotProfileActivated,
   getActiveSaveSlotIndex,
   initializeProfileFromTapTap,
   isSlotProfileActivated,
   loadPlayerProfile,
   playerProfile,
+  repairSlotProfilesAfterLoad,
   resetSlotProfile,
   setActiveSaveSlotIndex,
 } from "./profile/playerProfile.js";
@@ -459,18 +461,19 @@ function persistCollectionCareer(slotIndex, mutator) {
 function onSaveSlotSelect(payload) {
   const { index, mode } = payload;
   if (mode === "delete") {
-    const hadSave = isSlotOccupied(index);
     clearSlot(index);
-    if (!hadSave && isSlotProfileActivated(index)) {
-      resetSlotProfile(index);
-    }
+    resetSlotProfile(index);
     bumpSaveUi();
     return;
   }
   if (mode === "select") {
     setActiveSaveSlotIndex(index);
-    if (!isSlotOccupied(index) && !isSlotProfileActivated(index)) {
-      void applyProfileDefaultsFromTapTap(account.value, index);
+    if (!isSlotProfileActivated(index)) {
+      if (isSlotOccupied(index)) {
+        ensureSlotProfileActivated(index);
+      } else {
+        void applyProfileDefaultsFromTapTap(account.value, index);
+      }
     }
     bumpSaveUi();
     showSaveSlots.value = false;
@@ -571,6 +574,7 @@ onMounted(() => {
   loadGameSettings();
   loadPlayerProfile();
   loadSaveEnvelope();
+  repairSlotProfilesAfterLoad();
   loadDictionary({ shouldAbort: () => !appAlive });
   loadRemixIconFont({ shouldAbort: () => !appAlive });
   void maybeInitProfile();

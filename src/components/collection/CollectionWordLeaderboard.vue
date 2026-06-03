@@ -21,7 +21,7 @@
           type="button"
           class="collection-leaderboard-tile-hit"
           :aria-label="`预览字母 ${displayLetter(tile)}`"
-          @click="onTileClick(tile, $event)"
+          @click="onTileClick(tile, tileIx, record, $event)"
         >
           <LetterTile
             variant="grid"
@@ -174,7 +174,7 @@ function displayLetter(tile) {
 
 /** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record */
 function hasTreasureSnapshot(record) {
-  return Array.isArray(record.ownedTreasures) && record.ownedTreasures.length > 0;
+  return (record.ownedTreasures ?? []).some((saved) => saved != null);
 }
 
 /** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record */
@@ -184,13 +184,22 @@ function hydratedTreasures(record) {
   );
 }
 
-/** @param {import('../../collection/collectionTypes.js').CollectionSubmitTileSnapshot} tile @param {MouseEvent} event */
-function onTileClick(tile, event) {
+/** @param {import('../../collection/collectionTypes.js').CollectionSubmitTileSnapshot} tile @param {number} tileIx @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record @param {MouseEvent} event */
+function onTileClick(tile, tileIx, record, event) {
   const el = event.currentTarget;
   emit("select-tile", {
     tile,
+    tiles: record.tiles,
+    tileIndex: tileIx,
     originEl: el instanceof HTMLElement ? el : null,
   });
+}
+
+/** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record */
+function buildTreasureNavItems(record) {
+  return (record.ownedTreasures ?? [])
+    .map((saved) => (saved ? { saved } : null))
+    .filter(Boolean);
 }
 
 /** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record @param {number} slotIx @param {MouseEvent} event */
@@ -200,6 +209,7 @@ function onTreasureClick(record, slotIx, event) {
   const el = event.currentTarget;
   emit("select-treasure", {
     saved,
+    treasureNavItems: buildTreasureNavItems(record),
     originEl: el instanceof HTMLElement ? el : null,
   });
 }

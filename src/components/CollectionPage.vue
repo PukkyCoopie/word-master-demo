@@ -103,14 +103,20 @@
       :origin-rect="collectionTreasureDetail.originRect"
       :shelf-price-kind="collectionTreasureDetail.shelfPriceKind"
       :wallet-amount="0"
+      :preview-nav-index="collectionTreasurePreviewNavIndex"
+      :preview-nav-total="collectionTreasurePreviewNavTotal"
       @close="collectionTreasureDetail = null"
+      @preview-nav="onCollectionTreasurePreviewNav"
     />
 
     <TileDetailLayer
       v-if="collectionTileDetailPayload"
       :payload="collectionTileDetailPayload"
       :origin-rect="collectionTileDetailOriginRect"
+      :preview-nav-index="collectionTilePreviewNavIndex"
+      :preview-nav-total="collectionTilePreviewNavTotal"
       @close="closeCollectionTileDetail"
+      @preview-nav="onCollectionTilePreviewNav"
     />
   </div>
 </template>
@@ -143,6 +149,21 @@ import {
   prepareCollectionTabEnter,
 } from "../collection/collectionTabEnterAnim.js";
 import { formatCollectionTabProgressLine } from "../collection/collectionProgress.js";
+import { TREASURE_CATALOG } from "../treasures/treasureCatalog.js";
+import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
+import {
+  COLLECTION_LENGTH_UPGRADE_CATALOG,
+  COLLECTION_RARITY_UPGRADE_CATALOG,
+} from "../collection/collectionUpgradeCatalog.js";
+import { VOUCHER_PAIR_ORDER } from "../vouchers/voucherDefinitions.js";
+import {
+  createPreviewNavGroup,
+  createPreviewNavGroupFromItems,
+  previewNavIndex,
+  previewNavTotal,
+  stepPreviewNavGroup,
+  withPreviewNavKind,
+} from "../preview/previewGroupNav.js";
 
 const props = defineProps({
   career: { type: Object, required: true },
@@ -173,12 +194,23 @@ const activeTab = ref("treasures");
 const tabPanelRef = ref(null);
 const tabEnterReady = ref(false);
 
-/** @type {import('vue').Ref<{ treasure: object, originRect: object | null, shelfPriceKind: 'offer' | null } | null>} */
+/** @type {import('vue').Ref<{ treasure: object, originRect: object | null, shelfPriceKind: 'offer' | null, previewNav: import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> | null, previewNavKind: string | null } | null>} */
 const collectionTreasureDetail = ref(null);
 /** @type {import('vue').Ref<Record<string, unknown> | null>} */
 const collectionTileDetailPayload = ref(null);
 /** @type {import('vue').Ref<{ left: number, top: number, width: number, height: number } | null>} */
 const collectionTileDetailOriginRect = ref(null);
+/** @type {import('vue').Ref<(import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> & { kind?: string }) | null>} */
+const collectionTileDetailPreviewNav = ref(null);
+
+const collectionTreasurePreviewNavTotal = computed(() =>
+  previewNavTotal(collectionTreasureDetail.value?.previewNav),
+);
+const collectionTreasurePreviewNavIndex = computed(() =>
+  previewNavIndex(collectionTreasureDetail.value?.previewNav),
+);
+const collectionTilePreviewNavTotal = computed(() => previewNavTotal(collectionTileDetailPreviewNav.value));
+const collectionTilePreviewNavIndex = computed(() => previewNavIndex(collectionTileDetailPreviewNav.value));
 
 const activeTitleLabel = computed(() => TAB_TITLES[activeTab.value] ?? "收藏");
 
@@ -230,37 +262,136 @@ function closeCollectionPreviews() {
 function closeCollectionTileDetail() {
   collectionTileDetailPayload.value = null;
   collectionTileDetailOriginRect.value = null;
+  collectionTileDetailPreviewNav.value = null;
+}
+
+/** @param {string} treasureId */
+function buildCollectionUpgradePreviewNav(treasureId) {
+  const id = String(treasureId ?? "").trim();
+  for (const catalog of [COLLECTION_LENGTH_UPGRADE_CATALOG, COLLECTION_RARITY_UPGRADE_CATALOG]) {
+    const ids = catalog.map((row) => String(row.treasureId ?? ""));
+    const index = ids.indexOf(id);
+    if (index >= 0) return createPreviewNavGroup(ids, index);
+  }
+  return null;
 }
 
 /**
  * @param {object} treasure
  * @param {HTMLElement | null | undefined} originEl
  * @param {'offer' | null} shelfPriceKind
+ * @param {import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> | null} previewNav
+ * @param {string | null} previewNavKind
  */
-function openCollectionTreasurePreview(treasure, originEl, shelfPriceKind) {
+function openCollectionTreasurePreview(treasure, originEl, shelfPriceKind, previewNav = null, previewNavKind = null) {
   if (!treasure) return;
   closeCollectionTileDetail();
   collectionTreasureDetail.value = {
     treasure,
     originRect: collectionFlyOriginRectFromEl(originEl),
     shelfPriceKind,
+    previewNav,
+    previewNavKind,
   };
+}
+
+/** @param {import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> & { kind?: string }} nav */
+function resolveCollectionTreasurePreviewAtNav(nav) {
+  const kind = nav.kind ?? collectionTreasureDetail.value?.previewNavKind;
+  const key = nav.items[nav.index];
+  if (kind === "collection-spell") {
+    return buildCollectionSpellPreview(String(key));
+  }
+  if (kind === "collection-upgrade") {
+    return buildCollectionUpgradePreview(String(key));
+  }
+  if (kind === "collection-voucher") {
+    const pairId = String(key?.pairId ?? "");
+    const tier = Math.max(1, Math.min(2, Math.floor(Number(key?.tier) || 0)));
+    return buildDiscoveredVoucherDetailTreasure(pairId, /** @type {0 | 1 | 2} */ (tier));
+  }
+  if (kind === "collection-owned-treasure") {
+    return buildCollectionOwnedTreasurePreview(key?.saved);
+  }
+  return buildCollectionTreasurePreview(String(key));
+}
+
+/** @param {number} delta */
+function onCollectionTreasurePreviewNav(delta) {
+  const d = collectionTreasureDetail.value;
+  if (!d?.previewNav) return;
+  const nav = stepPreviewNavGroup(d.previewNav, delta);
+  if (!nav || nav.index === d.previewNav.index) return;
+  const kind = d.previewNavKind;
+  if (kind === "collection-owned-treasure") {
+    const item = nav.items[nav.index];
+    const treasure = buildCollectionOwnedTreasurePreview(item?.saved);
+    if (!treasure) return;
+    collectionTreasureDetail.value = {
+      ...d,
+      treasure,
+      originRect: null,
+      previewNav: nav,
+    };
+    return;
+  }
+  const treasure = resolveCollectionTreasurePreviewAtNav({ ...nav, kind: kind ?? undefined });
+  if (!treasure) return;
+  collectionTreasureDetail.value = {
+    ...d,
+    treasure,
+    originRect: null,
+    previewNav: nav,
+  };
+}
+
+/** @param {import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> & { kind?: string }} nav */
+function applyCollectionTilePreviewAtNav(nav) {
+  if (nav.kind === "leaderboard-tile") {
+    const tilePayload = buildTileDetailPayloadFromCollectionSnapshot(nav.items[nav.index]);
+    if (!tilePayload) return;
+    collectionTreasureDetail.value = null;
+    collectionTileDetailPayload.value = tilePayload;
+    collectionTileDetailOriginRect.value = null;
+    collectionTileDetailPreviewNav.value = nav;
+  }
+}
+
+/** @param {number} delta */
+function onCollectionTilePreviewNav(delta) {
+  const nav = stepPreviewNavGroup(collectionTileDetailPreviewNav.value, delta);
+  if (!nav || nav.index === collectionTileDetailPreviewNav.value?.index) return;
+  applyCollectionTilePreviewAtNav(nav);
 }
 
 /** @param {{ treasureId?: string, originEl?: HTMLElement | null }} payload */
 function onCollectionTreasureSelect(payload) {
   const tid = String(payload?.treasureId ?? "").trim();
   if (!tid) return;
+  const ids = TREASURE_CATALOG.map((row) => row.treasureId);
   const treasure = buildCollectionTreasurePreview(tid);
-  openCollectionTreasurePreview(treasure, payload.originEl, "offer");
+  openCollectionTreasurePreview(
+    treasure,
+    payload.originEl,
+    "offer",
+    createPreviewNavGroup(ids, ids.indexOf(tid)),
+    "collection-treasure",
+  );
 }
 
 /** @param {{ spellId?: string, originEl?: HTMLElement | null }} payload */
 function onCollectionSpellSelect(payload) {
   const sid = String(payload?.spellId ?? "").trim();
   if (!sid) return;
+  const ids = SPELL_DEFINITIONS.map((def) => def.id);
   const treasure = buildCollectionSpellPreview(sid);
-  openCollectionTreasurePreview(treasure, payload.originEl, "offer");
+  openCollectionTreasurePreview(
+    treasure,
+    payload.originEl,
+    "offer",
+    createPreviewNavGroup(ids, ids.indexOf(sid)),
+    "collection-spell",
+  );
 }
 
 /** @param {{ treasureId?: string, originEl?: HTMLElement | null }} payload */
@@ -268,7 +399,13 @@ function onCollectionUpgradeSelect(payload) {
   const tid = String(payload?.treasureId ?? "").trim();
   if (!tid) return;
   const treasure = buildCollectionUpgradePreview(tid);
-  openCollectionTreasurePreview(treasure, payload.originEl, "offer");
+  openCollectionTreasurePreview(
+    treasure,
+    payload.originEl,
+    "offer",
+    buildCollectionUpgradePreviewNav(tid),
+    "collection-upgrade",
+  );
 }
 
 /** @param {{ pairId: string, discoveredTier: number, originEl?: HTMLElement | null }} payload */
@@ -276,23 +413,51 @@ function onCollectionVoucherSelect(payload) {
   const pairId = String(payload?.pairId ?? "").trim();
   const tier = Math.max(0, Math.min(2, Math.floor(Number(payload?.discoveredTier) || 0)));
   if (!pairId || tier < 1) return;
+  const items = [...VOUCHER_PAIR_ORDER.entries()]
+    .map(([id]) => ({
+      pairId: id,
+      tier: Math.max(0, Math.min(2, Math.floor(Number(props.career.discoveredVoucherTiers?.[id]) || 0))),
+    }))
+    .filter((row) => row.tier >= 1);
   const treasure = buildDiscoveredVoucherDetailTreasure(pairId, /** @type {0 | 1 | 2} */ (tier));
-  openCollectionTreasurePreview(treasure, payload.originEl, "offer");
+  openCollectionTreasurePreview(
+    treasure,
+    payload.originEl,
+    "offer",
+    createPreviewNavGroupFromItems(items, (row) => row.pairId === pairId),
+    "collection-voucher",
+  );
 }
 
-/** @param {{ tile: import('../collection/collectionTypes.js').CollectionSubmitTileSnapshot, originEl?: HTMLElement | null }} payload */
+/** @param {{ tile: import('../collection/collectionTypes.js').CollectionSubmitTileSnapshot, tiles?: import('../collection/collectionTypes.js').CollectionSubmitTileSnapshot[], tileIndex?: number, originEl?: HTMLElement | null }} payload */
 function onLeaderboardTileSelect(payload) {
+  const tiles = Array.isArray(payload?.tiles) && payload.tiles.length ? payload.tiles : [payload?.tile];
+  const tileIndex = Math.max(0, Math.floor(Number(payload?.tileIndex) || 0));
   const tilePayload = buildTileDetailPayloadFromCollectionSnapshot(payload?.tile);
   if (!tilePayload) return;
   collectionTreasureDetail.value = null;
   collectionTileDetailPayload.value = tilePayload;
   collectionTileDetailOriginRect.value = collectionFlyOriginRectFromEl(payload?.originEl);
+  collectionTileDetailPreviewNav.value = withPreviewNavKind(
+    createPreviewNavGroup(tiles, tileIndex),
+    "leaderboard-tile",
+  );
 }
 
-/** @param {{ saved: Record<string, unknown>, originEl?: HTMLElement | null }} payload */
+/** @param {{ saved: Record<string, unknown>, treasureNavItems?: { saved: Record<string, unknown> }[], originEl?: HTMLElement | null }} payload */
 function onLeaderboardTreasureSelect(payload) {
+  const items =
+    Array.isArray(payload?.treasureNavItems) && payload.treasureNavItems.length
+      ? payload.treasureNavItems
+      : [{ saved: payload?.saved }];
   const treasure = buildCollectionOwnedTreasurePreview(payload?.saved);
-  openCollectionTreasurePreview(treasure, payload.originEl, null);
+  openCollectionTreasurePreview(
+    treasure,
+    payload.originEl,
+    null,
+    createPreviewNavGroupFromItems(items, (row) => row.saved === payload?.saved),
+    "collection-owned-treasure",
+  );
 }
 
 function onWordLeaderboardSubTabChange() {
