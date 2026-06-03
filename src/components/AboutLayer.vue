@@ -472,25 +472,21 @@ function updateActiveFromScroll() {
   if (!container) return;
 
   const scrollTop = container.scrollTop;
-  const threshold = 16;
-  const nearBottom =
-    container.scrollTop + container.clientHeight >= container.scrollHeight - 8;
-  let current = ABOUT_SECTIONS[0].id;
-
-  if (nearBottom) {
-    activeTab.value = ABOUT_SECTIONS[ABOUT_SECTIONS.length - 1].id;
-    return;
-  }
-
-  for (const section of ABOUT_SECTIONS) {
+  const tops = ABOUT_SECTIONS.map((section) => {
     const sectionEl = sectionElById[section.id];
-    if (!sectionEl) continue;
-    if (getSectionScrollTop(container, sectionEl) <= scrollTop + threshold) {
-      current = section.id;
+    if (!sectionEl) return 0;
+    return getSectionScrollTop(container, sectionEl);
+  });
+
+  let sectionIndex = 0;
+  for (let i = 0; i < ABOUT_SECTIONS.length - 1; i++) {
+    const boundary = (tops[i] + tops[i + 1]) / 2;
+    if (scrollTop >= boundary) {
+      sectionIndex = i + 1;
     }
   }
 
-  activeTab.value = current;
+  activeTab.value = ABOUT_SECTIONS[sectionIndex].id;
 }
 
 watch(
@@ -618,11 +614,10 @@ function splitSummary(summary) {
   z-index: 1;
   border: none;
   border-radius: calc(6 * var(--rpx));
-  padding: calc(10 * var(--rpx)) calc(8 * var(--rpx));
+  padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
   font-family: inherit;
   font-size: calc(24 * var(--rpx));
   font-weight: 700;
-  line-height: 1.25;
   cursor: pointer;
   color: var(--text-dark, #3c3a32);
   background: transparent;
