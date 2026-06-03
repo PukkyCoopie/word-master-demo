@@ -404,6 +404,7 @@ import {
 } from "../game/runDifficultyDefinitions.js";
 import DifficultyPill from "./DifficultyPill.vue";
 import DifficultyDescText from "./DifficultyDescText.vue";
+import { copyTextToClipboard } from "../utils/copyTextToClipboard.js";
 import PresetDescRichText from "./PresetDescRichText.vue";
 import TreasureDetailLayer from "./TreasureDetailLayer.vue";
 import TileDetailLayer from "./TileDetailLayer.vue";
@@ -767,31 +768,14 @@ function inlineConnectorActiveBefore(levelId) {
 }
 
 async function copyRunSeed() {
-  const text = String(props.runSeedDisplay ?? "").trim();
-  if (!text) return;
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-    } else {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.setAttribute("readonly", "");
-      ta.style.position = "fixed";
-      ta.style.left = "-9999px";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-    }
-    seedCopyDone.value = true;
-    if (seedCopyResetTimer) clearTimeout(seedCopyResetTimer);
-    seedCopyResetTimer = setTimeout(() => {
-      seedCopyDone.value = false;
-      seedCopyResetTimer = null;
-    }, 2000);
-  } catch {
-    /* 忽略复制失败 */
-  }
+  const ok = await copyTextToClipboard(props.runSeedDisplay);
+  if (!ok) return;
+  seedCopyDone.value = true;
+  if (seedCopyResetTimer) clearTimeout(seedCopyResetTimer);
+  seedCopyResetTimer = setTimeout(() => {
+    seedCopyDone.value = false;
+    seedCopyResetTimer = null;
+  }, 2000);
 }
 
 const lengthRows = computed(() => {

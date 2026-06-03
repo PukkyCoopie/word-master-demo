@@ -40,9 +40,16 @@
           <i class="ri-play-fill menu-btn-icon" aria-hidden="true"></i>
           <span>开始游戏</span>
         </button>
-        <button type="button" class="menu-btn menu-btn--collection" @click="$emit('open-collection')">
+        <button
+          type="button"
+          class="menu-btn menu-btn--collection"
+          :aria-label="`收藏${collectionProgressSuffix}`"
+          @click="$emit('open-collection')"
+        >
           <i class="ri-bookmark-3-line menu-btn-icon" aria-hidden="true"></i>
-          <span>收藏</span>
+          <span>
+            收藏<span v-if="collectionProgressSuffix" class="menu-btn-progress">{{ collectionProgressSuffix }}</span>
+          </span>
         </button>
         <button type="button" class="menu-btn menu-btn--settings" @click="$emit('open-settings')">
           <i class="ri-settings-3-line menu-btn-icon" aria-hidden="true"></i>
@@ -74,6 +81,7 @@ import { isTapTapWebPromoEnabled } from "../taptap/tapTapWebPromo.js";
 
 defineProps({
   profileLayerOpen: { type: Boolean, default: false },
+  collectionProgressSuffix: { type: String, default: "" },
 });
 
 defineEmits(["request-start", "open-profile", "open-settings", "open-about", "open-collection"]);
@@ -192,6 +200,12 @@ const showcaseRows = [
 .menu-btn-icon {
   font-size: calc(32 * var(--rpx));
   opacity: 1;
+}
+
+.menu-btn-progress {
+  font-size: calc(24 * var(--rpx));
+  font-weight: 600;
+  opacity: 0.72;
 }
 
 .menu-btn:hover:not(:disabled) {

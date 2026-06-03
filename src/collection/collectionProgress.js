@@ -142,3 +142,12 @@ export function formatCollectionUnlockProgressDisplay(career) {
   const { unlocked, total, percent } = getCollectionUnlockProgress(career);
   return `${percent}% (${unlocked}/${total})`;
 }
+
+/**
+ * 主菜单收藏按钮后缀：如 ` (12/120)`。
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats | Record<string, unknown>} career
+ */
+export function formatCollectionMenuProgressSuffix(career) {
+  const { unlocked, total } = getCollectionUnlockProgress(career);
+  return ` (${unlocked}/${total})`;
+}

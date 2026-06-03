@@ -5,6 +5,7 @@ import { deserializeAchievementRunState } from "../achievements/achievementRunSt
 import { normalizeRunSavePhase } from "./runSaveSchema.js";
 import { cloneSaveData } from "./saveDataClone.js";
 import { hydrateOwnedTreasureSlots } from "../treasures/ownedTreasureSlot.js";
+import { deserializeRunDiscoveryLog } from "../game/runCollectionDiscoveries.js";
 
 /**
  * @param {import('./runSavePayload.js').RunSavePayload} payload
@@ -127,5 +128,8 @@ export function hydrateRunSave(payload, ctx) {
       0,
       Math.min(7, Math.floor(Number(payload.runDifficultyIndex) || 0)),
     );
+  }
+  if (ctx.runDiscoveryLogRef) {
+    ctx.runDiscoveryLogRef.value = deserializeRunDiscoveryLog(payload.runDiscoveryLog);
   }
 }

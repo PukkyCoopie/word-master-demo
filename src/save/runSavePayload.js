@@ -104,6 +104,7 @@
  * @property {'fail' | 'win'} [runEndOutcome]
  * @property {string} [runPresetId]
  * @property {number} [runDifficultyIndex]
+ * @property {unknown[]} [runDiscoveryLog]
  */
 
 export {};

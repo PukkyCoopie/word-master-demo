@@ -90,7 +90,7 @@
  * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（工具箱等）
  * @property {object[]} [ownedTreasureInstances]
  * @property {() => number} [rng]
- * @property {{ materialId?: string | null }[] | null | undefined} [submittedScoringTiles] 本词参与记分的字母块快照（补牌前）；用于材质类结算后效果
+ * @property {{ materialId?: string | null, tileScoreBonus?: number, letterMultBonus?: number, materialScoreBonus?: number, materialMultBonus?: number, accessoryId?: string | null, treasureAccessoryId?: string | null, _deckCard?: object }[] | null | undefined} [submittedScoringTiles] 本词参与记分的字母块（补牌前，含角标/配饰；用于材质类与海绵等结算后效果）
  * @property {() => void | Promise<void>} [mutateRandomNonWildcardLetterTileToWildcard] 将当前棋盘上随机一枚非万能的有字格变为万能块（棋盘缩放回弹与法术「点亮」一致）
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
  * @property {string} [resolvedWord] 本词词典解析结果（小写）
@@ -118,6 +118,9 @@
  * @property {(runner: SubmitWordLeaveFxRunner) => void} [registerSubmitWordLeaveFx] 登记本词提交后词槽/棋盘格消失阶段的自定义动画（在计分结束、默认批量消失之前执行）
  * @property {(runner: () => Promise<void>) => void} [registerSubmitPostScoreClearFx] 登记本词「计分清空」完成后执行的展示（在入库补牌与总分结算后）
  * @property {(opts: SubmitWordLetterRemoveLeaveOpts) => Promise<void>} [playSubmitWordLetterRemoveAndRewardLeave] 逐字 wobble + 红色「移除」气泡并消失，结束后宝藏 +$ 动效（由 GamePanel 实现）
+ * @property {(opts: SubmitWordEnhancementStripLeaveOpts) => Promise<void>} [playSubmitTileEnhancementStripLeave] 海绵等：逐字黄色「擦除」+ 缩小换图回弹
+ * @property {(slotIndex: number, scoringTile?: object | null) => object | null} [resolveSubmitTileAtIndex] 词槽索引 → 棋盘真实 tile
+ * @property {() => void} [touchGrid] 刷新棋盘响应式
  */
 
 /**
@@ -142,6 +145,26 @@
  */
 
 /**
+ * 计分动画：逐字母结束后、字后宝藏步开始前
+ * @typedef {Object} TreasureSubmitAfterLettersContext
+ * @property {object[]} [submittedScoringTiles]
+ * @property {(slotIndex: number, scoringTile?: object | null) => object | null} [resolveSubmitTileAtIndex]
+ * @property {() => void} [touchGrid]
+ * @property {() => HTMLElement[]} [getWordSlotEls]
+ * @property {() => HTMLElement[]} [getGridTileElsInOrder]
+ * @property {(opts: SubmitWordEnhancementStripLeaveOpts) => Promise<void>} [playSubmitTileEnhancementStripLeave]
+ */
+
+/**
+ * @typedef {Object} SubmitWordEnhancementStripLeaveOpts
+ * @property {string} [treasureId]
+ * @property {number[]} indices 词槽索引（仅增强字母）
+ * @property {HTMLElement[]} slotEls
+ * @property {HTMLElement[]} gridEls
+ * @property {(index: number) => void} [stripTileAtIndex] 缩小至谷底时剥离增强并写回牌张
+ */
+
+/**
  * 提交结算时，按字母 + replay 汇总加分/倍率（见 `accumulateReplaySubmitAdjustments`）
  * @typedef {Object} TreasureReplaySubmitAdjustmentsContext
  * @property {{ letter?: string, rarity?: string }[]} letterParts
@@ -158,6 +181,8 @@
 
 /**
  * @typedef {Object} TreasureHooks
+ * @property {(ctx: TreasureLogicContext) => void} [prepareSubmitScoringBank] 提交计分前：擦除类宝藏将 +0.1 等写入 run 银行，供同词 `buildPostLetterStep` 读取累计倍率
+ * @property {(ctx: TreasureSubmitAfterLettersContext) => void | Promise<void>} [runAfterLettersBeforePostSteps] 计分动画：逐字母步结束后、字后宝藏步开始前（如海绵擦除动效）
  * @property {(ctx: TreasureLogicContext) => TreasurePostStep | null | undefined} [buildPostLetterStep]
  * @property {(ctx: TreasureLogicContext) => number} [getLetterRarityMultAdd]
  * @property {(part: { letter?: string, rarity?: string }) => number} [getLetterRarityMultDeltaForLetterPart] replay 时该字母上本宝藏贡献的倍率加量（与 `getLetterRarityMultAdd` 规则一致）
@@ -192,7 +217,7 @@
  * @property {(ctx: TreasureSoldContext) => void | Promise<void>} [onTreasureSold] 卖出宝藏
  * @property {(ctx: TreasureShopLeaveContext) => void | Promise<void>} [onShopLeave] 离开商店进入下一关前
  * @property {(ctx: TreasureDeckCardsRemovedContext) => void | Promise<void>} [onDeckCardsRemoved] 从牌库永久移除牌张后
- * @property {(ctx: TreasureIceBreakContext) => void | Promise<void>} [onIceMaterialBreak] 碎冰块碎裂
+ * @property {(ctx: TreasureIceBreakContext) => void | Promise<void>} [onIceMaterialBreak] 碎冰块碎裂（`iceShatterTreasureFxHandled` 为 true 时 GamePanel 已入银行并播宝藏槽动效，钩子勿重复）
  * @property {(ctx: TreasureLogicContext) => number} [getSubmitLengthBonus] 等效词长加成（直尺券之外）
  * @property {() => number} [getLengthJudgmentPenalty] 判定词长减益（视为更短）
  * @property {(ctx: TreasureBossRestrictionContext) => void | Promise<void>} [onBossRestrictionTriggered]
@@ -322,6 +347,7 @@
 /**
  * @typedef {Object} TreasureIceBreakContext
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
+ * @property {boolean} [iceShatterTreasureFxHandled] 碎裂动效路径已在 GamePanel 入银行并播宝藏槽 × 气泡
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  */

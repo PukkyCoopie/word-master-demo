@@ -1,5 +1,7 @@
 import { offerFlyOriginRectFromEl, resolveOfferFlyOriginEl } from "../game/offerFlyOrigin.js";
 import { readTreasureAccessoryIds } from "../accessories/accessoryState.js";
+import { ACCESSORY_CATALOG } from "../accessories/accessoryCatalog.js";
+import { TILE_MATERIAL_CONCEPT_BY_ID } from "../game/gameConceptCopy.js";
 import { buildTreasureShopRowFromDef } from "../shop/shopOfferRowBuilders.js";
 import { buildSpellOfferPreviewFromId } from "../spells/spellReplayUi.js";
 import { buildCollectionUpgradePreview } from "./collectionUpgradeCatalog.js";
@@ -69,8 +71,45 @@ export function buildCollectionSpellPreview(spellId) {
 export { buildCollectionUpgradePreview };
 
 /**
- * @param {import('./collectionTypes.js').CollectionSubmitTileSnapshot} tile
+ * @param {string} materialId
  */
+export function buildMaterialTileDetailPayload(materialId) {
+  const id = String(materialId ?? "").trim();
+  if (!id || !TILE_MATERIAL_CONCEPT_BY_ID[id]) return null;
+  const isWildcard = id === "wildcard";
+  return {
+    letter: isWildcard ? "?" : "·",
+    rarity: "common",
+    materialId: id,
+    accessoryId: null,
+    treasureAccessoryId: null,
+    tileScoreBonus: 0,
+    tileMultBonus: 0,
+    hideRarityGem: true,
+    hideLetter: !isWildcard,
+  };
+}
+
+/**
+ * @param {string} accessoryId
+ */
+export function buildAccessoryTileDetailPayload(accessoryId) {
+  const id = String(accessoryId ?? "").trim();
+  const def = ACCESSORY_CATALOG[id];
+  if (!def) return null;
+  const isTreasureScope = def.legacyStorage === "treasure_field";
+  return {
+    letter: "E",
+    rarity: "common",
+    materialId: null,
+    accessoryId: isTreasureScope ? null : id,
+    treasureAccessoryId: isTreasureScope ? id : null,
+    tileScoreBonus: 0,
+    tileMultBonus: 0,
+    hideRarityGem: true,
+  };
+}
+
 export function buildTileDetailPayloadFromCollectionSnapshot(tile) {
   if (!tile || typeof tile !== "object") return null;
   const isWc = tile.isWildcard === true;

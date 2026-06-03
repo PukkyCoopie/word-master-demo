@@ -329,9 +329,18 @@ function animateOneTileIndependent(p) {
 }
 
 /**
- * 与棋盘 `animateOneTileIndependent` 同款节奏，在「谷底」调用 `onMidShrink`（例如写法术弹层上的 tile 快照），不写棋盘。
- * @param {{ el?: HTMLElement, delay?: number, onMidShrink?: () => void }} p
+ * 法术弹层/提交擦除：缩小至谷底 → `onMidReplace` → 回弹（不写 grid）。
+ * @param {{ el?: HTMLElement | null, delay?: number, onMidReplace?: () => void }} opts
  */
+export async function runDetachedTileShrinkReplacePop(opts) {
+  const { el, delay = 0, onMidReplace } = opts;
+  if (shouldSkipDecorativeMotion()) {
+    onMidReplace?.();
+    return;
+  }
+  return animateOneTileDetachedTimeline({ el, delay, onMidShrink: onMidReplace });
+}
+
 function animateOneTileDetachedTimeline(p) {
   const { el, delay = 0, onMidShrink } = p;
   if (!(el instanceof HTMLElement)) {

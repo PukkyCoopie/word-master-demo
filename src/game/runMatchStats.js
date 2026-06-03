@@ -92,12 +92,20 @@ function resolveMostCommonLength(lengthCounts) {
 
 /**
  * @param {RunMatchStats} stats
+ * @returns {string}
+ */
+export function formatRunEndBestWordValue(stats) {
+  return stats.bestWord
+    ? `${stats.bestWord.toUpperCase()}（${stats.bestWordScore.toLocaleString("zh-CN")}）`
+    : "—";
+}
+
+/**
+ * @param {RunMatchStats} stats
  * @returns {{ label: string, value: string }[]}
  */
 export function getRunMatchStatsRows(stats) {
-  const best = stats.bestWord
-    ? `${stats.bestWord.toUpperCase()}（${stats.bestWordScore.toLocaleString("zh-CN")}）`
-    : "—";
+  const best = formatRunEndBestWordValue(stats);
   const longest = stats.longestWord ? stats.longestWord.toUpperCase() : "—";
   const commonLen = resolveMostCommonLength(stats.lengthCounts);
   return [
@@ -109,4 +117,13 @@ export function getRunMatchStatsRows(stats) {
     { label: "购物数", value: String(stats.shopPurchases) },
     { label: "重掷次数", value: String(stats.rerolls) },
   ];
+}
+
+/**
+ * 整局结束层：除「最佳单词」外的统计行。
+ * @param {RunMatchStats} stats
+ * @returns {{ label: string, value: string }[]}
+ */
+export function getRunEndSecondaryStatsRows(stats) {
+  return getRunMatchStatsRows(stats).filter((row) => row.label !== "最佳单词");
 }

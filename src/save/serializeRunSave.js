@@ -7,6 +7,7 @@ import { serializeAchievementRunState } from "../achievements/achievementRunStat
 import { cloneSaveData } from "./saveDataClone.js";
 import { serializeOwnedTreasureSlots } from "../treasures/ownedTreasureSlot.js";
 import { getTreasureDef } from "../treasures/treasureRegistry.js";
+import { serializeRunDiscoveryLog } from "../game/runCollectionDiscoveries.js";
 
 /**
  * @param {Record<string, unknown>} ctx
@@ -70,6 +71,11 @@ export function serializeRunSave(ctx) {
     runEndOutcome: ctx.runEndOutcome === "win" ? "win" : "fail",
     runPresetId: String(ctx.runPresetId ?? "preset_01"),
     runDifficultyIndex: Math.max(0, Math.min(7, Math.floor(Number(ctx.runDifficultyIndex) || 0))),
+    runDiscoveryLog: serializeRunDiscoveryLog(
+      /** @type {import('../game/runCollectionDiscoveries.js').RunDiscoveryLog | null | undefined} */ (
+        ctx.runDiscoveryLog
+      ),
+    ),
   };
 }
 

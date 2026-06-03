@@ -31,6 +31,23 @@ function isNoOpPostLetterTreasureStep(step) {
 }
 
 /**
+ * 字后宝藏步之前：按擦除/入账类钩子写入 run 银行（如海绵 +0.1/增强字母）。
+ * @param {Array} tiles
+ * @param {(string | null | undefined)[]} slots
+ * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} treasureRun
+ */
+function applyPrepareSubmitScoringBanks(tiles, slots, treasureRun) {
+  const hookCtx = {
+    tiles,
+    ownedSlotTreasureIds: slots,
+    treasureRun: treasureRun ?? undefined,
+  };
+  for (const { treasureId: tid } of iterTreasureHookContributions(slots)) {
+    TREASURE_HOOKS_BY_ID.get(tid)?.prepareSubmitScoringBank?.(hookCtx);
+  }
+}
+
+/**
  * 所有字母结算完成后再触发的宝藏：按槽位从左到右，每槽先宝藏字后步（含蓝图复制）再该槽配饰。
  * @param {Array} tiles
  * @param {(string | null | undefined)[]} ownedSlotTreasureIds
@@ -240,6 +257,9 @@ export function computeWordScoreDetailedForSubmit(
     ownedSlotTreasureAccessoryIds == null
       ? slots.map(() => null)
       : slots.map((_, i) => (disabledSet?.has(i) ? null : (ownedSlotTreasureAccessoryIds[i] ?? null)));
+  if (submitOptions?.skipPrepareSubmitScoringBank !== true) {
+    applyPrepareSubmitScoringBanks(tiles, slots, submitOptions?.treasureRun ?? null);
+  }
   let postLetterTreasureSteps = buildPostLetterTreasureSteps(
     tiles,
     slots,

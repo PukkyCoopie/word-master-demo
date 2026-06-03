@@ -1,7 +1,10 @@
 import { describe, mult } from "../treasureDescription.js";
-import { bankMultMulGain, getMultMulBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { addMultMulBank, getMultMulBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 
-const ID = "78";
+export const TREASURE_78_ID = "78";
+const ID = TREASURE_78_ID;
+export const TREASURE_78_ICE_SHATTER_MULT_INCREMENT = 0.75;
+export const TREASURE_78_ICE_SHATTER_MULT_BUBBLE = "×0.75";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
@@ -18,7 +21,8 @@ export const treasureHooks = {
     const m = getMultMulBank(ctx.treasureRun, ID);
     return m > 1 ? { multMul: m } : null;
   },
-  async onIceMaterialBreak(ctx) {
-    await bankMultMulGain(ctx, ID, 0.75, "×0.75");
+  onIceMaterialBreak(ctx) {
+    if (ctx.iceShatterTreasureFxHandled) return;
+    addMultMulBank(ctx.treasureRun, ID, TREASURE_78_ICE_SHATTER_MULT_INCREMENT);
   },
 };

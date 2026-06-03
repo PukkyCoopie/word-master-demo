@@ -88,6 +88,18 @@ export async function notifyOwnedTreasuresSuccessfulWordSubmit(ownedSlotTreasure
   });
 }
 
+/**
+ * 逐字母计分动画结束后、字后宝藏步开始前（同 id 多槽不重复）
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {import('./treasureTypes.js').TreasureSubmitAfterLettersContext} ctx
+ */
+export async function notifySubmitAfterLettersBeforePostSteps(ownedSlotTreasureIds, ctx) {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.runAfterLettersBeforePostSteps;
+    return fn ? Promise.resolve(fn(ctx)) : undefined;
+  });
+}
+
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureDiscardContext} ctx */
 export async function notifyOwnedTreasuresOnDiscardBatch(ownedSlotTreasureIds, ctx) {
   await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {

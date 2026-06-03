@@ -26,3 +26,13 @@ export function tileHasScoringEnhancement(tile) {
   if (Math.floor(Number(t.materialMultBonus) || 0) !== 0) return true;
   return false;
 }
+
+/** @param {readonly object[] | null | undefined} tiles */
+export function countScoringEnhancementsInTiles(tiles) {
+  if (!Array.isArray(tiles)) return 0;
+  let n = 0;
+  for (const t of tiles) {
+    if (tileHasScoringEnhancement(t)) n += 1;
+  }
+  return n;
+}

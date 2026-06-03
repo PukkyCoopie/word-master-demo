@@ -593,11 +593,16 @@
       <RunEndLayer
         :open="showRunEnd"
         :outcome="runEndOutcome"
-        :stats-rows="runEndStatsRows"
+        :run-seed-display="props.runSeedDisplay"
+        :reached-level-id="runEndReachedLevelId"
+        :best-word-value="runEndBestWordValue"
+        :stats-rows="runEndSecondaryStatsRows"
+        :discovery-items="runEndDiscoveryItems"
         :portal-stack-style="runEndPortalStackStyle"
         @retry="onRunEndRetry"
         @main-menu="onRunEndMainMenu"
         @endless="onRunEndEndless"
+        @select-discovery="onRunEndDiscoverySelect"
       />
     </Teleport>
 
@@ -714,6 +719,7 @@ import {
   getTreasureDef,
   TREASURE_HOOKS_BY_ID,
   notifyOwnedTreasuresSuccessfulWordSubmit,
+  notifySubmitAfterLettersBeforePostSteps,
   notifyOwnedTreasuresOnDiscardBatch,
   notifyOwnedTreasuresOnChapterEnter,
   notifyOwnedTreasuresOnIceBreak,
@@ -781,6 +787,11 @@ import {
 import { addMultMulBank, addScoreAddBank } from "../treasures/treasureBankHelpers.js";
 import { TREASURE_65_ID } from "../treasures/items/treasure_65.js";
 import { TREASURE_99_ID } from "../treasures/items/treasure_99.js";
+import {
+  TREASURE_78_ID,
+  TREASURE_78_ICE_SHATTER_MULT_BUBBLE,
+  TREASURE_78_ICE_SHATTER_MULT_INCREMENT,
+} from "../treasures/items/treasure_78.js";
 import { parseChapterFromLevelId } from "../treasures/treasureLifecycleShared.js";
 import { ensureBigramTargetPair, rollRandomBigramFromDictionary } from "../game/treasureBigramRoll.js";
 import { iterTreasureHookContributions } from "../game/treasureBlueprintMirror.js";
@@ -841,12 +852,26 @@ import { createRunAutoSave } from "../save/runAutoSave.js";
 import { clearSlotRunProgress } from "../save/runSaveStorage.js";
 import {
   createRunMatchStats,
-  getRunMatchStatsRows,
+  formatRunEndBestWordValue,
+  getRunEndSecondaryStatsRows,
   recordLettersDiscarded,
   recordReroll,
   recordShopPurchase,
   recordWordSubmit,
 } from "../game/runMatchStats.js";
+import {
+  appendRunDiscovery,
+  buildRunDiscoveryDisplayItems,
+  createRunDiscoveryLog,
+} from "../game/runCollectionDiscoveries.js";
+import {
+  buildAccessoryTileDetailPayload,
+  buildCollectionSpellPreview,
+  buildCollectionTreasurePreview,
+  buildCollectionUpgradePreview,
+  buildMaterialTileDetailPayload,
+  collectionFlyOriginRectFromEl,
+} from "../collection/collectionPreview.js";
 import { createRunEndConfettiController } from "../game/runEndConfetti.js";
 import BossBlindRerollLayer from "./BossBlindRerollLayer.vue";
 import { getBossDef } from "../game/bossBlindDefinitions.js";
@@ -879,6 +904,7 @@ import {
   cloneGridDeep,
   diffGridAppearanceTargets,
   restoreGridFromDeepClone,
+  runDetachedTileShrinkReplacePop,
 } from "../game/spellTileAppearanceAnim.js";
 import {
   SPELL_DEFINITIONS,
@@ -926,6 +952,7 @@ import {
   buildOwnedVoucherDetailTreasure,
   buildOwnedVoucherPairGroups,
 } from "../vouchers/voucherOwnedDisplay.js";
+import { getTier1DefForPair, getTier2DefForPair } from "../vouchers/voucherDefinitions.js";
 import { rollShopVoucherOfferDef } from "../vouchers/voucherRegistry.js";
 import {
   applyPresetAndShopDiscountPrice,
@@ -3084,7 +3111,8 @@ function flushSubmitAchievements(tiles, detailed, iceShatterCount) {
 }
 
 function noteCollectionDiscovery(payload) {
-  recordCollectionDiscovery?.(payload);
+  const wasNew = recordCollectionDiscovery?.(payload);
+  if (wasNew) appendRunDiscovery(runDiscoveryLog.value, payload);
   flushAchievementUnlocks();
 }
 
@@ -3193,7 +3221,11 @@ const runEndConfettiController = createRunEndConfettiController({
   getCanvasEl: () => runEndConfettiCanvasRef.value,
 });
 const runMatchStats = ref(createRunMatchStats());
-const runEndStatsRows = computed(() => getRunMatchStatsRows(runMatchStats.value));
+const runDiscoveryLog = ref(createRunDiscoveryLog());
+const runEndBestWordValue = computed(() => formatRunEndBestWordValue(runMatchStats.value));
+const runEndSecondaryStatsRows = computed(() => getRunEndSecondaryStatsRows(runMatchStats.value));
+const runEndReachedLevelId = computed(() => currentLevel.value?.id ?? getRunLevelAtIndex(levelIndex.value).id);
+const runEndDiscoveryItems = computed(() => buildRunDiscoveryDisplayItems(runDiscoveryLog.value));
 const treasureRunState = ref(createTreasureRunState());
 
 function buildTreasurePoolSnapshot() {
@@ -3658,6 +3690,25 @@ function setRarityLevelWithTreasurePairs(rarity, level) {
   applyRarityLevelUpgrade(rarity, level, setRarityLevel, ownedSlotTreasureIdList());
 }
 
+function buildSubmitAfterLettersContext(tiles) {
+  return {
+    submittedScoringTiles: tiles,
+    resolveSubmitTileAtIndex: (index, scoringTile) =>
+      resolveRealSubmitTileForWordSlot(index, scoringTile),
+    touchGrid,
+    playSubmitTileEnhancementStripLeave,
+    getWordSlotEls: () => {
+      const out = [];
+      for (let i = 0; i < tiles.length; i++) {
+        const el = wordSlotRefs[i];
+        if (el) out[i] = el;
+      }
+      return out;
+    },
+    getGridTileElsInOrder: () => getSelectedGridTileElsInOrder(),
+  };
+}
+
 function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand) {
   const owned = ownedTreasures.value.filter(Boolean);
   const buildLengthUpgradeStep = (len) => {
@@ -3726,11 +3777,10 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
       ]);
     },
     incrementChargeWordSubmissionCount: bumpBasketballWordSubmitted,
-    submittedScoringTiles: tiles.map((t) => ({
-      materialId: t?.materialId ?? null,
-      letter: t?.letter ?? "",
-      rarity: t?.rarity ?? "common",
-    })),
+    submittedScoringTiles: tiles,
+    resolveSubmitTileAtIndex: (index, scoringTile) =>
+      resolveRealSubmitTileForWordSlot(index, scoringTile),
+    touchGrid,
     mutateRandomNonWildcardLetterTileToWildcard,
     getWordDefinition,
     rollRandomBigram: rollRandomBigramForTreasure,
@@ -3760,6 +3810,7 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
     wobbleOwnedTreasureById,
     destroyTreasureSlotById: destroyOwnedTreasureWithFx,
     playSubmitWordLetterRemoveAndRewardLeave,
+    playSubmitTileEnhancementStripLeave,
     removeDeckLettersByRaws: (raws) => removeDeckLettersByRawsWithTreasureNotify(raws),
     removeDeckCardsForSubmittedWord: (word) => removeDeckCardsForSubmittedWordAndNotify(tiles, word),
     ownedTreasureInstances: owned,
@@ -6089,6 +6140,7 @@ function buildLocalSaveContext() {
     packPickSession: packPickSession.value,
     bossRerollSession: bossRerollSession.value,
     runMatchStats: runMatchStats.value,
+    runDiscoveryLog: runDiscoveryLog.value,
     achievementRunState: achievementRunState.value,
     runEndOutcome: runEndOutcome.value,
     showShop: showShop.value,
@@ -6121,6 +6173,7 @@ function buildHydrateContext() {
     hydrateDeckState,
     ownedUpgradesRef: ownedUpgrades,
     runMatchStatsRef: runMatchStats,
+    runDiscoveryLogRef: runDiscoveryLog,
     achievementRunStateRef: achievementRunState,
     runEndOutcomeRef: runEndOutcome,
     showSettlementRef: showSettlement,
@@ -6279,6 +6332,54 @@ async function openRunEnd(outcome, opts = {}) {
 
 function onRunEndRetry() {
   emit("request-restart", { prefillSeed: false });
+}
+
+/**
+ * @param {{ item?: import('../game/runCollectionDiscoveriesDisplay.js').RunDiscoveryDisplayItem, originEl?: HTMLElement | null }} payload
+ */
+function onRunEndDiscoverySelect(payload) {
+  const item = payload?.item;
+  if (!item || typeof item !== "object") return;
+  const originRect = collectionFlyOriginRectFromEl(payload.originEl);
+
+  if (item.kind === "treasure") {
+    const treasure = buildCollectionTreasurePreview(item.treasureId);
+    if (!treasure) return;
+    treasureDetail.value = { kind: "offer", treasure, originRect };
+    return;
+  }
+  if (item.kind === "spell") {
+    const treasure = buildCollectionSpellPreview(item.spellId);
+    if (!treasure) return;
+    treasureDetail.value = { kind: "offer", treasure, originRect };
+    return;
+  }
+  if (item.kind === "upgrade") {
+    const treasure = buildCollectionUpgradePreview(item.upgradeId);
+    if (!treasure) return;
+    treasureDetail.value = { kind: "offer", treasure, originRect };
+    return;
+  }
+  if (item.kind === "voucher") {
+    const tier1 = getTier1DefForPair(item.pairId);
+    const tier2 = item.tier >= 2 ? getTier2DefForPair(item.pairId) : null;
+    if (!tier1) return;
+    const treasure = buildOwnedVoucherDetailTreasure({ pairId: item.pairId, tier1, tier2 });
+    if (!treasure) return;
+    treasureDetail.value = { kind: "offer", treasure, originRect };
+    return;
+  }
+  if (item.kind === "material") {
+    const tilePayload = buildMaterialTileDetailPayload(item.materialId);
+    if (!tilePayload) return;
+    openTileDetail(tilePayload, originRect);
+    return;
+  }
+  if (item.kind === "accessory") {
+    const tilePayload = buildAccessoryTileDetailPayload(item.accessoryId);
+    if (!tilePayload) return;
+    openTileDetail(tilePayload, originRect);
+  }
 }
 
 /** 标准通关 8-3 后回主菜单：视为放弃无尽接续，仅保留生涯统计 */
@@ -7310,6 +7411,8 @@ async function playIceTileShatterWobbleAndBubble(slotEl, gridEl, speed = 1) {
 async function runSubmittedIceShatterEffects(tiles) {
   const list = Array.isArray(tiles) ? tiles : [];
   const gridEls = getSelectedGridTileElsInOrder();
+  const snowmanSlotIx = findOwnedTreasureSlotIndex(TREASURE_78_ID);
+  const iceShatterTreasureFxHandled = snowmanSlotIx >= 0;
   let shatterCount = 0;
   for (let i = 0; i < list.length; i += 1) {
     const t = list[i];
@@ -7319,8 +7422,17 @@ async function runSubmittedIceShatterEffects(tiles) {
     const slotEl = wordSlotRefs[i];
     const gridEl = gridEls[i];
     await playIceTileShatterWobbleAndBubble(slotEl, gridEl);
+    if (iceShatterTreasureFxHandled) {
+      addMultMulBank(treasureRunState.value, TREASURE_78_ID, TREASURE_78_ICE_SHATTER_MULT_INCREMENT);
+      await playTreasureSlotBubbleBurstAtPeak(
+        snowmanSlotIx,
+        TREASURE_78_ICE_SHATTER_MULT_BUBBLE,
+        "mult",
+      );
+    }
     await notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIdList(), {
       treasureRun: treasureRunState.value,
+      iceShatterTreasureFxHandled,
       wobbleOwnedTreasureById,
       playOwnedTreasureBubbleFx,
     });
@@ -7359,6 +7471,49 @@ async function playSubmitWordLetterRemoveAndRewardLeave(opts) {
   if (amt > 0) {
     if (treasureSlotIx >= 0) await playTreasureSlotMoneyBurstAtPeak(treasureSlotIx, amt);
     else await playOwnedTreasureMoneyFx(treasureId, amt);
+  }
+}
+
+/**
+ * 海绵等：增强字母在词槽消失前播放黄色「擦除」气泡 + 法术同款缩小→换图→回弹。
+ * @param {import('../treasures/treasureTypes.js').SubmitWordEnhancementStripLeaveOpts} opts
+ */
+async function playSubmitTileEnhancementStripLeave(opts) {
+  const indices = Array.isArray(opts?.indices) ? opts.indices : [];
+  const slotEls = Array.isArray(opts?.slotEls) ? opts.slotEls : [];
+  const gridEls = Array.isArray(opts?.gridEls) ? opts.gridEls : [];
+  const stripAt = opts?.stripTileAtIndex;
+  const sp = 1;
+  if (!indices.length) return;
+
+  for (let ki = 0; ki < indices.length; ki += 1) {
+    const i = indices[ki];
+    const slotEl = slotEls[i];
+    const gridEl = gridEls[i];
+    const anchor = slotEl || gridEl;
+    if (!anchor) {
+      stripAt?.(i);
+      continue;
+    }
+
+    const delay = ki * 0.1;
+    await new Promise((r) => requestAnimationFrame(r));
+    const bubble = showScoreBubble(anchor, "擦除", "sponge-erase", sp);
+    let stripped = false;
+    const onMidStrip = () => {
+      if (stripped) return;
+      stripped = true;
+      stripAt?.(i);
+      touchGrid();
+    };
+
+    await Promise.all([
+      runDetachedTileShrinkReplacePop({ el: slotEl, delay, onMidReplace: onMidStrip }),
+      runDetachedTileShrinkReplacePop({ el: gridEl, delay: delay + 0.02 }),
+    ]);
+    await nextTick();
+    scheduleSmallPlusBubbleOutro(bubble, sp);
+    if (ki < indices.length - 1) await sleep(90);
   }
 }
 
@@ -9383,6 +9538,8 @@ function showScoreBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
                   ? "score-popup-bubble score-popup-bubble--hourglass"
                   : kind === "accessory-expired"
                     ? "score-popup-bubble score-popup-bubble--accessory-expired"
+                    : kind === "sponge-erase"
+                      ? "score-popup-bubble score-popup-bubble--sponge-erase"
                 : "score-popup-bubble";
   if (kind === "hourglass") {
     div.innerHTML = '<i class="ri-hourglass-fill score-popup-bubble-hourglass-icon" aria-hidden="true"></i>';
@@ -10439,6 +10596,13 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       }
     }
 
+    if (detailed.bossSoftViolation !== true) {
+      await notifySubmitAfterLettersBeforePostSteps(
+        ownedSlotTreasureIdList(),
+        buildSubmitAfterLettersContext(tiles),
+      );
+    }
+
     const postSteps = detailed.postLetterTreasureSteps ?? [];
     for (const step of postSteps) {
     const multAdd = Number(step.multAdd) || 0;
@@ -11241,6 +11405,7 @@ async function submitWord() {
     {
       disabledTreasureSlotIndices: crimsonSet,
       bossFlintQuarter: isFlintBossActive.value,
+      skipPrepareSubmitScoringBank: submitViolated,
       lengthUpgradeObservatoryExtra: lengthUpgradeObservatoryExtra.value,
       rng: runRandom,
       resolvedWord,

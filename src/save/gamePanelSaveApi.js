@@ -48,6 +48,7 @@ export function buildGamePanelSaveContext(ctx) {
     runEndOutcome: ctx.runEndOutcome,
     runPresetId: ctx.runPresetId,
     runDifficultyIndex: ctx.runDifficultyIndex,
+    runDiscoveryLog: ctx.runDiscoveryLog,
     showShop: ctx.showShop,
     showSettlement: ctx.showSettlement,
     showRunEnd: ctx.showRunEnd,

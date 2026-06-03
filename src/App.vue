@@ -26,6 +26,7 @@
         <MainMenu
           v-if="showMenu"
           :profile-layer-open="showPlayerProfile"
+          :collection-progress-suffix="menuCollectionProgressSuffix"
           @request-start="onMenuRequestStart"
           @open-profile="openPlayerProfile"
           @open-settings="openSettings"
@@ -170,6 +171,7 @@ import { recordDifficultyWin, setLastSelectedDifficultyIndex } from "./game/runD
 import { collectFreshUnlocksFromWin } from "./game/runStartFreshUnlock.js";
 import { createEmptySlotCareerStats } from "./save/runSaveSchema.js";
 import { tryUnlockAchievementsInCareer } from "./achievements/achievementUnlock.js";
+import { formatCollectionMenuProgressSuffix } from "./collection/collectionProgress.js";
 
 useScale();
 const { isDesktopLayout } = useWebLayoutMode();
@@ -265,14 +267,16 @@ provide("recordCollectionDiscovery", ({
   accessoryId,
 } = {}) => {
   const ix = screen.value === "game" ? sessionSaveSlotIndex.value : getActiveSaveSlotIndex();
+  let wasNew = false;
   persistCollectionCareer(ix, (career) => {
-    if (treasureId) recordTreasureDiscovered(career, treasureId);
-    if (spellId) recordSpellDiscovered(career, spellId);
-    if (upgradeId) recordUpgradeDiscovered(career, upgradeId);
-    if (voucherId) recordVoucherDiscovered(career, voucherId);
-    if (materialId) recordMaterialDiscovered(career, materialId);
-    if (accessoryId) recordAccessoryDiscovered(career, accessoryId);
+    if (treasureId) wasNew = recordTreasureDiscovered(career, treasureId) || wasNew;
+    if (spellId) wasNew = recordSpellDiscovered(career, spellId) || wasNew;
+    if (upgradeId) wasNew = recordUpgradeDiscovered(career, upgradeId) || wasNew;
+    if (voucherId) wasNew = recordVoucherDiscovered(career, voucherId) || wasNew;
+    if (materialId) wasNew = recordMaterialDiscovered(career, materialId) || wasNew;
+    if (accessoryId) wasNew = recordAccessoryDiscovered(career, accessoryId) || wasNew;
   });
+  return wasNew;
 });
 
 provide("recordCollectionWordSubmit", ({ word, score, length, tiles, ownedTreasures }) => {
@@ -497,6 +501,15 @@ const showGame = computed(() => appBootReady.value && screen.value === "game");
 const collectionCareer = computed(() => {
   void collectionRefreshKey.value;
   return normalizeSlotCareerStats(getSlotCareer(getActiveSaveSlotIndex()));
+});
+
+const menuCollectionProgressSuffix = computed(() => {
+  void saveUiRefreshKey.value;
+  void collectionRefreshKey.value;
+  const career = normalizeSlotCareerStats(
+    getSlotCareer(getActiveSaveSlotIndex()) ?? createEmptySlotCareerStats(),
+  );
+  return formatCollectionMenuProgressSuffix(career);
 });
 const dictGate = computed(() => !appBootReady.value);
 const dictBootError = computed(() => !dictLoading.value && !!dictError.value);

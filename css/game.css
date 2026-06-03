@@ -761,6 +761,12 @@ textarea::-moz-placeholder {
 	background: var(--btn-yellow);
 	text-shadow: 0 calc(1 * var(--rpx)) 0 rgba(120, 84, 40, 0.5);
 }
+/* 海绵擦除增强 */
+.score-popup-bubble--sponge-erase {
+	background: var(--btn-yellow);
+	color: #fff;
+	text-shadow: 0 calc(1 * var(--rpx)) 0 rgba(120, 84, 40, 0.45);
+}
 /* 宝藏自毁：摧毁！ */
 .score-popup-bubble--destroy {
 	background: #e04545;
@@ -2105,7 +2111,7 @@ textarea::-moz-placeholder {
 	opacity: 0.1;
 }
 
-/* 玩家本关内标记：右上角折角；z-index 3 低于配饰角标(4)；由块圆角 + overflow 裁剪 */
+/* 玩家本关内标记：右上角折角；z-index 1 低于额外分/倍率角标(2)与配饰(4)；由块圆角 + overflow 裁剪 */
 .grid-tile.player-marked:not(.selected),
 .word-slots .word-slot-content.player-marked {
 	overflow: hidden;
@@ -2122,7 +2128,7 @@ textarea::-moz-placeholder {
 	background: var(--player-mark-accent);
 	clip-path: polygon(100% 0, 0 0, 100% 100%);
 	pointer-events: none;
-	z-index: 3;
+	z-index: 1;
 	filter: none;
 	opacity: 1;
 }
@@ -2161,7 +2167,7 @@ textarea::-moz-placeholder {
 	background: var(--player-mark-accent);
 	clip-path: polygon(100% 0, 0 0, 100% 100%);
 	pointer-events: none;
-	z-index: 3;
+	z-index: 1;
 }
 
 /* 飞字：Teleport 到 body + JS 创建的 DOM，需全局样式（LetterTile variant=fly / letterTileFlyBack） */
@@ -3162,6 +3168,12 @@ textarea::-moz-placeholder {
 	max-height: calc(var(--desc-inline-sample-size) * var(--desc-inline-preset-scale));
 }
 
+.run-end-discovery-chip__material.grid-tile,
+.run-end-discovery-chip__frame.shop-treasure-frame {
+	container-type: size;
+	container-name: treasure-cell;
+}
+
 @container treasure-cell (min-width: 0px) {
 	.preset-desc-rich-text .desc-inline-entity__letter.grid-tile .letter-tile-char {
 		font-size: calc(100cqmin * 38 / 81);
@@ -3169,6 +3181,18 @@ textarea::-moz-placeholder {
 
 	.preset-desc-rich-text .desc-inline-entity--voucher .voucher-stamp__frame .voucher-stamp__emoji {
 		font-size: calc(100cqmin * 42 / 81);
+	}
+
+	.run-end-discovery-chip__material.grid-tile .letter-tile-char {
+		font-size: calc(100cqmin * 38 / 81);
+	}
+
+	.run-end-discovery-chip__frame.shop-treasure-frame .shop-treasure-emoji {
+		font-size: calc(100cqmin * 42 / 81);
+	}
+
+	.run-end-discovery-chip__frame.shop-treasure-frame .shop-treasure-emoji--icon {
+		font-size: calc(100cqmin * 34 / 81);
 	}
 }
 

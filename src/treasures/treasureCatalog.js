@@ -74,7 +74,7 @@ export const TREASURE_CATALOG = [
   { treasureId: "72", name: "加号", emoji: "➕", scriptPath: "./items/treasure_72.js", implemented: true },
   { treasureId: "73", name: "手提包", emoji: "👜", scriptPath: "./items/treasure_73.js", implemented: true },
   { treasureId: "74", name: "砖块", emoji: "🧱", scriptPath: "./items/treasure_74.js", implemented: true },
-  { treasureId: "78", name: "冰块", emoji: "🧊", scriptPath: "./items/treasure_78.js", implemented: true },
+  { treasureId: "78", name: "雪人", emoji: "⛄", scriptPath: "./items/treasure_78.js", implemented: true },
   { treasureId: "79", name: "棱镜", emoji: "🧿", scriptPath: "./items/treasure_79.js", implemented: true },
   { treasureId: "80", name: "B键", emoji: "🅱️", scriptPath: "./items/treasure_80.js", implemented: true },
   { treasureId: "75", name: "剪贴板", emoji: "📋", scriptPath: "./items/treasure_75.js", implemented: true },
