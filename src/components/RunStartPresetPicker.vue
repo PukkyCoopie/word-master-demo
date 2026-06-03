@@ -317,6 +317,8 @@ defineExpose({
   display: flex;
   align-items: stretch;
   gap: calc(6 * var(--rpx));
+  min-width: 0;
+  overflow: hidden;
 }
 
 .run-start-preset-cycle-arrow {

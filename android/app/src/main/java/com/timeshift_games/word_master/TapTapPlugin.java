@@ -52,6 +52,22 @@ public class TapTapPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getAndroidAppInfo(PluginCall call) {
+        android.content.Context context = getContext();
+        if (context == null) {
+            call.reject("Context unavailable");
+            return;
+        }
+        boolean debuggable =
+            (context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        JSObject ret = new JSObject();
+        ret.put("packageName", context.getPackageName());
+        ret.put("signatureMd5", TapTapBridge.getSigningCertificateMd5(context));
+        ret.put("debuggable", debuggable);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
     public void getCurrentAccount(PluginCall call) {
         TapTapAccount account = TapTapLogin.getCurrentTapAccount();
         if (account == null) {

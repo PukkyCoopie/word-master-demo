@@ -23,7 +23,7 @@ export const ACHIEVEMENT_DEFINITIONS = Object.freeze([
   { id: "no_reroll_win", name: "顺其自然", description: "在没有重掷过商店的情况下赢得一轮游戏", condition: { kind: "run_no_reroll_win" } },
   { id: "letter_score_4", name: "似曾相识", description: "在一次拼写中对一个字母触发4次计分", condition: { kind: "submit_letter_score_triggers", threshold: 4 } },
   { id: "double_ice_break", name: "雪上加霜", description: "在一次拼写中使2张碎冰块同时碎裂", condition: { kind: "submit_double_ice" } },
-  { id: "five_vouchers_at_4_1", name: "精打细算", description: "在抵达关卡4-1时拥有5张优惠券", condition: { kind: "level_vouchers", levelId: "4-1", voucherCount: 5 } },
+  { id: "five_vouchers_at_4_1", name: "购物狂人", description: "在抵达关卡4-1时拥有5张优惠券", condition: { kind: "level_vouchers", levelId: "4-1", voucherCount: 5 } },
   { id: "length_level_10", name: "登峰造极", description: "使任何长度等级提升至10", condition: { kind: "max_length_level", threshold: 10 } },
   { id: "rarity_level_8", name: "炉火纯青", description: "使任何稀有度等级提升至8", condition: { kind: "max_rarity_level", threshold: 8 } },
   { id: "score_10k", name: "初露锋芒", description: "单次拼写获得10,000分", condition: { kind: "submit_score", threshold: 10000 } },

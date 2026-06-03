@@ -14,6 +14,13 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
  * @property {Record<string, unknown>} [extra]
  */
 
+/**
+ * @typedef {Object} TapTapAndroidAppInfo
+ * @property {string} packageName
+ * @property {string} signatureMd5
+ * @property {boolean} debuggable
+ */
+
 /** @type {import('@capacitor/core').PluginImplementations} */
 const TapTapNative = registerPlugin("TapTap");
 
@@ -26,6 +33,9 @@ const TapTapWebStub = {
     throw new Error("TapTap login is only available in the native app");
   },
   async logout() {},
+  async getAndroidAppInfo() {
+    return null;
+  },
   async startCompliance() {},
   async addListener() {
     return { remove: async () => {} };

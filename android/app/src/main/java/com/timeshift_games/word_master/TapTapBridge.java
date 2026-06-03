@@ -2,6 +2,11 @@ package com.timeshift_games.word_master;
 
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
+import android.os.Build;
+import android.util.Log;
 import com.taptap.sdk.compliance.TapTapCompliance;
 import com.taptap.sdk.compliance.TapTapComplianceCallback;
 import com.taptap.sdk.compliance.option.TapTapComplianceOptions;
@@ -11,9 +16,43 @@ import com.taptap.sdk.core.TapTapSdkOptions;
 
 final class TapTapBridge {
 
+    private static final String TAG = "TapTapBridge";
+
     private static volatile boolean initialized = false;
 
     private TapTapBridge() {}
+
+    static String getSigningCertificateMd5(Context context) {
+        try {
+            PackageManager pm = context.getPackageManager();
+            String packageName = context.getPackageName();
+            PackageInfo packageInfo;
+            Signature[] signatures;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES);
+                if (packageInfo.signingInfo == null) {
+                    return "";
+                }
+                signatures = packageInfo.signingInfo.getApkContentsSigners();
+            } else {
+                packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_SIGNATURES);
+                signatures = packageInfo.signatures;
+            }
+            if (signatures == null || signatures.length == 0) {
+                return "";
+            }
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
+            byte[] digest = md.digest(signatures[0].toByteArray());
+            StringBuilder builder = new StringBuilder(digest.length * 2);
+            for (byte value : digest) {
+                builder.append(String.format("%02X", value));
+            }
+            return builder.toString();
+        } catch (Exception exception) {
+            Log.w(TAG, "Failed to read signing certificate MD5", exception);
+            return "";
+        }
+    }
 
     static synchronized void init(Context context) {
         if (initialized) {
@@ -33,6 +72,18 @@ final class TapTapBridge {
             false,
             false
         );
+
+        if (debuggable) {
+            Log.i(
+                TAG,
+                "init package="
+                    + appContext.getPackageName()
+                    + " signatureMd5="
+                    + getSigningCertificateMd5(appContext)
+                    + " clientId="
+                    + clientId
+            );
+        }
 
         TapTapSdk.init(appContext, coreOptions, complianceOptions);
         TapTapCompliance.registerComplianceCallback(

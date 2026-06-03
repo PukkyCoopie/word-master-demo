@@ -39,6 +39,20 @@ let complianceListener = null;
 let authMountCount = 0;
 let authBootstrapped = false;
 
+/** @returns {Promise<string>} */
+async function formatSignatureMismatchHint() {
+  try {
+    /** @type {import('../taptap/tapTapPlugin.js').TapTapAndroidAppInfo | null | undefined} */
+    const info = await TapTap.getAndroidAppInfo();
+    if (info?.packageName && info?.signatureMd5) {
+      return `TapTap 后台 Android 配置须与本机安装包一致。当前包名 ${info.packageName}，签名 MD5 ${info.signatureMd5}（32 位、无冒号，区分大小写）。`;
+    }
+  } catch {
+    /* ignore */
+  }
+  return "TapTap 应用配置与当前安装包不一致（包名或签名 MD5）。请在 TapTap 开发者中心核对 Android 包名与签名。";
+}
+
 /**
  * @param {number} code
  */
@@ -130,8 +144,15 @@ export function useTapTapAuth() {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes("cancelled") || message.includes("取消")) {
         authMessage.value = "";
+      } else if (
+        message.includes("包名") ||
+        message.includes("签名") ||
+        /signature/i.test(message)
+      ) {
+        authMessage.value = await formatSignatureMismatchHint();
+        phase.value = "error";
       } else {
-        authMessage.value = "登录失败，请重试。";
+        authMessage.value = message.trim() || "登录失败，请重试。";
         phase.value = "error";
       }
     } finally {

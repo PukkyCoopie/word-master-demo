@@ -545,6 +545,9 @@ function onCancel() {
   position: relative;
   z-index: 1;
   width: min(100%, calc(600 * var(--rpx)));
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
   background: var(--card-bright, #faf8ef);
   border-radius: calc(12 * var(--rpx));
   box-shadow: var(--shadow);
@@ -692,19 +695,34 @@ function onCancel() {
 .run-start-dialog-body {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .run-start-dialog-panels {
+  position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
 }
 
 .run-start-dialog-panel {
   grid-area: 1 / 1;
+  width: 100%;
+  min-width: 0;
   visibility: hidden;
   pointer-events: none;
 }
 
+.run-start-dialog-panel:not(.run-start-dialog-panel--active) {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
 .run-start-dialog-panel--active {
+  position: relative;
   visibility: visible;
   pointer-events: auto;
 }
@@ -713,6 +731,7 @@ function onCancel() {
   display: flex;
   flex-direction: column;
   gap: calc(8 * var(--rpx));
+  min-width: 0;
 }
 
 .run-start-dialog-preset-row {

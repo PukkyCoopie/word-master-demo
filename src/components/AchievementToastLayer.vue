@@ -1,7 +1,7 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, watchEffect } from "vue";
 import gsap from "gsap";
-import { getOverlayStackTop } from "../game/overlayStack.js";
+import { bumpOverlayZ, getOverlayStackTop } from "../game/overlayStack.js";
 import { getAchievementIconUrl } from "../achievements/achievementDefinitions.js";
 import { animSleep, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
@@ -11,10 +11,25 @@ const props = defineProps({
 
 const backdropRef = ref(null);
 const contentRef = ref(null);
+const stackZ = ref(0);
 
-const stackStyle = computed(() => ({
-  zIndex: getOverlayStackTop() + 20,
-}));
+const stackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
+
+watch(
+  () => props.queue.playing.value,
+  (playing) => {
+    stackZ.value = playing ? bumpOverlayZ() : 0;
+  },
+);
+
+/** 结算 / 整局结束等层打开时会 bump 栈顶，播放期间保持 Toast 在其上方 */
+watchEffect(() => {
+  if (!props.queue.playing.value) return;
+  const top = getOverlayStackTop();
+  if (stackZ.value < top) {
+    stackZ.value = bumpOverlayZ();
+  }
+});
 
 const activeDef = computed(() => props.queue.active.value);
 

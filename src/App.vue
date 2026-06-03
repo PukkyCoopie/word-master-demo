@@ -69,6 +69,16 @@
         @confirm="onRunStartConfirm"
         @cancel="onRunStartCancel"
       />
+      <RunStartQuickConfirmLayer
+        :open="runStartQuickConfirm.open"
+        :title="runStartQuickConfirm.title"
+        :message="runStartQuickConfirm.message"
+        :confirm-label="runStartQuickConfirm.confirmLabel"
+        :cancel-label="runStartQuickConfirm.cancelLabel"
+        :backdrop-dismiss="runStartQuickConfirm.backdropDismiss"
+        @confirm="onRunStartQuickConfirm"
+        @cancel="onRunStartQuickCancel"
+      />
       <SettingsLayer :open="showSettings" @close="closeSettings" />
       <AboutLayer :open="showAbout" @close="closeAbout" />
       <PlayerProfileLayer
@@ -110,6 +120,7 @@ import MainMenu from "./components/MainMenu.vue";
 import CollectionPage from "./components/CollectionPage.vue";
 import GamePanel from "./components/GamePanel.vue";
 import RunStartDialog from "./components/RunStartDialog.vue";
+import RunStartQuickConfirmLayer from "./components/RunStartQuickConfirmLayer.vue";
 import SettingsLayer from "./components/SettingsLayer.vue";
 import AboutLayer from "./components/AboutLayer.vue";
 import PlayerProfileLayer from "./components/PlayerProfileLayer.vue";
@@ -121,7 +132,7 @@ import { useDictionary } from "./composables/useDictionary";
 import { useRemixIconFont } from "./composables/useRemixIconFont.js";
 import { useTapTapAuth } from "./composables/useTapTapAuth.js";
 import IrisTransition from "./components/IrisTransition.vue";
-import { coerceRunSeedNumeric } from "./game/runRng.js";
+import { coerceRunSeedNumeric, resolveRunSeedFromDialog } from "./game/runRng.js";
 import { isE2eMode } from "./e2e/isE2eMode.js";
 import { registerAppTestHarness } from "./e2e/registerAppTestHarness.js";
 import TapTapPromoIcon from "./components/TapTapPromoIcon.vue";
@@ -161,13 +172,22 @@ import {
 } from "./collection/collectionCareer.js";
 import { buildSubmitWordRecord } from "./collection/collectionWordRecord.js";
 import {
+  hasSlotCompletedAnyRun,
   mergeRunMatchStatsIntoCareer,
   normalizeSlotCareerStats,
 } from "./save/slotCareerStats.js";
 import { normalizeRunPresetId } from "./game/runPresetDefinitions.js";
 import { normalizeRunDifficultyIndex } from "./game/runDifficultyDefinitions.js";
-import { recordPresetWin, setLastSelectedPresetId } from "./game/runPresetProgress.js";
-import { recordDifficultyWin, setLastSelectedDifficultyIndex } from "./game/runDifficultyProgress.js";
+import {
+  getLastSelectedDifficultyBrowseIndex,
+  recordDifficultyWin,
+  setLastSelectedDifficultyIndex,
+} from "./game/runDifficultyProgress.js";
+import {
+  getLastSelectedPresetId,
+  recordPresetWin,
+  setLastSelectedPresetId,
+} from "./game/runPresetProgress.js";
 import { collectFreshUnlocksFromWin } from "./game/runStartFreshUnlock.js";
 import { createEmptySlotCareerStats } from "./save/runSaveSchema.js";
 import { tryUnlockAchievementsInCareer } from "./achievements/achievementUnlock.js";
@@ -207,6 +227,18 @@ const saveUiRefreshKey = ref(0);
 const collectionRefreshKey = ref(0);
 /** @type {import('vue').Ref<{ presetIds: string[], difficultyIndices: number[] }>} */
 const runStartFreshUnlocks = ref({ presetIds: [], difficultyIndices: [] });
+/** @type {import('vue').Ref<{ open: boolean, kind: 'continue' | 'new-run', slotIx: number, mode: 'menu' | 'restart', title: string, message: string, confirmLabel: string, cancelLabel: string, backdropDismiss: boolean }>} */
+const runStartQuickConfirm = ref({
+  open: false,
+  kind: "continue",
+  slotIx: 0,
+  mode: "menu",
+  title: "",
+  message: "",
+  confirmLabel: "",
+  cancelLabel: "",
+  backdropDismiss: false,
+});
 const IRIS_COLOR = "#5a8fb8";
 const COLLECTION_IRIS_COLOR = "#7b68a8";
 /** 与 IrisTransition revealMs 默认一致：收藏页首屏入场延后到 iris 揭开之后 */
@@ -249,11 +281,7 @@ provide("irisTransition", {
 });
 
 provide("requestNewRun", (opts = {}) => {
-  if (transitionBusy.value) return;
-  runStartPrefillSeed.value = String(opts.prefillSeed ?? "").trim();
-  runStartMode.value = "restart";
-  pendingNewRunSlotIndex.value = sessionSaveSlotIndex.value;
-  showRunStartDialog.value = true;
+  openRunStartFlow({ mode: "restart", prefillSeed: String(opts.prefillSeed ?? "").trim() });
 });
 
 provide("activeSaveSlotIndex", activeSaveSlotIndex);
@@ -571,13 +599,168 @@ function onDictBootBarClick() {
   loadDictionary({ shouldAbort: () => !appAlive });
 }
 
-function onMenuRequestStart() {
+function shouldUseRunStartDialog(slotIx) {
+  const career = getSlotCareer(slotIx);
+  return hasSlotCompletedAnyRun(career);
+}
+
+function closeRunStartQuickConfirm() {
+  runStartQuickConfirm.value = {
+    ...runStartQuickConfirm.value,
+    open: false,
+  };
+}
+
+function openRunStartQuickConfirm(payload) {
+  runStartQuickConfirm.value = {
+    open: true,
+    kind: payload.kind,
+    slotIx: payload.slotIx,
+    mode: payload.mode,
+    title: payload.title,
+    message: payload.message,
+    confirmLabel: payload.confirmLabel,
+    cancelLabel: payload.cancelLabel,
+    backdropDismiss: payload.backdropDismiss === true,
+  };
+}
+
+function persistSlotCareerSelection(slotIx, careerForSlot) {
+  try {
+    const envelope = structuredClone(loadSaveEnvelope());
+    if (envelope.slots[slotIx]) {
+      envelope.slots[slotIx].career = careerForSlot;
+      localStorage.setItem("word_master_run_saves_v1", JSON.stringify(envelope));
+      loadSaveEnvelope();
+      bumpSaveUi();
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function buildDefaultNewRunOptions(slotIx) {
+  const careerForSlot = normalizeSlotCareerStats(
+    getSlotCareer(slotIx) ?? createEmptySlotCareerStats(),
+  );
+  const presetId = normalizeRunPresetId(getLastSelectedPresetId(careerForSlot));
+  const difficultyIndex = normalizeRunDifficultyIndex(
+    getLastSelectedDifficultyBrowseIndex(careerForSlot),
+  );
+  const { seedNumeric, seedDisplay } = resolveRunSeedFromDialog("");
+  setLastSelectedPresetId(careerForSlot, presetId);
+  setLastSelectedDifficultyIndex(careerForSlot, difficultyIndex);
+  persistSlotCareerSelection(slotIx, careerForSlot);
+  return { presetId, difficultyIndex, seedNumeric, seedDisplay };
+}
+
+async function startDirectNewRun(slotIx, mode = "menu") {
   if (transitionBusy.value) return;
-  const ix = getActiveSaveSlotIndex();
-  runStartPrefillSeed.value = "";
-  runStartMode.value = "menu";
-  pendingNewRunSlotIndex.value = ix;
+  const { presetId, difficultyIndex, seedNumeric, seedDisplay } = buildDefaultNewRunOptions(slotIx);
+  sessionRunPresetId.value = presetId;
+  sessionRunDifficultyIndex.value = difficultyIndex;
+
+  if (mode === "menu" && !isSlotOccupied(slotIx)) {
+    const resetProfile = !isSlotProfileActivated(slotIx);
+    await startNewRunAtSlot(slotIx, seedNumeric, seedDisplay, resetProfile);
+    return;
+  }
+
+  if (hasContinuableRun(slotIx)) {
+    clearSlotRunProgress(slotIx);
+    bumpSaveUi();
+  }
+
+  sessionRestoredSave.value = null;
+  sessionRunSeed.value = seedNumeric;
+  sessionRunSeedDisplay.value = seedDisplay;
+  sessionSaveSlotIndex.value = slotIx;
+  setActiveSaveSlotIndex(slotIx);
+  transitionBusy.value = true;
+  await irisFxRef.value?.play({
+    onCovered: () => {
+      gameSessionKey.value += 1;
+      if (mode === "menu" || mode === "restart") screen.value = "game";
+    },
+  });
+  transitionBusy.value = false;
+}
+
+function openRunStartDialogFlow({ mode, slotIx, prefillSeed = "" }) {
+  runStartPrefillSeed.value = prefillSeed;
+  runStartMode.value = mode;
+  pendingNewRunSlotIndex.value = slotIx;
   showRunStartDialog.value = true;
+}
+
+function openRunStartFlow({ mode, prefillSeed = "" }) {
+  if (transitionBusy.value) return;
+  const slotIx =
+    mode === "restart" ? sessionSaveSlotIndex.value : getActiveSaveSlotIndex();
+
+  if (shouldUseRunStartDialog(slotIx)) {
+    openRunStartDialogFlow({ mode, slotIx, prefillSeed });
+    return;
+  }
+
+  if (mode === "menu" && hasContinuableRun(slotIx)) {
+    openRunStartQuickConfirm({
+      kind: "continue",
+      slotIx,
+      mode,
+      title: "继续游戏",
+      message: "是否继续之前的进度？",
+      confirmLabel: "继续",
+      cancelLabel: "开始新游戏",
+      backdropDismiss: false,
+    });
+    return;
+  }
+
+  if (mode === "restart") {
+    openRunStartQuickConfirm({
+      kind: "new-run",
+      slotIx,
+      mode,
+      title: "开始新的一局",
+      message: "是否开始新的一轮？本轮进度不会保存。",
+      confirmLabel: "开始",
+      cancelLabel: "取消",
+      backdropDismiss: true,
+    });
+    return;
+  }
+
+  void startDirectNewRun(slotIx, mode);
+}
+
+async function onRunStartQuickConfirm() {
+  const { kind, slotIx, mode } = runStartQuickConfirm.value;
+  closeRunStartQuickConfirm();
+  if (kind === "continue") {
+    await startLoadSlot(slotIx);
+    return;
+  }
+  await startDirectNewRun(slotIx, mode);
+}
+
+function onRunStartQuickCancel() {
+  const { kind, slotIx, mode } = runStartQuickConfirm.value;
+  closeRunStartQuickConfirm();
+  if (kind === "continue") {
+    void startDirectNewRun(slotIx, mode);
+  }
+}
+
+function onMenuRequestStart() {
+  openRunStartFlow({ mode: "menu" });
+}
+
+function onGameRequestRestart(payload) {
+  openRunStartFlow({
+    mode: "restart",
+    prefillSeed: payload?.prefillSeed ? sessionRunSeedDisplay.value : "",
+  });
 }
 
 function clearRunStartFreshUnlocks() {
@@ -659,14 +842,6 @@ function onRunStartCancel() {
   runStartPrefillSeed.value = "";
   pendingNewRunSlotIndex.value = null;
   clearRunStartFreshUnlocks();
-}
-
-function onGameRequestRestart(payload) {
-  if (transitionBusy.value) return;
-  runStartPrefillSeed.value = payload?.prefillSeed ? sessionRunSeedDisplay.value : "";
-  runStartMode.value = "restart";
-  pendingNewRunSlotIndex.value = sessionSaveSlotIndex.value;
-  showRunStartDialog.value = true;
 }
 
 async function onGameExitToMenu() {

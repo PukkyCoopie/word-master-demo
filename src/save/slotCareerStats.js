@@ -101,6 +101,11 @@ export function getSlotCareerStatRows(career) {
   ];
 }
 
+/** 该栏位是否曾完整结束过至少一局（胜利或失败均计入 runsCompleted） */
+export function hasSlotCompletedAnyRun(career) {
+  return normalizeSlotCareerStats(career).runsCompleted > 0;
+}
+
 /** 存档栏位卡片摘要：仅开局次数与胜利局数 */
 export function getSlotCareerSummaryRows(career) {
   const c = normalizeSlotCareerStats(career);

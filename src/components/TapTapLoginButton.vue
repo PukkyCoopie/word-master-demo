@@ -39,7 +39,8 @@ const buttonHeightRpx = TAP_TAP_LOGIN_BUTTON_HEIGHT_RPX;
 <style scoped>
 .taptap-login-btn {
   display: block;
-  margin: 0;
+  width: 75%;
+  margin: 0 auto;
   padding: 0;
   border: none;
   background: none;
@@ -56,9 +57,9 @@ const buttonHeightRpx = TAP_TAP_LOGIN_BUTTON_HEIGHT_RPX;
 
 .taptap-login-btn__art {
   display: block;
-  height: calc(v-bind(buttonHeightRpx) * var(--rpx));
-  width: auto;
-  max-width: 100%;
+  width: 100%;
+  height: auto;
+  min-height: calc(v-bind(buttonHeightRpx) * var(--rpx));
   object-fit: contain;
   pointer-events: none;
   user-select: none;
