@@ -56,6 +56,9 @@
 	--anim-speed-scale: 1;
 	--logic-w: calc(750 * var(--rpx));
 	--logic-h: calc(1500 * var(--rpx));
+	/* 主菜单内边距与按钮列宽（.main-menu padding 左右各一份） */
+	--menu-padding: calc(56 * var(--rpx));
+	--menu-actions-width: calc(var(--logic-w) - 2 * var(--menu-padding));
 	--bg: #faf8ef;
 	--card: #c4b7a6;
 	--card-bright: #eee4da;
@@ -4076,37 +4079,19 @@ textarea::-moz-placeholder {
 	line-height: 1.2;
 }
 
-/* 收藏：出现前提感叹号角标（列表名前行 & 详情「前置条件」标题） */
+/* 收藏：出现前提感叹号（列表名前行 & 详情「前置条件」标题） */
 .collection-prerequisite-badge {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
+	display: inline-block;
 	flex-shrink: 0;
-	width: calc(28 * var(--rpx));
-	height: calc(28 * var(--rpx));
-	border-radius: calc(7 * var(--rpx));
-	background: #f5c842;
-	color: #3c3a32;
-	box-sizing: border-box;
-}
-
-.collection-prerequisite-badge--panel {
-	width: calc(34 * var(--rpx));
-	height: calc(34 * var(--rpx));
-	border-radius: calc(8 * var(--rpx));
-}
-
-.collection-prerequisite-badge__icon {
-	font-size: calc(18 * var(--rpx));
+	font-size: calc(24 * var(--rpx));
 	line-height: 1;
-}
-
-.collection-prerequisite-badge--panel .collection-prerequisite-badge__icon {
-	font-size: calc(22 * var(--rpx));
+	color: var(--text-muted, #776e65);
+	vertical-align: -0.06em;
+	margin-right: calc(4 * var(--rpx));
 }
 
 .treasure-detail-desc-panel-title-row .collection-prerequisite-badge {
-	margin-right: calc(8 * var(--rpx));
+	margin-right: calc(4 * var(--rpx));
 }
 
 .shop-treasure-frame--collection-unknown {
@@ -4118,7 +4103,7 @@ textarea::-moz-placeholder {
 .collection-detail-unknown-mark {
 	font-size: calc(100cqmin * 40 / 108);
 	font-weight: 700;
-	color: rgba(249, 246, 242, 0.55);
+	color: var(--text-muted, #776e65);
 	line-height: 1;
 }
 

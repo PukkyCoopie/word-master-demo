@@ -116,6 +116,23 @@ export function noteTreasureRunUpgradeUsed(rs) {
 }
 
 /**
+ * 记录本局主动加入牌库的字母块稀有度（商店购入、法术、宝藏追加等；初始牌库不计）。
+ * @param {import('./treasureRunState.js').TreasureRunState} rs
+ * @param {readonly unknown[]} cards
+ */
+export function recordTreasureRunDeckCardsAdded(rs, cards) {
+  if (!rs) return;
+  if (!(rs.runDeckAddedRarities instanceof Set)) {
+    rs.runDeckAddedRarities = new Set();
+  }
+  for (const card of cards ?? []) {
+    if (!card || typeof card !== "object") continue;
+    const rarity = String(/** @type {{ rarity?: string }} */ (card).rarity ?? "").trim();
+    if (rarity) rs.runDeckAddedRarities.add(rarity);
+  }
+}
+
+/**
  * @param {readonly (null | { treasureAccessoryId?: string | null })[]} ownedSlots
  */
 export function checkAllOwnedTreasuresHaveAccessory(ownedSlots) {

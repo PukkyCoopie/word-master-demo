@@ -6,7 +6,6 @@
       'collection-shop-cell--unknown': unknown && !prerequisiteLocked,
       'collection-shop-cell--prerequisite-locked': prerequisiteLocked,
     }"
-    :disabled="unknown && !prerequisiteLocked"
     :aria-label="cellAriaLabel"
     @click="onClick"
   >
@@ -108,14 +107,12 @@ const priceLabel = computed(() => {
 });
 
 const cellAriaLabel = computed(() => {
-  if (props.prerequisiteLocked) return "预览未解锁宝藏（含前置条件）";
-  if (props.unknown) return displayName.value;
+  if (props.unknown) return "预览未解锁条目";
   return `预览 ${displayName.value}`;
 });
 
 /** @param {MouseEvent} event */
 function onClick(event) {
-  if (props.unknown && !props.prerequisiteLocked) return;
   const el = event.currentTarget;
   emit("select", {
     treasureId: props.treasureId,
@@ -147,7 +144,6 @@ function onClick(event) {
 }
 
 .collection-shop-cell--unknown {
-  cursor: default;
   opacity: 0.55;
 }
 

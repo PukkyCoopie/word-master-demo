@@ -18,13 +18,15 @@
       @transitionend="onLayerInnerTransitionEnd"
     >
       <div class="info-tabs-outer">
-        <div class="info-tabs" role="tablist">
+        <div ref="infoTabsRef" class="info-tabs" role="tablist">
+          <div class="info-tabs-thumb" aria-hidden="true" :style="infoTabThumbStyle" />
           <button
             type="button"
             role="tab"
             class="info-tab"
             :class="{ 'info-tab--active': activeTab === 'level' }"
             :aria-selected="activeTab === 'level'"
+            :ref="(el) => setInfoTabEl('level', el)"
             @click="activeTab = 'level'"
           >
             等级
@@ -35,6 +37,7 @@
             class="info-tab"
             :class="{ 'info-tab--active': activeTab === 'rarity' }"
             :aria-selected="activeTab === 'rarity'"
+            :ref="(el) => setInfoTabEl('rarity', el)"
             @click="activeTab = 'rarity'"
           >
             字母块
@@ -45,6 +48,7 @@
             class="info-tab"
             :class="{ 'info-tab--active': activeTab === 'stage' }"
             :aria-selected="activeTab === 'stage'"
+            :ref="(el) => setInfoTabEl('stage', el)"
             @click="activeTab = 'stage'"
           >
             关卡
@@ -55,6 +59,7 @@
             class="info-tab"
             :class="{ 'info-tab--active': activeTab === 'coupon' }"
             :aria-selected="activeTab === 'coupon'"
+            :ref="(el) => setInfoTabEl('coupon', el)"
             @click="activeTab = 'coupon'"
           >
             优惠券
@@ -62,9 +67,10 @@
           <button
             type="button"
             role="tab"
-            class="info-tab"
+            class="info-tab info-tab--wide"
             :class="{ 'info-tab--active': activeTab === 'preset' }"
             :aria-selected="activeTab === 'preset'"
+            :ref="(el) => setInfoTabEl('preset', el)"
             @click="activeTab = 'preset'"
           >
             预设和难度
@@ -467,6 +473,40 @@ watch(
 
 const activeTab = ref("level");
 
+const infoTabsRef = ref(/** @type {HTMLElement | null} */ (null));
+/** @type {Record<string, HTMLElement | undefined>} */
+const infoTabElById = {};
+const infoTabThumbStyle = ref({ width: "0px", transform: "translateX(0)" });
+
+/**
+ * @param {string} id
+ * @param {import('vue').ComponentPublicInstance | Element | null} el
+ */
+function setInfoTabEl(id, el) {
+  const node = el instanceof HTMLElement ? el : null;
+  if (node) {
+    infoTabElById[id] = node;
+  } else {
+    delete infoTabElById[id];
+  }
+}
+
+function updateInfoTabThumb() {
+  const btn = infoTabElById[activeTab.value];
+  if (!btn) return;
+  infoTabThumbStyle.value = {
+    width: `${btn.offsetWidth}px`,
+    transform: `translateX(${btn.offsetLeft}px)`,
+  };
+}
+
+function scheduleUpdateInfoTabThumb() {
+  nextTick(() => {
+    updateInfoTabThumb();
+    requestAnimationFrame(() => updateInfoTabThumb());
+  });
+}
+
 const levelTabRef = ref(null);
 const rarityTabRef = ref(null);
 const stageTabRef = ref(null);
@@ -605,12 +645,16 @@ function onLayerInnerTransitionEnd(ev) {
   if (ev.propertyName !== "transform") return;
   if (!props.modelValue) return;
   measureLevelTabHeight();
+  updateInfoTabThumb();
 }
 
 let levelTableResizeObserver = null;
+/** @type {ResizeObserver | null} */
+let infoTabsResizeObserver = null;
 
 function onWindowResizeForInfoModal() {
   scheduleMeasureLevelTabHeight();
+  updateInfoTabThumb();
 }
 
 onMounted(() => {
@@ -622,9 +666,20 @@ onMounted(() => {
     });
     levelTableResizeObserver.observe(el);
   }
+  nextTick(() => {
+    if (infoTabsRef.value && typeof ResizeObserver !== "undefined") {
+      infoTabsResizeObserver = new ResizeObserver(() => {
+        updateInfoTabThumb();
+      });
+      infoTabsResizeObserver.observe(infoTabsRef.value);
+    }
+    updateInfoTabThumb();
+  });
   window.addEventListener("resize", onWindowResizeForInfoModal);
   if (props.modelValue) {
     applyInfoModalOpenState();
+  } else {
+    scheduleUpdateInfoTabThumb();
   }
 });
 
@@ -688,6 +743,8 @@ onBeforeUnmount(() => {
   killAllInfoStaggerTweens();
   levelTableResizeObserver?.disconnect();
   levelTableResizeObserver = null;
+  infoTabsResizeObserver?.disconnect();
+  infoTabsResizeObserver = null;
   window.removeEventListener("resize", onWindowResizeForInfoModal);
   if (seedCopyResetTimer) clearTimeout(seedCopyResetTimer);
 });
@@ -707,6 +764,7 @@ function applyInfoModalOpenState() {
     openingStaggerGuard.value = false;
     runActiveTabEnterAnim();
     skipTabSwitchAnim = false;
+    scheduleUpdateInfoTabThumb();
   });
 }
 
@@ -722,6 +780,7 @@ watch(
 );
 
 watch(activeTab, () => {
+  scheduleUpdateInfoTabThumb();
   if (!props.modelValue || skipTabSwitchAnim) return;
   if (tabEnterAnimTimer) {
     clearTimeout(tabEnterAnimTimer);
@@ -955,7 +1014,7 @@ function close() {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: calc(16 * var(--rpx));
+  padding: calc(16 * var(--rpx)) 0;
   border-radius: calc(12 * var(--rpx));
   overflow: hidden;
   box-sizing: border-box;
@@ -964,8 +1023,8 @@ function close() {
 .info-layer-inner {
   background: var(--card, #bbada0);
   border-radius: calc(10 * var(--rpx));
-  width: 100%;
-  max-width: calc(702 * var(--rpx));
+  width: calc(750 * var(--rpx) - 28 * var(--rpx));
+  max-width: calc(750 * var(--rpx) - 28 * var(--rpx));
   max-height: calc(100% - 24 * var(--rpx));
   /* 总高由内容 + 中间区 min-height（JS 按等级表量）决定，上限为视口；无固定 rpx 高度 */
   height: auto;
@@ -978,7 +1037,7 @@ function close() {
   box-sizing: border-box;
 }
 
-/* Tab 分段选择器（样式对齐开始游戏弹窗，配色沿用对局信息橙/米色） */
+/* Tab 分段选择器：中性底 + 对局信息橙滑块；末项「预设和难度」加宽 */
 .info-tabs-outer {
   grid-row: 1;
   position: relative;
@@ -987,35 +1046,58 @@ function close() {
 }
 
 .info-tabs {
+  --info-tab-pad: calc(6 * var(--rpx));
+  --info-orange: #ed8c5c;
+  --info-orange-fg: #faf8ef;
   display: flex;
-  gap: calc(4 * var(--rpx));
+  gap: 0;
   align-items: stretch;
-  padding: calc(4 * var(--rpx));
+  padding: var(--info-tab-pad);
   position: relative;
   overflow: visible;
-  border-radius: var(--radius);
-  background: #ed8c5c;
+  border-radius: calc(8 * var(--rpx));
+  background: rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+}
+
+.info-tabs-thumb {
+  position: absolute;
+  top: var(--info-tab-pad);
+  bottom: var(--info-tab-pad);
+  left: 0;
+  border-radius: calc(6 * var(--rpx));
+  background: var(--info-orange);
+  pointer-events: none;
+  transition:
+    transform calc(0.22s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out),
+    width calc(0.22s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out);
+  z-index: 0;
 }
 
 .info-tab {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   position: relative;
+  z-index: 1;
   border: none;
-  padding: calc(10 * var(--rpx)) calc(4 * var(--rpx));
+  padding: calc(14 * var(--rpx)) calc(6 * var(--rpx));
   font-family: inherit;
-  font-size: calc(20 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
   font-weight: 700;
-  line-height: 1.2;
-  color: #faf8ef;
+  line-height: 1.25;
+  color: var(--text-dark, #3c3a32);
   background: transparent;
   cursor: pointer;
-  border-radius: calc(8 * var(--rpx));
+  border-radius: calc(6 * var(--rpx));
   opacity: 0.72;
+  white-space: nowrap;
   transition:
-    background 0.12s ease,
-    opacity 0.12s ease,
-    box-shadow 0.12s ease;
+    color 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.info-tab--wide {
+  flex: 1.42 1 0;
 }
 
 .info-tab:hover:not(.info-tab--active) {
@@ -1027,11 +1109,17 @@ function close() {
 }
 
 .info-tab--active {
-  color: #5c534c;
-  background: #faf8ef;
-  box-shadow: var(--shadow);
+  color: var(--info-orange-fg);
   opacity: 1;
-  z-index: 1;
+}
+
+.info-tab:focus-visible {
+  outline: calc(2 * var(--rpx)) solid var(--info-orange);
+  outline-offset: calc(1 * var(--rpx));
+}
+
+:global(html.reduce-motion) .info-tabs-thumb {
+  transition: none;
 }
 
 .info-panel {

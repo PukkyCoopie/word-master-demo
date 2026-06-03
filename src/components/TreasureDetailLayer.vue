@@ -295,12 +295,29 @@
           </div>
 
           <div
+            v-if="showCollectionUnlockHintPanel"
+            ref="collectionUnlockHintPanelRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span class="treasure-detail-desc-panel-title-text">{{
+                collectionUnlockHintPanel.title
+              }}</span>
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="collectionUnlockHintPanel.description"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
             v-if="showCollectionUnlockPrerequisitePanel"
             ref="collectionUnlockPrerequisitePanelRef"
             class="treasure-detail-desc-card treasure-detail-stagger-el"
           >
             <div class="treasure-detail-desc-panel-title-row">
-              <CollectionPrerequisiteBadge panel />
+              <CollectionPrerequisiteBadge />
               <span class="treasure-detail-desc-panel-title-text">{{
                 collectionUnlockPrerequisitePanel?.title
               }}</span>
@@ -566,7 +583,7 @@
           'treasure-detail-fly-clone-root--deck-tile': isDeckOffer,
           'treasure-detail-fly-clone-root--voucher-stack': isVoucherOffer && voucherDetailStacked,
         }"
-        :style="flyCloneStyle"
+        :style="collectionLockedFlyCloneStyle"
         aria-hidden="true"
       >
         <LetterTile
@@ -607,12 +624,16 @@
               treasure?.offerType === 'upgrade' && treasure?.upgradeKind === 'rarity',
             'shop-treasure-frame--spell-offer': isSpellOffer,
             'shop-treasure-frame--voucher-stamp': isVoucherOffer,
+            'shop-treasure-frame--collection-unknown': isCollectionLockedPreview,
             'treasure-detail-frame--charge-inactive': chargeVisualState === 'inactive',
             'treasure-detail-frame--charge-active': chargeVisualState === 'active',
           }"
           :style="{ '--charge-progress': String(chargeProgress ?? 0) }"
         >
-          <template v-if="isUpgradeOffer">
+          <template v-if="isCollectionLockedPreview">
+            <span class="collection-detail-unknown-mark" aria-hidden="true">?</span>
+          </template>
+          <template v-else-if="isUpgradeOffer">
             <i
               v-if="treasure.iconClass"
               class="shop-treasure-emoji shop-treasure-emoji--detail shop-treasure-emoji--icon"
@@ -760,6 +781,7 @@ import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.j
 import PreviewGroupNav from "./PreviewGroupNav.vue";
 import CollectionPrerequisiteBadge from "./collection/CollectionPrerequisiteBadge.vue";
 import { COLLECTION_UNKNOWN_LABEL } from "../collection/collectionDisplayUtils.js";
+import { resolveCollectionUnlockHintPanel } from "../collection/collectionUnlockHintCopy.js";
 import {
   collectionEntryOpacityForState,
   isCollectionEntryLocked,
@@ -1184,6 +1206,18 @@ function treasureGainDescriptionNonEmpty(desc) {
   return Array.isArray(desc) && desc.length > 0;
 }
 
+const collectionUnlockHintPanel = computed(() => {
+  if (!isCollectionPreviewMode.value || !isCollectionLockedPreview.value) return null;
+  return resolveCollectionUnlockHintPanel(props.treasure);
+});
+
+const showCollectionUnlockHintPanel = computed(
+  () =>
+    isCollectionPreviewMode.value &&
+    isCollectionLockedPreview.value &&
+    treasureGainDescriptionNonEmpty(collectionUnlockHintPanel.value?.description),
+);
+
 const collectionUnlockPrerequisitePanel = computed(() => {
   if (!isCollectionPreviewMode.value) return null;
   if (
@@ -1298,6 +1332,7 @@ const deckOfferAccessoryRef = ref(null);
 const deckOfferTreasureAccessoryRef = ref(null);
 const spellGainPanelRef = ref(null);
 const treasureGainPanelRef = ref(null);
+const collectionUnlockHintPanelRef = ref(null);
 const collectionUnlockPrerequisitePanelRef = ref(null);
 const accessoryPanelRef = ref(null);
 const actionsRef = ref(null);
@@ -1332,6 +1367,7 @@ function staggerTargets() {
     deckOfferAccessoryRef.value,
     deckOfferTreasureAccessoryRef.value,
     treasureGainPanelRef.value,
+    collectionUnlockHintPanelRef.value,
     collectionUnlockPrerequisitePanelRef.value,
     spellGainPanelRef.value,
     ...descriptionConceptPanelRefs.filter((el) => el instanceof HTMLElement),
@@ -1422,6 +1458,11 @@ const flyCloneStyle = computed(() => {
     margin: "0",
   };
 });
+
+const collectionLockedFlyCloneStyle = computed(() => ({
+  ...flyCloneStyle.value,
+  ...(collectionLockedVisualStyle.value ?? {}),
+}));
 
 /**
  * @param {HTMLElement} backdrop

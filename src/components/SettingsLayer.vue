@@ -379,7 +379,7 @@ function onScaleInputEnter(e) {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  width: min(calc(620 * var(--rpx)), calc(100% - 40 * var(--rpx)));
+  width: min(var(--menu-actions-width), calc(100% - 40 * var(--rpx)));
   height: min(calc(820 * var(--rpx)), calc(100% - 40 * var(--rpx)));
   overflow: hidden;
   background: var(--card-bright);
@@ -406,7 +406,6 @@ function onScaleInputEnter(e) {
 .settings-layer-tabs {
   --settings-tab-pad: calc(4 * var(--rpx));
   --settings-orange: #d4954a;
-  --settings-orange-dark: #b87a3a;
   --settings-orange-fg: #f9f6f2;
   position: relative;
   display: flex;
@@ -414,7 +413,7 @@ function onScaleInputEnter(e) {
   margin: calc(-6 * var(--rpx)) 0 calc(18 * var(--rpx));
   padding: var(--settings-tab-pad);
   border-radius: calc(8 * var(--rpx));
-  background: var(--settings-orange);
+  background: rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
 }
 
@@ -425,8 +424,8 @@ function onScaleInputEnter(e) {
   left: var(--settings-tab-pad);
   width: calc((100% - 2 * var(--settings-tab-pad)) / var(--settings-tab-count));
   border-radius: calc(6 * var(--rpx));
-  background: var(--settings-orange-dark);
-  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.18);
+  background: var(--settings-orange);
+  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.14);
   pointer-events: none;
   transition: transform calc(0.22s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out);
   transform: translateX(calc(var(--settings-tab-index) * 100%));
@@ -444,23 +443,26 @@ function onScaleInputEnter(e) {
   font-family: inherit;
   font-size: calc(24 * var(--rpx));
   font-weight: 700;
-  color: var(--settings-orange-fg);
+  color: var(--text-dark, #3c3a32);
   background: transparent;
   cursor: pointer;
-  opacity: 0.62;
-  transition: opacity 0.12s ease;
+  opacity: 0.72;
+  transition:
+    color 0.12s ease,
+    opacity 0.12s ease;
 }
 
 .settings-layer-tab--active {
+  color: var(--settings-orange-fg);
   opacity: 1;
 }
 
 .settings-layer-tab:hover:not(.settings-layer-tab--active) {
-  opacity: 0.82;
+  opacity: 0.88;
 }
 
 .settings-layer-tab:focus-visible {
-  outline: calc(2 * var(--rpx)) solid var(--settings-orange-fg);
+  outline: calc(2 * var(--rpx)) solid var(--settings-orange);
   outline-offset: calc(1 * var(--rpx));
 }
 

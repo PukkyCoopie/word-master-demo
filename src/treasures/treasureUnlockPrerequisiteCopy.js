@@ -19,7 +19,7 @@ function buildUnlockPrerequisitePlainText(pre) {
     case "deckIceMin":
       return `在牌库中拥有${min || 5}个碎冰块`;
     case "deckRarityKindsMin":
-      return `在牌库中拥有${min || 3}种不同稀有度的字母`;
+      return `向牌库中添加至少${min || 3}种不同稀有度的字母块`;
     case "deckGoldCoinAccessory":
       return "牌库中有带硬币配饰的黄金块";
     case "endlessMode":
@@ -37,13 +37,13 @@ function buildUnlockPrerequisitePlainText(pre) {
     case "levelAllFiveVowels":
       return "曾在同一小关内用齐 a、e、i、o、u 五种元音";
     case "runSpellsCastMin":
-      return `本局已释放法术${min || 5}次`;
+      return `本轮游戏已释放过${min || 5}次法术`;
     case "runUpgradesUsedMin":
-      return `本局已使用升级${min || 5}次`;
+      return `本轮游戏已使用过${min || 5}次升级`;
     case "everDiscardedFullWord":
-      return "本局曾弃掉一个完整单词";
+      return "本轮游戏曾弃掉一个完整单词";
     case "discardWordLen7OrSoldBlueprint98":
-      return "本局曾弃掉 7 字母及以上的完整单词，或曾卖出面具";
+      return "本轮游戏曾弃掉 7 字母及以上的完整单词，或曾卖出面具";
     case "allOwnedTreasuresHaveAccessory":
       return "已拥有的每个宝藏都装备了配饰";
     case "probabilityEffectTriggered":

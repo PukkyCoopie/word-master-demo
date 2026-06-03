@@ -141,7 +141,6 @@ const showcaseRows = [
   position: relative;
   width: 100%;
   height: 100%;
-  --menu-padding: calc(56 * var(--rpx));
   background: var(--card);
   border-radius: calc(12 * var(--rpx));
   box-shadow: var(--shadow);

@@ -35,6 +35,7 @@
  * @property {boolean} soldBlueprintTreasure98 本局是否卖出过面具（98）
  * @property {number} runSpellsCastCount 本局已释放法术次数
  * @property {number} runUpgradesUsedCount 本局已使用升级次数
+ * @property {Set<string>} runDeckAddedRarities 本局主动加入牌库的字母块已覆盖的稀有度（初始牌库不计）
  * @property {number} runLettersDiscardedTotal 本局累计弃掉字母块数
  * @property {boolean} shopUpgradesFree 商店升级/升级包免费（宝藏 110）
  * @property {string | null} lastSpellIdBeforeShopLeave 离店前最后一次释放的法术 id（宝藏 117）
@@ -83,6 +84,7 @@ export function createTreasureRunState() {
     soldBlueprintTreasure98: false,
     runSpellsCastCount: 0,
     runUpgradesUsedCount: 0,
+    runDeckAddedRarities: new Set(),
     runLettersDiscardedTotal: 0,
     shopUpgradesFree: false,
     lastSpellIdBeforeShopLeave: null,

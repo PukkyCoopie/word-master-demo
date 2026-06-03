@@ -656,7 +656,6 @@ function onCancel() {
 .run-start-dialog-tabs {
   --run-start-tab-pad: calc(4 * var(--rpx));
   --run-start-blue: #5a8fb8;
-  --run-start-blue-dark: #456b8a;
   --run-start-blue-fg: #f9f6f2;
   position: relative;
   display: flex;
@@ -664,7 +663,7 @@ function onCancel() {
   margin: calc(-6 * var(--rpx)) 0 calc(18 * var(--rpx));
   padding: var(--run-start-tab-pad);
   border-radius: calc(8 * var(--rpx));
-  background: var(--run-start-blue);
+  background: rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
 }
 
@@ -675,8 +674,8 @@ function onCancel() {
   left: var(--run-start-tab-pad);
   width: calc((100% - 2 * var(--run-start-tab-pad)) / 2);
   border-radius: calc(6 * var(--rpx));
-  background: var(--run-start-blue-dark);
-  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.18);
+  background: var(--run-start-blue);
+  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.14);
   pointer-events: none;
   transition: transform 0.22s var(--ease-expo-out, ease-out);
   transform: translateX(calc(var(--run-start-tab-index, 0) * 100%));
@@ -694,19 +693,22 @@ function onCancel() {
   font-family: inherit;
   font-size: calc(24 * var(--rpx));
   font-weight: 700;
-  color: var(--run-start-blue-fg);
+  color: var(--text-dark, #3c3a32);
   background: transparent;
   cursor: pointer;
-  opacity: 0.62;
-  transition: opacity 0.12s ease;
+  opacity: 0.72;
+  transition:
+    color 0.12s ease,
+    opacity 0.12s ease;
 }
 
 .run-start-dialog-tab--active {
+  color: var(--run-start-blue-fg);
   opacity: 1;
 }
 
 .run-start-dialog-tab:hover:not(.run-start-dialog-tab--active):not(:disabled) {
-  opacity: 0.82;
+  opacity: 0.88;
 }
 
 .run-start-dialog-tab--disabled,
@@ -720,7 +722,7 @@ function onCancel() {
 }
 
 .run-start-dialog-tab:focus-visible {
-  outline: calc(2 * var(--rpx)) solid var(--run-start-blue-fg);
+  outline: calc(2 * var(--rpx)) solid var(--run-start-blue);
   outline-offset: calc(1 * var(--rpx));
 }
 

@@ -35,6 +35,7 @@ export function serializeTreasureRunState(state) {
     soldBlueprintTreasure98: !!state.soldBlueprintTreasure98,
     runSpellsCastCount: Math.max(0, Math.floor(Number(state.runSpellsCastCount) || 0)),
     runUpgradesUsedCount: Math.max(0, Math.floor(Number(state.runUpgradesUsedCount) || 0)),
+    runDeckAddedRarities: [...(state.runDeckAddedRarities ?? [])],
     runLettersDiscardedTotal: Math.max(0, Math.floor(Number(state.runLettersDiscardedTotal) || 0)),
     shopUpgradesFree: !!state.shopUpgradesFree,
     lastSpellIdBeforeShopLeave: state.lastSpellIdBeforeShopLeave ?? null,
@@ -87,6 +88,9 @@ export function deserializeTreasureRunState(raw) {
   base.soldBlueprintTreasure98 = !!o.soldBlueprintTreasure98;
   base.runSpellsCastCount = Math.max(0, Math.floor(Number(o.runSpellsCastCount) || 0));
   base.runUpgradesUsedCount = Math.max(0, Math.floor(Number(o.runUpgradesUsedCount) || 0));
+  base.runDeckAddedRarities = new Set(
+    Array.isArray(o.runDeckAddedRarities) ? o.runDeckAddedRarities.map(String) : [],
+  );
   base.runLettersDiscardedTotal = Math.max(0, Math.floor(Number(o.runLettersDiscardedTotal) || 0));
   base.shopUpgradesFree = !!o.shopUpgradesFree;
   base.lastSpellIdBeforeShopLeave = o.lastSpellIdBeforeShopLeave != null ? String(o.lastSpellIdBeforeShopLeave) : null;

@@ -33,7 +33,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onStart() {
         super.onStart();
-        applyImmersiveSystemUi();
+        applyEdgeToEdgeSystemUi();
         configureWebViewForGame();
     }
 
@@ -41,7 +41,7 @@ public class MainActivity extends BridgeActivity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
-            applyImmersiveSystemUi();
+            applyEdgeToEdgeSystemUi();
             configureWebViewForGame();
         }
     }
@@ -49,18 +49,24 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
-        applyImmersiveSystemUi();
+        applyEdgeToEdgeSystemUi();
         configureWebViewForGame();
     }
 
-    private void applyImmersiveSystemUi() {
+    /**
+     * 边到边 + 透明系统栏（非 sticky 沉浸式）。
+     * 若 hide(systemBars) 且 BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE，全面屏返回需先滑出系统栏再滑第二次才生效。
+     */
+    private void applyEdgeToEdgeSystemUi() {
         WindowInsetsControllerCompat controller =
             WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
         if (controller == null) {
             return;
         }
-        controller.hide(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.navigationBars());
-        controller.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        controller.show(WindowInsetsCompat.Type.systemBars());
+        controller.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_DEFAULT);
+        controller.setAppearanceLightStatusBars(true);
+        controller.setAppearanceLightNavigationBars(true);
     }
 
     private void configureWebViewForGame() {

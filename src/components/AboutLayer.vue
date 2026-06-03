@@ -16,14 +16,20 @@
         <h2 :id="titleId" class="about-layer-title">关于</h2>
 
         <nav class="about-tabs-outer" aria-label="关于分类">
-          <div class="about-tabs">
+          <div
+            class="about-tabs"
+            role="tablist"
+            :style="aboutTabSlideStyle"
+          >
+            <div class="about-tabs-thumb" aria-hidden="true" />
             <button
               v-for="section in ABOUT_SECTIONS"
               :key="section.id"
               type="button"
+              role="tab"
               class="about-tab"
               :class="{ 'about-tab--active': activeTab === section.id }"
-              :aria-current="activeTab === section.id ? 'true' : undefined"
+              :aria-selected="activeTab === section.id"
               @click="scrollToSection(section.id)"
             >
               {{ section.label }}
@@ -215,6 +221,17 @@ const ABOUT_SECTIONS = [
 const titleId = "about-layer-title";
 /** @type {import('vue').Ref<'game' | 'thirdParty' | 'changelog'>} */
 const activeTab = ref("game");
+
+const activeTabIndex = computed(() => {
+  const idx = ABOUT_SECTIONS.findIndex((s) => s.id === activeTab.value);
+  return idx >= 0 ? idx : 0;
+});
+
+const aboutTabSlideStyle = computed(() => ({
+  "--about-tab-count": String(ABOUT_SECTIONS.length),
+  "--about-tab-index": String(activeTabIndex.value),
+}));
+
 const scrollBodyRef = ref(null);
 const scrollTrackRef = ref(null);
 const scrollbarVisible = ref(false);
@@ -541,21 +558,21 @@ function splitSummary(summary) {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  width: min(calc(620 * var(--rpx)), calc(100% - 40 * var(--rpx)));
-  height: min(calc(820 * var(--rpx)), calc(100% - 40 * var(--rpx)));
-  --about-text-size: calc(22 * var(--rpx));
-  --about-text-lh: 1.4;
+  width: min(var(--menu-actions-width), calc(100% - 40 * var(--rpx)));
+  height: min(calc(880 * var(--rpx)), calc(100% - 40 * var(--rpx)));
+  --about-text-size: calc(26 * var(--rpx));
+  --about-text-lh: 1.45;
   overflow: hidden;
   background: var(--card-bright);
   border-radius: var(--radius);
-  padding: calc(28 * var(--rpx)) calc(26 * var(--rpx)) calc(24 * var(--rpx));
+  padding: calc(32 * var(--rpx)) calc(28 * var(--rpx)) calc(24 * var(--rpx));
   box-shadow: var(--shadow);
   box-sizing: border-box;
 }
 
 .about-layer-title {
-  margin: 0 0 calc(14 * var(--rpx));
-  font-size: calc(28 * var(--rpx));
+  margin: 0 0 calc(22 * var(--rpx));
+  font-size: calc(40 * var(--rpx));
   font-weight: 800;
   color: var(--text-dark, #3c3a32);
   text-align: center;
@@ -563,38 +580,70 @@ function splitSummary(summary) {
 
 .about-tabs-outer {
   flex-shrink: 0;
-  margin-bottom: calc(14 * var(--rpx));
+  margin: calc(-6 * var(--rpx)) 0 calc(18 * var(--rpx));
 }
 
 .about-tabs {
+  --about-tab-pad: calc(4 * var(--rpx));
+  --about-green: var(--btn-green, #7cb342);
+  --about-green-fg: #f9f6f2;
+  position: relative;
   display: flex;
-  gap: calc(8 * var(--rpx));
+  gap: 0;
+  padding: var(--about-tab-pad);
+  border-radius: calc(8 * var(--rpx));
+  background: rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+}
+
+.about-tabs-thumb {
+  position: absolute;
+  top: var(--about-tab-pad);
+  bottom: var(--about-tab-pad);
+  left: var(--about-tab-pad);
+  width: calc((100% - 2 * var(--about-tab-pad)) / var(--about-tab-count));
+  border-radius: calc(6 * var(--rpx));
+  background: var(--about-green);
+  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.14);
+  pointer-events: none;
+  transition: transform calc(0.22s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out);
+  transform: translateX(calc(var(--about-tab-index) * 100%));
+  z-index: 0;
 }
 
 .about-tab {
   flex: 1;
   min-width: 0;
+  position: relative;
+  z-index: 1;
   border: none;
-  border-radius: calc(10 * var(--rpx));
-  padding: calc(12 * var(--rpx)) calc(6 * var(--rpx));
+  border-radius: calc(6 * var(--rpx));
+  padding: calc(10 * var(--rpx)) calc(8 * var(--rpx));
   font-family: inherit;
-  font-size: calc(22 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
   font-weight: 700;
   line-height: 1.25;
   cursor: pointer;
   color: var(--text-dark, #3c3a32);
-  background: var(--card, #eee4da);
-  transition: filter 0.12s ease;
+  background: transparent;
+  opacity: 0.72;
+  transition:
+    color 0.12s ease,
+    opacity 0.12s ease;
 }
 
 .about-tab:hover:not(.about-tab--active) {
-  filter: brightness(1.06);
+  opacity: 0.88;
 }
 
 .about-tab--active {
-  color: #f9f6f2;
-  background: #8a9a7a;
-  box-shadow: var(--shadow);
+  color: var(--about-green-fg);
+  opacity: 1;
+}
+
+.about-tab:focus-visible {
+  outline: calc(2 * var(--rpx)) solid var(--about-green);
+  outline-offset: calc(1 * var(--rpx));
 }
 
 .about-scroll-outer {
@@ -612,7 +661,7 @@ function splitSummary(summary) {
   overflow-y: auto;
   scroll-behavior: smooth;
   box-sizing: border-box;
-  padding: calc(10 * var(--rpx)) calc(2 * var(--rpx)) calc(12 * var(--rpx));
+  padding: calc(12 * var(--rpx)) calc(2 * var(--rpx)) calc(14 * var(--rpx));
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -641,7 +690,7 @@ function splitSummary(summary) {
   right: 0;
   top: 0;
   border-radius: calc(6 * var(--rpx));
-  background: #8a9a7a;
+  background: var(--btn-green, #7cb342);
   box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.12);
   cursor: grab;
   touch-action: none;
@@ -658,18 +707,18 @@ function splitSummary(summary) {
 }
 
 .about-section + .about-section {
-  margin-top: calc(28 * var(--rpx));
-  padding-top: calc(28 * var(--rpx));
+  margin-top: calc(32 * var(--rpx));
+  padding-top: calc(32 * var(--rpx));
   border-top: calc(2 * var(--rpx)) solid rgba(60, 58, 50, 0.1);
 }
 
 .about-section--last {
-  padding-bottom: calc(8 * var(--rpx));
+  padding-bottom: calc(10 * var(--rpx));
 }
 
 .about-section-title {
-  margin: 0 0 calc(10 * var(--rpx));
-  font-size: var(--about-text-size);
+  margin: 0 0 calc(12 * var(--rpx));
+  font-size: calc(28 * var(--rpx));
   font-weight: 800;
   line-height: var(--about-text-lh);
   color: var(--text-dark, #3c3a32);
@@ -687,8 +736,8 @@ function splitSummary(summary) {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: calc(16 * var(--rpx));
-  padding: calc(18 * var(--rpx)) calc(16 * var(--rpx));
+  gap: calc(18 * var(--rpx));
+  padding: calc(22 * var(--rpx)) calc(20 * var(--rpx));
   background: var(--card, #eee4da);
   border: calc(1 * var(--rpx)) solid rgba(60, 58, 50, 0.14);
   border-radius: var(--radius);
@@ -698,7 +747,7 @@ function splitSummary(summary) {
 .about-game-header {
   display: flex;
   flex-direction: column;
-  gap: calc(10 * var(--rpx));
+  gap: calc(12 * var(--rpx));
 }
 
 .about-game-title-row {
@@ -712,7 +761,7 @@ function splitSummary(summary) {
   margin: 0;
   flex: 1 1 auto;
   min-width: 0;
-  font-size: calc(30 * var(--rpx));
+  font-size: calc(34 * var(--rpx));
   font-weight: 800;
   line-height: 1.2;
   letter-spacing: calc(0.5 * var(--rpx));
@@ -731,9 +780,9 @@ function splitSummary(summary) {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: calc(10 * var(--rpx));
+  gap: calc(12 * var(--rpx));
   margin: 0;
-  padding-top: calc(14 * var(--rpx));
+  padding-top: calc(16 * var(--rpx));
   border-top: calc(2 * var(--rpx)) solid rgba(60, 58, 50, 0.1);
 }
 
@@ -741,12 +790,12 @@ function splitSummary(summary) {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  padding: calc(5 * var(--rpx)) calc(12 * var(--rpx));
-  font-size: calc(18 * var(--rpx));
+  padding: calc(6 * var(--rpx)) calc(14 * var(--rpx));
+  font-size: calc(20 * var(--rpx));
   font-weight: 800;
   line-height: 1.25;
   color: #f9f6f2;
-  background: #8a9a7a;
+  background: var(--btn-green, #7cb342);
   border-radius: calc(8 * var(--rpx));
   box-shadow: 0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.08);
 }
@@ -760,7 +809,7 @@ function splitSummary(summary) {
 }
 
 .about-game-studio {
-  font-size: calc(20 * var(--rpx));
+  font-size: calc(22 * var(--rpx));
   font-weight: 800;
   line-height: 1.25;
   color: var(--text-soft, #8f7a66);
@@ -777,15 +826,15 @@ function splitSummary(summary) {
   padding: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: calc(10 * var(--rpx));
+  gap: calc(12 * var(--rpx));
 }
 
 .about-resource-card {
   display: flex;
   flex-direction: column;
-  gap: calc(6 * var(--rpx));
+  gap: calc(8 * var(--rpx));
   min-width: 0;
-  padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
+  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
   background: #fff;
   border: calc(1 * var(--rpx)) solid rgba(60, 58, 50, 0.28);
   border-radius: var(--radius);
@@ -800,7 +849,7 @@ function splitSummary(summary) {
 }
 
 .about-resource-card-link {
-  font-size: calc(18 * var(--rpx));
+  font-size: calc(20 * var(--rpx));
   font-weight: 600;
   line-height: 1.35;
   color: #5a8fb8;
@@ -816,8 +865,8 @@ function splitSummary(summary) {
 .about-resource-divider {
   display: flex;
   align-items: center;
-  gap: calc(10 * var(--rpx));
-  margin: calc(14 * var(--rpx)) 0 calc(10 * var(--rpx));
+  gap: calc(12 * var(--rpx));
+  margin: calc(16 * var(--rpx)) 0 calc(12 * var(--rpx));
 }
 
 .about-resource-divider::before,
@@ -842,11 +891,11 @@ function splitSummary(summary) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: calc(12 * var(--rpx));
+  gap: calc(14 * var(--rpx));
 }
 
 .about-changelog-item {
-  padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
+  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
   background: var(--card, #eee4da);
   border-radius: var(--radius);
 }
@@ -856,7 +905,7 @@ function splitSummary(summary) {
   align-items: baseline;
   justify-content: space-between;
   gap: calc(12 * var(--rpx));
-  margin-bottom: calc(8 * var(--rpx));
+  margin-bottom: calc(10 * var(--rpx));
 }
 
 .about-changelog-ver {
@@ -874,7 +923,7 @@ function splitSummary(summary) {
 }
 
 .about-changelog-text {
-  margin: 0 0 calc(4 * var(--rpx));
+  margin: 0 0 calc(6 * var(--rpx));
   font-size: var(--about-text-size);
   line-height: var(--about-text-lh);
   color: var(--text-dark, #3c3a32);
@@ -889,7 +938,7 @@ function splitSummary(summary) {
 }
 
 .about-changelog-auto-toggle {
-  font-size: calc(18 * var(--rpx));
+  font-size: calc(20 * var(--rpx));
   font-weight: 700;
   line-height: var(--about-text-lh);
   color: rgba(60, 58, 50, 0.65);
@@ -919,28 +968,30 @@ function splitSummary(summary) {
 }
 
 .about-changelog-text--auto {
-  font-size: calc(18 * var(--rpx));
+  font-size: calc(20 * var(--rpx));
   color: rgba(60, 58, 50, 0.72);
 }
 
 .about-layer-footer {
   flex-shrink: 0;
-  margin-top: calc(14 * var(--rpx));
+  display: flex;
+  flex-direction: column;
+  margin-top: calc(16 * var(--rpx));
 }
 
 .about-back-btn {
   width: 100%;
-  border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.1);
+  border: none;
   border-radius: var(--radius);
-  padding: calc(12 * var(--rpx)) calc(20 * var(--rpx));
+  padding: calc(16 * var(--rpx)) calc(20 * var(--rpx));
   font-family: inherit;
-  font-size: var(--about-text-size);
+  font-size: calc(28 * var(--rpx));
   font-weight: 700;
-  line-height: var(--about-text-lh);
   cursor: pointer;
   box-shadow: var(--shadow);
   color: var(--text-dark, #3c3a32);
   background: var(--card, #eee4da);
+  border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.1);
 }
 
 .about-back-btn:hover {
@@ -972,5 +1023,9 @@ function splitSummary(summary) {
 .about-layer-leave-to .about-layer-card {
   opacity: 0;
   transform: scale(0.94) translateY(calc(12 * var(--rpx)));
+}
+
+:global(html.reduce-motion) .about-tabs-thumb {
+  transition: none;
 }
 </style>

@@ -783,6 +783,7 @@ import {
   recordTreasureLevelVowelLetters,
   noteTreasureRunSpellCast,
   noteTreasureRunUpgradeUsed,
+  recordTreasureRunDeckCardsAdded,
 } from "../treasures/treasureRunTracking.js";
 import { isVowelLetterWithMask } from "../treasures/treasureLetterClassify.js";
 import {
@@ -2071,7 +2072,7 @@ function applyRunPresetStartEffects() {
   if (moneyBonus > 0) money.value += moneyBonus;
   const wc = getPresetStartWildcardCount(pid);
   for (let i = 0; i < wc; i += 1) {
-    const card = appendDeckCardSpecToInitialSnapshot({ raw: "e", materialId: "wildcard" });
+    const card = appendDeckCardSpecToInitialSnapshotAndNotify({ raw: "e", materialId: "wildcard" });
     if (card) card.isWildcard = true;
   }
   syncOwnedTreasureSlots();
@@ -3553,6 +3554,7 @@ function appendShopDeckEntriesAndNotify(entries) {
   const created = appendShopDeckEntries(entries);
   const n = created.length;
   if (!n) return created;
+  recordTreasureRunDeckCardsAdded(treasureRunState.value, created);
   void notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIdList(), {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     treasureRun: treasureRunState.value,
@@ -3569,6 +3571,7 @@ function appendDeckCardSpecToInitialSnapshotAndNotify(spec) {
   noteCollectionDeckEntryModifiers(spec);
   const card = appendDeckCardSpecToInitialSnapshot(spec);
   if (!card) return card;
+  recordTreasureRunDeckCardsAdded(treasureRunState.value, [card]);
   void notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIdList(), {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     treasureRun: treasureRunState.value,

@@ -40,17 +40,6 @@ function deckHasGoldWithCoinAccessory(deck) {
 }
 
 /** @param {unknown[]} deck */
-function countDistinctLetterRarities(deck) {
-  const s = new Set();
-  for (const c of deck ?? []) {
-    if (c && typeof c === "object" && /** @type {{ rarity?: string }} */ (c).rarity) {
-      s.add(String(/** @type {{ rarity?: string }} */ (c).rarity));
-    }
-  }
-  return s.size;
-}
-
-/** @param {unknown[]} deck */
 function deckAllCommon(deck) {
   const list = deck ?? [];
   if (!list.length) return false;
@@ -93,8 +82,11 @@ export function isTreasureUnlocked(def, snap) {
       return deckAllCommon(deck);
     case "deckIceMin":
       return countDeckMaterial(deck, "ice") >= Math.max(0, Number(pre.min) || 0);
-    case "deckRarityKindsMin":
-      return countDistinctLetterRarities(deck) >= Math.max(0, Number(pre.min) || 0);
+    case "deckRarityKindsMin": {
+      const added = rs?.runDeckAddedRarities;
+      const kinds = added instanceof Set ? added.size : 0;
+      return kinds >= Math.max(0, Number(pre.min) || 0);
+    }
     case "deckGoldCoinAccessory":
       return deckHasGoldWithCoinAccessory(deck);
     case "endlessMode":
