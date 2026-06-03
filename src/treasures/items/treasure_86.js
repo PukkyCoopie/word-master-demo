@@ -18,28 +18,29 @@ export const treasureHooks = {
     return m > 1 ? { multMul: m } : null;
   },
   async onLevelEnter(ctx) {
-    await bankMultMulGain(ctx, ID, 0.5, "×0.5");
-    const rng = ctx.rng ?? Math.random;
-    const owned = ctx.ownedSlotTreasureIds ?? [];
-    const candidates = [];
-    for (let i = 0; i < owned.length; i += 1) {
-      const tid = owned[i];
-      if (tid && tid !== ID) candidates.push(tid);
-    }
-    if (!candidates.length) return;
-    const victimId = candidates[Math.floor(rng() * candidates.length)];
-    const runDestroy = () => {
-      if (ctx.destroyOtherTreasureFromSource) {
-        return ctx.destroyOtherTreasureFromSource(ID, victimId);
+    const runEffects = async () => {
+      await bankMultMulGain(ctx, ID, 0.5, "×0.5");
+      const rng = ctx.rng ?? Math.random;
+      const owned = ctx.ownedSlotTreasureIds ?? [];
+      const candidates = [];
+      for (let i = 0; i < owned.length; i += 1) {
+        const tid = owned[i];
+        if (tid && tid !== ID) candidates.push(tid);
       }
-      if (ctx.destroyTreasureSlotById) return ctx.destroyTreasureSlotById(victimId);
-      ctx.clearTreasureSlotById?.(victimId);
-      return undefined;
+      if (!candidates.length) return;
+      const victimId = candidates[Math.floor(rng() * candidates.length)];
+      if (ctx.destroyOtherTreasureFromSource) {
+        await ctx.destroyOtherTreasureFromSource(ID, victimId);
+      } else if (ctx.destroyTreasureSlotById) {
+        await ctx.destroyTreasureSlotById(victimId);
+      } else {
+        ctx.clearTreasureSlotById?.(victimId);
+      }
     };
     if (ctx.scheduleAfterGridTilesSettled) {
-      ctx.scheduleAfterGridTilesSettled(runDestroy);
+      ctx.scheduleAfterGridTilesSettled(runEffects);
       return;
     }
-    await runDestroy();
+    await runEffects();
   },
 };

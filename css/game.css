@@ -4734,3 +4734,16 @@ html.reduce-motion .boss-tape-wrap--violate .boss-tape {
 html.reduce-motion .boss-tape--wobble {
 	animation: none;
 }
+
+html.reduce-motion .spell-offer-winner-glow {
+	animation: none;
+}
+
+html.reduce-motion .treasure-charge-icon-nudge {
+	animation: none;
+}
+
+html.reduce-motion .tile-accessory-chip-ripple,
+html.reduce-motion .treasure-accessory-chip-ripple {
+	animation: none;
+}

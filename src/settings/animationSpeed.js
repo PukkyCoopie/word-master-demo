@@ -97,3 +97,54 @@ export function instantRevealGsapTargets(targets, finalVars = { opacity: 1, y: 0
   gsap.killTweensOf(targets);
   gsap.set(targets, finalVars);
 }
+
+/**
+ * 减少动画：预览/浮层瞬间展开（遮罩、stagger、主视觉区）。
+ * @param {object} opts
+ * @param {HTMLElement | null | undefined} opts.backdrop
+ * @param {gsap.TweenVars} opts.backdropFinal
+ * @param {HTMLElement[]} [opts.staggerEls]
+ * @param {HTMLElement | null | undefined} [opts.primaryEl]
+ * @param {gsap.TweenVars} [opts.primaryFinal]
+ * @param {HTMLElement[]} [opts.extraEls]
+ */
+export function instantPortalLayerEnter(opts) {
+  const {
+    backdrop,
+    backdropFinal,
+    staggerEls = [],
+    primaryEl,
+    primaryFinal = { opacity: 1, pointerEvents: "auto", y: 0, scale: 1 },
+    extraEls = [],
+  } = opts;
+  const all = [backdrop, primaryEl, ...extraEls, ...staggerEls].filter(Boolean);
+  gsap.killTweensOf(all);
+  if (backdrop && backdropFinal) gsap.set(backdrop, backdropFinal);
+  const primaryVars = { ...primaryFinal, clearProps: "opacity,transform,pointerEvents,scale" };
+  if (primaryEl) gsap.set(primaryEl, primaryVars);
+  for (const el of extraEls) {
+    if (el) gsap.set(el, primaryVars);
+  }
+  instantRevealGsapTargets(staggerEls, {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    clearProps: "opacity,transform",
+  });
+}
+
+/**
+ * 减少动画：预览/浮层瞬间关闭（由父级卸载）。
+ * @param {object} [opts]
+ * @param {HTMLElement | null | undefined} [opts.backdrop]
+ * @param {HTMLElement[]} [opts.staggerEls]
+ * @param {HTMLElement | null | undefined} [opts.primaryEl]
+ * @param {HTMLElement[]} [opts.extraEls]
+ * @returns {Promise<void>}
+ */
+export function instantPortalLayerClose(opts = {}) {
+  const { backdrop, staggerEls = [], primaryEl, extraEls = [] } = opts;
+  const all = [backdrop, primaryEl, ...extraEls, ...staggerEls].filter(Boolean);
+  gsap.killTweensOf(all);
+  return Promise.resolve();
+}

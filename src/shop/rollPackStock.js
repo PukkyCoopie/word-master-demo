@@ -2,6 +2,7 @@
  * 商店牌包区库存：仅各类组合包（含 `bundleOptions` 供选包 UI）；进店生成，不随「刷新」重掷。
  */
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
+import { pickDistinctSpellDefsForPack } from "../spells/spellPackOfferRoll.js";
 import { rollDistinctShopTreasures } from "../treasures/shopTreasureRoll.js";
 import { RARITY_BY_LETTER, LETTER_RARITY_ORDER, getRarityForLetter } from "../composables/useScoring.js";
 import {
@@ -232,14 +233,7 @@ export function rollPackOfferStock(ctx) {
       const tier = cat === "bundleSpellMega" ? "mega" : cat === "bundleSpellJumbo" ? "jumbo" : "normal";
       const poolSize = tier === "normal" ? 3 : 5;
       const pickCount = tier === "mega" ? 2 : 1;
-      const idPicks = pickDistinctFromPool(
-        rng,
-        spellDefsAll.map((d) => d.id),
-        poolSize,
-      );
-      const picks = idPicks
-        .map((id) => spellDefsAll.find((d) => d.id === id))
-        .filter(Boolean);
+      const picks = pickDistinctSpellDefsForPack(spellDefsAll, poolSize, rng);
       const pn = picks.length;
       const px = Math.min(pickCount, Math.max(1, pn));
       const price = SHOP_BUNDLE_PACK_PRICES.spell[tier];
@@ -406,14 +400,7 @@ export function rollPackOfferStock(ctx) {
   function buildGuaranteedSpellNormalBundleRow() {
     const pickCount = 1;
     const poolSize = Math.min(3, Math.max(1, spellDefsAll.length));
-    const idPicks = pickDistinctFromPool(
-      rng,
-      spellDefsAll.map((d) => d.id),
-      poolSize,
-    );
-    const picks = idPicks
-      .map((id) => spellDefsAll.find((d) => d.id === id))
-      .filter(Boolean);
+    const picks = pickDistinctSpellDefsForPack(spellDefsAll, poolSize, rng);
     const pn = picks.length;
     const px = Math.min(pickCount, Math.max(1, pn));
     const price = SHOP_BUNDLE_PACK_PRICES.spell.normal;

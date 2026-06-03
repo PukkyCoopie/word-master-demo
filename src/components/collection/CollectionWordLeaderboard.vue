@@ -1,5 +1,5 @@
 <template>
-  <div class="collection-leaderboard">
+  <div ref="leaderboardRootRef" class="collection-leaderboard">
     <p v-if="!sortedRecords.length" class="collection-leaderboard__empty">暂无记录</p>
     <article
       v-for="(record, index) in sortedRecords"
@@ -67,7 +67,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import LetterTile from "../LetterTile.vue";
 import TreasureSlot from "../TreasureSlot.vue";
 import { gemClassForTreasureRarity } from "../../collection/collectionDisplayUtils.js";
@@ -76,11 +76,48 @@ import { buildOwnedTreasureSlot } from "../../treasures/ownedTreasureSlot.js";
 /** 默认字母块尺寸（设计 rpx）；超出单行时按行宽等比缩小 */
 const LEADERBOARD_TILE_BASE = 88;
 const LEADERBOARD_TILE_GAP = 6;
-/** 收藏页条目内容区可用宽度（750 − 内外边距 − 条目 padding） */
-const LEADERBOARD_ROW_MAX_W = 662;
+/** 条目左右 padding（14 × 2） */
+const LEADERBOARD_ENTRY_PAD_RPX = 28;
+/** 两侧留白，避免阴影 / 亚像素取整贴边被裁切 */
+const LEADERBOARD_ROW_SAFETY_RPX = 10;
 
 const LEADERBOARD_TREASURE_BASE = 72;
 const LEADERBOARD_TREASURE_GAP = 10;
+
+const leaderboardRootRef = ref(null);
+/** @type {import('vue').Ref<number>} 实测可用行宽（设计 rpx） */
+const rowMaxDesignW = ref(640);
+
+function readRpx() {
+  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
+}
+
+function syncRowMaxDesignW() {
+  const root = leaderboardRootRef.value;
+  if (!root) return;
+  const rpx = readRpx();
+  const contentDesignW = root.clientWidth / rpx;
+  rowMaxDesignW.value = Math.max(
+    120,
+    contentDesignW - LEADERBOARD_ENTRY_PAD_RPX - LEADERBOARD_ROW_SAFETY_RPX,
+  );
+}
+
+/** @type {ResizeObserver | null} */
+let rowWidthObserver = null;
+
+onMounted(() => {
+  syncRowMaxDesignW();
+  const root = leaderboardRootRef.value;
+  if (!root || typeof ResizeObserver === "undefined") return;
+  rowWidthObserver = new ResizeObserver(() => syncRowMaxDesignW());
+  rowWidthObserver.observe(root);
+});
+
+onUnmounted(() => {
+  rowWidthObserver?.disconnect();
+  rowWidthObserver = null;
+});
 
 const props = defineProps({
   records: { type: Array, default: () => [] },
@@ -109,18 +146,24 @@ const sortedRecords = computed(() => {
 function rowFitScale(count, tileBase, gap, maxW) {
   const n = Math.max(1, Math.floor(Number(count) || 0));
   const total = n * tileBase + (n - 1) * gap;
-  return Math.min(1, maxW / total);
+  if (total <= maxW) return 1;
+  return maxW / total;
 }
 
 /** @param {number} tileCount */
 function tileRowStyle(tileCount) {
-  const scale = rowFitScale(tileCount, LEADERBOARD_TILE_BASE, LEADERBOARD_TILE_GAP, LEADERBOARD_ROW_MAX_W);
+  const scale = rowFitScale(tileCount, LEADERBOARD_TILE_BASE, LEADERBOARD_TILE_GAP, rowMaxDesignW.value);
   return { "--leaderboard-tile-scale": String(scale) };
 }
 
 /** @param {number} slotCount */
 function treasureRowStyle(slotCount) {
-  const scale = rowFitScale(slotCount, LEADERBOARD_TREASURE_BASE, LEADERBOARD_TREASURE_GAP, LEADERBOARD_ROW_MAX_W);
+  const scale = rowFitScale(
+    slotCount,
+    LEADERBOARD_TREASURE_BASE,
+    LEADERBOARD_TREASURE_GAP,
+    rowMaxDesignW.value,
+  );
   return { "--leaderboard-treasure-scale": String(scale) };
 }
 
@@ -192,7 +235,7 @@ function onTreasureClick(record, slotIx, event) {
   width: 100%;
   min-width: 0;
   margin-bottom: calc(10 * var(--rpx));
-  overflow: hidden;
+  overflow: visible;
 }
 
 .collection-leaderboard-tile-hit {
@@ -245,7 +288,7 @@ function onTreasureClick(record, slotIx, event) {
   gap: calc(10 * var(--rpx) * var(--leaderboard-treasure-scale, 1));
   width: 100%;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .collection-leaderboard-treasure-hit,

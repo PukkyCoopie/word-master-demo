@@ -203,6 +203,11 @@ import { getTileAccessoryLinkedConceptPanels } from "../game/gameConceptCopy.js"
 import { EASE_TRANSFORM } from "../constants.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
+import {
+  instantPortalLayerClose,
+  instantPortalLayerEnter,
+  shouldSkipDecorativeMotion,
+} from "../settings/animationSpeed.js";
 
 const props = defineProps({
   /** @type {{ letter: string, rarity: string, tileScoreBonus?: number, tileMultBonus?: number, materialId?: string | null, materialScoreBonus?: number, materialMultBonus?: number, accessoryId?: string | null, foilOverlay?: boolean } | null} */
@@ -312,6 +317,23 @@ function runEnterAnimation() {
   const targetFade = targetVisualRef.value;
   const clone = flyCloneRef.value;
   if (!backdrop || !measureEl || !targetFade) return;
+
+  if (shouldSkipDecorativeMotion()) {
+    if (enterTl) {
+      enterTl.kill();
+      enterTl = null;
+    }
+    bootMask.value = false;
+    flyCloneActive.value = false;
+    flyCloneAnchorRect.value = null;
+    instantPortalLayerEnter({
+      backdrop,
+      backdropFinal: portalScrimGsapVars("rgba(14, 12, 10, 0.78)"),
+      staggerEls: staggerTargets(),
+      primaryEl: targetFade,
+    });
+    return;
+  }
 
   if (enterTl) {
     enterTl.kill();
@@ -473,6 +495,14 @@ function runCloseAnimation(shouldEmit = true) {
   const hasReturnFly = validOrigin(origin) && measureEl && targetFade;
 
   return new Promise((resolve) => {
+    if (shouldSkipDecorativeMotion()) {
+      flyCloneActive.value = false;
+      flyCloneAnchorRect.value = null;
+      instantPortalLayerClose({ backdrop, staggerEls, primaryEl: targetFade });
+      finish(resolve);
+      return;
+    }
+
     if (hasReturnFly) {
       const fromR = measureEl.getBoundingClientRect();
       const fc = rectCenter(fromR);

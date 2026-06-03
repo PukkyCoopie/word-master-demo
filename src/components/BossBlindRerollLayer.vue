@@ -86,6 +86,7 @@ import {
   getVoucherDefOrNull,
 } from "../vouchers/voucherRuntime.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { instantPortalLayerClose, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
 
 const props = defineProps({
@@ -134,6 +135,12 @@ function playClose() {
   if (!backdrop && !staggerEls.length) {
     closing.value = false;
     return Promise.resolve();
+  }
+
+  if (shouldSkipDecorativeMotion()) {
+    return instantPortalLayerClose({ backdrop, staggerEls }).then(() => {
+      closing.value = false;
+    });
   }
 
   return new Promise((resolve) => {

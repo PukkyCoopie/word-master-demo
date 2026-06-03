@@ -150,6 +150,11 @@ import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { EASE_TRANSFORM } from "../constants.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
+import {
+  instantPortalLayerClose,
+  instantPortalLayerEnter,
+  shouldSkipDecorativeMotion,
+} from "../settings/animationSpeed.js";
 
 const props = defineProps({
   session: { type: Object, required: true },
@@ -226,6 +231,18 @@ function applyEnterInitialHide(backdrop, staggerEls) {
 function runEnterAnimation() {
   const backdrop = backdropRef.value;
   if (!backdrop || props.overlaySuppressed) return;
+
+  if (shouldSkipDecorativeMotion()) {
+    killEnterTweens();
+    enterBoot.value = false;
+    instantPortalLayerEnter({
+      backdrop,
+      backdropFinal: portalScrimGsapVars("rgba(42, 38, 48, 0.82)"),
+      staggerEls: collectEnterStaggerEls(),
+    });
+    return;
+  }
+
   killEnterTweens();
   enterBoot.value = true;
   const staggerEls = collectEnterStaggerEls();
@@ -281,6 +298,12 @@ function playClose() {
   if (!backdrop && !staggerEls.length) {
     closing.value = false;
     return Promise.resolve();
+  }
+
+  if (shouldSkipDecorativeMotion()) {
+    return instantPortalLayerClose({ backdrop, staggerEls }).then(() => {
+      closing.value = false;
+    });
   }
 
   return new Promise((resolve) => {

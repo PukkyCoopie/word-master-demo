@@ -106,11 +106,11 @@ export function hasSlotCompletedAnyRun(career) {
   return normalizeSlotCareerStats(career).runsCompleted > 0;
 }
 
-/** 存档栏位卡片摘要：仅开局次数与胜利局数 */
+/** 存档栏位卡片摘要：开局次数与收藏解锁进度 */
 export function getSlotCareerSummaryRows(career) {
   const c = normalizeSlotCareerStats(career);
   return [
     { label: "开局次数", value: String(c.runsStarted) },
-    { label: "胜利局数", value: String(c.runsWon) },
+    { label: "收藏解锁进度", value: formatCollectionUnlockProgressDisplay(c) },
   ];
 }

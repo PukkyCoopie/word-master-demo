@@ -522,6 +522,10 @@ export function playProfileLayerLeave(refs) {
   const targets = [scrim, card, avatarFly, avatarFlyLetter, nameFly, ...enterStaggerEls].filter(Boolean);
   gsap.killTweensOf(targets);
 
+  if (shouldSkipDecorativeMotion()) {
+    return Promise.resolve();
+  }
+
   return new Promise((resolve) => {
     if (!backdrop || !scrim || !card) {
       resolve();

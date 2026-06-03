@@ -2759,15 +2759,28 @@ async function fulfillTreasureAfterPackPayment(t, fromEl) {
     fromEl?.querySelector?.(".shop-treasure-frame") ??
     (fromEl?.classList?.contains?.("shop-treasure-frame") ? fromEl : null);
   const toTarget = await waitForOwnedTreasureSlotEl(ix, { slotsExpanded });
-  if (frameEl && toTarget) await animateTreasureFrameFly(frameEl, toTarget);
-  grantOwnedTreasureAt(ix, {
-    treasureId: t.treasureId,
-    price: t.price,
-    treasureAccessoryIds: readTreasureAccessoryIds(t),
-  });
-  initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
-  applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
-  await playTreasureGrantPopAtSlotIndex(ix);
+  let grantedOnFly = false;
+  const grantTreasure = () => {
+    if (grantedOnFly) return;
+    grantedOnFly = true;
+    grantOwnedTreasureAt(ix, {
+      treasureId: t.treasureId,
+      price: t.price,
+      treasureAccessoryIds: readTreasureAccessoryIds(t),
+    });
+    initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
+    applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
+  };
+  if (frameEl && toTarget) {
+    await animateTreasureFrameFly(frameEl, toTarget, {
+      onLanding: grantTreasure,
+      keepSourceHidden: true,
+    });
+  }
+  if (!grantedOnFly) {
+    grantTreasure();
+    await playTreasureGrantPopAtSlotIndex(ix);
+  }
 }
 
 async function fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter = false } = {}) {
@@ -2834,8 +2847,13 @@ async function onPackInnerClaim() {
     await layer?.playClose?.();
     treasureDetail.value = null;
     const flyEl = packPickLayerRef.value?.getFlySourceEl?.(t) ?? null;
+    if (t.offerType === "treasure") {
+      sess.claimedKeys = [...claimed, key];
+    }
     await fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter: willNeedMorePicks });
-    sess.claimedKeys = [...claimed, key];
+    if (t.offerType !== "treasure") {
+      sess.claimedKeys = [...claimed, key];
+    }
     await maybeAutoClosePackPickSession();
     ensurePackPickOverlayVisible();
   } finally {
@@ -6629,6 +6647,7 @@ async function runGridIntroAfterReset() {
   gridRefillAnimating.value = true;
   await runGridDropAnimation(null, { initial: true });
   gridRefillAnimating.value = false;
+  await runPendingAfterGridTilesSettled();
   tryCeruleanBellFlyInAfterGridStable();
   nextTick(() => updateSlotPositions(true));
 }
@@ -6646,6 +6665,14 @@ function playWalletHeaderGainAnim(start, end, elOverride = null) {
     }
     const el = elOverride ?? headerWalletMarksRef.value;
     if (end <= start) {
+      money.value = end;
+      walletHeaderDisplayOverride.value = null;
+      if (el) gsap.set(el, { scale: 1 });
+      resolve();
+      return;
+    }
+
+    if (shouldSkipDecorativeMotion()) {
       money.value = end;
       walletHeaderDisplayOverride.value = null;
       if (el) gsap.set(el, { scale: 1 });
@@ -6698,6 +6725,10 @@ function playLevelAdvanceHeaderFx() {
   return new Promise((resolve) => {
     const el = levelTitleBoxRef.value;
     if (!el) {
+      resolve();
+      return;
+    }
+    if (shouldSkipDecorativeMotion()) {
       resolve();
       return;
     }
@@ -6908,12 +6939,19 @@ function treasureGemClass(rarity) {
   return "gem-rare";
 }
 
-/** 货架 108 参考格：emoji 字号与格边长的比（与 css @container treasure-cell 中 42/108 一致） */
-const TREASURE_FRAME_EMOJI_RATIO = 42 / 108;
+/** 购买后：克隆详情中的框飞到宝藏槽；位移与缩放同步，落地回弹融入同一段 timeline */
+const TREASURE_PURCHASE_FLY_S = 0.46;
+const TREASURE_PURCHASE_FLY_LAND_AT = 0.36;
+const TREASURE_PURCHASE_FLY_FADE_AT = 0.4;
 
-/** 购买后：克隆详情中的框飞到宝藏槽；起点以详情内 `.shop-treasure-frame` 的视口矩形为准（不从货架取位） */
-async function animateTreasureFrameFly(fromFrameEl, toTarget) {
+/**
+ * @param {HTMLElement} fromFrameEl
+ * @param {HTMLElement | DOMRect} toTarget
+ * @param {{ onLanding?: () => void, keepSourceHidden?: boolean }} [opts]
+ */
+async function animateTreasureFrameFly(fromFrameEl, toTarget, opts = {}) {
   if (!fromFrameEl || !toTarget) return;
+  if (shouldSkipDecorativeMotion()) return;
   const from = fromFrameEl.getBoundingClientRect();
   const clone = fromFrameEl.cloneNode(true);
   ensureFlyCloneVisible(clone);
@@ -6922,20 +6960,6 @@ async function animateTreasureFrameFly(fromFrameEl, toTarget) {
   clone.classList.add("treasure-purchase-fly-clone");
 
   gsap.killTweensOf(clone);
-  gsap.set(clone, { clearProps: "transform" });
-
-  Object.assign(clone.style, {
-    position: "fixed",
-    left: `${from.left}px`,
-    top: `${from.top}px`,
-    width: `${from.width}px`,
-    height: `${from.height}px`,
-    margin: "0",
-    zIndex: "9999",
-    pointerEvents: "none",
-    boxSizing: "border-box",
-    willChange: "left, top, width, height",
-  });
 
   document.body.appendChild(clone);
   const restoreSourceHide = beginFlySourceHide(fromFrameEl);
@@ -6945,10 +6969,33 @@ async function animateTreasureFrameFly(fromFrameEl, toTarget) {
       typeof toTarget.getBoundingClientRect === "function"
         ? toTarget.getBoundingClientRect()
         : /** @type {DOMRect} */ (toTarget);
+    const tw = Math.max(to.width, 1e-6);
+    const th = Math.max(to.height, 1e-6);
 
-    const emojiEl = clone.querySelector(".shop-treasure-emoji");
-    const fs0 = TREASURE_FRAME_EMOJI_RATIO * from.width;
-    const fs1 = TREASURE_FRAME_EMOJI_RATIO * to.width;
+    gsap.set(clone, {
+      position: "fixed",
+      left: from.left,
+      top: from.top,
+      width: tw,
+      height: th,
+      margin: 0,
+      zIndex: 9999,
+      pointerEvents: "none",
+      boxSizing: "border-box",
+      scaleX: from.width / tw,
+      scaleY: from.height / th,
+      transformOrigin: "left top",
+      force3D: true,
+      willChange: "transform, left, top",
+    });
+
+    const onLanding = typeof opts.onLanding === "function" ? opts.onLanding : null;
+    let landed = false;
+    const fireLanding = () => {
+      if (landed) return;
+      landed = true;
+      onLanding?.();
+    };
 
     await new Promise((resolve) => {
       const tl = gsap.timeline({
@@ -6962,28 +7009,28 @@ async function animateTreasureFrameFly(fromFrameEl, toTarget) {
         {
           left: to.left,
           top: to.top,
-          width: to.width,
-          height: to.height,
-          duration: 0.55,
-          ease: EASE_TRANSFORM,
+          scaleX: 1,
+          scaleY: 1,
+          duration: TREASURE_PURCHASE_FLY_S,
+          ease: "back.out(1.28)",
         },
         0,
       );
-      if (emojiEl && Number.isFinite(fs0) && Number.isFinite(fs1) && fs0 > 1 && fs1 > 1) {
-        gsap.set(emojiEl, { fontSize: fs0 });
+      if (onLanding) {
+        tl.call(fireLanding, null, TREASURE_PURCHASE_FLY_LAND_AT);
         tl.to(
-          emojiEl,
+          clone,
           {
-            fontSize: fs1,
-            duration: 0.55,
-            ease: EASE_TRANSFORM,
+            opacity: 0,
+            duration: 0.1,
+            ease: "power1.out",
           },
-          0,
+          TREASURE_PURCHASE_FLY_FADE_AT,
         );
       }
     });
   } finally {
-    restoreSourceHide();
+    if (!opts.keepSourceHidden) restoreSourceHide();
   }
 }
 
@@ -7049,6 +7096,7 @@ async function animatePackTileFlyToDeck(fromEl, toTarget, options = {}) {
   const fromNode = refToDom(fromEl) ?? (fromEl instanceof HTMLElement ? fromEl : null);
   const toNode = refToDom(toTarget) ?? (toTarget instanceof HTMLElement ? toTarget : null);
   if (!fromNode || typeof fromNode.getBoundingClientRect !== "function") return;
+  if (shouldSkipDecorativeMotion()) return;
   const fromRaw = fromNode.getBoundingClientRect();
   const from = options.deckTileFly ? normalizeSquareFlyRect(fromRaw) : fromRaw;
   const to =
@@ -8935,30 +8983,48 @@ async function onTreasurePurchase() {
   const ix = findTreasurePlacementIndex(t);
   if (ix < 0) return;
 
+  /** 飞行期间货架原格立即清空，避免蒙层淡出后仍看到原商品 */
+  clearOfferSlotAfterPurchase(t);
+  await nextTick();
+
   const layer = treasureDetailLayerRef.value;
   const fromEl = layer?.getFlyFrameEl?.();
   const slotsExpanded = ownedTreasures.value.length > slotsLenBefore;
   const toTargetPromise = waitForOwnedTreasureSlotEl(ix, { slotsExpanded });
 
+  let grantedOnFly = false;
+  const grantTreasure = () => {
+    if (grantedOnFly) return;
+    grantedOnFly = true;
+    grantOwnedTreasureAt(ix, {
+      treasureId: t.treasureId,
+      price: pay,
+      treasureAccessoryIds: readTreasureAccessoryIds(t),
+    });
+    initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
+    applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
+  };
+
   /** 点击购买即开始关层动画，与飞入槽位并行，避免等飞完才消失 */
   const closePromise = layer?.playClose?.() ?? Promise.resolve();
   const toTarget = await toTargetPromise;
-  const flyPromise = fromEl && toTarget ? animateTreasureFrameFly(fromEl, toTarget) : Promise.resolve();
+  const flyPromise =
+    fromEl && toTarget
+      ? animateTreasureFrameFly(fromEl, toTarget, {
+          onLanding: grantTreasure,
+          keepSourceHidden: true,
+        })
+      : Promise.resolve();
 
   await Promise.all([closePromise, flyPromise]);
 
   money.value -= pay;
   noteRunMoneySpent(pay);
   noteRunShopPurchase();
-  grantOwnedTreasureAt(ix, {
-    treasureId: t.treasureId,
-    price: pay,
-    treasureAccessoryIds: readTreasureAccessoryIds(t),
-  });
-  initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
-  applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
-  await playTreasureGrantPopAtSlotIndex(ix);
-  clearOfferSlotAfterPurchase(t);
+  if (!grantedOnFly) {
+    grantTreasure();
+    await playTreasureGrantPopAtSlotIndex(ix);
+  }
   treasureDetail.value = null;
   } finally {
     scheduleRunAutoSave();
@@ -9226,6 +9292,13 @@ function runGridDropAnimation(prevFlip, options = {}) {
       resolve();
     };
     const run = () => {
+      if (shouldSkipDecorativeMotion()) {
+        for (let j = 0; j < ROWS * COLS; j++) {
+          clearGridTileGsapAfterDrop(getGridTileElByIndex(j));
+        }
+        settleOnce();
+        return;
+      }
       const stepY = measureGridTileStepY();
       const stepX = measureGridTileStepX();
       let pending = 0;
@@ -9345,6 +9418,10 @@ function runGridDropAnimation(prevFlip, options = {}) {
 function pulseFill(el) {
   if (!el) return;
   gsap.killTweensOf(el);
+  if (shouldSkipDecorativeMotion()) {
+    gsap.set(el, { scale: 1, transformOrigin: "50% 50%" });
+    return;
+  }
   gsap.set(el, {
     scale: VALUE_NUM_PULSE_PEAK_SCALE,
     transformOrigin: "50% 50%",
@@ -11084,6 +11161,24 @@ function setFlyingInRef(fly, el) {
     force3D: true,
     "--slot-scale": 1,
   });
+  const finishFlyIn = () => {
+    flyingInAnimStarted.delete(item.id);
+    flyingInElById.delete(item.id);
+    flyInPendingComplete.push(item);
+    flyingLetters.value = flyingLetters.value.filter((f) => f.id !== item.id);
+    flushFlyInSelections();
+  };
+  if (shouldSkipDecorativeMotion()) {
+    gsap.set(node, {
+      left: t.left,
+      top: t.top,
+      scaleX: 1,
+      scaleY: 1,
+      "--slot-scale": targetScale,
+    });
+    finishFlyIn();
+    return;
+  }
   gsap.to(node, {
     left: t.left,
     top: t.top,
@@ -11093,11 +11188,7 @@ function setFlyingInRef(fly, el) {
     duration: FLY_DURATION,
     ease: EASE_TRANSFORM,
     onComplete: () => {
-      flyingInAnimStarted.delete(item.id);
-      flyingInElById.delete(item.id);
-      flyInPendingComplete.push(item);
-      flyingLetters.value = flyingLetters.value.filter((f) => f.id !== item.id);
-      flushFlyInSelections();
+      finishFlyIn();
     },
   });
 }
@@ -11409,6 +11500,28 @@ function startOneMoveOut(slotIndex) {
       force3D: true,
       "--slot-scale": String(item.startSlotScale ?? 1),
     });
+    const finishFlyBack = () => {
+      if (meta.finalized) return;
+      disposeFlyBackTileElement(el);
+      el.remove();
+      meta.completed += 1;
+      if (meta.completed >= meta.total) {
+        removeFromSlot(meta.slotIndex);
+        flyingBackBatches.value = flyingBackBatches.value.filter((b) => b.id !== batchId);
+        delete flyingBackBatchMeta[batchId];
+      }
+    };
+    if (shouldSkipDecorativeMotion()) {
+      gsap.set(el, {
+        left: item.toRect.left,
+        top: item.toRect.top,
+        scaleX: 1,
+        scaleY: 1,
+        "--slot-scale": 1,
+      });
+      finishFlyBack();
+      continue;
+    }
     gsap.to(el, {
       left: item.toRect.left,
       top: item.toRect.top,
@@ -11417,17 +11530,7 @@ function startOneMoveOut(slotIndex) {
       "--slot-scale": 1,
       duration: FLY_DURATION,
       ease: EASE_TRANSFORM,
-      onComplete: () => {
-        if (meta.finalized) return;
-        disposeFlyBackTileElement(el);
-        el.remove();
-        meta.completed += 1;
-        if (meta.completed >= meta.total) {
-          removeFromSlot(meta.slotIndex);
-          flyingBackBatches.value = flyingBackBatches.value.filter((b) => b.id !== batchId);
-          delete flyingBackBatchMeta[batchId];
-        }
-      },
+      onComplete: finishFlyBack,
     });
   }
 }
@@ -12029,6 +12132,7 @@ onMounted(async () => {
     }
     tryCeruleanBellFlyInAfterGridStable();
     updateSlotPositions(true);
+    await runPendingAfterGridTilesSettled();
   } else {
     await runGridIntroAfterReset();
   }

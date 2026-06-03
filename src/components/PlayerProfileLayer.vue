@@ -107,6 +107,7 @@ import {
 } from "../profile/profileLayerEnterAnim.js";
 import { getSlotCareer } from "../save/runSaveStorage.js";
 import { getSlotCareerStatRows } from "../save/slotCareerStats.js";
+import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -196,7 +197,7 @@ function runEnterAnimation() {
         enterPending.value = false;
         return null;
       }
-      if (validProfileOriginRects(props.originRects)) {
+      if (validProfileOriginRects(props.originRects) && !shouldSkipDecorativeMotion()) {
         flyClonesActive.value = true;
       }
       return nextTick();

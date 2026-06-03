@@ -726,6 +726,11 @@ import TreasureDescRichText from "./TreasureDescRichText.vue";
 import LetterTile from "./LetterTile.vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
+import {
+  instantPortalLayerClose,
+  instantPortalLayerEnter,
+  shouldSkipDecorativeMotion,
+} from "../settings/animationSpeed.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
 import {
   getPerLetterIntrinsicMultDisplay,
@@ -1371,6 +1376,22 @@ function runEnterAnimation() {
   const clone = flyCloneRef.value;
   if (!backdrop || !targetVisual) return;
 
+  if (shouldSkipDecorativeMotion()) {
+    if (enterTl) {
+      enterTl.kill();
+      enterTl = null;
+    }
+    bootMask.value = false;
+    flyCloneActive.value = false;
+    instantPortalLayerEnter({
+      backdrop,
+      backdropFinal: portalScrimGsapVars("rgba(14, 12, 10, 0.78)"),
+      staggerEls: staggerTargets(),
+      primaryEl: targetVisual,
+    });
+    return;
+  }
+
   if (enterTl) {
     enterTl.kill();
     enterTl = null;
@@ -1570,6 +1591,14 @@ function runCloseAnimation(shouldEmit) {
   gsap.killTweensOf([backdrop, targetVisual, ...staggerEls].filter(Boolean));
 
   return new Promise((resolve) => {
+    if (shouldSkipDecorativeMotion()) {
+      instantPortalLayerClose({ backdrop, staggerEls, primaryEl: targetVisual }).then(() => {
+        if (shouldEmit) emit("close");
+        resolve(undefined);
+      });
+      return;
+    }
+
     const tl = gsap.timeline({
       onComplete: () => {
         if (shouldEmit) {

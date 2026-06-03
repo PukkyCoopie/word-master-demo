@@ -257,10 +257,11 @@ html.viewport-narrower-than-design #game-view-portal > .iris-overlay {
 }
 
 /*
- * 窄屏：浮层根 fixed 铺满视口（不用 box-shadow 延拓，避免被 frame overflow 裁切）。
+ * 窄屏：蒙层类浮层 fixed 铺满视口（不用 box-shadow 延拓，避免被 frame overflow 裁切）。
+ * 商店 .shop-portal-root 除外：与 .game-container 同框，保持 absolute + portal-frame 对齐。
  * 宽屏：保持 absolute + frame overflow:hidden 裁剪。
  */
-html.viewport-narrower-than-design #game-view-portal-frame .portal-overlay-fill,
+html.viewport-narrower-than-design #game-view-portal-frame .portal-overlay-fill:not(.shop-portal-root),
 html.viewport-narrower-than-design #game-view-portal-frame .deck-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .dict-fatal-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .stage-settlement-layer,
