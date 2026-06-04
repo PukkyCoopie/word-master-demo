@@ -1,3 +1,5 @@
+import { isGamePaused } from "../game/gamePause.js";
+
 /**
  * 所有 tile 材质 regl 离屏 hub 共用一个 requestAnimationFrame，避免多材质多循环叠加。
  */
@@ -7,11 +9,13 @@ let rafId = 0;
 
 function runAll() {
   rafId = 0;
-  for (const fn of tickFns) {
-    try {
-      fn();
-    } catch (e) {
-      console.error(e);
+  if (!isGamePaused()) {
+    for (const fn of tickFns) {
+      try {
+        fn();
+      } catch (e) {
+        console.error(e);
+      }
     }
   }
   if (tickFns.size > 0) {

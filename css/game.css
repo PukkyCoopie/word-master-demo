@@ -3229,7 +3229,9 @@ textarea::-moz-placeholder {
 }
 
 .run-end-discovery-chip__material.grid-tile,
-.run-end-discovery-chip__frame.shop-treasure-frame {
+.run-end-discovery-chip__frame.shop-treasure-frame,
+.run-end-discovery-chip__accessory.treasure-accessory-chip,
+.run-end-discovery-chip__accessory.tile-accessory-chip {
 	container-type: size;
 	container-name: treasure-cell;
 	width: 100%;
@@ -3239,6 +3241,18 @@ textarea::-moz-placeholder {
 	max-width: 100%;
 	max-height: 100%;
 	flex-shrink: 0;
+}
+
+.run-end-discovery-chip__accessory.treasure-accessory-chip,
+.run-end-discovery-chip__accessory.tile-accessory-chip {
+	position: static;
+	inset: auto;
+	top: auto;
+	right: auto;
+	bottom: auto;
+	left: auto;
+	box-sizing: border-box;
+	overflow: hidden;
 }
 
 @container treasure-cell (min-width: 0px) {
@@ -3251,15 +3265,25 @@ textarea::-moz-placeholder {
 	}
 
 	.run-end-discovery-chip__material.grid-tile .letter-tile-char {
-		font-size: calc(100cqmin * 38 / 81);
+		font-size: calc(100cqmin * 38 / 108);
 	}
 
 	.run-end-discovery-chip__frame.shop-treasure-frame .shop-treasure-emoji {
-		font-size: calc(100cqmin * 42 / 81);
+		font-size: calc(100cqmin * 42 / 108);
 	}
 
 	.run-end-discovery-chip__frame.shop-treasure-frame .shop-treasure-emoji--icon {
-		font-size: calc(100cqmin * 34 / 81);
+		font-size: calc(100cqmin * var(--shop-shelf-spell-icon-units) / 108);
+	}
+
+	.run-end-discovery-chip__accessory.treasure-accessory-chip,
+	.run-end-discovery-chip__accessory.tile-accessory-chip {
+		border-radius: calc(100cqmin * 10 / 108);
+	}
+
+	.run-end-discovery-chip__accessory.treasure-accessory-chip .treasure-accessory-chip-icon,
+	.run-end-discovery-chip__accessory.tile-accessory-chip .tile-accessory-chip-icon {
+		font-size: calc(100cqmin * 28 / 108);
 	}
 }
 

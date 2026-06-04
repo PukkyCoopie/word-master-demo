@@ -169,6 +169,7 @@ import {
   recordSpellDiscovered,
   recordUpgradeDiscovered,
   recordTreasureDiscovered,
+  recordPrerequisiteTreasureShopAppeared,
   recordVoucherDiscovered,
   tryInsertLengthLeaderboard,
   tryInsertScoreLeaderboard,
@@ -309,6 +310,13 @@ provide("recordCollectionDiscovery", ({
     if (accessoryId) wasNew = recordAccessoryDiscovered(career, accessoryId) || wasNew;
   });
   return wasNew;
+});
+
+provide("recordPrerequisiteTreasureShopAppeared", (treasureId, opts) => {
+  const ix = screen.value === "game" ? sessionSaveSlotIndex.value : getActiveSaveSlotIndex();
+  persistCollectionCareer(ix, (career) => {
+    recordPrerequisiteTreasureShopAppeared(career, treasureId, opts);
+  });
 });
 
 provide("recordCollectionWordSubmit", ({ word, score, length, tiles, ownedTreasures }) => {

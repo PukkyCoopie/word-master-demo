@@ -1,11 +1,23 @@
+import {
+  notifyPrerequisiteTreasureShopShelfAppearance,
+  pickUniformFromTierWithWeightMultipliers,
+} from "./prerequisiteShopBoost.js";
+
+/**
+ * @typedef {Object} ShopTreasurePickOpts
+ * @property {(treasureId: string) => number} [getPrerequisiteWeightMultiplier] 阶段二：档内权重乘数
+ * @property {(treasureId: string) => void} [onPrerequisiteTreasureShopAppeared]
+ */
+
 /**
  * 商店按稀有度加权抽取（对齐 Balatro 小丑生成：Common 70% / Uncommon 25% / Rare 5%，
  * 映射到本项目的 rare / epic / legendary）；某档池空则权重落到其余档。
  *
  * @param {import('./treasureTypes.js').TreasureDef[]} pool
  * @param {() => number} rng 返回 [0,1)
+ * @param {ShopTreasurePickOpts} [opts]
  */
-export function pickWeightedTreasureFromPool(pool, rng = Math.random) {
+export function pickWeightedTreasureFromPool(pool, rng = Math.random, opts) {
   if (pool.length === 0) return null;
   const common = pool.filter((t) => t.rarity === "common");
   const rare = pool.filter((t) => t.rarity === "rare");
@@ -16,13 +28,24 @@ export function pickWeightedTreasureFromPool(pool, rng = Math.random) {
   const wE = epic.length > 0 ? 25 : 0;
   const wL = leg.length > 0 ? 5 : 0;
   const total = wR + wE + wL;
-  if (total <= 0) return pool[Math.floor(rng() * pool.length)];
+  const getMult = opts?.getPrerequisiteWeightMultiplier;
+  const pickFromTier = (tier) => {
+    const def = pickUniformFromTierWithWeightMultipliers(tier, rng, getMult);
+    if (def) {
+      notifyPrerequisiteTreasureShopShelfAppearance(def.treasureId, opts?.onPrerequisiteTreasureShopAppeared);
+    }
+    return def;
+  };
+  if (total <= 0) {
+    const def = pickFromTier(pool);
+    return def ?? pool[Math.floor(rng() * pool.length)];
+  }
   const r = rng() * total;
   /** @type {import('./treasureTypes.js').TreasureDef[]} */
   let tier = leg;
   if (r < wR) tier = shopCommonTier;
   else if (r < wR + wE) tier = epic;
-  return tier[Math.floor(rng() * tier.length)];
+  return pickFromTier(tier);
 }
 
 /**
@@ -33,16 +56,24 @@ export function pickWeightedTreasureFromPool(pool, rng = Math.random) {
  * @param {Set<string>} excludeTreasureIds
  * @param {number} count
  * @param {() => number} [rng]
+ * @param {ShopTreasurePickOpts} [opts]
  * @returns {import('./treasureTypes.js').TreasureDef[]}
  */
-export function rollDistinctShopTreasures(all, ownedTreasureIds, excludeTreasureIds, count, rng = Math.random) {
+export function rollDistinctShopTreasures(
+  all,
+  ownedTreasureIds,
+  excludeTreasureIds,
+  count,
+  rng = Math.random,
+  opts,
+) {
   const used = new Set([...ownedTreasureIds, ...excludeTreasureIds]);
   /** @type {import('./treasureTypes.js').TreasureDef[]} */
   const picks = [];
   for (let i = 0; i < count; i += 1) {
     const pool = all.filter((t) => !used.has(t.treasureId));
     if (pool.length === 0) break;
-    const t = pickWeightedTreasureFromPool(pool, rng);
+    const t = pickWeightedTreasureFromPool(pool, rng, opts);
     if (!t) break;
     picks.push(t);
     used.add(t.treasureId);

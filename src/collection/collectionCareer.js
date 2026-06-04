@@ -18,6 +18,20 @@ function normalizeIdList(raw) {
   return out;
 }
 
+/** @param {unknown} raw @returns {Record<string, number>} */
+function normalizeSingleCardAppearanceCounts(raw) {
+  if (!raw || typeof raw !== "object") return {};
+  /** @type {Record<string, number>} */
+  const out = {};
+  for (const [key, val] of Object.entries(/** @type {Record<string, unknown>} */ (raw))) {
+    const id = String(key ?? "").trim();
+    const n = Math.floor(Number(val) || 0);
+    if (!id || n <= 0) continue;
+    out[id] = n;
+  }
+  return out;
+}
+
 /** @param {unknown} raw @returns {Record<string, 1 | 2>} */
 function normalizeVoucherTiers(raw) {
   if (!raw || typeof raw !== "object") return {};
@@ -113,6 +127,10 @@ function normalizeWordRecords(raw) {
  */
 export function normalizeCollectionCareerFields(career, raw) {
   career.discoveredTreasureIds = normalizeIdList(raw.discoveredTreasureIds);
+  career.shopAppearedPrerequisiteTreasureIds = normalizeIdList(raw.shopAppearedPrerequisiteTreasureIds);
+  career.shopPrerequisiteTreasureSingleCardAppearanceCounts = normalizeSingleCardAppearanceCounts(
+    raw.shopPrerequisiteTreasureSingleCardAppearanceCounts,
+  );
   career.discoveredSpellIds = normalizeIdList(raw.discoveredSpellIds);
   career.discoveredUpgradeIds = normalizeIdList(raw.discoveredUpgradeIds);
   career.discoveredVoucherTiers = normalizeVoucherTiers(raw.discoveredVoucherTiers);
@@ -136,6 +154,40 @@ export function recordTreasureDiscovered(career, treasureId) {
   if (career.discoveredTreasureIds.includes(id)) return false;
   career.discoveredTreasureIds.push(id);
   return true;
+}
+
+/**
+ * 有解锁前提的宝藏出现在商店货架。
+ * - 任意货架（含牌包）：写入 `shopAppearedPrerequisiteTreasureIds`（生涯「已出现」）。
+ * - 仅单卡区：`shopPrerequisiteTreasureSingleCardAppearanceCounts` +1（阶段二衰减用）。
+ *
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats} career
+ * @param {string} treasureId
+ * @param {{ singleCardShelf?: boolean }} [opts]
+ */
+export function recordPrerequisiteTreasureShopAppeared(career, treasureId, opts) {
+  const id = String(treasureId ?? "").trim();
+  if (!id) return false;
+  let changed = false;
+  if (!Array.isArray(career.shopAppearedPrerequisiteTreasureIds)) {
+    career.shopAppearedPrerequisiteTreasureIds = [];
+  }
+  if (!career.shopAppearedPrerequisiteTreasureIds.includes(id)) {
+    career.shopAppearedPrerequisiteTreasureIds.push(id);
+    changed = true;
+  }
+  if (opts?.singleCardShelf) {
+    if (
+      !career.shopPrerequisiteTreasureSingleCardAppearanceCounts ||
+      typeof career.shopPrerequisiteTreasureSingleCardAppearanceCounts !== "object"
+    ) {
+      career.shopPrerequisiteTreasureSingleCardAppearanceCounts = {};
+    }
+    const counts = career.shopPrerequisiteTreasureSingleCardAppearanceCounts;
+    counts[id] = Math.max(0, Math.floor(Number(counts[id]) || 0)) + 1;
+    changed = true;
+  }
+  return changed;
 }
 
 /**

@@ -861,7 +861,8 @@ import {
   saveGamePanelToSlot,
 } from "../save/gamePanelSaveApi.js";
 import { createRunAutoSave } from "../save/runAutoSave.js";
-import { clearSlotRunProgress } from "../save/runSaveStorage.js";
+import { clearSlotRunProgress, loadSaveEnvelope } from "../save/runSaveStorage.js";
+import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import {
   createRunMatchStats,
   formatRunEndBestWordValue,
@@ -953,7 +954,6 @@ import {
   rollExtraShopRandomCardOffers,
   rollShopRandomCardOffers,
 } from "../shop/rollShopRandomCardStock.js";
-import { canPurchaseRestartSpellInShop } from "../shop/shopOfferRowBuilders.js";
 import {
   getUpgradeTreasureIdForRandomPick,
   getUpgradeTreasureIdForRarityKey,
@@ -1102,6 +1102,7 @@ import {
   scoringSleep,
 } from "../game/submitScoringTiming.js";
 import { animSleep, runStaggeredInstantLeave, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
+import { enterGamePause, exitGamePause, isGamePaused, pauseAwareDelay, resetGamePause } from "../game/gamePause.js";
 import {
   schedulePopupBubbleDismiss,
   setPopupBubbleVisibleInstant,
@@ -1892,10 +1893,32 @@ function spellPoolExcludeIdsWhenBonusVoucherActive() {
   return hasSpellBonusShopVoucher() ? ["coupon_drop"] : [];
 }
 
+function buildSpellPoolEligibilityCountsForRun() {
+  const grantDefs = TREASURE_DEFINITIONS.filter((t) =>
+    IMPLEMENTED_TREASURE_ID_SET.has(t.treasureId),
+  );
+  return buildSpellPoolEligibilityCounts(
+    grantDefs,
+    buildTreasurePoolSnapshot(),
+    ownedTreasureIdSet.value,
+    ownedTreasures.value.filter(Boolean).length,
+    ownedTreasures.value.filter((s) => s == null).length,
+  );
+}
+
+function spellPoolEligibilityForShop() {
+  return {
+    ...buildSpellPoolEligibilityCountsForRun(),
+    lastReplayableSpellId: lastReplayableSpellId.value,
+    spellCastHistory: spellCastHistory.value,
+  };
+}
+
 function pickRandomInRunSpellIdForRun() {
   return pickRandomInRunSpellId(runRandom, [
     ...IN_RUN_RANDOM_SPELL_EXCLUDE,
     ...spellPoolExcludeIdsWhenBonusVoucherActive(),
+    ...buildSpellPoolExcludeIds(buildSpellPoolEligibilityCountsForRun()),
   ]);
 }
 
@@ -2058,6 +2081,34 @@ function shopPriceForOffer(basePrice, offer = {}) {
     ownedVoucherIds.value,
     runPresetId.value,
   );
+}
+
+function readNormalizedSlotCareer() {
+  const slot = loadSaveEnvelope().slots[props.saveSlotIndex];
+  return normalizeSlotCareerStats(slot?.career);
+}
+
+function buildShopRandomCardPrerequisiteRollOpts() {
+  const career = readNormalizedSlotCareer();
+  return {
+    prerequisiteTreasureRollContext: {
+      snap: buildTreasurePoolSnapshot(),
+      shopAppearedPrerequisiteTreasureIds: career.shopAppearedPrerequisiteTreasureIds ?? [],
+      shopPrerequisiteTreasureSingleCardAppearanceCounts:
+        career.shopPrerequisiteTreasureSingleCardAppearanceCounts ?? {},
+    },
+    onPrerequisiteTreasureShopAppeared: (treasureId) => {
+      recordPrerequisiteTreasureShopAppeared?.(treasureId, { singleCardShelf: true });
+    },
+  };
+}
+
+function buildPackPrerequisiteRollOpts() {
+  return {
+    onPrerequisiteTreasureShopAppeared: (treasureId) => {
+      recordPrerequisiteTreasureShopAppeared?.(treasureId);
+    },
+  };
 }
 
 function applyRunPresetStartEffects() {
@@ -2302,6 +2353,7 @@ function rollPackStock(rng = Math.random, sessionExcludeTreasureIds = null) {
     ownedTreasureIdSet: ownedTreasureIdSet.value,
     sessionExcludeTreasureIds: sessionExcludeTreasureIds ?? undefined,
     emptyTreasureSlots: ownedTreasures.value.filter((s) => s == null).length,
+    spellPoolEligibilityCounts: buildSpellPoolEligibilityCountsForRun(),
     lastReplayableSpellId: lastReplayableSpellId.value,
     spellCastHistory: spellCastHistory.value,
     shopTreasurePool: shopTreasurePool.value,
@@ -2310,6 +2362,7 @@ function rollPackStock(rng = Math.random, sessionExcludeTreasureIds = null) {
     spellCountsByLength: spellCountsByLength.value,
     honeAccessoryMult: getShopAccessoryChanceMultiplier(ownedVoucherIds.value),
     runDifficultyIndex: runDifficultyIndex.value,
+    ...buildPackPrerequisiteRollOpts(),
   });
   if (guarantee) balatroFirstShopPackConsumed.value = true;
   return rows;
@@ -2334,6 +2387,8 @@ function buildShopRandomCardRollCtx(sessionExcludeTreasureIds = null) {
     honeAccessoryMult: getShopAccessoryChanceMultiplier(ownedVoucherIds.value),
     runDifficultyIndex: runDifficultyIndex.value,
     excludeSpellIds: spellPoolExcludeIdsWhenBonusVoucherActive(),
+    spellPoolEligibilityCounts: buildSpellPoolEligibilityCountsForRun(),
+    ...buildShopRandomCardPrerequisiteRollOpts(),
   };
 }
 
@@ -3209,9 +3264,7 @@ const treasureCanBuyOffer = computed(() => {
   if (t.offerType === "bundlePack") return w >= p;
   if (t.offerType === "spell") {
     const sid = String(t.spellId ?? "");
-    if (sid === "restart" && !canPurchaseRestartSpellInShop(lastReplayableSpellId.value, spellCastHistory.value)) {
-      return false;
-    }
+    if (!canPurchaseSpellInShop(sid, spellPoolEligibilityForShop())) return false;
     if (isCouponDropSpellBlockedByBonusVoucher(sid)) return false;
     return w >= p;
   }
@@ -3229,6 +3282,7 @@ const openSettings = inject("openSettings", null);
 const mergeCareerOnRunEnd = inject("mergeCareerOnRunEnd", null);
 const tryUnlockAchievementsInject = inject("tryUnlockAchievements", null);
 const recordCollectionDiscovery = inject("recordCollectionDiscovery", null);
+const recordPrerequisiteTreasureShopAppeared = inject("recordPrerequisiteTreasureShopAppeared", null);
 const recordCollectionWordSubmit = inject("recordCollectionWordSubmit", null);
 
 const achievementToastQueue = createAchievementToastQueue();
@@ -3421,6 +3475,11 @@ function noteCollectionWordSubmitted(payload) {
 
 /** 暂停选项层 */
 const showPauseOptions = ref(false);
+
+watch(showPauseOptions, (open) => {
+  if (open) enterGamePause();
+  else exitGamePause();
+});
 
 /** 整局结束层（失败 / 通关 8-3） */
 const showRunEnd = ref(false);
@@ -4923,6 +4982,10 @@ function findFirstOwnedTreasureSlotIndex(treasureId) {
 
 function slotRafLoop() {
   slotRafId = requestAnimationFrame(slotRafLoop);
+  if (isGamePaused()) {
+    slotRafLastTime = 0;
+    return;
+  }
   const now = performance.now();
   const delta = slotRafLastTime ? Math.min(now - slotRafLastTime, 50) : 0;
   slotRafLastTime = now;
@@ -6334,7 +6397,7 @@ function showToast(msg, ms = 2000) {
 }
 
 function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+  return pauseAwareDelay(ms);
 }
 
 function buildLocalSaveContext() {
@@ -9218,9 +9281,7 @@ async function onTreasurePurchase() {
   if (t.offerType === "spell") {
     const spellId = String(t.spellId ?? "");
     if (!spellId) return;
-    if (spellId === "restart" && !canPurchaseRestartSpellInShop(lastReplayableSpellId.value, spellCastHistory.value)) {
-      return;
-    }
+    if (!canPurchaseSpellInShop(spellId, spellPoolEligibilityForShop())) return;
     if (isCouponDropSpellBlockedByBonusVoucher(spellId)) return;
     money.value -= pay;
     noteRunMoneySpent(pay);
@@ -12151,9 +12212,7 @@ function e2eCanBuyShopOffer(t) {
   if (t.offerType === "bundlePack") return w >= p;
   if (t.offerType === "spell") {
     const sid = String(t.spellId ?? "");
-    if (sid === "restart" && !canPurchaseRestartSpellInShop(lastReplayableSpellId.value, spellCastHistory.value)) {
-      return false;
-    }
+    if (!canPurchaseSpellInShop(sid, spellPoolEligibilityForShop())) return false;
     if (isCouponDropSpellBlockedByBonusVoucher(sid)) return false;
     return w >= p;
   }
@@ -12469,6 +12528,7 @@ onMounted(async () => {
   flushAchievementUnlocks();
 });
 onUnmounted(() => {
+  resetGamePause();
   unregisterGameAndroidBack?.();
   unregisterGameAndroidBack = null;
   runAutoSave.cancelPending();

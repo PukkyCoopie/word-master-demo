@@ -42,7 +42,7 @@ export function stepPreviewNavGroup(nav, delta) {
   if (!step) return nav;
   const index = ((nav.index + step) % len + len) % len;
   if (index === nav.index) return nav;
-  return { items: nav.items, index };
+  return { ...nav, index };
 }
 
 /** @param {PreviewNavGroup<unknown> | null | undefined} nav */

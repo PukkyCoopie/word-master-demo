@@ -117,8 +117,8 @@ function onChipClick(item, event) {
 
 <style scoped>
 .run-end-discovery-strip {
-  --run-end-discovery-chip-size: calc(var(--desc-inline-sample-size) * 0.75);
-  --run-end-discovery-chip-gap: calc(8 * var(--rpx));
+  --run-end-discovery-chip-size: calc(var(--shop-shelf-cell-size) * 0.5);
+  --run-end-discovery-chip-gap: calc(10 * var(--rpx));
   width: 100%;
   flex-shrink: 0;
 }
@@ -215,8 +215,7 @@ function onChipClick(item, event) {
   max-width: 100%;
   max-height: 100%;
   flex-shrink: 0;
-  border-radius: calc(8 * var(--rpx));
-  transform: scale(0.92);
-  transform-origin: center;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 </style>

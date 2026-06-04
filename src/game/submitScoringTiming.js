@@ -1,8 +1,5 @@
 import { getEffectiveAnimSpeed } from "../settings/animationSpeed.js";
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+import { pauseAwareDelay } from "./gamePause.js";
 
 const SUBMIT_SCORING_LENGTH_BASE_MAX = 2;
 const SUBMIT_SCORING_LENGTH_TAU_BEATS = 18;
@@ -72,5 +69,5 @@ export function getSubmitScoringBeatSpeed(beatIndex, totalBeats) {
 
 export async function scoringSleep(ms, speed) {
   const s = getEffectiveAnimSpeed(speed);
-  return sleep(Math.max(1, Math.round(ms / s)));
+  return pauseAwareDelay(Math.max(1, Math.round(ms / s)));
 }

@@ -287,7 +287,7 @@ onBeforeUnmount(() => {
   font-size: inherit;
   font-weight: inherit;
   margin-top: calc(4 * var(--rpx));
-  min-height: calc(var(--desc-inline-sample-size) * 0.75);
+  min-height: calc(var(--shop-shelf-cell-size) * 0.5);
   flex-shrink: 0;
 }
 

@@ -1,5 +1,6 @@
 import gsap from "gsap";
 import { watch } from "vue";
+import { pauseAwareDelay } from "../game/gamePause.js";
 import { gameSettings, normalizeAnimationSpeedTier } from "./gameSettings.js";
 
 /** @typedef {import('./gameSettings.js').AnimationSpeedTier} AnimationSpeedTier */
@@ -86,9 +87,7 @@ export function getEffectiveAnimSpeed(localSpeed = 1) {
  */
 export function animSleep(ms, localSpeed = 1) {
   const s = getEffectiveAnimSpeed(localSpeed);
-  return new Promise((resolve) => {
-    setTimeout(resolve, Math.max(1, Math.round(ms / s)));
-  });
+  return pauseAwareDelay(Math.max(1, Math.round(ms / s)));
 }
 
 /** 同步 document 类名、CSS 变量与 GSAP 全局 timeScale */

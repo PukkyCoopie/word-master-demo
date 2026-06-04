@@ -10,6 +10,11 @@ import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
 import { RARITY_BY_LETTER } from "../composables/useScoring.js";
 import { pickWeightedTreasureFromPool } from "../treasures/shopTreasureRoll.js";
 import {
+  PREREQUISITE_PHASE1_SLOT_PRIORITY_CHANCE,
+  buildPrerequisiteWeightMultiplierGetter,
+  filterPhase1PrerequisiteTreasures,
+} from "../treasures/prerequisiteShopBoost.js";
+import {
   SHOP_RANDOM_CARD_PLAYING_CARD_WEIGHT,
   SHOP_RANDOM_CARD_TYPE_WEIGHTS,
   getShopRandomCardSlotCount,
@@ -74,6 +79,12 @@ function pickWeightedCategory(keys, weights, rng) {
  *   ownedVoucherIds?: Iterable<string>,
  *   honeAccessoryMult?: number,
  *   runDifficultyIndex?: number | null,
+ *   prerequisiteTreasureRollContext?: {
+ *     snap: import("../treasures/treasureAvailability.js").TreasurePoolSnapshot,
+ *     shopAppearedPrerequisiteTreasureIds: Iterable<string>,
+ *     shopPrerequisiteTreasureSingleCardAppearanceCounts: Record<string, number>,
+ *   },
+ *   onPrerequisiteTreasureShopAppeared?: (treasureId: string) => void,
  * }} ctx
  */
 /**
@@ -93,12 +104,14 @@ function createShopRandomCardRoller(ctx) {
   const magicOwned = hasMagicTrick(ownedV);
   const illusionOwned = hasIllusion(ownedV);
   const letterRaws = allLetterRaws();
+  const prerequisiteRollContext = ctx.prerequisiteTreasureRollContext ?? null;
 
   const spellDefsAll = filterSpellDefsForShop(
     lastReplay,
     SPELL_DEFINITIONS,
     spellCastHistory,
     ctx.excludeSpellIds,
+    ctx.spellPoolEligibilityCounts ?? null,
   );
   const rarityKeys = letterRarityOrderKeys();
 
@@ -137,7 +150,32 @@ function createShopRandomCardRoller(ctx) {
   function tryTreasure() {
     const avail = availableTreasurePool();
     if (avail.length === 0) return null;
-    const def = pickWeightedTreasureFromPool(avail, rng);
+
+    let pickPool = avail;
+    if (prerequisiteRollContext) {
+      const phase1 = filterPhase1PrerequisiteTreasures(
+        avail,
+        prerequisiteRollContext.snap,
+        owned,
+        prerequisiteRollContext.shopAppearedPrerequisiteTreasureIds,
+      );
+      if (phase1.length > 0 && rng() < PREREQUISITE_PHASE1_SLOT_PRIORITY_CHANCE) {
+        pickPool = phase1;
+      }
+    }
+
+    /** @type {import('../treasures/shopTreasureRoll.js').ShopTreasurePickOpts} */
+    const treasurePickOpts = {
+      onPrerequisiteTreasureShopAppeared: ctx.onPrerequisiteTreasureShopAppeared,
+    };
+    if (prerequisiteRollContext && pickPool === avail) {
+      treasurePickOpts.getPrerequisiteWeightMultiplier = buildPrerequisiteWeightMultiplierGetter(
+        prerequisiteRollContext.shopAppearedPrerequisiteTreasureIds,
+        prerequisiteRollContext.shopPrerequisiteTreasureSingleCardAppearanceCounts,
+      );
+    }
+
+    const def = pickWeightedTreasureFromPool(pickPool, rng, treasurePickOpts);
     if (!def) return null;
     sessionExcluded?.add(def.treasureId);
     return buildTreasureShopRowFromDef(ctx.nextOfferInstanceId, def, rng, honeMult, ctx.runDifficultyIndex ?? null);

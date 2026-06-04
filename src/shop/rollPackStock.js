@@ -118,6 +118,7 @@ function ensureTelescopeLengthUpgradeInBundleOpts(opts, mostLen, makeLengthUpgra
  *   spellCountsByLength?: Record<string, number> | null,
  *   honeAccessoryMult?: number,
  *   runDifficultyIndex?: number | null,
+ *   onPrerequisiteTreasureShopAppeared?: (treasureId: string) => void,
  * }} ctx
  */
 export function rollPackOfferStock(ctx) {
@@ -133,6 +134,9 @@ export function rollPackOfferStock(ctx) {
   const spellWt = getSpellCategoryWeightMultiplier(ownedV);
   const upgradeWt = getUpgradeCategoryWeightMultiplier(ownedV);
   const honeMult = Math.max(0, Number(ctx.honeAccessoryMult) || 1);
+  const treasurePickOpts = {
+    onPrerequisiteTreasureShopAppeared: ctx.onPrerequisiteTreasureShopAppeared,
+  };
   const slotCount = getPackOfferSlotCount();
   const telescopeMost = hasTelescopeVoucher(ownedV)
     ? getMostPlayedWordLength(ctx.spellCountsByLength ?? null)
@@ -143,6 +147,7 @@ export function rollPackOfferStock(ctx) {
     SPELL_DEFINITIONS,
     spellCastHistory,
     ctx.excludeSpellIds,
+    ctx.spellPoolEligibilityCounts ?? null,
   );
   const nextPackId = () => ctx.nextPackOfferInstanceId();
 
@@ -310,6 +315,7 @@ export function rollPackOfferStock(ctx) {
         sessionExcluded ?? new Set(),
         nOpt,
         rng,
+        treasurePickOpts,
       );
       if (sessionExcluded) {
         for (const def of picks) sessionExcluded.add(def.treasureId);

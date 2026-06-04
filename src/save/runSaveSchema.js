@@ -29,6 +29,8 @@
  * @property {Record<string, number>} [presetHighestDifficultyWon]
  * @property {number} [lastSelectedDifficultyIndex]
  * @property {string[]} [discoveredTreasureIds]
+ * @property {string[]} [shopAppearedPrerequisiteTreasureIds]
+ * @property {Record<string, number>} [shopPrerequisiteTreasureSingleCardAppearanceCounts]
  * @property {string[]} [discoveredSpellIds]
  * @property {string[]} [discoveredUpgradeIds]
  * @property {Record<string, 1 | 2>} [discoveredVoucherTiers]
@@ -88,6 +90,8 @@ export function createEmptySlotCareerStats() {
     presetHighestDifficultyWon: {},
     lastSelectedDifficultyIndex: 0,
     discoveredTreasureIds: [],
+    shopAppearedPrerequisiteTreasureIds: [],
+    shopPrerequisiteTreasureSingleCardAppearanceCounts: {},
     discoveredSpellIds: [],
     discoveredUpgradeIds: [],
     discoveredVoucherTiers: {},

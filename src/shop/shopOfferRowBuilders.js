@@ -3,6 +3,7 @@
  */
 import { resolveRestartEffectiveSpellId } from "../game/inRunGrantFlow.js";
 import { getSpellDefinition, getSpellShopPrice } from "../spells/spellDefinitions.js";
+import { isSpellEligibleForPools } from "../spells/spellPoolEligibility.js";
 import { LETTER_RARITY_ORDER, getRarityForLetter } from "../composables/useScoring.js";
 import { getShopTreasureAccessoryPriceAddFromIds, rollShopTreasureAccessoryId } from "../accessories/accessoryResolve.js";
 import { rollDifficultyNegativeTreasureAccessoryIds, treasureOfferHasRentalAccessory } from "../game/runDifficultyRuntime.js";
@@ -36,12 +37,14 @@ export const UPGRADE_RARITY_LETTER_LABEL = Object.freeze({
  * @param {import("../spells/spellDefinitions.js").SpellDefinition[]} allDefs
  * @param {string[]} [spellCastHistory]
  * @param {string[]} [excludeSpellIds]
+ * @param {import("../spells/spellPoolEligibility.js").SpellPoolEligibilityCounts | null} [spellPoolCounts]
  */
 export function filterSpellDefsForShop(
   lastReplayableSpellId,
   allDefs,
   spellCastHistory = [],
   excludeSpellIds = [],
+  spellPoolCounts = null,
 ) {
   const replayTarget = resolveRestartEffectiveSpellId(spellCastHistory, lastReplayableSpellId);
   const exclude = new Set(
@@ -54,6 +57,7 @@ export function filterSpellDefsForShop(
       const prev = getSpellDefinition(replayTarget);
       return Boolean(prev && prev.pickCount >= 0);
     }
+    if (spellPoolCounts && !isSpellEligibleForPools(d.id, spellPoolCounts)) return false;
     return true;
   });
 }
