@@ -17,7 +17,8 @@ function countActivePostLetterTreasureSteps(postSteps) {
     const scoreAdd = Number(step.scoreAdd) || 0;
     const multMul = Number(step.multMul) || 0;
     const moneyAdd = Number(step.moneyAdd) || 0;
-    if (multAdd <= 0 && scoreAdd <= 0 && multMul <= 1 && moneyAdd <= 0) continue;
+    const hasMultMul = multMul > 0 && multMul !== 1;
+    if (multAdd <= 0 && scoreAdd <= 0 && !hasMultMul && moneyAdd <= 0) continue;
     c += 1;
   }
   return c;

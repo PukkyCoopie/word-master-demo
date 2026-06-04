@@ -19,3 +19,13 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# TapTap SDK：注解类仅编译期使用，R8 可忽略
+-dontwarn com.taptap.sdk.servicemanager.annotation.Service
+-dontwarn com.taptap.sdk.startup.annotation.Initialize
+
+# Capacitor WebView 桥与自定义插件
+-keep @com.getcapacitor.annotation.CapacitorPlugin class * {
+  @com.getcapacitor.PluginMethod *;
+}
+-keep class com.timeshift_games.word_master.** { *; }

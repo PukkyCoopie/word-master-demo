@@ -1,6 +1,7 @@
 import { buildRunSaveMetaFromPayload, serializeRunSave } from "./serializeRunSave.js";
 import { hydrateRunSave } from "./hydrateRunSave.js";
 import { canSaveNow } from "./runSaveGuards.js";
+import { hasMeaningfulRunProgress } from "./runSaveMeaningfulProgress.js";
 import { getSlotCareer, writeSlot } from "./runSaveStorage.js";
 import { normalizeSlotCareerStats, recordCareerRunStarted } from "./slotCareerStats.js";
 import { createEmptySlotCareerStats } from "./runSaveSchema.js";
@@ -63,7 +64,7 @@ export function saveGamePanelToSlot(ctx, slotIndex) {
   const payload = serializeRunSave(buildGamePanelSaveContext(ctx));
   const meta = buildRunSaveMetaFromPayload(payload, payload.levelIndex);
   const prevCareer = normalizeSlotCareerStats(getSlotCareer(slotIndex) ?? createEmptySlotCareerStats());
-  if (prevCareer.runsStarted === 0 && payload.phase === "playing") {
+  if (prevCareer.runsStarted === 0 && payload.phase === "playing" && hasMeaningfulRunProgress(payload)) {
     recordCareerRunStarted(prevCareer);
   }
   const ok = writeSlot(slotIndex, meta, payload, prevCareer);

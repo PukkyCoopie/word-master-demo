@@ -5,6 +5,7 @@
       :key="entry.treasureId"
       :unknown="!entry.discovered"
       :prerequisite-locked="entry.prerequisiteLocked"
+      :show-prerequisite-badge="entry.hasPrerequisite"
       :treasure-id="entry.treasureId"
       :name="entry.name"
       :emoji="entry.emoji"
@@ -20,6 +21,7 @@ import { computed } from "vue";
 import { TREASURE_CATALOG } from "../../treasures/treasureCatalog.js";
 import { getTreasureDef } from "../../treasures/treasureRegistry.js";
 import { treasureHasUnlockPrerequisite } from "../../collection/collectionEntryState.js";
+import { sortTreasureCatalogRows } from "../../collection/collectionTreasureSort.js";
 import CollectionShopTreasureCell from "./CollectionShopTreasureCell.vue";
 
 const props = defineProps({
@@ -31,7 +33,7 @@ defineEmits(["select-treasure"]);
 const discoveredSet = computed(() => new Set((props.discoveredTreasureIds ?? []).map(String)));
 
 const entries = computed(() =>
-  TREASURE_CATALOG.map((row) => {
+  sortTreasureCatalogRows(TREASURE_CATALOG, getTreasureDef).map((row) => {
     const discovered = discoveredSet.value.has(String(row.treasureId));
     const def = getTreasureDef(row.treasureId);
     const hasPrerequisite = treasureHasUnlockPrerequisite(row.treasureId);
@@ -39,6 +41,7 @@ const entries = computed(() =>
       treasureId: row.treasureId,
       discovered,
       prerequisiteLocked: !discovered && hasPrerequisite,
+      hasPrerequisite,
       name: def?.name ?? row.name,
       emoji: def?.emoji ?? row.emoji,
       rarity: def?.rarity ?? "rare",

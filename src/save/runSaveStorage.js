@@ -8,6 +8,10 @@ import {
   isContinuableRunPhase,
   normalizeRunSavePhase,
 } from "./runSaveSchema.js";
+import {
+  hasMeaningfulRunProgress,
+  isAbandonedFreshRunPayload,
+} from "./runSaveMeaningfulProgress.js";
 import { normalizeSlotCareerStats } from "./slotCareerStats.js";
 
 /** @type {import('./runSaveSchema.js').SaveEnvelope | null} */
@@ -57,13 +61,30 @@ export function isSlotOccupied(index) {
   return getSaveEnvelope().slots[ix] != null;
 }
 
-/** @param {number} index 槽位是否存在可恢复的局内进度（进行中，非整局结束） */
+/** @param {number} index 槽位是否存在可恢复的局内进度（进行中，非整局结束，且非空白局） */
 export function hasContinuableRun(index) {
   const ix = clampSaveSlotIndex(index);
   const slot = getSaveEnvelope().slots[ix];
   if (!slot?.payload) return false;
   const phase = normalizeRunSavePhase(slot.payload.phase ?? slot.meta?.phase);
-  return isContinuableRunPhase(phase);
+  if (!isContinuableRunPhase(phase)) return false;
+  return hasMeaningfulRunProgress(slot.payload);
+}
+
+/** @param {number} index */
+export function hasAbandonedFreshRun(index) {
+  const payload = getSlotPayload(index);
+  return isAbandonedFreshRunPayload(payload);
+}
+
+/**
+ * 清除「刚进局未操作」的空白进度，保留栏位生涯与 meta 摘要。
+ * @param {number} index
+ * @returns {boolean} 是否执行了清除
+ */
+export function pruneAbandonedFreshRun(index) {
+  if (!hasAbandonedFreshRun(index)) return false;
+  return clearSlotRunProgress(index);
 }
 
 /**

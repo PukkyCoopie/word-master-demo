@@ -116,6 +116,7 @@ export const TREASURE_CATALOG = [
   { treasureId: "115", name: "条形图", emoji: "📊", scriptPath: "./items/treasure_115.js", implemented: true },
   { treasureId: "116", name: "盾牌", emoji: "🛡️", scriptPath: "./items/treasure_116.js", implemented: true },
   { treasureId: "117", name: "单曲循环", emoji: "🔂", scriptPath: "./items/treasure_117.js", implemented: true },
+  { treasureId: "118", name: "寻呼机", emoji: "📟", scriptPath: "./items/treasure_118.js", implemented: true },
 ];
 
 export const TREASURE_CATALOG_BY_ID = new Map(TREASURE_CATALOG.map((t) => [t.treasureId, t]));

@@ -158,10 +158,12 @@ import {
   getSlotCareer,
   getSlotMeta,
   getSlotPayload,
+  hasAbandonedFreshRun,
   hasContinuableRun,
   isSlotOccupied,
   loadSaveEnvelope,
   mutateSlotCareer,
+  pruneAbandonedFreshRun,
 } from "./save/runSaveStorage.js";
 import {
   recordAccessoryDiscovered,
@@ -618,6 +620,16 @@ function shouldUseRunStartDialog(slotIx) {
   return hasSlotCompletedAnyRun(career);
 }
 
+function clearInProgressRunProgressIfAny(slotIx) {
+  if (!hasContinuableRun(slotIx) && !hasAbandonedFreshRun(slotIx)) return;
+  clearSlotRunProgress(slotIx);
+  bumpSaveUi();
+}
+
+function pruneAbandonedFreshRunForSlot(slotIx) {
+  if (pruneAbandonedFreshRun(slotIx)) bumpSaveUi();
+}
+
 function closeRunStartQuickConfirm() {
   runStartQuickConfirm.value = {
     ...runStartQuickConfirm.value,
@@ -679,10 +691,7 @@ async function startDirectNewRun(slotIx, mode = "menu") {
     return;
   }
 
-  if (hasContinuableRun(slotIx)) {
-    clearSlotRunProgress(slotIx);
-    bumpSaveUi();
-  }
+  clearInProgressRunProgressIfAny(slotIx);
 
   sessionRestoredSave.value = null;
   sessionRunSeed.value = seedNumeric;
@@ -710,6 +719,8 @@ function openRunStartFlow({ mode, prefillSeed = "" }) {
   if (transitionBusy.value) return;
   const slotIx =
     mode === "restart" ? sessionSaveSlotIndex.value : getActiveSaveSlotIndex();
+
+  pruneAbandonedFreshRunForSlot(slotIx);
 
   if (shouldUseRunStartDialog(slotIx)) {
     openRunStartDialogFlow({ mode, slotIx, prefillSeed });
@@ -831,10 +842,7 @@ async function onRunStartConfirm(payload) {
     return;
   }
 
-  if (hasContinuableRun(slotIx)) {
-    clearSlotRunProgress(slotIx);
-    bumpSaveUi();
-  }
+  clearInProgressRunProgressIfAny(slotIx);
 
   sessionRestoredSave.value = null;
   sessionRunSeed.value = seedNumeric;
@@ -863,9 +871,11 @@ async function onGameExitToMenu() {
   if (transitionBusy.value) return;
   sessionRestoredSave.value = null;
   transitionBusy.value = true;
+  const slotIx = sessionSaveSlotIndex.value;
   await irisFxRef.value?.play({
     onCovered: () => {
       screen.value = "menu";
+      pruneAbandonedFreshRunForSlot(slotIx);
       bumpSaveUi();
     },
   });

@@ -1,5 +1,5 @@
 /**
- * 从 public/images/challenge.png 导出 256×256 WebP（成就占位 icon）。
+ * 从 design/challenge-source.png 导出 256×256 WebP（成就占位 icon）。
  * 运行：node scripts/render-challenge-icon.mjs
  */
 import sharp from "sharp";
@@ -8,12 +8,12 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SOURCE = join(__dirname, "..", "public", "images", "challenge.png");
+const SOURCE = join(__dirname, "..", "design", "challenge-source.png");
 const OUT = join(__dirname, "..", "public", "images", "challenge.webp");
 const OUT_SIZE = 256;
 
 if (!existsSync(SOURCE)) {
-  console.error("未找到 public/images/challenge.png");
+  console.error("未找到 design/challenge-source.png");
   process.exit(1);
 }
 

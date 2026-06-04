@@ -60,7 +60,7 @@
         'collection-shop-cell__name--prerequisite': prerequisiteLocked,
       }"
     >
-      <CollectionPrerequisiteBadge v-if="prerequisiteLocked" class="collection-shop-cell__prerequisite-badge" />
+      <CollectionPrerequisiteBadge v-if="showPrerequisiteBadge" class="collection-shop-cell__prerequisite-badge" />
       {{ displayName }}
     </p>
   </button>
@@ -76,6 +76,8 @@ const props = defineProps({
   unknown: { type: Boolean, default: false },
   /** 未发现但有 unlockPrerequisite，可点开预览 */
   prerequisiteLocked: { type: Boolean, default: false },
+  /** 有 unlockPrerequisite 时在名称前显示感叹号（含已发现） */
+  showPrerequisiteBadge: { type: Boolean, default: false },
   spellOffer: { type: Boolean, default: false },
   upgradeOffer: { type: Boolean, default: false },
   upgradeKind: { type: String, default: "" },

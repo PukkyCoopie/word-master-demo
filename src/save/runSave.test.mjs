@@ -26,6 +26,10 @@ import {
   SAVE_SLOT_COUNT,
 } from "./runSaveSchema.js";
 import {
+  hasMeaningfulRunProgress,
+  isAbandonedFreshRunPayload,
+} from "./runSaveMeaningfulProgress.js";
+import {
   serializeAchievementRunState,
   deserializeAchievementRunState,
   createAchievementRunState,
@@ -121,6 +125,32 @@ test("isContinuableRunPhase excludes run end phases", () => {
   assert.equal(isContinuableRunPhase("settlement"), true);
   assert.equal(isContinuableRunPhase("run_end_win"), false);
   assert.equal(isContinuableRunPhase("run_end_fail"), false);
+});
+
+test("abandoned fresh run has no meaningful progress", () => {
+  const payload = {
+    phase: "playing",
+    levelIndex: 0,
+    runMatchStats: createRunMatchStats(),
+    spellCastHistory: [],
+    achievementRunState: { wordsPerLevelId: {}, interestEarnedTotal: 0, moneySpentTotal: 0, discardUsesCount: 0 },
+  };
+  assert.equal(hasMeaningfulRunProgress(payload), false);
+  assert.equal(isAbandonedFreshRunPayload(payload), true);
+});
+
+test("word submit makes run progress meaningful", () => {
+  const stats = createRunMatchStats();
+  stats.wordsSubmitted = 1;
+  const payload = {
+    phase: "playing",
+    levelIndex: 0,
+    runMatchStats: stats,
+    spellCastHistory: [],
+    achievementRunState: { wordsPerLevelId: {}, interestEarnedTotal: 0, moneySpentTotal: 0, discardUsesCount: 0 },
+  };
+  assert.equal(hasMeaningfulRunProgress(payload), true);
+  assert.equal(isAbandonedFreshRunPayload(payload), false);
 });
 
 test("collection career normalize defaults", () => {

@@ -83,19 +83,19 @@ export const BASE_SCORE_PER_LETTER = 3;
  */
 export const WORD_LENGTH_BALANCE = {
   3: { base: [5, 3], upgrade: [3, 1] },
-  4: { base: [6, 3], upgrade: [3, 2] },
-  5: { base: [8, 3], upgrade: [4, 2] },
-  6: { base: [11, 4], upgrade: [5, 4] },
-  7: { base: [15, 5], upgrade: [8, 5] },
-  8: { base: [20, 6], upgrade: [10, 6] },
-  9: { base: [26, 7], upgrade: [13, 8] },
-  10: { base: [33, 9], upgrade: [17, 9] },
-  11: { base: [42, 12], upgrade: [21, 11] },
-  12: { base: [54, 16], upgrade: [27, 14] },
-  13: { base: [70, 21], upgrade: [35, 17] },
-  14: { base: [88, 27], upgrade: [44, 20] },
-  15: { base: [108, 34], upgrade: [54, 24] },
-  16: { base: [150, 50], upgrade: [75, 30] },
+  4: { base: [6, 4], upgrade: [3, 2] },
+  5: { base: [7, 5], upgrade: [4, 2] },
+  6: { base: [8, 6], upgrade: [4, 3] },
+  7: { base: [10, 8], upgrade: [5, 4] },
+  8: { base: [12, 10], upgrade: [6, 5] },
+  9: { base: [15, 12], upgrade: [8, 6] },
+  10: { base: [20, 15], upgrade: [10, 8] },
+  11: { base: [27, 18], upgrade: [13, 9] },
+  12: { base: [36, 21], upgrade: [18, 11] },
+  13: { base: [48, 25], upgrade: [24, 13] },
+  14: { base: [64, 30], upgrade: [32, 15] },
+  15: { base: [84, 42], upgrade: [42, 21] },
+  16: { base: [120, 60], upgrade: [60, 30] },
 };
 
 /** 单词实际字母数 → 每个字母的基础分（不含稀有度加成） */

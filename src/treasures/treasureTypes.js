@@ -153,6 +153,11 @@
  * @property {() => HTMLElement[]} [getWordSlotEls]
  * @property {() => HTMLElement[]} [getGridTileElsInOrder]
  * @property {(opts: SubmitWordEnhancementStripLeaveOpts) => Promise<void>} [playSubmitTileEnhancementStripLeave]
+ * @property {(opts: { treasureId?: string, session?: object }) => Promise<{ correct?: boolean, skipped?: boolean }>} [requestPagerQuiz]
+ * @property {object} [detailed]
+ * @property {object | null} [pagerQuizSession]
+ * @property {() => number} [findOwnedTreasureSlotIndex]
+ * @property {() => void} [recordDeferredWordSubmit]
  */
 
 /**

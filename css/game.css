@@ -574,7 +574,7 @@ textarea::-moz-placeholder {
 	flex-shrink: 0;
 	font-variant-numeric: tabular-nums;
 	font-size: calc(28 * var(--rpx));
-	font-weight: 800;
+	font-weight: 600;
 	line-height: 1.1;
 	color: var(--shop-reroll-price-accent, var(--btn-yellow));
 	text-shadow:
@@ -583,7 +583,7 @@ textarea::-moz-placeholder {
 }
 
 .boss-blind-reroll-backdrop .shop-btn-reroll-dollar {
-	font-weight: 800;
+	font-weight: 600;
 	margin-right: calc(1 * var(--rpx));
 }
 
@@ -3056,7 +3056,7 @@ textarea::-moz-placeholder {
 	background: #2f2f2f;
 	color: #fde68a;
 	font-size: calc(26 * var(--rpx));
-	font-weight: 800;
+	font-weight: 600;
 	/* 上延到 icon 框下方：等价于 top: calc(100% - 10rpx) + padding-top: 10rpx 的重叠效果 */
 	margin-top: calc(-10 * var(--rpx));
 	padding: calc(16 * var(--rpx)) calc(5 * var(--rpx)) calc(5 * var(--rpx));
@@ -3068,6 +3068,11 @@ textarea::-moz-placeholder {
 	align-items: center;
 	justify-content: center;
 	text-align: center;
+}
+
+.shop-btn-reroll-price,
+.shop-btn-reroll-dollar {
+	font-weight: 600;
 }
 
 .shop-treasure-price-inner {
@@ -4914,4 +4919,137 @@ html.reduce-motion .collection-icon-segment-thumb,
 html.reduce-motion .settings-layer-tabs-thumb,
 html.reduce-motion .run-start-dialog-tab-thumb {
 	transition: none !important;
+}
+
+/* —— 寻呼机测验层 —— */
+.pager-quiz-backdrop {
+	background: transparent;
+}
+
+.pager-quiz-backdrop.pager-quiz-backdrop--boot {
+	background: transparent;
+	box-shadow: none;
+}
+
+.pager-quiz-backdrop--boot .pager-quiz-enter-stagger {
+	opacity: 0;
+}
+
+.pager-quiz-body {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 100%;
+	padding: calc(24 * var(--rpx)) calc(20 * var(--rpx));
+	box-sizing: border-box;
+}
+
+.pager-quiz-panel {
+	width: min(100%, calc(620 * var(--rpx)));
+	padding: calc(36 * var(--rpx)) calc(22 * var(--rpx)) calc(28 * var(--rpx));
+	border-radius: calc(16 * var(--rpx));
+	background: var(--panel-bg-soft, rgba(52, 48, 58, 0.96));
+	box-shadow: 0 calc(8 * var(--rpx)) calc(28 * var(--rpx)) rgba(0, 0, 0, 0.28);
+	box-sizing: border-box;
+}
+
+.pager-quiz-stack .treasure-detail-title-group {
+	gap: calc(18 * var(--rpx));
+}
+
+.pager-quiz-stack {
+	width: 100%;
+	max-width: none;
+	gap: calc(20 * var(--rpx));
+}
+
+.pager-quiz-options {
+	display: flex;
+	flex-direction: column;
+	gap: calc(12 * var(--rpx));
+	width: 100%;
+}
+
+.pager-quiz-option {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	min-height: calc(72 * var(--rpx));
+	padding: calc(14 * var(--rpx)) calc(22 * var(--rpx));
+	border: calc(2 * var(--rpx)) solid rgba(255, 255, 255, 0.12);
+	border-radius: calc(999 * var(--rpx));
+	background: rgba(68, 62, 76, 0.92);
+	color: var(--text-primary, #f5f2ea);
+	font-size: calc(26 * var(--rpx));
+	line-height: 1.35;
+	text-align: center;
+	cursor: pointer;
+	transition:
+		background calc(0.18s / var(--anim-speed-scale, 1)) var(--ease-expo-out),
+		border-color calc(0.18s / var(--anim-speed-scale, 1)) var(--ease-expo-out),
+		transform calc(0.15s / var(--anim-speed-scale, 1)) var(--ease-expo-out),
+		opacity calc(0.18s / var(--anim-speed-scale, 1)) var(--ease-expo-out);
+}
+
+.pager-quiz-option--multiline {
+	border-radius: calc(16 * var(--rpx));
+}
+
+.pager-quiz-option:disabled {
+	cursor: default;
+}
+
+.pager-quiz-option--picked {
+	transform: scale(1.02);
+	border-color: var(--accent-primary, #6ec4ff);
+	box-shadow: 0 0 0 calc(2 * var(--rpx)) rgba(110, 196, 255, 0.35);
+}
+
+.pager-quiz-option--correct {
+	background: #3d8f5a;
+	border-color: #2f7348;
+	color: #fff;
+}
+
+.pager-quiz-option--wrong {
+	background: #b84a4a;
+	border-color: #963a3a;
+	color: #fff;
+}
+
+.pager-quiz-option--dimmed {
+	opacity: 0.45;
+}
+
+.pager-quiz-option__label {
+	display: block;
+	width: 100%;
+	word-break: break-word;
+}
+
+.pager-quiz-continue-btn {
+	width: calc(320 * var(--rpx));
+	max-width: min(100%, calc(320 * var(--rpx)));
+}
+
+.pager-quiz-continue-dock {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: calc(36 * var(--rpx));
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	z-index: 2;
+	pointer-events: none;
+	opacity: 0;
+}
+
+.pager-quiz-continue-dock .pager-quiz-continue-btn {
+	pointer-events: auto;
+}
+
+html.reduce-motion .pager-quiz-option {
+	transition: none;
 }

@@ -1,4 +1,8 @@
 import { ref, shallowRef, computed } from "vue";
+import {
+  PROGRESS_AFTER_DECOMPRESS,
+  resolveDictionaryText,
+} from "../dictionary/dictionaryTransport.js";
 import { getAllowSpellingAbbreviations } from "../settings/gameSettings.js";
 
 /** 词典条目 [word, pos, translation_zh] → 小写 word 为 key 的 Map */
@@ -72,34 +76,7 @@ function raf() {
   return new Promise((resolve) => requestAnimationFrame(resolve));
 }
 
-/**
- * 推断解压后体积：Content-Length 在 gzip/br 下多为压缩大小，不可直接当 fetch 累计字节的分母。
- * @param {Response} res
- */
-function estimateDecompressedBytes(res) {
-  const enc = (res.headers.get("Content-Encoding") || "").toLowerCase();
-  const cl = Number(res.headers.get("Content-Length") || 0) || 0;
-  if (cl <= 0) return 0;
-  if (!enc) return cl;
-  return Math.round(cl * 4);
-}
-
-/**
- * @param {Response} res
- * @param {number} received
- * @param {number} prevTarget
- */
-function resolveDownloadByteTarget(res, received, prevTarget) {
-  const fromHeader = estimateDecompressedBytes(res);
-  let target = Math.max(prevTarget, fromHeader, received);
-  if (received > 0 && target <= received) {
-    target = Math.max(target, Math.ceil(received * 1.12));
-  }
-  return target;
-}
-
-/** 下载阶段在总进度中的上限（留余量给 JSON.parse 与建索引） */
-const PROGRESS_AFTER_DOWNLOAD = 0.68;
+/** JSON 解析与建索引阶段（下载/解压由 dictionaryTransport 负责） */
 const PROGRESS_AFTER_JSON = 0.78;
 const PROGRESS_BEFORE_DONE = 0.99;
 
@@ -108,45 +85,17 @@ const PROGRESS_BEFORE_DONE = 0.99;
  */
 async function loadOnce(options = {}) {
   const { shouldAbort } = options;
-  const dictUrl = `${import.meta.env.BASE_URL}data/dictionary/dict.json`.replace(/\/+/g, "/");
-  const res = await fetch(dictUrl);
-  if (!res.ok) throw new Error("词典加载失败");
+  const dictBaseUrl = `${import.meta.env.BASE_URL}data/dictionary/`.replace(/\/+/g, "/");
 
-  let downloadByteTarget = estimateDecompressedBytes(res);
-  const hasByteEstimate = downloadByteTarget > 0;
-
-  let text = "";
-  if (res.body) {
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let received = 0;
-    while (true) {
-      if (shouldAbort?.()) return;
-      const { done, value } = await reader.read();
-      if (done) break;
-      received += value.length;
-      if (hasByteEstimate) {
-        downloadByteTarget = resolveDownloadByteTarget(res, received, downloadByteTarget);
-        const ratio = Math.min(1, received / downloadByteTarget);
-        bumpLoadProgress(ratio * PROGRESS_AFTER_DOWNLOAD);
-      } else {
-        bumpLoadProgress(
-          PROGRESS_AFTER_DOWNLOAD * (1 - Math.exp(-received / (4 * 1024 * 1024))),
-        );
-      }
-      text += decoder.decode(value, { stream: true });
-    }
-    text += decoder.decode();
-  } else {
-    text = await res.text();
-    bumpLoadProgress(PROGRESS_AFTER_DOWNLOAD * 0.92);
-  }
-
+  const text = await resolveDictionaryText(dictBaseUrl, {
+    shouldAbort,
+    bumpLoadProgress,
+  });
   if (shouldAbort?.()) return;
-  bumpLoadProgress(PROGRESS_AFTER_DOWNLOAD);
+  bumpLoadProgress(PROGRESS_AFTER_DECOMPRESS);
 
   await raf();
-  bumpLoadProgress(PROGRESS_AFTER_DOWNLOAD + 0.04);
+  bumpLoadProgress(PROGRESS_AFTER_DECOMPRESS + 0.04);
 
   const raw = JSON.parse(text);
   if (!Array.isArray(raw)) throw new Error("词典格式错误");
@@ -323,4 +272,37 @@ export function useDictionary() {
     getWordDefinition,
     getCandidateWordsByLength,
   };
+}
+
+/** @param {number} len */
+export function getCandidateWordsByLength(len) {
+  const byLength = wordsByLength.value;
+  if (!(byLength instanceof Map)) return [];
+  const n = Math.max(0, Math.floor(Number(len)));
+  return byLength.get(n) ?? [];
+}
+
+export function getWordDefinition(word) {
+  const w = String(word).toLowerCase().trim();
+  if (wordInfoMap.value && wordInfoMap.value.has(w)) return wordInfoMap.value.get(w);
+  return null;
+}
+
+/** 词性仅含 abbr、无正常词性（寻呼机测验等用） */
+export function isAbbrevOnlyWord(word) {
+  const w = String(word).toLowerCase().trim();
+  if (!w) return false;
+  const tagsMap = posTagsByWord.value;
+  if (!(tagsMap instanceof Map)) return false;
+  const tags = tagsMap.get(w);
+  if (!tags || !tags.has("abbr")) return false;
+  for (const token of tags) {
+    if (NORMAL_POS_TOKENS.has(token)) return false;
+  }
+  return true;
+}
+
+export function getDictionaryWordCount() {
+  const set = wordSet.value;
+  return set instanceof Set ? set.size : 0;
 }

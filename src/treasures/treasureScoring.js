@@ -27,7 +27,8 @@ function isNoOpPostLetterTreasureStep(step) {
   const multAdd = Number(step.multAdd) || 0;
   const scoreAdd = Number(step.scoreAdd) || 0;
   const moneyAdd = Number(step.moneyAdd) || 0;
-  return multMul <= 1 && multAdd <= 0 && scoreAdd <= 0 && moneyAdd <= 0;
+  const hasMultMul = multMul > 0 && multMul !== 1;
+  return !hasMultMul && multAdd <= 0 && scoreAdd <= 0 && moneyAdd <= 0;
 }
 
 /**
@@ -176,9 +177,32 @@ function applyPostLetterMultPipeline(multBeforePost, postSteps) {
     const ma = Number(st.multAdd) || 0;
     const mm = Number(st.multMul) || 0;
     if (ma) M += ma;
-    if (mm > 1) M *= mm;
+    if (mm > 0 && mm !== 1) M *= mm;
   }
   return M;
+}
+
+/**
+ * 寻呼机测验结束后重算 multTotal / finalScore（字后步已 push pager multMul）。
+ * @param {Record<string, unknown>} detailed
+ */
+export function recomputeSubmitDetailedAfterPagerStep(detailed) {
+  if (!detailed || typeof detailed !== "object") return;
+  const baseMult = Number(detailed._multPipelineBase);
+  const luckyAdd = Number(detailed._luckyMaterialMultAddTotal) || 0;
+  const hasPostLetterMultMul = detailed.postLetterTreasureSteps?.some((st) => {
+    const mm = Number(st?.multMul) || 0;
+    return mm > 0 && mm !== 1;
+  });
+  if (!Number.isFinite(baseMult)) return;
+  const multTotal =
+    applyPostLetterMultPipeline(baseMult, detailed.postLetterTreasureSteps ?? []) +
+    (hasPostLetterMultMul ? 0 : luckyAdd);
+  const scoreSum = Number(detailed.scoreSum) || 0;
+  const treasureMultiplier = Number(detailed.treasureMultiplier) || 1;
+  detailed.multTotal = multTotal;
+  detailed.finalScore = Math.round(scoreSum * multTotal * treasureMultiplier);
+  detailed.hasPostLetterMultMul = !!hasPostLetterMultMul;
 }
 
 function hasRewindAccessory(tile) {
@@ -422,7 +446,10 @@ export function computeWordScoreDetailedForSubmit(
   }
 
   /** 存在字后「倍率乘法」步时，幸运材质的平面倍率加法须仍在乘法之后结算，保持与动画面板一致。 */
-  const hasPostLetterMultMul = postLetterTreasureSteps.some((st) => (Number(st.multMul) || 0) > 1);
+  const hasPostLetterMultMul = postLetterTreasureSteps.some((st) => {
+    const mm = Number(st?.multMul) || 0;
+    return mm > 0 && mm !== 1;
+  });
 
   /** 幸运材质：每字母每次计分（含 replay）各掷一次；金币并入该字母逐字动效，倍率加法在无字后乘法步时并入该次倍率 wobble。 */
   /** @type {{ multAdd: number, moneyAdd: number }[][]} */
@@ -485,13 +512,14 @@ export function computeWordScoreDetailedForSubmit(
   const scoreSumForSubmit =
     base.scoreSum + postLetterScoreAdd + tileAccessoryPerLetter.scoreAdd;
 
+  const multPipelineBase =
+    multBeforePostLetterTreasures *
+    letterRarityTreasureMultMulProduct *
+    tileAccessoryPerLetter.multMulProduct;
+
   const multTotal =
-    applyPostLetterMultPipeline(
-      multBeforePostLetterTreasures *
-        letterRarityTreasureMultMulProduct *
-        tileAccessoryPerLetter.multMulProduct,
-      postLetterTreasureSteps,
-    ) + (hasPostLetterMultMul ? 0 : luckyMaterialMultAddTotal);
+    applyPostLetterMultPipeline(multPipelineBase, postLetterTreasureSteps) +
+    (hasPostLetterMultMul ? 0 : luckyMaterialMultAddTotal);
   const finalScore = Math.round(scoreSumForSubmit * multTotal * base.treasureMultiplier);
 
   return {
@@ -502,6 +530,8 @@ export function computeWordScoreDetailedForSubmit(
     postLetterTreasureSteps,
     hasPostLetterMultMul,
     luckyMaterialRollsByLetter,
+    _multPipelineBase: multPipelineBase,
+    _luckyMaterialMultAddTotal: luckyMaterialMultAddTotal,
     letterReplayExtraCounts,
     perLetterTreasureReplayCueSteps,
     /** 提交记分动画中逐字母高亮/加分的轮数（含首遍，至少为 1） */

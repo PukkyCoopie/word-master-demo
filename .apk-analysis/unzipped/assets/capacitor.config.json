@@ -1,0 +1,25 @@
+{
+	"appId": "com.timeshift_games.word_master",
+	"appName": "Word Master",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	},
+	"android": {
+		"allowMixedContent": false,
+		"backgroundColor": "#c4b7a6"
+	},
+	"plugins": {
+		"SystemBars": {
+			"hidden": false,
+			"style": "LIGHT",
+			"insetsHandling": "disable"
+		},
+		"CapacitorHttp": {
+			"enabled": false
+		},
+		"CapacitorCookies": {
+			"enabled": false
+		}
+	}
+}

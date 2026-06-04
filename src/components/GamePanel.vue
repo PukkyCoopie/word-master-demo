@@ -14,7 +14,7 @@
           :owned-treasures="ownedTreasures"
           :shop-reroll-cost="shopNextRerollCostDisplay"
           :can-shop-reroll="shopCanReroll"
-          :interactions-disabled="shopUpgradeAnimating || packPickBusy || !!packPickSession || !!bossRerollSession"
+          :interactions-disabled="shopUpgradeAnimating || packPickBusy || !!packPickSession || !!bossRerollSession || !!pagerQuizSession"
           :treasure-charge-by-slot="treasureChargeVisualBySlot"
           :treasure-charge-progress-by-slot="treasureChargeProgressBySlot"
           :treasure-slots-layout-class="treasureSlotsLayoutClass"
@@ -201,6 +201,13 @@
       :owned-voucher-ids="ownedVoucherIds"
       @reroll="onBossBlindRerollPaid"
       @continue="onBossBlindRerollContinue"
+    />
+    <PagerQuizLayer
+      v-if="pagerQuizSession"
+      :session="pagerQuizSession"
+      :overlay-suppressed="shopOverlayLayersSuppressed"
+      @resolved="onPagerQuizResolved"
+      @closed="onPagerQuizClosed"
     />
     <TileDetailLayer
       v-if="tileDetailPayload"
@@ -896,6 +903,7 @@ import {
 } from "../preview/previewGroupNav.js";
 import { createRunEndConfettiController } from "../game/runEndConfetti.js";
 import BossBlindRerollLayer from "./BossBlindRerollLayer.vue";
+import PagerQuizLayer from "./PagerQuizLayer.vue";
 import { getBossDef } from "../game/bossBlindDefinitions.js";
 import { isBossLevelEnterRestrictionSlug } from "../game/bossRestrictionCue.js";
 import {
@@ -939,6 +947,11 @@ import {
 } from "../spells/spellDefinitions.js";
 import { buildSpellOfferSlotsFromPool } from "../spells/spellOfferSlots.js";
 import { pickDiceChainSpellIds, pickRandomInRunSpellId, IN_RUN_RANDOM_SPELL_EXCLUDE } from "../spells/spellInRunPool.js";
+import {
+  buildSpellPoolEligibilityCounts,
+  buildSpellPoolExcludeIds,
+  canPurchaseSpellInShop,
+} from "../spells/spellPoolEligibility.js";
 import { buildSpellOfferPreviewFromId } from "../spells/spellReplayUi.js";
 import {
   resolveRestartEffectiveSpellId,
@@ -1096,6 +1109,8 @@ import {
   deckStackPileRotationDeg,
 } from "../game/deckStackPileLayout.js";
 import { resolveSubmitWordInput } from "../game/submitWordPipeline.js";
+import { buildPagerQuizOptions } from "../game/pagerQuizOptions.js";
+import { TREASURE_118_ID } from "../treasures/items/treasure_118.js";
 import {
   getSubmitScoringBeatSpeed,
   getSubmitScoringTotalBeats,
@@ -1434,6 +1449,14 @@ function getRunSeedNumeric() {
 }
 /** 离开商店进 Boss 关前的重掷预览会话 */
 const bossRerollSession = ref(/** @type {{ levelId: string, slug: string, rerollsUsed: number, rerollNonce: number } | null} */ (null));
+/** @type {import('vue').Ref<object | null>} */
+const pagerQuizSession = ref(null);
+/** @type {import('vue').Ref<object | null>} */
+const pendingPagerQuizSession = ref(null);
+/** @type {{ word: string, length: number, tiles: object[] } | null} */
+let deferredWordSubmitPayload = null;
+/** @type {((value: { correct?: boolean, skipped?: boolean }) => void) | null} */
+let pagerQuizPendingResolve = null;
 /** 场记板券确认后写入的 Boss slug，供 `buildLevelResetRunOpts` 使用 */
 const pendingBossSlugOverride = ref("");
 const crimsonTreasureDisabledSlotIndex = ref(/** @type {number | null} */ (null));
@@ -2416,6 +2439,47 @@ function rollShopVisitStock(rng = Math.random) {
   const shop = rollShopStock(rng, sessionExcludeTreasureIds);
   const pack = rollPackStock(rng, sessionExcludeTreasureIds);
   return { shop, pack };
+}
+
+/** @param {unknown[]} rows */
+function shopOfferRowsHasOffer(rows) {
+  return Array.isArray(rows) && rows.some((s) => s?.kind === "offer");
+}
+
+function shopShelfNeedsStockRoll() {
+  return !shopOfferRowsHasOffer(shopOffers.value) || !shopOfferRowsHasOffer(packOffers.value);
+}
+
+function refreshShopVoucherShelfForCurrentVisit() {
+  const levelId = currentLevel.value?.id ?? "1-1";
+  const nextAfterShop = getNextLevelDefAfterShop();
+  if (parseLevelSubFromId(nextAfterShop?.id) === 3) {
+    clearShopVoucherBonusShelf();
+  }
+  const shelfGen = getVoucherShelfGeneration(levelId);
+  if (shopVoucherShelfGeneration.value !== shelfGen) {
+    shopVoucherShelfGeneration.value = shelfGen;
+    const d = rollShopVoucherOfferDef(ownedVoucherIds.value, runRandom);
+    shopVoucherShelf.value = d
+      ? buildVoucherShopOfferRow(d, nextVoucherOfferInstanceId.value++, ownedVoucherIds.value)
+      : makeEmptyVoucherSlot();
+  }
+}
+
+function applyShopVisitStockRoll() {
+  const visitStock = rollShopVisitStock(runRandom);
+  shopOffers.value = visitStock.shop;
+  packOffers.value = visitStock.pack;
+  return visitStock;
+}
+
+function runOwnedTreasuresOnShopEnterFx() {
+  void notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIdList(), {
+    treasureRun: treasureRunState.value,
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    wobbleOwnedTreasureById,
+    playOwnedTreasureBubbleFx,
+  });
 }
 
 /** @type {import('vue').Ref<null | { kind: 'offer', treasure: object, originRect?: object | null } | { kind: 'owned', slotIndex: number, treasure: object, originRect?: object | null }>} */
@@ -3956,7 +4020,7 @@ function setRarityLevelWithTreasurePairs(rarity, level) {
   applyRarityLevelUpgrade(rarity, level, setRarityLevel, ownedSlotTreasureIdList());
 }
 
-function buildSubmitAfterLettersContext(tiles) {
+function buildSubmitAfterLettersContext(tiles, detailed) {
   return {
     submittedScoringTiles: tiles,
     resolveSubmitTileAtIndex: (index, scoringTile) =>
@@ -3972,7 +4036,55 @@ function buildSubmitAfterLettersContext(tiles) {
       return out;
     },
     getGridTileElsInOrder: () => getSelectedGridTileElsInOrder(),
+    detailed,
+    pagerQuizSession: pendingPagerQuizSession.value,
+    findOwnedTreasureSlotIndex,
+    requestPagerQuiz: runPagerQuizRequest,
   };
+}
+
+function flushDeferredWordSubmitRecord() {
+  if (!deferredWordSubmitPayload) return;
+  const { word, length, tiles, detailedRef } = deferredWordSubmitPayload;
+  const score = Math.round(Number(detailedRef?.finalScore) || 0);
+  recordWordSubmit(runMatchStats.value, { word, score, length });
+  noteCollectionWordSubmitted({ word, score, length, tiles });
+  deferredWordSubmitPayload = null;
+}
+
+/**
+ * @param {{ session?: object }} [opts]
+ */
+async function runPagerQuizRequest(opts = {}) {
+  const session = opts.session ?? pendingPagerQuizSession.value;
+  if (!session?.options?.length) return { skipped: true };
+
+  const slotIx = findFirstOwnedTreasureSlotIndex(TREASURE_118_ID);
+  if (slotIx >= 0) {
+    await wobbleGameTreasureSlot(slotIx);
+  }
+
+  return new Promise((resolve) => {
+    pagerQuizPendingResolve = resolve;
+    pagerQuizSession.value = session;
+  });
+}
+
+/**
+ * @param {{ correct?: boolean, atHalfClose?: boolean }} payload
+ */
+function onPagerQuizResolved(payload) {
+  if (!payload?.atHalfClose) return;
+  pagerQuizPendingResolve?.({
+    correct: payload.correct === true,
+    skipped: false,
+  });
+  pagerQuizPendingResolve = null;
+}
+
+function onPagerQuizClosed() {
+  pagerQuizSession.value = null;
+  pendingPagerQuizSession.value = null;
 }
 
 function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand) {
@@ -4416,28 +4528,9 @@ watch(showShop, async (open) => {
   treasureDetail.value = null;
   packPickSession.value = null;
   shopRerollsThisVisit.value = 0;
-  await notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIdList(), {
-    treasureRun: treasureRunState.value,
-    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
-    wobbleOwnedTreasureById,
-    playOwnedTreasureBubbleFx,
-  });
-  const levelId = currentLevel.value?.id ?? "1-1";
-  const nextAfterShop = getNextLevelDefAfterShop();
-  if (parseLevelSubFromId(nextAfterShop?.id) === 3) {
-    clearShopVoucherBonusShelf();
-  }
-  const shelfGen = getVoucherShelfGeneration(levelId);
-  if (shopVoucherShelfGeneration.value !== shelfGen) {
-    shopVoucherShelfGeneration.value = shelfGen;
-    const d = rollShopVoucherOfferDef(ownedVoucherIds.value, runRandom);
-    shopVoucherShelf.value = d
-      ? buildVoucherShopOfferRow(d, nextVoucherOfferInstanceId.value++, ownedVoucherIds.value)
-      : makeEmptyVoucherSlot();
-  }
-  const visitStock = rollShopVisitStock(runRandom);
-  shopOffers.value = visitStock.shop;
-  packOffers.value = visitStock.pack;
+  refreshShopVoucherShelfForCurrentVisit();
+  applyShopVisitStockRoll();
+  runOwnedTreasuresOnShopEnterFx();
 });
 
 watch(showShop, async (open) => {
@@ -9443,20 +9536,22 @@ async function onShopReroll() {
     rs.shopFreeRerollsRemaining -= 1;
   }
   noteRunReroll();
-  await notifyOwnedTreasuresOnShopReroll(ownedSlotTreasureIdList(), {
-    treasureRun: treasureRunState.value,
-    playOwnedTreasureMultDeltaFx,
-  });
   shopRerollsThisVisit.value += 1;
   const sessionExclude = new Set();
   addShopShelfTreasureIdsToExclude(sessionExclude, shopOffers.value);
-  shopOffers.value = rollShopStock(runRandom, sessionExclude);
-  packOffers.value = rollPackStock(runRandom, sessionExclude);
+  const rerollShop = rollShopStock(runRandom, sessionExclude);
+  const rerollPack = rollPackStock(runRandom, sessionExclude);
+  shopOffers.value = rerollShop;
+  packOffers.value = rerollPack;
   if (treasureDetail.value) {
     await treasureDetailLayerRef.value?.playClose?.();
   }
   treasureDetail.value = null;
   await dismissPackPickLayer();
+  void notifyOwnedTreasuresOnShopReroll(ownedSlotTreasureIdList(), {
+    treasureRun: treasureRunState.value,
+    playOwnedTreasureMultDeltaFx,
+  });
   scheduleRunAutoSave();
 }
 
@@ -11197,8 +11292,11 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     if (detailed.bossSoftViolation !== true) {
       await notifySubmitAfterLettersBeforePostSteps(
         ownedSlotTreasureIdList(),
-        buildSubmitAfterLettersContext(tiles),
+        buildSubmitAfterLettersContext(tiles, detailed),
       );
+      if (deferredWordSubmitPayload) {
+        flushDeferredWordSubmitRecord();
+      }
     }
 
     const postSteps = detailed.postLetterTreasureSteps ?? [];
@@ -11207,7 +11305,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     const scoreAdd = Number(step.scoreAdd) || 0;
     const multMul = Number(step.multMul) || 0;
     const moneyAdd = Number(step.moneyAdd) || 0;
-    if (multAdd <= 0 && scoreAdd <= 0 && multMul <= 1 && moneyAdd <= 0) continue;
+    const hasMultMul = multMul > 0 && multMul !== 1;
+    if (multAdd <= 0 && scoreAdd <= 0 && !hasMultMul && moneyAdd <= 0) continue;
     const spPost = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
     scoringBeat += 1;
     const ti =
@@ -11227,7 +11326,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
         ? wordSlotRefs?.[step.scoreFxWordSlotIndex]
         : null;
     const fxTargetEl = gridFxEl || wordSlotFxEl || tel;
-    if (multMul > 1) {
+    if (hasMultMul) {
       if (fxTargetEl) {
         wobbleScoreSlot(fxTargetEl, spPost);
         if (step.accessoryTriggered) triggerAccessoryChipRipple(fxTargetEl, spPost, true);
@@ -12076,18 +12175,33 @@ async function submitWord() {
     };
   }
   const scoreBeforeHand = currentScore.value;
-  recordWordSubmit(runMatchStats.value, {
-    word: resolvedWord,
-    score: detailed.finalScore,
-    length: judgedLenTable,
-  });
-  if (!submitViolated) {
-    noteCollectionWordSubmitted({
+  const deferWordSubmitForPager =
+    !submitViolated &&
+    ownedTids.includes(TREASURE_118_ID);
+  pendingPagerQuizSession.value =
+    deferWordSubmitForPager ? buildPagerQuizOptions(resolvedWord, runRandom) : null;
+  const shouldDeferWordSubmit = deferWordSubmitForPager && !!pendingPagerQuizSession.value;
+  if (!shouldDeferWordSubmit) {
+    recordWordSubmit(runMatchStats.value, {
       word: resolvedWord,
       score: detailed.finalScore,
       length: judgedLenTable,
-      tiles,
     });
+    if (!submitViolated) {
+      noteCollectionWordSubmitted({
+        word: resolvedWord,
+        score: detailed.finalScore,
+        length: judgedLenTable,
+        tiles,
+      });
+    }
+  } else {
+    deferredWordSubmitPayload = {
+      word: resolvedWord,
+      length: judgedLenTable,
+      tiles,
+      detailedRef: detailed,
+    };
   }
   recordTreasureChapterWordPos(treasureRunState.value, resolvedWord, getWordDefinition);
   recordTreasureLevelVowelLetters(
@@ -12167,6 +12281,11 @@ async function submitWord() {
     }
   } catch (e) {
     console.error(e);
+    pagerQuizSession.value = null;
+    pendingPagerQuizSession.value = null;
+    deferredWordSubmitPayload = null;
+    pagerQuizPendingResolve = null;
+    if (isGamePaused()) exitGamePause();
     if (submitChanceConsumed) remainingWords.value += 1;
     scoringAnimating.value = false;
     scoringLetterIndex.value = -1;
@@ -12493,6 +12612,10 @@ onMounted(async () => {
     }
     tryCeruleanBellFlyInAfterGridStable();
     updateSlotPositions(true);
+    if (showShop.value && shopShelfNeedsStockRoll()) {
+      refreshShopVoucherShelfForCurrentVisit();
+      applyShopVisitStockRoll();
+    }
     scheduleRunAutoSave();
     flushAchievementUnlocks();
     return;

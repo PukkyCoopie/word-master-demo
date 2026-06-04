@@ -153,6 +153,8 @@ import {
 } from "../collection/collectionTabEnterAnim.js";
 import { formatCollectionTabProgressLine } from "../collection/collectionProgress.js";
 import { TREASURE_CATALOG } from "../treasures/treasureCatalog.js";
+import { getTreasureDef } from "../treasures/treasureRegistry.js";
+import { sortTreasureCatalogRows } from "../collection/collectionTreasureSort.js";
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
 import {
   COLLECTION_LENGTH_UPGRADE_CATALOG,
@@ -406,7 +408,7 @@ function onCollectionTilePreviewNav(delta) {
 function onCollectionTreasureSelect(payload) {
   const tid = String(payload?.treasureId ?? "").trim();
   if (!tid) return;
-  const ids = TREASURE_CATALOG.map((row) => row.treasureId);
+  const ids = sortTreasureCatalogRows(TREASURE_CATALOG, getTreasureDef).map((row) => row.treasureId);
   const treasure = buildCollectionTreasurePreview(tid);
   openCollectionTreasurePreview(
     treasure,
