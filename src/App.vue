@@ -10,17 +10,21 @@
         }"
       >
         <div v-if="dictGate" class="dict-boot-gate">
-          <div
-            class="dict-boot-bar"
-            :class="{ 'dict-boot-bar--error': dictBootError, 'dict-boot-bar--clickable': dictBootError }"
-            :title="dictBootError ? '点击重试' : undefined"
-            role="progressbar"
-            :aria-valuenow="dictBarPct"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            @click="onDictBootBarClick"
-          >
-            <div class="dict-boot-bar-fill" :style="{ width: dictBarPct + '%' }" />
+          <div class="dict-boot-panel">
+            <div
+              class="dict-boot-bar"
+              :class="{ 'dict-boot-bar--error': dictBootError, 'dict-boot-bar--clickable': dictBootError }"
+              :title="dictBootError ? '点击重试' : undefined"
+              role="progressbar"
+              :aria-valuenow="dictBarPct"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              :aria-label="dictBootError ? dictBootErrorMessage : '词库加载中'"
+              @click="onDictBootBarClick"
+            >
+              <div class="dict-boot-bar-fill" :style="{ width: dictBarPct + '%' }" />
+            </div>
+            <p v-if="dictBootError" class="dict-boot-error-msg">{{ dictBootErrorMessage }}</p>
           </div>
         </div>
         <MainMenu
@@ -130,6 +134,7 @@ import { loadGameSettings } from "./settings/gameSettings.js";
 import { useScale } from "./composables/useScale";
 import { usePortalFrameSync } from "./composables/usePortalFrameSync.js";
 import { useDictionary } from "./composables/useDictionary";
+import { formatDictionaryLoadErrorForPlayer } from "./dictionary/dictionaryBootErrorCopy.js";
 import { useRemixIconFont } from "./composables/useRemixIconFont.js";
 import { useTapTapAuth } from "./composables/useTapTapAuth.js";
 import IrisTransition from "./components/IrisTransition.vue";
@@ -556,6 +561,7 @@ const menuCollectionProgressSuffix = computed(() => {
 });
 const dictGate = computed(() => !appBootReady.value);
 const dictBootError = computed(() => !dictLoading.value && !!dictError.value);
+const dictBootErrorMessage = computed(() => formatDictionaryLoadErrorForPlayer(dictError.value));
 const dictBarPct = computed(() => {
   if (dictBootError.value) return 100;
   const dictPct = loadProgress.value;
@@ -952,8 +958,24 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-.dict-boot-bar {
+.dict-boot-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: calc(14 * var(--rpx));
   width: min(78%, calc(560 * var(--rpx)));
+}
+
+.dict-boot-error-msg {
+  margin: 0;
+  text-align: center;
+  font-size: calc(24 * var(--rpx));
+  line-height: 1.4;
+  color: #8b4040;
+}
+
+.dict-boot-bar {
+  width: 100%;
   height: calc(14 * var(--rpx));
   border-radius: calc(7 * var(--rpx));
   background: var(--card-bright);

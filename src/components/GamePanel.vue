@@ -225,7 +225,7 @@
       <div v-if="dictFatalError" class="dict-fatal-layer portal-overlay-fill" :style="dictFatalPortalStackStyle">
         <div class="dict-fatal-card">
           <div class="dict-fatal-title">词典加载失败</div>
-          <div class="dict-fatal-message">{{ dictError || "无法加载词典，请检查资源后重试" }}</div>
+          <div class="dict-fatal-message">{{ dictFatalMessage }}</div>
           <button type="button" class="dict-fatal-btn" @click="reloadPage">刷新重试</button>
         </div>
       </div>
@@ -1042,6 +1042,7 @@ import {
   parseLevelSubFromId,
 } from "../vouchers/voucherRuntime.js";
 import { useDictionary } from "../composables/useDictionary";
+import { formatDictionaryLoadErrorForPlayer } from "../dictionary/dictionaryBootErrorCopy.js";
 import {
   gameSettings,
   getMarkOnSwap,
@@ -1141,6 +1142,7 @@ const {
   useDictionary();
 const toast = ref("");
 const dictFatalError = computed(() => !!dictError.value && !dictionaryReady.value);
+const dictFatalMessage = computed(() => formatDictionaryLoadErrorForPlayer(dictError.value));
 
 /** @type {import('vue').Ref<string[]>} */
 const props = defineProps({
@@ -7379,10 +7381,10 @@ function treasureGemClass(rarity) {
   return "gem-rare";
 }
 
-/** 购买后：克隆详情中的框飞到宝藏槽；位移与缩放同步，落地回弹融入同一段 timeline */
-const TREASURE_PURCHASE_FLY_S = 0.46;
+/** 购买后：克隆详情框中心对齐飞入宝藏槽（expo.out，无回弹 overshoot） */
+const TREASURE_PURCHASE_FLY_S = 0.4;
 const TREASURE_PURCHASE_FLY_LAND_AT = 0.36;
-const TREASURE_PURCHASE_FLY_FADE_AT = 0.4;
+const TREASURE_PURCHASE_FLY_FADE_AT = 0.39;
 
 /**
  * @param {HTMLElement} fromFrameEl
@@ -7412,21 +7414,30 @@ async function animateTreasureFrameFly(fromFrameEl, toTarget, opts = {}) {
     const tw = Math.max(to.width, 1e-6);
     const th = Math.max(to.height, 1e-6);
 
+    const cx0 = from.left + from.width / 2;
+    const cy0 = from.top + from.height / 2;
+    const cx1 = to.left + to.width / 2;
+    const cy1 = to.top + to.height / 2;
+    const scale0 = Math.min(from.width / tw, from.height / th);
+
     gsap.set(clone, {
       position: "fixed",
-      left: from.left,
-      top: from.top,
+      left: cx0,
+      top: cy0,
       width: tw,
       height: th,
       margin: 0,
+      xPercent: -50,
+      yPercent: -50,
+      x: 0,
+      y: 0,
+      scale: scale0,
       zIndex: 9999,
       pointerEvents: "none",
       boxSizing: "border-box",
-      scaleX: from.width / tw,
-      scaleY: from.height / th,
-      transformOrigin: "left top",
+      transformOrigin: "50% 50%",
       force3D: true,
-      willChange: "transform, left, top",
+      willChange: "transform",
     });
 
     const onLanding = typeof opts.onLanding === "function" ? opts.onLanding : null;
@@ -7447,12 +7458,11 @@ async function animateTreasureFrameFly(fromFrameEl, toTarget, opts = {}) {
       tl.to(
         clone,
         {
-          left: to.left,
-          top: to.top,
-          scaleX: 1,
-          scaleY: 1,
+          x: cx1 - cx0,
+          y: cy1 - cy0,
+          scale: 1,
           duration: TREASURE_PURCHASE_FLY_S,
-          ease: "back.out(1.28)",
+          ease: EASE_TRANSFORM,
         },
         0,
       );
@@ -7462,7 +7472,7 @@ async function animateTreasureFrameFly(fromFrameEl, toTarget, opts = {}) {
           clone,
           {
             opacity: 0,
-            duration: 0.1,
+            duration: 0.08,
             ease: "power1.out",
           },
           TREASURE_PURCHASE_FLY_FADE_AT,

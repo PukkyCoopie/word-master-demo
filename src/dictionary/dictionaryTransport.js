@@ -26,6 +26,53 @@ function supportsBrotliDecompressionStream() {
   }
 }
 
+/** @type {Promise<{ decompress: (input: Uint8Array) => Uint8Array }> | null} */
+let brotliWasmModulePromise = null;
+
+function loadBrotliWasmModule() {
+  if (!brotliWasmModulePromise) {
+    brotliWasmModulePromise = import("brotli-dec-wasm")
+      .then((mod) => mod.default)
+      .then((init) => init);
+  }
+  return brotliWasmModulePromise;
+}
+
+/**
+ * @param {Uint8Array} compressed
+ * @param {DictionaryMeta | null | undefined} meta
+ * @param {{ shouldAbort?: () => boolean, onProgress?: (ratio01: number) => void }} options
+ * @returns {Promise<string>}
+ */
+async function decompressBrotliWithWasm(compressed, meta, options = {}) {
+  const { shouldAbort, onProgress } = options;
+  onProgress?.(0);
+  await raf();
+  if (shouldAbort?.()) throw new Error("词典加载已取消");
+
+  const brotli = await loadBrotliWasmModule();
+  if (shouldAbort?.()) throw new Error("词典加载已取消");
+  onProgress?.(0.08);
+  await raf();
+
+  let bytes;
+  try {
+    bytes = brotli.decompress(compressed);
+  } catch {
+    throw new Error("词典解压失败");
+  }
+  if (shouldAbort?.()) throw new Error("词典加载已取消");
+
+  const targetBytes = Math.max(
+    1,
+    Number(meta?.uncompressedBytes) || bytes.length || compressed.length * 4,
+  );
+  onProgress?.(clamp01(bytes.length / targetBytes));
+  await raf();
+  onProgress?.(1);
+  return new TextDecoder().decode(bytes);
+}
+
 /**
  * @param {string} url
  * @param {{ shouldAbort?: () => boolean, onProgress?: (ratio01: number) => void }} [options]
@@ -80,7 +127,7 @@ async function downloadBinary(url, options = {}) {
 async function decompressBrotliToText(compressed, meta, options = {}) {
   const { shouldAbort, onProgress } = options;
   if (!supportsBrotliDecompressionStream()) {
-    throw new Error("当前环境不支持 Brotli 解压，请更新系统 WebView 后重试");
+    return decompressBrotliWithWasm(compressed, meta, options);
   }
 
   const targetBytes = Math.max(
