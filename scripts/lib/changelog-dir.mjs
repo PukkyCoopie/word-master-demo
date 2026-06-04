@@ -30,6 +30,16 @@ export function parseShowInGame(value) {
 }
 
 /**
+ * 详细信息区是否已由人工提炼（true 时 pre-commit 不再追加 commit 说明）。
+ * @param {string | undefined} value
+ */
+export function parseSummarized(value) {
+  if (value == null || value === "") return false;
+  const v = String(value).trim().toLowerCase();
+  return v === "true" || v === "yes" || v === "1";
+}
+
+/**
  * @param {string} raw
  * @returns {ChangelogParsed}
  */
@@ -64,6 +74,9 @@ export function serializeChangelogMarkdown(meta, body) {
   const date = meta.date?.trim();
   if (date) lines.push(`date: ${date}`);
   lines.push(`show: ${parseShowInGame(meta.show) ? "true" : "false"}`);
+  if (meta.summarized != null && String(meta.summarized).trim() !== "") {
+    lines.push(`summarized: ${parseSummarized(meta.summarized) ? "true" : "false"}`);
+  }
   lines.push("---", "", body.trim(), "");
   return lines.join("\n");
 }

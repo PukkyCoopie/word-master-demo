@@ -6,8 +6,9 @@
 |------|------|
 | `date` | 发布日期 |
 | `show` | 是否出现在游戏「关于 → 更新日志」，默认 **false** |
+| `summarized` | 详细信息是否已人工提炼；**true** 时 pre-commit **不再**追加 commit 说明，默认 **false** |
 | 正文（手写区） | 玩家向更新说明（`show: true` 时显示在列表主区域） |
-| 正文（自动区） | `<!-- changelog:auto -->` 之后，由 pre-commit 按 commit 追加；游戏中可展开「详细信息」查看 |
+| 正文（自动区） | `<!-- changelog:auto -->` 之后，由 pre-commit 按 commit 追加；游戏中可展开「详细信息」查看。`summarized: true` 后改由人工维护 |
 
 **版本号**：始终按本目录文件名中的**最大版本**计算（与 `show` 无关）。  
 **游戏列表**：只展示 `show: true` 且有正文的条目。

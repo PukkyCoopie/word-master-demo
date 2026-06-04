@@ -20,6 +20,10 @@
           <h3 class="collection-achievement-cell__name">{{ entry.name }}</h3>
           <p class="collection-achievement-cell__desc">
             <TreasureDescSegmentList :segments="entry.descriptionSegments" />
+            <span
+              v-if="entry.progressSuffix"
+              class="collection-achievement-cell__progress"
+            >{{ entry.progressSuffix }}</span>
           </p>
         </div>
       </div>
@@ -34,22 +38,36 @@ import {
   getAchievementIconUrl,
 } from "../../achievements/achievementDefinitions.js";
 import { getAchievementDescriptionSegments } from "../../achievements/achievementRichDesc.js";
+import {
+  formatAchievementCollectionProgressSuffix,
+  getAchievementCollectionProgress,
+} from "../../achievements/achievementCollectionProgress.js";
 import TreasureDescSegmentList from "../TreasureDescSegmentList.vue";
 
 const props = defineProps({
+  career: { type: Object, required: true },
   unlockedAchievementIds: { type: Array, default: () => [] },
 });
 
 const unlockedSet = computed(() => new Set((props.unlockedAchievementIds ?? []).map(String)));
 
 const entries = computed(() =>
-  ACHIEVEMENT_DEFINITIONS.map((def) => ({
-    id: def.id,
-    name: def.name,
-    descriptionSegments: getAchievementDescriptionSegments(def),
-    iconUrl: getAchievementIconUrl(def),
-    unlocked: unlockedSet.value.has(def.id),
-  })),
+  ACHIEVEMENT_DEFINITIONS.map((def) => {
+    const unlocked = unlockedSet.value.has(def.id);
+    const progressSuffix = unlocked
+      ? null
+      : formatAchievementCollectionProgressSuffix(
+          getAchievementCollectionProgress(props.career, def),
+        );
+    return {
+      id: def.id,
+      name: def.name,
+      descriptionSegments: getAchievementDescriptionSegments(def),
+      progressSuffix,
+      iconUrl: getAchievementIconUrl(def),
+      unlocked,
+    };
+  }),
 );
 </script>
 
@@ -173,5 +191,11 @@ const entries = computed(() =>
 .collection-achievement-cell__desc :deep(.td-desc-prob) {
   color: var(--treasure-desc-prob);
   font-weight: 700;
+}
+
+.collection-achievement-cell__progress {
+  font-weight: 600;
+  color: var(--achievement-fg);
+  white-space: nowrap;
 }
 </style>

@@ -69,6 +69,7 @@
           />
           <CollectionAchievementGrid
             v-else-if="activeTab === 'achievements'"
+            :career="career"
             :unlocked-achievement-ids="career.unlockedAchievementIds"
           />
           <CollectionWordLeaderboardPanel

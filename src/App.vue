@@ -138,6 +138,10 @@ import { formatDictionaryLoadErrorForPlayer } from "./dictionary/dictionaryBootE
 import { useRemixIconFont } from "./composables/useRemixIconFont.js";
 import { useTapTapAuth } from "./composables/useTapTapAuth.js";
 import IrisTransition from "./components/IrisTransition.vue";
+import {
+  resumeGamePauseGsapFreeze,
+  suspendGamePauseGsapFreeze,
+} from "./game/gamePause.js";
 import { coerceRunSeedNumeric, resolveRunSeedFromDialog } from "./game/runRng.js";
 import { isE2eMode } from "./e2e/isE2eMode.js";
 import { registerAppTestHarness } from "./e2e/registerAppTestHarness.js";
@@ -216,6 +220,11 @@ const { account, phase: tapTapPhase } = useTapTapAuth();
 const screen = ref("menu");
 const gameSessionKey = ref(0);
 const showRunStartDialog = ref(false);
+
+watch(showRunStartDialog, (open) => {
+  if (open) suspendGamePauseGsapFreeze();
+  else resumeGamePauseGsapFreeze();
+});
 const showSettings = ref(false);
 const showAbout = ref(false);
 const showPlayerProfile = ref(false);
@@ -921,6 +930,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  if (showRunStartDialog.value) resumeGamePauseGsapFreeze();
   unregisterAppAndroidBack?.();
   unregisterAppAndroidBack = null;
 });

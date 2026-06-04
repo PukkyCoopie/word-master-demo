@@ -15,6 +15,7 @@ import {
   isUserWrittenChangelogBody,
   joinChangelogBody,
   parseChangelogMarkdown,
+  parseSummarized,
   serializeChangelogMarkdown,
   splitChangelogBody,
   stripChangelogComments,
@@ -64,6 +65,9 @@ function main() {
 
   const raw = fs.readFileSync(latestPath, "utf8");
   const { meta, body } = parseChangelogMarkdown(raw);
+  if (parseSummarized(meta.summarized)) {
+    return;
+  }
   const cleaned = stripChangelogComments(body);
   const { user, auto } = splitChangelogBody(cleaned);
   const hasUser = isUserWrittenChangelogBody(changelogDir, cleaned);
