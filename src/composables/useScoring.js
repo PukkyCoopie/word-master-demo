@@ -83,12 +83,12 @@ export const BASE_SCORE_PER_LETTER = 3;
  */
 export const WORD_LENGTH_BALANCE = {
   3: { base: [5, 3], upgrade: [3, 1] },
-  4: { base: [6, 4], upgrade: [3, 2] },
-  5: { base: [7, 5], upgrade: [4, 2] },
-  6: { base: [8, 6], upgrade: [4, 3] },
-  7: { base: [10, 8], upgrade: [5, 4] },
-  8: { base: [12, 10], upgrade: [6, 5] },
-  9: { base: [15, 12], upgrade: [8, 6] },
+  4: { base: [6, 3], upgrade: [3, 2] },
+  5: { base: [7, 4], upgrade: [4, 2] },
+  6: { base: [8, 5], upgrade: [4, 3] },
+  7: { base: [10, 7], upgrade: [5, 4] },
+  8: { base: [12, 9], upgrade: [6, 5] },
+  9: { base: [15, 11], upgrade: [8, 6] },
   10: { base: [20, 15], upgrade: [10, 8] },
   11: { base: [27, 18], upgrade: [13, 9] },
   12: { base: [36, 21], upgrade: [18, 11] },

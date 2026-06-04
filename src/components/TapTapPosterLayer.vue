@@ -38,7 +38,7 @@
             class="taptap-poster-layer-poster"
             :class="{ 'taptap-poster-layer-poster--loaded': posterLoaded }"
             :src="TAP_TAP_POSTER_SRC"
-            alt="Word Master TapTap 海报"
+            alt="单词大师 TapTap 海报"
             draggable="false"
             @load="onPosterLoad"
             @error="onPosterLoad"

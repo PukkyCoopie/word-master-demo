@@ -8,7 +8,7 @@
     <div class="main-menu-inner">
       <TileLetterShowcase
         class="menu-letter-showcase"
-        aria-label="Word Master"
+        aria-label="单词大师"
         :rows="showcaseRows"
       />
 

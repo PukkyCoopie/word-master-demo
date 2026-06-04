@@ -1,6 +1,6 @@
 {
   "appId": "com.timeshift_games.word_master",
-  "appName": "Word Master",
+  "appName": "单词大师",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"

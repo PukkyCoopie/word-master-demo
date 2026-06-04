@@ -55,7 +55,7 @@
               <article class="about-game-card">
                 <header class="about-game-header">
                   <div class="about-game-title-row">
-                    <p class="about-game-name">Word Master</p>
+                    <p class="about-game-name">单词大师</p>
                     <span class="about-game-version">{{ APP_VERSION }}</span>
                   </div>
                   <p class="about-game-intro">
