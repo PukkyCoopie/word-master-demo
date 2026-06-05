@@ -61,6 +61,7 @@
 /** @typedef {Object} SerializedOwnedTreasureSlot
  * @property {string} treasureId
  * @property {number} [price]
+ * @property {number} [sellPriceBonus]
  * @property {string[]} [treasureAccessoryIds]
  * @property {number} [hourglassStagesElapsed]
  * @property {boolean} [treasureAccessoryExpired]

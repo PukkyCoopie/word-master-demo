@@ -1,5 +1,5 @@
 import gsap from "gsap";
-import { watch } from "vue";
+import { ref, watch } from "vue";
 import { pauseAwareDelay } from "../game/gamePause.js";
 import { gameSettings, normalizeAnimationSpeedTier } from "./gameSettings.js";
 
@@ -11,6 +11,8 @@ export const ANIMATION_SPEED_OPTIONS = [
   { id: "normal", label: "正常", scale: 1 },
   { id: "fast", label: "快", scale: 1.5 },
 ];
+
+export const reducedMotionSignal = ref(0);
 
 /**
  * 系统「减少动态效果」或用户勾选「减少动画」。
@@ -99,6 +101,7 @@ export function applyAnimationSpeedGlobals() {
   root.style.setProperty("--anim-speed-scale", String(scale));
   root.classList.toggle("reduce-motion", reduce);
   gsap.globalTimeline.timeScale(scale);
+  reducedMotionSignal.value += 1;
 }
 
 let initialized = false;

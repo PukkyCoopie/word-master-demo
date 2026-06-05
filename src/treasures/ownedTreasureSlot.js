@@ -7,14 +7,28 @@ import { getShopTreasureAccessoryPriceAddFromIds } from "../accessories/accessor
 import { treasureOfferHasRentalAccessory } from "../game/runDifficultyRuntime.js";
 import { getTreasureDef } from "./treasureRegistry.js";
 
+const CANDLE_TREASURE_ID = "41";
+
 /**
  * @typedef {Object} OwnedTreasureSlotPersisted
  * @property {string} treasureId
  * @property {number} [price]
+ * @property {number} [sellPriceBonus] 叠在 floor(购入价/2) 之上的额外售出额（不参与 /2）
  * @property {string[]} [treasureAccessoryIds]
  * @property {number} [hourglassStagesElapsed]
  * @property {boolean} [treasureAccessoryExpired]
  */
+
+/**
+ * @param {Record<string, unknown> | null | undefined} slot
+ * @returns {number}
+ */
+export function computeOwnedTreasureSellRefund(slot) {
+  if (!slot || typeof slot !== "object") return 0;
+  const price = Math.max(0, Math.floor(Number(slot.price) || 0));
+  const bonus = Math.max(0, Math.floor(Number(slot.sellPriceBonus) || 0));
+  return Math.floor(price / 2) + bonus;
+}
 
 /**
  * @param {import('./treasureTypes.js').TreasureDef} def
@@ -41,15 +55,24 @@ export function buildOwnedTreasureSlot(input) {
   }
 
   const accessoryIds = readTreasureAccessoryIds(input);
-  const price =
+  let price =
     input.price != null
       ? Math.max(0, Math.floor(Number(input.price) || 0))
       : defaultOwnedTreasurePrice(def, accessoryIds);
+  let sellPriceBonus = Math.max(0, Math.floor(Number(input.sellPriceBonus) || 0));
+  if (tid === CANDLE_TREASURE_ID && sellPriceBonus <= 0) {
+    const basePrice = defaultOwnedTreasurePrice(def, accessoryIds);
+    if (price > basePrice) {
+      sellPriceBonus = price - basePrice;
+      price = basePrice;
+    }
+  }
 
   /** @type {Record<string, unknown>} */
   const slot = {
     treasureId: tid,
     price,
+    ...(sellPriceBonus > 0 ? { sellPriceBonus } : {}),
     rarity: def.rarity,
     name: def.name,
     emoji: def.emoji,
@@ -78,6 +101,8 @@ export function serializeOwnedTreasureSlot(slot) {
   /** @type {OwnedTreasureSlotPersisted} */
   const out = { treasureId: tid };
   out.price = Math.max(0, Math.floor(Number(slot.price) || 0));
+  const sellPriceBonus = Math.max(0, Math.floor(Number(slot.sellPriceBonus) || 0));
+  if (sellPriceBonus > 0) out.sellPriceBonus = sellPriceBonus;
 
   const accessoryIds = readTreasureAccessoryIds(slot);
   if (accessoryIds.length) out.treasureAccessoryIds = [...accessoryIds];

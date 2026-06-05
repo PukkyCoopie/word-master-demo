@@ -85,7 +85,11 @@
         @dismiss="onRunStartQuickDismiss"
       />
       <SettingsLayer :open="showSettings" @close="closeSettings" />
-      <AboutLayer :open="showAbout" @close="closeAbout" />
+      <AboutLayer
+        :open="showAbout"
+        @close="closeAbout"
+        @open-material-bench="openMaterialBench"
+      />
       <PlayerProfileLayer
         :open="showPlayerProfile"
         :origin-rects="profileOpenOrigin"
@@ -104,6 +108,7 @@
       />
     </Teleport>
     <Teleport to="body">
+      <MaterialPerfBench v-if="showMaterialBench" @close="showMaterialBench = false" />
       <TapTapPromoIcon
         v-if="showTapTapDesktopPromo"
         desktop
@@ -143,6 +148,9 @@ import {
   suspendGamePauseGsapFreeze,
 } from "./game/gamePause.js";
 import { coerceRunSeedNumeric, resolveRunSeedFromDialog } from "./game/runRng.js";
+import { registerDevConsole } from "./dev/registerDevConsole.js";
+import { isMaterialBenchEnabled } from "./dev/materialBenchGate.js";
+import MaterialPerfBench from "./dev/MaterialPerfBench.vue";
 import { isE2eMode } from "./e2e/isE2eMode.js";
 import { registerAppTestHarness } from "./e2e/registerAppTestHarness.js";
 import TapTapPromoIcon from "./components/TapTapPromoIcon.vue";
@@ -190,6 +198,7 @@ import {
   hasSlotCompletedAnyRun,
   mergeRunMatchStatsIntoCareer,
   normalizeSlotCareerStats,
+  recordCareerRunStarted,
 } from "./save/slotCareerStats.js";
 import { normalizeRunPresetId } from "./game/runPresetDefinitions.js";
 import { normalizeRunDifficultyIndex } from "./game/runDifficultyDefinitions.js";
@@ -532,6 +541,7 @@ async function startLoadSlot(index) {
 }
 
 async function startNewRunAtSlot(index, seedNumeric, seedDisplay, resetProfile = false) {
+  recordRunStartedForSlot(index);
   sessionRestoredSave.value = null;
   sessionSaveSlotIndex.value = index;
   setActiveSaveSlotIndex(index);
@@ -549,6 +559,8 @@ async function startNewRunAtSlot(index, seedNumeric, seedDisplay, resetProfile =
   });
   transitionBusy.value = false;
 }
+
+const showMaterialBench = ref(false);
 
 const appBootReady = computed(() => dictionaryReady.value && remixIconReady.value);
 const showMenu = computed(() => appBootReady.value && screen.value === "menu");
@@ -582,7 +594,13 @@ const dictBarPct = computed(() => {
 
 let appAlive = true;
 let disposeAppE2eHarness = null;
+let disposeDevConsole = null;
+let disposeMaterialBenchShortcut = null;
 let profileInitDone = false;
+
+function openMaterialBench() {
+  showMaterialBench.value = true;
+}
 
 async function maybeInitProfile() {
   if (profileInitDone || !appBootReady.value) return;
@@ -605,6 +623,21 @@ onMounted(() => {
   loadDictionary({ shouldAbort: () => !appAlive });
   loadRemixIconFont({ shouldAbort: () => !appAlive });
   void maybeInitProfile();
+  disposeDevConsole = registerDevConsole({
+    getActiveSlotIndex: () => getActiveSaveSlotIndex(),
+    mutateCareer: mutateSlotCareer,
+    refreshUi: bumpCollectionUi,
+    openMaterialBench,
+  });
+  if (isMaterialBenchEnabled()) {
+    const shortcut = { open: openMaterialBench };
+    globalThis.__WM_MATERIAL_BENCH__ = shortcut;
+    disposeMaterialBenchShortcut = () => {
+      if (globalThis.__WM_MATERIAL_BENCH__ === shortcut) {
+        delete globalThis.__WM_MATERIAL_BENCH__;
+      }
+    };
+  }
   if (isE2eMode()) {
     disposeAppE2eHarness = registerAppTestHarness({
       screen,
@@ -620,6 +653,10 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  disposeDevConsole?.();
+  disposeDevConsole = null;
+  disposeMaterialBenchShortcut?.();
+  disposeMaterialBenchShortcut = null;
   disposeAppE2eHarness?.();
   disposeAppE2eHarness = null;
   appAlive = false;
@@ -679,6 +716,14 @@ function persistSlotCareerSelection(slotIx, careerForSlot) {
   }
 }
 
+/** 确认开新局时计入生涯「开局次数」（继续存档不计） */
+function recordRunStartedForSlot(slotIx) {
+  mutateSlotCareer(slotIx, (career) => {
+    recordCareerRunStarted(career);
+  });
+  bumpSaveUi();
+}
+
 function buildDefaultNewRunOptions(slotIx) {
   const careerForSlot = normalizeSlotCareerStats(
     getSlotCareer(slotIx) ?? createEmptySlotCareerStats(),
@@ -706,6 +751,7 @@ async function startDirectNewRun(slotIx, mode = "menu") {
     return;
   }
 
+  recordRunStartedForSlot(slotIx);
   clearInProgressRunProgressIfAny(slotIx);
 
   sessionRestoredSave.value = null;
@@ -857,6 +903,7 @@ async function onRunStartConfirm(payload) {
     return;
   }
 
+  recordRunStartedForSlot(slotIx);
   clearInProgressRunProgressIfAny(slotIx);
 
   sessionRestoredSave.value = null;

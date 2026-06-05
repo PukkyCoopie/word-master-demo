@@ -6,6 +6,7 @@ import { createTreasureRunState } from "../treasures/treasureRunState.js";
 import {
   mergeRunMatchStatsIntoCareer,
   normalizeSlotCareerStats,
+  recordCareerRunStarted,
 } from "./slotCareerStats.js";
 import {
   normalizeCollectionCareerFields,
@@ -36,6 +37,7 @@ import {
 } from "../achievements/achievementRunState.js";
 import { unlockAchievementId } from "../achievements/achievementUnlock.js";
 import { evaluateAndUnlockAchievements } from "../achievements/achievementEvaluate.js";
+import { applyFullCollectionUnlockToCareer } from "../dev/unlockFullCollection.js";
 import {
   getCollectionTabProgress,
   getCollectionUnlockProgress,
@@ -72,6 +74,13 @@ test("treasure run state codec roundtrip", () => {
   assert.ok(back.levelLengthsSpelled.has(3));
   assert.ok(back.chapterPosSpelledThisChapter.has("n"));
   assert.equal(back.banks["1"].multAdd, 2);
+});
+
+test("recordCareerRunStarted increments runsStarted", () => {
+  const career = normalizeSlotCareerStats({});
+  recordCareerRunStarted(career);
+  recordCareerRunStarted(career);
+  assert.equal(career.runsStarted, 2);
 });
 
 test("career merge picks best word", () => {
@@ -291,4 +300,12 @@ test("collection unlock progress includes achievements tab", () => {
   assert.equal(after.unlocked, before.unlocked + 1);
   assert.equal(after.total, before.total);
   assert.ok(after.total > before.unlocked);
+});
+
+test("dev unlockFullCollection fills career to 100%", () => {
+  const career = normalizeSlotCareerStats({});
+  const { progress } = applyFullCollectionUnlockToCareer(career);
+  assert.equal(progress.percent, 100);
+  assert.equal(progress.unlocked, progress.total);
+  assert.ok(progress.total > 0);
 });

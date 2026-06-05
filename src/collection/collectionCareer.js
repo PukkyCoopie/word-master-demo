@@ -100,6 +100,8 @@ function normalizeWordRecords(raw) {
               treasureId,
               price: Math.max(0, Math.floor(Number(slot.price) || 0)),
             };
+            const sellPriceBonus = Math.max(0, Math.floor(Number(slot.sellPriceBonus) || 0));
+            if (sellPriceBonus > 0) out.sellPriceBonus = sellPriceBonus;
             if (Array.isArray(slot.treasureAccessoryIds) && slot.treasureAccessoryIds.length) {
               out.treasureAccessoryIds = slot.treasureAccessoryIds.map(String).filter(Boolean);
             }

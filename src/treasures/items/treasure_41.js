@@ -12,7 +12,7 @@ export default {
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   async onLevelComplete(ctx) {
-    ctx.bumpOwnedTreasurePriceById?.(ID, 3);
+    ctx.bumpOwnedTreasureSellRefundBonusById?.(ID, 3);
     await ctx.wobbleOwnedTreasureById?.(ID);
   },
 };

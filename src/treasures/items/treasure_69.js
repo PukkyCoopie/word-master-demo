@@ -1,3 +1,4 @@
+import { computeOwnedTreasureSellRefund } from "../ownedTreasureSlot.js";
 import { describe, mult } from "../treasureDescription.js";
 
 const ID = "69";
@@ -11,7 +12,7 @@ function sumOtherTreasureSellPriceHalves(instances) {
   let sum = 0;
   for (const t of slots) {
     if (!t || String(t.treasureId) === ID) continue;
-    sum += Math.max(0, Math.floor(Number(t.price) / 2) || 0);
+    sum += computeOwnedTreasureSellRefund(t);
   }
   return sum;
 }

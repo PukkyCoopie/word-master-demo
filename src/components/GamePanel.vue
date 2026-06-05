@@ -351,6 +351,7 @@
               :treasure-accessory-id="entry.treasureAccessoryId ?? null"
               :tile-score-bonus="Number(entry.tileScoreBonus) || 0"
               :tile-mult-bonus="Number(entry.letterMultBonus) || 0"
+              :material-animate="!isSlotContentHidden(i)"
               :content-hidden="isSlotContentHidden(i)"
               :boss-tile-debuffed="!!entry.bossTileDebuffed"
               :cerulean-bell-locked="entry.ceruleanBellLocked === true"
@@ -449,6 +450,10 @@
                 :treasure-accessory-id="tile.treasureAccessoryId ?? null"
                 :tile-score-bonus="Number(tile.tileScoreBonus) || 0"
                 :tile-mult-bonus="Number(tile.letterMultBonus) || 0"
+                :material-animate="
+                  !tile.selected &&
+                  !isTileFlying(Math.floor(index / COLS), index % COLS)
+                "
                 :boss-grid-blocked="tile.bossGridBlocked === true"
                 :boss-tile-debuffed="tile.bossTileDebuffed === true"
                 :cerulean-bell-locked="tile.ceruleanBellLocked === true"
@@ -1018,7 +1023,7 @@ import {
 import {
   readTreasureAccessoryIds,
 } from "../accessories/accessoryState.js";
-import { buildOwnedTreasureSlot } from "../treasures/ownedTreasureSlot.js";
+import { buildOwnedTreasureSlot, computeOwnedTreasureSellRefund } from "../treasures/ownedTreasureSlot.js";
 import DifficultyPill from "./DifficultyPill.vue";
 import {
   clampRemainingWordsForBossMechanics,
@@ -3275,7 +3280,7 @@ const displayTreasureChargeProgressBySlot = computed(() => {
 const treasureSellRefund = computed(() => {
   const d = treasureDetail.value;
   if (!d || d.kind !== "owned" || !d.treasure) return 0;
-  return Math.floor(Number(d.treasure.price) / 2);
+  return computeOwnedTreasureSellRefund(d.treasure);
 });
 
 const treasureProbabilityDisplayDoubled = computed(() =>
@@ -3996,7 +4001,7 @@ async function runTreasureLevelCompleteHooks() {
     addMoney: (n) => {
       money.value += Math.max(0, Math.floor(Number(n) || 0));
     },
-    bumpOwnedTreasurePriceById: (treasureId, amount) => {
+    bumpOwnedTreasureSellRefundBonusById: (treasureId, amount) => {
       const tid = String(treasureId ?? "");
       const add = Math.floor(Number(amount) || 0);
       if (!tid || add <= 0) return;
@@ -4006,7 +4011,7 @@ async function runTreasureLevelCompleteHooks() {
       if (!cur) return;
       ownedTreasures.value[ix] = {
         ...cur,
-        price: Math.max(0, Math.floor(Number(cur.price) || 0) + add),
+        sellPriceBonus: Math.max(0, Math.floor(Number(cur.sellPriceBonus) || 0) + add),
       };
     },
   });
@@ -9496,7 +9501,7 @@ async function onTreasureSell() {
   if (ownedTreasureHasNoSellAccessory(cur)) return;
 
   await treasureDetailLayerRef.value?.playClose?.();
-  money.value += Math.floor(Number(cur.price) / 2);
+  money.value += computeOwnedTreasureSellRefund(cur);
   const soldId = String(cur.treasureId ?? "");
   let copyGrantedAtSoldSlot = false;
   let copyGrantedSlotIndex = -1;

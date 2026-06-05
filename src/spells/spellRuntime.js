@@ -21,6 +21,7 @@ import { SPELL_TAG_SPECTRAL } from "./spellTags.js";
 import { normalizeExclusiveTileAccessoryPair, writeEntityAccessory } from "../accessories/accessoryState.js";
 import {
   buildOwnedTreasureSlot,
+  computeOwnedTreasureSellRefund,
   serializeOwnedTreasureSlot,
 } from "../treasures/ownedTreasureSlot.js";
 
@@ -741,8 +742,8 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
     case "price_tag": {
       let sum = 0;
       for (const t of ctx.ownedTreasures.value) {
-        if (t && typeof t === "object" && t.price != null) {
-          sum += Math.floor(Number(t.price) / 2);
+        if (t && typeof t === "object") {
+          sum += computeOwnedTreasureSellRefund(t);
         }
       }
       ctx.money.value += sum;

@@ -295,7 +295,7 @@
  * @property {number} [remainingRemovals] 小关结束时剩余丢弃次数
  * @property {number} [hookSlotIndex] 本次 hook 对应的栏位下标（面具镜像时为面具槽）
  * @property {'self' | 'blueprint'} [hookSource] 本次贡献来自实体宝藏或面具镜像
- * @property {(treasureId: string, amount: number) => void} [bumpOwnedTreasurePriceById] 提高已拥有实例的购入价（影响卖出价）
+ * @property {(treasureId: string, amount: number) => void} [bumpOwnedTreasureSellRefundBonusById] 提高已拥有实例的额外售出额（叠在 floor(购入价/2) 之上，不参与 /2）
  */
 
 /**

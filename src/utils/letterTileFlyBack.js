@@ -90,7 +90,13 @@ export function createFlyBackTileElement(item) {
                 : item.materialId === "wildcard"
                   ? attachWildcardRegl
                   : attachLuckyRegl;
-    pushDispose(el, attach(canvas, reglOpts));
+    pushDispose(
+      el,
+      attach(canvas, {
+        ...reglOpts,
+        animated: false,
+      }),
+    );
   }
 
   appendImperativeAugmentBadges(el, item);

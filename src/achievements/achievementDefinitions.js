@@ -1,4 +1,4 @@
-import { ACHIEVEMENT_ICON_URL } from "./achievementAssets.js";
+import { ACHIEVEMENT_ICON_URL, getAchievementIconPath } from "./achievementAssets.js";
 
 /** @type {readonly import('./achievementTypes.js').AchievementDefinition[]} */
 export const ACHIEVEMENT_DEFINITIONS = Object.freeze([
@@ -57,5 +57,6 @@ export function getAchievementDef(id) {
 
 /** @param {import('./achievementTypes.js').AchievementDefinition} def */
 export function getAchievementIconUrl(def) {
-  return def?.iconUrl ?? ACHIEVEMENT_ICON_URL;
+  if (!def) return ACHIEVEMENT_ICON_URL;
+  return def.iconUrl ?? getAchievementIconPath(def.id);
 }

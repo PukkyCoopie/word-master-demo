@@ -56,7 +56,14 @@
                 <header class="about-game-header">
                   <div class="about-game-title-row">
                     <p class="about-game-name">单词大师</p>
-                    <span class="about-game-version">{{ APP_VERSION }}</span>
+                    <button
+                      type="button"
+                      class="about-game-version"
+                      aria-label="版本号"
+                      @click="onVersionClick"
+                    >
+                      {{ APP_VERSION }}
+                    </button>
                   </div>
                   <p class="about-game-intro">
                     一款使用Vibe Coding制作的、类小丑牌的拼单词游戏。
@@ -202,7 +209,7 @@ const props = defineProps({
   open: { type: Boolean, default: false },
 });
 
-defineEmits(["close"]);
+const emit = defineEmits(["close", "openMaterialBench"]);
 
 /** 仅在 Capacitor 原生 App 内展示工作室名称 */
 const showGameStudio =
@@ -244,6 +251,9 @@ const sectionElById = {};
 /** @type {ReturnType<typeof setTimeout> | null} */
 let scrollSpyLockTimer = null;
 let scrollSpyLocked = false;
+let versionTapCount = 0;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let versionTapTimer = null;
 /** @type {ResizeObserver | null} */
 let scrollResizeObserver = null;
 /** @type {{ startY: number; startScrollTop: number; maxThumbTop: number; scrollRange: number } | null} */
@@ -451,6 +461,28 @@ function onThumbPointerUp() {
   updateActiveFromScroll();
 }
 
+function resetVersionTapCount() {
+  versionTapCount = 0;
+  if (versionTapTimer != null) {
+    window.clearTimeout(versionTapTimer);
+    versionTapTimer = null;
+  }
+}
+
+function onVersionClick() {
+  versionTapCount += 1;
+  if (versionTapTimer != null) {
+    window.clearTimeout(versionTapTimer);
+  }
+  versionTapTimer = window.setTimeout(() => {
+    resetVersionTapCount();
+  }, 1600);
+
+  if (versionTapCount < 5) return;
+  resetVersionTapCount();
+  emit("openMaterialBench");
+}
+
 function bindScrollResizeObserver() {
   const container = scrollBodyRef.value;
   if (!container || scrollResizeObserver) return;
@@ -518,6 +550,7 @@ onUnmounted(() => {
   if (scrollSpyLockTimer != null) {
     window.clearTimeout(scrollSpyLockTimer);
   }
+  resetVersionTapCount();
   unbindScrollResizeObserver();
   onThumbPointerUp();
 });
@@ -782,6 +815,8 @@ function splitSummary(summary) {
 }
 
 .about-game-version {
+  border: none;
+  font-family: inherit;
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
@@ -793,6 +828,17 @@ function splitSummary(summary) {
   background: var(--btn-green, #7cb342);
   border-radius: calc(8 * var(--rpx));
   box-shadow: 0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.about-game-version:active {
+  filter: brightness(0.94);
+}
+
+.about-game-version:focus-visible {
+  outline: calc(2 * var(--rpx)) solid rgba(60, 58, 50, 0.55);
+  outline-offset: calc(2 * var(--rpx));
 }
 
 .about-game-meta-divider {

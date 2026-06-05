@@ -1,26 +1,61 @@
+import { getMaterialBlitExperimentMode } from "./reglMaterialBlitExperiment.js";
+import {
+  reglBlitImageSmoothingQuality,
+  useMobileMaterialLowPower,
+} from "./reglMaterialPerf.js";
+import { isMaterialProfilerEnabled, recordMaterialHubProfile } from "./reglMaterialProfiler.js";
+
 /**
  * regl 材质展示 canvas 的「逐帧 / 单帧」订阅控制。
  * 未展开牌库 stack 等场景只需绘制一帧并保留，避免大量 canvas 共用 RAF。
  */
 
-/** @typedef {{ animated?: boolean, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number }} ReglDisplaySubscriber */
+/** @typedef {{ animated?: boolean, viewportVisible?: boolean, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number, _disposeReglBindings?: (() => void) | null }} ReglDisplaySubscriber */
+
+/**
+ * @param {ReglDisplaySubscriber} sub
+ * @returns {boolean}
+ */
+export function shouldReglSubscriberReceiveFrames(sub) {
+  if (sub.animated === false) return false;
+  if (sub.viewportVisible === false) return false;
+  return true;
+}
 
 /**
  * @param {Iterable<ReglDisplaySubscriber>} subscribers
  */
 export function anyReglSubscriberAnimated(subscribers) {
   for (const sub of subscribers) {
-    if (sub.animated !== false) return true;
+    if (shouldReglSubscriberReceiveFrames(sub)) return true;
   }
   return false;
 }
 
 /**
- * @param {ReglDisplaySubscriber} sub
- * @param {HTMLCanvasElement} offscreen
- * @param {number} texPx
+ * @param {object} regl
+ * @param {object} draw
+ * @param {{ x: number, y: number, width: number, height: number }} viewport
  */
-export function blitReglOffscreenToSubscriber(sub, offscreen, texPx) {
+export function executeReglHubDraw(regl, draw, viewport) {
+  regl.poll();
+  draw({ viewport });
+  if (!useMobileMaterialLowPower()) {
+    try {
+      regl._gl?.flush?.();
+    } catch {
+      // no-op
+    }
+  }
+}
+
+/**
+ * @param {ReglDisplaySubscriber} sub
+ * @param {HTMLCanvasElement} offscreen WebGL 离屏或 FBO 读回后的 scratch 2D canvas
+ * @param {number} texPx
+ * @param {{ wildcardBlur?: boolean }} [opts]
+ */
+export function blitReglOffscreenToSubscriber(sub, offscreen, texPx, opts = {}) {
   let cssW = sub.canvas.clientWidth;
   let cssH = sub.canvas.clientHeight;
   const useFixed =
@@ -41,9 +76,111 @@ export function blitReglOffscreenToSubscriber(sub, offscreen, texPx) {
     sub.canvas.width = pw;
     sub.canvas.height = ph;
   }
-  sub.ctx.imageSmoothingEnabled = true;
-  sub.ctx.imageSmoothingQuality = "high";
+  if (sub.ctx.imageSmoothingEnabled !== true) {
+    sub.ctx.imageSmoothingEnabled = true;
+  }
+  const smoothingQuality = reglBlitImageSmoothingQuality();
+  if (sub.ctx.imageSmoothingQuality !== smoothingQuality) {
+    sub.ctx.imageSmoothingQuality = smoothingQuality;
+  }
+
+  if (opts.wildcardBlur) {
+    const downsampleRatio = texPx / Math.max(1, Math.max(pw, ph));
+    const blurPx =
+      useMobileMaterialLowPower() || downsampleRatio <= 1.0
+        ? 0
+        : Math.min(0.35, (downsampleRatio - 1.0) * 0.2);
+    sub.ctx.filter = blurPx > 0.0 ? `blur(${blurPx.toFixed(3)}px)` : "none";
+    sub.ctx.drawImage(offscreen, 0, 0, texPx, texPx, 0, 0, pw, ph);
+    sub.ctx.filter = "none";
+    return;
+  }
+
   sub.ctx.drawImage(offscreen, 0, 0, texPx, texPx, 0, 0, pw, ph);
+}
+
+/**
+ * 带剖析的材质 hub 单帧：1 次 WebGL draw + 对可见订阅者 blit。
+ * @param {string} materialId
+ * @param {Iterable<ReglDisplaySubscriber>} subscribers
+ * @param {{ texPx: number } | null | undefined} hub
+ * @param {() => void} drawFrame
+ * @param {(sub: ReglDisplaySubscriber, source?: HTMLCanvasElement | null) => void} blitOne
+ * @param {() => HTMLCanvasElement | null | undefined} [prepareFrameSource]
+ */
+export function runProfiledMaterialHubTick(materialId, subscribers, hub, drawFrame, blitOne, prepareFrameSource) {
+  if (!anyReglSubscriberAnimated(subscribers) || !hub) return;
+
+  const profile = isMaterialProfilerEnabled();
+  const tDraw0 = profile ? performance.now() : 0;
+  drawFrame();
+  const frameSource = prepareFrameSource?.();
+  const drawMs = profile ? performance.now() - tDraw0 : 0;
+
+  let blitMs = 0;
+  let blitCount = 0;
+  for (const sub of subscribers) {
+    if (!shouldReglSubscriberReceiveFrames(sub)) continue;
+    if (getMaterialBlitExperimentMode() === "skip") continue;
+    const tBlit0 = profile ? performance.now() : 0;
+    blitOne(sub, frameSource);
+    if (profile) {
+      blitMs += performance.now() - tBlit0;
+      blitCount += 1;
+    }
+  }
+
+  if (profile) {
+    recordMaterialHubProfile(materialId, {
+      drawMs,
+      blitMs,
+      blitCount,
+      texPx: hub.texPx,
+    });
+  }
+}
+
+/**
+ * 视口可见性 + 首帧布局：避免 WebGL 已绘制但 canvas 尺寸为 0 导致永久空白。
+ * @param {ReglDisplaySubscriber} sub
+ * @param {(sub: ReglDisplaySubscriber) => void} [repaintOnce]
+ */
+export function bindReglSubscriberViewport(sub, repaintOnce) {
+  sub.viewportVisible = true;
+  /** @type {(() => void)[]} */
+  const cleanups = [];
+
+  if (typeof IntersectionObserver !== "undefined") {
+    const io = new IntersectionObserver((entries) => {
+      sub.viewportVisible = entries.some((e) => e.isIntersecting);
+    }, { threshold: 0 });
+    io.observe(sub.canvas);
+    cleanups.push(() => io.disconnect());
+  }
+
+  if (typeof ResizeObserver !== "undefined" && typeof repaintOnce === "function") {
+    let paintedAtSize = false;
+    const ro = new ResizeObserver(() => {
+      const w = sub.canvas.clientWidth;
+      const h = sub.canvas.clientHeight;
+      if (w > 0 && h > 0 && !paintedAtSize) {
+        paintedAtSize = true;
+        repaintOnce(sub);
+      }
+    });
+    ro.observe(sub.canvas);
+    cleanups.push(() => ro.disconnect());
+  }
+
+  sub._disposeReglBindings = () => {
+    for (const fn of cleanups) fn();
+    sub._disposeReglBindings = null;
+  };
+}
+
+/** @param {ReglDisplaySubscriber} sub */
+export function disposeReglSubscriberBindings(sub) {
+  sub._disposeReglBindings?.();
 }
 
 /**

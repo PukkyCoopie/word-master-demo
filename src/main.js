@@ -4,6 +4,7 @@ import "../css/game.css";
 import "../css/game.layout.css";
 import App from "./App.vue";
 import { warmupAllReglMaterialHubs } from "./lib/reglMaterialWarmup.js";
+import { deferReglMaterialWarmupAtBoot } from "./lib/reglMaterialPerf.js";
 import { startRemixIconFontLoad } from "./composables/useRemixIconFont.js";
 import { initAnimationSpeedSettings } from "./settings/animationSpeed.js";
 import { initAndroidBackButton } from "./platform/androidBackButton.js";
@@ -42,7 +43,9 @@ startRemixIconFontLoad();
 if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
   document.documentElement.classList.add("platform-native");
 }
-warmupAllReglMaterialHubs();
+if (!deferReglMaterialWarmupAtBoot()) {
+  warmupAllReglMaterialHubs();
+}
 
 document.addEventListener("contextmenu", (e) => e.preventDefault(), { capture: true });
 
