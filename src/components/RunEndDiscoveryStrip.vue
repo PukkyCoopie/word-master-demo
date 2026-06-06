@@ -27,7 +27,7 @@
         <span
           v-else-if="item.kind === 'accessory'"
           class="run-end-discovery-chip__accessory"
-          :class="item.scopeClass"
+          :class="[item.scopeClass, item.chipClass]"
         >
           <span
             :class="
@@ -117,7 +117,7 @@ function onChipClick(item, event) {
 
 <style scoped>
 .run-end-discovery-strip {
-  --run-end-discovery-chip-size: calc(var(--shop-shelf-cell-size) * 0.5);
+  --run-end-discovery-chip-size: calc(var(--shop-shelf-cell-size) * 1);
   --run-end-discovery-chip-gap: calc(10 * var(--rpx));
   width: 100%;
   flex-shrink: 0;
@@ -186,6 +186,20 @@ function onChipClick(item, event) {
   max-width: 100%;
   max-height: 100%;
   flex-shrink: 0;
+}
+
+.run-end-discovery-chip__voucher :deep(.voucher-stamp-stack) {
+  width: 100%;
+  height: 100%;
+}
+
+.run-end-discovery-chip__voucher :deep(.voucher-stamp-stack--stacked) {
+  height: 100%;
+}
+
+.run-end-discovery-chip__voucher :deep(.voucher-stamp) {
+  width: 100%;
+  height: 100%;
 }
 
 .run-end-discovery-chip__voucher :deep(.voucher-stamp__frame) {

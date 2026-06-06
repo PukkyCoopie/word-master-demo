@@ -23,7 +23,9 @@ export function getAchievementCollectionProgress(career, def) {
     case "career_tiles_discarded":
       return progressFromCareerCounter(career?.totalLettersDiscarded, c.threshold);
     case "career_wallet_peak":
-      return progressFromCareerCounter(career?.peakWalletAmount, c.threshold);
+    case "run_interest_total":
+    case "run_money_spent":
+      return null;
     case "discover_all_treasures":
       return progressFromCollectionTab(career, "treasures");
     case "discover_all_spells":

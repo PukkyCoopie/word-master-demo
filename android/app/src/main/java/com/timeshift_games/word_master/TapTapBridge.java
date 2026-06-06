@@ -7,6 +7,8 @@ import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.os.Build;
 import android.util.Log;
+import com.taptap.sdk.achievement.TapTapAchievement;
+import com.taptap.sdk.achievement.options.TapTapAchievementOptions;
 import com.taptap.sdk.compliance.TapTapCompliance;
 import com.taptap.sdk.compliance.TapTapComplianceCallback;
 import com.taptap.sdk.compliance.option.TapTapComplianceOptions;
@@ -72,6 +74,7 @@ final class TapTapBridge {
             false,
             false
         );
+        TapTapAchievementOptions achievementOptions = new TapTapAchievementOptions(false);
 
         if (debuggable) {
             Log.i(
@@ -85,7 +88,8 @@ final class TapTapBridge {
             );
         }
 
-        TapTapSdk.init(appContext, coreOptions, complianceOptions);
+        TapTapSdk.init(appContext, coreOptions, complianceOptions, achievementOptions);
+        TapTapAchievement.setToastEnable(false);
         TapTapCompliance.registerComplianceCallback(
             new TapTapComplianceCallback() {
                 @Override

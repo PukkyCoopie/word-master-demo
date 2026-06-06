@@ -9,12 +9,14 @@
       <div class="collection-achievement-cell__content">
         <img
           class="collection-achievement-cell__icon"
+          :class="{ 'collection-achievement-cell__icon--dev': devModeActive }"
           :src="entry.iconUrl"
           :alt="entry.name"
           width="256"
           height="256"
           decoding="async"
           loading="lazy"
+          @click="onAchievementIconClick(entry)"
         />
         <div class="collection-achievement-cell__body">
           <h3 class="collection-achievement-cell__name">{{ entry.name }}</h3>
@@ -32,7 +34,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, inject } from "vue";
 import {
   ACHIEVEMENT_DEFINITIONS,
   getAchievementIconUrl,
@@ -48,6 +50,48 @@ const props = defineProps({
   career: { type: Object, required: true },
   unlockedAchievementIds: { type: Array, default: () => [] },
 });
+
+const developerModeEnabled = inject("developerModeEnabled", null);
+const applyDeveloperAchievementCheat = inject("applyDeveloperAchievementCheat", null);
+
+const devModeActive = computed(() => developerModeEnabled?.value === true);
+
+/** @type {Record<string, number>} */
+const achievementTapCounts = {};
+/** @type {Record<string, ReturnType<typeof setTimeout> | null>} */
+const achievementTapTimers = {};
+
+const DEV_ACHIEVEMENT_TAP_WINDOW_MS = 1600;
+const DEV_ACHIEVEMENT_TAP_TARGET = 5;
+
+function resetAchievementTapCount(achievementId) {
+  achievementTapCounts[achievementId] = 0;
+  const timer = achievementTapTimers[achievementId];
+  if (timer != null) {
+    window.clearTimeout(timer);
+    achievementTapTimers[achievementId] = null;
+  }
+}
+
+/** @param {{ id: string, unlocked: boolean }} entry */
+function onAchievementIconClick(entry) {
+  if (!devModeActive.value || entry.unlocked || typeof applyDeveloperAchievementCheat !== "function") {
+    return;
+  }
+
+  const id = entry.id;
+  achievementTapCounts[id] = (achievementTapCounts[id] ?? 0) + 1;
+  if (achievementTapTimers[id] != null) {
+    window.clearTimeout(achievementTapTimers[id]);
+  }
+  achievementTapTimers[id] = window.setTimeout(() => {
+    resetAchievementTapCount(id);
+  }, DEV_ACHIEVEMENT_TAP_WINDOW_MS);
+
+  if (achievementTapCounts[id] < DEV_ACHIEVEMENT_TAP_TARGET) return;
+  resetAchievementTapCount(id);
+  applyDeveloperAchievementCheat(id);
+}
 
 const unlockedSet = computed(() => new Set((props.unlockedAchievementIds ?? []).map(String)));
 
@@ -121,11 +165,15 @@ const entries = computed(() =>
 }
 
 .collection-achievement-cell__icon {
-  width: calc(68 * var(--rpx));
-  height: calc(68 * var(--rpx));
+  width: calc(136 * var(--rpx));
+  height: calc(136 * var(--rpx));
   flex-shrink: 0;
-  border-radius: calc(12 * var(--rpx));
+  border-radius: calc(24 * var(--rpx));
   object-fit: cover;
+}
+
+.collection-achievement-cell__icon--dev {
+  cursor: pointer;
 }
 
 .collection-achievement-cell__body {

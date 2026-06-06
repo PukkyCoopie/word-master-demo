@@ -88,8 +88,10 @@
       <AboutLayer
         :open="showAbout"
         @close="closeAbout"
+        @enable-developer-mode="enableDeveloperMode"
         @open-material-bench="openMaterialBench"
       />
+      <AchievementToastLayer :queue="achievementToastQueue" />
       <PlayerProfileLayer
         :open="showPlayerProfile"
         :origin-rects="profileOpenOrigin"
@@ -213,8 +215,18 @@ import {
   setLastSelectedPresetId,
 } from "./game/runPresetProgress.js";
 import { collectFreshUnlocksFromWin } from "./game/runStartFreshUnlock.js";
-import { createEmptySlotCareerStats } from "./save/runSaveSchema.js";
+import { createEmptySlotCareerStats, SAVE_SLOT_COUNT } from "./save/runSaveSchema.js";
+import { ACHIEVEMENT_DEFINITIONS, getAchievementDef } from "./achievements/achievementDefinitions.js";
+import { createAchievementToastQueue } from "./achievements/achievementToastQueue.js";
 import { tryUnlockAchievementsInCareer } from "./achievements/achievementUnlock.js";
+import {
+  bootstrapTapTapAchievements,
+  reportTapTapAchievementUnlocks,
+  syncTapTapIncrementProgressInCareer,
+} from "./achievements/achievementTapTapSync.js";
+import AchievementToastLayer from "./components/AchievementToastLayer.vue";
+import { applyDeveloperAchievementCheat } from "./dev/developerAchievementCheats.js";
+import { developerModeEnabled, enableDeveloperMode } from "./dev/developerMode.js";
 import { formatCollectionMenuProgressSuffix } from "./collection/collectionProgress.js";
 import { registerAndroidBackHandler } from "./platform/androidBackButton.js";
 import { handleAppAndroidBack } from "./platform/handleAppAndroidBack.js";
@@ -473,18 +485,70 @@ function bumpCollectionUi() {
  * @param {import('./achievements/achievementEvaluate.js').AchievementEvalContext} ctx
  * @returns {import('./achievements/achievementTypes.js').AchievementDefinition[]}
  */
+const achievementToastQueue = createAchievementToastQueue();
+
 function unlockAchievementsWithCtx(ctx) {
   const ix = screen.value === "game" ? sessionSaveSlotIndex.value : getActiveSaveSlotIndex();
   /** @type {import('./achievements/achievementTypes.js').AchievementDefinition[]} */
   let newly = [];
   mutateSlotCareer(ix, (career) => {
     newly = tryUnlockAchievementsInCareer(career, ctx);
+    syncTapTapIncrementProgressInCareer(career);
   });
-  if (newly.length) bumpCollectionUi();
+  if (newly.length) {
+    bumpCollectionUi();
+    achievementToastQueue.enqueue(newly);
+  }
+  void reportTapTapAchievementUnlocks(newly);
   return newly;
 }
 
+/** @param {string} achievementId */
+function applyDeveloperAchievementCheatFromApp(achievementId) {
+  if (!developerModeEnabled.value) return;
+
+  const def = getAchievementDef(achievementId);
+  if (!def) return;
+
+  const ix = getActiveSaveSlotIndex();
+  /** @type {import('./achievements/achievementTypes.js').AchievementDefinition[]} */
+  let newly = [];
+  mutateSlotCareer(ix, (career) => {
+    newly = applyDeveloperAchievementCheat(career, def);
+    syncTapTapIncrementProgressInCareer(career);
+  });
+  bumpSaveUi();
+  if (newly.length) {
+    achievementToastQueue.enqueue(newly);
+    void reportTapTapAchievementUnlocks(newly);
+  }
+}
+
+function collectAllUnlockedAchievementIds() {
+  const ids = new Set();
+  for (let i = 0; i < SAVE_SLOT_COUNT; i += 1) {
+    for (const id of getSlotCareer(i).unlockedAchievementIds ?? []) {
+      const trimmed = String(id ?? "").trim();
+      if (trimmed) ids.add(trimmed);
+    }
+  }
+  return ids;
+}
+
+watch(
+  () => [tapTapPhase.value, account.value?.unionId, activeSaveSlotIndex.value, saveUiRefreshKey.value],
+  ([phase, unionId]) => {
+    if (phase !== "ready" || !unionId) return;
+    const career = normalizeSlotCareerStats(getSlotCareer(getActiveSaveSlotIndex()));
+    void bootstrapTapTapAchievements(String(unionId), career, collectAllUnlockedAchievementIds());
+  },
+  { immediate: true },
+);
+
 provide("tryUnlockAchievements", unlockAchievementsWithCtx);
+provide("achievementToastQueue", achievementToastQueue);
+provide("developerModeEnabled", developerModeEnabled);
+provide("applyDeveloperAchievementCheat", applyDeveloperAchievementCheatFromApp);
 
 /** @param {number} slotIndex @param {(career: import('./save/runSaveSchema.js').SlotCareerStats) => void} mutator */
 function persistCollectionCareer(slotIndex, mutator) {
@@ -569,6 +633,7 @@ const showGame = computed(() => appBootReady.value && screen.value === "game");
 
 const collectionCareer = computed(() => {
   void collectionRefreshKey.value;
+  void saveUiRefreshKey.value;
   return normalizeSlotCareerStats(getSlotCareer(getActiveSaveSlotIndex()));
 });
 
@@ -628,7 +693,11 @@ onMounted(() => {
     mutateCareer: mutateSlotCareer,
     refreshUi: bumpCollectionUi,
     openMaterialBench,
+    enableDeveloperMode,
   });
+
+  globalThis.__WM_previewAchievementToast = () =>
+    achievementToastQueue.previewRandom(ACHIEVEMENT_DEFINITIONS, Math.random);
   if (isMaterialBenchEnabled()) {
     const shortcut = { open: openMaterialBench };
     globalThis.__WM_MATERIAL_BENCH__ = shortcut;
@@ -659,6 +728,7 @@ onBeforeUnmount(() => {
   disposeMaterialBenchShortcut = null;
   disposeAppE2eHarness?.();
   disposeAppE2eHarness = null;
+  delete globalThis.__WM_previewAchievementToast;
   appAlive = false;
 });
 

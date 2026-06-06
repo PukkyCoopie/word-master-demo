@@ -13,41 +13,54 @@
         <h2 :id="titleId" class="run-end-title">{{ titleText }}</h2>
         <p v-if="subtitleText" class="run-end-sub">{{ subtitleText }}</p>
 
-        <div v-if="runSeedDisplay" class="run-end-seed-bar">
-          <div class="run-end-seed-main">
-            <span class="run-end-seed-label">本局种子</span>
-            <span class="run-end-seed-value">{{ runSeedDisplay }}</span>
-          </div>
-          <button
-            type="button"
-            class="run-end-seed-copy"
-            :title="seedCopyDone ? '已复制' : '复制种子'"
-            :aria-label="seedCopyDone ? '已复制' : '复制本局种子'"
-            @click="copyRunSeed"
-          >
-            <i :class="seedCopyDone ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i>
-          </button>
-        </div>
-
         <div class="run-end-stats-list">
-          <div class="run-end-stat-row run-end-stat-row--hero">
+          <div class="run-end-stat-row run-end-stat-row--seed-level">
+            <div v-if="runSeedDisplay" class="run-end-stat-card run-end-stat-card--seed">
+              <span class="run-end-stat-label">本局种子</span>
+              <span class="run-end-stat-value run-end-stat-value--seed">
+                <span class="run-end-seed-value">{{ runSeedDisplay }}</span>
+                <button
+                  type="button"
+                  class="run-end-seed-copy"
+                  :title="seedCopyDone ? '已复制' : '复制种子'"
+                  :aria-label="seedCopyDone ? '已复制' : '复制本局种子'"
+                  @click.stop="copyRunSeed"
+                >
+                  <i :class="seedCopyDone ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i>
+                </button>
+              </span>
+            </div>
             <div class="run-end-stat-card">
               <span class="run-end-stat-label">抵达关卡</span>
               <span class="run-end-stat-value">{{ reachedLevelId || "—" }}</span>
             </div>
+          </div>
+
+          <div class="run-end-stat-row run-end-stat-row--best-length">
+            <button
+              type="button"
+              class="run-end-stat-card run-end-stat-card--toggle"
+              :aria-pressed="bestWordShowLength"
+              @click="bestWordShowLength = !bestWordShowLength"
+            >
+              <span class="run-end-stat-label">{{ bestWordLabel }}</span>
+              <span class="run-end-stat-value">{{ bestWordDisplayValue }}</span>
+            </button>
             <div class="run-end-stat-card">
-              <span class="run-end-stat-label">最佳单词</span>
-              <span class="run-end-stat-value">{{ bestWordValue }}</span>
+              <span class="run-end-stat-label">最常拼写长度</span>
+              <span class="run-end-stat-value">{{ mostCommonLengthValue }}</span>
             </div>
           </div>
 
-          <div
-            v-for="row in statsRows"
-            :key="row.label"
-            class="run-end-stat-card"
-          >
-            <span class="run-end-stat-label">{{ row.label }}</span>
-            <span class="run-end-stat-value">{{ row.value }}</span>
+          <div class="run-end-stat-row run-end-stat-row--triple">
+            <div
+              v-for="row in tripleStatsRows"
+              :key="row.label"
+              class="run-end-stat-card"
+            >
+              <span class="run-end-stat-label">{{ row.label }}</span>
+              <span class="run-end-stat-value">{{ row.value }}</span>
+            </div>
           </div>
 
           <div class="run-end-stat-card run-end-stat-card--discoveries">
@@ -97,8 +110,10 @@ const props = defineProps({
   runSeedDisplay: { type: String, default: "" },
   reachedLevelId: { type: String, default: "" },
   bestWordValue: { type: String, default: "—" },
+  longestWordValue: { type: String, default: "—" },
+  mostCommonLengthValue: { type: String, default: "—" },
   /** @type {{ label: string, value: string }[]} */
-  statsRows: { type: Array, default: () => [] },
+  tripleStatsRows: { type: Array, default: () => [] },
   /** @type {import('../game/runCollectionDiscoveriesDisplay.js').RunDiscoveryDisplayItem[]} */
   discoveryItems: { type: Array, default: () => [] },
 });
@@ -107,6 +122,7 @@ defineEmits(["retry", "main-menu", "endless", "select-discovery"]);
 
 const titleId = "run-end-title";
 const seedCopyDone = ref(false);
+const bestWordShowLength = ref(false);
 /** @type {ReturnType<typeof setTimeout> | null} */
 let seedCopyResetTimer = null;
 
@@ -115,6 +131,14 @@ const subtitleText = computed(() => {
   if (props.outcome === "win") return "";
   return "出牌次数已用尽，未能达到本关目标分";
 });
+
+const bestWordLabel = computed(() =>
+  bestWordShowLength.value ? "最佳单词（长度）" : "最佳单词（得分）",
+);
+
+const bestWordDisplayValue = computed(() =>
+  bestWordShowLength.value ? props.longestWordValue : props.bestWordValue,
+);
 
 async function copyRunSeed() {
   const ok = await copyTextToClipboard(props.runSeedDisplay);
@@ -179,66 +203,6 @@ onBeforeUnmount(() => {
   line-height: 1.45;
 }
 
-.run-end-seed-bar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: calc(10 * var(--rpx));
-  width: 100%;
-  box-sizing: border-box;
-  margin: 0 0 calc(18 * var(--rpx));
-  padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));
-  border-radius: calc(10 * var(--rpx));
-  background: #eee4da;
-}
-
-.run-end-seed-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: calc(6 * var(--rpx));
-  text-align: left;
-}
-
-.run-end-seed-label {
-  font-size: calc(22 * var(--rpx));
-  font-weight: 700;
-  color: #8f7a66;
-}
-
-.run-end-seed-value {
-  font-size: calc(30 * var(--rpx));
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: #3c3a32;
-  word-break: break-all;
-  line-height: 1.2;
-}
-
-.run-end-seed-copy {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: calc(50 * var(--rpx));
-  height: calc(50 * var(--rpx));
-  border: none;
-  border-radius: calc(8 * var(--rpx));
-  background: rgba(0, 0, 0, 0.06);
-  color: #776e65;
-  font-size: calc(26 * var(--rpx));
-  cursor: pointer;
-}
-
-.run-end-seed-copy:hover {
-  filter: brightness(1.04);
-}
-
-.run-end-seed-copy:active {
-  filter: brightness(0.94);
-}
-
 .run-end-stats-list {
   margin: 0 0 calc(22 * var(--rpx));
   display: grid;
@@ -246,12 +210,23 @@ onBeforeUnmount(() => {
   gap: calc(10 * var(--rpx));
 }
 
-.run-end-stat-row--hero {
+.run-end-stat-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: 1fr 2fr;
   gap: calc(10 * var(--rpx));
   min-width: 0;
+}
+
+.run-end-stat-row--seed-level {
+  grid-template-columns: 2fr 1fr;
+}
+
+.run-end-stat-row--best-length {
+  grid-template-columns: 2fr 1fr;
+}
+
+.run-end-stat-row--triple {
+  grid-template-columns: 1fr 1fr 1fr;
 }
 
 .run-end-stat-card {
@@ -260,6 +235,23 @@ onBeforeUnmount(() => {
   background: rgba(0, 0, 0, 0.04);
   border-radius: calc(10 * var(--rpx));
   box-sizing: border-box;
+}
+
+.run-end-stat-card--toggle {
+  width: 100%;
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: filter 0.1s ease;
+}
+
+.run-end-stat-card--toggle:hover {
+  filter: brightness(1.03);
+}
+
+.run-end-stat-card--toggle:active {
+  filter: brightness(0.97);
 }
 
 .run-end-stat-card--discoveries {
@@ -283,11 +275,50 @@ onBeforeUnmount(() => {
   word-break: break-word;
 }
 
+.run-end-stat-value--seed {
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--rpx));
+}
+
+.run-end-seed-value {
+  flex: 1;
+  min-width: 0;
+  font-size: calc(26 * var(--rpx));
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  word-break: break-all;
+  line-height: 1.2;
+}
+
+.run-end-seed-copy {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(44 * var(--rpx));
+  height: calc(44 * var(--rpx));
+  border: none;
+  border-radius: calc(8 * var(--rpx));
+  background: rgba(0, 0, 0, 0.06);
+  color: #776e65;
+  font-size: calc(24 * var(--rpx));
+  cursor: pointer;
+}
+
+.run-end-seed-copy:hover {
+  filter: brightness(1.04);
+}
+
+.run-end-seed-copy:active {
+  filter: brightness(0.94);
+}
+
 .run-end-stat-value--discoveries {
   font-size: inherit;
   font-weight: inherit;
   margin-top: calc(4 * var(--rpx));
-  min-height: calc(var(--shop-shelf-cell-size) * 0.5);
+  min-height: var(--shop-shelf-cell-size);
   flex-shrink: 0;
 }
 

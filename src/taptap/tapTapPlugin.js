@@ -37,6 +37,10 @@ const TapTapWebStub = {
     return null;
   },
   async startCompliance() {},
+  async unlockAchievement() {},
+  async incrementAchievement() {},
+  async setAchievementToastEnabled() {},
+  async showAchievements() {},
   async addListener() {
     return { remove: async () => {} };
   },

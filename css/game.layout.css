@@ -261,7 +261,7 @@ html.viewport-narrower-than-design #game-view-portal > .iris-overlay {
  * 与 .game-container 同框的层保持 absolute + portal-frame：商店、宝藏/字母块详情、开包选牌等。
  * 宽屏：保持 absolute + frame overflow:hidden 裁剪。
  */
-html.viewport-narrower-than-design #game-view-portal-frame .portal-overlay-fill:not(.shop-portal-root):not(.pack-pick-backdrop),
+html.viewport-narrower-than-design #game-view-portal-frame .portal-overlay-fill:not(.shop-portal-root):not(.pack-pick-backdrop):not(.achievement-toast),
 html.viewport-narrower-than-design #game-view-portal-frame .deck-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .dict-fatal-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .stage-settlement-layer,
@@ -269,7 +269,8 @@ html.viewport-narrower-than-design #game-view-portal-frame .info-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .run-end-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .pause-options-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .spell-target-backdrop,
-html.viewport-narrower-than-design #game-view-portal-frame .tile-detail-backdrop {
+html.viewport-narrower-than-design #game-view-portal-frame .tile-detail-backdrop,
+html.viewport-narrower-than-design #game-view-portal-frame .boss-blind-reroll-backdrop {
 	position: fixed;
 	inset: 0;
 	border-radius: 0;
@@ -315,4 +316,36 @@ html.viewport-narrower-than-design .run-start-dialog-scrim {
 	min-height: 0;
 	box-sizing: border-box;
 	padding: calc(14 * var(--rpx));
+}
+
+/*
+ * 成就完成 Toast（手机 / 原生）：
+ * 背景自屏幕顶全宽铺上半屏（无圆角）；内容自 game-container 上缘（--portal-frame-top）起向下排。
+ */
+html.viewport-narrower-than-design #game-view-portal-frame .achievement-toast,
+html.platform-native #game-view-portal-frame .achievement-toast {
+	--achievement-toast-container-inset: calc(14 * var(--rpx));
+	--achievement-toast-margin-v: var(--achievement-toast-container-inset);
+	position: fixed;
+	inset: unset;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: auto;
+	width: 100%;
+	max-width: none;
+	height: calc(var(--achievement-toast-solid-h) + var(--achievement-toast-fade-h));
+	border-radius: 0;
+	overflow: hidden;
+}
+
+html.viewport-narrower-than-design #game-view-portal-frame .achievement-toast__content,
+html.platform-native #game-view-portal-frame .achievement-toast__content {
+	top: var(--portal-frame-top, 0px);
+	left: calc(var(--portal-frame-left, 0px) + var(--achievement-toast-container-inset));
+	right: auto;
+	width: calc(var(--portal-frame-width, 100vw) - 2 * var(--achievement-toast-container-inset));
+	height: calc(var(--achievement-toast-solid-h) - var(--portal-frame-top, 0px));
+	justify-content: flex-start;
+	padding-top: calc(var(--achievement-toast-container-inset) + 32 * var(--rpx));
 }

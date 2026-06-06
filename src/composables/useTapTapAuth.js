@@ -1,6 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { isE2eMode } from "../e2e/isE2eMode.js";
+import { resetTapTapAchievementBootstrap } from "../achievements/achievementTapTapSync.js";
 import {
   COMPLIANCE_AGE_LIMIT,
   COMPLIANCE_DURATION_LIMIT,
@@ -70,6 +71,7 @@ function handleComplianceCode(code) {
     account.value = null;
     authMessage.value = "";
     phase.value = "needsLogin";
+    resetTapTapAchievementBootstrap();
     return;
   }
   if (code === COMPLIANCE_NETWORK_ERROR) {
@@ -170,6 +172,7 @@ export function useTapTapAuth() {
     authMessage.value = "";
     account.value = null;
     phase.value = "ready";
+    resetTapTapAchievementBootstrap();
   }
 
   onMounted(async () => {

@@ -18,10 +18,23 @@ function normalizeIdList(raw) {
  * @param {import('../save/runSaveSchema.js').SlotCareerStats} career
  * @param {Record<string, unknown>} raw
  */
+function normalizeReportedStepsMap(raw) {
+  if (!raw || typeof raw !== "object") return {};
+  /** @type {Record<string, number>} */
+  const out = {};
+  for (const [key, value] of Object.entries(/** @type {Record<string, unknown>} */ (raw))) {
+    const id = String(key ?? "").trim();
+    if (!id) continue;
+    out[id] = Math.max(0, Math.floor(Number(value) || 0));
+  }
+  return out;
+}
+
 export function normalizeAchievementCareerFields(career, raw) {
   career.unlockedAchievementIds = normalizeIdList(raw.unlockedAchievementIds);
   career.totalWordsSubmitted = Math.max(0, Math.floor(Number(raw.totalWordsSubmitted) || 0));
   career.peakWalletAmount = Math.max(0, Math.floor(Number(raw.peakWalletAmount) || 0));
+  career.taptapReportedAchievementSteps = normalizeReportedStepsMap(raw.taptapReportedAchievementSteps);
   const maxIdx = Math.floor(Number(raw.maxLevelIndexReached) || -1);
   career.maxLevelIndexReached = maxIdx >= 0 && maxIdx < LEVELS.length ? maxIdx : -1;
 }

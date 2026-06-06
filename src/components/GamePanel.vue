@@ -1,6 +1,5 @@
 <template>
   <div class="game-container">
-    <AchievementToastLayer :queue="achievementToastQueue" />
     <Teleport defer to="#game-view-portal-frame">
       <div v-if="showShop" class="portal-overlay-fill shop-portal-root" :style="shopPortalStackStyle">
         <ShopPanel
@@ -619,7 +618,9 @@
         :run-seed-display="props.runSeedDisplay"
         :reached-level-id="runEndReachedLevelId"
         :best-word-value="runEndBestWordValue"
-        :stats-rows="runEndSecondaryStatsRows"
+        :longest-word-value="runEndLongestWordValue"
+        :most-common-length-value="runEndMostCommonLengthValue"
+        :triple-stats-rows="runEndTripleStatsRows"
         :discovery-items="runEndDiscoveryItems"
         :portal-stack-style="runEndPortalStackStyle"
         @retry="onRunEndRetry"
@@ -846,8 +847,6 @@ import {
 } from "../levelDefinitions";
 import RunEndLayer from "./RunEndLayer.vue";
 import PauseOptionsLayer from "./PauseOptionsLayer.vue";
-import AchievementToastLayer from "./AchievementToastLayer.vue";
-import { createAchievementToastQueue } from "../achievements/achievementToastQueue.js";
 import { ACHIEVEMENT_DEFINITIONS } from "../achievements/achievementDefinitions.js";
 import {
   createAchievementRunState,
@@ -878,7 +877,9 @@ import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import {
   createRunMatchStats,
   formatRunEndBestWordValue,
-  getRunEndSecondaryStatsRows,
+  formatRunEndLongestWordValue,
+  formatRunEndMostCommonLength,
+  getRunEndTripleStatsRows,
   recordLettersDiscarded,
   recordReroll,
   recordShopPurchase,
@@ -3356,11 +3357,7 @@ const recordCollectionDiscovery = inject("recordCollectionDiscovery", null);
 const recordPrerequisiteTreasureShopAppeared = inject("recordPrerequisiteTreasureShopAppeared", null);
 const recordCollectionWordSubmit = inject("recordCollectionWordSubmit", null);
 
-const achievementToastQueue = createAchievementToastQueue();
-
-/** 控制台预览成就 Toast（不写入解锁进度）：`__WM_previewAchievementToast()` */
-globalThis.__WM_previewAchievementToast = () =>
-  achievementToastQueue.previewRandom(ACHIEVEMENT_DEFINITIONS, runRandom);
+const achievementToastQueue = inject("achievementToastQueue", null);
 const achievementRunState = ref(createAchievementRunState());
 
 function getCompletedLevelIdsForWin() {
@@ -3399,8 +3396,7 @@ function flushAchievementUnlocks(overrides = {}) {
     const newly = [];
     return newly;
   });
-  const newly = unlockFn(buildAchievementEvalContext(overrides));
-  if (newly?.length) achievementToastQueue.enqueue(newly);
+  unlockFn(buildAchievementEvalContext(overrides));
 }
 
 function noteRunMoneySpent(amount) {
@@ -3563,7 +3559,9 @@ const runEndConfettiController = createRunEndConfettiController({
 const runMatchStats = ref(createRunMatchStats());
 const runDiscoveryLog = ref(createRunDiscoveryLog());
 const runEndBestWordValue = computed(() => formatRunEndBestWordValue(runMatchStats.value));
-const runEndSecondaryStatsRows = computed(() => getRunEndSecondaryStatsRows(runMatchStats.value));
+const runEndLongestWordValue = computed(() => formatRunEndLongestWordValue(runMatchStats.value));
+const runEndMostCommonLengthValue = computed(() => formatRunEndMostCommonLength(runMatchStats.value));
+const runEndTripleStatsRows = computed(() => getRunEndTripleStatsRows(runMatchStats.value));
 const runEndReachedLevelId = computed(() => currentLevel.value?.id ?? getRunLevelAtIndex(levelIndex.value).id);
 const runEndDiscoveryItems = computed(() => buildRunDiscoveryDisplayItems(runDiscoveryLog.value));
 const treasureRunState = ref(createTreasureRunState());
@@ -10510,6 +10508,10 @@ async function runSlotPerLetterTreasureScoreStep(
   if (!cue?.delta) return false;
   if (hooks?.perLetterScoreCueDepositsTreasureBank) {
     addScoreAddBank(treasureRunState.value, tid, cue.delta);
+    if (hooks?.showPerLetterScoreCueBubble === false) {
+      await wobbleGameTreasureSlot(treasureSlotIndex);
+      return true;
+    }
     await playTreasureSlotScoreBurstAtPeak(treasureSlotIndex, cue.delta);
     return true;
   }
@@ -12163,6 +12165,9 @@ async function submitWord() {
       getWordDefinition,
       gridTiles: gridTilesForTreasures,
       remainingGridTiles: remainingGridTilesForTreasures,
+      grid: gSubmit,
+      gridRows: ROWS,
+      gridCols: COLS,
       fullDeck: initialDeckSnapshot.value,
     },
   );
@@ -12671,7 +12676,6 @@ onUnmounted(() => {
   unregisterGameAndroidBack = null;
   runAutoSave.cancelPending();
   runEndConfettiController.dispose();
-  delete globalThis.__WM_previewAchievementToast;
   disposeE2eHarness?.();
   disposeE2eHarness = null;
   gamePanelAlive = false;
@@ -13068,7 +13072,17 @@ onUnmounted(() => {
   cursor: inherit;
   pointer-events: none;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
+}
+.deck-layer-stacks :deep(.deck-stack-pile-tile .tile-accessory-chip) {
+  right: calc(3 * var(--rpx) * var(--slot-scale, 1));
+  bottom: calc(3 * var(--rpx) * var(--slot-scale, 1));
+  width: calc(28 * var(--rpx) * var(--slot-scale, 1));
+  height: calc(28 * var(--rpx) * var(--slot-scale, 1));
+  border-radius: calc(6 * var(--rpx) * var(--slot-scale, 1));
+}
+.deck-layer-stacks :deep(.deck-stack-pile-tile .tile-accessory-chip-icon) {
+  font-size: calc(14 * var(--rpx) * var(--slot-scale, 1));
 }
 /* 牌库视图统一字号：覆盖材质块在 game.css 里的固定 42*rpx */
 .deck-layer-stacks :deep(.deck-stack-pile-tile.tile-material-gold .letter-tile-char),
@@ -13176,7 +13190,17 @@ onUnmounted(() => {
   font-size: calc(var(--deck-expand-tile-size) * 0.42);
   cursor: pointer;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
+}
+.deck-stack-expand-scroll :deep(.deck-expand-face-tile .tile-accessory-chip) {
+  right: calc(3 * var(--rpx) * var(--slot-scale, 1));
+  bottom: calc(3 * var(--rpx) * var(--slot-scale, 1));
+  width: calc(28 * var(--rpx) * var(--slot-scale, 1));
+  height: calc(28 * var(--rpx) * var(--slot-scale, 1));
+  border-radius: calc(6 * var(--rpx) * var(--slot-scale, 1));
+}
+.deck-stack-expand-scroll :deep(.deck-expand-face-tile .tile-accessory-chip-icon) {
+  font-size: calc(14 * var(--rpx) * var(--slot-scale, 1));
 }
 .deck-stack-expand-scroll :deep(.deck-expand-face-tile.tile-material-gold .letter-tile-char),
 .deck-stack-expand-scroll :deep(.deck-expand-face-tile.tile-material-steel .letter-tile-char),

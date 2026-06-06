@@ -52,6 +52,9 @@
  * @property {string} [resolvedWord] 本词（小写）
  * @property {readonly { rarity?: string }[]} [gridTiles] 提交时棋盘上全部有字格（含本手拼词格）
  * @property {readonly { rarity?: string }[]} [remainingGridTiles] 提交后仍将留在棋盘上的有字格（不含本手拼词格）
+ * @property {unknown[][]} [grid] 提交时棋盘二维数组（行优先索引用 `r * gridCols + c`）
+ * @property {number} [gridRows]
+ * @property {number} [gridCols]
  * @property {readonly unknown[]} [fullDeck] 本局完整牌库 multiset
  * @property {Record<string, number> | null} [rarityLevelsByRarity] 各字母稀有度等级
  * @property {(word: string) => { pos?: string } | null | undefined} [getWordDefinition]
@@ -182,6 +185,7 @@
  * @property {number} [multAdd]
  * @property {number} [scoreAdd]
  * @property {number} [multMul]
+ * @property {number} [scoreFxGridTileIndex] 字后动效落在棋盘格（`r * gridCols + c`）
  */
 
 /**
@@ -189,6 +193,7 @@
  * @property {(ctx: TreasureLogicContext) => void} [prepareSubmitScoringBank] 提交计分前：擦除类宝藏将 +0.1 等写入 run 银行，供同词 `buildPostLetterStep` 读取累计倍率
  * @property {(ctx: TreasureSubmitAfterLettersContext) => void | Promise<void>} [runAfterLettersBeforePostSteps] 计分动画：逐字母步结束后、字后宝藏步开始前（如海绵擦除动效）
  * @property {(ctx: TreasureLogicContext) => TreasurePostStep | null | undefined} [buildPostLetterStep]
+ * @property {(ctx: TreasureLogicContext) => (TreasurePostStep | null | undefined)[] | null | undefined} [collectPostLetterSteps] 字后多步（如钢琴逐格 J/K）；若实现则优先于 `buildPostLetterStep`
  * @property {(ctx: TreasureLogicContext) => number} [getLetterRarityMultAdd]
  * @property {(part: { letter?: string, rarity?: string }) => number} [getLetterRarityMultDeltaForLetterPart] replay 时该字母上本宝藏贡献的倍率加量（与 `getLetterRarityMultAdd` 规则一致）
  * @property {(part: { letter?: string, rarity?: string }, ctx: TreasureLogicContext) => number} [getLetterRarityMultMulForLetterPart] 该字母计分（含 replay 轮）时乘上的倍率因子（>1 才生效；与 `getLetterRarityMultAnimConfig` 的 `multMul` 对齐）

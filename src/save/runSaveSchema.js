@@ -39,6 +39,7 @@
  * @property {import('../collection/collectionTypes.js').CollectionWordRecord[]} [scoreLeaderboard]
  * @property {import('../collection/collectionTypes.js').CollectionWordRecord[]} [lengthLeaderboard]
  * @property {string[]} [unlockedAchievementIds]
+ * @property {Record<string, number>} [taptapReportedAchievementSteps]
  * @property {number} [totalWordsSubmitted]
  * @property {number} [peakWalletAmount]
  * @property {number} [maxLevelIndexReached]
@@ -100,6 +101,7 @@ export function createEmptySlotCareerStats() {
     scoreLeaderboard: [],
     lengthLeaderboard: [],
     unlockedAchievementIds: [],
+    taptapReportedAchievementSteps: {},
     totalWordsSubmitted: 0,
     peakWalletAmount: 0,
     maxLevelIndexReached: -1,

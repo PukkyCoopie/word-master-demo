@@ -209,7 +209,7 @@ const props = defineProps({
   open: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["close", "openMaterialBench"]);
+const emit = defineEmits(["close", "openMaterialBench", "enableDeveloperMode"]);
 
 /** 仅在 Capacitor 原生 App 内展示工作室名称 */
 const showGameStudio =
@@ -480,6 +480,7 @@ function onVersionClick() {
 
   if (versionTapCount < 5) return;
   resetVersionTapCount();
+  emit("enableDeveloperMode");
   emit("openMaterialBench");
 }
 

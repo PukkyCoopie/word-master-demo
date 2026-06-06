@@ -3290,6 +3290,24 @@ textarea::-moz-placeholder {
 	.run-end-discovery-chip__accessory.tile-accessory-chip .tile-accessory-chip-icon {
 		font-size: calc(100cqmin * 28 / 108);
 	}
+
+	.run-end-discovery-chip__voucher .voucher-stamp__frame .voucher-stamp__emoji {
+		font-size: calc(100cqmin * 42 / 108);
+	}
+
+	.run-end-discovery-chip__frame.shop-treasure-frame .shop-upgrade-length {
+		position: absolute;
+		bottom: calc(100cqmin * 10 / 108);
+		font-size: calc(100cqmin * 20 / 108);
+	}
+
+	.run-end-discovery-chip__frame.shop-treasure-frame .shop-upgrade-length--single-digit {
+		font-size: calc(100cqmin * 24 / 108);
+	}
+
+	.run-end-discovery-chip__frame.shop-treasure-frame .shop-pack-rarity-caption {
+		font-size: calc(100cqmin * 18 / 108);
+	}
 }
 
 /* 对局信息：已购优惠券网格（InfoModal） */
@@ -4120,11 +4138,12 @@ textarea::-moz-placeholder {
 .collection-prerequisite-badge {
 	display: inline-block;
 	flex-shrink: 0;
-	font-size: calc(24 * var(--rpx));
+	font-size: calc(32 * var(--rpx));
 	line-height: 1;
-	color: var(--text-muted, #776e65);
+	color: inherit;
 	vertical-align: -0.06em;
 	margin-right: calc(4 * var(--rpx));
+	opacity: 1;
 }
 
 .treasure-detail-desc-panel-title-row .collection-prerequisite-badge {
@@ -4978,7 +4997,7 @@ html.reduce-motion .run-start-dialog-tab-thumb {
 	min-height: calc(72 * var(--rpx));
 	padding: calc(14 * var(--rpx)) calc(22 * var(--rpx));
 	border: calc(2 * var(--rpx)) solid rgba(255, 255, 255, 0.12);
-	border-radius: calc(999 * var(--rpx));
+	border-radius: calc(16 * var(--rpx));
 	background: rgba(68, 62, 76, 0.92);
 	color: var(--text-primary, #f5f2ea);
 	font-size: calc(26 * var(--rpx));
@@ -4990,10 +5009,6 @@ html.reduce-motion .run-start-dialog-tab-thumb {
 		border-color calc(0.18s / var(--anim-speed-scale, 1)) var(--ease-expo-out),
 		transform calc(0.15s / var(--anim-speed-scale, 1)) var(--ease-expo-out),
 		opacity calc(0.18s / var(--anim-speed-scale, 1)) var(--ease-expo-out);
-}
-
-.pager-quiz-option--multiline {
-	border-radius: calc(16 * var(--rpx));
 }
 
 .pager-quiz-option:disabled {

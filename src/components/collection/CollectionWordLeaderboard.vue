@@ -330,7 +330,38 @@ function onTreasureClick(record, slotIx, event) {
 
 .collection-leaderboard-treasure-hit :deep(.treasure-slot),
 .collection-leaderboard-treasure-empty :deep(.treasure-slot) {
+  flex: 0 0 auto;
   width: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1));
   height: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1));
+  max-width: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1));
+}
+
+.collection-leaderboard-treasure-hit :deep(.treasure-slot.filled) {
+  container-type: size;
+  container-name: treasure-cell;
+}
+
+.collection-leaderboard-treasure-hit :deep(.treasure-slot-emoji) {
+  font-size: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1) * 42 / 108);
+  line-height: 1;
+}
+
+.collection-leaderboard-treasure-hit :deep(.treasure-slot.filled .letter-gem) {
+  left: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1) * 6 / 108);
+  bottom: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1) * 6 / 108);
+  width: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1) * 14 / 108);
+  height: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1) * 14 / 108);
+}
+
+.collection-leaderboard-treasure-hit :deep(.treasure-slot.filled .treasure-accessory-chip) {
+  top: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1) * 4 / 108);
+  right: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1) * 4 / 108);
+  width: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1) * 22 / 108);
+  height: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1) * 22 / 108);
+  border-radius: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1) * 5 / 108);
+}
+
+.collection-leaderboard-treasure-hit :deep(.treasure-slot.filled .treasure-accessory-chip-icon) {
+  font-size: calc(72 * var(--rpx) * var(--leaderboard-treasure-scale, 1) * 13 / 108);
 }
 </style>

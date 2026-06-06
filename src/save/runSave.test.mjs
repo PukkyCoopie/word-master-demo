@@ -36,6 +36,12 @@ import {
   createAchievementRunState,
 } from "../achievements/achievementRunState.js";
 import { unlockAchievementId } from "../achievements/achievementUnlock.js";
+import { getAchievementCollectionProgress } from "../achievements/achievementCollectionProgress.js";
+import { ACHIEVEMENT_DEFINITIONS, getAchievementDef } from "../achievements/achievementDefinitions.js";
+import {
+  resolveTapTapIncrementCurrent,
+  shouldReportTapTapIncrement,
+} from "../achievements/achievementTapTapSync.js";
 import { evaluateAndUnlockAchievements } from "../achievements/achievementEvaluate.js";
 import { applyFullCollectionUnlockToCareer } from "../dev/unlockFullCollection.js";
 import {
@@ -252,6 +258,58 @@ test("achievement unlock writes career ids once", () => {
   assert.equal(unlockAchievementId(career, "win_run"), true);
   assert.equal(unlockAchievementId(career, "win_run"), false);
   assert.deepEqual(career.unlockedAchievementIds, ["win_run"]);
+});
+
+test("TapTap increment policy: career counters yes, all_* unlock only", () => {
+  assert.equal(shouldReportTapTapIncrement(getAchievementDef("words_50")), true);
+  assert.equal(shouldReportTapTapIncrement(getAchievementDef("discard_800")), true);
+  assert.equal(shouldReportTapTapIncrement(getAchievementDef("all_treasures")), false);
+  assert.equal(shouldReportTapTapIncrement(getAchievementDef("all_spells")), false);
+  assert.equal(shouldReportTapTapIncrement(getAchievementDef("wallet_400")), false);
+
+  for (const def of ACHIEVEMENT_DEFINITIONS) {
+    if (!String(def.id).startsWith("all_")) continue;
+    assert.equal(shouldReportTapTapIncrement(def), false, def.id);
+  }
+
+  const career = normalizeSlotCareerStats({ totalWordsSubmitted: 12 });
+  assert.equal(resolveTapTapIncrementCurrent(career, getAchievementDef("words_50")), 12);
+});
+
+test("wallet, interest and spend achievements hide collection progress until unlocked", () => {
+  const career = normalizeSlotCareerStats({
+    peakWalletAmount: 350,
+    totalLettersUsed: 0,
+  });
+  for (const id of ["wallet_400", "interest_200", "spend_500"]) {
+    const def = getAchievementDef(id);
+    assert.ok(def);
+    assert.equal(getAchievementCollectionProgress(career, def), null);
+  }
+
+  const interestUnlock = evaluateAndUnlockAchievements(career, {
+    achievementRun: { interestEarnedTotal: 200, moneySpentTotal: 0, wordsPerLevelId: {}, discardUsesCount: 0 },
+  });
+  assert.deepEqual(
+    interestUnlock.map((d) => d.id),
+    ["interest_200"],
+  );
+
+  const career2 = normalizeSlotCareerStats({});
+  const spendUnlock = evaluateAndUnlockAchievements(career2, {
+    achievementRun: { interestEarnedTotal: 0, moneySpentTotal: 500, wordsPerLevelId: {}, discardUsesCount: 0 },
+  });
+  assert.deepEqual(
+    spendUnlock.map((d) => d.id),
+    ["spend_500"],
+  );
+
+  const career3 = normalizeSlotCareerStats({});
+  const walletUnlock = evaluateAndUnlockAchievements(career3, { wallet: 400 });
+  assert.deepEqual(
+    walletUnlock.map((d) => d.id),
+    ["wallet_400"],
+  );
 });
 
 test("achievement run state codec roundtrip", () => {

@@ -3,14 +3,25 @@ import { normalizeLetterChar } from "../treasureLifecycleShared.js";
 
 const JK = new Set(["j", "k"]);
 
-/** @param {readonly { letter?: string }[] | null | undefined} tiles */
-function countJkOnGrid(tiles) {
-  let n = 0;
-  for (const t of tiles ?? []) {
-    const ch = normalizeLetterChar(t?.letter);
-    if (JK.has(ch)) n += 1;
+/** @param {import('../treasureTypes.js').TreasureLogicContext} ctx */
+function collectJkGridIndices(ctx) {
+  const grid = ctx.grid;
+  const rows = Math.max(0, Math.floor(Number(ctx.gridRows) || 0));
+  const cols = Math.max(0, Math.floor(Number(ctx.gridCols) || 0));
+  if (!Array.isArray(grid) || rows <= 0 || cols <= 0) return [];
+
+  /** @type {number[]} */
+  const indices = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const t = grid[r]?.[c];
+      if (!t?.letter) continue;
+      if (t.bossTileDebuffed === true) continue;
+      const ch = normalizeLetterChar(t.letter);
+      if (JK.has(ch)) indices.push(r * cols + c);
+    }
   }
-  return n;
+  return indices;
 }
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
@@ -23,9 +34,9 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  buildPostLetterStep(ctx) {
-    const n = countJkOnGrid(ctx.gridTiles);
-    if (n <= 0) return null;
-    return { multAdd: n * 10 };
+  collectPostLetterSteps(ctx) {
+    const indices = collectJkGridIndices(ctx);
+    if (!indices.length) return null;
+    return indices.map((scoreFxGridTileIndex) => ({ multAdd: 10, scoreFxGridTileIndex }));
   },
 };

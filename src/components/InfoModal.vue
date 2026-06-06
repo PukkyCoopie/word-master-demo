@@ -1056,7 +1056,7 @@ function close() {
   position: relative;
   overflow: visible;
   border-radius: calc(8 * var(--rpx));
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--info-orange);
   box-sizing: border-box;
 }
 
@@ -1066,7 +1066,7 @@ function close() {
   bottom: var(--info-tab-pad);
   left: 0;
   border-radius: calc(6 * var(--rpx));
-  background: var(--info-orange);
+  background: #fff;
   pointer-events: none;
   transition:
     transform calc(0.22s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out),
@@ -1085,11 +1085,11 @@ function close() {
   font-size: calc(24 * var(--rpx));
   font-weight: 700;
   line-height: 1.25;
-  color: var(--text-dark, #3c3a32);
+  color: var(--info-orange-fg);
   background: transparent;
   cursor: pointer;
   border-radius: calc(6 * var(--rpx));
-  opacity: 0.72;
+  opacity: 0.82;
   white-space: nowrap;
   transition:
     color 0.12s ease,
@@ -1109,7 +1109,7 @@ function close() {
 }
 
 .info-tab--active {
-  color: var(--info-orange-fg);
+  color: var(--text-dark, #3c3a32);
   opacity: 1;
 }
 

@@ -22,19 +22,22 @@
             <i class="ri-lock-fill" aria-hidden="true" />
           </button>
           <button
-            v-else-if="isCurrentWon"
+            v-else-if="isCurrentWon && presetHighestDifficultyWon >= 0"
             type="button"
-            class="run-start-preset-status-badge run-start-preset-status-badge--won"
+            class="run-start-preset-won-badge"
             aria-label="已用本预设通关"
             @click.stop="openStatusHint('won')"
           >
-            <i class="ri-check-line" aria-hidden="true" />
+            <span
+              class="run-start-preset-won-badge-pill"
+              :style="presetWonDifficultyPillStyle"
+            >
+              <span class="run-start-preset-won-badge-label">{{ presetWonDifficultyLabel }}</span>
+              <span class="run-start-preset-won-badge-check" aria-hidden="true">
+                <i class="ri-check-line" />
+              </span>
+            </span>
           </button>
-          <DifficultyPill
-            v-if="isCurrentWon && presetHighestDifficultyWon >= 0"
-            class="run-start-preset-won-difficulty-pill"
-            :index="presetHighestDifficultyWon"
-          />
           <div
             class="run-start-preset-inner"
             :class="{ 'run-start-preset-inner--locked': isCurrentLocked }"
@@ -132,12 +135,12 @@ import {
   isPresetWonWith,
   stepPresetBrowseIndex,
 } from "../game/runPresetProgress.js";
+import { getRunDifficultyDef } from "../game/runDifficultyDefinitions.js";
 import { getPresetHighestDifficultyWon } from "../game/runDifficultyProgress.js";
 import {
   playRunStartContentJellySwap,
   resetRunStartContentJellyTransform,
 } from "../utils/runStartContentJellyFx.js";
-import DifficultyPill from "./DifficultyPill.vue";
 import UnlockFreshPill from "./UnlockFreshPill.vue";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import PresetDescRichText from "./PresetDescRichText.vue";
@@ -186,6 +189,20 @@ const isCurrentWon = computed(() => isPresetWonWith(currentDef.value.id, normali
 const presetHighestDifficultyWon = computed(() =>
   getPresetHighestDifficultyWon(normalizedCareer.value, currentDef.value.id),
 );
+const presetWonDifficultyDef = computed(() => {
+  const ix = presetHighestDifficultyWon.value;
+  if (ix < 0) return null;
+  return getRunDifficultyDef(ix);
+});
+const presetWonDifficultyLabel = computed(() => presetWonDifficultyDef.value?.label ?? "");
+const presetWonDifficultyPillStyle = computed(() => {
+  const def = presetWonDifficultyDef.value;
+  if (!def) return {};
+  return {
+    backgroundColor: def.color,
+    color: def.textColor,
+  };
+});
 
 const showFreshBadge = computed(() => {
   const id = currentDef.value.id;
@@ -388,18 +405,57 @@ defineExpose({
   background: #c94a4a;
 }
 
-.run-start-preset-status-badge--won {
-  background: #4a9c6d;
-}
-
-.run-start-preset-won-difficulty-pill {
+.run-start-preset-won-badge {
   position: absolute;
-  top: calc(44 * var(--rpx));
+  top: calc(8 * var(--rpx));
   right: calc(8 * var(--rpx));
   z-index: 2;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
-.run-start-preset-status-badge:active {
+.run-start-preset-won-badge-pill {
+  --won-badge-font: calc(19.8 * var(--rpx));
+  --won-badge-pad-y: calc(5.5 * var(--rpx));
+  --won-badge-pad-left: calc(15.4 * var(--rpx));
+  --won-badge-inset: calc(2.5 * var(--rpx));
+  --won-badge-pill-height: calc(var(--won-badge-font) * 1.2 + var(--won-badge-pad-y) * 2);
+
+  display: inline-flex;
+  align-items: center;
+  gap: calc(4 * var(--rpx));
+  box-sizing: border-box;
+  height: var(--won-badge-pill-height);
+  padding: 0 var(--won-badge-inset) 0 var(--won-badge-pad-left);
+  border-radius: calc(var(--won-badge-pill-height) / 2);
+  font-size: var(--won-badge-font);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.run-start-preset-won-badge-label {
+  flex-shrink: 0;
+}
+
+.run-start-preset-won-badge-check {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--won-badge-pill-height) - var(--won-badge-inset) * 2);
+  height: calc(var(--won-badge-pill-height) - var(--won-badge-inset) * 2);
+  border-radius: 50%;
+  background: #52c078;
+  box-shadow: none;
+  color: #fff;
+  font-size: calc(15 * var(--rpx));
+  line-height: 1;
+}
+
+.run-start-preset-status-badge:active,
+.run-start-preset-won-badge:active {
   filter: brightness(0.92);
 }
 

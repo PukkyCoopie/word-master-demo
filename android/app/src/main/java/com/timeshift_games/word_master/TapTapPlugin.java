@@ -6,6 +6,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.taptap.sdk.achievement.TapTapAchievement;
 import com.taptap.sdk.compliance.TapTapCompliance;
 import com.taptap.sdk.kit.internal.callback.TapTapCallback;
 import com.taptap.sdk.kit.internal.exception.TapTapException;
@@ -111,6 +112,43 @@ public class TapTapPlugin extends Plugin {
     public void logout(PluginCall call) {
         TapTapCompliance.exit();
         TapTapLogin.logout();
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void unlockAchievement(PluginCall call) {
+        String achievementId = call.getString("achievementId");
+        if (achievementId == null || achievementId.trim().isEmpty()) {
+            call.reject("achievementId is required");
+            return;
+        }
+        TapTapAchievement.unlock(achievementId.trim());
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void incrementAchievement(PluginCall call) {
+        String achievementId = call.getString("achievementId");
+        if (achievementId == null || achievementId.trim().isEmpty()) {
+            call.reject("achievementId is required");
+            return;
+        }
+        Integer steps = call.getInt("steps", 1);
+        int delta = steps != null ? Math.max(1, steps) : 1;
+        TapTapAchievement.increment(achievementId.trim(), delta);
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void setAchievementToastEnabled(PluginCall call) {
+        Boolean enabled = call.getBoolean("enabled", false);
+        TapTapAchievement.setToastEnable(Boolean.TRUE.equals(enabled));
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void showAchievements(PluginCall call) {
+        TapTapAchievement.showAchievements();
         call.resolve();
     }
 

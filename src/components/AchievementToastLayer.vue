@@ -141,7 +141,7 @@ watch(
 <style scoped>
 .achievement-toast {
   --achievement-toast-margin-v: calc(80 * var(--rpx));
-  --achievement-toast-solid-h: calc(268 * var(--rpx) + var(--achievement-toast-margin-v));
+  --achievement-toast-solid-h: calc(356 * var(--rpx) + var(--achievement-toast-margin-v));
   --achievement-toast-fade-h: calc(56 * var(--rpx));
   --achievement-toast-bg-opacity: 0.8;
   position: absolute;
@@ -231,16 +231,16 @@ watch(
 .achievement-toast__icon-wrap {
   position: relative;
   flex-shrink: 0;
-  width: calc(96 * var(--rpx));
-  height: calc(96 * var(--rpx));
+  width: calc(192 * var(--rpx));
+  height: calc(192 * var(--rpx));
   display: grid;
   place-items: center;
 }
 
 .achievement-toast__icon-glow {
   position: absolute;
-  inset: calc(-6 * var(--rpx));
-  border-radius: calc(16 * var(--rpx));
+  inset: calc(-12 * var(--rpx));
+  border-radius: calc(32 * var(--rpx));
   background: radial-gradient(circle, rgba(237, 194, 46, 0.42) 0%, rgba(237, 194, 46, 0) 72%);
   opacity: 0.85;
   animation: achievement-toast-icon-pulse 2.4s ease-in-out infinite;
@@ -266,9 +266,9 @@ watch(
 .achievement-toast__icon {
   position: relative;
   z-index: 1;
-  width: calc(88 * var(--rpx));
-  height: calc(88 * var(--rpx));
-  border-radius: calc(12 * var(--rpx));
+  width: calc(176 * var(--rpx));
+  height: calc(176 * var(--rpx));
+  border-radius: calc(24 * var(--rpx));
   object-fit: cover;
   border: calc(2 * var(--rpx)) solid rgba(255, 255, 255, 0.16);
   box-shadow:

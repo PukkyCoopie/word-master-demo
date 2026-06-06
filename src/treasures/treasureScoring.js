@@ -118,6 +118,9 @@ function buildPostLetterTreasureSteps(
     resolvedWord: resolvedWord ? String(resolvedWord) : undefined,
     gridTiles: submitOptions?.gridTiles ?? undefined,
     remainingGridTiles: submitOptions?.remainingGridTiles ?? undefined,
+    grid: submitOptions?.grid ?? undefined,
+    gridRows: submitOptions?.gridRows ?? undefined,
+    gridCols: submitOptions?.gridCols ?? undefined,
     rarityLevelsByRarity: rarityLevelsByRarity ?? undefined,
     getWordDefinition: submitOptions?.getWordDefinition ?? undefined,
     fullDeck: submitOptions?.fullDeck ?? undefined,
@@ -142,9 +145,18 @@ function buildPostLetterTreasureSteps(
       pushAccessoryForSlot(lastSlotIndex);
     }
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
-    const step = hooks?.buildPostLetterStep?.(hookCtxBase);
-    if (step && !isNoOpPostLetterTreasureStep(step)) {
-      steps.push({ treasureId: tid, slotIndex: si, ...step });
+    const plural = hooks?.collectPostLetterSteps?.(hookCtxBase);
+    if (Array.isArray(plural) && plural.length > 0) {
+      for (const step of plural) {
+        if (step && !isNoOpPostLetterTreasureStep(step)) {
+          steps.push({ treasureId: tid, slotIndex: si, ...step });
+        }
+      }
+    } else {
+      const step = hooks?.buildPostLetterStep?.(hookCtxBase);
+      if (step && !isNoOpPostLetterTreasureStep(step)) {
+        steps.push({ treasureId: tid, slotIndex: si, ...step });
+      }
     }
     lastSlotIndex = si;
   }
@@ -323,6 +335,9 @@ export function computeWordScoreDetailedForSubmit(
       submitOptions?.resolvedWord != null ? String(submitOptions.resolvedWord) : undefined,
     gridTiles: submitOptions?.gridTiles ?? undefined,
     remainingGridTiles: submitOptions?.remainingGridTiles ?? undefined,
+    grid: submitOptions?.grid ?? undefined,
+    gridRows: submitOptions?.gridRows ?? undefined,
+    gridCols: submitOptions?.gridCols ?? undefined,
     rarityLevelsByRarity: rarityLevelsByRarity ?? undefined,
     getWordDefinition: submitOptions?.getWordDefinition ?? undefined,
     fullDeck: submitOptions?.fullDeck ?? undefined,

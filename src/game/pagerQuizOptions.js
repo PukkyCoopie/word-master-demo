@@ -102,7 +102,27 @@ function isInflectionVariantLabel(label) {
 }
 
 /**
- * 截断换行、分号或 [领域] 及其后内容，只保留首个释义片段。
+ * 剥除行首方括号/尖括号标签。第一次仅删标签保留后续；第二次起从标签处截断。
+ * @param {string} text
+ */
+function stripLeadingBracketTags(text) {
+  let s = String(text ?? "").trim();
+  let strippedOnce = false;
+  for (let guard = 0; guard < 8; guard++) {
+    const m = s.match(/^(\[[^\]]*\]|<[^>]*>)\s*/);
+    if (!m) break;
+    if (strippedOnce) {
+      s = s.slice(0, m.index).trim();
+      break;
+    }
+    s = s.slice(m[0].length).trim();
+    strippedOnce = true;
+  }
+  return s;
+}
+
+/**
+ * 截断换行、分号；方括号/尖括号按 {@link stripLeadingBracketTags} 规则处理。
  * @param {string | null | undefined} translationZh
  */
 function trimPagerQuizTranslationRaw(translationZh) {
@@ -114,8 +134,23 @@ function trimPagerQuizTranslationRaw(translationZh) {
   if (nl >= 0) s = s.slice(0, nl).trim();
   const semi = s.search(/[;；]/);
   if (semi >= 0) s = s.slice(0, semi).trim();
-  const bracket = s.indexOf("[");
-  if (bracket >= 0) s = s.slice(0, bracket).trim();
+  return stripLeadingBracketTags(s);
+}
+
+/**
+ * @param {string | null | undefined} translationZh
+ */
+function trimPagerQuizTranslationRawLenient(translationZh) {
+  let s = String(translationZh ?? "")
+    .trim()
+    .replace(/\\n/g, "\n");
+  if (!s) return "";
+  const nl = s.search(/\r?\n/);
+  if (nl >= 0) s = s.slice(0, nl).trim();
+  const semi = s.search(/[;；]/);
+  if (semi >= 0) s = s.slice(0, semi).trim();
+  const m = s.match(/^(\[[^\]]*\]|<[^>]*>)\s*/);
+  if (m) s = s.slice(m[0].length).trim();
   return s;
 }
 
@@ -130,12 +165,33 @@ function isAbbrevTranslation(text) {
  * @param {string | null | undefined} translationZh
  * @param {{ allowAbbrev?: boolean }} [opts]
  */
-export function pickPagerQuizTranslationLabel(translationZh, opts = {}) {
-  const raw = stripParentheticalContent(trimPagerQuizTranslationRaw(translationZh));
+function finalizePagerQuizLabel(candidate, opts = {}) {
+  const raw = stripParentheticalContent(candidate);
   if (!raw) return "";
   if (isInflectionVariantLabel(raw)) return "";
   if (!opts.allowAbbrev && isAbbrevTranslation(raw)) return "";
   return raw;
+}
+
+/**
+ * @param {string | null | undefined} translationZh
+ * @param {{ allowAbbrev?: boolean }} [opts]
+ */
+export function pickPagerQuizTranslationLabel(translationZh, opts = {}) {
+  const strict = finalizePagerQuizLabel(trimPagerQuizTranslationRaw(translationZh), opts);
+  if (strict) return strict;
+  const lenient = finalizePagerQuizLabel(trimPagerQuizTranslationRawLenient(translationZh), opts);
+  if (lenient) return lenient;
+  const rawOnly = finalizePagerQuizLabel(
+    String(translationZh ?? "")
+      .trim()
+      .replace(/\\n/g, "\n")
+      .split(/\r?\n/)[0]
+      ?.split(/[;；]/)[0]
+      ?.trim() ?? "",
+    opts,
+  );
+  return rawOnly;
 }
 
 /**
@@ -389,7 +445,7 @@ export function buildPagerQuizOptions(word, rng = Math.random) {
 
   while (options.length < 4) {
     const filler = pickRandomDistractor(correctLabel, usedWords, usedLabels, rng);
-    if (!filler) return null;
+    if (!filler) break;
     usedWords.add(filler.word);
     usedLabels.add(filler.label);
     options.push({
@@ -400,15 +456,18 @@ export function buildPagerQuizOptions(word, rng = Math.random) {
     });
   }
 
-  for (let i = options.length - 1; i > 0; i--) {
+  const filtered = options.filter((o) => String(o.label ?? "").trim());
+  if (!filtered.some((o) => o.isCorrect) || filtered.length < 3) return null;
+
+  for (let i = filtered.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
-    [options[i], options[j]] = [options[j], options[i]];
+    [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
   }
 
-  const correctIndex = options.findIndex((o) => o.isCorrect);
+  const correctIndex = filtered.findIndex((o) => o.isCorrect);
   return {
     word: w,
-    options: options.map(({ id, label, isCorrect }) => ({ id, label, isCorrect })),
+    options: filtered.map(({ id, label, isCorrect }) => ({ id, label, isCorrect })),
     correctIndex,
   };
 }

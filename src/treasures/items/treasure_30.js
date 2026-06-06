@@ -4,5 +4,5 @@ import { describe } from "../treasureDescription.js";
 export default {
   price: 5,
   rarity: "rare",
-  description: describe("所有字母还会额外被视为元音字母"),
+  description: describe("所有字母还会被额外视为元音字母"),
 };

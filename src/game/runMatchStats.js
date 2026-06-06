@@ -102,6 +102,25 @@ export function formatRunEndBestWordValue(stats) {
 
 /**
  * @param {RunMatchStats} stats
+ * @returns {string}
+ */
+export function formatRunEndLongestWordValue(stats) {
+  if (!stats.longestWord) return "—";
+  const len = Math.max(0, Math.floor(Number(stats.longestWordLength) || 0));
+  return `${stats.longestWord.toUpperCase()}（${len}字母）`;
+}
+
+/**
+ * @param {RunMatchStats} stats
+ * @returns {string}
+ */
+export function formatRunEndMostCommonLength(stats) {
+  const commonLen = resolveMostCommonLength(stats.lengthCounts);
+  return commonLen != null ? String(commonLen) : "—";
+}
+
+/**
+ * @param {RunMatchStats} stats
  * @returns {{ label: string, value: string }[]}
  */
 export function getRunMatchStatsRows(stats) {
@@ -120,10 +139,14 @@ export function getRunMatchStatsRows(stats) {
 }
 
 /**
- * 整局结束层：除「最佳单词」外的统计行。
+ * 整局结束层第三行：使用字母数 / 弃掉字母数 / 购物数。
  * @param {RunMatchStats} stats
  * @returns {{ label: string, value: string }[]}
  */
-export function getRunEndSecondaryStatsRows(stats) {
-  return getRunMatchStatsRows(stats).filter((row) => row.label !== "最佳单词");
+export function getRunEndTripleStatsRows(stats) {
+  return [
+    { label: "使用字母数", value: String(stats.lettersUsed) },
+    { label: "弃掉字母数", value: String(stats.lettersDiscarded) },
+    { label: "购物数", value: String(stats.shopPurchases) },
+  ];
 }

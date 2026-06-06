@@ -8,11 +8,12 @@ import { applyFullCollectionUnlockToCareer } from "./unlockFullCollection.js";
  * @param {(slotIndex: number, mutator: (career: import('../save/runSaveSchema.js').SlotCareerStats) => void) => void} deps.mutateCareer
  * @param {() => void} [deps.refreshUi]
  * @param {() => void} [deps.openMaterialBench]
+ * @param {() => void} [deps.enableDeveloperMode]
  */
 export function registerDevConsole(deps) {
   if (!import.meta.env.DEV) return () => {};
 
-  const { getActiveSlotIndex, mutateCareer, refreshUi, openMaterialBench } = deps;
+  const { getActiveSlotIndex, mutateCareer, refreshUi, openMaterialBench, enableDeveloperMode } = deps;
 
   /**
    * @param {number | undefined} slotIndex
@@ -48,6 +49,7 @@ export function registerDevConsole(deps) {
         "  __WM_DEV__.unlockFullCollection()       — 当前槽位全收藏解锁",
         "  __WM_DEV__.unlockFullCollection(0)      — 指定槽位（0/1/2）",
         "  __WM_DEV__.openMaterialBench()        — 材质性能实验（10 格）",
+        "  __WM_DEV__.enableDeveloperMode()      — 开启开发者模式（收藏成就连点作弊）",
         "  __WM_DEV__.help()                       — 显示本帮助",
       ].join("\n"),
     );
@@ -59,6 +61,10 @@ export function registerDevConsole(deps) {
     openMaterialBench: () => {
       openMaterialBench?.();
       console.log("[DEV] 已打开材质性能实验页");
+    },
+    enableDeveloperMode: () => {
+      enableDeveloperMode?.();
+      console.log("[DEV] 已开启开发者模式");
     },
     help,
   };
