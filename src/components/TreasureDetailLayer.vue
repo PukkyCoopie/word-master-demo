@@ -26,7 +26,7 @@
           @click.stop
         >
           <span class="header-split-label">钱包</span>
-          <span class="header-wallet-marks">
+          <span class="header-wallet-marks" :class="{ 'money-tone--debt': walletAmount < 0 }">
             <span class="money-dollar-char">$</span
             ><span class="header-wallet-amount">{{ formatWallet(walletAmount) }}</span>
           </span>
@@ -54,7 +54,7 @@
               :class="{ 'shop-treasure-visual--deck-offer': isDeckOffer }"
             >
               <template v-if="isDeckOffer">
-                <div class="shop-deck-offer-product-stack">
+                <div ref="deckOfferStackRef" class="shop-deck-offer-product-stack">
                   <LetterTile
                     ref="detailFlyFrameRef"
                     variant="grid"
@@ -580,14 +580,27 @@
         ref="flyCloneRef"
         class="treasure-detail-fly-clone-root"
         :class="{
-          'treasure-detail-fly-clone-root--deck-tile': isDeckOffer,
+          'treasure-detail-fly-clone-root--deck-tile': isDeckOffer && !isPackInnerDeckOfferFly,
+          'shop-deck-offer-product-stack': isPackInnerDeckOfferFly,
           'treasure-detail-fly-clone-root--voucher-stack': isVoucherOffer && voucherDetailStacked,
         }"
         :style="collectionLockedFlyCloneStyle"
         aria-hidden="true"
       >
+        <template v-if="isPackInnerDeckOfferFly">
+          <LetterTile
+            variant="grid"
+            class="shop-shelf-letter-tile"
+            v-bind="deckOfferLetterTileBind"
+          />
+          <div class="shop-treasure-price" aria-hidden="true">
+            <div class="shop-treasure-price-inner shop-treasure-price-inner--pack-struck">
+              ${{ offerPriceDisplayed }}
+            </div>
+          </div>
+        </template>
         <LetterTile
-          v-if="isDeckOffer"
+          v-else-if="isDeckOffer"
           variant="grid"
           class="shop-shelf-letter-tile"
           v-bind="deckOfferLetterTileBind"
@@ -882,6 +895,11 @@ const showHeaderWallet = computed(
 
 const isDeckOffer = computed(
   () => props.treasure?.offerType === "deckTile" || props.treasure?.offerType === "deckLetter",
+);
+
+/** 包内字母块：飞入详情时 tile + 价签整列同步位移 */
+const isPackInnerDeckOfferFly = computed(
+  () => props.mode === "pack-inner" && isDeckOffer.value,
 );
 
 const deckOfferLetterTileBind = computed(() => {
@@ -1330,6 +1348,7 @@ const descRef = ref(null);
 const deckOfferMaterialRef = ref(null);
 const deckOfferAccessoryRef = ref(null);
 const deckOfferTreasureAccessoryRef = ref(null);
+const deckOfferStackRef = ref(null);
 const spellGainPanelRef = ref(null);
 const treasureGainPanelRef = ref(null);
 const collectionUnlockHintPanelRef = ref(null);
@@ -1414,8 +1433,13 @@ function resolveDetailFlyFrameRect() {
   return null;
 }
 
-/** 货架字母块飞入：只量 LetterTile 框，不含价签列高度 */
+/** 货架字母块飞入：商店仅 letter tile；包内预览为 tile + 价签整列 */
 function resolveDeckOfferFlyTargetRect() {
+  if (isPackInnerDeckOfferFly.value) {
+    const stack = refToFlyFrameEl(deckOfferStackRef.value);
+    const r = stack?.getBoundingClientRect?.();
+    if (r && r.width > 2 && r.height > 2) return rectToFlyBox(r);
+  }
   const frameRect = resolveDetailFlyFrameRect();
   if (frameRect) return frameRect;
   const visual = targetVisualRef.value;
@@ -1432,7 +1456,7 @@ const previewNavRef = ref(null);
 const flyCloneStyle = computed(() => {
   const r = props.originRect;
   if (!validOrigin(r)) return {};
-  if (isDeckOffer.value) {
+  if (isDeckOffer.value && !isPackInnerDeckOfferFly.value) {
     const cx = r.left + r.width * 0.5;
     const cy = r.top + r.height * 0.5;
     return {
@@ -1592,8 +1616,24 @@ function runEnterAnimation() {
         }
 
         gsap.killTweensOf(clone);
-        const deckTileFly = isDeckOffer.value;
-        if (deckTileFly) {
+        const deckStackFly = isPackInnerDeckOfferFly.value;
+        const deckTileFly = isDeckOffer.value && !deckStackFly;
+        if (props.previewNavTotal > 1) {
+          previewNavRef.value?.instantEnterHide?.();
+        }
+        if (deckStackFly) {
+          gsap.set(clone, { clearProps: "transform" });
+          gsap.set(clone, {
+            visibility: "visible",
+            opacity: 1,
+            left: flyFrom.left,
+            top: flyFrom.top,
+            width: flyFrom.width,
+            height: flyFrom.height,
+            margin: "0",
+            pointerEvents: "none",
+          });
+        } else if (deckTileFly) {
           const fc = rectCenter(flyFrom);
           gsap.set(clone, {
             clearProps: "transform",
@@ -1630,7 +1670,20 @@ function runEnterAnimation() {
       enterTl = gsap.timeline();
 
       if (hasFly) {
-        if (isDeckOffer.value) {
+        if (isPackInnerDeckOfferFly.value) {
+          enterTl.to(
+            clone,
+            {
+              left: flyTo.left,
+              top: flyTo.top,
+              width: flyTo.width,
+              height: flyTo.height,
+              duration: 0.36,
+              ease: EASE_TRANSFORM,
+            },
+            0,
+          );
+        } else if (isDeckOffer.value) {
           const fc = rectCenter(flyFrom);
           const tc = rectCenter(flyTo);
           const scaleEnd = Math.min(32, Math.max(0.06, flyTo.width / Math.max(2, flyFrom.width)));
@@ -1662,9 +1715,22 @@ function runEnterAnimation() {
 
         /* emoji/角标字号由 @container treasure-cell 随框体 left/top/width/height 同比缩放，勿再 GSAP fontSize（移动端易与 cq 终值不一致而落地闪缩） */
 
+        if (props.previewNavTotal > 1) {
+          previewNavRef.value?.appendEnterAnimation?.(enterTl, 0.3);
+        }
+
         enterTl.add(() => {
-          gsap.set(targetVisual, { opacity: 1, pointerEvents: "auto", clearProps: "opacity,pointerEvents" });
-          flyCloneActive.value = false;
+          gsap.set(targetVisualLive, {
+            opacity: 1,
+            pointerEvents: "auto",
+            clearProps: "opacity,pointerEvents",
+          });
+          const node = flyCloneRef.value;
+          if (node) gsap.set(node, { opacity: 0, visibility: "hidden" });
+          requestAnimationFrame(() => {
+            flyCloneActive.value = false;
+            if (node?.isConnected) gsap.set(node, { clearProps: "transform" });
+          });
         });
       } else {
         flyCloneActive.value = false;

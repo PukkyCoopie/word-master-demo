@@ -197,6 +197,7 @@
       :overlay-suppressed="shopOverlayLayersSuppressed"
       :session="bossRerollSession"
       :wallet-amount="walletHeaderShown"
+      :wallet-floor="runWalletFloor"
       :owned-voucher-ids="ownedVoucherIds"
       @reroll="onBossBlindRerollPaid"
       @continue="onBossBlindRerollContinue"
@@ -254,7 +255,11 @@
         </div>
         <div class="header-box header-box-split header-box-wallet" title="当前钱包余额">
           <span class="header-split-label">钱包</span>
-          <span ref="headerWalletMarksRef" class="header-wallet-marks">
+          <span
+            ref="headerWalletMarksRef"
+            class="header-wallet-marks"
+            :class="{ 'money-tone--debt': walletHeaderShown < 0 }"
+          >
             <span class="money-dollar-char">$</span
             ><span class="header-wallet-amount">{{ formatNum(walletHeaderShown) }}</span>
           </span>
@@ -672,9 +677,10 @@
                   :class="{
                     'settle-total': row.isTotal,
                     'settle-total--wrapped': row.isTotal && settlementTotalNeedsWrap,
+                    'settle-dollars--debt': (animSettleRows[i] ?? 0) < 0,
                   }"
                   :style="row.isTotal ? settlementTotalValueStyle : undefined"
-                  >{{ dollarMarks(animSettleRows[i] ?? 0) }}</span
+                  >{{ settlementDollarMarks(animSettleRows[i] ?? 0) }}</span
                 >
               </div>
             </div>
@@ -764,12 +770,15 @@ import {
   treasureDescriptionPatchReplacesBase,
   resolveTreasureChargeProgress,
   resolveTreasureChargeVisualState,
+  resolveTreasureWalletFloor,
 } from "../treasures/treasureRegistry.js";
+import { canAffordWallet, applyWalletDeltaClamped } from "../treasures/treasureWalletFloor.js";
 import { hasProbabilityDoubler } from "../treasures/treasureProbability.js";
 import {
   isRandomDeckRemoveSpell,
   isSpellOfferRandomPickOneSpell,
 } from "../game/spellOfferRandomPickAnim.js";
+import { isDebtMoneyBubbleLabel, settlementDollarMarks } from "../game/moneyDisplay.js";
 import { mountLetterTileClone } from "../game/mountLetterTileClone.js";
 import { buildPackDeckOfferFlySnapshot, normalizeSquareFlyRect } from "../game/packDeckOfferVisual.js";
 import {
@@ -987,7 +996,7 @@ import {
   rollRandomUpgradePicks,
 } from "../shop/randomUpgradeRoll.js";
 import { buildVoucherShopOfferRow } from "../vouchers/shopVoucherOfferBuild.js";
-import { offerFlyOriginRectFromEl } from "../game/offerFlyOrigin.js";
+import { offerFlyOriginRectFromEl, packDeckOfferFlyOriginRectFromEl } from "../game/offerFlyOrigin.js";
 import { beginFlySourceHide, ensureFlyCloneVisible } from "../game/flySourceHide.js";
 import {
   buildOwnedVoucherDetailTreasure,
@@ -2184,11 +2193,11 @@ const shopNextRerollCostDisplay = computed(() => {
   );
 });
 
+const runWalletFloor = computed(() => resolveTreasureWalletFloor(ownedSlotTreasureIdList()));
+
 const shopCanReroll = computed(() => {
   if (transitionBusy.value) return false;
-  const w = money.value;
-  const need = shopNextRerollCostDisplay.value;
-  return Number.isFinite(w) && w >= need;
+  return canAffordWallet(money.value, shopNextRerollCostDisplay.value, runWalletFloor.value);
 });
 
 /** @param {import('../treasures/treasureTypes.js').TreasureDef[]} defs */
@@ -2917,11 +2926,13 @@ function onPackPickOpenItem(payload) {
   if (!item) return;
   const root = payload?.originEl;
   const options = packPickSession.value?.options ?? [];
+  const deckOffer =
+    item?.offerType === "deckTile" || item?.offerType === "deckLetter";
   treasureDetail.value = {
     kind: "pack-inner",
     treasure: item,
     packOptionKey: String(payload?.optionKey ?? packPickOptionKeyOf(item)),
-    originRect: treasureOriginRectFromEl(root),
+    originRect: deckOffer ? packDeckOfferFlyOriginRectFromEl(root) : treasureOriginRectFromEl(root),
     previewNav: createPreviewNavGroupFromItems(
       options,
       (o) => packPickOptionKeyOf(o) === packPickOptionKeyOf(item),
@@ -3115,9 +3126,9 @@ async function onPackInnerClaim() {
   packPickBusy.value = true;
   try {
     const layer = treasureDetailLayerRef.value;
+    const flyEl = layer?.getFlyFrameEl?.() ?? null;
     await layer?.playClose?.();
     treasureDetail.value = null;
-    const flyEl = packPickLayerRef.value?.getFlySourceEl?.(t) ?? null;
     if (t.offerType === "treasure") {
       sess.claimedKeys = [...claimed, key];
     }
@@ -3326,24 +3337,25 @@ const treasureCanBuyOffer = computed(() => {
   const p0 = Number(t.price);
   if (!Number.isFinite(w) || !Number.isFinite(p0)) return false;
   const p = shopPriceForOffer(p0, t);
+  const floor = runWalletFloor.value;
   if (t.offerType === "voucher") {
     const vid = String(t.voucherId ?? "");
     if (vid === "v_glyph_1" || vid === "v_glyph_2") {
       if (getGlyphPurchaseTargetLevelIndex(levelIndex.value) == null) return false;
     }
-    return w >= p;
+    return canAffordWallet(w, p, floor);
   }
-  if (t.offerType === "bundlePack") return w >= p;
+  if (t.offerType === "bundlePack") return canAffordWallet(w, p, floor);
   if (t.offerType === "spell") {
     const sid = String(t.spellId ?? "");
     if (!canPurchaseSpellInShop(sid, spellPoolEligibilityForShop())) return false;
     if (isCouponDropSpellBlockedByBonusVoucher(sid)) return false;
-    return w >= p;
+    return canAffordWallet(w, p, floor);
   }
-  if (t.offerType === "upgrade") return w >= p;
-  if (t.offerType === "deckTile" || t.offerType === "deckLetter") return w >= p;
-  if (t.offerType === "treasure") return w >= p && canPlaceTreasureOffer(t);
-  return w >= p;
+  if (t.offerType === "upgrade") return canAffordWallet(w, p, floor);
+  if (t.offerType === "deckTile" || t.offerType === "deckLetter") return canAffordWallet(w, p, floor);
+  if (t.offerType === "treasure") return canAffordWallet(w, p, floor) && canPlaceTreasureOffer(t);
+  return canAffordWallet(w, p, floor);
 });
 
 /** 与 App.vue 共用的 Iris 转场组件（注入由上层提供） */
@@ -3878,7 +3890,7 @@ async function resetLevelAfterTreasurePrep(levelDef) {
   treasureRunState.value.jokerForcedDrawUid = null;
   resetLevel(levelDef, opts);
   syncPlayerMarkBatchCounterFromGrid();
-  await runTreasureLevelEnterHooks(levelDef?.id ?? "1-1");
+  runTreasureLevelEnterHooks(levelDef?.id ?? "1-1");
   const levelId = levelDef?.id ?? "1-1";
   const mechSlug = bossSlugForMechanics();
   if (parseLevelSubFromId(levelId) === 3 && isBossLevelEnterRestrictionSlug(mechSlug)) {
@@ -3887,19 +3899,9 @@ async function resetLevelAfterTreasurePrep(levelDef) {
   scheduleRunAutoSave();
 }
 
-async function runTreasureLevelEnterHooks(levelId) {
-  resetTreasureLevelScopedState(treasureRunState.value);
-  const ch = parseChapterFromLevelId(levelId);
-  const prev = treasureRunState.value.lastChapterNumber;
-  if (ch !== prev) {
-    onTreasureRunChapterEnter(treasureRunState.value, ch);
-    notifyOwnedTreasuresOnChapterEnter(ownedSlotTreasureIdList(), {
-      treasureRun: treasureRunState.value,
-    });
-    treasureRunState.value.lastChapterNumber = ch;
-    treasureRunState.value.discardExhaustedSubsThisChapter = new Set();
-  }
-  await notifyOwnedTreasuresOnLevelEnter(ownedSlotTreasureIdList(), {
+/** @param {string} levelId @returns {import('../treasures/treasureTypes.js').TreasureLevelEnterContext} */
+function buildTreasureLevelEnterEffectContext(levelId) {
+  return {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     treasureRun: treasureRunState.value,
     rng: runRandom,
@@ -3908,7 +3910,6 @@ async function runTreasureLevelEnterHooks(levelId) {
     wobbleOwnedTreasureById,
     destroyTreasureSlotById: destroyOwnedTreasureWithFx,
     destroyOtherTreasureFromSource: destroyOtherOwnedTreasureFromSourceFx,
-    scheduleAfterGridTilesSettled,
     playOwnedTreasureBubbleFx,
     clearTreasureSlotById: clearOwnedTreasureSlotById,
     grantRandomOwnedTreasure: grantRandomOwnedTreasuresInRun,
@@ -3927,6 +3928,26 @@ async function runTreasureLevelEnterHooks(levelId) {
       );
     },
     addRemainingRemovals: addRemainingRemovalsClamped,
+  };
+}
+
+function runTreasureLevelEnterHooks(levelId) {
+  resetTreasureLevelScopedState(treasureRunState.value);
+  const ch = parseChapterFromLevelId(levelId);
+  const prev = treasureRunState.value.lastChapterNumber;
+  if (ch !== prev) {
+    onTreasureRunChapterEnter(treasureRunState.value, ch);
+    notifyOwnedTreasuresOnChapterEnter(ownedSlotTreasureIdList(), {
+      treasureRun: treasureRunState.value,
+    });
+    treasureRunState.value.lastChapterNumber = ch;
+    treasureRunState.value.discardExhaustedSubsThisChapter = new Set();
+  }
+  scheduleAfterGridTilesSettled(async () => {
+    await notifyOwnedTreasuresOnLevelEnter(
+      ownedSlotTreasureIdList(),
+      buildTreasureLevelEnterEffectContext(levelId),
+    );
   });
 }
 
@@ -4270,7 +4291,7 @@ const settlementDisplayRows = computed(() => {
 function settlementCountForRow(row) {
   const s = settlementSnapshot.value;
   if (!s) return 0;
-  return Math.max(0, Math.round(Number(s[row.countKey]) || 0));
+  return Math.round(Number(s[row.countKey]) || 0);
 }
 
 const SETTLEMENT_TOTAL_SHRINK_START = 15;
@@ -4279,9 +4300,10 @@ const SETTLEMENT_TOTAL_MIN_SCALE = 0.6;
 
 const settlementTotalScale = computed(() => {
   const totalRow = settlementDisplayRows.value.find((r) => r.isTotal);
-  const count = totalRow
-    ? Math.max(0, Math.round(Number(animSettleRows.value[settlementDisplayRows.value.indexOf(totalRow)]) || 0))
-    : Math.max(0, Math.round(Number(animSettleRows.value[animSettleRows.value.length - 1]) || 0));
+  const raw = totalRow
+    ? Math.round(Number(animSettleRows.value[settlementDisplayRows.value.indexOf(totalRow)]) || 0)
+    : Math.round(Number(animSettleRows.value[animSettleRows.value.length - 1]) || 0);
+  const count = Math.abs(raw);
   if (count <= SETTLEMENT_TOTAL_SHRINK_START) return 1;
   const span = Math.max(1, SETTLEMENT_TOTAL_SHRINK_FULL_AT - SETTLEMENT_TOTAL_SHRINK_START);
   const t = Math.min(1, (count - SETTLEMENT_TOTAL_SHRINK_START) / span);
@@ -4291,7 +4313,7 @@ const settlementTotalScale = computed(() => {
 const settlementTotalNeedsWrap = computed(() => {
   const totalRow = settlementDisplayRows.value.find((r) => r.isTotal);
   const ix = totalRow ? settlementDisplayRows.value.indexOf(totalRow) : animSettleRows.value.length - 1;
-  const count = Math.max(0, Math.round(Number(animSettleRows.value[ix]) || 0));
+  const count = Math.abs(Math.round(Number(animSettleRows.value[ix]) || 0));
   return count > SETTLEMENT_TOTAL_SHRINK_FULL_AT;
 });
 
@@ -4346,22 +4368,26 @@ function shakeSettlementRow(rowEl) {
  * 结算弹窗里四个栏目将要亮出的 $ 总枚数（与 UI 一致）
  * @param {{ clearReward: number, spareMoves: number, interest: number, total: number }} s
  */
+function settlementAbsDollarCount(n) {
+  return Math.abs(Math.round(Number(n) || 0));
+}
+
 function settlementTotalDollarCount(s) {
   if (!s) return 0;
   if (s.mode === "convertRemainsNoInterest") {
     return (
-      Math.max(0, Math.round(Number(s.clearReward) || 0)) +
-      Math.max(0, Math.round(Number(s.spareWordsReward) || 0)) +
-      Math.max(0, Math.round(Number(s.spareDiscardsReward) || 0)) +
-      Math.max(0, Math.round(Number(s.interest) || 0)) +
-      Math.max(0, Math.round(Number(s.total) || 0))
+      settlementAbsDollarCount(s.clearReward) +
+      settlementAbsDollarCount(s.spareWordsReward) +
+      settlementAbsDollarCount(s.spareDiscardsReward) +
+      settlementAbsDollarCount(s.interest) +
+      settlementAbsDollarCount(s.total)
     );
   }
   return (
-    Math.max(0, Math.round(Number(s.clearReward) || 0)) +
-    Math.max(0, Math.round(Number(s.spareMoves) || 0)) +
-    Math.max(0, Math.round(Number(s.interest) || 0)) +
-    Math.max(0, Math.round(Number(s.total) || 0))
+    settlementAbsDollarCount(s.clearReward) +
+    settlementAbsDollarCount(s.spareMoves) +
+    settlementAbsDollarCount(s.interest) +
+    settlementAbsDollarCount(s.total)
   );
 }
 
@@ -4372,7 +4398,7 @@ function settlementTotalDollarCount(s) {
 function settlementDollarGapCount(rowSpecs) {
   let g = 0;
   for (const spec of rowSpecs) {
-    const n = Math.max(0, Math.round(Number(spec.count) || 0));
+    const n = settlementAbsDollarCount(spec.count);
     g += Math.max(0, n - 1);
   }
   return g;
@@ -4428,20 +4454,22 @@ function settlementRowIntroDuration(S) {
  */
 function buildSettlementDollarSubTimeline(animRef, count, rowEl, stepGap, interRowPadS = 0) {
   const st = gsap.timeline();
-  const n = Math.max(0, Math.round(Number(count) || 0));
+  const signed = Math.round(Number(count) || 0);
+  const steps = settlementAbsDollarCount(signed);
+  const sign = signed < 0 ? -1 : 1;
   st.call(() => {
     animRef.value = 0;
   });
-  if (n <= 0) {
+  if (steps <= 0) {
     if (interRowPadS > 0) st.to({}, { duration: interRowPadS });
     return st;
   }
-  for (let k = 1; k <= n; k++) {
+  for (let k = 1; k <= steps; k++) {
     st.call(() => {
-      animRef.value = k;
+      animRef.value = sign * k;
       shakeSettlementRow(rowEl);
     });
-    if (k < n) st.to({}, { duration: stepGap });
+    if (k < steps) st.to({}, { duration: stepGap });
   }
   if (interRowPadS > 0) st.to({}, { duration: interRowPadS });
   return st;
@@ -4767,7 +4795,7 @@ function submitWordLeaveStagger(letterCount) {
   return Math.max(0.03, base - extra * taper);
 }
 
-/** 丢弃后词槽/棋盘格依次消失：格数越多略加快，避免 12 格整体过久 */
+/** 丢弃后词槽/棋盘格依次消失：格数越多略加快，避免 8 格整体过久 */
 function discardLeaveStagger(letterCount) {
   const n = Math.max(1, Math.min(MAX_LETTERS_PER_REMOVAL, Math.round(Number(letterCount) || 1)));
   const extra = Math.max(0, n - 4);
@@ -6292,16 +6320,15 @@ const displayFormulaMult = computed(() => {
     const m = Number(animMultTotal.value);
     return String(Number.isFinite(m) ? Math.max(0, Math.round(m)) : 0);
   }
-  /** 预览：仅词长倍率（无单字母倍率）；单字母倍率在计分动画中再累加显示 */
+  /** 预览：仅词长倍率（无单字母倍率）；与计分动画一致取整，燧石减半后不显示 3.5 等小数 */
   const tiles = effectiveFormulaTiles.value;
   if (tiles.length && resultFormulaBasePreviewActive.value) {
     const Ltb = resultAreaJudgedWordLength.value;
-    return formatMultDisplay(
-      scaleLengthContributionForBoss(
-        getLengthMultiplier(Ltb, lengthLevelsByLength.value, lengthUpgradeObservatoryExtra.value),
-        isFlintBossActive.value,
-      ),
+    const m = scaleLengthContributionForBoss(
+      getLengthMultiplier(Ltb, lengthLevelsByLength.value, lengthUpgradeObservatoryExtra.value),
+      isFlintBossActive.value,
     );
+    return String(Math.max(0, Math.round(Number(m) || 0)));
   }
   return "0";
 });
@@ -7028,10 +7055,10 @@ function runSettlementIntro() {
 
     const S = settlementTotalDollarCount(s);
     const G = settlementDollarGapCount(rowSpecs);
-    const SPositiveRows = rowSpecs.filter((x) => Math.max(0, Math.round(Number(x.count) || 0)) > 0).length;
+    const SPositiveRows = rowSpecs.filter((x) => settlementAbsDollarCount(x.count) > 0).length;
     let lastIdxWithDollars = -1;
     for (let ri = 0; ri < rowSpecs.length; ri++) {
-      if (Math.max(0, Math.round(Number(rowSpecs[ri].count) || 0)) > 0) lastIdxWithDollars = ri;
+      if (settlementAbsDollarCount(rowSpecs[ri].count) > 0) lastIdxWithDollars = ri;
     }
     const innerGap = G > 0 ? settlementDollarStepGap(S, G, SPositiveRows) : 0;
     const interPad = G === 0 && S > 0 ? settlementDollarStepGap(S, 0, SPositiveRows) : 0;
@@ -7041,7 +7068,7 @@ function runSettlementIntro() {
     for (let i = 0; i < rowSpecs.length; i++) {
       const spec = rowSpecs[i];
       const { el, anim, count, empty } = spec;
-      const n = Math.max(0, Math.round(Number(count) || 0));
+      const n = settlementAbsDollarCount(count);
       const targetOpacity = empty ? 0.42 : 1;
       const introPos = firstRow ? ">-0.07" : ">";
       firstRow = false;
@@ -7719,18 +7746,16 @@ function grantRandomShopTreasureByRarity(rarityFilter) {
   if (!pool.length) return { ok: false, slotIndex: -1 };
   const picks = rollDistinctShopTreasures(pool, owned, new Set(), 1, runRandom);
   if (!picks[0]) return { ok: false, slotIndex: -1 };
-  const row = toShopOfferRows([picks[0]], runRandom)[0];
+  const def = picks[0];
   const slots = [...ownedTreasures.value];
   slots[ix] = buildOwnedTreasureSlot({
-    treasureId: row.treasureId,
-    price: row.price,
-    treasureAccessoryIds: readTreasureAccessoryIds(row),
+    treasureId: def.treasureId,
+    price: def.price,
   });
   ownedTreasures.value = slots;
-  noteCollectionTreasureAcquired(row.treasureId);
-  noteCollectionTreasureSlotAccessories(row);
-  initTreasureBankOnAcquire(row.treasureId, treasureRunState.value);
-  applyTreasureAcquireImmediateEffectsForRun(row.treasureId);
+  noteCollectionTreasureAcquired(def.treasureId);
+  initTreasureBankOnAcquire(def.treasureId, treasureRunState.value);
+  applyTreasureAcquireImmediateEffectsForRun(def.treasureId);
   return { ok: true, slotIndex: ix };
 }
 
@@ -9323,7 +9348,7 @@ async function onTreasurePurchase() {
   const pay = effectiveShopOfferPay(t, shopPriceForOffer(Number(t.price) || 0, t));
 
   if (t.offerType === "bundlePack") {
-    if (money.value < pay) return;
+    if (!canAffordWallet(money.value, pay, runWalletFloor.value)) return;
     const layer = treasureDetailLayerRef.value;
     await layer?.playClose?.();
     money.value -= pay;
@@ -9335,7 +9360,7 @@ async function onTreasurePurchase() {
     return;
   }
 
-  if (money.value < pay) return;
+  if (!canAffordWallet(money.value, pay, runWalletFloor.value)) return;
 
   if (t.offerType === "voucher") {
     const vid = String(t.voucherId ?? "");
@@ -9587,7 +9612,7 @@ async function onShopNextLevel(event) {
 function onBossBlindRerollPaid() {
   const s = bossRerollSession.value;
   if (!s) return;
-  if (!canPayBossBlindReroll(ownedVoucherIds.value, s.rerollsUsed, money.value)) return;
+  if (!canPayBossBlindReroll(ownedVoucherIds.value, s.rerollsUsed, money.value, runWalletFloor.value)) return;
   money.value -= BOSS_BLIND_REROLL_COST_DOLLARS;
   noteRunMoneySpent(BOSS_BLIND_REROLL_COST_DOLLARS);
   const rerollNonce = s.rerollNonce + 1;
@@ -9701,13 +9726,17 @@ function gridTileEntranceDelay(row, col, colMul = 1) {
 }
 
 function isGridCellEmptyForDropAnim(cell) {
+  // 镣铐顶行等 Boss 封锁格：无字母但不可补牌，不得当作「列上空洞」
+  if (cell?.bossGridBlocked) return false;
   return cell == null || !cell.letter || String(cell.letter).trim() === "";
 }
 
 /** 本列落点上方仍有空位（游蛇等「贴底补牌」）：须从整盘顶外缘落入，避免在空洞内闪现 */
 function gridColumnHasEmptyAbove(row, col) {
   for (let r = 0; r < row; r++) {
-    if (isGridCellEmptyForDropAnim(grid.value[r]?.[col])) return true;
+    const cell = grid.value[r]?.[col];
+    if (cell?.bossGridBlocked) continue;
+    if (isGridCellEmptyForDropAnim(cell)) return true;
   }
   return false;
 }
@@ -10241,7 +10270,9 @@ function showScoreBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
         : kind === "upgrade"
           ? "score-popup-bubble score-popup-bubble--upgrade"
         : kind === "money"
-          ? "score-popup-bubble score-popup-bubble--money"
+          ? isDebtMoneyBubbleLabel(displayText)
+            ? "score-popup-bubble score-popup-bubble--money score-popup-bubble--money-debt"
+            : "score-popup-bubble score-popup-bubble--money"
           : kind === "destroy"
             ? "score-popup-bubble score-popup-bubble--destroy"
             : kind === "ice-shatter"
@@ -10651,7 +10682,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     }
     wobbleScoreSlot(slotEl, sp);
     await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-    money.value = Math.max(0, money.value - 1);
+    money.value = applyWalletDeltaClamped(money.value, -1, runWalletFloor.value);
     const bubbleTooth = showScoreBubble(slotEl, "-$1", "money", sp);
     scheduleSmallPlusBubbleOutro(bubbleTooth, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS * 0.55, sp);
@@ -12341,26 +12372,27 @@ function e2eCanBuyShopOffer(t) {
   const p0 = Number(t.price);
   if (!Number.isFinite(w) || !Number.isFinite(p0)) return false;
   const p = shopPriceForOffer(p0, t);
+  const floor = runWalletFloor.value;
   if (t.offerType === "voucher") {
     const vid = String(t.voucherId ?? "");
     if (vid === "v_glyph_1" || vid === "v_glyph_2") {
       if (getGlyphPurchaseTargetLevelIndex(levelIndex.value) == null) return false;
     }
-    return w >= p;
+    return canAffordWallet(w, p, floor);
   }
-  if (t.offerType === "bundlePack") return w >= p;
+  if (t.offerType === "bundlePack") return canAffordWallet(w, p, floor);
   if (t.offerType === "spell") {
     const sid = String(t.spellId ?? "");
     if (!canPurchaseSpellInShop(sid, spellPoolEligibilityForShop())) return false;
     if (isCouponDropSpellBlockedByBonusVoucher(sid)) return false;
-    return w >= p;
+    return canAffordWallet(w, p, floor);
   }
-  if (t.offerType === "upgrade") return w >= p;
-  if (t.offerType === "deckTile" || t.offerType === "deckLetter") return w >= p;
+  if (t.offerType === "upgrade") return canAffordWallet(w, p, floor);
+  if (t.offerType === "deckTile" || t.offerType === "deckLetter") return canAffordWallet(w, p, floor);
   if (t.offerType === "treasure") {
-    return w >= p && canPlaceTreasureOffer(t);
+    return canAffordWallet(w, p, floor) && canPlaceTreasureOffer(t);
   }
-  return w >= p;
+  return canAffordWallet(w, p, floor);
 }
 
 /** @param {number} offerInstanceId */
@@ -13348,6 +13380,12 @@ onUnmounted(() => {
   text-align: right;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 calc(1 * var(--rpx)) 0 rgba(255, 255, 255, 0.35);
+}
+
+.settle-dollars--debt,
+.settle-total.settle-dollars--debt {
+  color: var(--money-debt) !important;
+  text-shadow: 0 calc(1 * var(--rpx)) 0 rgba(255, 255, 255, 0.2);
 }
 
 .settle-total {

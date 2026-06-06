@@ -226,6 +226,18 @@ export function sumTreasureSubmitLengthBonus(ownedSlotTreasureIds) {
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
+export function resolveTreasureWalletFloor(ownedSlotTreasureIds) {
+  let floor = 0;
+  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.getWalletFloor;
+    if (!fn) continue;
+    const v = Math.floor(Number(fn()) || 0);
+    if (v < floor) floor = v;
+  }
+  return floor;
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
 export function sumTreasureLengthJudgmentPenalty(ownedSlotTreasureIds) {
   let sum = 0;
   for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {

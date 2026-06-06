@@ -9,7 +9,7 @@
         title="当前钱包余额"
       >
         <span class="header-split-label">钱包</span>
-        <span class="header-wallet-marks">
+        <span class="header-wallet-marks" :class="{ 'money-tone--debt': walletAmount < 0 }">
           <span class="money-dollar-char">$</span
           ><span class="header-wallet-amount">{{ formatWallet(walletAmount) }}</span>
         </span>

@@ -10,7 +10,7 @@ const TRASH_CAN_E_MULT_INCREMENT = 0.25;
 export default {
   price: 8,
   rarity: "epic",
-  description: describe("在本关卡中，你每弃掉一个E，获得", mult("x0.25"), "倍率"),
+  description: describe("你每弃掉一个E，获得", mult("x0.25"), "倍率", "（倍率在关卡结束时重置）"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -20,7 +20,7 @@ export const treasureHooks = {
     const m = getMultMulBank(ctx.treasureRun, ID);
     return m > 1 ? { multMul: m } : null;
   },
-  onLevelEnter(ctx) {
+  onLevelComplete(ctx) {
     if (!ctx.treasureRun) return;
     ensureTreasureBank(ctx.treasureRun, ID).multMul = 1;
   },

@@ -20,7 +20,7 @@
           @click.stop
         >
           <span class="header-split-label">钱包</span>
-          <span class="header-wallet-marks">
+          <span class="header-wallet-marks" :class="{ 'money-tone--debt': walletAmount < 0 }">
             <span class="money-dollar-char">$</span>
             <span class="header-wallet-amount">{{ formatWallet(walletAmount) }}</span>
           </span>
@@ -444,7 +444,7 @@ function isClaimed(opt) {
 
 function onOpenItem(opt, e) {
   const root = e?.currentTarget;
-  const flySrc = getFlySourceEl(opt) ?? root;
+  const flySrc = isDeckOffer(opt) ? root : getFlySourceEl(opt) ?? root;
   emit("open-item", {
     item: opt,
     optionKey: optionKeyOf(opt),

@@ -218,7 +218,7 @@
  * @property {boolean} [replaceDescriptionWithPatch]
  * @property {(ctx: TreasureDiscardContext) => void | Promise<void>} [onDiscardBatch] 单次丢弃成功之后
  * @property {(ctx: TreasureLevelEnterContext) => void | Promise<void>} [prepareLevelEnter] 进入新小关、`resetLevel` 建盘之前
- * @property {(ctx: TreasureLevelEnterContext) => void | Promise<void>} [onLevelEnter] 进入新小关之后
+ * @property {(ctx: TreasureLevelEnterContext) => void | Promise<void>} [onLevelEnter] 进入新小关、转场与棋盘落位动画结束后（GamePanel 统一调度）
  * @property {(ctx: TreasureLevelCompleteContext) => void | Promise<void>} [onLevelComplete] 小关达标即将结算
  * @property {(ctx: TreasureChapterEnterContext) => void} [onChapterEnter] 进入新大关（章号变化）
  * @property {(ctx: TreasureShopEnterContext) => void | Promise<void>} [onShopEnter] 进入商店（本段停留开始）
@@ -232,6 +232,7 @@
  * @property {() => number} [getLengthJudgmentPenalty] 判定词长减益（视为更短）
  * @property {(ctx: TreasureBossRestrictionContext) => void | Promise<void>} [onBossRestrictionTriggered]
  * @property {(ctx: TreasureDeckCardsAddedContext) => void | Promise<void>} [onDeckCardsAdded]
+ * @property {() => number} [getWalletFloor] 本局钱包可降至的最低余额（默认 0；如信用卡为 -20）
  */
 
 /**
@@ -274,7 +275,6 @@
  * @property {(treasureId: string) => void} [clearTreasureSlotById]
  * @property {(treasureId: string) => Promise<void>} [destroyTreasureSlotById]
  * @property {(sourceTreasureId: string, victimTreasureId: string) => Promise<void>} [destroyOtherTreasureFromSource] 来源宝藏 wobble 后，目标 wobble 与「摧毁！」气泡并发，再缩至 0 清空
- * @property {(fn: () => void | Promise<void>) => void} [scheduleAfterGridTilesSettled] 棋盘字母块落位稳定后执行（进关 grid intro 结束）
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  * @property {(count?: number) => number} [grantRandomOwnedTreasure] 本关赠送随机宝藏次数，返回实际获得数
  * @property {(count?: number) => Promise<number>} [grantRandomOwnedTreasureWithPopAnim] 同上，新宝藏槽 scale 0→过冲→1 入场

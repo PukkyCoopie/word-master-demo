@@ -22,7 +22,10 @@
         class="preset-desc-chip preset-desc-chip--discard"
         >{{ seg.v }}</span
       >
-      <span v-else-if="seg.type === 'money'" class="td-desc-chip td-desc-money"
+      <span
+        v-else-if="seg.type === 'money'"
+        class="td-desc-chip td-desc-money"
+        :class="{ 'td-desc-money--debt': isDebtMoneyChipValue(seg.v) }"
         ><span class="td-desc-money-dollar">$</span>{{ seg.v }}</span
       >
       <DescInlineEntityChip
@@ -38,6 +41,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { isDebtMoneyChipValue } from "../game/moneyDisplay.js";
 import DescInlineEntityChip from "./DescInlineEntityChip.vue";
 import TreasureDescSegmentList from "./TreasureDescSegmentList.vue";
 import { normalizeTreasureDescription } from "../treasures/treasureDescription.js";

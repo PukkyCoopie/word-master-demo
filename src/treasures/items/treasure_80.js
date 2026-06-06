@@ -1,5 +1,5 @@
 import { describe, score } from "../treasureDescription.js";
-import { patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { getScoreAddBank } from "../treasureBankHelpers.js";
 import { normalizeLetterChar } from "../treasureLifecycleShared.js";
 
 const ID = "80";
@@ -17,16 +17,32 @@ function countBScoreAdd(ctx) {
   return total;
 }
 
+/**
+ * @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx
+ */
+function patchBKeyDescription(ctx) {
+  const v = Math.round(getScoreAddBank(ctx.treasureRun, ID));
+  return describe(
+    "每当字母B计分时，获得",
+    score("+8"),
+    "分数",
+    "（当前",
+    score(v >= 0 ? `+${v}` : String(v)),
+    "）",
+  );
+}
+
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 8,
   rarity: "epic",
-  description: describe("每当字母B计分时，获得", score("+8"), "分数（当前+n）"),
+  description: describe("每当字母B计分时，获得", score("+8"), "分数", "（当前", score("+0"), "）"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  ...patchCurrentBankDescription(ID, "scoreAdd"),
+  replaceDescriptionWithPatch: true,
+  patchDescription: patchBKeyDescription,
   perLetterScoreCueDepositsTreasureBank: true,
   showPerLetterScoreCueBubble: false,
   accumulateReplaySubmitAdjustments(ctx) {

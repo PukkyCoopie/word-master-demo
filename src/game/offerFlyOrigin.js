@@ -28,3 +28,20 @@ export function offerFlyOriginRectFromEl(el) {
   if (r.width < 2 || r.height < 2) return null;
   return { left: r.left, top: r.top, width: r.width, height: r.height };
 }
+
+/**
+ * 包内字母块：飞入详情时连同价签一起量尺寸（shop-treasure-visual 整列）。
+ * @param {HTMLElement | null | undefined} el
+ * @returns {{ left: number, top: number, width: number, height: number } | null}
+ */
+export function packDeckOfferFlyOriginRectFromEl(el) {
+  const node = el instanceof HTMLElement ? el : null;
+  if (!node || typeof node.getBoundingClientRect !== "function") return null;
+  const visual =
+    node.closest?.(".shop-treasure-visual") ??
+    (node.classList.contains("shop-treasure-visual") ? node : null);
+  const measure = visual ?? node;
+  const r = measure.getBoundingClientRect();
+  if (r.width < 2 || r.height < 2) return null;
+  return { left: r.left, top: r.top, width: r.width, height: r.height };
+}

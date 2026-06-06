@@ -64,7 +64,7 @@
           </div>
 
           <div class="run-end-stat-card run-end-stat-card--discoveries">
-            <span class="run-end-stat-label">新发现</span>
+            <span class="run-end-stat-label">新发现（{{ discoveryItems.length }}）</span>
             <RunEndDiscoveryStrip
               v-if="discoveryItems.length"
               class="run-end-stat-value run-end-stat-value--discoveries"

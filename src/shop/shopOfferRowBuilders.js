@@ -150,6 +150,7 @@ export function buildRarityUpgradeShopRow(nextOfferInstanceId, rk) {
  * @param {() => number} rng
  * @param {number} [accessoryChanceMult=1]
  * @param {number | null | undefined} [runDifficultyIndex=null] 非 null 时启用难度负面配饰掷骰
+ * @param {boolean} [includeAccessories=true] false 时不掷配饰（对局内生成/直接授予宝藏）
  */
 export function buildTreasureShopRowFromDef(
   nextOfferInstanceId,
@@ -157,14 +158,17 @@ export function buildTreasureShopRowFromDef(
   rng,
   accessoryChanceMult = 1,
   runDifficultyIndex = null,
+  includeAccessories = true,
 ) {
   /** @type {string[]} */
   const ids = [];
-  if (runDifficultyIndex != null) {
-    ids.push(...rollDifficultyNegativeTreasureAccessoryIds(rng, runDifficultyIndex));
+  if (includeAccessories) {
+    if (runDifficultyIndex != null) {
+      ids.push(...rollDifficultyNegativeTreasureAccessoryIds(rng, runDifficultyIndex));
+    }
+    const positive = rollShopTreasureAccessoryId(rng, accessoryChanceMult);
+    if (positive) ids.push(positive);
   }
-  const positive = rollShopTreasureAccessoryId(rng, accessoryChanceMult);
-  if (positive) ids.push(positive);
   const uniqueIds = [...new Set(ids)];
   let price = def.price + getShopTreasureAccessoryPriceAddFromIds(uniqueIds);
   if (treasureOfferHasRentalAccessory(uniqueIds)) price = 1;

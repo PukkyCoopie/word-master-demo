@@ -7,7 +7,7 @@ export function formatCompactOneDecimal(value) {
 }
 
 export function formatWalletInteger(value) {
-  return String(Math.max(0, Math.floor(Number(value) || 0)));
+  return String(Math.floor(Number(value) || 0));
 }
 
 export function isSingleDigitLabel(label) {

@@ -1,4 +1,5 @@
 import { LEVELS } from "../levelDefinitions.js";
+import { canAffordWallet } from "../treasures/treasureWalletFloor.js";
 import { VOUCHERS_BY_ID } from "./voucherDefinitions.js";
 
 /** @param {Iterable<string>} owned */
@@ -303,9 +304,10 @@ export function getBossBlindRerollsRemaining(owned, rerollsUsed) {
  * @param {Iterable<string>} owned
  * @param {number} rerollsUsed
  * @param {number} money
+ * @param {number} [walletFloor]
  */
-export function canPayBossBlindReroll(owned, rerollsUsed, money) {
+export function canPayBossBlindReroll(owned, rerollsUsed, money, walletFloor = 0) {
   const remaining = getBossBlindRerollsRemaining(owned, rerollsUsed);
   if (remaining !== null && remaining <= 0) return false;
-  return Math.floor(Number(money) || 0) >= BOSS_BLIND_REROLL_COST_DOLLARS;
+  return canAffordWallet(money, BOSS_BLIND_REROLL_COST_DOLLARS, walletFloor);
 }

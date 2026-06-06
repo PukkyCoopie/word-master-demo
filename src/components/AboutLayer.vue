@@ -251,6 +251,12 @@ const sectionElById = {};
 /** @type {ReturnType<typeof setTimeout> | null} */
 let scrollSpyLockTimer = null;
 let scrollSpyLocked = false;
+/** @type {string | null} */
+let programmaticScrollTargetId = null;
+let scrollEndBound = false;
+
+const SCROLL_SPY_FALLBACK_MS = 1200;
+const SCROLL_POSITION_TOLERANCE_PX = 4;
 let versionTapCount = 0;
 /** @type {ReturnType<typeof setTimeout> | null} */
 let versionTapTimer = null;
@@ -323,6 +329,52 @@ function getSectionScrollTop(container, sectionEl) {
   );
 }
 
+function clearScrollSpyLockTimer() {
+  if (scrollSpyLockTimer != null) {
+    window.clearTimeout(scrollSpyLockTimer);
+    scrollSpyLockTimer = null;
+  }
+}
+
+function releaseProgrammaticScrollLock() {
+  scrollSpyLocked = false;
+  clearScrollSpyLockTimer();
+  if (programmaticScrollTargetId) {
+    activeTab.value = programmaticScrollTargetId;
+    programmaticScrollTargetId = null;
+  }
+}
+
+/**
+ * @param {HTMLElement} container
+ * @param {string} sectionId
+ */
+function isScrollNearSection(container, sectionId) {
+  const sectionEl = sectionElById[sectionId];
+  if (!sectionEl) return false;
+  const targetTop = getSectionScrollTop(container, sectionEl);
+  return Math.abs(container.scrollTop - targetTop) <= SCROLL_POSITION_TOLERANCE_PX;
+}
+
+function onScrollBodyScrollEnd() {
+  if (!scrollSpyLocked || !programmaticScrollTargetId) return;
+  releaseProgrammaticScrollLock();
+}
+
+function bindScrollEndListener() {
+  const container = scrollBodyRef.value;
+  if (!container || scrollEndBound) return;
+  container.addEventListener("scrollend", onScrollBodyScrollEnd);
+  scrollEndBound = true;
+}
+
+function unbindScrollEndListener() {
+  const container = scrollBodyRef.value;
+  if (!container || !scrollEndBound) return;
+  container.removeEventListener("scrollend", onScrollBodyScrollEnd);
+  scrollEndBound = false;
+}
+
 /**
  * @param {string} id
  */
@@ -332,21 +384,16 @@ function scrollToSection(id) {
   if (!container || !sectionEl) return;
 
   activeTab.value = id;
+  programmaticScrollTargetId = id;
   scrollSpyLocked = true;
-  if (scrollSpyLockTimer != null) {
-    window.clearTimeout(scrollSpyLockTimer);
-  }
+  clearScrollSpyLockTimer();
 
   container.scrollTo({
     top: getSectionScrollTop(container, sectionEl),
     behavior: "smooth",
   });
 
-  scrollSpyLockTimer = window.setTimeout(() => {
-    scrollSpyLocked = false;
-    scrollSpyLockTimer = null;
-    updateActiveFromScroll();
-  }, 480);
+  scrollSpyLockTimer = window.setTimeout(releaseProgrammaticScrollLock, SCROLL_SPY_FALLBACK_MS);
 }
 
 function updateScrollbarMetrics() {
@@ -378,8 +425,15 @@ function updateScrollbarMetrics() {
 }
 
 function onScrollBody() {
-  if (!thumbDragging.value) {
-    updateActiveFromScroll();
+  const container = scrollBodyRef.value;
+  if (!thumbDragging.value && container) {
+    if (scrollSpyLocked && programmaticScrollTargetId) {
+      if (isScrollNearSection(container, programmaticScrollTargetId)) {
+        releaseProgrammaticScrollLock();
+      }
+    } else if (!scrollSpyLocked) {
+      updateActiveFromScroll();
+    }
   }
   updateScrollbarMetrics();
 }
@@ -526,6 +580,10 @@ watch(
   () => props.open,
   async (isOpen) => {
     if (!isOpen) {
+      scrollSpyLocked = false;
+      programmaticScrollTargetId = null;
+      clearScrollSpyLockTimer();
+      unbindScrollEndListener();
       unbindScrollResizeObserver();
       onThumbPointerUp();
       return;
@@ -533,12 +591,11 @@ watch(
 
     activeTab.value = "game";
     scrollSpyLocked = false;
-    if (scrollSpyLockTimer != null) {
-      window.clearTimeout(scrollSpyLockTimer);
-      scrollSpyLockTimer = null;
-    }
+    programmaticScrollTargetId = null;
+    clearScrollSpyLockTimer();
     await nextTick();
     bindScrollResizeObserver();
+    bindScrollEndListener();
     const container = scrollBodyRef.value;
     if (container) {
       container.scrollTop = 0;
@@ -548,9 +605,8 @@ watch(
 );
 
 onUnmounted(() => {
-  if (scrollSpyLockTimer != null) {
-    window.clearTimeout(scrollSpyLockTimer);
-  }
+  clearScrollSpyLockTimer();
+  unbindScrollEndListener();
   resetVersionTapCount();
   unbindScrollResizeObserver();
   onThumbPointerUp();

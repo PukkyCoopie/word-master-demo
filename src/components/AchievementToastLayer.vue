@@ -141,8 +141,13 @@ watch(
 <style scoped>
 .achievement-toast {
   --achievement-toast-margin-v: calc(80 * var(--rpx));
-  --achievement-toast-solid-h: calc(356 * var(--rpx) + var(--achievement-toast-margin-v));
-  --achievement-toast-fade-h: calc(56 * var(--rpx));
+  --achievement-toast-content-h: calc(356 * var(--rpx) + var(--achievement-toast-margin-v));
+  /* 成就卡下方额外实心留白，再进入渐变消散 */
+  --achievement-toast-solid-extra-below: calc(56 * var(--rpx));
+  --achievement-toast-solid-h: calc(
+    var(--achievement-toast-content-h) + var(--achievement-toast-solid-extra-below)
+  );
+  --achievement-toast-fade-h: calc(80 * var(--rpx));
   --achievement-toast-bg-opacity: 0.8;
   position: absolute;
   inset: var(--achievement-toast-margin-v) auto auto 0;
@@ -180,7 +185,7 @@ watch(
   left: 0;
   right: 0;
   top: 0;
-  height: var(--achievement-toast-solid-h);
+  height: var(--achievement-toast-content-h);
   z-index: 1;
   display: flex;
   flex-direction: column;

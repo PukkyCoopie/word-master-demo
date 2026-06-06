@@ -17,7 +17,10 @@
       >{{ formatMultLabel(seg.v) }}</span
     >
     <span v-else-if="seg.type === 'score'" class="td-desc-chip td-desc-score">{{ seg.v }}</span>
-    <span v-else-if="seg.type === 'money'" class="td-desc-chip td-desc-money"
+    <span
+      v-else-if="seg.type === 'money'"
+      class="td-desc-chip td-desc-money"
+      :class="{ 'td-desc-money--debt': isDebtMoneyChipValue(seg.v) }"
       ><span class="td-desc-money-dollar">$</span>{{ seg.v }}</span
     >
     <span v-else-if="seg.type === 'prob'" class="td-desc-chip td-desc-prob">{{ seg.v }}</span>
@@ -25,6 +28,7 @@
 </template>
 
 <script setup>
+import { isDebtMoneyChipValue } from "../game/moneyDisplay.js";
 import RecurseDescSegments from "./TreasureDescSegmentList.vue";
 
 /**

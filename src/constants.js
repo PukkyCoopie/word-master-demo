@@ -29,12 +29,18 @@ export const ECONOMY_INTEREST_CAP = 5;
  * @returns {number} 本关结算可获得的利息（元）
  */
 export function computeWalletInterest(walletBeforeSettlement, capOverride = null) {
-  const w = Math.max(0, Math.floor(Number(walletBeforeSettlement) || 0));
+  const w = Math.floor(Number(walletBeforeSettlement) || 0);
   const cap =
     capOverride != null && Number.isFinite(Number(capOverride))
       ? Math.max(0, Math.floor(Number(capOverride)))
       : ECONOMY_INTEREST_CAP;
-  return Math.min(cap, Math.floor(w / ECONOMY_INTEREST_PER_5));
+  if (w >= 0) {
+    return Math.min(cap, Math.floor(w / ECONOMY_INTEREST_PER_5));
+  }
+  if (w >= -ECONOMY_INTEREST_PER_5) {
+    return 0;
+  }
+  return -Math.min(cap, Math.floor(Math.abs(w) / ECONOMY_INTEREST_PER_5));
 }
 
 /**

@@ -7,7 +7,7 @@ export default {
   price: 6,
   rarity: "rare",
   unlockPrerequisite: { type: "runSpellsCastMin", min: 5 },
-  description: describe("在进入关卡时，随机释放一个法术"),
+  description: describe("每当进入关卡时，随机释放一个法术"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

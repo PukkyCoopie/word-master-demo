@@ -94,6 +94,25 @@ function instantCloseHide() {
   gsap.set(targets, { opacity: 0 });
 }
 
+/** @param {gsap.core.Timeline} tl @param {number} [at=0] */
+function appendEnterAnimation(tl, at = 0) {
+  if (props.total <= 1 || !tl) return;
+  const targets = animTargets();
+  if (!targets.length) return;
+  gsap.set(targets, { opacity: 0 });
+  tl.to(
+    targets,
+    {
+      opacity: 1,
+      y: 0,
+      duration: 0.14,
+      ease: EASE_TRANSFORM,
+      clearProps: "transform",
+    },
+    at,
+  );
+}
+
 watch(
   () => props.total,
   (n) => {
@@ -107,7 +126,10 @@ onMounted(() => {
 
 defineExpose({
   appendCloseAnimation,
+  appendEnterAnimation,
   instantCloseHide,
+  instantEnterHide: instantCloseHide,
+  resetVisible,
   getAnimTargets: animTargets,
 });
 </script>

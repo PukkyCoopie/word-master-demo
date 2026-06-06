@@ -70,6 +70,8 @@
 	--accent: #edc22e;
 	/* 金钱符号 / 金币展示：深金黄（DarkGoldenRod），在 #eee4da 卡面上可读 */
 	--money-gold: #b8860b;
+	/* 负债 / 扣款：暗红，与金黄区分 */
+	--money-debt: #8b3a3a;
 	/* 倍率强调：与 .result-box-mult / .mult-popup-bubble 洋红一致 */
 	--mult-accent: #d86b94;
 	/* 字母 tile 字重：普通块（棋盘/词槽/货架/招牌）与材质块 */
@@ -317,6 +319,21 @@ textarea::-moz-placeholder {
 
 .header-wallet-amount {
 	letter-spacing: 0.02em;
+}
+
+/* 负债金额：顶栏钱包、说明 chip 等 */
+.money-tone--debt,
+.money-tone--debt .money-dollar-char,
+.money-tone--debt .header-wallet-amount {
+	color: var(--money-debt);
+	text-shadow: 0 calc(1 * var(--rpx)) 0 rgba(255, 255, 255, 0.2);
+}
+
+.td-desc-money--debt,
+.td-desc-money--debt .td-desc-money-dollar,
+.difficulty-desc-money--debt,
+.difficulty-desc-money--debt .difficulty-desc-money-dollar {
+	color: var(--money-debt);
 }
 
 /* ----- 目标/回合分数 ----- */
@@ -793,6 +810,12 @@ textarea::-moz-placeholder {
 /* 关底黄金 +$：与 +分 气泡同形，仅底色区分 */
 .score-popup-bubble--money {
 	background: #d4a84a;
+}
+/* 扣款 / 负债 -$x 气泡 */
+.score-popup-bubble--money-debt {
+	background: var(--money-debt);
+	color: #fff;
+	text-shadow: 0 calc(1 * var(--rpx)) 0 rgba(0, 0, 0, 0.28);
 }
 /* 宝藏触发升级：底色与升级动画等级标识一致 */
 .score-popup-bubble--upgrade {
@@ -3235,8 +3258,7 @@ textarea::-moz-placeholder {
 
 .run-end-discovery-chip__material.grid-tile,
 .run-end-discovery-chip__frame.shop-treasure-frame,
-.run-end-discovery-chip__accessory.treasure-accessory-chip,
-.run-end-discovery-chip__accessory.tile-accessory-chip {
+.run-end-discovery-chip__voucher-wrap {
 	container-type: size;
 	container-name: treasure-cell;
 	width: 100%;
@@ -3248,16 +3270,67 @@ textarea::-moz-placeholder {
 	flex-shrink: 0;
 }
 
-.run-end-discovery-chip__accessory.treasure-accessory-chip,
-.run-end-discovery-chip__accessory.tile-accessory-chip {
+.run-end-discovery-chip__voucher-wrap.shop-treasure-visual {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: visible;
+}
+
+.run-end-discovery-chip__voucher-wrap .voucher-stamp-stack {
+	width: 100%;
+	max-width: 100%;
+	margin: 0;
+}
+
+.run-end-discovery-chip__voucher-wrap .voucher-stamp-stack--stacked {
+	height: 100%;
+}
+
+.run-end-discovery-chip__voucher-wrap .voucher-stamp {
+	width: 100%;
+}
+
+.run-end-discovery-chip__voucher-wrap .voucher-stamp__frame {
+	width: 100%;
+	height: 100%;
+}
+
+.run-end-discovery-chip__frame--accessory {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.run-end-discovery-chip__frame--accessory .collection-accessory-chip-showcase {
 	position: static;
 	inset: auto;
 	top: auto;
 	right: auto;
 	bottom: auto;
 	left: auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	box-sizing: border-box;
 	overflow: hidden;
+	flex-shrink: 0;
+	pointer-events: none;
+	--slot-scale: 1;
+}
+
+.run-end-discovery-chip__frame--accessory .collection-accessory-chip-showcase.tile-accessory-chip,
+.run-end-discovery-chip__frame--accessory .collection-accessory-chip-showcase.treasure-accessory-chip {
+	width: calc(53 * var(--rpx));
+	height: calc(53 * var(--rpx));
+	border-radius: calc(10 * var(--rpx));
+}
+
+.run-end-discovery-chip__frame--accessory .collection-accessory-chip-showcase.tile-accessory-chip .tile-accessory-chip-icon,
+.run-end-discovery-chip__frame--accessory .collection-accessory-chip-showcase.treasure-accessory-chip .treasure-accessory-chip-icon {
+	font-size: calc(28 * var(--rpx));
+	line-height: 1;
+	display: block;
 }
 
 @container treasure-cell (min-width: 0px) {
@@ -3281,17 +3354,19 @@ textarea::-moz-placeholder {
 		font-size: calc(100cqmin * var(--shop-shelf-spell-icon-units) / 108);
 	}
 
-	.run-end-discovery-chip__accessory.treasure-accessory-chip,
-	.run-end-discovery-chip__accessory.tile-accessory-chip {
+	.run-end-discovery-chip__frame--accessory .collection-accessory-chip-showcase.tile-accessory-chip,
+	.run-end-discovery-chip__frame--accessory .collection-accessory-chip-showcase.treasure-accessory-chip {
+		width: calc(100cqmin * 53 / 108);
+		height: calc(100cqmin * 53 / 108);
 		border-radius: calc(100cqmin * 10 / 108);
 	}
 
-	.run-end-discovery-chip__accessory.treasure-accessory-chip .treasure-accessory-chip-icon,
-	.run-end-discovery-chip__accessory.tile-accessory-chip .tile-accessory-chip-icon {
+	.run-end-discovery-chip__frame--accessory .collection-accessory-chip-showcase.treasure-accessory-chip .treasure-accessory-chip-icon,
+	.run-end-discovery-chip__frame--accessory .collection-accessory-chip-showcase.tile-accessory-chip .tile-accessory-chip-icon {
 		font-size: calc(100cqmin * 28 / 108);
 	}
 
-	.run-end-discovery-chip__voucher .voucher-stamp__frame .voucher-stamp__emoji {
+	.run-end-discovery-chip__voucher-wrap .voucher-stamp__frame .voucher-stamp__emoji {
 		font-size: calc(100cqmin * 42 / 108);
 	}
 
@@ -4370,6 +4445,20 @@ textarea::-moz-placeholder {
 	height: 100%;
 	flex: 1 1 auto;
 	max-width: none;
+	box-sizing: border-box;
+}
+
+.treasure-detail-fly-clone-root.shop-deck-offer-product-stack {
+	overflow: visible;
+	pointer-events: none;
+}
+
+.treasure-detail-fly-clone-root.shop-deck-offer-product-stack .shop-shelf-letter-tile {
+	width: 100%;
+	height: auto;
+	aspect-ratio: 1;
+	flex-shrink: 0;
+	max-width: 100%;
 	box-sizing: border-box;
 }
 

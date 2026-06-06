@@ -6,7 +6,7 @@ const ID = "87";
 export default {
   price: 6,
   rarity: "common",
-  description: describe("每当进入一个新的关卡，随机获取2个新的宝藏（需要有空位）"),
+  description: describe("每当进入关卡时，随机获取2个新的宝藏（需要有空位）"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

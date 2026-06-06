@@ -17,7 +17,7 @@
           @click.stop
         >
           <span class="header-split-label">钱包</span>
-          <span class="header-wallet-marks">
+          <span class="header-wallet-marks" :class="{ 'money-tone--debt': walletAmount < 0 }">
             <span class="money-dollar-char">$</span>
             <span class="header-wallet-amount">{{ formatWallet(walletAmount) }}</span>
           </span>
@@ -93,6 +93,7 @@ const props = defineProps({
   /** @type {{ levelId: string, slug: string, rerollsUsed: number }} */
   session: { type: Object, required: true },
   walletAmount: { type: Number, default: 0 },
+  walletFloor: { type: Number, default: 0 },
   ownedVoucherIds: { type: Array, default: () => [] },
   overlaySuppressed: { type: Boolean, default: false },
 });
@@ -216,11 +217,16 @@ const rerollRemainingLine = computed(() => {
 });
 
 const canReroll = computed(() =>
-  canPayBossBlindReroll(props.ownedVoucherIds ?? [], rerollsUsed.value, props.walletAmount),
+  canPayBossBlindReroll(
+    props.ownedVoucherIds ?? [],
+    rerollsUsed.value,
+    props.walletAmount,
+    props.walletFloor,
+  ),
 );
 
 function formatWallet(n) {
-  return String(Math.max(0, Math.floor(Number(n) || 0)));
+  return String(Math.floor(Number(n) || 0));
 }
 
 onMounted(() => {

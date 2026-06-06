@@ -25,7 +25,7 @@ export function getPackOfferSlotCount() {
  */
 export const SHOP_BUNDLE_PACK_PRICES = Object.freeze({
   spell: Object.freeze({ normal: 4, jumbo: 6, mega: 8 }),
-  upgrade: Object.freeze({ normal: 4, jumbo: 6, mega: 8 }),
+  upgrade: Object.freeze({ normal: 3, jumbo: 5, mega: 7 }),
   treasure: Object.freeze({ normal: 4, jumbo: 6, mega: 8 }),
   tile: Object.freeze({ normal: 4, jumbo: 6, mega: 8 }),
 });
@@ -36,8 +36,8 @@ export const SHOP_BUNDLE_PACK_PRICES = Object.freeze({
  */
 export const SHOP_SINGLE_ROW_PRICES = Object.freeze({
   spell: 3,
-  lengthUpgrade: 4,
-  rarityUpgrade: 5,
+  lengthUpgrade: 3,
+  rarityUpgrade: 4,
   /** 单张字母块进库（无材质/配饰） */
   deckTilePlain: 3,
   /** 单张字母块进库（带材质/配饰） */

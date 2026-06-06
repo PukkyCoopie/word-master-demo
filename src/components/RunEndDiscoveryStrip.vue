@@ -1,52 +1,58 @@
 <template>
   <div class="run-end-discovery-strip">
     <div class="run-end-discovery-strip__scroll">
-      <button
+      <component
         v-for="item in items"
         :key="item.key"
-        type="button"
+        :is="isDiscoveryItemClickable(item) ? 'button' : 'div'"
+        :type="isDiscoveryItemClickable(item) ? 'button' : undefined"
         class="run-end-discovery-chip"
+        :class="{ 'run-end-discovery-chip--static': !isDiscoveryItemClickable(item) }"
         :aria-label="item.ariaLabel"
         @click="onChipClick(item, $event)"
       >
-        <VoucherStampStack
+        <div
           v-if="item.kind === 'voucher'"
-          class="run-end-discovery-chip__voucher"
-          :stamps="item.stamps"
-          compact
-        />
+          class="run-end-discovery-chip__voucher-wrap shop-treasure-visual"
+        >
+          <VoucherStampStack :stamps="item.stamps" />
+        </div>
         <LetterTile
           v-else-if="item.kind === 'material'"
           variant="grid"
-          class="run-end-discovery-chip__material grid-tile"
+          class="run-end-discovery-chip__material shop-shelf-letter-tile grid-tile"
           :letter="item.materialId === 'wildcard' ? '?' : '·'"
           :hide-letter="item.materialId !== 'wildcard'"
           hide-rarity-gem
           :material-id="item.materialId"
         />
-        <span
+        <div
           v-else-if="item.kind === 'accessory'"
-          class="run-end-discovery-chip__accessory"
-          :class="[item.scopeClass, item.chipClass]"
+          class="run-end-discovery-chip__frame shop-treasure-frame run-end-discovery-chip__frame--accessory"
         >
           <span
-            :class="
-              item.scopeClass === 'treasure-accessory-chip'
-                ? 'treasure-accessory-chip-ripple'
-                : 'tile-accessory-chip-ripple'
-            "
-            aria-hidden="true"
-          />
-          <i
-            :class="[
-              item.scopeClass === 'treasure-accessory-chip'
-                ? 'treasure-accessory-chip-icon'
-                : 'tile-accessory-chip-icon',
-              item.iconClass,
-            ]"
-            aria-hidden="true"
-          />
-        </span>
+            class="collection-accessory-chip-showcase"
+            :class="[item.scopeClass, item.chipClass]"
+          >
+            <span
+              :class="
+                item.scopeClass === 'treasure-accessory-chip'
+                  ? 'treasure-accessory-chip-ripple'
+                  : 'tile-accessory-chip-ripple'
+              "
+              aria-hidden="true"
+            />
+            <i
+              :class="[
+                item.scopeClass === 'treasure-accessory-chip'
+                  ? 'treasure-accessory-chip-icon'
+                  : 'tile-accessory-chip-icon',
+                item.iconClass,
+              ]"
+              aria-hidden="true"
+            />
+          </span>
+        </div>
         <div
           v-else
           class="run-end-discovery-chip__frame shop-treasure-frame"
@@ -82,7 +88,7 @@
             >
           </template>
         </div>
-      </button>
+      </component>
     </div>
   </div>
 </template>
@@ -105,8 +111,19 @@ function upgradeBadge(item) {
   return String(item.lengthBadgeLabel || item.lengthLabel || "").trim();
 }
 
+/** @param {import('../game/runCollectionDiscoveriesDisplay.js').RunDiscoveryDisplayItem} item */
+function isDiscoveryItemClickable(item) {
+  return (
+    item.kind === "treasure" ||
+    item.kind === "spell" ||
+    item.kind === "upgrade" ||
+    item.kind === "voucher"
+  );
+}
+
 /** @param {import('../game/runCollectionDiscoveriesDisplay.js').RunDiscoveryDisplayItem} item @param {MouseEvent} event */
 function onChipClick(item, event) {
+  if (!isDiscoveryItemClickable(item)) return;
   const el = event.currentTarget;
   emit("select", {
     item,
@@ -168,6 +185,15 @@ function onChipClick(item, event) {
   filter: brightness(0.94);
 }
 
+.run-end-discovery-chip--static {
+  cursor: default;
+}
+
+.run-end-discovery-chip--static:hover,
+.run-end-discovery-chip--static:active {
+  filter: none;
+}
+
 .run-end-discovery-chip__frame {
   width: 100%;
   height: 100%;
@@ -178,7 +204,7 @@ function onChipClick(item, event) {
   box-sizing: border-box;
 }
 
-.run-end-discovery-chip__voucher {
+.run-end-discovery-chip__voucher-wrap {
   width: 100%;
   height: 100%;
   min-width: 100%;
@@ -186,25 +212,6 @@ function onChipClick(item, event) {
   max-width: 100%;
   max-height: 100%;
   flex-shrink: 0;
-}
-
-.run-end-discovery-chip__voucher :deep(.voucher-stamp-stack) {
-  width: 100%;
-  height: 100%;
-}
-
-.run-end-discovery-chip__voucher :deep(.voucher-stamp-stack--stacked) {
-  height: 100%;
-}
-
-.run-end-discovery-chip__voucher :deep(.voucher-stamp) {
-  width: 100%;
-  height: 100%;
-}
-
-.run-end-discovery-chip__voucher :deep(.voucher-stamp__frame) {
-  width: 100%;
-  height: 100%;
 }
 
 .run-end-discovery-chip__material {
@@ -215,21 +222,5 @@ function onChipClick(item, event) {
   max-width: 100%;
   max-height: 100%;
   flex-shrink: 0;
-}
-
-.run-end-discovery-chip__accessory {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  min-width: 100%;
-  min-height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  flex-shrink: 0;
-  box-sizing: border-box;
-  overflow: hidden;
 }
 </style>

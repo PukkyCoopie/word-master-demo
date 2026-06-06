@@ -3,7 +3,11 @@
     <p :class="['difficulty-desc-line', { 'difficulty-desc-line--unclamped': props.unclamped }]">
       <template v-for="(seg, i) in mainSegments" :key="`m-${i}`">
         <span v-if="seg.type === 'text'">{{ seg.v }}</span>
-        <span v-else-if="seg.type === 'money'" class="difficulty-desc-money">
+        <span
+          v-else-if="seg.type === 'money'"
+          class="difficulty-desc-money"
+          :class="{ 'difficulty-desc-money--debt': isDebtMoneyChipValue(seg.v) }"
+        >
           <span class="difficulty-desc-money-dollar">$</span>{{ seg.v }}
         </span>
       </template>
@@ -18,7 +22,11 @@
     >
       <template v-for="(seg, i) in parenSegments" :key="`p-${i}`">
         <span v-if="seg.type === 'text'">{{ seg.v }}</span>
-        <span v-else-if="seg.type === 'money'" class="difficulty-desc-money">
+        <span
+          v-else-if="seg.type === 'money'"
+          class="difficulty-desc-money"
+          :class="{ 'difficulty-desc-money--debt': isDebtMoneyChipValue(seg.v) }"
+        >
           <span class="difficulty-desc-money-dollar">$</span>{{ seg.v }}
         </span>
       </template>
@@ -28,6 +36,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { isDebtMoneyChipValue } from "../game/moneyDisplay.js";
 import { parsePlainEffectCopyToSegments } from "../treasures/treasureDescription.js";
 
 const props = defineProps({
@@ -93,5 +102,10 @@ const parenSegments = computed(() =>
 
 .difficulty-desc-money-dollar {
   font-weight: 700;
+}
+
+.difficulty-desc-money--debt,
+.difficulty-desc-money--debt .difficulty-desc-money-dollar {
+  color: var(--money-debt);
 }
 </style>
