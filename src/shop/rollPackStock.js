@@ -25,7 +25,6 @@ import {
   getSpellCategoryWeightMultiplier,
   getUpgradeCategoryWeightMultiplier,
   getMostPlayedWordLength,
-  hasIllusion,
   hasTelescopeVoucher,
 } from "../vouchers/voucherRuntime.js";
 
@@ -200,7 +199,7 @@ export function rollPackOfferStock(ctx) {
   const upgradePoolMegaOk = upgradeKeyPool.length >= 5;
 
   const letterRaws = allLetterRaws();
-  const materialIds = [...getShopTilePackMaterialIds(hasIllusion(ownedV))];
+  const materialIds = [...getShopTilePackMaterialIds()];
 
   const treasureNormalOk = emptySlots >= 1 && availableTreasureCount >= 2;
   const treasureJumboOk = emptySlots >= 1 && availableTreasureCount >= 4;

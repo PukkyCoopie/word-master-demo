@@ -27,7 +27,7 @@
             :class="{ 'info-tab--active': activeTab === 'level' }"
             :aria-selected="activeTab === 'level'"
             :ref="(el) => setInfoTabEl('level', el)"
-            @click="activeTab = 'level'"
+            @click="switchInfoTab('level')"
           >
             等级
           </button>
@@ -38,7 +38,7 @@
             :class="{ 'info-tab--active': activeTab === 'rarity' }"
             :aria-selected="activeTab === 'rarity'"
             :ref="(el) => setInfoTabEl('rarity', el)"
-            @click="activeTab = 'rarity'"
+            @click="switchInfoTab('rarity')"
           >
             字母块
           </button>
@@ -49,7 +49,7 @@
             :class="{ 'info-tab--active': activeTab === 'stage' }"
             :aria-selected="activeTab === 'stage'"
             :ref="(el) => setInfoTabEl('stage', el)"
-            @click="activeTab = 'stage'"
+            @click="switchInfoTab('stage')"
           >
             关卡
           </button>
@@ -60,7 +60,7 @@
             :class="{ 'info-tab--active': activeTab === 'coupon' }"
             :aria-selected="activeTab === 'coupon'"
             :ref="(el) => setInfoTabEl('coupon', el)"
-            @click="activeTab = 'coupon'"
+            @click="switchInfoTab('coupon')"
           >
             优惠券
           </button>
@@ -71,7 +71,7 @@
             :class="{ 'info-tab--active': activeTab === 'preset' }"
             :aria-selected="activeTab === 'preset'"
             :ref="(el) => setInfoTabEl('preset', el)"
-            @click="activeTab = 'preset'"
+            @click="switchInfoTab('preset')"
           >
             预设和难度
           </button>
@@ -698,14 +698,47 @@ function collectActiveTabStaggerTargets() {
   return [...panel.querySelectorAll(".info-stagger-el")];
 }
 
-function prepareActiveTabEnterHidden() {
-  const tab = activeTab.value;
-  const targets = collectActiveTabStaggerTargets();
-  if (tab === "coupon") {
-    prepareInfoCouponTabEnter(targets);
+/**
+ * @param {string} tabId
+ * @param {HTMLElement[]} [targets]
+ */
+function prepareTabStaggerHidden(tabId, targets) {
+  const els = targets ?? (() => {
+    const panel = INFO_TAB_PANEL_REF[tabId]?.value;
+    return panel ? [...panel.querySelectorAll(".info-stagger-el")] : [];
+  })();
+  if (!els.length) return;
+  if (tabId === "coupon") {
+    prepareInfoCouponTabEnter(els);
   } else {
-    prepareInfoGridTabEnter(targets);
+    prepareInfoGridTabEnter(els);
   }
+}
+
+function prepareActiveTabEnterHidden() {
+  prepareTabStaggerHidden(activeTab.value);
+}
+
+/**
+ * 切 Tab：先复位离/入面板起始态，再改 activeTab，避免 v-show 首帧露出终态。
+ * @param {string} tabId
+ */
+function switchInfoTab(tabId) {
+  if (!VALID_INFO_TABS.has(tabId) || activeTab.value === tabId) return;
+  if (!props.modelValue || skipTabSwitchAnim) {
+    activeTab.value = tabId;
+    return;
+  }
+  const prev = activeTab.value;
+  if (tabEnterAnimTimer) {
+    clearTimeout(tabEnterAnimTimer);
+    tabEnterAnimTimer = null;
+  }
+  killAllInfoStaggerTweens();
+  prepareTabStaggerHidden(prev);
+  prepareTabStaggerHidden(tabId);
+  activeTab.value = tabId;
+  scheduleActiveTabEnterAnim({ delay: 0 });
 }
 
 function runActiveTabEnterAnim() {
@@ -729,10 +762,15 @@ function scheduleActiveTabEnterAnim(opts = {}) {
   if (!props.modelValue) return;
   const delay = opts.delay ?? 0;
   if (tabEnterAnimTimer) clearTimeout(tabEnterAnimTimer);
-  tabEnterAnimTimer = setTimeout(() => {
+  const run = () => {
     tabEnterAnimTimer = null;
     nextTick(() => runActiveTabEnterAnim());
-  }, delay);
+  };
+  if (delay > 0) {
+    tabEnterAnimTimer = setTimeout(run, delay);
+  } else {
+    run();
+  }
 }
 
 onBeforeUnmount(() => {
@@ -781,13 +819,6 @@ watch(
 
 watch(activeTab, () => {
   scheduleUpdateInfoTabThumb();
-  if (!props.modelValue || skipTabSwitchAnim) return;
-  if (tabEnterAnimTimer) {
-    clearTimeout(tabEnterAnimTimer);
-    tabEnterAnimTimer = null;
-  }
-  killAllInfoStaggerTweens();
-  scheduleActiveTabEnterAnim({ delay: 0 });
 });
 
 watch(

@@ -25,6 +25,7 @@ export function buildPackDeckOfferLetterTileProps(offer) {
     const mat = String(offer.deckTileMaterialId).trim();
     if (mat) materialId = mat;
   }
+  const isWildcardMaterial = materialId === "wildcard";
 
   const acc =
     offer.deckTileAccessoryId != null ? String(offer.deckTileAccessoryId).trim() : "";
@@ -47,8 +48,8 @@ export function buildPackDeckOfferLetterTileProps(offer) {
   );
 
   return {
-    letter,
-    rarity,
+    letter: isWildcardMaterial ? "?" : letter,
+    rarity: isWildcardMaterial ? "common" : rarity,
     materialId,
     accessoryId,
     treasureAccessoryId,

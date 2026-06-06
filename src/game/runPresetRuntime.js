@@ -1,3 +1,4 @@
+import { readOfferRandomSaleDiscount } from "../shop/shopRandomSale.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
 import { getRunPresetDef, normalizeRunPresetId } from "./runPresetDefinitions.js";
 
@@ -83,6 +84,10 @@ export function applyPresetAndShopDiscountPrice(basePrice, offer, ownedVouchers,
   const disc = cat ? getRunPresetEffects(pid).shopFlatDiscount?.[cat] : 0;
   if (disc != null && Number(disc) > 0) {
     p = Math.max(0, p - Math.floor(Number(disc)));
+  }
+  const randomSale = readOfferRandomSaleDiscount(offer);
+  if (randomSale > 0) {
+    p = Math.max(0, p - randomSale);
   }
   return applyShopDiscountPrice(p, ownedVouchers);
 }

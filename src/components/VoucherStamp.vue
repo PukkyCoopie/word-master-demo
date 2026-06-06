@@ -18,7 +18,7 @@
       </template>
     </div>
     <div v-if="showPrice" class="shop-treasure-price">
-      <div class="shop-treasure-price-inner">${{ priceText }}</div>
+      <div class="shop-treasure-price-inner" :class="priceInnerClasses">${{ priceText }}</div>
     </div>
     <div v-else-if="empty && reservePriceSlot" class="shop-treasure-price" aria-hidden="true">
       <div class="shop-treasure-price-inner">&nbsp;</div>
@@ -37,6 +37,8 @@ const props = defineProps({
   displayName: { type: String, default: "" },
   /** 折后整数价；不传则隐藏价签区（对局信息已购列表等） */
   price: { type: Number, default: undefined },
+  /** 价签字色类（商店随机优惠 / 买不起等） */
+  priceInnerClasses: { type: Object, default: () => ({}) },
   /** 对局信息等小格略缩 */
   compact: { type: Boolean, default: false },
   /**

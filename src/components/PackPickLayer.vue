@@ -119,8 +119,11 @@
                     </template>
                   </div>
                   <div class="shop-treasure-price" aria-label="参考售价">
-                    <div class="shop-treasure-price-inner shop-treasure-price-inner--pack-struck">
-                      ${{ markPrice(opt.price) }}
+                    <div
+                      class="shop-treasure-price-inner"
+                      :class="packOptionPriceView(opt).innerClasses"
+                    >
+                      ${{ packOptionPriceView(opt).amount }}
                     </div>
                   </div>
                   <span v-if="isClaimed(opt)" class="pack-pick-claimed-badge" aria-hidden="true">已获取</span>
@@ -146,7 +149,7 @@ import gsap from "gsap";
 import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
 import LetterTile from "./LetterTile.vue";
 import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
-import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
+import { buildShopOfferPriceView } from "../shop/shopOfferPriceDisplay.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { EASE_TRANSFORM } from "../constants.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
@@ -160,6 +163,8 @@ const props = defineProps({
   session: { type: Object, required: true },
   walletAmount: { type: Number, default: 0 },
   ownedVoucherIds: { type: Array, default: () => [] },
+  runPresetId: { type: String, default: "preset_01" },
+  walletFloor: { type: Number, default: 0 },
   disabled: { type: Boolean, default: false },
   /** 商店升级动效播放时暂隐（保留 session，动效结束后再显示） */
   overlaySuppressed: { type: Boolean, default: false },
@@ -177,6 +182,8 @@ const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.v
 let enterTl = null;
 /** @type {gsap.core.Timeline | null} */
 let closeTl = null;
+/** @type {Promise<void> | null} */
+let closeFlightPromise = null;
 const closing = ref(false);
 
 const PACK_PICK_SCRIM_TRANSPARENT = "rgba(42, 38, 48, 0)";
@@ -278,8 +285,9 @@ function runEnterAnimation() {
  * @returns {Promise<void>}
  */
 function playClose() {
-  if (closing.value) return Promise.resolve();
+  if (closeFlightPromise) return closeFlightPromise;
   closing.value = true;
+  enterBoot.value = false;
 
   const backdrop = backdropRef.value;
   const staggerEls = collectEnterStaggerEls();
@@ -301,16 +309,19 @@ function playClose() {
   }
 
   if (shouldSkipDecorativeMotion()) {
-    return instantPortalLayerClose({ backdrop, staggerEls }).then(() => {
+    closeFlightPromise = instantPortalLayerClose({ backdrop, staggerEls }).then(() => {
       closing.value = false;
+      closeFlightPromise = null;
     });
+    return closeFlightPromise;
   }
 
-  return new Promise((resolve) => {
+  closeFlightPromise = new Promise((resolve) => {
     closeTl = gsap.timeline({
       onComplete: () => {
         closeTl = null;
         closing.value = false;
+        closeFlightPromise = null;
         resolve(undefined);
       },
     });
@@ -342,6 +353,8 @@ function playClose() {
       );
     }
   });
+
+  return closeFlightPromise;
 }
 
 defineExpose({ getFlySourceEl, playEnter: runEnterAnimation, playClose });
@@ -378,8 +391,14 @@ function formatWallet(n) {
   return Math.round(x).toLocaleString();
 }
 
-function markPrice(base) {
-  return applyShopDiscountPrice(Number(base) || 0, props.ownedVoucherIds ?? []);
+function packOptionPriceView(opt) {
+  return buildShopOfferPriceView(Number(opt?.price) || 0, opt ?? {}, {
+    wallet: props.walletAmount,
+    ownedVoucherIds: props.ownedVoucherIds ?? [],
+    runPresetId: props.runPresetId,
+    walletFloor: props.walletFloor,
+    packStruck: true,
+  });
 }
 
 function isDeckOffer(opt) {
@@ -482,6 +501,7 @@ onUnmounted(() => {
   stackZ.value = 0;
   cellRoots.clear();
   killEnterTweens();
+  closeFlightPromise = null;
   closing.value = false;
   enterBoot.value = true;
 });

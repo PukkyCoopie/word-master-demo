@@ -345,6 +345,9 @@ function runEnterAnimation() {
       staggerEls: staggerTargets(),
       primaryEl: targetFade,
     });
+    void nextTick(() => {
+      previewNavRef.value?.resetVisible?.();
+    });
     initialEnterDone.value = true;
     return;
   }
@@ -356,7 +359,13 @@ function runEnterAnimation() {
 
   const staggerEls = staggerTargets();
 
-  gsap.killTweensOf([backdrop, targetFade, clone, ...staggerEls].filter(Boolean));
+  gsap.killTweensOf([
+    backdrop,
+    targetFade,
+    clone,
+    ...staggerEls,
+    ...(previewNavRef.value?.getAnimTargets?.() ?? []),
+  ].filter(Boolean));
 
   gsap.set(backdrop, portalScrimGsapVars("rgba(14, 12, 10, 0)"));
   gsap.set(staggerEls, { opacity: 0, y: 7 });
@@ -395,6 +404,10 @@ function runEnterAnimation() {
       } else {
         flyCloneActive.value = false;
         gsap.set(fadeEl, { opacity: 0, pointerEvents: "none", y: 8 });
+      }
+
+      if (props.previewNavTotal > 1) {
+        previewNavRef.value?.applyEnterInitialHide?.();
       }
 
       bootMask.value = false;
@@ -475,6 +488,10 @@ function runEnterAnimation() {
         },
         hasFly ? 0.14 : 0.05,
       );
+
+      if (props.previewNavTotal > 1) {
+        previewNavRef.value?.appendEnterAnimation?.(tl, hasFly ? 0.28 : 0.08);
+      }
 
       enterTl = tl;
       tl.eventCallback("onComplete", () => {

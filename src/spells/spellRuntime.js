@@ -542,6 +542,43 @@ function resolveSpellTargetTile(ctx, p) {
  */
 
 /**
+ * 星星法术：1/4 概率为随机已拥有宝藏装备随机配饰；否则未命中。
+ * @param {SpellRuntimeContext} ctx
+ * @param {() => number} [rng]
+ * @returns {{ ok: true, slotIndex: number, accessoryId: string } | { ok: false }}
+ */
+export function resolveStarSpellOutcome(ctx, rng = Math.random) {
+  if (rngU(rng) >= 0.25) return { ok: false };
+  const slots = ctx.ownedTreasures.value;
+  /** @type {number[]} */
+  const ixList = [];
+  for (let i = 0; i < slots.length; i++) {
+    if (slots[i] != null) ixList.push(i);
+  }
+  if (ixList.length === 0) return { ok: false };
+  const ix = ixList[Math.floor(rngU(rng) * ixList.length)];
+  const acc = ALL_TREASURE_ACCESSORY_IDS[Math.floor(rngU(rng) * ALL_TREASURE_ACCESSORY_IDS.length)];
+  return { ok: true, slotIndex: ix, accessoryId: acc };
+}
+
+/**
+ * @param {SpellRuntimeContext} ctx
+ * @param {{ ok: true, slotIndex: number, accessoryId: string }} outcome
+ */
+export function applyStarSpellOutcome(ctx, outcome) {
+  if (!outcome?.ok) return;
+  const slots = ctx.ownedTreasures.value;
+  const ix = outcome.slotIndex;
+  const cur = slots[ix];
+  if (cur && typeof cur === "object") {
+    const nextSlots = [...slots];
+    nextSlots[ix] = { ...cur, treasureAccessoryId: outcome.accessoryId };
+    ctx.ownedTreasures.value = nextSlots;
+    ctx.onAccessoryAcquired?.(outcome.accessoryId);
+  }
+}
+
+/**
  * @param {SpellRuntimeContext} ctx
  * @param {string} purchasedSpellId 玩家购买的法术 id（用于更新「重播」锚点）
  * @param {string} effectiveSpellId 实际执行的逻辑 id（重播时为上一张）
@@ -721,21 +758,16 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "star": {
-      if (rngU(rng) >= 0.25) break;
-      const slots = ctx.ownedTreasures.value;
-      const ixList = [];
-      for (let i = 0; i < slots.length; i++) {
-        if (slots[i] != null) ixList.push(i);
-      }
-      if (ixList.length === 0) break;
-      const ix = ixList[Math.floor(rngU(rng) * ixList.length)];
-      const acc = ALL_TREASURE_ACCESSORY_IDS[Math.floor(rngU(rng) * ALL_TREASURE_ACCESSORY_IDS.length)];
-      const cur = slots[ix];
-      if (cur && typeof cur === "object") {
-        const nextSlots = [...slots];
-        nextSlots[ix] = { ...cur, treasureAccessoryId: acc };
-        ctx.ownedTreasures.value = nextSlots;
-        ctx.onAccessoryAcquired?.(acc);
+      const outcome = resolveStarSpellOutcome(ctx, rng);
+      if (outcome.ok) {
+        applyStarSpellOutcome(ctx, outcome);
+        spellFx = {
+          kind: "star_accessory",
+          slotIndex: outcome.slotIndex,
+          accessoryId: outcome.accessoryId,
+        };
+      } else {
+        spellFx = { kind: "star_miss" };
       }
       break;
     }
@@ -856,16 +888,30 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "cache": {
+      const slotsLenBefore = ctx.ownedTreasures.value.length;
       const r = ctx.grantRandomShopTreasureByRarity?.("epic");
       if (!r?.ok) ctx.showToast?.("没有空宝藏槽或无可售史诗宝藏");
-      else spellFx = { kind: "treasure_grant", slotIndex: r.slotIndex };
+      else {
+        spellFx = {
+          kind: "treasure_grant",
+          slotIndex: r.slotIndex,
+          slotsExpanded: ctx.ownedTreasures.value.length > slotsLenBefore,
+        };
+      }
       break;
     }
     case "wraith": {
       ctx.money.value = 0;
+      const slotsLenBefore = ctx.ownedTreasures.value.length;
       const r = ctx.grantRandomShopTreasureByRarity?.("legendary");
       if (!r?.ok) ctx.showToast?.("没有空宝藏槽或无可售传说宝藏");
-      else spellFx = { kind: "treasure_grant", slotIndex: r.slotIndex };
+      else {
+        spellFx = {
+          kind: "treasure_grant",
+          slotIndex: r.slotIndex,
+          slotsExpanded: ctx.ownedTreasures.value.length > slotsLenBefore,
+        };
+      }
       break;
     }
     case "ouija": {
@@ -947,9 +993,16 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "treasure_map": {
+      const slotsLenBefore = ctx.ownedTreasures.value.length;
       const r = ctx.grantRandomShopTreasureByRarity?.(null);
       if (!r?.ok) ctx.showToast?.("没有空宝藏槽或无可售宝藏");
-      else spellFx = { kind: "treasure_grant", slotIndex: r.slotIndex };
+      else {
+        spellFx = {
+          kind: "treasure_grant",
+          slotIndex: r.slotIndex,
+          slotsExpanded: ctx.ownedTreasures.value.length > slotsLenBefore,
+        };
+      }
       break;
     }
     case "coupon_drop": {

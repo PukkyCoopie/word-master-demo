@@ -216,7 +216,7 @@ function createShopRandomCardRoller(ctx) {
     return buildLengthUpgradeShopRow(ctx.nextOfferInstanceId, g);
   }
 
-  const tileMaterialIds = getShopTilePackMaterialIds(illusionOwned);
+  const tileMaterialIds = getShopTilePackMaterialIds();
 
   /** 打字机券：单卡区 tile；二级前无材质/配饰掷骰，二级后可带增益 */
   function tryPlayingCard() {

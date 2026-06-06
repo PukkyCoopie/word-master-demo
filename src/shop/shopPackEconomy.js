@@ -64,22 +64,25 @@ export const PACK_OFFER_CATEGORY_WEIGHTS = Object.freeze({
   bundleTileMega: 1,
 });
 
-/** 字母块包 / 带增益 tile：可出现的材质 id（不含万能） */
-export const SHOP_TILE_PACK_MATERIAL_IDS = Object.freeze(["gold", "steel", "ice", "water", "fire", "lucky"]);
+/** 字母块包 / 带增益 tile：可出现的材质 id（含万能块；掷中后整格变为万能块） */
+export const SHOP_TILE_PACK_MATERIAL_IDS = Object.freeze([
+  "gold",
+  "steel",
+  "ice",
+  "water",
+  "fire",
+  "lucky",
+  "wildcard",
+]);
 
-/** 打字机·二级：商店材质池追加万能块（不在券面文案中说明） */
 export const SHOP_WILDCARD_MATERIAL_ID = "wildcard";
 
 /** 商店单张万能材质字母块售价 */
 export const SHOP_WILDCARD_TILE_PRICE = 6;
 
-/**
- * @param {boolean} [illusionOwned] 是否拥有打字机二级（v_magic_2）
- * @returns {readonly string[]}
- */
-export function getShopTilePackMaterialIds(illusionOwned = false) {
-  if (!illusionOwned) return SHOP_TILE_PACK_MATERIAL_IDS;
-  return Object.freeze([...SHOP_TILE_PACK_MATERIAL_IDS, SHOP_WILDCARD_MATERIAL_ID]);
+/** @returns {readonly string[]} */
+export function getShopTilePackMaterialIds() {
+  return SHOP_TILE_PACK_MATERIAL_IDS;
 }
 
 /**

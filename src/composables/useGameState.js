@@ -351,6 +351,28 @@ const COLS = 4;
 const WATER_MATERIAL_SCORE_BONUS = 30;
 const FIRE_MATERIAL_MULT_BONUS = 4;
 
+/**
+ * 商店 / 牌包掷骰后的材质写入牌张；万能块材质令整格变为万能块。
+ * @param {ReturnType<typeof createDeckCard>} card
+ * @param {string | null | undefined} materialId
+ */
+function applyRolledMaterialIdToDeckCard(card, materialId) {
+  const mat = materialId != null ? String(materialId).trim() : "";
+  if (!mat) return;
+  card.materialScoreBonus = 0;
+  card.materialMultBonus = 0;
+  if (mat === WILDCARD_MATERIAL_ID) {
+    card.isWildcard = true;
+    card.materialId = WILDCARD_MATERIAL_ID;
+    card.rarity = "common";
+    return;
+  }
+  card.isWildcard = false;
+  card.materialId = mat;
+  if (mat === "water") card.materialScoreBonus = WATER_MATERIAL_SCORE_BONUS;
+  if (mat === "fire") card.materialMultBonus = FIRE_MATERIAL_MULT_BONUS;
+}
+
 /** 单次移除棋盘上已选字母上限（与 remove 按钮可用条件一致） */
 export const MAX_LETTERS_PER_REMOVAL = 8;
 
@@ -1385,7 +1407,7 @@ export function useGameState(gameOpts = {}) {
     if (spec.accessoryId) card.accessoryId = spec.accessoryId;
     if (spec.tileScoreBonus) card.tileScoreBonus = Math.max(0, Math.floor(Number(spec.tileScoreBonus) || 0));
     if (spec.letterMultBonus) card.letterMultBonus = Math.max(0, Math.floor(Number(spec.letterMultBonus) || 0));
-    if (spec.materialId) card.materialId = spec.materialId;
+    if (spec.materialId) applyRolledMaterialIdToDeckCard(card, spec.materialId);
     initialDeckSnapshot.value = [...initialDeckSnapshot.value, card];
     noteDeckStackReplenished(raw);
     return card;
@@ -1596,13 +1618,7 @@ export function useGameState(gameOpts = {}) {
       if (!/^[a-z]$/.test(raw)) raw = "e";
       const card = createDeckCard(raw);
       const mat = e?.materialId != null ? String(e.materialId).trim() : "";
-      if (mat && mat !== "wildcard") {
-        card.materialId = mat;
-        card.materialScoreBonus = 0;
-        card.materialMultBonus = 0;
-        if (mat === "water") card.materialScoreBonus = WATER_MATERIAL_SCORE_BONUS;
-        if (mat === "fire") card.materialMultBonus = FIRE_MATERIAL_MULT_BONUS;
-      }
+      if (mat) applyRolledMaterialIdToDeckCard(card, mat);
       const normalizedAccessory = normalizeExclusiveTileAccessoryPair(e?.accessoryId, e?.treasureAccessoryId);
       card.accessoryId = normalizedAccessory.accessoryId;
       card.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;

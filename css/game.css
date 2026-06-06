@@ -842,6 +842,12 @@ textarea::-moz-placeholder {
 	background: #8a939c;
 	font-weight: 700;
 }
+/* 星星法术未命中 */
+.score-popup-bubble--star-miss {
+	background: #8a939c;
+	color: #fff;
+	font-weight: 700;
+}
 /* 额外整轮字母计分：与 +分气泡同形，底色为橙 */
 .score-popup-bubble--replay-again {
 	background: var(--btn-orange);
@@ -3112,6 +3118,14 @@ textarea::-moz-placeholder {
 	text-align: center;
 }
 
+.shop-treasure-price-inner--unaffordable {
+	color: rgba(253, 230, 138, 0.6);
+}
+
+.shop-treasure-price-inner--discounted {
+	color: #86efac;
+}
+
 .shop-treasure-price-inner--stack {
 	flex-direction: column;
 	align-items: center;
@@ -3279,16 +3293,14 @@ textarea::-moz-placeholder {
 
 .run-end-discovery-chip__voucher-wrap .voucher-stamp-stack {
 	width: 100%;
+	height: 100%;
 	max-width: 100%;
 	margin: 0;
 }
 
-.run-end-discovery-chip__voucher-wrap .voucher-stamp-stack--stacked {
-	height: 100%;
-}
-
 .run-end-discovery-chip__voucher-wrap .voucher-stamp {
 	width: 100%;
+	height: 100%;
 }
 
 .run-end-discovery-chip__voucher-wrap .voucher-stamp__frame {
@@ -3824,6 +3836,10 @@ textarea::-moz-placeholder {
 	line-height: 1.45;
 }
 
+.treasure-detail-desc-panel-title-text--random-sale {
+	color: #4ade80;
+}
+
 .tile-detail-rarity-title-row .tile-detail-entry-kind {
 	font-weight: 700;
 	color: rgba(248, 244, 238, 0.72);
@@ -4168,6 +4184,7 @@ textarea::-moz-placeholder {
 	cursor: pointer;
 	transform: translateY(-50%);
 	pointer-events: auto;
+	opacity: 0;
 	transition: background calc(0.12s / var(--anim-speed-scale, 1)) ease;
 }
 
@@ -4207,6 +4224,7 @@ textarea::-moz-placeholder {
 	min-width: calc(96 * var(--rpx));
 	text-align: center;
 	line-height: 1.2;
+	opacity: 0;
 }
 
 /* 收藏：出现前提感叹号（列表名前行 & 详情「前置条件」标题） */

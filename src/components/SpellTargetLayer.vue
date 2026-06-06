@@ -712,7 +712,11 @@ function getSpellIconEl() {
   return iconColumnRef.value?.querySelector?.(".shop-treasure-frame") ?? iconColumnRef.value ?? null;
 }
 
-defineExpose({ playConfirmAppearanceAnim, playClose, getOfferTileEl, getSpellIconEl });
+function getSpellVisualEl() {
+  return iconColumnRef.value?.querySelector?.(".shop-treasure-visual") ?? iconColumnRef.value ?? null;
+}
+
+defineExpose({ playConfirmAppearanceAnim, playClose, getOfferTileEl, getSpellIconEl, getSpellVisualEl });
 
 /** @param {HTMLElement} backdrop */
 function setBackdropScrim(backdrop, rgba) {

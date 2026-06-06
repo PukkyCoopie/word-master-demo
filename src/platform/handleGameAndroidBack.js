@@ -5,7 +5,7 @@
  */
 export function handleGameAndroidBack(ctx) {
   if (ctx.transitionBusy.value) return true;
-  if (ctx.shopUpgradeAnimating.value || ctx.packPickBusy.value) return true;
+  if (ctx.shopUpgradeAnimating.value || ctx.packPickBusy.value || ctx.packPickSkipBusy?.value) return true;
   if (ctx.submitWordBusy.value || ctx.scoringAnimating.value || ctx.gridRefillAnimating.value) {
     return true;
   }

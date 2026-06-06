@@ -77,19 +77,28 @@ export function rollDeckTileModifiers(rng, opts = {}) {
 export function buildDeckTileOfferDisplay(letterDisp, mods) {
   const parts = [];
   const mat = mods.materialId != null ? String(mods.materialId).trim() : "";
+  const isWildcard = mat === "wildcard";
   if (mat) parts.push(getTileMaterialBlockTitle(mat) || mat);
   const tAcc = mods.treasureAccessoryId != null ? String(mods.treasureAccessoryId).trim() : "";
   if (tAcc) parts.push(getAccessoryTitle(tAcc) || tAcc);
   const bAcc = mods.accessoryId != null ? String(mods.accessoryId).trim() : "";
   if (bAcc) parts.push(getAccessoryTitle(bAcc) || bAcc);
-  const name = parts.length ? `${parts.join(" · ")} · ${letterDisp}` : `字母 ${letterDisp}`;
+  const name = parts.length
+    ? isWildcard
+      ? parts.join(" · ")
+      : `${parts.join(" · ")} · ${letterDisp}`
+    : `字母 ${letterDisp}`;
   const descParts = [];
   if (mat) descParts.push(`「${getTileMaterialBlockTitle(mat) || mat}」材质`);
   if (tAcc) descParts.push(`「${getAccessoryTitle(tAcc) || tAcc}」`);
   if (bAcc) descParts.push(`「${getAccessoryTitle(bAcc) || bAcc}」`);
-  const description = descParts.length
-    ? `${descParts.join("、")}的「${letterDisp}」加入牌库`
-    : `「${letterDisp}」加入牌库${mods.rarityLabel ? `（${mods.rarityLabel}）` : ""}`;
+  const description = isWildcard
+    ? descParts.length
+      ? `${descParts.join("、")}的万能块加入牌库`
+      : "万能块加入牌库"
+    : descParts.length
+      ? `${descParts.join("、")}的「${letterDisp}」加入牌库`
+      : `「${letterDisp}」加入牌库${mods.rarityLabel ? `（${mods.rarityLabel}）` : ""}`;
   return { name, description };
 }
 

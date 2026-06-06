@@ -28,9 +28,12 @@
 
 <script setup>
 import gsap from "gsap";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { EASE_TRANSFORM } from "../constants.js";
 import { formatPreviewNavProgress } from "../preview/previewGroupNav.js";
+
+const SIDE_ENTER_OFFSET = 28;
+const PROGRESS_ENTER_OFFSET = 14;
 
 const props = defineProps({
   index: { type: Number, default: 0 },
@@ -52,35 +55,74 @@ function animTargets() {
   return [progressRef.value, prevRef.value, nextRef.value].filter(Boolean);
 }
 
+function sideEnterState(side) {
+  return {
+    opacity: 0,
+    x: side === "prev" ? -SIDE_ENTER_OFFSET : SIDE_ENTER_OFFSET,
+    yPercent: -50,
+  };
+}
+
+function applyEnterInitialHide() {
+  if (props.total <= 1) return;
+  const prev = prevRef.value;
+  const next = nextRef.value;
+  const progress = progressRef.value;
+  gsap.killTweensOf(animTargets());
+  if (prev) gsap.set(prev, sideEnterState("prev"));
+  if (next) gsap.set(next, sideEnterState("next"));
+  if (progress) gsap.set(progress, { opacity: 0, y: PROGRESS_ENTER_OFFSET });
+}
+
 function resetVisible() {
-  const targets = animTargets();
-  if (!targets.length) return;
-  gsap.set(targets, { opacity: 1, y: 0, clearProps: "transform" });
+  const prev = prevRef.value;
+  const next = nextRef.value;
+  const progress = progressRef.value;
+  gsap.killTweensOf(animTargets());
+  if (prev) gsap.set(prev, { opacity: 1, x: 0, clearProps: "transform" });
+  if (next) gsap.set(next, { opacity: 1, x: 0, clearProps: "transform" });
+  if (progress) gsap.set(progress, { opacity: 1, y: 0, clearProps: "transform" });
 }
 
 /** @param {gsap.core.Timeline} tl @param {number} [at=0] */
 function appendCloseAnimation(tl, at = 0) {
   if (props.total <= 1 || !tl) return;
+  const prev = prevRef.value;
+  const next = nextRef.value;
   const progress = progressRef.value;
-  const sides = [prevRef.value, nextRef.value].filter(Boolean);
-  if (progress) {
+  if (prev) {
     tl.to(
-      progress,
+      prev,
       {
         opacity: 0,
-        y: 8,
-        duration: 0.07,
+        x: -SIDE_ENTER_OFFSET,
+        yPercent: -50,
+        duration: 0.1,
         ease: EASE_TRANSFORM,
       },
       at,
     );
   }
-  if (sides.length) {
+  if (next) {
     tl.to(
-      sides,
+      next,
       {
         opacity: 0,
-        duration: 0.07,
+        x: SIDE_ENTER_OFFSET,
+        yPercent: -50,
+        duration: 0.1,
+        ease: EASE_TRANSFORM,
+      },
+      at,
+    );
+  }
+  if (progress) {
+    tl.to(
+      progress,
+      {
+        opacity: 0,
+        y: PROGRESS_ENTER_OFFSET,
+        duration: 0.1,
         ease: EASE_TRANSFORM,
       },
       at,
@@ -89,44 +131,63 @@ function appendCloseAnimation(tl, at = 0) {
 }
 
 function instantCloseHide() {
-  const targets = animTargets();
-  if (!targets.length) return;
-  gsap.set(targets, { opacity: 0 });
+  applyEnterInitialHide();
 }
 
 /** @param {gsap.core.Timeline} tl @param {number} [at=0] */
 function appendEnterAnimation(tl, at = 0) {
   if (props.total <= 1 || !tl) return;
-  const targets = animTargets();
-  if (!targets.length) return;
-  gsap.set(targets, { opacity: 0 });
-  tl.to(
-    targets,
-    {
-      opacity: 1,
-      y: 0,
-      duration: 0.14,
-      ease: EASE_TRANSFORM,
-      clearProps: "transform",
-    },
-    at,
-  );
+  applyEnterInitialHide();
+  const prev = prevRef.value;
+  const next = nextRef.value;
+  const progress = progressRef.value;
+  if (prev) {
+    tl.to(
+      prev,
+      {
+        opacity: 1,
+        x: 0,
+        yPercent: -50,
+        duration: 0.22,
+        ease: EASE_TRANSFORM,
+        clearProps: "transform",
+      },
+      at,
+    );
+  }
+  if (next) {
+    tl.to(
+      next,
+      {
+        opacity: 1,
+        x: 0,
+        yPercent: -50,
+        duration: 0.22,
+        ease: EASE_TRANSFORM,
+        clearProps: "transform",
+      },
+      at,
+    );
+  }
+  if (progress) {
+    tl.to(
+      progress,
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.2,
+        ease: EASE_TRANSFORM,
+        clearProps: "transform",
+      },
+      at + 0.04,
+    );
+  }
 }
-
-watch(
-  () => props.total,
-  (n) => {
-    if (n > 1) resetVisible();
-  },
-);
-
-onMounted(() => {
-  resetVisible();
-});
 
 defineExpose({
   appendCloseAnimation,
   appendEnterAnimation,
+  applyEnterInitialHide,
   instantCloseHide,
   instantEnterHide: instantCloseHide,
   resetVisible,

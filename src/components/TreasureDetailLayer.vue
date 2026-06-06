@@ -67,7 +67,10 @@
                   >
                     <div
                       class="shop-treasure-price-inner"
-                      :class="{ 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' }"
+                      :class="[
+                        { 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' },
+                        offerShelfPriceInnerClasses,
+                      ]"
                     >
                       <template v-if="mode === 'offer'">${{ offerPriceDisplayed }}</template>
                       <template v-else-if="mode === 'pack-inner'">${{ offerPriceDisplayed }}</template>
@@ -220,7 +223,10 @@
               >
                 <div
                   class="shop-treasure-price-inner"
-                  :class="{ 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' }"
+                  :class="[
+                    { 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' },
+                    offerShelfPriceInnerClasses,
+                  ]"
                 >
                   {{ detailShelfPriceText }}
                 </div>
@@ -432,6 +438,24 @@
           </div>
 
           <div
+            v-if="showRandomSalePanel"
+            ref="randomSalePanelRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span
+                class="treasure-detail-desc-panel-title-text treasure-detail-desc-panel-title-text--random-sale"
+                >{{ SHOP_RANDOM_SALE_TITLE }}</span
+              >
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="randomSalePanelDescription"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
             v-if="showTreasureGainPanel && !isDeckOffer"
             ref="treasureGainPanelRef"
             class="treasure-detail-extra-regions treasure-detail-stagger-el"
@@ -594,7 +618,7 @@
             v-bind="deckOfferLetterTileBind"
           />
           <div class="shop-treasure-price" aria-hidden="true">
-            <div class="shop-treasure-price-inner shop-treasure-price-inner--pack-struck">
+            <div class="shop-treasure-price-inner shop-treasure-price-inner--pack-struck" :class="offerShelfPriceInnerClasses">
               ${{ offerPriceDisplayed }}
             </div>
           </div>
@@ -733,7 +757,10 @@
         <div v-if="!isDeckOffer && showDetailShelfPrice" class="shop-treasure-price">
           <div
             class="shop-treasure-price-inner"
-            :class="{ 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' }"
+            :class="[
+              { 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' },
+              offerShelfPriceInnerClasses,
+            ]"
           >
             {{ detailShelfPriceText }}
           </div>
@@ -777,7 +804,15 @@ import {
   instantRevealGsapTargets,
   shouldSkipDecorativeMotion,
 } from "../settings/animationSpeed.js";
-import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
+import {
+  buildShopOfferPriceView,
+  resolveShopOfferEffectivePrice,
+} from "../shop/shopOfferPriceDisplay.js";
+import {
+  formatShopRandomSaleDescription,
+  readOfferRandomSaleDiscount,
+  SHOP_RANDOM_SALE_TITLE,
+} from "../shop/shopRandomSale.js";
 import {
   getPerLetterIntrinsicMultDisplay,
   getPerLetterIntrinsicScoreDisplay,
@@ -819,6 +854,10 @@ const props = defineProps({
   spellReplayTargetSpellId: { type: String, default: null },
   /** 已拥有优惠券 id（商店内标价折扣用） */
   ownedVoucherIds: { type: Array, default: () => [] },
+  /** 本局预设 id（商店标价） */
+  runPresetId: { type: String, default: "preset_01" },
+  /** 钱包下限（价签「买不起」着色） */
+  walletFloor: { type: Number, default: 0 },
   overlaySuppressed: { type: Boolean, default: false },
   /** 字母块预览：分数×倍率与 TileDetailLayer 一致 */
   rarityLevelsByRarity: { type: Object, default: null },
@@ -872,8 +911,45 @@ const showDetailShelfPrice = computed(() => {
 const offerPriceDisplayed = computed(() => {
   const base = Math.max(0, Math.floor(Number(props.treasure?.price) || 0));
   if (isCollectionPreviewMode.value || props.shelfPriceKind === "offer") return base;
-  return applyShopDiscountPrice(base, props.ownedVoucherIds ?? []);
+  return resolveShopOfferEffectivePrice(
+    base,
+    props.treasure ?? {},
+    props.ownedVoucherIds ?? [],
+    props.runPresetId,
+  );
 });
+
+const offerShelfPriceView = computed(() => {
+  const base = Math.max(0, Math.floor(Number(props.treasure?.price) || 0));
+  return buildShopOfferPriceView(base, props.treasure ?? {}, {
+    wallet: props.walletAmount,
+    ownedVoucherIds: props.ownedVoucherIds ?? [],
+    runPresetId: props.runPresetId,
+    walletFloor: props.walletFloor,
+    packStruck: props.mode === "pack-inner",
+  });
+});
+
+const offerShelfPriceInnerClasses = computed(() => {
+  if (props.shelfPriceKind === "sell" || (props.shelfPriceKind == null && isOwnedMode.value)) {
+    return {};
+  }
+  if (isCollectionLockedPreview.value) return {};
+  return offerShelfPriceView.value.innerClasses;
+});
+
+const randomSaleDiscountAmount = computed(() => readOfferRandomSaleDiscount(props.treasure));
+
+const showRandomSalePanel = computed(
+  () =>
+    (props.mode === "offer" || props.mode === "pack-inner") &&
+    !isCollectionPreviewMode.value &&
+    randomSaleDiscountAmount.value > 0,
+);
+
+const randomSalePanelDescription = computed(() =>
+  formatShopRandomSaleDescription(randomSaleDiscountAmount.value),
+);
 
 const hasTreasureDescBody = computed(() => {
   const raw = props.descriptionOverride ?? props.treasure?.description;
@@ -1295,6 +1371,7 @@ function descriptionConceptExcludeTitles() {
   if (showDeckOfferTreasureAccessoryRegion.value && deckOfferTreasureAccessoryTitle.value) {
     exclude.add(deckOfferTreasureAccessoryTitle.value);
   }
+  if (showRandomSalePanel.value) exclude.add(SHOP_RANDOM_SALE_TITLE);
   return exclude;
 }
 
@@ -1351,6 +1428,7 @@ const deckOfferTreasureAccessoryRef = ref(null);
 const deckOfferStackRef = ref(null);
 const spellGainPanelRef = ref(null);
 const treasureGainPanelRef = ref(null);
+const randomSalePanelRef = ref(null);
 const collectionUnlockHintPanelRef = ref(null);
 const collectionUnlockPrerequisitePanelRef = ref(null);
 const accessoryPanelRef = ref(null);
@@ -1359,6 +1437,8 @@ const titleGroupRef = ref(null);
 
 const closing = ref(false);
 const bootMask = ref(true);
+/** @type {Promise<void> | null} */
+let closeFlightPromise = null;
 
 const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
 
@@ -1386,6 +1466,7 @@ function staggerTargets() {
     deckOfferAccessoryRef.value,
     deckOfferTreasureAccessoryRef.value,
     treasureGainPanelRef.value,
+    randomSalePanelRef.value,
     collectionUnlockHintPanelRef.value,
     collectionUnlockPrerequisitePanelRef.value,
     spellGainPanelRef.value,
@@ -1525,6 +1606,9 @@ function runEnterAnimation() {
       staggerEls: staggerTargets(),
       primaryEl: targetVisual,
     });
+    void nextTick(() => {
+      previewNavRef.value?.resetVisible?.();
+    });
     initialEnterDone.value = true;
     return;
   }
@@ -1537,7 +1621,13 @@ function runEnterAnimation() {
   const staggerEls = staggerTargets();
   const hasFly = validOrigin(props.originRect) && clone;
 
-  gsap.killTweensOf([backdrop, targetVisual, clone, ...staggerEls].filter(Boolean));
+  gsap.killTweensOf([
+    backdrop,
+    targetVisual,
+    clone,
+    ...staggerEls,
+    ...(previewNavRef.value?.getAnimTargets?.() ?? []),
+  ].filter(Boolean));
 
   bootMask.value = true;
   applyEnterInitialHide(backdrop, staggerEls, targetVisual);
@@ -1577,6 +1667,10 @@ function runEnterAnimation() {
         gsap.set(targetVisualLive, { scale: 0.94, transformOrigin: "50% 50%" });
       }
 
+      if (props.previewNavTotal > 1) {
+        previewNavRef.value?.applyEnterInitialHide?.();
+      }
+
       bootMask.value = false;
 
       /** @type {{ left: number, top: number, width: number, height: number } | null} */
@@ -1609,6 +1703,9 @@ function runEnterAnimation() {
             },
             0.05,
           );
+          if (props.previewNavTotal > 1) {
+            previewNavRef.value?.appendEnterAnimation?.(enterTl, 0.08);
+          }
           enterTl.eventCallback("onComplete", () => {
             initialEnterDone.value = true;
           });
@@ -1618,9 +1715,6 @@ function runEnterAnimation() {
         gsap.killTweensOf(clone);
         const deckStackFly = isPackInnerDeckOfferFly.value;
         const deckTileFly = isDeckOffer.value && !deckStackFly;
-        if (props.previewNavTotal > 1) {
-          previewNavRef.value?.instantEnterHide?.();
-        }
         if (deckStackFly) {
           gsap.set(clone, { clearProps: "transform" });
           gsap.set(clone, {
@@ -1739,6 +1833,9 @@ function runEnterAnimation() {
           { opacity: 1, scale: 1, duration: 0.22, ease: EASE_TRANSFORM, clearProps: "opacity,scale" },
           0.06,
         );
+        if (props.previewNavTotal > 1) {
+          previewNavRef.value?.appendEnterAnimation?.(enterTl, 0.08);
+        }
       }
 
       enterTl.to(
@@ -1817,11 +1914,13 @@ function onPreviewNavStep(delta) {
   emit("preview-nav", delta);
 }
 
-function runCloseAnimation(shouldEmit) {
-  if (closing.value) {
-    return Promise.resolve();
+function runCloseAnimation(shouldEmit, options = {}) {
+  const deckFlyParallelClose = options.deckFlyParallelClose === true;
+  if (closeFlightPromise) {
+    return closeFlightPromise;
   }
   closing.value = true;
+  bootMask.value = false;
   const backdrop = backdropRef.value;
   const targetVisual = targetVisualRef.value;
   const staggerEls = staggerTargets();
@@ -1833,23 +1932,24 @@ function runCloseAnimation(shouldEmit) {
 
   gsap.killTweensOf([backdrop, targetVisual, ...staggerEls, ...(previewNavRef.value?.getAnimTargets?.() ?? [])].filter(Boolean));
 
-  return new Promise((resolve) => {
+  closeFlightPromise = new Promise((resolve) => {
+    const finishClose = () => {
+      closing.value = false;
+      closeFlightPromise = null;
+      if (shouldEmit) {
+        emit("close");
+      }
+      resolve(undefined);
+    };
+
     if (shouldSkipDecorativeMotion()) {
       previewNavRef.value?.instantCloseHide?.();
-      instantPortalLayerClose({ backdrop, staggerEls, primaryEl: targetVisual }).then(() => {
-        if (shouldEmit) emit("close");
-        resolve(undefined);
-      });
+      instantPortalLayerClose({ backdrop, staggerEls, primaryEl: targetVisual }).then(finishClose);
       return;
     }
 
     const tl = gsap.timeline({
-      onComplete: () => {
-        if (shouldEmit) {
-          emit("close");
-        }
-        resolve(undefined);
-      },
+      onComplete: finishClose,
     });
 
     previewNavRef.value?.appendCloseAnimation?.(tl, 0);
@@ -1881,7 +1981,17 @@ function runCloseAnimation(shouldEmit) {
       );
     }
 
-    if (targetVisual) {
+    if (targetVisual && deckFlyParallelClose) {
+      tl.to(
+        targetVisual,
+        {
+          opacity: 0,
+          duration: 0.16,
+          ease: EASE_TRANSFORM,
+        },
+        0,
+      );
+    } else if (targetVisual) {
       tl.to(
         targetVisual,
         {
@@ -1895,15 +2005,44 @@ function runCloseAnimation(shouldEmit) {
       );
     }
   });
+
+  return closeFlightPromise;
 }
 
 function requestClose() {
-  if (closing.value) return;
+  if (closeFlightPromise) return;
   void runCloseAnimation(true);
 }
 
-function playClose() {
-  return runCloseAnimation(false);
+/** @param {{ deckFlyParallelClose?: boolean }} [options] */
+function playClose(options = {}) {
+  return runCloseAnimation(false, options);
+}
+
+function consumeDeckOfferTileVisual() {
+  const tile = refToFlyFrameEl(detailFlyFrameRef.value);
+  if (!tile) return;
+  gsap.set(tile, {
+    opacity: 0,
+    visibility: "hidden",
+    pointerEvents: "none",
+    height: 0,
+    minHeight: 0,
+    margin: 0,
+    padding: 0,
+    overflow: "hidden",
+    aspectRatio: "auto",
+  });
+}
+
+/** 包内字母加入牌库：tile 已从预览移除，与飞行动画同时执行其余离场 */
+function beginDeckFlyParallelClose() {
+  previewNavRef.value?.instantEnterHide?.();
+  consumeDeckOfferTileVisual();
+  const targetVisual = targetVisualRef.value;
+  if (targetVisual) {
+    gsap.set(targetVisual, { pointerEvents: "none" });
+  }
 }
 
 function onDocumentKeydown(e) {
@@ -1927,9 +2066,7 @@ watch(
   () => props.treasure,
   () => {
     armBackdropSelfCloseGuard();
-    nextTick(() => {
-      stackZ.value = bumpOverlayZ();
-    });
+    stackZ.value = bumpOverlayZ();
   },
   { deep: true, immediate: true },
 );
@@ -1978,13 +2115,17 @@ onUnmounted(() => {
     enterTl.kill();
     enterTl = null;
   }
+  closeFlightPromise = null;
 });
 
 defineExpose({
   getEmojiEl: () => emojiRef.value,
   /** 购买飞入槽位：详情内 LetterTile 或 shop-treasure-frame 根 DOM */
   getFlyFrameEl: () => refToFlyFrameEl(detailFlyFrameRef.value),
+  /** 预览区 `.shop-treasure-visual`（星星法术失败反馈等） */
+  getTargetVisualEl: () => targetVisualRef.value,
   getWalletEl: () => walletBoxRef.value,
   playClose,
+  beginDeckFlyParallelClose,
 });
 </script>

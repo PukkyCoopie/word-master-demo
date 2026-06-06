@@ -3,16 +3,32 @@
     <div class="shop-header-panel">
       <TileLetterShowcase class="shop-logo" aria-label="商店" content-align="start" :rows="shopTitleRows" />
 
-      <div
-        ref="shopWalletBoxRef"
-        class="header-box header-box-split header-box-wallet"
-        title="当前钱包余额"
-      >
-        <span class="header-split-label">钱包</span>
-        <span class="header-wallet-marks" :class="{ 'money-tone--debt': walletAmount < 0 }">
-          <span class="money-dollar-char">$</span
-          ><span class="header-wallet-amount">{{ formatWallet(walletAmount) }}</span>
-        </span>
+      <div class="shop-header-right-col">
+        <div
+          ref="shopWalletBoxRef"
+          class="header-box header-box-split header-box-wallet"
+          title="当前钱包余额"
+        >
+          <span class="header-split-label">钱包</span>
+          <span class="header-wallet-marks" :class="{ 'money-tone--debt': walletAmount < 0 }">
+            <span class="money-dollar-char">$</span
+            ><span class="header-wallet-amount">{{ formatWallet(walletAmount) }}</span>
+          </span>
+        </div>
+        <div
+          class="header-box header-box-split header-box-next-level header-box-next-level--clickable"
+          role="button"
+          tabindex="0"
+          title="查看关卡进度"
+          :aria-label="nextLevelPreviewAriaLabel"
+          :aria-disabled="interactionsDisabled || !nextLevelId ? true : undefined"
+          @click="onNextLevelPreviewClick"
+          @keydown.enter.prevent="onNextLevelPreviewClick"
+          @keydown.space.prevent="onNextLevelPreviewClick"
+        >
+          <span class="header-split-label">下一关</span>
+          <span class="header-next-level-id">{{ nextLevelId || "—" }}</span>
+        </div>
       </div>
     </div>
 
@@ -124,7 +140,12 @@
                       </template>
                     </div>
                     <div class="shop-treasure-price" aria-label="售价">
-                      <div class="shop-treasure-price-inner">${{ shopMarkPrice(slot.price, slot) }}</div>
+                      <div
+                        class="shop-treasure-price-inner"
+                        :class="shopOfferPriceView(slot.price, slot).innerClasses"
+                      >
+                        ${{ shopOfferPriceView(slot.price, slot).amount }}
+                      </div>
                     </div>
                   </div>
                   <div v-else class="shop-treasure-visual shop-treasure-visual--slot-empty" aria-hidden="true">
@@ -183,7 +204,8 @@
                     <VoucherStamp
                       :emoji="voucherSlot.emoji"
                       :display-name="voucherSlot.name"
-                      :price="shopMarkPrice(voucherSlot.price, voucherSlot)"
+                      :price="shopOfferPriceView(voucherSlot.price, voucherSlot).amount"
+                      :price-inner-classes="shopOfferPriceView(voucherSlot.price, voucherSlot).innerClasses"
                     />
                   </div>
                   <div v-else class="shop-treasure-visual shop-treasure-visual--slot-empty" aria-hidden="true">
@@ -203,7 +225,10 @@
                     <VoucherStamp
                       :emoji="voucherBonusSlot.emoji"
                       :display-name="voucherBonusSlot.name"
-                      :price="shopMarkPrice(voucherBonusSlot.price, voucherBonusSlot)"
+                      :price="shopOfferPriceView(voucherBonusSlot.price, voucherBonusSlot).amount"
+                      :price-inner-classes="
+                        shopOfferPriceView(voucherBonusSlot.price, voucherBonusSlot).innerClasses
+                      "
                     />
                   </div>
                 </div>
@@ -270,7 +295,12 @@
                       </template>
                     </div>
                     <div class="shop-treasure-price" aria-label="售价">
-                      <div class="shop-treasure-price-inner">${{ shopMarkPrice(slot.price, slot) }}</div>
+                      <div
+                        class="shop-treasure-price-inner"
+                        :class="shopOfferPriceView(slot.price, slot).innerClasses"
+                      >
+                        ${{ shopOfferPriceView(slot.price, slot).amount }}
+                      </div>
                     </div>
                   </div>
                   <div v-else class="shop-treasure-visual shop-treasure-visual--slot-empty" aria-hidden="true">
@@ -366,7 +396,7 @@ import { resolveUpgradePlaybackSpeed } from "../shop/randomUpgradeRoll.js";
 import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { bubbleAtShopPanel } from "../game/popupBubbleFx.js";
 import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
-import { applyPresetAndShopDiscountPrice } from "../game/runPresetRuntime.js";
+import { buildShopOfferPriceView } from "../shop/shopOfferPriceDisplay.js";
 import { isSingleDigitLabel } from "./detailLayerFormatters.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
 import { runVoucherShelfEnterPopAnim } from "../game/voucherShelfEnterAnim.js";
@@ -406,12 +436,17 @@ const props = defineProps({
   treasureSlotsLayoutClass: { type: String, default: "" },
   /** 本局预设 id（商店标价） */
   runPresetId: { type: String, default: "preset_01" },
+  /** 钱包下限（宝藏等；价签「买不起」着色） */
+  walletFloor: { type: Number, default: 0 },
+  /** 离店后将进入的小关 id（如 3-1） */
+  nextLevelId: { type: String, default: "" },
 });
 
 const emit = defineEmits([
   "open-options",
   "view-deck",
   "view-round-info",
+  "view-stage-info",
   "next-level",
   "select-offer",
   "select-pack-offer",
@@ -422,14 +457,14 @@ const emit = defineEmits([
   "upgrade-interaction-unlock",
 ]);
 
-/** 货架标价（含预设减价与清仓券） */
-function shopMarkPrice(base, offer = {}) {
-  return applyPresetAndShopDiscountPrice(
-    Number(base) || 0,
-    offer,
-    props.ownedVoucherIds ?? [],
-    props.runPresetId,
-  );
+/** 货架标价（含预设减价、随机优惠与清仓券） */
+function shopOfferPriceView(base, offer = {}) {
+  return buildShopOfferPriceView(base, offer, {
+    wallet: props.walletAmount,
+    ownedVoucherIds: props.ownedVoucherIds ?? [],
+    runPresetId: props.runPresetId,
+    walletFloor: props.walletFloor,
+  });
 }
 
 /** @param {object} slot shopOffers 项 */
@@ -474,6 +509,16 @@ const shopTitleRows = [
     { letter: "P", rarity: "common" },
   ],
 ];
+
+const nextLevelPreviewAriaLabel = computed(() => {
+  const id = String(props.nextLevelId ?? "").trim();
+  return id ? `下一关 ${id}，点击查看关卡进度` : "下一关，点击查看关卡进度";
+});
+
+function onNextLevelPreviewClick() {
+  if (props.interactionsDisabled || !String(props.nextLevelId ?? "").trim()) return;
+  emit("view-stage-info");
+}
 
 const shopWalletBoxRef = ref(null);
 const deckViewBtnRef = ref(null);
@@ -1046,7 +1091,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: calc(10 * var(--rpx));
-  --shop-header-h: calc(110 * var(--rpx));
+  --shop-header-h: calc(140 * var(--rpx));
   --shop-row-single-card-actions-h: calc(215 * var(--rpx));
   --shop-row-voucher-pack-h: calc(232 * var(--rpx));
   --shop-footer-h: calc(185 * var(--rpx));
@@ -1071,6 +1116,53 @@ defineExpose({
 .shop-logo {
   flex-shrink: 0;
   min-width: 0;
+}
+
+.shop-header-right-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--rpx));
+}
+
+.shop-header-right-col .header-box {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.header-box-next-level--clickable {
+  cursor: pointer;
+  transition: filter 0.1s ease;
+}
+
+.header-box-next-level--clickable:hover {
+  filter: brightness(1.04);
+}
+
+.header-box-next-level--clickable:active {
+  filter: brightness(0.96);
+}
+
+.header-box-next-level--clickable:focus-visible {
+  outline: calc(2 * var(--rpx)) solid #edc22e;
+  outline-offset: calc(2 * var(--rpx));
+}
+
+.header-box-next-level--clickable[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.48;
+  filter: none;
+  pointer-events: none;
+}
+
+.header-next-level-id {
+  flex-shrink: 0;
+  font-size: calc(26 * var(--rpx));
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .shop-result-area {
