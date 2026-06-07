@@ -1,7 +1,5 @@
 import { describe } from "../treasureDescription.js";
 
-const ID = "92";
-
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 6,
@@ -14,9 +12,7 @@ export const treasureHooks = {
   getSubmitLengthBonus() {
     return 1;
   },
-  async onLevelEnter(ctx) {
-    await ctx.wobbleOwnedTreasureById?.(ID);
-    await ctx.playOwnedTreasureBubbleFx?.(ID, "-1", "score");
-    ctx.addRemainingWords?.(-1);
+  getHandsPerLevelDelta() {
+    return -1;
   },
 };

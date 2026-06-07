@@ -226,6 +226,18 @@ export function sumTreasureSubmitLengthBonus(ownedSlotTreasureIds) {
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
+export function sumTreasureHandsPerLevelDelta(ownedSlotTreasureIds) {
+  const slots = ownedSlotTreasureIds ?? [];
+  let sum = 0;
+  for (const { treasureId: tid } of iterTreasureHookContributions(slots)) {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.getHandsPerLevelDelta;
+    if (!fn) continue;
+    sum += Math.floor(Number(fn({ ownedSlotTreasureIds: slots })) || 0);
+  }
+  return sum;
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
 export function resolveTreasureWalletFloor(ownedSlotTreasureIds) {
   let floor = 0;
   for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {

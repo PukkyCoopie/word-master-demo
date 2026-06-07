@@ -1,4 +1,4 @@
-/** 面具（98）复制右侧槽位；左箭头（105）复制左侧槽位 */
+/** 面具（98）复制右侧槽位；绵羊（105）复制左侧槽位 */
 
 export const BLUEPRINT_RIGHT_TREASURE_ID = "98";
 /** @deprecated 与 `BLUEPRINT_RIGHT_TREASURE_ID` 相同 */

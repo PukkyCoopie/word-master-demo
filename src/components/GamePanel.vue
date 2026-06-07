@@ -771,8 +771,7 @@ import {
   notifyOwnedTreasuresOnBossRestrictionTriggered,
   notifyOwnedTreasuresOnDeckCardsAdded,
   notifyOwnedTreasuresOnDeckCardsRemoved,
-  sumTreasureSubmitLengthBonus,
-  sumTreasureLengthJudgmentPenalty,
+  sumTreasureHandsPerLevelDelta,
   resolveTreasureDescriptionPatches,
   treasureDescriptionPatchReplacesBase,
   resolveTreasureChargeProgress,
@@ -1027,11 +1026,11 @@ import {
   getPresetStartVoucherIds,
   getPresetStartWildcardCount,
   getPresetTreasureSlotDelta,
-  getPresetWordLengthJudgmentBonus,
   getPresetSettlementMode,
   presetUsesFiveSlotLayoutAtFour,
   presetDisablesInterest,
 } from "../game/runPresetRuntime.js";
+import { resolveWordLengthJudgmentBonus } from "../game/wordLengthJudgmentBonus.js";
 import { normalizeRunPresetId } from "../game/runPresetDefinitions.js";
 import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
 import {
@@ -1063,7 +1062,6 @@ import {
   getOwnedTreasureSlotBonusFromVouchers,
   getShopAccessoryChanceMultiplier,
   getShopRandomCardSlotBonus,
-  getWordLengthJudgmentBonus,
   hasBossBlindRerollVoucher,
   BOSS_BLIND_REROLL_COST_DOLLARS,
   canPayBossBlindReroll,
@@ -1624,7 +1622,11 @@ function buildLevelResetRunOpts(levelDef) {
     getPresetRemovalsPerLevelDelta(runPresetId.value) +
     getDifficultyRemovalsDelta(runDifficultyIndex.value);
   if (mechSlug === "the_water") rem = 0;
-  let hands = getBaseHandsPerLevel(ownedVoucherIds.value) + getPresetHandsPerLevelDelta(runPresetId.value);
+  let hands =
+    getBaseHandsPerLevel(ownedVoucherIds.value) +
+    getPresetHandsPerLevelDelta(runPresetId.value) +
+    sumTreasureHandsPerLevelDelta(ownedSlotTreasureIdListEarly());
+  hands = Math.max(0, hands);
   if (mechSlug === "the_needle") hands = getSubmitHandsForNeedleBoss(hands);
   if (parseLevelSubFromId(id) === 3) {
     usedWordLengthsThisBoss.value = new Set();
@@ -2127,10 +2129,13 @@ const shopRerollsThisVisit = ref(0);
 const balatroFirstShopPackConsumed = ref(false);
 
 function judgedLengthTableLenForRun(wordLetterCount) {
-  const presetBonus = getPresetWordLengthJudgmentBonus(runPresetId.value);
-  const bonus = getWordLengthJudgmentBonus(ownedVoucherIds.value) + presetBonus;
-  const penalty = runWordLengthJudgmentPenalty.value;
-  return getLengthTableLenFromTileCountAndBonus(wordLetterCount, bonus - penalty);
+  const bonus = resolveWordLengthJudgmentBonus({
+    ownedVoucherIds: ownedVoucherIds.value,
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    presetId: runPresetId.value,
+    runWordLengthJudgmentPenalty: runWordLengthJudgmentPenalty.value,
+  });
+  return getLengthTableLenFromTileCountAndBonus(wordLetterCount, bonus);
 }
 
 function shopPriceForOffer(basePrice, offer = {}) {
@@ -12339,12 +12344,12 @@ async function submitWord() {
     getGridEffectTriggerCount,
   );
   const ownedTids = ownedSlotTreasureIdList();
-  const lengthJb =
-    getWordLengthJudgmentBonus(ownedVoucherIds.value) +
-    getPresetWordLengthJudgmentBonus(runPresetId.value) -
-    runWordLengthJudgmentPenalty.value -
-    sumTreasureLengthJudgmentPenalty(ownedTids) +
-    sumTreasureSubmitLengthBonus(ownedTids);
+  const lengthJb = resolveWordLengthJudgmentBonus({
+    ownedVoucherIds: ownedVoucherIds.value,
+    ownedSlotTreasureIds: ownedTids,
+    presetId: runPresetId.value,
+    runWordLengthJudgmentPenalty: runWordLengthJudgmentPenalty.value,
+  });
   const judgedLenTable = getLengthTableLenFromTileCountAndBonus(resolvedWord.length, lengthJb);
   const soft = evaluateBossSoftWordViolation({
     slug: bossSlugForMechanics(),
@@ -12791,9 +12796,12 @@ function mountE2eHarnessIfNeeded() {
         const tiles = path.map(({ row, col }) => grid.value[row][col]);
         const pattern = tiles.map((t) => String(t?.letter ?? "").toLowerCase()).join("");
         const resolved = resolveWordPattern(pattern, "?");
-        const lengthJb =
-          getWordLengthJudgmentBonus(ownedVoucherIds.value ?? []) -
-          runWordLengthJudgmentPenalty.value;
+        const lengthJb = resolveWordLengthJudgmentBonus({
+          ownedVoucherIds: ownedVoucherIds.value ?? [],
+          ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+          presetId: runPresetId.value,
+          runWordLengthJudgmentPenalty: runWordLengthJudgmentPenalty.value,
+        });
         const flintOpts =
           isFlintBossActive.value ? { bossFlintQuarter: true } : {};
         flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;

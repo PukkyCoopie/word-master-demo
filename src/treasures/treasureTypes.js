@@ -204,8 +204,8 @@
  * @property {(ctx: TreasureReplaySubmitAdjustmentsContext) => { scoreAdd?: number, multAdd?: number } | null | undefined} [accumulateReplaySubmitAdjustments]
  * @property {(ctx: { realTile: object | null, band: 'score' | 'mult', delta: number }) => boolean} [persistTileAfterPerLetterTreasureCue] 逐字「宝藏 +Δ」与词槽 wobble 同节拍前写回 tile/_deckCard；返回 true 表示已改角标（调用方 `nextTick` 后再建含角标的 wobble timeline）
  * @property {(ctx: { ownedSlotTreasureIds: (string | null | undefined)[] }, part: { letter?: string, rarity?: string }, letterIndex: number) => { delta: number, label?: string } | null | undefined} [getPerLetterScoreCue]
- * @property {boolean} [perLetterScoreCueDepositsTreasureBank] 为 true 时：逐字 cue 仅累加宝藏分数银行并在宝藏槽弹出 +Δ，不入词槽公式；入账在字后 `buildPostLetterStep` 的 `scoreAdd`（如 B 键 80）
- * @property {boolean} [showPerLetterScoreCueBubble] 与 `perLetterScoreCueDepositsTreasureBank` 配套：设为 false 时，逐字仅 wobble 宝藏槽并入账，不显示 +Δ 气泡（如 B 键 80）
+ * @property {boolean} [perLetterScoreCueDepositsTreasureBank] 为 true 时：逐字 cue 仅累加宝藏分数银行并在宝藏槽弹出 +Δ，不入词槽公式；入账在字后 `buildPostLetterStep` 的 `scoreAdd`（如泡泡 80）
+ * @property {boolean} [showPerLetterScoreCueBubble] 与 `perLetterScoreCueDepositsTreasureBank` 配套：设为 false 时，逐字仅 wobble 宝藏槽并入账，不显示 +Δ 气泡（如泡泡 80）
  * @property {boolean} [mergeLetterScoreCueIntoIntrinsicLetterScoreStep] 为 true 时：`getPerLetterScoreCue` 的平面分增量与单字母「本体分数」（稀有度+tile 平面分+材质平面分）**同一拍**展示——词槽一次 wobble/气泡、`animScoreSum` 一次加上该增量，且不再单独走 `runSlotPerLetterTreasureScoreStep`；须与 `persistTileAfterPerLetterTreasureCue`（band `score`）写回角标一致（如剪贴板）。**仅**「增益落在 tile 角标/本体」类；元音、指定字母等条件宝藏勿开。
  * @property {(ctx: { ownedSlotTreasureIds: (string | null | undefined)[] }, part: { letter?: string, rarity?: string }, letterIndex: number) => { delta: number, label?: string } | null | undefined} [getPerLetterMultCue]
  * @property {boolean} [mergeLetterMultCueIntoIntrinsicLetterMultStep] 为 true 时：`getPerLetterMultCue` 的倍率增量与单字母「本体倍率」（稀有度+材质+tile 角标）**同一拍**展示——词槽一次 wobble/气泡、`animMultTotal` 一次加上该增量，且不再单独走 `runSlotPerLetterTreasureMultStep`；须与 `persistTileAfterPerLetterTreasureCue`（band `mult`）写回角标一致（如回形针）。**仅**「增益落在 tile 角标/本体」类；元音倍率等条件宝藏勿开。
@@ -229,6 +229,7 @@
  * @property {(ctx: TreasureDeckCardsRemovedContext) => void | Promise<void>} [onDeckCardsRemoved] 从牌库永久移除牌张后
  * @property {(ctx: TreasureIceBreakContext) => void | Promise<void>} [onIceMaterialBreak] 碎冰块碎裂（`iceShatterTreasureFxHandled` 为 true 时 GamePanel 已入银行并播宝藏槽动效，钩子勿重复）
  * @property {(ctx: TreasureLogicContext) => number} [getSubmitLengthBonus] 等效词长加成（直尺券之外）
+ * @property {(ctx: TreasureLogicContext) => number} [getHandsPerLevelDelta] 每小关开局拼写次数增减（在 `resetLevel` 建盘前计入，无动效）
  * @property {() => number} [getLengthJudgmentPenalty] 判定词长减益（视为更短）
  * @property {(ctx: TreasureBossRestrictionContext) => void | Promise<void>} [onBossRestrictionTriggered]
  * @property {(ctx: TreasureDeckCardsAddedContext) => void | Promise<void>} [onDeckCardsAdded]
