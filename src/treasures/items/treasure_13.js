@@ -4,12 +4,12 @@ import { describe, score } from "../treasureDescription.js";
 export default {
   price: 3,
   rarity: "common",
-  description: describe("如果单词中不包含重复的字母，", score("+60"), "分数"),
+  description: describe("如果单词中不包含重复的字母，", score("+100"), "分数"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   buildPostLetterStep(ctx) {
-    return ctx.conditions.uniqueOk ? { scoreAdd: 60 } : null;
+    return ctx.conditions.uniqueOk ? { scoreAdd: 100 } : null;
   },
 };

@@ -11,6 +11,7 @@ import TileLuckyRegl from "./TileLuckyRegl.vue";
 import TileSteelRegl from "./TileSteelRegl.vue";
 import TileWildcardRegl from "./TileWildcardRegl.vue";
 import TileWaterRegl from "./TileWaterRegl.vue";
+import { normalizeExclusiveTileAccessoryPair } from "../accessories/accessoryState.js";
 import { getTileAccessoryChipVisual } from "../game/tileAccessories";
 import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories";
 import { resolveTileMaterialAnimate } from "../lib/reglMaterialPerf.js";
@@ -178,16 +179,20 @@ const showAugmentBadges = computed(() =>
   ["grid", "wordSlotContent", "deck", "fly"].includes(props.variant),
 );
 
+const resolvedAccessoryFields = computed(() =>
+  normalizeExclusiveTileAccessoryPair(props.accessoryId, props.treasureAccessoryId),
+);
+
 const accessoryChipVisual = computed(() => {
   const v = props.variant;
   if (!["grid", "wordSlotContent", "fly", "deck"].includes(v)) return null;
-  return getTileAccessoryChipVisual(props.accessoryId);
+  return getTileAccessoryChipVisual(resolvedAccessoryFields.value.accessoryId);
 });
 
 const treasureAccessoryChipVisual = computed(() => {
   const v = props.variant;
   if (!["grid", "wordSlotContent", "fly", "deck"].includes(v)) return null;
-  return getTreasureAccessoryChipVisual(props.treasureAccessoryId);
+  return getTreasureAccessoryChipVisual(resolvedAccessoryFields.value.treasureAccessoryId);
 });
 
 const effectiveMaterialAnimate = computed(() => {

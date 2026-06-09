@@ -1,4 +1,8 @@
 import { LEVELS } from "../levelDefinitions.js";
+import {
+  collectionNewKeyForAchievement,
+  markCollectionNewDiscovery,
+} from "../collection/collectionNewDiscoveries.js";
 
 /** @param {unknown} raw @returns {string[]} */
 function normalizeIdList(raw) {
@@ -97,6 +101,7 @@ export function unlockAchievementId(career, achievementId) {
   if (!Array.isArray(career.unlockedAchievementIds)) career.unlockedAchievementIds = [];
   if (career.unlockedAchievementIds.includes(id)) return false;
   career.unlockedAchievementIds.push(id);
+  markCollectionNewDiscovery(career, collectionNewKeyForAchievement(id));
   return true;
 }
 

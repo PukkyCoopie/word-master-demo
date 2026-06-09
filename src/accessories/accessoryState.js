@@ -26,9 +26,11 @@ export function readEntityAccessory(entity) {
 export function normalizeExclusiveTileAccessoryPair(accessoryId, treasureAccessoryId) {
   const acc = accessoryId != null ? String(accessoryId).trim() : "";
   const tAcc = treasureAccessoryId != null ? String(treasureAccessoryId).trim() : "";
-  if (acc) return { accessoryId: acc, treasureAccessoryId: null };
-  if (tAcc) return { accessoryId: null, treasureAccessoryId: tAcc };
-  return { accessoryId: null, treasureAccessoryId: null };
+  const effectiveId = acc || tAcc;
+  if (!effectiveId) return { accessoryId: null, treasureAccessoryId: null };
+  // 互斥：双字段均有值时沿用旧规则，棋盘字段优先；再按 catalog.legacyStorage 落位
+  if (acc && tAcc) return accessoryIdToLegacyTwinFields(acc);
+  return accessoryIdToLegacyTwinFields(effectiveId);
 }
 
 /**

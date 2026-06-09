@@ -116,6 +116,12 @@ export function isTreasureUnlocked(def, snap) {
       if (!Array.isArray(owned) || !owned.length) return false;
       return owned.every((s) => s && String(s.treasureAccessoryId ?? "").trim() !== "");
     }
+    case "everTwoTreasuresWithAccessory":
+      return rs?.everTwoTreasuresWithAccessoryUnlocked === true;
+    case "levelAllLegendaryDeckExhausted":
+      return rs?.levelAllLegendaryDeckExhaustedUnlocked === true;
+    case "runIceMaterialShattered":
+      return rs?.runIceMaterialShattered === true;
     default:
       return true;
   }

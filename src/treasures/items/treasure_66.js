@@ -7,12 +7,7 @@ const ID = "66";
 export default {
   price: 9,
   rarity: "epic",
-  description: describe(
-    "每当你卖出宝藏时，获得",
-    mult("x0.25"),
-    "倍率",
-    "，在每个大关完成后重置",
-  ),
+  description: describe("每当你卖出宝藏时，获得", mult("x0.25"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -25,9 +20,5 @@ export const treasureHooks = {
   async onTreasureSold(ctx) {
     if (ctx.soldTreasureId === ID) return;
     await bankMultMulGain(ctx, ID, 0.25, "×0.25");
-  },
-  onChapterEnter(ctx) {
-    if (!ctx.treasureRun) return;
-    ctx.treasureRun.banks[ID] = { multAdd: 0, multMul: 1, scoreAdd: 0 };
   },
 };

@@ -7,7 +7,7 @@ const ID = "59";
 export default {
   price: 5,
   rarity: "rare",
-  description: describe("每当商店刷新时，获得", mult("+2"), "倍率"),
+  description: describe("每当商店刷新时，获得", mult("+3"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -18,6 +18,6 @@ export const treasureHooks = {
     return v !== 0 ? { multAdd: v } : null;
   },
   async onShopReroll(ctx) {
-    await bankMultAddGain(ctx, ID, 2);
+    await bankMultAddGain(ctx, ID, 3);
   },
 };

@@ -9,8 +9,10 @@ import { isE2eMode } from "./isE2eMode.js";
  * @param {import('vue').Ref<string>} deps.sessionRunSeedDisplay
  * @param {import('vue').ComputedRef<boolean>} deps.dictionaryReady
  * @param {import('vue').ComputedRef<boolean>} [deps.remixIconReady]
+ * @param {import('vue').ComputedRef<boolean>} [deps.bootImagesReady]
  * @param {() => Promise<void>} deps.loadDictionary
  * @param {() => Promise<void>} [deps.loadRemixIconFont]
+ * @param {() => Promise<void>} [deps.loadBootImages]
  */
 export function registerAppTestHarness(deps) {
   if (!isE2eMode()) return () => {};
@@ -22,8 +24,10 @@ export function registerAppTestHarness(deps) {
     sessionRunSeedDisplay,
     dictionaryReady,
     remixIconReady,
+    bootImagesReady,
     loadDictionary,
     loadRemixIconFont,
+    loadBootImages,
   } = deps;
 
   async function waitForAppBoot(timeoutMs = 120_000) {
@@ -31,9 +35,12 @@ export function registerAppTestHarness(deps) {
       await loadDictionary();
     }
     loadRemixIconFont?.();
+    loadBootImages?.();
     const t0 = Date.now();
     while (
-      (!dictionaryReady.value || (remixIconReady && !remixIconReady.value)) &&
+      (!dictionaryReady.value ||
+        (remixIconReady && !remixIconReady.value) ||
+        (bootImagesReady && !bootImagesReady.value)) &&
       Date.now() - t0 < timeoutMs
     ) {
       await new Promise((r) => setTimeout(r, 100));
@@ -43,6 +50,9 @@ export function registerAppTestHarness(deps) {
     }
     if (remixIconReady && !remixIconReady.value) {
       throw new Error("Remix Icon 字体加载超时");
+    }
+    if (bootImagesReady && !bootImagesReady.value) {
+      throw new Error("启动图片加载超时");
     }
   }
 
@@ -68,7 +78,9 @@ export function registerAppTestHarness(deps) {
     getScreen: () => screen.value,
     isDictionaryReady: () => dictionaryReady.value,
     isAppBootReady: () =>
-      dictionaryReady.value && (!remixIconReady || remixIconReady.value),
+      dictionaryReady.value &&
+      (!remixIconReady || remixIconReady.value) &&
+      (!bootImagesReady || bootImagesReady.value),
   };
 
   globalThis.__WM_APP_E2E__ = api;

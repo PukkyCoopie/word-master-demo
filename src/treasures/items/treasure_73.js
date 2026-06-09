@@ -4,7 +4,7 @@ import { describe, score } from "../treasureDescription.js";
 export default {
   price: 7,
   rarity: "rare",
-  description: describe("稀有字母在计分时提供", score("+50"), "分数"),
+  description: describe("稀有字母在计分时提供", score("+100"), "分数"),
   unlockPrerequisite: { type: "deckRareHalf" },
 };
 
@@ -16,11 +16,11 @@ export const treasureHooks = {
     for (let i = 0; i < letterParts.length; i++) {
       if (letterParts[i]?.rarity !== "rare") continue;
       const passes = 1 + Math.max(0, Math.floor(Number(replayCounts[i]) || 0));
-      scoreAdd += 50 * passes;
+      scoreAdd += 100 * passes;
     }
     return scoreAdd > 0 ? { scoreAdd } : null;
   },
   getPerLetterScoreCue(_ctx, part) {
-    return part?.rarity === "rare" ? { delta: 50, label: "+50" } : null;
+    return part?.rarity === "rare" ? { delta: 100, label: "+100" } : null;
   },
 };

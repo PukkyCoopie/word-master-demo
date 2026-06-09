@@ -31,7 +31,7 @@ function buildMagnetDescription(ctx) {
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 6,
+  price: 5,
   rarity: "rare",
   description: describe(
     mult("x2"),

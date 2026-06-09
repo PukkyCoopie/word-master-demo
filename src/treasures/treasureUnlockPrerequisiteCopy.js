@@ -2,6 +2,23 @@ import { describe } from "./treasureDescription.js";
 import { getTreasureDef } from "./treasureRegistry.js";
 
 /** @param {unknown} pre */
+function buildPoolPrerequisitePlainText(pre) {
+  if (!pre || typeof pre !== "object") return "";
+  const type = String(/** @type {{ type?: string }} */ (pre).type ?? "").trim();
+
+  switch (type) {
+    case "treasure29SelfDestructed":
+      return "在本轮游戏中使一个炸弹爆炸";
+    case "playedAllGoldWord":
+      return "在本轮游戏中拼写一个全部由黄金块组成的单词";
+    case "probabilityEffectTriggered":
+      return "在本轮游戏中成功触发一个概率效果";
+    default:
+      return "";
+  }
+}
+
+/** @param {unknown} pre */
 function buildUnlockPrerequisitePlainText(pre) {
   if (!pre || typeof pre !== "object") return "";
   const type = String(/** @type {{ type?: string }} */ (pre).type ?? "").trim();
@@ -10,6 +27,12 @@ function buildUnlockPrerequisitePlainText(pre) {
   switch (type) {
     case "deckLegendaryMin":
       return `在牌库中拥有${min || 8}个传说字母`;
+    case "levelAllLegendaryDeckExhausted":
+      return "在一个关卡中用尽了牌库中所有的传说字母";
+    case "runIceMaterialShattered":
+      return "在本轮游戏中，使一个碎冰块碎裂";
+    case "everTwoTreasuresWithAccessory":
+      return "同时拥有2个装备了配饰的宝藏";
     case "deckEpicMin":
       return `在牌库中拥有${min || 16}个史诗字母`;
     case "deckRareHalf":
@@ -35,7 +58,7 @@ function buildUnlockPrerequisitePlainText(pre) {
     case "chapterNoVerbSpelled":
       return "曾完成一整大关且未拼写过动词";
     case "levelAllFiveVowels":
-      return "曾在同一小关内用齐 a、e、i、o、u 五种元音";
+      return "曾在同一小关内用齐 A、E、I、O、U 五种元音";
     case "runSpellsCastMin":
       return `本轮游戏已释放过${min || 5}次法术`;
     case "runUpgradesUsedMin":
@@ -62,11 +85,12 @@ export function resolveTreasureUnlockPrerequisitePanel(treasureId) {
   const id = String(treasureId ?? "").trim();
   if (!id) return null;
   const def = getTreasureDef(id);
-  const pre = def?.unlockPrerequisite;
-  const plain = buildUnlockPrerequisitePlainText(pre);
-  if (!plain) return null;
+  const unlockPlain = buildUnlockPrerequisitePlainText(def?.unlockPrerequisite);
+  const poolPlain = buildPoolPrerequisitePlainText(def?.poolPrerequisite);
+  const parts = [unlockPlain, poolPlain].filter(Boolean);
+  if (!parts.length) return null;
   return {
     title: "前置条件",
-    description: describe(plain),
+    description: describe(parts.join("；")),
   };
 }

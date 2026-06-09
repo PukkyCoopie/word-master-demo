@@ -2,7 +2,10 @@ import { computeWordScoreDetailed } from "../composables/useScoring.js";
 import { isBossTileDebuffed } from "../game/bossTileDebuff.js";
 import { tileHasRewindAccessory } from "../accessories/accessoryScoring.js";
 import { TREASURE_HOOKS_BY_ID } from "./treasureRegistry.js";
-import { iterTreasureHookContributions } from "../game/treasureBlueprintMirror.js";
+import {
+  iterTreasureHookContributions,
+  resolvePostLetterAnimSlotIndex,
+} from "../game/treasureBlueprintMirror.js";
 import { buildTreasureLogicConditions } from "./treasureLogicShared.js";
 import {
   aggregateReplaySubmitAdjustments,
@@ -43,7 +46,8 @@ function applyPrepareSubmitScoringBanks(tiles, slots, treasureRun) {
     ownedSlotTreasureIds: slots,
     treasureRun: treasureRun ?? undefined,
   };
-  for (const { treasureId: tid } of iterTreasureHookContributions(slots)) {
+  for (const { treasureId: tid, source } of iterTreasureHookContributions(slots)) {
+    if (source === "blueprint") continue;
     TREASURE_HOOKS_BY_ID.get(tid)?.prepareSubmitScoringBank?.(hookCtx);
   }
 }
@@ -67,6 +71,7 @@ function applyPrepareSubmitScoringBanks(tiles, slots, treasureRun) {
  * @param {{ gridTiles?: readonly object[], remainingGridTiles?: readonly object[], getWordDefinition?: (word: string) => object | null | undefined, treasureRun?: import('./treasureRunState.js').TreasureRunState, money?: number, ownedTreasureInstances?: object[], resolvedWord?: string | null }} [submitOptions]
  * @param {Record<string, number> | null} [rarityLevelsByRarity]
  * @param {(string | null | undefined)[] | null} [ownedSlotTreasureAccessoryIds=null] 与槽位同索引的配饰 id
+ * @param {number[] | null} [letterReplayCounts=null] 各字母 replay 次数（与 `aggregateReplaySubmitAdjustments` 一致）
  * @returns {{ treasureId: string, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, moneyAdd?: number }[]}
  */
 function buildPostLetterTreasureSteps(
@@ -88,6 +93,7 @@ function buildPostLetterTreasureSteps(
   submitOptions = {},
   rarityLevelsByRarity = null,
   ownedSlotTreasureAccessoryIds = null,
+  letterReplayCounts = null,
 ) {
   const rnd = typeof rng === "function" ? rng : Math.random;
   const slots = ownedSlotTreasureIds ?? [];
@@ -124,6 +130,7 @@ function buildPostLetterTreasureSteps(
     rarityLevelsByRarity: rarityLevelsByRarity ?? undefined,
     getWordDefinition: submitOptions?.getWordDefinition ?? undefined,
     fullDeck: submitOptions?.fullDeck ?? undefined,
+    letterReplayCounts: letterReplayCounts ?? undefined,
   };
 
   const pushAccessoryForSlot = (si) => {
@@ -140,22 +147,23 @@ function buildPostLetterTreasureSteps(
   };
 
   let lastSlotIndex = -1;
-  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(slots)) {
+  for (const { slotIndex: si, treasureId: tid, source } of iterTreasureHookContributions(slots)) {
     if (lastSlotIndex >= 0 && si !== lastSlotIndex) {
       pushAccessoryForSlot(lastSlotIndex);
     }
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
+    const animSi = resolvePostLetterAnimSlotIndex(slots, tid, si, source);
     const plural = hooks?.collectPostLetterSteps?.(hookCtxBase);
     if (Array.isArray(plural) && plural.length > 0) {
       for (const step of plural) {
         if (step && !isNoOpPostLetterTreasureStep(step)) {
-          steps.push({ treasureId: tid, slotIndex: si, ...step });
+          steps.push({ treasureId: tid, slotIndex: animSi, ...step });
         }
       }
     } else {
       const step = hooks?.buildPostLetterStep?.(hookCtxBase);
       if (step && !isNoOpPostLetterTreasureStep(step)) {
-        steps.push({ treasureId: tid, slotIndex: si, ...step });
+        steps.push({ treasureId: tid, slotIndex: animSi, ...step });
       }
     }
     lastSlotIndex = si;
@@ -225,10 +233,80 @@ export function isBossDebuffedSubmitTile(tile) {
   return isBossTileDebuffed(tile);
 }
 
+/**
+ * 提交计分：整词额外 replay 轮、按字母 replay 与重播配饰次数（字后步与 replay 汇总共用）。
+ * @param {import('./treasureTypes.js').TreasureLogicContext} hookCtx
+ * @param {object[]} tiles
+ * @param {(string | null | undefined)[]} slots
+ */
+function computeSubmitLetterReplayMeta(hookCtx, tiles, slots) {
+  let extraLetterScoringPasses = 0;
+  /** @type {{ treasureId: string, slotIndex: number }[]} */
+  const extraLetterPassCueSteps = [];
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(slots)) {
+    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
+    const p = Math.max(0, Math.floor(Number(hooks?.getExtraLetterScoringPasses?.(hookCtx)) || 0));
+    if (p <= 0) continue;
+    extraLetterScoringPasses += p;
+    for (let k = 0; k < p; k++) {
+      extraLetterPassCueSteps.push({ treasureId: tid, slotIndex: si });
+    }
+  }
+
+  const letterParts = hookCtx.letterParts ?? [];
+  const treasureReplayCounts = letterParts.map((_, i) =>
+    isBossDebuffedSubmitTile(tiles[i]) ? 0 : extraLetterScoringPasses,
+  );
+  /** @type {{ treasureId: string, slotIndex: number }[][]} */
+  const perLetterTreasureReplayCueSteps = letterParts.map(() => []);
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(slots)) {
+    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
+    if (!hooks?.getLetterReplayCountForLetter) continue;
+    for (let i = 0; i < letterParts.length; i++) {
+      if (isBossDebuffedSubmitTile(tiles[i])) continue;
+      const part = letterParts[i];
+      const n = Math.max(
+        0,
+        Math.floor(Number(hooks.getLetterReplayCountForLetter(hookCtx, part, i)) || 0),
+      );
+      if (n > 0) {
+        treasureReplayCounts[i] += n;
+        for (let k = 0; k < n; k++) {
+          perLetterTreasureReplayCueSteps[i].push({ treasureId: tid, slotIndex: si });
+        }
+      }
+    }
+  }
+  /**
+   * 「重播配饰」按触发性质叠加：
+   * - 固定给字母自身 +1 次；
+   * - 若存在整词额外 replay 轮（如号角），每一轮该字母也会再额外 +1 次；
+   * - 不会把「按字母额外次数」再次放大（与宝藏按字母加次关系为相加）。
+   */
+  const accessoryReplayCounts = letterParts.map((_, i) =>
+    isBossDebuffedSubmitTile(tiles[i])
+      ? 0
+      : hasRewindAccessory(tiles[i])
+        ? 1 + extraLetterScoringPasses
+        : 0,
+  );
+  const replayCounts = treasureReplayCounts.map((v, i) => v + accessoryReplayCounts[i]);
+  const letterReplayExtraCounts = replayCounts.map((v) =>
+    Math.max(0, (Math.floor(Number(v) || 0) || 0) - extraLetterScoringPasses),
+  );
+  return {
+    extraLetterScoringPasses,
+    extraLetterPassCueSteps,
+    perLetterTreasureReplayCueSteps,
+    replayCounts,
+    letterReplayExtraCounts,
+  };
+}
+
 const LUCKY_MATERIAL_MULT_ADD = 20;
 const LUCKY_MATERIAL_MONEY_ADD = 20;
-const LUCKY_MATERIAL_MULT_CHANCE = 1 / 5;
-const LUCKY_MATERIAL_MONEY_CHANCE = 1 / 15;
+const LUCKY_MATERIAL_MULT_CHANCE = 1 / 4;
+const LUCKY_MATERIAL_MONEY_CHANCE = 1 / 12;
 
 /**
  * 拼词结算：在基础计分之上叠加已拥有宝藏（逐项扩展）。
@@ -296,26 +374,6 @@ export function computeWordScoreDetailedForSubmit(
   if (submitOptions?.skipPrepareSubmitScoringBank !== true) {
     applyPrepareSubmitScoringBanks(tiles, slots, submitOptions?.treasureRun ?? null);
   }
-  let postLetterTreasureSteps = buildPostLetterTreasureSteps(
-    tiles,
-    slots,
-    base.letterParts,
-    basketballWordsSubmitted,
-    remainingRemovals,
-    spellCountsByLength,
-    remainingDeckCount,
-    isLastSubmitChance,
-    base.scoreSum,
-    base.lengthTableLen ?? base.letterParts?.length ?? tiles.length,
-    rnd,
-    submitOptions?.treasureRun ?? null,
-    Number(submitOptions?.money) || 0,
-    submitOptions?.ownedTreasureInstances ?? null,
-    submitOptions?.resolvedWord != null ? String(submitOptions.resolvedWord) : "",
-    submitOptions,
-    rarityLevelsByRarity,
-    accessoryRow,
-  );
   const baseHookCtx = {
     tiles,
     letterParts: base.letterParts,
@@ -342,64 +400,38 @@ export function computeWordScoreDetailedForSubmit(
     getWordDefinition: submitOptions?.getWordDefinition ?? undefined,
     fullDeck: submitOptions?.fullDeck ?? undefined,
   };
+  const {
+    extraLetterScoringPasses,
+    extraLetterPassCueSteps,
+    perLetterTreasureReplayCueSteps,
+    replayCounts,
+    letterReplayExtraCounts,
+  } = computeSubmitLetterReplayMeta(baseHookCtx, tiles, slots);
+  let postLetterTreasureSteps = buildPostLetterTreasureSteps(
+    tiles,
+    slots,
+    base.letterParts,
+    basketballWordsSubmitted,
+    remainingRemovals,
+    spellCountsByLength,
+    remainingDeckCount,
+    isLastSubmitChance,
+    base.scoreSum,
+    base.lengthTableLen ?? base.letterParts?.length ?? tiles.length,
+    rnd,
+    submitOptions?.treasureRun ?? null,
+    Number(submitOptions?.money) || 0,
+    submitOptions?.ownedTreasureInstances ?? null,
+    submitOptions?.resolvedWord != null ? String(submitOptions.resolvedWord) : "",
+    submitOptions,
+    rarityLevelsByRarity,
+    accessoryRow,
+    replayCounts,
+  );
   const letterRarityTreasureMultAddTotal = sumLetterRarityMultAddFromSlots(baseHookCtx);
-
-  let extraLetterScoringPasses = 0;
-  /** 每多一轮逐字母记分前，在 UI 上对应播一次「触发宝藏」提示（与 getExtraLetterScoringPasses 次数、槽位顺序一致） */
-  /** @type {{ treasureId: string, slotIndex: number }[]} */
-  const extraLetterPassCueSteps = [];
-  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(slots)) {
-    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
-    const p = Math.max(0, Math.floor(Number(hooks?.getExtraLetterScoringPasses?.(baseHookCtx)) || 0));
-    if (p <= 0) continue;
-    extraLetterScoringPasses += p;
-    for (let k = 0; k < p; k++) {
-      extraLetterPassCueSteps.push({ treasureId: tid, slotIndex: si });
-    }
-  }
-
-  const treasureReplayCounts = base.letterParts.map((_, i) =>
-    isBossDebuffedSubmitTile(tiles[i]) ? 0 : extraLetterScoringPasses,
-  );
-  /** 按字母、宝藏槽顺序：该字母每次由 `getLetterReplayCountForLetter` 触发的重播前播宝藏 wobble */
-  /** @type {{ treasureId: string, slotIndex: number }[][]} */
-  const perLetterTreasureReplayCueSteps = base.letterParts.map(() => []);
-  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(slots)) {
-    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
-    if (!hooks?.getLetterReplayCountForLetter) continue;
-    for (let i = 0; i < base.letterParts.length; i++) {
-      if (isBossDebuffedSubmitTile(tiles[i])) continue;
-      const part = base.letterParts[i];
-      const n = Math.max(0, Math.floor(Number(hooks.getLetterReplayCountForLetter(baseHookCtx, part, i)) || 0));
-      if (n > 0) {
-        treasureReplayCounts[i] += n;
-        for (let k = 0; k < n; k++) {
-          perLetterTreasureReplayCueSteps[i].push({ treasureId: tid, slotIndex: si });
-        }
-      }
-    }
-  }
-  /**
-   * 「重播配饰」按触发性质叠加：
-   * - 固定给字母自身 +1 次；
-   * - 若存在整词额外 replay 轮（如号角），每一轮该字母也会再额外 +1 次；
-   * - 不会把「按字母额外次数」再次放大（与宝藏按字母加次关系为相加）。
-   */
-  const accessoryReplayCounts = base.letterParts.map((_, i) =>
-    isBossDebuffedSubmitTile(tiles[i])
-      ? 0
-      : hasRewindAccessory(tiles[i])
-        ? 1 + extraLetterScoringPasses
-        : 0,
-  );
-  const replayCounts = treasureReplayCounts.map((v, i) => v + accessoryReplayCounts[i]);
   const letterRarityTreasureMultMulProduct = productLetterRarityMultMulFromSlots(
     baseHookCtx,
     replayCounts,
-  );
-
-  const letterReplayExtraCounts = replayCounts.map((v) =>
-    Math.max(0, (Math.floor(Number(v) || 0) || 0) - extraLetterScoringPasses),
   );
 
   let replayScoreAdd = 0;

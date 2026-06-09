@@ -149,7 +149,7 @@ import gsap from "gsap";
 import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
 import LetterTile from "./LetterTile.vue";
 import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
-import { buildShopOfferPriceView } from "../shop/shopOfferPriceDisplay.js";
+import { buildPackInnerOfferPriceView } from "../shop/shopOfferPriceDisplay.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { EASE_TRANSFORM } from "../constants.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
@@ -392,13 +392,7 @@ function formatWallet(n) {
 }
 
 function packOptionPriceView(opt) {
-  return buildShopOfferPriceView(Number(opt?.price) || 0, opt ?? {}, {
-    wallet: props.walletAmount,
-    ownedVoucherIds: props.ownedVoucherIds ?? [],
-    runPresetId: props.runPresetId,
-    walletFloor: props.walletFloor,
-    packStruck: true,
-  });
+  return buildPackInnerOfferPriceView(Number(opt?.price) || 0);
 }
 
 function isDeckOffer(opt) {

@@ -1,22 +1,40 @@
 import { describe, mult } from "../treasureDescription.js";
-import { addMultMulBank, getMultMulBank, patchCurrentBankDescription, playBankMultMulGainFx } from "../treasureBankHelpers.js";
+import { addMultMulBank, getMultMulBank, playBankMultMulGainFx } from "../treasureBankHelpers.js";
 
 const DISCARD_26_MULT_INCREMENT = 1;
 
 const ID = "115";
 const LETTERS_PER_STEP = 26;
 
+/**
+ * @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx
+ */
+function buildLaundryBasketDescription(ctx) {
+  const rs = ctx.treasureRun;
+  const v = rs ? getMultMulBank(rs, ID) : 1;
+  const shown = Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, "");
+  return describe(
+    "你每弃掉26个字母块，便获得",
+    mult("x1"),
+    "倍率",
+    "（当前",
+    mult(`x${shown || "1"}`),
+    "）",
+  );
+}
+
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 10,
   rarity: "legendary",
   shopEligible: false,
-  description: describe("你每弃掉26个字母块，便获得", mult("x1"), "倍率"),
+  description: describe("你每弃掉26个字母块，便获得", mult("x1"), "倍率", "（当前", mult("x1"), "）"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  ...patchCurrentBankDescription(ID, "multMul"),
+  replaceDescriptionWithPatch: true,
+  patchDescription: buildLaundryBasketDescription,
   buildPostLetterStep(ctx) {
     const m = getMultMulBank(ctx.treasureRun, ID);
     return m > 1 ? { multMul: m } : null;

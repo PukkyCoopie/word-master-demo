@@ -314,7 +314,7 @@ function buildSpellDefinitions() {
       pickMode: "confirm_all",
       tags: SPECTRAL,
       shopPrice: 5,
-      description: "随机移除下方全部字母，获得$20",
+      description: "随机移除下方全部字母，获得$15",
     },
     {
       id: "ankh",

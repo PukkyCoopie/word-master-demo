@@ -16,9 +16,9 @@ function resolveChairTimesMultFromPatchContext(ctx) {
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 8,
+  price: 7,
   rarity: "rare",
-  description: describe("你每有一个空的宝藏槽位便获得", mult("x1"), "倍率"),
+  description: describe("你每有一个空的宝藏槽位便", mult("x1"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

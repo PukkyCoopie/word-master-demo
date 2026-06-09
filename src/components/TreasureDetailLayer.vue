@@ -438,13 +438,31 @@
           </div>
 
           <div
+            v-if="showPresetSalePanel"
+            ref="presetSalePanelRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span
+                class="treasure-detail-desc-panel-title-text treasure-detail-desc-panel-title-text--shop-discount"
+                >{{ SHOP_PRESET_SALE_TITLE }}</span
+              >
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="presetSalePanelDescription"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
             v-if="showRandomSalePanel"
             ref="randomSalePanelRef"
             class="treasure-detail-desc-card treasure-detail-stagger-el"
           >
             <div class="treasure-detail-desc-panel-title-row">
               <span
-                class="treasure-detail-desc-panel-title-text treasure-detail-desc-panel-title-text--random-sale"
+                class="treasure-detail-desc-panel-title-text treasure-detail-desc-panel-title-text--shop-discount"
                 >{{ SHOP_RANDOM_SALE_TITLE }}</span
               >
             </div>
@@ -805,6 +823,7 @@ import {
   shouldSkipDecorativeMotion,
 } from "../settings/animationSpeed.js";
 import {
+  buildPackInnerOfferPriceView,
   buildShopOfferPriceView,
   resolveShopOfferEffectivePrice,
 } from "../shop/shopOfferPriceDisplay.js";
@@ -813,6 +832,10 @@ import {
   readOfferRandomSaleDiscount,
   SHOP_RANDOM_SALE_TITLE,
 } from "../shop/shopRandomSale.js";
+import {
+  readOfferPresetSaleDiscount,
+  SHOP_PRESET_SALE_TITLE,
+} from "../game/runPresetRuntime.js";
 import {
   getPerLetterIntrinsicMultDisplay,
   getPerLetterIntrinsicScoreDisplay,
@@ -910,7 +933,9 @@ const showDetailShelfPrice = computed(() => {
 
 const offerPriceDisplayed = computed(() => {
   const base = Math.max(0, Math.floor(Number(props.treasure?.price) || 0));
-  if (isCollectionPreviewMode.value || props.shelfPriceKind === "offer") return base;
+  if (isCollectionPreviewMode.value || props.shelfPriceKind === "offer" || props.mode === "pack-inner") {
+    return base;
+  }
   return resolveShopOfferEffectivePrice(
     base,
     props.treasure ?? {},
@@ -921,12 +946,14 @@ const offerPriceDisplayed = computed(() => {
 
 const offerShelfPriceView = computed(() => {
   const base = Math.max(0, Math.floor(Number(props.treasure?.price) || 0));
+  if (props.mode === "pack-inner") {
+    return buildPackInnerOfferPriceView(base);
+  }
   return buildShopOfferPriceView(base, props.treasure ?? {}, {
     wallet: props.walletAmount,
     ownedVoucherIds: props.ownedVoucherIds ?? [],
     runPresetId: props.runPresetId,
     walletFloor: props.walletFloor,
-    packStruck: props.mode === "pack-inner",
   });
 });
 
@@ -940,11 +967,26 @@ const offerShelfPriceInnerClasses = computed(() => {
 
 const randomSaleDiscountAmount = computed(() => readOfferRandomSaleDiscount(props.treasure));
 
+const presetSaleDiscountAmount = computed(() =>
+  readOfferPresetSaleDiscount(props.treasure, props.runPresetId),
+);
+
+const showPresetSalePanel = computed(
+  () =>
+    props.mode === "offer" &&
+    !isCollectionPreviewMode.value &&
+    presetSaleDiscountAmount.value > 0,
+);
+
 const showRandomSalePanel = computed(
   () =>
-    (props.mode === "offer" || props.mode === "pack-inner") &&
+    props.mode === "offer" &&
     !isCollectionPreviewMode.value &&
     randomSaleDiscountAmount.value > 0,
+);
+
+const presetSalePanelDescription = computed(() =>
+  formatShopRandomSaleDescription(presetSaleDiscountAmount.value),
 );
 
 const randomSalePanelDescription = computed(() =>
@@ -1371,6 +1413,7 @@ function descriptionConceptExcludeTitles() {
   if (showDeckOfferTreasureAccessoryRegion.value && deckOfferTreasureAccessoryTitle.value) {
     exclude.add(deckOfferTreasureAccessoryTitle.value);
   }
+  if (showPresetSalePanel.value) exclude.add(SHOP_PRESET_SALE_TITLE);
   if (showRandomSalePanel.value) exclude.add(SHOP_RANDOM_SALE_TITLE);
   return exclude;
 }
@@ -1429,6 +1472,7 @@ const deckOfferStackRef = ref(null);
 const spellGainPanelRef = ref(null);
 const treasureGainPanelRef = ref(null);
 const randomSalePanelRef = ref(null);
+const presetSalePanelRef = ref(null);
 const collectionUnlockHintPanelRef = ref(null);
 const collectionUnlockPrerequisitePanelRef = ref(null);
 const accessoryPanelRef = ref(null);
@@ -1466,6 +1510,7 @@ function staggerTargets() {
     deckOfferAccessoryRef.value,
     deckOfferTreasureAccessoryRef.value,
     treasureGainPanelRef.value,
+    presetSalePanelRef.value,
     randomSalePanelRef.value,
     collectionUnlockHintPanelRef.value,
     collectionUnlockPrerequisitePanelRef.value,

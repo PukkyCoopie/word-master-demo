@@ -105,6 +105,8 @@
 	--btn-green: #7cb342;
 	/* 商店「刷新」/ Boss 重掷按钮上的价格字：黄色叠在 --btn-green 上，配合轻阴影增强可读 */
 	--shop-reroll-price-accent: #ffe566;
+	/* 商店优惠：随机优惠 / 预设优惠价签与详情标题 */
+	--shop-discount-emphasis: #4ade80;
 	/* 商店货架：牌包区并排 2 格，单卡区/底部已拥有格与之统一（108 为格比例基准） */
 	--shop-shelf-cell-size: calc(108 * var(--rpx));
 	/* 对局信息 · 优惠券 Tab 网格格（商店货架与 --shop-shelf-cell-size 一致） */
@@ -831,6 +833,10 @@ textarea::-moz-placeholder {
 /* 宝藏自毁：摧毁！ */
 .score-popup-bubble--destroy {
 	background: #e04545;
+}
+/* 炸弹爆炸自毁 */
+.score-popup-bubble--bomb-blast {
+	background: #c03636;
 }
 /* 碎冰块自毁：碎裂！（与暂停菜单「继续游戏」主按钮同色） */
 .score-popup-bubble--ice-shatter {
@@ -3123,7 +3129,7 @@ textarea::-moz-placeholder {
 }
 
 .shop-treasure-price-inner--discounted {
-	color: #86efac;
+	color: var(--shop-discount-emphasis);
 }
 
 .shop-treasure-price-inner--stack {
@@ -3836,8 +3842,8 @@ textarea::-moz-placeholder {
 	line-height: 1.45;
 }
 
-.treasure-detail-desc-panel-title-text--random-sale {
-	color: #4ade80;
+.treasure-detail-desc-panel-title-text--shop-discount {
+	color: var(--shop-discount-emphasis);
 }
 
 .tile-detail-rarity-title-row .tile-detail-entry-kind {
@@ -4182,7 +4188,8 @@ textarea::-moz-placeholder {
 	font-size: calc(36 * var(--rpx));
 	line-height: 1;
 	cursor: pointer;
-	transform: translateY(-50%);
+	transform: none;
+	margin-top: calc(-97.5 * var(--rpx));
 	pointer-events: auto;
 	opacity: 0;
 	transition: background calc(0.12s / var(--anim-speed-scale, 1)) ease;

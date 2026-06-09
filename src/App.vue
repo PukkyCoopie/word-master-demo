@@ -39,7 +39,6 @@
         />
         <CollectionPage
           v-else-if="showCollection"
-          :key="collectionRefreshKey"
           :career="collectionCareer"
           :initial-enter-delay-ms="COLLECTION_PAGE_INITIAL_ENTER_DELAY_MS"
           @back="closeCollection"
@@ -230,12 +229,21 @@ import { developerModeEnabled, enableDeveloperMode } from "./dev/developerMode.j
 import { formatCollectionMenuProgressSuffix } from "./collection/collectionProgress.js";
 import { registerAndroidBackHandler } from "./platform/androidBackButton.js";
 import { handleAppAndroidBack } from "./platform/handleAppAndroidBack.js";
+import { useBootImages } from "./composables/useBootImages.js";
 
 useScale();
 const { isDesktopLayout } = useWebLayoutMode();
 usePortalFrameSync();
 const { loadDictionary, dictionaryReady, loading: dictLoading, error: dictError, loadProgress } = useDictionary();
 const { remixIconReady, loadRemixIconFont } = useRemixIconFont();
+const { bootImagesReady, bootImageLoadProgress, loadBootImages } = useBootImages();
+
+/** 启动进度条：词库 / 图片 / Remix Icon 权重 */
+const BOOT_PROGRESS_WEIGHT = Object.freeze({
+  dictionary: 0.82,
+  images: 0.13,
+  remixIcon: 0.05,
+});
 const { account, phase: tapTapPhase } = useTapTapAuth();
 
 const screen = ref("menu");
@@ -327,6 +335,10 @@ provide("requestNewRun", (opts = {}) => {
 });
 
 provide("activeSaveSlotIndex", activeSaveSlotIndex);
+
+provide("mutateCollectionCareer", (mutator) => {
+  persistCollectionCareer(getActiveSaveSlotIndex(), mutator);
+});
 
 provide("recordCollectionDiscovery", ({
   treasureId,
@@ -552,8 +564,16 @@ provide("applyDeveloperAchievementCheat", applyDeveloperAchievementCheatFromApp)
 
 /** @param {number} slotIndex @param {(career: import('./save/runSaveSchema.js').SlotCareerStats) => void} mutator */
 function persistCollectionCareer(slotIndex, mutator) {
+  const before = JSON.stringify(
+    normalizeSlotCareerStats(getSlotCareer(slotIndex) ?? createEmptySlotCareerStats()),
+  );
   mutateSlotCareer(slotIndex, mutator);
-  bumpCollectionUi();
+  const after = JSON.stringify(
+    normalizeSlotCareerStats(getSlotCareer(slotIndex) ?? createEmptySlotCareerStats()),
+  );
+  if (before !== after) {
+    bumpCollectionUi();
+  }
 }
 
 /** @param {{ index: number, mode: string }} payload */
@@ -626,7 +646,18 @@ async function startNewRunAtSlot(index, seedNumeric, seedDisplay, resetProfile =
 
 const showMaterialBench = ref(false);
 
-const appBootReady = computed(() => dictionaryReady.value && remixIconReady.value);
+const bootCombinedProgress = computed(() => {
+  const w = BOOT_PROGRESS_WEIGHT;
+  return (
+    loadProgress.value * w.dictionary +
+    bootImageLoadProgress.value * w.images +
+    (remixIconReady.value ? 1 : 0) * w.remixIcon
+  );
+});
+
+const appBootReady = computed(
+  () => dictionaryReady.value && remixIconReady.value && bootImagesReady.value,
+);
 const showMenu = computed(() => appBootReady.value && screen.value === "menu");
 const showCollection = computed(() => appBootReady.value && screen.value === "collection");
 const showGame = computed(() => appBootReady.value && screen.value === "game");
@@ -650,11 +681,10 @@ const dictBootError = computed(() => !dictLoading.value && !!dictError.value);
 const dictBootErrorMessage = computed(() => formatDictionaryLoadErrorForPlayer(dictError.value));
 const dictBarPct = computed(() => {
   if (dictBootError.value) return 100;
-  const dictPct = loadProgress.value;
-  if (!remixIconReady.value) {
-    return Math.round(Math.min(dictPct, 0.99) * 100);
+  if (!appBootReady.value) {
+    return Math.round(Math.min(bootCombinedProgress.value, 0.99) * 100);
   }
-  return Math.round(dictPct * 100);
+  return 100;
 });
 
 let appAlive = true;
@@ -687,6 +717,7 @@ onMounted(() => {
   repairSlotProfilesAfterLoad();
   loadDictionary({ shouldAbort: () => !appAlive });
   loadRemixIconFont({ shouldAbort: () => !appAlive });
+  loadBootImages({ shouldAbort: () => !appAlive });
   void maybeInitProfile();
   disposeDevConsole = registerDevConsole({
     getActiveSlotIndex: () => getActiveSaveSlotIndex(),
@@ -715,8 +746,10 @@ onMounted(() => {
       sessionRunSeedDisplay,
       dictionaryReady,
       remixIconReady,
+      bootImagesReady,
       loadDictionary: () => loadDictionary({ shouldAbort: () => !appAlive }),
       loadRemixIconFont: () => loadRemixIconFont({ shouldAbort: () => !appAlive }),
+      loadBootImages: () => loadBootImages({ shouldAbort: () => !appAlive }),
     });
   }
 });

@@ -19,6 +19,7 @@
           :length-badge-label="entry.lengthBadgeLabel"
           :length-label="entry.lengthLabel"
           :price="entry.price"
+          :show-new-mark="entry.showNewMark"
           @select="$emit('select-upgrade', $event)"
         />
       </div>
@@ -33,10 +34,12 @@ import {
   COLLECTION_RARITY_UPGRADE_CATALOG,
 } from "../../collection/collectionUpgradeCatalog.js";
 import { collectionUpgradeGridListName } from "../../collection/collectionDisplayUtils.js";
+import { collectionNewKeyForUpgrade } from "../../collection/collectionNewDiscoveries.js";
 import CollectionShopTreasureCell from "./CollectionShopTreasureCell.vue";
 
 const props = defineProps({
   discoveredUpgradeIds: { type: Array, default: () => [] },
+  collectionNewKeys: { type: Object, default: () => new Set() },
 });
 
 defineEmits(["select-upgrade"]);
@@ -54,6 +57,7 @@ function mapUpgradeEntries(catalog) {
     lengthBadgeLabel: offer.lengthBadgeLabel,
     lengthLabel: offer.lengthLabel,
     price: offer.price,
+    showNewMark: discovered && props.collectionNewKeys.has(collectionNewKeyForUpgrade(String(offer.treasureId ?? ""))),
   }));
 }
 

@@ -349,7 +349,7 @@ const COLS = 4;
 
 /** 水域材质平面加分（写入 `materialScoreBonus`） */
 const WATER_MATERIAL_SCORE_BONUS = 30;
-const FIRE_MATERIAL_MULT_BONUS = 4;
+const FIRE_MATERIAL_MULT_BONUS = 5;
 
 /**
  * 商店 / 牌包掷骰后的材质写入牌张；万能块材质令整格变为万能块。
@@ -1669,6 +1669,9 @@ export function useGameState(gameOpts = {}) {
       treasureAccessoryId: raw.treasureAccessoryId ?? null,
       everLeftDrawPile: raw.everLeftDrawPile === true,
     };
+    const normalizedAccessory = normalizeExclusiveTileAccessoryPair(card.accessoryId, card.treasureAccessoryId);
+    card.accessoryId = normalizedAccessory.accessoryId;
+    card.treasureAccessoryId = normalizedAccessory.treasureAccessoryId;
     if (raw.vowelDisplayShift != null) {
       /** @type {Record<string, unknown>} */ (card).vowelDisplayShift = Math.floor(Number(raw.vowelDisplayShift));
     }

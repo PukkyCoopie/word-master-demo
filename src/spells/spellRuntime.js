@@ -26,7 +26,7 @@ import {
 } from "../treasures/ownedTreasureSlot.js";
 
 const WATER_MATERIAL_SCORE_BONUS = 30;
-const FIRE_MATERIAL_MULT_BONUS = 4;
+const FIRE_MATERIAL_MULT_BONUS = 5;
 const VOWEL_SET = new Set(["a", "e", "i", "o", "u"]);
 
 function rngU(rng) {
@@ -947,7 +947,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const uid of uids) {
         if (uid != null) ctx.removeDeckCardByUid?.(uid);
       }
-      ctx.money.value += 20;
+      ctx.money.value += 15;
       spellFx = { kind: "immolate", removedCount: uids.length };
       break;
     }

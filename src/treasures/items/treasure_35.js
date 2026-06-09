@@ -5,7 +5,7 @@ import { isConsonantLetterWithMask } from "../treasureLetterClassify.js";
 export default {
   price: 5,
   rarity: "common",
-  description: describe("每一个拼写的辅音字母给予", mult("+4"), "倍率"),
+  description: describe("辅音字母给予", mult("+5"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -18,7 +18,7 @@ export const treasureHooks = {
       const ch = String(letterParts[i]?.letter ?? "").toLowerCase();
       if (!ch || !isConsonantLetterWithMask(ch, slots)) continue;
       const r = 1 + Math.max(0, Math.floor(Number(replayCounts[i]) || 0));
-      multAdd += 4 * r;
+      multAdd += 5 * r;
     }
     return multAdd > 0 ? { multAdd } : null;
   },
@@ -26,6 +26,6 @@ export const treasureHooks = {
     const letter = String(part?.letter ?? "").toLowerCase();
     const slots = ctx.ownedSlotTreasureIds ?? [];
     if (!letter || !isConsonantLetterWithMask(letter, slots)) return null;
-    return { delta: 4, label: "+4" };
+    return { delta: 5, label: "+5" };
   },
 };

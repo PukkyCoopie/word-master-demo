@@ -29,6 +29,10 @@
  * @property {boolean} chapterNoVerbUnlocked 曾完成一整大关且未拼写过动词
  * @property {Set<string>} levelVowelsUsedThisLevel 本小关内已出现的元音字母 a–u
  * @property {boolean} levelAllFiveVowelsUnlocked 本小关内曾用齐五种元音（解锁用，跨局保留）
+ * @property {boolean} levelAllLegendaryDeckExhaustedUnlocked 曾在一个小关内用尽牌库中所有传说字母
+ * @property {number} levelStartLegendaryInDeckCount 本小关开局牌库中传说字母块数量（追踪用尽解锁）
+ * @property {boolean} runIceMaterialShattered 本局曾使碎冰块碎裂
+ * @property {boolean} everTwoTreasuresWithAccessoryUnlocked 曾同时拥有 2 个装备了配饰的宝藏（卖出不影响）
  * @property {boolean} levelFirstFullWordDiscardDone 本小关是否已因首次弃完整词升级过长度
  * @property {boolean} everDiscardedFullWord 本局是否弃过完整单词
  * @property {boolean} everDiscardedWordLen7Plus 本局是否弃过 7 字母及以上完整单词
@@ -78,6 +82,10 @@ export function createTreasureRunState() {
     chapterNoVerbUnlocked: false,
     levelVowelsUsedThisLevel: new Set(),
     levelAllFiveVowelsUnlocked: false,
+    levelAllLegendaryDeckExhaustedUnlocked: false,
+    levelStartLegendaryInDeckCount: 0,
+    runIceMaterialShattered: false,
+    everTwoTreasuresWithAccessoryUnlocked: false,
     levelFirstFullWordDiscardDone: false,
     everDiscardedFullWord: false,
     everDiscardedWordLen7Plus: false,

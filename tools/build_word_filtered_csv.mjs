@@ -12,7 +12,11 @@ import readline from "node:readline";
  *
  * Rules:
  * - pos is inferred from translation column (any "x." at line start treated as POS; unknown tokens kept as-is).
- * - drop only when no line in translation has a POS-like prefix.
+ * - fallbacks when translation lacks POS prefix:
+ *   1) ECDICT pos column (word.csv field 2);
+ *   2) Chinese inflection glosses (e.g. "mean的过去式和过去分词" → v);
+ *   3) -ing forms whose gloss starts with a bracket tag like [计] → v.
+ * - drop only when all inference paths fail.
  * - handle translation wrapped in quotes and containing commas.
  * - handle multi-pos / multi-sense entries where translation is split by "\n" or "\\n".
  */
@@ -122,6 +126,47 @@ function inferPosFromTranslation(translationZh) {
 	return Array.from(tokens).sort().join("|");
 }
 
+/** ECDICT pos 列（word.csv 第 2 列）非空时作 fallback */
+function inferPosFromEcdictColumn(posField) {
+	const raw = String(posField ?? "").trim();
+	if (!raw) return "";
+	const tokens = new Set();
+	for (const part of raw.split(/[|,;/\s]+/)) {
+		const t = normalizePosToken(part);
+		if (t) tokens.add(t);
+	}
+	if (tokens.size === 0) return "";
+	return Array.from(tokens).sort().join("|");
+}
+
+/** 中文释义里的屈折说明（过去式、分词等）→ 动词 */
+function inferPosFromChineseInflection(translationZh, word) {
+	const t = String(translationZh ?? "");
+	const w = String(word ?? "").toLowerCase();
+	if (/的过去式|的过去分词|的现在分词|的第三人称单数|的过去时/.test(t)) return "v";
+	if (/\b(?:过去式|过去分词|现在分词|第三人称单数)\b/.test(t) && /[A-Za-z]{2,}/.test(t)) return "v";
+	if (w.endsWith("ing") && /现在分词/.test(t)) return "v";
+	if ((w.endsWith("ed") || w.endsWith("en")) && /过去/.test(t)) return "v";
+	return "";
+}
+
+/** [计] 等方括号领域标 + -ing 形（如 seeking）→ 动词 */
+function inferPosFromBracketTaggedIngForm(word, translationZh) {
+	const w = String(word ?? "").toLowerCase();
+	if (w.length < 4 || !w.endsWith("ing")) return "";
+	if (/^\[[^\]]+\]/.test(String(translationZh ?? "").trim())) return "v";
+	return "";
+}
+
+function inferPos(word, posField, translationZh) {
+	return (
+		inferPosFromTranslation(translationZh) ||
+		inferPosFromEcdictColumn(posField) ||
+		inferPosFromChineseInflection(translationZh, word) ||
+		inferPosFromBracketTaggedIngForm(word, translationZh)
+	);
+}
+
 async function main() {
 	if (!fs.existsSync(INPUT)) {
 		console.error(`Missing input: ${INPUT.pathname}`);
@@ -148,9 +193,10 @@ async function main() {
 
 		const fields = parseCsvLine(line);
 		const word = (fields[0] ?? "").trim();
+		const posField = (fields[1] ?? "").trim();
 		const translation = (fields[2] ?? "").trim();
 
-		const pos = inferPosFromTranslation(translation);
+		const pos = inferPos(word, posField, translation);
 		if (!pos) {
 			dropped += 1;
 			continue;

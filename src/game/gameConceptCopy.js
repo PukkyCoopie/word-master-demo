@@ -39,7 +39,7 @@ export const TILE_MATERIAL_CONCEPT_BY_ID = Object.freeze({
   }),
   fire: Object.freeze({
     blockTitle: "火焰块",
-    effectDescription: "+4 倍率",
+    effectDescription: "+5 倍率",
   }),
   wildcard: Object.freeze({
     blockTitle: "万能块",
@@ -47,7 +47,7 @@ export const TILE_MATERIAL_CONCEPT_BY_ID = Object.freeze({
   }),
   lucky: Object.freeze({
     blockTitle: "幸运块",
-    effectDescription: "计分时有 1/5 的概率提供 +20 倍率，且有 1/15 的概率提供 +$20",
+    effectDescription: "计分时有 1/4 的概率提供 +20 倍率，且有 1/12 的概率提供 +$20",
   }),
 });
 

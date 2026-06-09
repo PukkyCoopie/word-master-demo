@@ -1,5 +1,5 @@
 import { LETTER_RARITY_ORDER } from "../composables/useScoring.js";
-import { treasureHasUnlockPrerequisite } from "./collectionEntryState.js";
+import { treasureHasCollectionPrerequisite } from "./collectionEntryState.js";
 
 const RARITY_RANK = Object.freeze(
   Object.fromEntries(LETTER_RARITY_ORDER.map((r, i) => [r, i])),
@@ -24,8 +24,8 @@ export function sortTreasureCatalogRows(rows, getDef) {
     const ra = raritySortKey(defA?.rarity);
     const rb = raritySortKey(defB?.rarity);
     if (ra !== rb) return ra - rb;
-    const pa = treasureHasUnlockPrerequisite(a.treasureId) ? 1 : 0;
-    const pb = treasureHasUnlockPrerequisite(b.treasureId) ? 1 : 0;
+    const pa = treasureHasCollectionPrerequisite(a.treasureId) ? 1 : 0;
+    const pb = treasureHasCollectionPrerequisite(b.treasureId) ? 1 : 0;
     if (pa !== pb) return pa - pb;
     return Number(a.treasureId) - Number(b.treasureId);
   });

@@ -5,13 +5,16 @@ import { rollProbabilityFailsSkip } from "../treasureProbability.js";
 export default {
   price: 5,
   rarity: "common",
-  description: describe(mult("+20"), "倍率", "，在关卡完成时", prob("1/6"), "的概率摧毁自身"),
+  description: describe(mult("+50"), "倍率", "；在关卡完成时", prob("1/6"), "的概率爆炸"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  resolveSelfDestructBubble() {
+    return { text: "爆炸！", kind: "bomb-blast" };
+  },
   buildPostLetterStep() {
-    return { multAdd: 20 };
+    return { multAdd: 50 };
   },
   async onLevelComplete(ctx) {
     const rng = ctx.rng ?? Math.random;

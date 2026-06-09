@@ -4,9 +4,9 @@ export const SHOP_RANDOM_SALE_TITLE = "随机优惠";
 
 /** @type {readonly { discount: number, weight: number }[]} */
 export const SHOP_RANDOM_SALE_TIERS = Object.freeze([
-  Object.freeze({ discount: 3, weight: 0.02 }),
-  Object.freeze({ discount: 2, weight: 0.06 }),
-  Object.freeze({ discount: 1, weight: 0.12 }),
+  Object.freeze({ discount: 3, weight: 0.01 }),
+  Object.freeze({ discount: 2, weight: 0.03 }),
+  Object.freeze({ discount: 1, weight: 0.06 }),
 ]);
 
 /**
@@ -41,10 +41,6 @@ export function applyRandomSaleToOfferRow(offer, rng = Math.random) {
   const discount = rollShopRandomSaleDiscount(rng);
   if (discount > 0) offer.randomSaleDiscount = discount;
   else delete offer.randomSaleDiscount;
-  const opts = offer.bundleOptions;
-  if (Array.isArray(opts)) {
-    for (const opt of opts) applyRandomSaleToOfferRow(opt, rng);
-  }
   return offer;
 }
 

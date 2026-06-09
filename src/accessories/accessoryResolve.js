@@ -7,6 +7,9 @@ import {
   ACCESSORY_CROP,
   ACCESSORY_DROP,
   ACCESSORY_FIRE,
+  ACCESSORY_HOURGLASS,
+  ACCESSORY_NO_SELL,
+  ACCESSORY_RENTAL,
   ACCESSORY_WRENCH,
   DECK_TILE_BOARD_ACCESSORY_CHANCE,
   SHOP_TREASURE_ACCESSORY_CHANCE,
@@ -179,11 +182,28 @@ export function rollShopTreasureAccessoryId(rng = Math.random, chanceMult = 1) {
   return SHOP_TREASURE_ACCESSORY_ROLL_ORDER[SHOP_TREASURE_ACCESSORY_ROLL_ORDER.length - 1] ?? null;
 }
 
+/** 禁售 / 沙漏 / 租赁配饰不参与商店标价加成 */
+const TREASURE_ACCESSORY_NO_SHOP_PRICE_ADD_IDS = new Set([
+  ACCESSORY_NO_SELL,
+  ACCESSORY_HOURGLASS,
+  ACCESSORY_RENTAL,
+]);
+
+/**
+ * @param {string | null | undefined} accessoryId
+ * @returns {boolean}
+ */
+export function treasureAccessoryContributesShopPriceAdd(accessoryId) {
+  const key = normId(accessoryId);
+  return Boolean(key) && !TREASURE_ACCESSORY_NO_SHOP_PRICE_ADD_IDS.has(key);
+}
+
 /**
  * @param {string | null | undefined} accessoryId
  * @returns {number}
  */
 export function getShopTreasureAccessoryPriceAdd(accessoryId) {
+  if (!treasureAccessoryContributesShopPriceAdd(accessoryId)) return 0;
   const def = getAccessoryDef(accessoryId);
   return def?.roll?.shopPriceAdd ?? 0;
 }

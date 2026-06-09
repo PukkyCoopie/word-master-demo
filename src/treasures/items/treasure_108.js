@@ -1,16 +1,16 @@
 import { describe, mult } from "../treasureDescription.js";
 import { countDeckCardsWithEnhancement } from "../treasureDeckEnhancement.js";
 
-const MIN_ENHANCED = 16;
+const MIN_ENHANCED = 10;
+const BASE_MULT = 1.5;
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 7,
   rarity: "epic",
   description: describe(
-    "如果你的完整牌库中有至少16个具有增益的字母块，",
-    mult("x3"),
-    "倍率",
+    mult("x1.5"),
+    "倍率；如果你的完整牌库中有至少10个具有增益的字母块，此效果翻倍",
   ),
 };
 
@@ -21,16 +21,16 @@ export const treasureHooks = {
     const deck = Array.isArray(ctx.fullDeck) ? ctx.fullDeck : [];
     const n = Math.max(0, countDeckCardsWithEnhancement(deck));
     return describe(
-      `如果你的完整牌库中有至少${MIN_ENHANCED}个具有增益的字母块，`,
-      mult("x3"),
-      "倍率",
+      mult("x1.5"),
+      "倍率；如果你的完整牌库中有至少10个具有增益的字母块，此效果翻倍",
       `（当前${n}/${MIN_ENHANCED}）`,
     );
   },
   buildPostLetterStep(ctx) {
     const deck = ctx.fullDeck;
     if (!Array.isArray(deck)) return null;
-    if (countDeckCardsWithEnhancement(deck) < MIN_ENHANCED) return null;
-    return { multMul: 3 };
+    const enhanced = countDeckCardsWithEnhancement(deck);
+    const multMul = enhanced >= MIN_ENHANCED ? BASE_MULT * 2 : BASE_MULT;
+    return multMul > 1 ? { multMul } : null;
   },
 };

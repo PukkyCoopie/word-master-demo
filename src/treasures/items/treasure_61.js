@@ -7,7 +7,7 @@ const ID = "61";
 export default {
   price: 6,
   rarity: "rare",
-  description: describe("每当你拼写一个带有相同的相邻字母的单词，获得", mult("+2"), "倍率"),
+  description: describe("每当你拼写一个带有相同的相邻字母的单词，获得", mult("+4"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -28,6 +28,6 @@ export const treasureHooks = {
         break;
       }
     }
-    if (streak) await bankMultAddGain(ctx, ID, 2);
+    if (streak) await bankMultAddGain(ctx, ID, 4);
   },
 };

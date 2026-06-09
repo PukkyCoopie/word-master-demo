@@ -4,7 +4,7 @@ import { describe, mult } from "../treasureDescription.js";
 export default {
   price: 7,
   rarity: "rare",
-  description: describe("普通字母在计分时提供", mult("+10"), "倍率"),
+  description: describe("普通字母在计分时提供", mult("+10"), "倍率，且会额外触发一次计分"),
   unlockPrerequisite: { type: "deckAllCommon" },
 };
 
@@ -15,6 +15,9 @@ export const treasureHooks = {
   },
   getLetterRarityMultDeltaForLetterPart(part) {
     return part?.rarity === "common" ? 10 : 0;
+  },
+  getLetterReplayCountForLetter(_ctx, part) {
+    return part?.rarity === "common" ? 1 : 0;
   },
   getLetterRarityMultAnimConfig() {
     return { targetRarity: "common", multDelta: 10, bubbleLabel: "+10" };

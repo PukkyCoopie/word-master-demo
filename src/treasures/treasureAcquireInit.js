@@ -6,7 +6,7 @@ export function initTreasureBankOnAcquire(treasureId, runState) {
   const id = String(treasureId);
   switch (id) {
     case "60":
-      ensureTreasureBank(runState, id).multAdd = 25;
+      ensureTreasureBank(runState, id).multAdd = 30;
       break;
     case "62":
       ensureTreasureBank(runState, id).multMul = 2;
@@ -26,7 +26,7 @@ export function initTreasureBankOnAcquire(treasureId, runState) {
  */
 export function applyTreasureAcquireImmediateEffects(treasureId, ctx = {}) {
   const id = String(treasureId ?? "");
-  if (id === "42") ctx.addRemainingRemovals?.(3);
+  if (id === "42") ctx.addRemainingRemovals?.(4);
   if (id === "110" && ctx.treasureRun) ctx.treasureRun.shopUpgradesFree = true;
 }
 

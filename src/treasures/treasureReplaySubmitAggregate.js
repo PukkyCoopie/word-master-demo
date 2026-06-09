@@ -1,4 +1,7 @@
-import { iterTreasureHookContributions } from "../game/treasureBlueprintMirror.js";
+import {
+  iterTreasureHookContributions,
+  shouldTreasureRunAccumulationMutate,
+} from "../game/treasureBlueprintMirror.js";
 import { TREASURE_HOOKS_BY_ID } from "./treasureRegistry.js";
 
 /**
@@ -10,7 +13,9 @@ export function aggregateReplaySubmitAdjustments(ctx) {
   const slots = ctx.ownedSlotTreasureIds ?? [];
   let flatScoreAdd = 0;
   let flatMultAdd = 0;
-  for (const { treasureId: tid } of iterTreasureHookContributions(slots)) {
+  for (const { treasureId: tid, slotIndex: si, source } of iterTreasureHookContributions(slots)) {
+    if (source === "blueprint") continue;
+    if (!shouldTreasureRunAccumulationMutate(slots, si, tid, source)) continue;
     const adj = TREASURE_HOOKS_BY_ID.get(tid)?.accumulateReplaySubmitAdjustments?.(ctx);
     if (!adj) continue;
     flatScoreAdd += Number(adj.scoreAdd) || 0;

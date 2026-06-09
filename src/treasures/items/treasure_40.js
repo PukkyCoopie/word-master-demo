@@ -21,7 +21,7 @@ function buildBookDescription(ctx) {
   const v = getMultAddBank(ctx.treasureRun, ID);
   return describe(
     "每当你拼写出一个不是名词的单词，获得",
-    mult("+2"),
+    mult("+3"),
     "倍率",
     "（当前",
     mult(v >= 0 ? `+${v}` : String(v)),
@@ -31,11 +31,11 @@ function buildBookDescription(ctx) {
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 6,
+  price: 5,
   rarity: "common",
   description: describe(
     "每当你拼写出一个不是名词的单词，获得",
-    mult("+2"),
+    mult("+3"),
     "倍率",
     "（当前",
     mult("+0"),
@@ -49,13 +49,13 @@ export const treasureHooks = {
   patchDescription: buildBookDescription,
   buildPostLetterStep(ctx) {
     const base = getMultAddBank(ctx.treasureRun, ID);
-    const pendingGain = isNonNounSubmittedWord(ctx) ? 2 : 0;
+    const pendingGain = isNonNounSubmittedWord(ctx) ? 3 : 0;
     const total = base + pendingGain;
     return total !== 0 ? { multAdd: total } : null;
   },
   onSuccessfulWordSubmit(ctx) {
     if (!isNonNounSubmittedWord(ctx)) return;
     // 不再单独播 +2 气泡：只在字后步展示“总倍率”气泡。
-    addMultAddBank(ctx.treasureRun, ID, 2);
+    addMultAddBank(ctx.treasureRun, ID, 3);
   },
 };

@@ -4,13 +4,13 @@ import { describe, mult } from "../treasureDescription.js";
 export default {
   price: 4,
   rarity: "common",
-  description: describe("你每有一个宝藏，", mult("+4"), "倍率"),
+  description: describe("你每有一个宝藏，", mult("+5"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   buildPostLetterStep(ctx) {
     const count = (ctx.ownedSlotTreasureIds ?? []).filter((id) => id != null && id !== "").length;
-    return count > 0 ? { multAdd: count * 4 } : null;
+    return count > 0 ? { multAdd: count * 5 } : null;
   },
 };

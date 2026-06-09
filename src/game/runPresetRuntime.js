@@ -2,6 +2,8 @@ import { readOfferRandomSaleDiscount } from "../shop/shopRandomSale.js";
 import { applyShopDiscountPrice } from "../vouchers/voucherRuntime.js";
 import { getRunPresetDef, normalizeRunPresetId } from "./runPresetDefinitions.js";
 
+export const SHOP_PRESET_SALE_TITLE = "预设优惠";
+
 /** @param {string | null | undefined} presetId */
 export function getRunPresetEffects(presetId) {
   return getRunPresetDef(presetId).effects;
@@ -69,6 +71,19 @@ export function resolveShopOfferPresetCategory(offer) {
   if (ot === "spell" || bk === "spell") return "spell";
   if (ot === "deckTile" || bk === "tile") return "letter";
   return null;
+}
+
+/**
+ * @param {object | null | undefined} offer
+ * @param {string | null | undefined} presetId
+ * @returns {number}
+ */
+export function readOfferPresetSaleDiscount(offer, presetId) {
+  const cat = resolveShopOfferPresetCategory(offer);
+  if (!cat) return 0;
+  const disc = getRunPresetEffects(normalizeRunPresetId(presetId)).shopFlatDiscount?.[cat];
+  const n = Math.floor(Number(disc) || 0);
+  return n > 0 ? n : 0;
 }
 
 /**

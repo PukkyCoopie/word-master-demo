@@ -5,7 +5,7 @@ import { isVowelLetterWithMask } from "../treasureLetterClassify.js";
 export default {
   price: 5,
   rarity: "common",
-  description: describe("每一个拼写的元音字母给予", score("+40"), "分数"),
+  description: describe("元音字母给予", score("+50"), "分数"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -18,7 +18,7 @@ export const treasureHooks = {
       const ch = String(letterParts[i]?.letter ?? "").toLowerCase();
       if (!ch || !isVowelLetterWithMask(ch, slots)) continue;
       const r = 1 + Math.max(0, Math.floor(Number(replayCounts[i]) || 0));
-      scoreAdd += 40 * r;
+      scoreAdd += 50 * r;
     }
     return scoreAdd > 0 ? { scoreAdd } : null;
   },
@@ -26,6 +26,6 @@ export const treasureHooks = {
     const letter = String(part?.letter ?? "").toLowerCase();
     const slots = ctx.ownedSlotTreasureIds ?? [];
     if (!letter || !isVowelLetterWithMask(letter, slots)) return null;
-    return { delta: 40, label: "+40" };
+    return { delta: 50, label: "+50" };
   },
 };

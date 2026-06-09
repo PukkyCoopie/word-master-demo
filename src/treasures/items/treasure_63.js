@@ -19,15 +19,22 @@ export default {
   ),
 };
 
+/** @param {{ letter?: string }} [part] */
+function isZLetterPart(part) {
+  return normalizeLetterChar(part?.letter) === "z";
+}
+
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  buildPostLetterStep(ctx) {
-    const parts = ctx.letterParts ?? [];
-    let multMul = 1;
-    for (const p of parts) {
-      if (normalizeLetterChar(p?.letter) === "z") multMul *= 2;
-    }
-    return multMul > 1 ? { multMul } : null;
+  getLetterRarityMultMulForLetterPart(part) {
+    return isZLetterPart(part) ? 2 : 1;
+  },
+  getLetterRarityMultAnimConfig() {
+    return {
+      multMul: 2,
+      bubbleLabel: "x2",
+      matchesPart: isZLetterPart,
+    };
   },
   accumulateReplaySubmitAdjustments(ctx) {
     const { letterParts, replayCounts } = ctx;
@@ -55,7 +62,6 @@ export const treasureHooks = {
   getPerLetterMultCue(_ctx, part) {
     const ch = normalizeLetterChar(part?.letter);
     if (ch === "s") return { delta: 5, label: "+5" };
-    if (ch === "z") return { delta: 2, label: "x2" };
     return null;
   },
 };

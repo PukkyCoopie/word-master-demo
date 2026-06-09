@@ -114,24 +114,39 @@ export async function bankMultMulGain(ctx, treasureId, increment, bubbleText) {
 /**
  * @param {string} treasureId
  * @param {'multAdd' | 'multMul' | 'scoreAdd'} band
- * @param {string} [zeroLabel]
+ * @param {string} [_zeroLabel]
+ * @param {{ multAdd?: number, multMul?: number, scoreAdd?: number } | null | undefined} [previewInitialWhenUnowned] 未购入/银行未初始化时商店预览用的起始值（如火车 +30、磁铁 x2）
  */
-export function patchCurrentBankDescription(treasureId, band, zeroLabel = "+0") {
+export function patchCurrentBankDescription(treasureId, band, _zeroLabel = "+0", previewInitialWhenUnowned = null) {
   return {
     patchDescription(ctx) {
-      const rs = ctx.treasureRun;
+      const bank = ctx.treasureRun?.banks?.[treasureId] ?? null;
       if (band === "multAdd") {
-        const v = rs ? Math.round(getMultAddBank(rs, treasureId)) : 0;
+        let v = 0;
+        if (bank) {
+          v = Math.round(Number(bank.multAdd) || 0);
+        } else if (previewInitialWhenUnowned?.multAdd != null) {
+          v = Math.round(Number(previewInitialWhenUnowned.multAdd) || 0);
+        }
         return describe("（当前", mult(v >= 0 ? `+${v}` : String(v)), "）");
       }
       if (band === "scoreAdd") {
-        const v = rs ? Math.round(getScoreAddBank(rs, treasureId)) : 0;
+        let v = 0;
+        if (bank) {
+          v = Math.round(Number(bank.scoreAdd) || 0);
+        } else if (previewInitialWhenUnowned?.scoreAdd != null) {
+          v = Math.round(Number(previewInitialWhenUnowned.scoreAdd) || 0);
+        }
         return describe("（当前", score(v >= 0 ? `+${v}` : String(v)), "）");
       }
-      if (!rs) {
-        return describe("（当前", mult("x1"), "）");
+      let v = 1;
+      if (bank) {
+        const m = Number(bank.multMul);
+        v = m > 0 ? m : 1;
+      } else if (previewInitialWhenUnowned?.multMul != null) {
+        const m = Number(previewInitialWhenUnowned.multMul);
+        v = m > 0 ? m : 1;
       }
-      const v = getMultMulBank(rs, treasureId);
       const shown = Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, "");
       return describe("（当前", mult(`x${shown || "1"}`), "）");
     },

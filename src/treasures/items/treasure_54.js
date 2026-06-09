@@ -3,7 +3,7 @@ import { rollProbabilityFailsSkip } from "../treasureProbability.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 4,
+  price: 6,
   rarity: "common",
   description: describe(mult("x3"), "倍率", "；在关卡完成时", prob("1/1000"), "的概率摧毁自身"),
   poolPrerequisite: { type: "treasure29SelfDestructed" },

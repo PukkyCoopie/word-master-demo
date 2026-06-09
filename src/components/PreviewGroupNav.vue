@@ -59,7 +59,6 @@ function sideEnterState(side) {
   return {
     opacity: 0,
     x: side === "prev" ? -SIDE_ENTER_OFFSET : SIDE_ENTER_OFFSET,
-    yPercent: -50,
   };
 }
 
@@ -79,8 +78,8 @@ function resetVisible() {
   const next = nextRef.value;
   const progress = progressRef.value;
   gsap.killTweensOf(animTargets());
-  if (prev) gsap.set(prev, { opacity: 1, x: 0, clearProps: "transform" });
-  if (next) gsap.set(next, { opacity: 1, x: 0, clearProps: "transform" });
+  if (prev) gsap.set(prev, { opacity: 1, x: 0, clearProps: "x" });
+  if (next) gsap.set(next, { opacity: 1, x: 0, clearProps: "x" });
   if (progress) gsap.set(progress, { opacity: 1, y: 0, clearProps: "transform" });
 }
 
@@ -96,7 +95,6 @@ function appendCloseAnimation(tl, at = 0) {
       {
         opacity: 0,
         x: -SIDE_ENTER_OFFSET,
-        yPercent: -50,
         duration: 0.1,
         ease: EASE_TRANSFORM,
       },
@@ -109,7 +107,6 @@ function appendCloseAnimation(tl, at = 0) {
       {
         opacity: 0,
         x: SIDE_ENTER_OFFSET,
-        yPercent: -50,
         duration: 0.1,
         ease: EASE_TRANSFORM,
       },
@@ -147,10 +144,9 @@ function appendEnterAnimation(tl, at = 0) {
       {
         opacity: 1,
         x: 0,
-        yPercent: -50,
         duration: 0.22,
         ease: EASE_TRANSFORM,
-        clearProps: "transform",
+        clearProps: "x",
       },
       at,
     );
@@ -161,10 +157,9 @@ function appendEnterAnimation(tl, at = 0) {
       {
         opacity: 1,
         x: 0,
-        yPercent: -50,
         duration: 0.22,
         ease: EASE_TRANSFORM,
-        clearProps: "transform",
+        clearProps: "x",
       },
       at,
     );

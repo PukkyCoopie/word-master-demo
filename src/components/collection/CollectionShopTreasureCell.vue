@@ -9,6 +9,7 @@
     :aria-label="cellAriaLabel"
     @click="onClick"
   >
+    <CollectionNewMark :show="showNewMark" />
     <div class="shop-treasure-visual">
       <div
         class="shop-treasure-frame"
@@ -71,9 +72,11 @@ import { computed } from "vue";
 import { COLLECTION_UNKNOWN_LABEL, gemClassForTreasureRarity } from "../../collection/collectionDisplayUtils.js";
 import { isSingleDigitLabel } from "../detailLayerFormatters.js";
 import CollectionPrerequisiteBadge from "./CollectionPrerequisiteBadge.vue";
+import CollectionNewMark from "./CollectionNewMark.vue";
 
 const props = defineProps({
   unknown: { type: Boolean, default: false },
+  showNewMark: { type: Boolean, default: false },
   /** 未发现但有 unlockPrerequisite，可点开预览 */
   prerequisiteLocked: { type: Boolean, default: false },
   /** 有 unlockPrerequisite 时在名称前显示感叹号（含已发现） */
@@ -127,6 +130,7 @@ function onClick(event) {
 
 <style scoped>
 .collection-shop-cell {
+  position: relative;
   overflow: visible;
   padding: 0;
   border: none;

@@ -4,8 +4,8 @@ import { describe, mult } from "../treasureDescription.js";
 export default {
   price: 7,
   rarity: "rare",
-  description: describe("史诗字母在计分时提供", mult("x1.5"), "倍率"),
-  unlockPrerequisite: { type: "deckEpicMin", min: 16 },
+  description: describe("史诗字母在计分时提供", mult("x2"), "倍率"),
+  unlockPrerequisite: { type: "deckEpicMin", min: 8 },
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -17,6 +17,6 @@ export const treasureHooks = {
       if (p?.rarity === "epic") epicCount += 1;
     }
     if (epicCount <= 0) return null;
-    return { multMul: 1.5 ** epicCount };
+    return { multMul: 2 ** epicCount };
   },
 };

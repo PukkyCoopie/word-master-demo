@@ -58,6 +58,7 @@
  * @property {readonly unknown[]} [fullDeck] 本局完整牌库 multiset
  * @property {Record<string, number> | null} [rarityLevelsByRarity] 各字母稀有度等级
  * @property {(word: string) => { pos?: string } | null | undefined} [getWordDefinition]
+ * @property {number[]} [letterReplayCounts] 各字母 replay 次数（提交计分与字后步共用）
  */
 
 /**
@@ -178,6 +179,7 @@
  * @property {{ letter?: string, rarity?: string }[]} letterParts
  * @property {(string | null | undefined)[]} ownedSlotTreasureIds
  * @property {number[]} replayCounts 各字母「额外整轮记分」次数（不含首遍）
+ * @property {number[]} [letterReplayCounts] 与 `replayCounts` 同义别名（字后步上下文）
  */
 
 /**
@@ -234,6 +236,7 @@
  * @property {(ctx: TreasureBossRestrictionContext) => void | Promise<void>} [onBossRestrictionTriggered]
  * @property {(ctx: TreasureDeckCardsAddedContext) => void | Promise<void>} [onDeckCardsAdded]
  * @property {() => number} [getWalletFloor] 本局钱包可降至的最低余额（默认 0；如信用卡为 -20）
+ * @property {() => { text?: string, kind?: string } | null | undefined} [resolveSelfDestructBubble] 自毁移除时气泡文案与样式 kind（默认「摧毁！」/`destroy`）
  */
 
 /**
@@ -263,6 +266,7 @@
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {boolean} [discardPotteryFxHandled] 陶罐/垃圾桶等逐字弃牌动效已在消失动画中结算（避免 onDiscardBatch 重复入银行或播 FX）
+ * @property {number[]} [potteryDiscardProcIndices] 陶罐本次弃牌已掷出的触发字索引（与消失动效共用同一 rng）
  */
 
 /**

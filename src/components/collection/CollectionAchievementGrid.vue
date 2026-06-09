@@ -7,17 +7,19 @@
       :class="{ 'collection-achievement-cell--locked': !entry.unlocked }"
     >
       <div class="collection-achievement-cell__content">
-        <img
-          class="collection-achievement-cell__icon"
-          :class="{ 'collection-achievement-cell__icon--dev': devModeActive }"
-          :src="entry.iconUrl"
-          :alt="entry.name"
-          width="256"
-          height="256"
-          decoding="async"
-          loading="lazy"
-          @click="onAchievementIconClick(entry)"
-        />
+        <div class="collection-achievement-cell__icon-wrap">
+          <CollectionNewMark :show="entry.showNewMark" />
+          <img
+            class="collection-achievement-cell__icon"
+            :class="{ 'collection-achievement-cell__icon--dev': devModeActive }"
+            :src="entry.iconUrl"
+            :alt="entry.name"
+            width="256"
+            height="256"
+            decoding="async"
+            @click="onAchievementIconClick(entry)"
+          />
+        </div>
         <div class="collection-achievement-cell__body">
           <h3 class="collection-achievement-cell__name">{{ entry.name }}</h3>
           <p class="collection-achievement-cell__desc">
@@ -44,11 +46,14 @@ import {
   formatAchievementCollectionProgressSuffix,
   getAchievementCollectionProgress,
 } from "../../achievements/achievementCollectionProgress.js";
+import { collectionNewKeyForAchievement } from "../../collection/collectionNewDiscoveries.js";
+import CollectionNewMark from "./CollectionNewMark.vue";
 import TreasureDescSegmentList from "../TreasureDescSegmentList.vue";
 
 const props = defineProps({
   career: { type: Object, required: true },
   unlockedAchievementIds: { type: Array, default: () => [] },
+  collectionNewKeys: { type: Object, default: () => new Set() },
 });
 
 const developerModeEnabled = inject("developerModeEnabled", null);
@@ -110,6 +115,7 @@ const entries = computed(() =>
       progressSuffix,
       iconUrl: getAchievementIconUrl(def),
       unlocked,
+      showNewMark: unlocked && props.collectionNewKeys.has(collectionNewKeyForAchievement(def.id)),
     };
   }),
 );
@@ -158,6 +164,11 @@ const entries = computed(() =>
   min-width: 0;
   padding: calc(14 * var(--rpx)) calc(16 * var(--rpx));
   box-sizing: border-box;
+}
+
+.collection-achievement-cell__icon-wrap {
+  position: relative;
+  flex-shrink: 0;
 }
 
 .collection-achievement-cell--locked .collection-achievement-cell__content {

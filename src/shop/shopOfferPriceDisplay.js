@@ -1,4 +1,7 @@
-import { applyPresetAndShopDiscountPrice } from "../game/runPresetRuntime.js";
+import {
+  applyPresetAndShopDiscountPrice,
+  readOfferPresetSaleDiscount,
+} from "../game/runPresetRuntime.js";
 import { canAffordWallet } from "../treasures/treasureWalletFloor.js";
 import { readOfferRandomSaleDiscount } from "./shopRandomSale.js";
 
@@ -18,13 +21,15 @@ export function resolveShopOfferEffectivePrice(basePrice, offer, ownedVouchers, 
  * @param {{
  *   wallet: number,
  *   effectivePrice: number,
- *   offer?: { randomSaleDiscount?: number },
+ *   offer?: { randomSaleDiscount?: number, offerType?: string, bundleKind?: string },
+ *   runPresetId?: string | null,
  *   walletFloor?: number,
  * }} ctx
  * @returns {ShopOfferPriceTone}
  */
 export function resolveShopOfferPriceTone(ctx) {
   if (readOfferRandomSaleDiscount(ctx.offer) > 0) return "discounted";
+  if (readOfferPresetSaleDiscount(ctx.offer, ctx.runPresetId) > 0) return "discounted";
   const floor = ctx.walletFloor ?? 0;
   if (!canAffordWallet(ctx.wallet, ctx.effectivePrice, floor)) return "unaffordable";
   return "default";
@@ -38,6 +43,20 @@ export function shopOfferPriceInnerClass(tone) {
   if (tone === "discounted") return "shop-treasure-price-inner--discounted";
   if (tone === "unaffordable") return "shop-treasure-price-inner--unaffordable";
   return "";
+}
+
+/**
+ * 组合包内选项：仅展示单张原价（划线参考价），不参与任何商店优惠。
+ * @param {number} basePrice
+ */
+export function buildPackInnerOfferPriceView(basePrice) {
+  const amount = Math.max(0, Math.floor(Number(basePrice) || 0));
+  return {
+    amount,
+    tone: /** @type {ShopOfferPriceTone} */ ("default"),
+    innerClass: "",
+    innerClasses: { "shop-treasure-price-inner--pack-struck": true },
+  };
 }
 
 /**
@@ -62,6 +81,7 @@ export function buildShopOfferPriceView(basePrice, offer, ctx) {
     wallet: ctx.wallet,
     effectivePrice: effective,
     offer,
+    runPresetId: ctx.runPresetId,
     walletFloor: ctx.walletFloor,
   });
   const innerClass = shopOfferPriceInnerClass(tone);

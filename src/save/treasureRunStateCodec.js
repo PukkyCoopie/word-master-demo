@@ -29,6 +29,10 @@ export function serializeTreasureRunState(state) {
     chapterNoVerbUnlocked: !!state.chapterNoVerbUnlocked,
     levelVowelsUsedThisLevel: [...(state.levelVowelsUsedThisLevel ?? [])],
     levelAllFiveVowelsUnlocked: !!state.levelAllFiveVowelsUnlocked,
+    levelAllLegendaryDeckExhaustedUnlocked: !!state.levelAllLegendaryDeckExhaustedUnlocked,
+    levelStartLegendaryInDeckCount: Math.max(0, Math.floor(Number(state.levelStartLegendaryInDeckCount) || 0)),
+    runIceMaterialShattered: !!state.runIceMaterialShattered,
+    everTwoTreasuresWithAccessoryUnlocked: !!state.everTwoTreasuresWithAccessoryUnlocked,
     levelFirstFullWordDiscardDone: !!state.levelFirstFullWordDiscardDone,
     everDiscardedFullWord: !!state.everDiscardedFullWord,
     everDiscardedWordLen7Plus: !!state.everDiscardedWordLen7Plus,
@@ -82,6 +86,10 @@ export function deserializeTreasureRunState(raw) {
     Array.isArray(o.levelVowelsUsedThisLevel) ? o.levelVowelsUsedThisLevel.map(String) : [],
   );
   base.levelAllFiveVowelsUnlocked = !!o.levelAllFiveVowelsUnlocked;
+  base.levelAllLegendaryDeckExhaustedUnlocked = !!o.levelAllLegendaryDeckExhaustedUnlocked;
+  base.levelStartLegendaryInDeckCount = Math.max(0, Math.floor(Number(o.levelStartLegendaryInDeckCount) || 0));
+  base.runIceMaterialShattered = !!o.runIceMaterialShattered;
+  base.everTwoTreasuresWithAccessoryUnlocked = !!o.everTwoTreasuresWithAccessoryUnlocked;
   base.levelFirstFullWordDiscardDone = !!o.levelFirstFullWordDiscardDone;
   base.everDiscardedFullWord = !!o.everDiscardedFullWord;
   base.everDiscardedWordLen7Plus = !!o.everDiscardedWordLen7Plus;

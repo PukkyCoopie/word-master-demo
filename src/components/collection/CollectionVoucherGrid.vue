@@ -9,6 +9,7 @@
       :disabled="pair.tier < 1"
       @click="onCellClick(pair, $event)"
     >
+      <CollectionNewMark :show="pair.showNewMark" />
       <div class="shop-treasure-visual">
         <VoucherStampStack v-if="pair.tier >= 1" :stamps="pair.stamps" />
         <div v-else class="voucher-stamp">
@@ -34,11 +35,14 @@
 import { computed } from "vue";
 import { VOUCHER_PAIR_ORDER } from "../../vouchers/voucherDefinitions.js";
 import { COLLECTION_UNKNOWN_LABEL } from "../../collection/collectionDisplayUtils.js";
+import { collectionNewKeyForVoucher } from "../../collection/collectionNewDiscoveries.js";
 import { formatVoucherDisplayName } from "../../vouchers/voucherDisplay.js";
+import CollectionNewMark from "./CollectionNewMark.vue";
 import VoucherStampStack from "../VoucherStampStack.vue";
 
 const props = defineProps({
   discoveredVoucherTiers: { type: Object, default: () => ({}) },
+  collectionNewKeys: { type: Object, default: () => new Set() },
 });
 
 const emit = defineEmits(["select-voucher"]);
@@ -70,6 +74,7 @@ const entries = computed(() =>
       priceLabel: tier >= 1 ? `$${Math.max(0, Math.floor(Number(price) || 0))}` : "$?",
       displayName:
         tier >= 1 ? formatVoucherDisplayName(top, { pairHasTier2Owned: hasT2 }) : COLLECTION_UNKNOWN_LABEL,
+      showNewMark: tier >= 1 && props.collectionNewKeys.has(collectionNewKeyForVoucher(pairId)),
     };
   }),
 );
@@ -88,6 +93,7 @@ function onCellClick(pair, event) {
 
 <style scoped>
 .collection-voucher-cell {
+  position: relative;
   overflow: visible;
   padding: 0;
   border: none;

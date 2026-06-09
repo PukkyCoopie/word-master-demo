@@ -4,7 +4,7 @@ import { describe, mult, score } from "../treasureDescription.js";
 export default {
   price: 4,
   rarity: "common",
-  description: describe("字母E在记分时给予", score("+20"), "分数和", mult("+4"), "倍率"),
+  description: describe("字母E在记分时给予", score("+40"), "分数和", mult("+4"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -17,7 +17,7 @@ export const treasureHooks = {
       const ch = String(letterParts[i]?.letter ?? "").toLowerCase();
       if (ch !== "e") continue;
       const r = 1 + Math.max(0, Math.floor(Number(replayCounts[i]) || 0));
-      scoreAdd += 20 * r;
+      scoreAdd += 40 * r;
       multAdd += 4 * r;
     }
     return scoreAdd > 0 || multAdd > 0 ? { scoreAdd, multAdd } : null;
@@ -25,7 +25,7 @@ export const treasureHooks = {
   getPerLetterScoreCue(_ctx, part) {
     const letter = String(part?.letter ?? "").toLowerCase();
     if (letter !== "e") return null;
-    return { delta: 20, label: "+20" };
+    return { delta: 40, label: "+40" };
   },
   getPerLetterMultCue(_ctx, part) {
     const letter = String(part?.letter ?? "").toLowerCase();

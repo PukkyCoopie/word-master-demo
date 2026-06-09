@@ -8,6 +8,7 @@
     >
       <div class="collection-material-cell collection-material-cell--tile">
         <div class="collection-material-tile-wrap">
+          <CollectionNewMark :show="item.showNewMark" />
           <LetterTile
             v-if="item.discovered"
             variant="grid"
@@ -49,9 +50,12 @@ import {
   COLLECTION_MATERIAL_RICH_SEGMENTS,
 } from "../../collection/collectionMaterialRichDesc.js";
 import { COLLECTION_UNKNOWN_LABEL } from "../../collection/collectionDisplayUtils.js";
+import { collectionNewKeyForMaterial } from "../../collection/collectionNewDiscoveries.js";
+import CollectionNewMark from "./CollectionNewMark.vue";
 
 const props = defineProps({
   discoveredMaterialIds: { type: Array, default: () => [] },
+  collectionNewKeys: { type: Object, default: () => new Set() },
 });
 
 const unknownLabel = COLLECTION_UNKNOWN_LABEL;
@@ -66,6 +70,7 @@ const entries = computed(() =>
       discovered,
       title: discovered ? getTileMaterialBlockTitle(id) : COLLECTION_UNKNOWN_LABEL,
       segments: COLLECTION_MATERIAL_RICH_SEGMENTS[id] ?? [{ type: "text", v: "" }],
+      showNewMark: discovered && props.collectionNewKeys.has(collectionNewKeyForMaterial(id)),
     };
   }),
 );
@@ -145,6 +150,7 @@ const entries = computed(() =>
 }
 
 .collection-material-tile-wrap {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;

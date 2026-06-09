@@ -16,6 +16,19 @@ export function treasureHasUnlockPrerequisite(treasureId) {
   return Boolean(pre && typeof pre === "object");
 }
 
+/** 收藏图鉴：含 `unlockPrerequisite` 与局内商店 `poolPrerequisite` */
+export function treasureHasCollectionPrerequisite(treasureId) {
+  const id = String(treasureId ?? "").trim();
+  if (!id) return false;
+  const def = getTreasureDef(id);
+  const unlockPre = def?.unlockPrerequisite;
+  const poolPre = def?.poolPrerequisite;
+  return (
+    Boolean(unlockPre && typeof unlockPre === "object") ||
+    Boolean(poolPre && typeof poolPre === "object")
+  );
+}
+
 /**
  * @param {string | null | undefined} treasureId
  * @param {Iterable<string> | null | undefined} discoveredTreasureIds
@@ -25,7 +38,7 @@ export function resolveCollectionTreasureEntryState(treasureId, discoveredTreasu
   const id = String(treasureId ?? "").trim();
   const discovered = new Set([...(discoveredTreasureIds ?? [])].map(String)).has(id);
   if (discovered) return "discovered";
-  if (treasureHasUnlockPrerequisite(id)) return "prerequisite-locked";
+  if (treasureHasCollectionPrerequisite(id)) return "prerequisite-locked";
   return "unknown";
 }
 

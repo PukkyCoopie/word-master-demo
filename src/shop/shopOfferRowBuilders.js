@@ -13,6 +13,7 @@ import {
   resolveDeckTileShopPrice,
 } from "./shopPackEconomy.js";
 import { buildDeckTileOfferDisplay, rollDeckTileModifiers } from "./rollDeckTileModifiers.js";
+import { RENTAL_TREASURE_LIST_PRICE } from "../treasures/ownedTreasureSlot.js";
 
 export const UPGRADE_ICON_CLASS = "ri-arrow-up-box-fill";
 
@@ -171,7 +172,7 @@ export function buildTreasureShopRowFromDef(
   }
   const uniqueIds = [...new Set(ids)];
   let price = def.price + getShopTreasureAccessoryPriceAddFromIds(uniqueIds);
-  if (treasureOfferHasRentalAccessory(uniqueIds)) price = 1;
+  if (treasureOfferHasRentalAccessory(uniqueIds)) price = RENTAL_TREASURE_LIST_PRICE;
   const legacyId = uniqueIds[0] ?? null;
   return {
     kind: "offer",

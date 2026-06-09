@@ -50,6 +50,8 @@ export function registerDevConsole(deps) {
         "  __WM_DEV__.unlockFullCollection(0)      — 指定槽位（0/1/2）",
         "  __WM_DEV__.openMaterialBench()        — 材质性能实验（10 格）",
         "  __WM_DEV__.enableDeveloperMode()      — 开启开发者模式（收藏成就连点作弊）",
+        "  __WM_DEV__.startMaskBubbleBlueprintTest() — 进关后：[面具][泡泡] + 棋盘 2 个 B（计分动画测试）",
+        "  或 URL ?dev=maskBubble 新开一局自动启用",
         "  __WM_DEV__.help()                       — 显示本帮助",
       ].join("\n"),
     );

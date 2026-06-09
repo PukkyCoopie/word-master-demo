@@ -3,6 +3,16 @@ import { ACCESSORY_CATALOG } from "../accessories/accessoryCatalog.js";
 import { TILE_MATERIAL_CONCEPT_BY_ID } from "../game/gameConceptCopy.js";
 import { COLLECTION_UPGRADE_TREASURE_IDS } from "./collectionUpgradeCatalog.js";
 import { COLLECTION_LEADERBOARD_MAX } from "./collectionTypes.js";
+import {
+  collectionNewKeyForAccessory,
+  collectionNewKeyForMaterial,
+  collectionNewKeyForSpell,
+  collectionNewKeyForTreasure,
+  collectionNewKeyForUpgrade,
+  collectionNewKeyForVoucher,
+  markCollectionNewDiscovery,
+  normalizeCollectionNewDiscoveryFields,
+} from "./collectionNewDiscoveries.js";
 
 /** @param {unknown} raw @returns {string[]} */
 function normalizeIdList(raw) {
@@ -143,6 +153,7 @@ export function normalizeCollectionCareerFields(career, raw) {
     0,
     COLLECTION_LEADERBOARD_MAX,
   );
+  normalizeCollectionNewDiscoveryFields(career, raw);
 }
 
 /**
@@ -155,6 +166,7 @@ export function recordTreasureDiscovered(career, treasureId) {
   if (!Array.isArray(career.discoveredTreasureIds)) career.discoveredTreasureIds = [];
   if (career.discoveredTreasureIds.includes(id)) return false;
   career.discoveredTreasureIds.push(id);
+  markCollectionNewDiscovery(career, collectionNewKeyForTreasure(id));
   return true;
 }
 
@@ -202,6 +214,7 @@ export function recordSpellDiscovered(career, spellId) {
   if (!Array.isArray(career.discoveredSpellIds)) career.discoveredSpellIds = [];
   if (career.discoveredSpellIds.includes(id)) return false;
   career.discoveredSpellIds.push(id);
+  markCollectionNewDiscovery(career, collectionNewKeyForSpell(id));
   return true;
 }
 
@@ -215,6 +228,7 @@ export function recordUpgradeDiscovered(career, upgradeTreasureId) {
   if (!Array.isArray(career.discoveredUpgradeIds)) career.discoveredUpgradeIds = [];
   if (career.discoveredUpgradeIds.includes(id)) return false;
   career.discoveredUpgradeIds.push(id);
+  markCollectionNewDiscovery(career, collectionNewKeyForUpgrade(id));
   return true;
 }
 
@@ -233,6 +247,7 @@ export function recordVoucherDiscovered(career, voucherId) {
   const prev = career.discoveredVoucherTiers[def.pairId] ?? 0;
   if (def.tier <= prev) return false;
   career.discoveredVoucherTiers[def.pairId] = /** @type {1 | 2} */ (def.tier);
+  markCollectionNewDiscovery(career, collectionNewKeyForVoucher(def.pairId));
   return true;
 }
 
@@ -246,6 +261,7 @@ export function recordMaterialDiscovered(career, materialId) {
   if (!Array.isArray(career.discoveredMaterialIds)) career.discoveredMaterialIds = [];
   if (career.discoveredMaterialIds.includes(id)) return false;
   career.discoveredMaterialIds.push(id);
+  markCollectionNewDiscovery(career, collectionNewKeyForMaterial(id));
   return true;
 }
 
@@ -259,6 +275,7 @@ export function recordAccessoryDiscovered(career, accessoryId) {
   if (!Array.isArray(career.discoveredAccessoryIds)) career.discoveredAccessoryIds = [];
   if (career.discoveredAccessoryIds.includes(id)) return false;
   career.discoveredAccessoryIds.push(id);
+  markCollectionNewDiscovery(career, collectionNewKeyForAccessory(id));
   return true;
 }
 

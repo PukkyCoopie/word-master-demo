@@ -1,37 +1,50 @@
-import { describe, score } from "../treasureDescription.js";
-import { addScoreAddBank, getScoreAddBank } from "../treasureBankHelpers.js";
+import { describe, prob, score } from "../treasureDescription.js";
 import {
-  letterInCurrentDiscardGroup,
-  rollDiscardLetterGroupIndex,
-} from "../treasureRunState.js";
+  addScoreAddBank,
+  getScoreAddBank,
+  patchCurrentBankDescription,
+} from "../treasureBankHelpers.js";
+import { rollProbabilitySuccess } from "../treasureProbability.js";
 
 export const TREASURE_65_ID = "65";
-const SCORE_PER_MATCHING_DISCARD = 3;
+export const DISCARD_PROC_NUMERATOR = 1;
+export const DISCARD_PROC_DENOMINATOR = 8;
+export const DISCARD_SCORE_AWARD = 4;
 
-/** @param {string} [group] */
-function formatDiscardLetterGroupLabel(group) {
-  return String(group ?? "abcde")
-    .toUpperCase()
-    .split("")
-    .join("、");
+/**
+ * @param {number} letterCount
+ * @param {() => number} [rng]
+ * @param {readonly (string | null | undefined)[]} [ownedSlotTreasureIds]
+ * @returns {number[]}
+ */
+export function rollPotteryDiscardProcIndices(letterCount, rng = Math.random, ownedSlotTreasureIds) {
+  const n = Math.max(0, Math.floor(Number(letterCount) || 0));
+  /** @type {number[]} */
+  const indices = [];
+  for (let i = 0; i < n; i += 1) {
+    if (
+      rollProbabilitySuccess(
+        DISCARD_PROC_NUMERATOR,
+        DISCARD_PROC_DENOMINATOR,
+        rng,
+        ownedSlotTreasureIds,
+      )
+    ) {
+      indices.push(i);
+    }
+  }
+  return indices;
 }
 
 /**
- * @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx
+ * @param {import("../treasureRunState.js").TreasureRunState | null | undefined} rs
+ * @param {number[]} indices
  */
-function buildPotteryJarDescription(ctx) {
-  const g = formatDiscardLetterGroupLabel(ctx.discardLetterGroup);
-  const rs = ctx.treasureRun;
-  const v = rs ? Math.round(getScoreAddBank(rs, TREASURE_65_ID)) : 0;
-  const bankLabel = v >= 0 ? `+${v}` : String(v);
-  return describe(
-    `每当你弃掉一张${g}，获得`,
-    score("+3"),
-    "分数，字母每关都会变化",
-    "（当前",
-    score(bankLabel),
-    "）",
-  );
+export function applyPotteryDiscardProcs(rs, indices) {
+  if (!rs || !indices?.length) return;
+  for (let k = 0; k < indices.length; k += 1) {
+    addScoreAddBank(rs, TREASURE_65_ID, DISCARD_SCORE_AWARD);
+  }
 }
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
@@ -39,37 +52,36 @@ export default {
   price: 6,
   rarity: "rare",
   description: describe(
-    `每当你弃掉一张${formatDiscardLetterGroupLabel("abcde")}，获得`,
-    score("+3"),
-    "分数，字母每关都会变化",
-    "（当前",
-    score("+0"),
-    "）",
+    "每当你弃掉一个字母，有",
+    prob("1/8"),
+    "的概率获得",
+    score("+4"),
+    "分数",
   ),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  replaceDescriptionWithPatch: true,
-  patchDescription: buildPotteryJarDescription,
+  ...patchCurrentBankDescription(TREASURE_65_ID, "scoreAdd"),
   buildPostLetterStep(ctx) {
     const v = getScoreAddBank(ctx.treasureRun, TREASURE_65_ID);
     return v !== 0 ? { scoreAdd: v } : null;
   },
   onDiscardBatch(ctx) {
     if (ctx.discardPotteryFxHandled) return;
+    const preset = ctx.potteryDiscardProcIndices;
+    if (Array.isArray(preset)) {
+      applyPotteryDiscardProcs(ctx.treasureRun, preset);
+      return;
+    }
     const rs = ctx.treasureRun;
     if (!rs) return;
-    for (const p of ctx.discardedLetters ?? []) {
-      if (!letterInCurrentDiscardGroup(p?.letter, rs)) continue;
-      addScoreAddBank(rs, TREASURE_65_ID, SCORE_PER_MATCHING_DISCARD);
-    }
-  },
-  async onLevelComplete(ctx) {
-    const ix = ctx.findOwnedTreasureSlotIndex?.(TREASURE_65_ID) ?? -1;
-    if (ix < 0 || !ctx.treasureRun) return;
     const rnd = typeof ctx.rng === "function" ? ctx.rng : Math.random;
-    rollDiscardLetterGroupIndex(ctx.treasureRun, rnd);
-    await ctx.wobbleOwnedTreasureById?.(TREASURE_65_ID);
+    const rolled = rollPotteryDiscardProcIndices(
+      (ctx.discardedLetters ?? []).length,
+      rnd,
+      ctx.ownedSlotTreasureIds,
+    );
+    applyPotteryDiscardProcs(rs, rolled);
   },
 };

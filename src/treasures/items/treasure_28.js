@@ -4,9 +4,9 @@ const RETRIGGER_LETTERS = new Set(["a", "b", "c", "d", "e"]);
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 6,
+  price: 5,
   rarity: "rare",
-  description: describe("重新触发所有拼写的A,B,C,D,E"),
+  description: describe("重新触发所有A,B,C,D,E"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

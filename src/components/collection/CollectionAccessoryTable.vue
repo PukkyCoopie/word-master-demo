@@ -9,6 +9,7 @@
       >
         <td class="collection-accessory-cell collection-accessory-cell--chip">
           <div class="collection-accessory-chip-wrap">
+            <CollectionNewMark :show="row.showNewMark" />
             <template v-if="row.discovered">
               <span
                 v-if="row.scopeClass === 'treasure-accessory-chip'"
@@ -62,10 +63,13 @@ import {
 } from "../../game/gameConceptCopy.js";
 import { parsePlainEffectCopyToSegments } from "../../treasures/treasureDescription.js";
 import { COLLECTION_UNKNOWN_LABEL } from "../../collection/collectionDisplayUtils.js";
+import { collectionNewKeyForAccessory } from "../../collection/collectionNewDiscoveries.js";
+import CollectionNewMark from "./CollectionNewMark.vue";
 import TreasureDescSegmentList from "../TreasureDescSegmentList.vue";
 
 const props = defineProps({
   discoveredAccessoryIds: { type: Array, default: () => [] },
+  collectionNewKeys: { type: Object, default: () => new Set() },
 });
 
 const unknownLabel = COLLECTION_UNKNOWN_LABEL;
@@ -109,6 +113,7 @@ const rows = computed(() =>
       scopeClass:
         def.legacyStorage === "treasure_field" ? "treasure-accessory-chip" : "tile-accessory-chip",
       segments: parsePlainEffectCopyToSegments(description),
+      showNewMark: discovered && props.collectionNewKeys.has(collectionNewKeyForAccessory(def.id)),
     };
   }),
 );
@@ -155,6 +160,7 @@ const rows = computed(() =>
 }
 
 .collection-accessory-chip-wrap {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;

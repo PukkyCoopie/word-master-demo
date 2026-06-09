@@ -42,35 +42,42 @@
           <CollectionTreasureGrid
             v-if="activeTab === 'treasures'"
             :discovered-treasure-ids="career.discoveredTreasureIds"
+            :collection-new-keys="collectionNewKeys"
             @select-treasure="onCollectionTreasureSelect"
           />
           <CollectionSpellGrid
             v-else-if="activeTab === 'spells'"
             :discovered-spell-ids="career.discoveredSpellIds"
+            :collection-new-keys="collectionNewKeys"
             @select-spell="onCollectionSpellSelect"
           />
           <CollectionUpgradeGrid
             v-else-if="activeTab === 'upgrades'"
             :discovered-upgrade-ids="career.discoveredUpgradeIds"
+            :collection-new-keys="collectionNewKeys"
             @select-upgrade="onCollectionUpgradeSelect"
           />
           <CollectionVoucherGrid
             v-else-if="activeTab === 'vouchers'"
             :discovered-voucher-tiers="career.discoveredVoucherTiers"
+            :collection-new-keys="collectionNewKeys"
             @select-voucher="onCollectionVoucherSelect"
           />
           <CollectionMaterialGrid
             v-else-if="activeTab === 'materials'"
             :discovered-material-ids="career.discoveredMaterialIds"
+            :collection-new-keys="collectionNewKeys"
           />
           <CollectionAccessoryTable
             v-else-if="activeTab === 'accessories'"
             :discovered-accessory-ids="career.discoveredAccessoryIds"
+            :collection-new-keys="collectionNewKeys"
           />
           <CollectionAchievementGrid
             v-else-if="activeTab === 'achievements'"
             :career="career"
             :unlocked-achievement-ids="career.unlockedAchievementIds"
+            :collection-new-keys="collectionNewKeys"
           />
           <CollectionWordLeaderboardPanel
             v-else-if="activeTab === 'words'"
@@ -124,7 +131,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { registerAndroidBackHandler } from "../platform/androidBackButton.js";
 import { handleCollectionAndroidBack } from "../platform/handleCollectionAndroidBack.js";
 import TreasureDetailLayer from "./TreasureDetailLayer.vue";
@@ -175,6 +182,16 @@ import {
   resolveCollectionTreasureEntryState,
   resolveCollectionUpgradeEntryState,
 } from "../collection/collectionEntryState.js";
+import {
+  clearCollectionNewDiscoveriesOnTabReenter,
+  clearCollectionNewDiscovery,
+  collectionNewKeyForSpell,
+  collectionNewKeyForTreasure,
+  collectionNewKeyForUpgrade,
+  collectionNewKeyForVoucher,
+  getCollectionNewDiscoveryKeySet,
+  markCollectionTabPendingNewClear,
+} from "../collection/collectionNewDiscoveries.js";
 
 const props = defineProps({
   career: { type: Object, required: true },
@@ -204,6 +221,10 @@ const TAB_TITLES = Object.freeze(
 const activeTab = ref("treasures");
 const tabPanelRef = ref(null);
 const tabEnterReady = ref(false);
+
+const mutateCollectionCareer = inject("mutateCollectionCareer", null);
+
+const collectionNewKeys = computed(() => getCollectionNewDiscoveryKeySet(props.career));
 
 /** @type {import('vue').Ref<{ treasure: object, originRect: object | null, shelfPriceKind: 'offer' | null, previewNav: import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> | null, previewNavKind: string | null, collectionEntryState: import('../collection/collectionEntryState.js').CollectionEntryState } | null>} */
 const collectionTreasureDetail = ref(null);
@@ -276,6 +297,45 @@ function closeCollectionTileDetail() {
   collectionTileDetailPreviewNav.value = null;
 }
 
+/** @param {string} key */
+function dismissCollectionNewMark(key) {
+  const k = String(key ?? "").trim();
+  if (!k || !collectionNewKeys.value.has(k)) return;
+  mutateCollectionCareer?.((career) => {
+    clearCollectionNewDiscovery(career, k);
+  });
+}
+
+/** @param {string | null | undefined} previewNavKind @param {unknown} navItem */
+function resolveCollectionPreviewNewKey(previewNavKind, navItem) {
+  const kind = String(previewNavKind ?? "");
+  if (kind === "collection-spell") return collectionNewKeyForSpell(String(navItem));
+  if (kind === "collection-upgrade") return collectionNewKeyForUpgrade(String(navItem));
+  if (kind === "collection-voucher") {
+    const pairId =
+      navItem && typeof navItem === "object" && "pairId" in navItem
+        ? String(/** @type {{ pairId?: string }} */ (navItem).pairId ?? "")
+        : "";
+    return collectionNewKeyForVoucher(pairId);
+  }
+  if (kind === "collection-owned-treasure") return "";
+  return collectionNewKeyForTreasure(String(navItem));
+}
+
+/** @param {string} tabId */
+function onCollectionTabEnter(tabId) {
+  mutateCollectionCareer?.((career) => {
+    clearCollectionNewDiscoveriesOnTabReenter(career, tabId);
+  });
+}
+
+/** @param {string} tabId */
+function onCollectionTabLeave(tabId) {
+  mutateCollectionCareer?.((career) => {
+    markCollectionTabPendingNewClear(career, tabId);
+  });
+}
+
 /** @param {string} treasureId */
 function buildCollectionUpgradePreviewNav(treasureId) {
   const id = String(treasureId ?? "").trim();
@@ -322,6 +382,9 @@ function openCollectionTreasurePreview(
   collectionEntryState = "discovered",
 ) {
   if (!treasure) return;
+  if (previewNavKind) {
+    dismissCollectionNewMark(resolveCollectionPreviewNewKey(previewNavKind, previewNav?.items?.[previewNav?.index]));
+  }
   closeCollectionTileDetail();
   collectionTreasureDetail.value = {
     treasure,
@@ -366,6 +429,7 @@ function onCollectionTreasurePreviewNav(delta) {
     const item = nav.items[nav.index];
     const treasure = buildCollectionOwnedTreasurePreview(item?.saved);
     if (!treasure) return;
+    dismissCollectionNewMark(resolveCollectionPreviewNewKey(kind, nav.items[nav.index]));
     collectionTreasureDetail.value = {
       ...d,
       treasure,
@@ -377,6 +441,7 @@ function onCollectionTreasurePreviewNav(delta) {
   }
   const treasure = resolveCollectionTreasurePreviewAtNav({ ...nav, kind: kind ?? undefined });
   if (!treasure) return;
+  dismissCollectionNewMark(resolveCollectionPreviewNewKey(kind, nav.items[nav.index]));
   collectionTreasureDetail.value = {
     ...d,
     treasure,
@@ -509,7 +574,11 @@ function onWordLeaderboardSubTabChange() {
   updateScrollbarMetrics();
 }
 
-watch(activeTab, async () => {
+watch(activeTab, async (newTab, oldTab) => {
+  if (oldTab && oldTab !== newTab) {
+    onCollectionTabLeave(oldTab);
+  }
+  onCollectionTabEnter(newTab);
   closeCollectionPreviews();
   if (!tabEnterReady.value) return;
   scrollBodyRef.value?.scrollTo({ top: 0, behavior: "auto" });
@@ -538,6 +607,7 @@ onMounted(async () => {
   await nextTick();
   prepareCollectionTabEnter(tabPanelRef.value);
   tabEnterReady.value = true;
+  onCollectionTabEnter(activeTab.value);
   await runTabEnterAnimation(props.initialEnterDelayMs);
 });
 

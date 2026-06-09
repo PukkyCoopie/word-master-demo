@@ -29,7 +29,7 @@ export default {
   price: 5,
   rarity: "rare",
   unlockPrerequisite: { type: "levelAllFiveVowels" },
-  description: describe("每一个棋盘上的J和K提供", mult("+10"), "倍率"),
+  description: describe("每一个棋盘上的J和K提供", mult("x2"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -37,6 +37,6 @@ export const treasureHooks = {
   collectPostLetterSteps(ctx) {
     const indices = collectJkGridIndices(ctx);
     if (!indices.length) return null;
-    return indices.map((scoreFxGridTileIndex) => ({ multAdd: 10, scoreFxGridTileIndex }));
+    return indices.map((scoreFxGridTileIndex) => ({ multMul: 2, scoreFxGridTileIndex }));
   },
 };

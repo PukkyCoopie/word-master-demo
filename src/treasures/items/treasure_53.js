@@ -7,7 +7,7 @@ const ID = "53";
 export default {
   price: 5,
   rarity: "rare",
-  description: describe("每当组合包被跳过时，获得", mult("+4"), "倍率"),
+  description: describe("每当组合包被跳过时，获得", mult("+8"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -18,6 +18,6 @@ export const treasureHooks = {
     return v !== 0 ? { multAdd: v } : null;
   },
   async onPackSkipped(ctx) {
-    await bankMultAddGain(ctx, ID, 4);
+    await bankMultAddGain(ctx, ID, 8);
   },
 };
