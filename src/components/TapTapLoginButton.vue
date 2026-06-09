@@ -14,6 +14,7 @@
       alt=""
       aria-hidden="true"
       draggable="false"
+      decoding="sync"
       @error="imageMissing = true"
     />
   </button>

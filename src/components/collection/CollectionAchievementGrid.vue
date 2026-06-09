@@ -16,7 +16,7 @@
             :alt="entry.name"
             width="256"
             height="256"
-            decoding="async"
+            decoding="sync"
             @click="onAchievementIconClick(entry)"
           />
         </div>

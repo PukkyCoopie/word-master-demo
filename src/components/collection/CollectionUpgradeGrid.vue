@@ -48,17 +48,21 @@ const discoveredSet = computed(() => new Set((props.discoveredUpgradeIds ?? []).
 
 /** @param {typeof COLLECTION_LENGTH_UPGRADE_CATALOG[number][]} catalog */
 function mapUpgradeEntries(catalog) {
-  return catalog.map((offer) => ({
-    treasureId: String(offer.treasureId ?? ""),
-    discovered: discoveredSet.value.has(String(offer.treasureId ?? "")),
-    name: collectionUpgradeGridListName(offer.name),
-    iconClass: offer.iconClass,
-    upgradeKind: offer.upgradeKind,
-    lengthBadgeLabel: offer.lengthBadgeLabel,
-    lengthLabel: offer.lengthLabel,
-    price: offer.price,
-    showNewMark: discovered && props.collectionNewKeys.has(collectionNewKeyForUpgrade(String(offer.treasureId ?? ""))),
-  }));
+  return catalog.map((offer) => {
+    const treasureId = String(offer.treasureId ?? "");
+    const discovered = discoveredSet.value.has(treasureId);
+    return {
+      treasureId,
+      discovered,
+      name: collectionUpgradeGridListName(offer.name),
+      iconClass: offer.iconClass,
+      upgradeKind: offer.upgradeKind,
+      lengthBadgeLabel: offer.lengthBadgeLabel,
+      lengthLabel: offer.lengthLabel,
+      price: offer.price,
+      showNewMark: discovered && props.collectionNewKeys.has(collectionNewKeyForUpgrade(treasureId)),
+    };
+  });
 }
 
 const sections = computed(() => [

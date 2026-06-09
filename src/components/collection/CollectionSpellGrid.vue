@@ -31,13 +31,16 @@ defineEmits(["select-spell"]);
 const discoveredSet = computed(() => new Set((props.discoveredSpellIds ?? []).map(String)));
 
 const entries = computed(() =>
-  SPELL_DEFINITIONS.map((def) => ({
-    id: def.id,
-    discovered: discoveredSet.value.has(def.id),
-    name: def.name,
-    iconClass: def.iconClass,
-    price: getSpellShopPrice(def),
-    showNewMark: discovered && props.collectionNewKeys.has(collectionNewKeyForSpell(def.id)),
-  })),
+  SPELL_DEFINITIONS.map((def) => {
+    const discovered = discoveredSet.value.has(def.id);
+    return {
+      id: def.id,
+      discovered,
+      name: def.name,
+      iconClass: def.iconClass,
+      price: getSpellShopPrice(def),
+      showNewMark: discovered && props.collectionNewKeys.has(collectionNewKeyForSpell(def.id)),
+    };
+  }),
 );
 </script>

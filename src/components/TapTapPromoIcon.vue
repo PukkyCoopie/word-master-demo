@@ -13,6 +13,7 @@
       alt=""
       width="22"
       height="22"
+      decoding="sync"
     />
     <span class="taptap-promo-about-text">{{ promoAboutTail }}</span>
   </button>
@@ -39,7 +40,14 @@
       :aria-label="promoLabel"
       @click="$emit('open-poster')"
     >
-      <img class="taptap-promo-icon-img" :src="TAP_TAP_ICON_SRC" alt="" width="80" height="80" />
+      <img
+        class="taptap-promo-icon-img"
+        :src="TAP_TAP_ICON_SRC"
+        alt=""
+        width="80"
+        height="80"
+        decoding="sync"
+      />
     </button>
   </div>
 </template>

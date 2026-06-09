@@ -1,7 +1,7 @@
 {
   "name": "word-master-demo",
   "private": true,
-  "version": "0.7.25",
+  "version": "0.7.26",
   "type": "module",
   "scripts": {
     "icons:render": "node scripts/render-achievement-icons.mjs",

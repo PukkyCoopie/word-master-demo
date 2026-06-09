@@ -1,10 +1,24 @@
 import { ref } from "vue";
 import { collectBootImageUrls } from "../assets/collectBootImageUrls.js";
+import { preloadImageToCache } from "../assets/imagePreloadCache.js";
+import {
+  isTapTapWebPromoEnabled,
+  TAP_TAP_POSTER_SRC,
+} from "../taptap/tapTapWebPromo.js";
+
+const bootPosterWebPromo = isTapTapWebPromoEnabled();
+const bootImageUrls = collectBootImageUrls();
+/** 启动图 + TapTap 海报（仅 Web 推广端）预加载项总数 */
+const bootAssetsTotalCount = bootImageUrls.length + (bootPosterWebPromo ? 1 : 0);
 
 /** @type {import('vue').Ref<boolean>} */
 const bootImagesReady = ref(false);
-/** 0～1，启动图预加载进度 */
+/** 0～1，启动图预加载进度（不含 TapTap 海报） */
 const bootImageLoadProgress = ref(0);
+/** 0～1，TapTap 海报预加载进度；非 Web 推广端恒为 1 */
+const bootPosterLoadProgress = ref(bootPosterWebPromo ? 0 : 1);
+/** 已完成的启动图 / 海报预加载项数 */
+const bootAssetsLoadedCount = ref(0);
 
 /** @type {Promise<void> | null} */
 let inFlightLoad = null;
@@ -18,6 +32,7 @@ function clamp01(x) {
 function resetLoadProgress() {
   loadProgressFloor = 0;
   bootImageLoadProgress.value = 0;
+  bootAssetsLoadedCount.value = 0;
 }
 
 /** @param {number} p */
@@ -29,29 +44,11 @@ function bumpLoadProgress(p) {
 }
 
 /**
- * @param {string} url
- * @returns {Promise<void>}
- */
-function preloadOneImage(url) {
-  if (typeof Image === "undefined") {
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.decoding = "async";
-    const finish = () => resolve();
-    img.onload = finish;
-    img.onerror = finish;
-    img.src = url;
-  });
-}
-
-/**
  * @param {string[]} urls
- * @param {{ shouldAbort?: () => boolean, onProgress?: (ratio01: number) => void, concurrency?: number }} [options]
+ * @param {{ shouldAbort?: () => boolean, onProgress?: (ratio01: number) => void, onItemDone?: (done: number, total: number) => void, concurrency?: number }} [options]
  */
 async function preloadImages(urls, options = {}) {
-  const { shouldAbort, onProgress, concurrency = 4 } = options;
+  const { shouldAbort, onProgress, onItemDone, concurrency = 4 } = options;
   const list = urls.filter(Boolean);
   const total = list.length;
   if (total === 0) {
@@ -63,6 +60,7 @@ async function preloadImages(urls, options = {}) {
   const bumpDone = () => {
     done += 1;
     onProgress?.(done / total);
+    onItemDone?.(done, total);
   };
 
   /** @type {number[]} */
@@ -74,7 +72,7 @@ async function preloadImages(urls, options = {}) {
       if (shouldAbort?.()) return;
       const index = queue.shift();
       if (index == null) break;
-      await preloadOneImage(list[index]);
+      await preloadImageToCache(list[index]);
       bumpDone();
     }
   }
@@ -87,14 +85,24 @@ async function preloadImages(urls, options = {}) {
  */
 async function loadOnce(options = {}) {
   const { shouldAbort } = options;
-  const urls = collectBootImageUrls();
-  await preloadImages(urls, {
+  await preloadImages(bootImageUrls, {
     shouldAbort,
     concurrency: 4,
     onProgress: bumpLoadProgress,
+    onItemDone: (done) => {
+      bootAssetsLoadedCount.value = done;
+    },
   });
   if (shouldAbort?.()) return;
   bumpLoadProgress(1);
+  bootAssetsLoadedCount.value = bootImageUrls.length;
+
+  if (bootPosterWebPromo) {
+    await preloadImageToCache(TAP_TAP_POSTER_SRC);
+    if (shouldAbort?.()) return;
+    bootPosterLoadProgress.value = 1;
+    bootAssetsLoadedCount.value = bootAssetsTotalCount;
+  }
 }
 
 export function useBootImages() {
@@ -105,6 +113,8 @@ export function useBootImages() {
     if (bootImagesReady.value) {
       loadProgressFloor = 1;
       bootImageLoadProgress.value = 1;
+      bootPosterLoadProgress.value = 1;
+      bootAssetsLoadedCount.value = bootAssetsTotalCount;
       return;
     }
     if (inFlightLoad) return inFlightLoad;
@@ -114,11 +124,12 @@ export function useBootImages() {
       try {
         await loadOnce(options);
       } catch {
-        /* 单张失败已在 preloadOneImage 内忽略；此处兜底不永久阻塞启动 */
+        /* 单张失败已在 preloadImageToCache 内忽略；此处兜底不永久阻塞启动 */
       } finally {
         if (!options.shouldAbort?.()) {
           bootImagesReady.value = true;
           bumpLoadProgress(1);
+          bootAssetsLoadedCount.value = bootAssetsTotalCount;
         }
       }
     })();
@@ -133,6 +144,9 @@ export function useBootImages() {
   return {
     bootImagesReady,
     bootImageLoadProgress,
+    bootPosterLoadProgress,
+    bootAssetsLoadedCount,
+    bootAssetsTotalCount,
     loadBootImages,
   };
 }

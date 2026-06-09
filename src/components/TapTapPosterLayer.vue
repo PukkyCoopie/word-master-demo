@@ -40,6 +40,7 @@
             :src="TAP_TAP_POSTER_SRC"
             alt="单词大师 TapTap 海报"
             draggable="false"
+            decoding="sync"
             @load="onPosterLoad"
             @error="onPosterLoad"
           />
@@ -51,6 +52,7 @@
 
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
+import { isImagePreloaded } from "../assets/imagePreloadCache.js";
 import {
   getTapTapPromoLabel,
   openTapTapAppPage,
@@ -75,6 +77,10 @@ watch(
   async (isOpen) => {
     posterLoaded.value = false;
     if (!isOpen) return;
+    if (isImagePreloaded(TAP_TAP_POSTER_SRC)) {
+      posterLoaded.value = true;
+      return;
+    }
     await nextTick();
     const img = posterImgRef.value;
     if (img?.complete && img.naturalWidth > 0) {

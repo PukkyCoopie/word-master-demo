@@ -19,12 +19,13 @@
               :aria-valuenow="dictBarPct"
               aria-valuemin="0"
               aria-valuemax="100"
-              :aria-label="dictBootError ? dictBootErrorMessage : '词库加载中'"
+              :aria-label="dictBootError ? dictBootErrorMessage : bootLoadStatusLabel"
               @click="onDictBootBarClick"
             >
               <div class="dict-boot-bar-fill" :style="{ width: dictBarPct + '%' }" />
             </div>
             <p v-if="dictBootError" class="dict-boot-error-msg">{{ dictBootErrorMessage }}</p>
+            <p v-else class="dict-boot-status">{{ bootLoadStatusLabel }}</p>
           </div>
         </div>
         <MainMenu
@@ -236,12 +237,20 @@ const { isDesktopLayout } = useWebLayoutMode();
 usePortalFrameSync();
 const { loadDictionary, dictionaryReady, loading: dictLoading, error: dictError, loadProgress } = useDictionary();
 const { remixIconReady, loadRemixIconFont } = useRemixIconFont();
-const { bootImagesReady, bootImageLoadProgress, loadBootImages } = useBootImages();
+const {
+  bootImagesReady,
+  bootImageLoadProgress,
+  bootPosterLoadProgress,
+  bootAssetsLoadedCount,
+  bootAssetsTotalCount,
+  loadBootImages,
+} = useBootImages();
 
-/** 启动进度条：词库 / 图片 / Remix Icon 权重 */
+/** 启动进度条：词库 / 图片 / TapTap 海报（仅 Web）/ Remix Icon 权重 */
 const BOOT_PROGRESS_WEIGHT = Object.freeze({
   dictionary: 0.82,
-  images: 0.13,
+  images: 0.10,
+  poster: 0.03,
   remixIcon: 0.05,
 });
 const { account, phase: tapTapPhase } = useTapTapAuth();
@@ -651,6 +660,7 @@ const bootCombinedProgress = computed(() => {
   return (
     loadProgress.value * w.dictionary +
     bootImageLoadProgress.value * w.images +
+    bootPosterLoadProgress.value * w.poster +
     (remixIconReady.value ? 1 : 0) * w.remixIcon
   );
 });
@@ -679,6 +689,16 @@ const menuCollectionProgressSuffix = computed(() => {
 const dictGate = computed(() => !appBootReady.value);
 const dictBootError = computed(() => !dictLoading.value && !!dictError.value);
 const dictBootErrorMessage = computed(() => formatDictionaryLoadErrorForPlayer(dictError.value));
+const bootLoadTotal = computed(() => bootAssetsTotalCount + 2);
+const bootLoadLoaded = computed(() => {
+  let loaded = bootAssetsLoadedCount.value;
+  if (dictionaryReady.value) loaded += 1;
+  if (remixIconReady.value) loaded += 1;
+  return Math.min(loaded, bootLoadTotal.value);
+});
+const bootLoadStatusLabel = computed(
+  () => `正在加载…（${bootLoadLoaded.value}/${bootLoadTotal.value}）`,
+);
 const dictBarPct = computed(() => {
   if (dictBootError.value) return 100;
   if (!appBootReady.value) {
@@ -1126,11 +1146,19 @@ onBeforeUnmount(() => {
   width: min(78%, calc(560 * var(--rpx)));
 }
 
+.dict-boot-status,
 .dict-boot-error-msg {
   margin: 0;
   text-align: center;
   font-size: calc(24 * var(--rpx));
   line-height: 1.4;
+}
+
+.dict-boot-status {
+  color: #5c5a52;
+}
+
+.dict-boot-error-msg {
   color: #8b4040;
 }
 
