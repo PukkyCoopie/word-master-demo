@@ -132,10 +132,23 @@ export function buildOwnedVoucherDetailTreasure(group) {
  */
 export function buildDiscoveredVoucherDetailTreasure(pairId, discoveredTier) {
   const tier = /** @type {0 | 1 | 2} */ (Math.max(0, Math.min(2, Math.floor(Number(discoveredTier) || 0))));
-  if (tier < 1) return null;
   const tier1Def = getTier1DefForPair(pairId);
-  const tier2Def = getTier2DefForPair(pairId);
   if (!tier1Def) return null;
+  if (tier < 1) {
+    return {
+      offerType: "voucher",
+      pairId,
+      voucherId: tier1Def.id,
+      emoji: tier1Def.emoji,
+      name: "",
+      description: "",
+      ownedVoucherTiers: [],
+      price: tier1Def.price,
+      rarity: "common",
+      treasureId: `voucher_${tier1Def.id}`,
+    };
+  }
+  const tier2Def = getTier2DefForPair(pairId);
   const top = tier >= 2 && tier2Def ? tier2Def : tier1Def;
   const hasT2 = tier >= 2 && Boolean(tier2Def);
   /** @type {Array<{ tier: number, title: string, description: string, emoji: string }>} */

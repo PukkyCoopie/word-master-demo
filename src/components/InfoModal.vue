@@ -335,8 +335,12 @@
               <DifficultyPill :index="runDifficultyIndex" size="lg" />
               <div class="info-preset-difficulty-desc">
                 <template v-if="runDifficultyBuffDefs.length">
-                  <div v-for="def in runDifficultyBuffDefs" :key="def.index" class="info-preset-difficulty-buff-item">
-                    <span class="info-preset-difficulty-buff-label">{{ def.label }}</span>
+                  <div
+                    v-for="(def, buffIx) in runDifficultyBuffDefs"
+                    :key="def.index"
+                    class="info-preset-difficulty-buff-item"
+                    :class="{ 'info-preset-difficulty-buff-item--alt': buffIx % 2 === 1 }"
+                  >
                     <DifficultyDescText :description="def.description" :unclamped="true" />
                   </div>
                 </template>
@@ -2037,14 +2041,13 @@ function close() {
   align-items: center;
   gap: calc(2 * var(--rpx));
   width: 100%;
+  padding: calc(8 * var(--rpx)) calc(10 * var(--rpx));
+  border-radius: calc(6 * var(--rpx));
+  box-sizing: border-box;
 }
 
-.info-preset-difficulty-buff-label {
-  font-size: calc(23 * var(--rpx));
-  font-weight: 800;
-  line-height: 1.2;
-  color: rgba(60, 58, 50, 0.72);
-  text-align: center;
+.info-preset-difficulty-buff-item--alt {
+  background: rgba(60, 58, 50, 0.06);
 }
 
 .info-preset-difficulty-card :deep(.difficulty-desc-text) {

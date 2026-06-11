@@ -275,7 +275,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-archive-2-fill",
       pickCount: 0,
       tags: SPECTRAL,
-      shopPrice: 4,
+      shopPrice: 5,
       description: "获取一个随机的史诗宝藏",
     },
     {

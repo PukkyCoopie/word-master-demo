@@ -22,27 +22,31 @@ export function buildSpellOfferSlotsFromPool(pool, buildSnapshotFromCard, rng = 
   /** @type {Array<{ key: string, deckOnly: true, deckCardUid: number | null, tile?: unknown, empty?: boolean }>} */
   const slots = [];
   for (let i = 0; i < CAP; i++) {
-    let candidates = allowReuse
-      ? cards
-      : cards.filter((c) => {
-          const uid = /** @type {{ _dcUid?: number }} */ (c)._dcUid;
-          return uid == null || !usedUid.has(uid);
-        });
-    if (!candidates.length) candidates = cards;
-    const card = candidates[Math.floor(rnd() * candidates.length)];
-    const uid = /** @type {{ _dcUid?: number }} */ (card)._dcUid ?? null;
-    if (!allowReuse && uid != null) usedUid.add(uid);
-    const tile = buildSnapshotFromCard(/** @type {Record<string, unknown>} */ (card));
-    if (!tile) {
-      slots.push({ key: `sp-${i}`, empty: true });
-      continue;
+    let placed = false;
+    for (let attempt = 0; attempt < Math.max(CAP * 4, 24) && !placed; attempt += 1) {
+      let candidates = allowReuse
+        ? cards
+        : cards.filter((c) => {
+            const uid = /** @type {{ _dcUid?: number }} */ (c)._dcUid;
+            return uid == null || !usedUid.has(uid);
+          });
+      if (!candidates.length) candidates = cards;
+      const card = candidates[Math.floor(rnd() * candidates.length)];
+      const uid = /** @type {{ _dcUid?: number }} */ (card)._dcUid ?? null;
+      const tile = buildSnapshotFromCard(/** @type {Record<string, unknown>} */ (card));
+      if (!tile) continue;
+      if (!allowReuse && uid != null) usedUid.add(uid);
+      slots.push({
+        key: `sp-${i}`,
+        deckOnly: true,
+        deckCardUid: uid,
+        tile,
+      });
+      placed = true;
     }
-    slots.push({
-      key: `sp-${i}`,
-      deckOnly: true,
-      deckCardUid: uid,
-      tile,
-    });
+    if (!placed) {
+      slots.push({ key: `sp-${i}`, empty: true });
+    }
   }
   return slots;
 }

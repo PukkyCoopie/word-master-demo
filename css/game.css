@@ -1403,7 +1403,7 @@ textarea::-moz-placeholder {
 	opacity: 0.2;
 	pointer-events: none;
 	z-index: 1;
-	transform: scale(1.85);
+	transform: scale(1.3875);
 	transform-origin: 50% 50%;
 }
 
@@ -2476,6 +2476,11 @@ textarea::-moz-placeholder {
 	line-height: 1;
 }
 
+.treasure-slot.filled.treasure-slot--amber-mask .treasure-slot-emoji {
+	font-weight: 900;
+	font-size: calc(var(--shop-shelf-emoji-size, calc(42 * var(--rpx))) * 1.08);
+}
+
 /* 宝藏配饰（与字母块 tile-accessory 分离；角标置顶右，避免与右下角充能角标重叠；尺寸见 @container treasure-cell） */
 .treasure-slot.filled .treasure-accessory-chip,
 .shop-treasure-frame .treasure-accessory-chip {
@@ -3388,9 +3393,18 @@ textarea::-moz-placeholder {
 		font-size: calc(100cqmin * 42 / 108);
 	}
 
+	.run-end-discovery-chip__frame.shop-treasure-frame.shop-treasure-frame--length-offer {
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: calc(100cqmin * 6 / 108);
+	}
+
 	.run-end-discovery-chip__frame.shop-treasure-frame .shop-upgrade-length {
-		position: absolute;
-		bottom: calc(100cqmin * 10 / 108);
+		position: static;
+		bottom: auto;
+		left: auto;
+		transform: none;
 		font-size: calc(100cqmin * 20 / 108);
 	}
 

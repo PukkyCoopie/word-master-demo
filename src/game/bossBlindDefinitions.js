@@ -152,7 +152,7 @@ export const BOSS_BY_SLUG = Object.freeze({
     slug: "verdant_leaf",
     nameZh: "绿叶",
     scoreBaseMult: 2,
-    uiDescription: "在你卖出一个宝藏前，所有卡牌都是削弱状态",
+    uiDescription: "在你卖出一个宝藏前，所有字母块都是削弱状态",
     kind: "showdown",
   },
   violet_vessel: {

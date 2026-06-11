@@ -5,7 +5,10 @@ export default {
   price: 5,
   rarity: "common",
   description: describe(
-    "将每种长度的单词在本轮游戏内被拼写过的次数同时添加至分数和倍率",
+    score("+n"),
+    "分数并且",
+    mult("+n"),
+    "倍率（数字等同于当前长度在本轮游戏内被拼出的次数）",
   ),
 };
 

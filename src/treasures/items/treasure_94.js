@@ -70,6 +70,7 @@ export const treasureHooks = {
     if (rs.rotatingRarityMultIndex == null) rollNextRotatingRarityMultIndex(rs, ctx.rng ?? Math.random);
   },
   async onLevelComplete(ctx) {
+    if (ctx.hookSource === "blueprint") return;
     const rs = ctx.treasureRun;
     if (!rs) return;
     rollNextRotatingRarityMultIndex(rs, ctx.rng ?? Math.random);

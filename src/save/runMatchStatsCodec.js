@@ -10,6 +10,7 @@ export function serializeRunMatchStats(stats) {
   return {
     bestWord: String(stats.bestWord ?? ""),
     bestWordScore: Math.max(0, Math.floor(Number(stats.bestWordScore) || 0)),
+    bestWordLength: Math.max(0, Math.floor(Number(stats.bestWordLength) || 0)),
     longestWord: String(stats.longestWord ?? ""),
     longestWordLength: Math.max(0, Math.floor(Number(stats.longestWordLength) || 0)),
     lengthCounts,
@@ -28,6 +29,7 @@ export function deserializeRunMatchStats(raw) {
   const o = /** @type {Record<string, unknown>} */ (raw);
   stats.bestWord = String(o.bestWord ?? "");
   stats.bestWordScore = Math.max(0, Math.floor(Number(o.bestWordScore) || 0));
+  stats.bestWordLength = Math.max(0, Math.floor(Number(o.bestWordLength) || 0));
   stats.longestWord = String(o.longestWord ?? "");
   stats.longestWordLength = Math.max(0, Math.floor(Number(o.longestWordLength) || 0));
   stats.lettersUsed = Math.max(0, Math.floor(Number(o.lettersUsed) || 0));

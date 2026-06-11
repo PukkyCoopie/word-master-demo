@@ -87,8 +87,8 @@ const PRESETS = [
   },
   {
     id: "preset_07",
-    emoji: "📟",
-    name: "传呼机",
+    emoji: "📡",
+    name: "天线",
     description: describe(
       "开局时拥有",
       entityInline("voucher", "v_magic_1"),

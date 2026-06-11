@@ -134,7 +134,7 @@ export const ACCESSORY_CATALOG = Object.freeze({
     legacyStorage: "treasure_field",
     chip: Object.freeze({
       chipClass: "treasure-accessory-chip--no-sell",
-      iconClass: "ri-creative-commons-nc-fill",
+      iconClass: "ri-forbid-2-fill",
     }),
     meta: Object.freeze({ noSell: true }),
   }),

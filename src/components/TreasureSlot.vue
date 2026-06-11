@@ -10,6 +10,7 @@
         'treasure-slot--effect-charge-active': chargeState === 'active',
         'treasure-slot--boss-hand-disabled': crimsonHandDisabled,
         'treasure-slot--accessory-expired': accessoryExpired,
+        'treasure-slot--amber-mask': amberBossMask,
       },
     ]"
     :style="{ '--charge-progress': String(clampedChargeProgress) }"

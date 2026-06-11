@@ -272,6 +272,7 @@ function onTreasureClick(record, slotIx, event) {
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: 0.03em;
+  text-transform: uppercase;
   color: var(--text-dark, #3c3a32);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -287,14 +288,15 @@ function onTreasureClick(record, slotIx, event) {
   gap: calc(8 * var(--rpx) * var(--leaderboard-tile-scale, 1));
   padding: calc(12 * var(--rpx)) calc(10 * var(--rpx));
   border-radius: calc(8 * var(--rpx));
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--letter-grid-bg);
+  box-shadow: inset 0 calc(2 * var(--rpx)) calc(6 * var(--rpx)) rgba(0, 0, 0, 0.1);
 }
 
 .collection-leaderboard-composition__sep {
   flex: 0 0 auto;
   width: min(100%, calc(180 * var(--rpx) * var(--leaderboard-tile-scale, 1)));
   height: calc(1 * var(--rpx));
-  background: rgba(60, 58, 50, 0.12);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .collection-leaderboard-tiles {

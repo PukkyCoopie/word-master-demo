@@ -341,6 +341,20 @@ function setTileRarityOnCard(tile, rarity, rarityLevelsByRarity) {
 
 /**
  * @param {{ deckCardUid?: number | null }[]} ordered
+ * @param {(p: { row?: number, col?: number, deckCardUid?: number | null }) => unknown} tileAt
+ */
+function orderedWithoutAccessoryTiles(ordered, tileAt) {
+  return ordered.filter((p) => {
+    const t = tileAt(p);
+    if (!t || typeof t !== "object" || !/** @type {{ letter?: unknown }} */ (t).letter) return false;
+    const acc = String(/** @type {{ accessoryId?: unknown }} */ (t).accessoryId ?? "").trim();
+    const tAcc = String(/** @type {{ treasureAccessoryId?: unknown }} */ (t).treasureAccessoryId ?? "").trim();
+    return !acc && !tAcc;
+  });
+}
+
+/**
+ * @param {{ deckCardUid?: number | null }[]} ordered
  * @param {() => number} rng
  */
 function pickRandomOrderedDeckUid(ordered, rng) {
@@ -842,7 +856,8 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "talisman": {
-      const pick = ordered.length ? [ordered[Math.floor(rngU(rng) * ordered.length)]] : [];
+      const pool = orderedWithoutAccessoryTiles(ordered, tileAt);
+      const pick = pool.length ? [pool[Math.floor(rngU(rng) * pool.length)]] : [];
       for (const p of pick) {
         const t = tileAt(p);
         if (!t?.letter) continue;
@@ -861,7 +876,8 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "deja_vu": {
-      const pick = ordered.length ? [ordered[Math.floor(rngU(rng) * ordered.length)]] : [];
+      const pool = orderedWithoutAccessoryTiles(ordered, tileAt);
+      const pick = pool.length ? [pool[Math.floor(rngU(rng) * pool.length)]] : [];
       for (const p of pick) {
         const t = tileAt(p);
         if (!t?.letter) continue;
@@ -870,7 +886,8 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "wrench": {
-      const pick = ordered.length ? [ordered[Math.floor(rngU(rng) * ordered.length)]] : [];
+      const pool = orderedWithoutAccessoryTiles(ordered, tileAt);
+      const pick = pool.length ? [pool[Math.floor(rngU(rng) * pool.length)]] : [];
       for (const p of pick) {
         const t = tileAt(p);
         if (!t?.letter) continue;
@@ -879,7 +896,8 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "diamond": {
-      const pick = ordered.length ? [ordered[Math.floor(rngU(rng) * ordered.length)]] : [];
+      const pool = orderedWithoutAccessoryTiles(ordered, tileAt);
+      const pick = pool.length ? [pool[Math.floor(rngU(rng) * pool.length)]] : [];
       for (const p of pick) {
         const t = tileAt(p);
         if (!t?.letter) continue;

@@ -308,7 +308,12 @@ export function formatRarityEffectLineSegments(score, mult) {
  * @param {string} buf 尚未 flush 的前缀文案
  */
 function isProgressCounterFractionContext(buf) {
-  return /(?:当前|已达)\s*$/.test(buf) || /[（(]\s*当前\s*$/.test(buf);
+  return (
+    /(?:当前|已达)\d*$/.test(buf) ||
+    /[（(]\s*当前\d*$/.test(buf) ||
+    /(?:当前|已达)\s*$/.test(buf) ||
+    /[（(]\s*当前\s*$/.test(buf)
+  );
 }
 
 /**

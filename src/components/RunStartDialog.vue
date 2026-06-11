@@ -854,12 +854,14 @@ function onCancel() {
   display: inline-flex;
   align-items: baseline;
   gap: calc(2 * var(--rpx));
+  color: var(--money-gold, #b8860b);
 }
 
 .run-start-dialog-money-char {
   font-size: calc(22 * var(--rpx));
   font-weight: 800;
-  opacity: 0.85;
+  color: var(--money-gold, #b8860b);
+  opacity: 1;
 }
 
 .run-start-dialog-progress-label {

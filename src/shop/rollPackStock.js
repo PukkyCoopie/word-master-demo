@@ -1,5 +1,5 @@
 /**
- * 商店牌包区库存：仅各类组合包（含 `bundleOptions` 供选包 UI）；进店生成，不随「刷新」重掷。
+ * 商店牌包区库存：仅各类组合包（`bundleOptions` 在开包 UI 打开时才掷出）；进店生成，不随「刷新」重掷。
  */
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
 import { pickDistinctSpellDefsForPack } from "../spells/spellPackOfferRoll.js";
@@ -133,14 +133,7 @@ export function rollPackOfferStock(ctx) {
   const ownedV = ctx.ownedVoucherIds != null ? new Set([...ctx.ownedVoucherIds]) : new Set();
   const spellWt = getSpellCategoryWeightMultiplier(ownedV);
   const upgradeWt = getUpgradeCategoryWeightMultiplier(ownedV);
-  const honeMult = Math.max(0, Number(ctx.honeAccessoryMult) || 1);
-  const treasurePickOpts = {
-    onPrerequisiteTreasureShopAppeared: ctx.onPrerequisiteTreasureShopAppeared,
-  };
   const slotCount = getPackOfferSlotCount();
-  const telescopeMost = hasTelescopeVoucher(ownedV)
-    ? getMostPlayedWordLength(ctx.spellCountsByLength ?? null)
-    : 0;
 
   const spellDefsAll = filterSpellDefsForShop(
     lastReplay,
@@ -149,25 +142,7 @@ export function rollPackOfferStock(ctx) {
     ctx.excludeSpellIds,
     ctx.spellPoolEligibilityCounts ?? null,
   );
-  const nextPackId = () => ctx.nextPackOfferInstanceId();
-
   const makeEmpty = () => ({ kind: "empty", emptySlotId: ctx.nextPackEmptySlotId() });
-
-  const makeSingleSpell = (def) => buildSpellShopRow(nextPackId, def);
-
-  const makeLengthUpgrade = (g) => buildLengthUpgradeShopRow(nextPackId, g);
-
-  const makeRarityUpgrade = (rk) => buildRarityUpgradeShopRow(nextPackId, rk);
-
-  const toTreasureOfferRow = (def) =>
-    buildTreasureShopRowFromDef(
-      nextPackId,
-      def,
-      rng,
-      honeMult,
-      ctx.runDifficultyIndex ?? null,
-      ctx.rollTreasureAccessories !== false,
-    );
 
   const availableTreasureCount = pool.filter(
     (t) => t && !owned.has(t.treasureId) && !sessionExcluded?.has(t.treasureId),
@@ -245,9 +220,7 @@ export function rollPackOfferStock(ctx) {
       const tier = cat === "bundleSpellMega" ? "mega" : cat === "bundleSpellJumbo" ? "jumbo" : "normal";
       const poolSize = tier === "normal" ? 3 : 5;
       const pickCount = tier === "mega" ? 2 : 1;
-      const picks = pickDistinctSpellDefsForPack(spellDefsAll, poolSize, rng);
-      const pn = picks.length;
-      const px = Math.min(pickCount, Math.max(1, pn));
+      const px = Math.min(pickCount, Math.max(1, poolSize));
       const price = SHOP_BUNDLE_PACK_PRICES.spell[tier];
       const bid = ctx.nextPackOfferInstanceId();
       const tag = bundleTreasureIdSuffixForTier(tier);
@@ -257,7 +230,7 @@ export function rollPackOfferStock(ctx) {
         offerType: "bundlePack",
         bundleKind: "spell",
         bundleSize: tier,
-        poolSize: picks.length,
+        poolSize,
         pickCount,
         offerInstanceId: bid,
         treasureId: `bundle_spell_${tag}_${bid}`,
@@ -266,32 +239,17 @@ export function rollPackOfferStock(ctx) {
         name,
         emoji: "",
         iconClass: "ri-gift-2-line",
-        description: `从${pn}张法术卡中选择${px}张并使用`,
-        bundleOptions: picks.map((def) => makeSingleSpell(def)),
+        description: `从${poolSize}张法术卡中选择${px}张并使用`,
       };
     }
 
     if (cat === "bundleUpgradeNormal" || cat === "bundleUpgradeJumbo" || cat === "bundleUpgradeMega") {
       const tier = cat === "bundleUpgradeMega" ? "mega" : cat === "bundleUpgradeJumbo" ? "jumbo" : "normal";
-      const n = tier === "normal" ? 3 : 5;
-      const keysPicked = pickDistinctFromPool(rng, upgradeKeyPool, n);
-      /** @type {object[]} */
-      const opts = [];
-      for (const key of keysPicked) {
-        if (String(key).startsWith("r:")) {
-          const rk = String(key).slice(2);
-          opts.push(makeRarityUpgrade(rk));
-        } else {
-          const g = UPGRADE_LENGTH_GROUPS.find((x) => x.key === key);
-          if (g) opts.push(makeLengthUpgrade(g));
-        }
-      }
-      ensureTelescopeLengthUpgradeInBundleOpts(opts, telescopeMost, makeLengthUpgrade, rng);
+      const poolSize = tier === "normal" ? 3 : 5;
       const price = SHOP_BUNDLE_PACK_PRICES.upgrade[tier];
       const bid = ctx.nextPackOfferInstanceId();
       const upPick = tier === "mega" ? 2 : 1;
-      const pn = opts.length;
-      const px = Math.min(upPick, Math.max(1, pn));
+      const px = Math.min(upPick, Math.max(1, poolSize));
       const tag = bundleTreasureIdSuffixForTier(tier);
       const name = tier === "normal" ? "升级包" : tier === "jumbo" ? "巨型升级包" : "超级升级包";
       return {
@@ -299,7 +257,7 @@ export function rollPackOfferStock(ctx) {
         offerType: "bundlePack",
         bundleKind: "upgrade",
         bundleSize: tier,
-        poolSize: opts.length,
+        poolSize,
         pickCount: upPick,
         offerInstanceId: bid,
         treasureId: `bundle_upgrade_${tag}_${bid}`,
@@ -308,31 +266,17 @@ export function rollPackOfferStock(ctx) {
         name,
         emoji: "",
         iconClass: "ri-gift-2-line",
-        description: `从${pn}张升级卡中选择${px}张并使用`,
-        bundleOptions: opts,
+        description: `从${poolSize}张升级卡中选择${px}张并使用`,
       };
     }
 
     if (cat === "bundleTreasureNormal" || cat === "bundleTreasureJumbo" || cat === "bundleTreasureMega") {
       const tier = cat === "bundleTreasureMega" ? "mega" : cat === "bundleTreasureJumbo" ? "jumbo" : "normal";
-      const nOpt = tier === "normal" ? 2 : 4;
-      const picks = rollDistinctShopTreasures(
-        pool,
-        owned,
-        sessionExcluded ?? new Set(),
-        nOpt,
-        rng,
-        treasurePickOpts,
-      );
-      if (sessionExcluded) {
-        for (const def of picks) sessionExcluded.add(def.treasureId);
-      }
-      const opts = picks.map((def) => toTreasureOfferRow(def));
+      const poolSize = tier === "normal" ? 2 : 4;
       const price = SHOP_BUNDLE_PACK_PRICES.treasure[tier];
       const bid = ctx.nextPackOfferInstanceId();
       const trPick = tier === "mega" ? 2 : 1;
-      const pn = opts.length;
-      const px = Math.min(trPick, Math.max(1, pn));
+      const px = Math.min(trPick, Math.max(1, poolSize));
       const tag = bundleTreasureIdSuffixForTier(tier);
       const name = tier === "normal" ? "宝藏包" : tier === "jumbo" ? "巨型宝藏包" : "超级宝藏包";
       return {
@@ -340,7 +284,7 @@ export function rollPackOfferStock(ctx) {
         offerType: "bundlePack",
         bundleKind: "treasure",
         bundleSize: tier,
-        poolSize: opts.length,
+        poolSize,
         pickCount: trPick,
         offerInstanceId: bid,
         treasureId: `bundle_treasure_${tag}_${bid}`,
@@ -349,43 +293,17 @@ export function rollPackOfferStock(ctx) {
         name,
         emoji: "",
         iconClass: "ri-gift-2-line",
-        description: `从${pn}个宝藏中选择${px}个并获取`,
-        bundleOptions: opts,
+        description: `从${poolSize}个宝藏中选择${px}个并获取`,
       };
     }
 
     if (cat === "bundleTileNormal" || cat === "bundleTileJumbo" || cat === "bundleTileMega") {
       const tier = cat === "bundleTileMega" ? "mega" : cat === "bundleTileJumbo" ? "jumbo" : "normal";
-      const n = tier === "normal" ? 3 : 5;
-      const raws = pickDistinctFromPool(rng, letterRaws, n);
-      const opts = raws.map((raw, i) => {
-        const mods = rollDeckTileModifiers(rng, { honeAccessoryMult: honeMult, materialIds });
-        const rarity = getRarityForLetter(raw);
-        const letterDisp = raw === "q" ? "Qu" : raw.toUpperCase();
-        const copy = buildDeckTileOfferDisplay(letterDisp, mods);
-        return {
-          kind: "offer",
-          offerType: "deckTile",
-          optionKey: `tile-${raw}-${mods.materialId ?? "b"}-${i}`,
-          offerInstanceId: ctx.nextPackOfferInstanceId(),
-          treasureId: `deck_tile_${raw}_${mods.materialId ?? "b"}_${i}`,
-          price: 0,
-          rarity,
-          letterRarity: rarity,
-          name: copy.name,
-          emoji: "",
-          description: copy.description,
-          deckLetterRaw: raw,
-          deckTileMaterialId: mods.materialId,
-          deckTileAccessoryId: mods.accessoryId,
-          deckTileTreasureAccessoryId: mods.treasureAccessoryId,
-        };
-      });
+      const poolSize = tier === "normal" ? 3 : 5;
       const price = SHOP_BUNDLE_PACK_PRICES.tile[tier];
       const bid = ctx.nextPackOfferInstanceId();
       const tilePick = tier === "mega" ? 2 : 1;
-      const pn = opts.length;
-      const px = Math.min(tilePick, Math.max(1, pn));
+      const px = Math.min(tilePick, Math.max(1, poolSize));
       const tag = bundleTreasureIdSuffixForTier(tier);
       const name = tier === "normal" ? "字母包" : tier === "jumbo" ? "巨型字母包" : "超级字母包";
       return {
@@ -393,7 +311,7 @@ export function rollPackOfferStock(ctx) {
         offerType: "bundlePack",
         bundleKind: "tile",
         bundleSize: tier,
-        poolSize: opts.length,
+        poolSize,
         pickCount: tilePick,
         offerInstanceId: bid,
         treasureId: `bundle_tile_${tag}_${bid}`,
@@ -402,8 +320,7 @@ export function rollPackOfferStock(ctx) {
         name,
         emoji: "",
         iconClass: "ri-gift-2-line",
-        description: `从${pn}个字母块中选择${px}个并加入牌库`,
-        bundleOptions: opts,
+        description: `从${poolSize}个字母块中选择${px}个并加入牌库`,
       };
     }
 
@@ -412,10 +329,8 @@ export function rollPackOfferStock(ctx) {
 
   function buildGuaranteedSpellNormalBundleRow() {
     const pickCount = 1;
-    const poolSize = Math.min(3, Math.max(1, spellDefsAll.length));
-    const picks = pickDistinctSpellDefsForPack(spellDefsAll, poolSize, rng);
-    const pn = picks.length;
-    const px = Math.min(pickCount, Math.max(1, pn));
+    const poolSize = 3;
+    const px = Math.min(pickCount, Math.max(1, poolSize));
     const price = SHOP_BUNDLE_PACK_PRICES.spell.normal;
     const bid = ctx.nextPackOfferInstanceId();
     return {
@@ -423,7 +338,7 @@ export function rollPackOfferStock(ctx) {
       offerType: "bundlePack",
       bundleKind: "spell",
       bundleSize: "normal",
-      poolSize: picks.length,
+      poolSize,
       pickCount,
       offerInstanceId: bid,
       treasureId: `bundle_spell_N_${bid}`,
@@ -432,8 +347,7 @@ export function rollPackOfferStock(ctx) {
       name: "法术包",
       emoji: "",
       iconClass: "ri-gift-2-line",
-      description: `从${pn}张法术卡中选择${px}张并使用`,
-      bundleOptions: picks.map((def) => makeSingleSpell(def)),
+      description: `从${poolSize}张法术卡中选择${px}张并使用`,
     };
   }
 
@@ -449,4 +363,127 @@ export function rollPackOfferStock(ctx) {
   }
   while (rows.length < slotCount) rows.push(makeEmpty());
   return rows;
+}
+
+/**
+ * 开包 UI 打开时掷出组合包内选项（含望远镜等当前券状态）。
+ * @param {{ bundleKind?: string, bundleSize?: string }} bundleOffer
+ * @param {Parameters<typeof rollPackOfferStock>[0]} ctx
+ * @returns {object[]}
+ */
+export function rollBundleOptionsForOffer(bundleOffer, ctx) {
+  const rng = typeof ctx.rng === "function" ? ctx.rng : Math.random;
+  const owned = ctx.ownedTreasureIdSet;
+  const sessionExcluded = ctx.sessionExcludeTreasureIds ?? null;
+  const emptySlots = Math.max(0, Math.floor(Number(ctx.emptyTreasureSlots) || 0));
+  const lastReplay = ctx.lastReplayableSpellId ? String(ctx.lastReplayableSpellId) : null;
+  const spellCastHistory = Array.isArray(ctx.spellCastHistory) ? ctx.spellCastHistory : [];
+  const pool = Array.isArray(ctx.shopTreasurePool) ? ctx.shopTreasurePool : [];
+  const ownedV = ctx.ownedVoucherIds != null ? new Set([...ctx.ownedVoucherIds]) : new Set();
+  const honeMult = Math.max(0, Number(ctx.honeAccessoryMult) || 1);
+  const treasurePickOpts = {
+    onPrerequisiteTreasureShopAppeared: ctx.onPrerequisiteTreasureShopAppeared,
+  };
+  const telescopeMost = hasTelescopeVoucher(ownedV)
+    ? getMostPlayedWordLength(ctx.spellCountsByLength ?? null)
+    : 0;
+
+  const spellDefsAll = filterSpellDefsForShop(
+    lastReplay,
+    SPELL_DEFINITIONS,
+    spellCastHistory,
+    ctx.excludeSpellIds,
+    ctx.spellPoolEligibilityCounts ?? null,
+  );
+  const nextPackId = () => ctx.nextPackOfferInstanceId();
+  const makeSingleSpell = (def) => buildSpellShopRow(nextPackId, def);
+  const makeLengthUpgrade = (g) => buildLengthUpgradeShopRow(nextPackId, g);
+  const makeRarityUpgrade = (rk) => buildRarityUpgradeShopRow(nextPackId, rk);
+  const toTreasureOfferRow = (def) =>
+    buildTreasureShopRowFromDef(
+      nextPackId,
+      def,
+      rng,
+      honeMult,
+      ctx.runDifficultyIndex ?? null,
+      ctx.rollTreasureAccessories !== false,
+    );
+
+  const kind = String(bundleOffer?.bundleKind ?? "");
+  const tier = bundleOffer?.bundleSize === "mega" ? "mega" : bundleOffer?.bundleSize === "jumbo" ? "jumbo" : "normal";
+
+  if (kind === "spell") {
+    const poolSize = tier === "normal" ? 3 : 5;
+    const picks = pickDistinctSpellDefsForPack(spellDefsAll, poolSize, rng);
+    return picks.map((def) => makeSingleSpell(def));
+  }
+
+  if (kind === "upgrade") {
+    const lengthKeys = UPGRADE_LENGTH_GROUPS.map((g) => g.key);
+    const rarityKeys = [...LETTER_RARITY_ORDER];
+    const upgradeKeyPool = [...lengthKeys, ...rarityKeys.map((k) => `r:${k}`)];
+    const n = tier === "normal" ? 3 : 5;
+    const keysPicked = pickDistinctFromPool(rng, upgradeKeyPool, n);
+    /** @type {object[]} */
+    const opts = [];
+    for (const key of keysPicked) {
+      if (String(key).startsWith("r:")) {
+        const rk = String(key).slice(2);
+        opts.push(makeRarityUpgrade(rk));
+      } else {
+        const g = UPGRADE_LENGTH_GROUPS.find((x) => x.key === key);
+        if (g) opts.push(makeLengthUpgrade(g));
+      }
+    }
+    ensureTelescopeLengthUpgradeInBundleOpts(opts, telescopeMost, makeLengthUpgrade, rng);
+    return opts;
+  }
+
+  if (kind === "treasure") {
+    const nOpt = tier === "normal" ? 2 : 4;
+    const picks = rollDistinctShopTreasures(
+      pool,
+      owned,
+      sessionExcluded ?? new Set(),
+      nOpt,
+      rng,
+      treasurePickOpts,
+    );
+    if (sessionExcluded) {
+      for (const def of picks) sessionExcluded.add(def.treasureId);
+    }
+    return picks.map((def) => toTreasureOfferRow(def));
+  }
+
+  if (kind === "tile") {
+    const letterRaws = allLetterRaws();
+    const materialIds = [...getShopTilePackMaterialIds()];
+    const n = tier === "normal" ? 3 : 5;
+    const raws = pickDistinctFromPool(rng, letterRaws, n);
+    return raws.map((raw, i) => {
+      const mods = rollDeckTileModifiers(rng, { honeAccessoryMult: honeMult, materialIds });
+      const rarity = getRarityForLetter(raw);
+      const letterDisp = raw === "q" ? "Qu" : raw.toUpperCase();
+      const copy = buildDeckTileOfferDisplay(letterDisp, mods);
+      return {
+        kind: "offer",
+        offerType: "deckTile",
+        optionKey: `tile-${raw}-${mods.materialId ?? "b"}-${i}`,
+        offerInstanceId: ctx.nextPackOfferInstanceId(),
+        treasureId: `deck_tile_${raw}_${mods.materialId ?? "b"}_${i}`,
+        price: 0,
+        rarity,
+        letterRarity: rarity,
+        name: copy.name,
+        emoji: "",
+        description: copy.description,
+        deckLetterRaw: raw,
+        deckTileMaterialId: mods.materialId,
+        deckTileAccessoryId: mods.accessoryId,
+        deckTileTreasureAccessoryId: mods.treasureAccessoryId,
+      };
+    });
+  }
+
+  return [];
 }

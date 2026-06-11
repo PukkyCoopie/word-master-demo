@@ -3,6 +3,7 @@
  * @typedef {{
  *   bestWord: string,
  *   bestWordScore: number,
+ *   bestWordLength: number,
  *   longestWord: string,
  *   longestWordLength: number,
  *   lengthCounts: Map<number, number>,
@@ -19,6 +20,7 @@ export function createRunMatchStats() {
   return {
     bestWord: "",
     bestWordScore: 0,
+    bestWordLength: 0,
     longestWord: "",
     longestWordLength: 0,
     lengthCounts: new Map(),
@@ -32,7 +34,7 @@ export function createRunMatchStats() {
 
 /**
  * @param {RunMatchStats} stats
- * @param {{ word: string, score: number, length: number }} payload
+ * @param {{ word: string, score: number, length: number }} payload `length` 为单词实际字母数（非计分判定词长）
  */
 export function recordWordSubmit(stats, { word, score, length }) {
   const w = String(word ?? "").trim();
@@ -46,6 +48,7 @@ export function recordWordSubmit(stats, { word, score, length }) {
   if (w && sc >= stats.bestWordScore) {
     stats.bestWord = w;
     stats.bestWordScore = sc;
+    stats.bestWordLength = len;
   }
   if (w && len >= stats.longestWordLength) {
     stats.longestWord = w;
@@ -98,6 +101,16 @@ export function formatRunEndBestWordValue(stats) {
   return stats.bestWord
     ? `${stats.bestWord.toUpperCase()}（${stats.bestWordScore.toLocaleString("zh-CN")}）`
     : "—";
+}
+
+/**
+ * @param {RunMatchStats} stats
+ * @returns {string}
+ */
+export function formatRunEndBestWordLengthValue(stats) {
+  if (!stats.bestWord) return "—";
+  const len = Math.max(0, Math.floor(Number(stats.bestWordLength) || 0));
+  return `${stats.bestWord.toUpperCase()}（${len}字母）`;
 }
 
 /**

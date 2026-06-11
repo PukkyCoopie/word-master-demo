@@ -11,11 +11,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: calc(2 * var(--rpx)) calc(8 * var(--rpx));
+  padding: calc(2 * var(--rpx)) calc(4 * var(--rpx)) calc(2 * var(--rpx)) calc(10 * var(--rpx));
   border-radius: calc(999 * var(--rpx));
   background: #7ec89a;
   color: #fff;
-  font-size: calc(16 * var(--rpx));
+  font-size: calc(18 * var(--rpx));
   font-weight: 700;
   line-height: 1.2;
   box-shadow: var(--shadow, 0 calc(2 * var(--rpx)) calc(4 * var(--rpx)) rgba(0, 0, 0, 0.12));

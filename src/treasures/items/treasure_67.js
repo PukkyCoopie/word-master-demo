@@ -16,7 +16,7 @@ export const treasureHooks = {
     if (remainingAfter > 0) return;
     const target = Math.max(1, Math.floor(Number(ctx.targetScore) || 0));
     const score = Math.max(0, Math.floor(Number(ctx.currentScore) || 0));
-    if (score < target * 0.25) return;
+    if (score >= target) return;
     await ctx.playOwnedTreasureBubbleFx?.(ID, "+3", "score");
     ctx.addRemainingWords?.(3);
     await ctx.destroyTreasureSlotById?.(ID);

@@ -92,8 +92,21 @@ function isPersonNameTranslation(translationZh) {
 }
 
 /** @param {string | null | undefined} label */
+function isWordFormExplanationLabel(label) {
+  const t = String(label ?? "").trim();
+  if (!t) return false;
+  const body = t
+    .replace(/^(?:n|v|vi|vt|adj|adv|a|prep|conj|pron|num|art|interj|aux|det|abbr)\.\s*/i, "")
+    .trim();
+  return /的(?:过去式|过去分词|现在分词|第三人称单数|名词形式|形容词形式|副词形式|比较级|最高级|复数形式|单数形式|原形|变形)\s*$/.test(
+    body,
+  );
+}
+
+/** @param {string | null | undefined} label */
 function isInflectionVariantLabel(label) {
   const t = String(label ?? "").trim();
+  if (isWordFormExplanationLabel(t)) return true;
   if (!t.includes("的变形")) return false;
   const body = t
     .replace(/^(?:n|v|vi|vt|adj|adv|a|prep|conj|pron|num|art|interj|aux|det|abbr)\.\s*/i, "")

@@ -181,6 +181,7 @@ import {
   resolveCollectionSpellEntryState,
   resolveCollectionTreasureEntryState,
   resolveCollectionUpgradeEntryState,
+  resolveCollectionVoucherEntryState,
 } from "../collection/collectionEntryState.js";
 import {
   clearCollectionNewDiscoveriesOnTabReenter,
@@ -361,7 +362,17 @@ function resolveCollectionPreviewEntryState(previewNavKind, key) {
     return resolveCollectionUpgradeEntryState(String(key), props.career.discoveredUpgradeIds);
   }
   if (kind === "collection-owned-treasure") return "discovered";
-  if (kind === "collection-voucher") return "discovered";
+  if (kind === "collection-voucher") {
+    const pairId =
+      key && typeof key === "object" && "pairId" in key
+        ? String(/** @type {{ pairId?: string }} */ (key).pairId ?? "")
+        : "";
+    const tier =
+      key && typeof key === "object" && "tier" in key
+        ? Math.max(0, Math.min(2, Math.floor(Number(/** @type {{ tier?: number }} */ (key).tier) || 0)))
+        : 0;
+    return resolveCollectionVoucherEntryState(pairId, tier);
+  }
   return resolveCollectionTreasureEntryState(String(key), props.career.discoveredTreasureIds);
 }
 
@@ -408,7 +419,7 @@ function resolveCollectionTreasurePreviewAtNav(nav) {
   }
   if (kind === "collection-voucher") {
     const pairId = String(key?.pairId ?? "");
-    const tier = Math.max(1, Math.min(2, Math.floor(Number(key?.tier) || 0)));
+    const tier = Math.max(0, Math.min(2, Math.floor(Number(key?.tier) || 0)));
     return buildDiscoveredVoucherDetailTreasure(pairId, /** @type {0 | 1 | 2} */ (tier));
   }
   if (kind === "collection-owned-treasure") {
@@ -520,14 +531,12 @@ function onCollectionUpgradeSelect(payload) {
 /** @param {{ pairId: string, discoveredTier: number, originEl?: HTMLElement | null }} payload */
 function onCollectionVoucherSelect(payload) {
   const pairId = String(payload?.pairId ?? "").trim();
+  if (!pairId) return;
   const tier = Math.max(0, Math.min(2, Math.floor(Number(payload?.discoveredTier) || 0)));
-  if (!pairId || tier < 1) return;
-  const items = [...VOUCHER_PAIR_ORDER.entries()]
-    .map(([id]) => ({
-      pairId: id,
-      tier: Math.max(0, Math.min(2, Math.floor(Number(props.career.discoveredVoucherTiers?.[id]) || 0))),
-    }))
-    .filter((row) => row.tier >= 1);
+  const items = [...VOUCHER_PAIR_ORDER.entries()].map(([id]) => ({
+    pairId: id,
+    tier: Math.max(0, Math.min(2, Math.floor(Number(props.career.discoveredVoucherTiers?.[id]) || 0))),
+  }));
   const treasure = buildDiscoveredVoucherDetailTreasure(pairId, /** @type {0 | 1 | 2} */ (tier));
   openCollectionTreasurePreview(
     treasure,
@@ -535,6 +544,7 @@ function onCollectionVoucherSelect(payload) {
     "offer",
     createPreviewNavGroupFromItems(items, (row) => row.pairId === pairId),
     "collection-voucher",
+    resolveCollectionVoucherEntryState(pairId, tier),
   );
 }
 

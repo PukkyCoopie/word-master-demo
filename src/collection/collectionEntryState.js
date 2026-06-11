@@ -64,6 +64,18 @@ export function resolveCollectionUpgradeEntryState(upgradeTreasureId, discovered
   return discovered ? "discovered" : "unknown";
 }
 
+/**
+ * @param {string | null | undefined} pairId
+ * @param {number | null | undefined} discoveredTier
+ * @returns {CollectionEntryState}
+ */
+export function resolveCollectionVoucherEntryState(pairId, discoveredTier) {
+  const id = String(pairId ?? "").trim();
+  if (!id) return "unknown";
+  const tier = Math.max(0, Math.min(2, Math.floor(Number(discoveredTier) || 0)));
+  return tier >= 1 ? "discovered" : "unknown";
+}
+
 /** @param {CollectionEntryState} state */
 export function collectionEntryOpacityForState(state) {
   if (state === "discovered") return 1;

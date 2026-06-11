@@ -110,6 +110,7 @@ const props = defineProps({
   runSeedDisplay: { type: String, default: "" },
   reachedLevelId: { type: String, default: "" },
   bestWordValue: { type: String, default: "—" },
+  bestWordLengthValue: { type: String, default: "—" },
   longestWordValue: { type: String, default: "—" },
   mostCommonLengthValue: { type: String, default: "—" },
   /** @type {{ label: string, value: string }[]} */
@@ -137,7 +138,7 @@ const bestWordLabel = computed(() =>
 );
 
 const bestWordDisplayValue = computed(() =>
-  bestWordShowLength.value ? props.longestWordValue : props.bestWordValue,
+  bestWordShowLength.value ? props.bestWordLengthValue : props.bestWordValue,
 );
 
 async function copyRunSeed() {

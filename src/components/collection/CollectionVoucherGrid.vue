@@ -6,7 +6,7 @@
       type="button"
       class="collection-voucher-cell shop-treasure-product"
       :class="{ 'collection-voucher-cell--unknown': pair.tier < 1 }"
-      :disabled="pair.tier < 1"
+      :aria-label="pair.tier < 1 ? '预览未解锁条目' : `预览 ${pair.displayName}`"
       @click="onCellClick(pair, $event)"
     >
       <CollectionNewMark :show="pair.showNewMark" />
@@ -81,7 +81,6 @@ const entries = computed(() =>
 
 /** @param {{ pairId: string, tier: number }} pair @param {MouseEvent} event */
 function onCellClick(pair, event) {
-  if (pair.tier < 1) return;
   const el = event.currentTarget;
   emit("select-voucher", {
     pairId: pair.pairId,
@@ -113,7 +112,6 @@ function onCellClick(pair, event) {
 }
 
 .collection-voucher-cell--unknown {
-  cursor: default;
   opacity: 0.55;
 }
 

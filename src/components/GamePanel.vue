@@ -630,6 +630,7 @@
         :run-seed-display="props.runSeedDisplay"
         :reached-level-id="runEndReachedLevelId"
         :best-word-value="runEndBestWordValue"
+        :best-word-length-value="runEndBestWordLengthValue"
         :longest-word-value="runEndLongestWordValue"
         :most-common-length-value="runEndMostCommonLengthValue"
         :triple-stats-rows="runEndTripleStatsRows"
@@ -906,6 +907,7 @@ import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import {
   createRunMatchStats,
   formatRunEndBestWordValue,
+  formatRunEndBestWordLengthValue,
   formatRunEndLongestWordValue,
   formatRunEndMostCommonLength,
   getRunEndTripleStatsRows,
@@ -994,7 +996,7 @@ import {
   resolveRestartEffectiveSpellId,
   resolveSpellFlowEffectiveId,
 } from "../game/inRunGrantFlow.js";
-import { rollPackOfferStock } from "../shop/rollPackStock.js";
+import { rollPackOfferStock, rollBundleOptionsForOffer } from "../shop/rollPackStock.js";
 import {
   rollInRunBundlePackOfKind,
   rollOneRandomBundlePackOffer,
@@ -2725,8 +2727,37 @@ function onInfoSelectOwnedVoucher(payload) {
   };
 }
 
+function buildRollBundleOptionsCtx() {
+  const sessionExclude = new Set();
+  addShopShelfTreasureIdsToExclude(sessionExclude, shopOffers.value);
+  addShopShelfTreasureIdsToExclude(sessionExclude, packOffers.value);
+  return {
+    rng: runRandom,
+    nextPackOfferInstanceId: () => nextOfferInstanceId.value++,
+    nextPackEmptySlotId: () => nextPackEmptySlotId.value++,
+    ownedTreasureIdSet: ownedTreasureIdSet.value,
+    sessionExcludeTreasureIds: sessionExclude,
+    emptyTreasureSlots: ownedTreasures.value.filter((s) => s == null).length,
+    spellPoolEligibilityCounts: buildSpellPoolEligibilityCountsForRun(),
+    lastReplayableSpellId: lastReplayableSpellId.value,
+    spellCastHistory: spellCastHistory.value,
+    shopTreasurePool: shopTreasurePool.value,
+    guaranteeBalatroFirstShopBuffoonSlot: false,
+    ownedVoucherIds: ownedVoucherIds.value,
+    spellCountsByLength: spellCountsByLength.value,
+    honeAccessoryMult: getShopAccessoryChanceMultiplier(ownedVoucherIds.value),
+    runDifficultyIndex: runDifficultyIndex.value,
+    excludeSpellIds: spellPoolExcludeIdsWhenBonusVoucherActive(),
+    ...buildPackPrerequisiteRollOpts(),
+  };
+}
+
 function buildPackPickSessionFromBundle(bundle, grantContext = "shop") {
-  const opts = Array.isArray(bundle.bundleOptions) ? bundle.bundleOptions : [];
+  let opts = Array.isArray(bundle.bundleOptions) ? bundle.bundleOptions : [];
+  if (!opts.length && bundle?.offerType === "bundlePack") {
+    const rollCtx = grantContext === "inRun" ? buildRollInRunBundlePackCtx() : buildRollBundleOptionsCtx();
+    opts = rollBundleOptionsForOffer(bundle, rollCtx);
+  }
   const pickCount = Math.max(1, Math.floor(Number(bundle.pickCount) || 1));
   const withKeys = opts.map((o, i) => ({
     ...o,
@@ -2763,6 +2794,10 @@ function buildRollInRunBundlePackCtx() {
     ownedVoucherIds: ownedVoucherIds.value,
     spellCountsByLength: spellCountsByLength.value,
     honeAccessoryMult: getShopAccessoryChanceMultiplier(ownedVoucherIds.value),
+    runDifficultyIndex: runDifficultyIndex.value,
+    excludeSpellIds: spellPoolExcludeIdsWhenBonusVoucherActive(),
+    spellPoolEligibilityCounts: buildSpellPoolEligibilityCountsForRun(),
+    ...buildPackPrerequisiteRollOpts(),
   };
 }
 
@@ -3095,9 +3130,7 @@ async function fulfillTreasureAfterPackPayment(t, fromEl) {
   const ix = findTreasurePlacementIndex(t);
   if (ix < 0) return;
   const slotsExpanded = ownedTreasures.value.length > slotsLenBefore;
-  const frameEl =
-    fromEl?.querySelector?.(".shop-treasure-frame") ??
-    (fromEl?.classList?.contains?.("shop-treasure-frame") ? fromEl : null);
+  const frameEl = fromEl instanceof HTMLElement ? fromEl : null;
   const toTarget = await waitForOwnedTreasureSlotEl(ix, { slotsExpanded });
   let grantedOnFly = false;
   const grantTreasure = () => {
@@ -3199,14 +3232,16 @@ async function onPackInnerClaim() {
   try {
     const layer = treasureDetailLayerRef.value;
     const flyEl = layer?.getFlyFrameEl?.() ?? null;
-    if (!isDeckOffer) {
-      await layer?.playClose?.();
-      treasureDetail.value = null;
-    }
-    if (t.offerType === "treasure") {
+    const isTreasureOffer = t.offerType === "treasure";
+    if (isTreasureOffer) {
       sess.claimedKeys = [...claimed, key];
-    }
-    if (isDeckOffer) {
+      const closePromise = layer?.playClose?.() ?? Promise.resolve();
+      await Promise.all([
+        closePromise,
+        fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter: willNeedMorePicks }),
+      ]);
+      treasureDetail.value = null;
+    } else if (isDeckOffer) {
       /** @type {{ left: number, top: number, width: number, height: number } | null} */
       let fromRect = null;
       const flyNode = refToDom(flyEl) ?? (flyEl instanceof HTMLElement ? flyEl : null);
@@ -3226,10 +3261,11 @@ async function onPackInnerClaim() {
         }),
       ]);
       treasureDetail.value = null;
+      sess.claimedKeys = [...claimed, key];
     } else {
+      await layer?.playClose?.();
+      treasureDetail.value = null;
       await fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter: willNeedMorePicks });
-    }
-    if (t.offerType !== "treasure") {
       sess.claimedKeys = [...claimed, key];
     }
     await maybeAutoClosePackPickSession();
@@ -3666,6 +3702,7 @@ const runEndConfettiController = createRunEndConfettiController({
 const runMatchStats = ref(createRunMatchStats());
 const runDiscoveryLog = ref(createRunDiscoveryLog());
 const runEndBestWordValue = computed(() => formatRunEndBestWordValue(runMatchStats.value));
+const runEndBestWordLengthValue = computed(() => formatRunEndBestWordLengthValue(runMatchStats.value));
 const runEndLongestWordValue = computed(() => formatRunEndLongestWordValue(runMatchStats.value));
 const runEndMostCommonLengthValue = computed(() => formatRunEndMostCommonLength(runMatchStats.value));
 const runEndTripleStatsRows = computed(() => getRunEndTripleStatsRows(runMatchStats.value));
@@ -4086,11 +4123,18 @@ function runTreasureLevelEnterHooks(levelId) {
 }
 
 async function wobbleOwnedTreasureById(treasureId) {
-  const ix = findOwnedTreasureSlotIndex(treasureId);
-  if (ix < 0) return;
+  const tid = String(treasureId ?? "");
+  if (!tid) return;
+  const indices = [];
+  ownedTreasures.value.forEach((s, i) => {
+    if (s?.treasureId === tid) indices.push(i);
+  });
+  if (!indices.length) return;
   shopOverlayLayersSuppressed.value = true;
   await nextTick();
-  await wobbleGameTreasureSlot(ix);
+  for (const ix of indices) {
+    await wobbleGameTreasureSlot(ix);
+  }
   shopOverlayLayersSuppressed.value = false;
 }
 
@@ -7268,7 +7312,7 @@ async function runGridIntroAfterReset() {
   await runGridDropAnimation(null, { initial: true });
   gridRefillAnimating.value = false;
   await runPendingAfterGridTilesSettled();
-  tryCeruleanBellFlyInAfterGridStable();
+  await tryCeruleanBellFlyInAfterGridStable();
   nextTick(() => updateSlotPositions(true));
 }
 
@@ -8855,14 +8899,14 @@ function syncGridTilesToLinkedDeckCards() {
   }
 }
 
-function prepareSpellOfferSlots(rng = Math.random) {
+function prepareSpellOfferSlots(rng = Math.random, spellId = "") {
   syncGridTilesToLinkedDeckCards();
-  return buildSpellOfferSlots(rng);
+  return buildSpellOfferSlots(rng, spellId);
 }
 
-function prepareSpellOfferSlotsFromRemainingDeck(rng = Math.random) {
+function prepareSpellOfferSlotsFromRemainingDeck(rng = Math.random, spellId = "") {
   syncGridTilesToLinkedDeckCards();
-  const pool = Array.isArray(deck.value) ? deck.value.filter((c) => c && typeof c === "object") : [];
+  const pool = filterDeckCardsForSpellPool(deck.value, spellId);
   return buildSpellOfferSlotsFromPool(pool, buildSpellOfferSnapshotFromDeckCard, rng);
 }
 
@@ -9029,17 +9073,33 @@ function applySpellOfferWinnerToContext(ctx, sid, offerSlotsList, winnerOfferSlo
   ctx.forcedRemoveDeckCardUid = offerSlotsList[winnerOfferSlotIndex]?.deckCardUid ?? null;
 }
 
-/** 10 格候选：从本局完整牌库 multiset 均匀随机抽牌张 */
-function buildSpellOfferSlots(rng = Math.random) {
-  const pool = Array.isArray(initialDeckSnapshot.value)
-    ? initialDeckSnapshot.value.filter((c) => c && typeof c === "object")
-    : [];
-  return buildSpellOfferSlotsFromPool(pool, buildSpellOfferSnapshotFromDeckCard, rng);
-}
-
 function spellRandomAccessoryPoolRequiresNoAccessoryTile(spellId) {
   const sid = String(spellId ?? "");
-  return sid === "talisman" || sid === "deja_vu" || sid === "wrench" || sid === "diamond";
+  return sid === "aura" || sid === "talisman" || sid === "deja_vu" || sid === "wrench" || sid === "diamond";
+}
+
+/** @param {unknown} card */
+function deckCardHasAnyAccessoryMark(card) {
+  if (!card || typeof card !== "object") return false;
+  const acc = String(/** @type {{ accessoryId?: unknown }} */ (card).accessoryId ?? "").trim();
+  const tAcc = String(/** @type {{ treasureAccessoryId?: unknown }} */ (card).treasureAccessoryId ?? "").trim();
+  return Boolean(acc || tAcc);
+}
+
+/**
+ * @param {unknown[]} pool
+ * @param {string} spellId
+ */
+function filterDeckCardsForSpellPool(pool, spellId) {
+  const cards = Array.isArray(pool) ? pool.filter((c) => c && typeof c === "object") : [];
+  if (!spellRandomAccessoryPoolRequiresNoAccessoryTile(spellId)) return cards;
+  return cards.filter((c) => !deckCardHasAnyAccessoryMark(c));
+}
+
+/** 10 格候选：从本局完整牌库 multiset 均匀随机抽牌张 */
+function buildSpellOfferSlots(rng = Math.random, spellId = "") {
+  const pool = filterDeckCardsForSpellPool(initialDeckSnapshot.value, spellId);
+  return buildSpellOfferSlotsFromPool(pool, buildSpellOfferSnapshotFromDeckCard, rng);
 }
 
 /** @param {unknown} tile */
@@ -9149,10 +9209,10 @@ function buildSpellTargetSessionFields(
     pickCount = 0;
   }
   const preferRemaining = offerDeckSource === "remainingDeck";
-  const offerSlots = preferRemaining
-    ? prepareSpellOfferSlotsFromRemainingDeck(runRandom)
-    : prepareSpellOfferSlots(runRandom);
   const sessionEffectiveId = replayAs === "restart" ? pid : eff;
+  const offerSlots = preferRemaining
+    ? prepareSpellOfferSlotsFromRemainingDeck(runRandom, sessionEffectiveId)
+    : prepareSpellOfferSlots(runRandom, sessionEffectiveId);
   const filteredOfferSlots = filterSpellOfferSlotsBySpell(offerSlots, sessionEffectiveId);
   const couponDropBlocked = isCouponDropSpellBlockedByBonusVoucher(sessionEffectiveId);
   return {
@@ -12025,7 +12085,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       await runGridDropAnimation(prevFlip);
     } finally {
       gridRefillAnimating.value = false;
-      tryCeruleanBellFlyInAfterGridStable();
+      await tryCeruleanBellFlyInAfterGridStable();
     }
   })();
 
@@ -12271,7 +12331,7 @@ async function onRemoveClick() {
     try {
       await runGridDropAnimation(prevFlip);
     } finally {
-      tryCeruleanBellFlyInAfterGridStable();
+      await tryCeruleanBellFlyInAfterGridStable();
     }
   })();
 
@@ -12326,7 +12386,19 @@ async function tryCeruleanBellFlyInAfterGridStable() {
   await notifyBossRestrictionTreasures("cerulean_bell");
   const tile = grid.value[pick.row]?.[pick.col];
   if (!tile?.letter) return;
+  await nextTick();
+  const index = pick.row * COLS + pick.col;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const fromEl = gridTileRefs.value[index] ?? getGridTileElByIndex(index);
+    if (fromEl) {
+      startOneMoveIn(pick.row, pick.col, tile, { ceruleanBell: true });
+      await waitForFlyingInIdle();
+      return;
+    }
+    await new Promise((r) => requestAnimationFrame(r));
+  }
   startOneMoveIn(pick.row, pick.col, tile, { ceruleanBell: true });
+  await waitForFlyingInIdle();
 }
 
 function startOneMoveIn(row, col, tile, options = {}) {
@@ -12550,6 +12622,7 @@ async function submitWord() {
     presetId: runPresetId.value,
     runWordLengthJudgmentPenalty: runWordLengthJudgmentPenalty.value,
   });
+  const actualWordLen = Math.max(0, getWordLetterCount(tiles, resolvedWord));
   const judgedLenTable = getLengthTableLenFromTileCountAndBonus(resolvedWord.length, lengthJb);
   const soft = evaluateBossSoftWordViolation({
     slug: bossSlugForMechanics(),
@@ -12648,20 +12721,20 @@ async function submitWord() {
     recordWordSubmit(runMatchStats.value, {
       word: resolvedWord,
       score: detailed.finalScore,
-      length: judgedLenTable,
+      length: actualWordLen,
     });
     if (!submitViolated) {
       noteCollectionWordSubmitted({
         word: resolvedWord,
         score: detailed.finalScore,
-        length: judgedLenTable,
+        length: actualWordLen,
         tiles,
       });
     }
   } else {
     deferredWordSubmitPayload = {
       word: resolvedWord,
-      length: judgedLenTable,
+      length: actualWordLen,
       tiles,
       detailedRef: detailed,
     };
@@ -13078,7 +13151,7 @@ onMounted(async () => {
       const el = gridTileRefs.value[i];
       if (el) gsap.set(el, { x: 0, y: 0, opacity: 1 });
     }
-    tryCeruleanBellFlyInAfterGridStable();
+    await tryCeruleanBellFlyInAfterGridStable();
     updateSlotPositions(true);
     if (showShop.value && shopShelfNeedsStockRoll()) {
       refreshShopVoucherShelfForCurrentVisit();
@@ -13113,7 +13186,7 @@ onMounted(async () => {
       const el = gridTileRefs.value[i];
       if (el) gsap.set(el, { x: 0, y: 0, opacity: 1 });
     }
-    tryCeruleanBellFlyInAfterGridStable();
+    await tryCeruleanBellFlyInAfterGridStable();
     updateSlotPositions(true);
     await runPendingAfterGridTilesSettled();
   } else {
