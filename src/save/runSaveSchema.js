@@ -61,7 +61,7 @@
  * @property {(RunSaveSlot | null)[]} slots
  */
 
-export const SAVE_SCHEMA_VERSION = 1;
+export const SAVE_SCHEMA_VERSION = 2;
 export const SAVE_SLOT_COUNT = 3;
 export const RUN_SAVES_STORAGE_KEY = "word_master_run_saves_v1";
 

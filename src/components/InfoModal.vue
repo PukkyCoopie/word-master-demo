@@ -531,8 +531,8 @@ const runDifficultyIndex = computed(() => normalizeRunDifficultyIndex(props.runD
 const runDifficultyDef = computed(() => getRunDifficultyDef(runDifficultyIndex.value));
 const runDifficultyBuffDefs = computed(() => {
   const ix = runDifficultyIndex.value;
-  if (ix <= 0) return [];
-  return RUN_DIFFICULTY_DEFINITIONS.slice(1, ix + 1);
+  if (ix <= 1) return [];
+  return RUN_DIFFICULTY_DEFINITIONS.slice(2, ix + 1);
 });
 const runPresetDescTier = computed(() => {
   const tier = getPresetDescriptionLayoutTier(runPresetDef.value);
@@ -840,6 +840,7 @@ const stageProgressRows = computed(() => {
     currentLevelId: id,
     activeBossSlug: props.activeBossSlug,
     runSeedNumeric: props.runSeedNumeric,
+    runDifficultyIndex: props.runDifficultyIndex,
     inShop: props.inShop,
     isEndlessRun: props.isEndlessRun,
   });

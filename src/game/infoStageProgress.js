@@ -1,7 +1,8 @@
 import { getBossDef } from "./bossBlindDefinitions.js";
 import { pickBossSlugForLevel } from "./bossRoll.js";
-import { resolveLevelTargetScore } from "./levelTargetScore.js";
+import { resolveLevelTargetScoreForDifficulty } from "./runDifficultyRuntime.js";
 import { parseLevelSubFromId, parseMajorFromLevelId } from "../vouchers/voucherRuntime.js";
+import { normalizeRunDifficultyIndex } from "./runDifficultyDefinitions.js";
 
 /**
  * @typedef {{
@@ -54,7 +55,7 @@ function resolveBossSlugForStageBlock(levelId, currentLevelId, activeBossSlug, r
 
 /**
  * @param {number} chapter
- * @param {{ currentLevelId: string, activeBossSlug: string, runSeedNumeric: number, inShop?: boolean, dimmed: boolean, fadeMask?: InfoStageFadeMask | null }} ctx
+ * @param {{ currentLevelId: string, activeBossSlug: string, runSeedNumeric: number, runDifficultyIndex?: number, inShop?: boolean, dimmed: boolean, fadeMask?: InfoStageFadeMask | null }} ctx
  * @returns {InfoStageChapterRow}
  */
 function buildChapterRow(chapter, ctx) {
@@ -68,7 +69,7 @@ function buildChapterRow(chapter, ctx) {
     const bossDef = isBoss && bossSlug ? getBossDef(bossSlug) : null;
     return {
       id,
-      targetScore: resolveLevelTargetScore(id, bossSlug),
+      targetScore: resolveLevelTargetScoreForDifficulty(id, bossSlug, ctx.runDifficultyIndex),
       isBoss,
       bossName: bossDef?.nameZh ?? "",
       bossRequirement: bossDef?.uiDescription ?? "",
@@ -86,7 +87,7 @@ function buildChapterRow(chapter, ctx) {
 
 /**
  * 对局信息 · 关卡 Tab：上/中/下三行对应前、当前、后一大关。
- * @param {{ currentLevelId: string, activeBossSlug?: string, runSeedNumeric?: number, inShop?: boolean, isEndlessRun?: boolean }} opts
+ * @param {{ currentLevelId: string, activeBossSlug?: string, runSeedNumeric?: number, runDifficultyIndex?: number, inShop?: boolean, isEndlessRun?: boolean }} opts
  * @returns {InfoStageChapterRow[]}
  */
 export function buildInfoStageProgressRows(opts) {
@@ -95,16 +96,24 @@ export function buildInfoStageProgressRows(opts) {
   const runSeedNumeric = Math.max(0, Math.floor(Number(opts.runSeedNumeric) || 0));
   const inShop = opts.inShop === true;
   const isEndlessRun = opts.isEndlessRun === true;
+  const runDifficultyIndex = normalizeRunDifficultyIndex(opts.runDifficultyIndex);
   const MAX_NORMAL_CHAPTER = 8;
   const chapter = parseMajorFromLevelId(currentLevelId);
+  const rowCtxBase = {
+    currentLevelId,
+    activeBossSlug,
+    runSeedNumeric,
+    runDifficultyIndex,
+    inShop,
+  };
 
   /** @type {InfoStageChapterRow[]} */
   const rows = [];
 
   if (chapter <= 0) {
     rows.push({ rowKey: "prev-empty", empty: true, dimmed: true, fadeMask: null, blocks: [] });
-    rows.push(buildChapterRow(0, { currentLevelId, activeBossSlug, runSeedNumeric, inShop, dimmed: false, fadeMask: null }));
-    rows.push(buildChapterRow(1, { currentLevelId, activeBossSlug, runSeedNumeric, inShop, dimmed: true, fadeMask: "down" }));
+    rows.push(buildChapterRow(0, { ...rowCtxBase, dimmed: false, fadeMask: null }));
+    rows.push(buildChapterRow(1, { ...rowCtxBase, dimmed: true, fadeMask: "down" }));
     return rows;
   }
 
@@ -112,31 +121,17 @@ export function buildInfoStageProgressRows(opts) {
     rows.push({ rowKey: "prev-empty", empty: true, dimmed: true, fadeMask: null, blocks: [] });
   } else {
     rows.push(
-      buildChapterRow(chapter - 1, {
-        currentLevelId,
-        activeBossSlug,
-        runSeedNumeric,
-        inShop,
-        dimmed: true,
-        fadeMask: "up",
-      }),
+      buildChapterRow(chapter - 1, { ...rowCtxBase, dimmed: true, fadeMask: "up" }),
     );
   }
 
   rows.push(
-    buildChapterRow(chapter, { currentLevelId, activeBossSlug, runSeedNumeric, inShop, dimmed: false, fadeMask: null }),
+    buildChapterRow(chapter, { ...rowCtxBase, dimmed: false, fadeMask: null }),
   );
   const canShowNextChapter = isEndlessRun || chapter < MAX_NORMAL_CHAPTER;
   if (canShowNextChapter) {
     rows.push(
-      buildChapterRow(chapter + 1, {
-        currentLevelId,
-        activeBossSlug,
-        runSeedNumeric,
-        inShop,
-        dimmed: true,
-        fadeMask: "down",
-      }),
+      buildChapterRow(chapter + 1, { ...rowCtxBase, dimmed: true, fadeMask: "down" }),
     );
   }
 

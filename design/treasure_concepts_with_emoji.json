@@ -1433,7 +1433,7 @@
       "rarity": "common",
       "name": "记事本",
       "emoji": "📓",
-      "description": "如果拼写的是名词，获得$4（词性在关卡结束时都会变化）",
+      "description": "如果拼写的是名词，获得$4（词性会在关卡结束时变化）",
       "userBatchIndex": 4,
       "userOriginalText": "$4 common 如果拼写的是[某种词性]，获得$4（词性每关都会变化）",
       "userDevNotes": null,

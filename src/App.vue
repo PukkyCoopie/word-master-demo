@@ -341,7 +341,7 @@ const runStartContinueSnapshot = computed(() => {
     money: meta.money,
     isEndlessRun: meta.isEndlessRun === true,
     presetId: String(meta.runPresetId ?? "preset_01"),
-    difficultyIndex: Math.max(0, Math.min(7, Math.floor(Number(meta.runDifficultyIndex) || 0))),
+    difficultyIndex: normalizeRunDifficultyIndex(meta.runDifficultyIndex),
     continueEnabled: hasContinuableRun(ix),
   };
 });
@@ -926,9 +926,12 @@ function buildDefaultNewRunOptions(slotIx) {
     getSlotCareer(slotIx) ?? createEmptySlotCareerStats(),
   );
   const presetId = normalizeRunPresetId(getLastSelectedPresetId(careerForSlot));
-  const difficultyIndex = normalizeRunDifficultyIndex(
+  let difficultyIndex = normalizeRunDifficultyIndex(
     getLastSelectedDifficultyBrowseIndex(careerForSlot),
   );
+  if (careerForSlot.runsCompleted <= 0) {
+    difficultyIndex = 0;
+  }
   const { seedNumeric, seedDisplay } = resolveRunSeedFromDialog("");
   setLastSelectedPresetId(careerForSlot, presetId);
   setLastSelectedDifficultyIndex(careerForSlot, difficultyIndex);

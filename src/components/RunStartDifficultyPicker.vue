@@ -144,7 +144,7 @@ watch(browseIndex, (_newIx, oldIx) => {
 
 const currentDef = computed(() => getRunDifficultyDef(browseIndex.value));
 const isCurrentLocked = computed(() => !isDifficultyUnlocked(browseIndex.value, normalizedCareer.value));
-const showStackHint = computed(() => browseIndex.value > 1);
+const showStackHint = computed(() => browseIndex.value > 2);
 
 const showFreshBadge = computed(() => {
   const ix = browseIndex.value;

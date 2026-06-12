@@ -40,9 +40,9 @@ export const ACHIEVEMENT_DEFINITIONS = Object.freeze([
   { id: "all_vouchers", name: "精打细算", description: "发现所有优惠券", condition: { kind: "discover_all_vouchers" } },
   { id: "all_materials", name: "点石成金", description: "发现所有材质", condition: { kind: "discover_all_materials" } },
   { id: "all_accessories", name: "珠光宝气", description: "发现所有配饰", condition: { kind: "discover_all_accessories" } },
-  { id: "diff_3_win", name: "单词高手", description: "在开启难度3的情况下赢得一轮游戏", condition: { kind: "run_difficulty_win", difficultyIndex: 2 } },
-  { id: "diff_6_win", name: "单词专家", description: "在开启难度6的情况下赢得一轮游戏", condition: { kind: "run_difficulty_win", difficultyIndex: 5 } },
-  { id: "diff_8_win", name: "单词大师", description: "在开启难度8的情况下赢得一轮游戏", condition: { kind: "run_difficulty_win", difficultyIndex: 7 } },
+  { id: "diff_3_win", name: "单词高手", description: "在开启难度3的情况下赢得一轮游戏", condition: { kind: "run_difficulty_win", difficultyIndex: 3 } },
+  { id: "diff_6_win", name: "单词专家", description: "在开启难度6的情况下赢得一轮游戏", condition: { kind: "run_difficulty_win", difficultyIndex: 6 } },
+  { id: "diff_8_win", name: "单词大师", description: "在开启难度8的情况下赢得一轮游戏", condition: { kind: "run_difficulty_win", difficultyIndex: 8 } },
 ]);
 
 export const ACHIEVEMENT_TOTAL = ACHIEVEMENT_DEFINITIONS.length;

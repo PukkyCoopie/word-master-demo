@@ -1046,9 +1046,10 @@ import { normalizeRunPresetId } from "../game/runPresetDefinitions.js";
 import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
 import {
   getDifficultyRemovalsDelta,
-  getDifficultyScoreTableTier,
   getDifficultyStageRewardDelta,
+  getDifficultyStartMoneyBonus,
   ownedTreasureHasNoSellAccessory,
+  resolveLevelTargetScoreForDifficulty,
 } from "../game/runDifficultyRuntime.js";
 import {
   countOwnedRentalTreasures,
@@ -1634,8 +1635,7 @@ function buildLevelResetRunOpts(levelDef) {
   const slug =
     override && parseLevelSubFromId(id) === 3 ? override : pickBossSlugForLevel(id, getRunSeedNumeric());
   const mechSlug = resolveBossSlugForMechanics(slug, ownedSlotTreasureIdListEarly());
-  const scoreTier = getDifficultyScoreTableTier(runDifficultyIndex.value);
-  const ts = resolveLevelTargetScore(id, mechSlug, scoreTier);
+  const ts = resolveLevelTargetScoreForDifficulty(id, mechSlug, runDifficultyIndex.value);
   let rem =
     getBaseRemovalsPerLevel(ownedVoucherIds.value) +
     getPresetRemovalsPerLevelDelta(runPresetId.value) +
@@ -2209,6 +2209,8 @@ function applyRunPresetStartEffects() {
   }
   const moneyBonus = getPresetStartMoneyBonus(pid);
   if (moneyBonus > 0) money.value += moneyBonus;
+  const difficultyMoneyBonus = getDifficultyStartMoneyBonus(runDifficultyIndex.value);
+  if (difficultyMoneyBonus > 0) money.value += difficultyMoneyBonus;
   const wc = getPresetStartWildcardCount(pid);
   for (let i = 0; i < wc; i += 1) {
     const card = appendDeckCardSpecToInitialSnapshotAndNotify({ raw: "e", materialId: "wildcard" });
@@ -9845,7 +9847,7 @@ async function onTreasurePurchase() {
         glyphShopSkipLevelAdvance.value = true;
         const L = LEVELS[tix];
         if (L) {
-          targetScore.value = resolveLevelTargetScore(L.id, "");
+          targetScore.value = resolveLevelTargetScoreForDifficulty(L.id, "", runDifficultyIndex.value);
           activeBossSlug.value = "";
         }
         void shopPanelRef.value?.playGlyphRoundInfoFx?.("-1大关");

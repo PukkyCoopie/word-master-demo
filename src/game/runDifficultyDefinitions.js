@@ -1,5 +1,5 @@
 /** @typedef {Object} RunDifficultyDef
- * @property {number} index 0..7
+ * @property {number} index 0..8
  * @property {string} label UI 显示名，如「难度1」
  * @property {string} color 背景色 hex
  * @property {string} textColor 文字色
@@ -10,55 +10,62 @@
 const DIFFICULTIES = Object.freeze([
   {
     index: 0,
+    label: "难度0",
+    color: "#e5e5e5",
+    textColor: "#555555",
+    description: "开局拥有$5，所需分数降低25%",
+  },
+  {
+    index: 1,
     label: "难度1",
     color: "#f5f5f0",
     textColor: "#3c3a32",
     description: "普通难度",
   },
   {
-    index: 1,
+    index: 2,
     label: "难度2",
     color: "#5b8fd4",
     textColor: "#ffffff",
     description: "每个关卡提供的奖励降低$1",
   },
   {
-    index: 2,
+    index: 3,
     label: "难度3",
     color: "#4a9c6d",
     textColor: "#ffffff",
     description: "所需分数提高速度变快",
   },
   {
-    index: 3,
+    index: 4,
     label: "难度4",
     color: "#d4b84a",
     textColor: "#ffffff",
     description: "宝藏有30%的概率带有禁售配饰（不能被卖出或摧毁）",
   },
   {
-    index: 4,
+    index: 5,
     label: "难度5",
     color: "#e08a3a",
     textColor: "#ffffff",
     description: "-1 丢弃次数",
   },
   {
-    index: 5,
+    index: 6,
     label: "难度6",
     color: "#c94a4a",
     textColor: "#ffffff",
     description: "所需分数提高速度变得更快",
   },
   {
-    index: 6,
+    index: 7,
     label: "难度7",
     color: "#7a52c6",
     textColor: "#ffffff",
     description: "宝藏有30%的概率带有沙漏配饰（在5个关卡后失效）",
   },
   {
-    index: 7,
+    index: 8,
     label: "难度8",
     color: "#2a2a2a",
     textColor: "#ffffff",

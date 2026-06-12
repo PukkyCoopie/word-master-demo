@@ -21,7 +21,7 @@ export function getHighestDifficultyBeaten(career) {
  */
 export function isDifficultyUnlocked(index, career) {
   const ix = normalizeRunDifficultyIndex(index);
-  if (ix <= 0) return true;
+  if (ix <= 1) return true;
   return getHighestDifficultyBeaten(career) >= ix - 1;
 }
 
@@ -30,7 +30,7 @@ export function isDifficultyUnlocked(index, career) {
  */
 export function getUnlockedDifficultyCount(career) {
   const beaten = getHighestDifficultyBeaten(career);
-  return Math.min(RUN_DIFFICULTY_COUNT, Math.max(1, beaten + 2));
+  return Math.min(RUN_DIFFICULTY_COUNT, Math.max(2, beaten + 2));
 }
 
 /**
@@ -83,8 +83,10 @@ export function getPresetHighestDifficultyWon(career, presetId) {
 export function recordDifficultyWin(career, difficultyIndex, presetId) {
   const ix = normalizeRunDifficultyIndex(difficultyIndex);
   const pid = normalizeRunPresetId(presetId);
-  const beaten = getHighestDifficultyBeaten(career);
-  if (ix > beaten) career.highestDifficultyBeaten = ix;
+  if (ix > 0) {
+    const beaten = getHighestDifficultyBeaten(career);
+    if (ix > beaten) career.highestDifficultyBeaten = ix;
+  }
   if (!career.presetHighestDifficultyWon || typeof career.presetHighestDifficultyWon !== "object") {
     career.presetHighestDifficultyWon = {};
   }

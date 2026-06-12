@@ -1,4 +1,5 @@
 import { getRunLevelAtIndex } from "../levelDefinitions.js";
+import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
 import { getDeckCardUidSeq } from "../composables/useGameState.js";
 import { normalizeRunSavePhase } from "./runSaveSchema.js";
 import { serializeRunMatchStats } from "./runMatchStatsCodec.js";
@@ -70,7 +71,7 @@ export function serializeRunSave(ctx) {
     ),
     runEndOutcome: ctx.runEndOutcome === "win" ? "win" : "fail",
     runPresetId: String(ctx.runPresetId ?? "preset_01"),
-    runDifficultyIndex: Math.max(0, Math.min(7, Math.floor(Number(ctx.runDifficultyIndex) || 0))),
+    runDifficultyIndex: normalizeRunDifficultyIndex(ctx.runDifficultyIndex),
     runDiscoveryLog: serializeRunDiscoveryLog(
       /** @type {import('../game/runCollectionDiscoveries.js').RunDiscoveryLog | null | undefined} */ (
         ctx.runDiscoveryLog
@@ -106,6 +107,6 @@ export function buildRunSaveMetaFromPayload(payload, levelIndex) {
     ownedTreasureEmojis: emojis.slice(0, 5),
     savedAt: Date.now(),
     runPresetId: String(payload.runPresetId ?? "preset_01"),
-    runDifficultyIndex: Math.max(0, Math.min(7, Math.floor(Number(payload.runDifficultyIndex) || 0))),
+    runDifficultyIndex: normalizeRunDifficultyIndex(payload.runDifficultyIndex),
   };
 }

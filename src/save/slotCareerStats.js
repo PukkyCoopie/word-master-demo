@@ -1,3 +1,4 @@
+import { normalizeRunDifficultyIndex, RUN_DIFFICULTY_COUNT } from "../game/runDifficultyDefinitions.js";
 import { createEmptySlotCareerStats } from "./runSaveSchema.js";
 import { normalizeCollectionCareerFields } from "../collection/collectionCareer.js";
 import { normalizeAchievementCareerFields } from "../achievements/achievementCareer.js";
@@ -32,18 +33,21 @@ export function normalizeSlotCareerStats(raw) {
       : [],
     lastSelectedPresetId: typeof o.lastSelectedPresetId === "string" ? o.lastSelectedPresetId : "",
     highestDifficultyBeaten: Number.isFinite(Number(o.highestDifficultyBeaten))
-      ? Math.max(-1, Math.min(7, Math.floor(Number(o.highestDifficultyBeaten))))
+      ? Math.max(-1, Math.min(RUN_DIFFICULTY_COUNT - 1, Math.floor(Number(o.highestDifficultyBeaten))))
       : -1,
     presetHighestDifficultyWon:
       o.presetHighestDifficultyWon && typeof o.presetHighestDifficultyWon === "object"
         ? Object.fromEntries(
             Object.entries(/** @type {Record<string, unknown>} */ (o.presetHighestDifficultyWon)).map(
-              ([k, v]) => [String(k), Math.max(-1, Math.min(7, Math.floor(Number(v) || 0)))],
+              ([k, v]) => [
+                String(k),
+                Math.max(-1, Math.min(RUN_DIFFICULTY_COUNT - 1, Math.floor(Number(v) || 0))),
+              ],
             ),
           )
         : {},
     lastSelectedDifficultyIndex: Number.isFinite(Number(o.lastSelectedDifficultyIndex))
-      ? Math.max(0, Math.min(7, Math.floor(Number(o.lastSelectedDifficultyIndex))))
+      ? Math.max(0, Math.min(RUN_DIFFICULTY_COUNT - 1, Math.floor(Number(o.lastSelectedDifficultyIndex))))
       : 0,
   };
   normalizeCollectionCareerFields(career, o);

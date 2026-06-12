@@ -28,7 +28,7 @@ export const treasureHooks = {
     ensureLevelPosTarget(ctx.treasureRun, ctx.rng ?? Math.random);
     const key = ctx.levelPosTargetKey ?? ctx.treasureRun?.levelPosTargetKey ?? "n";
     const label = getTreasureLevelPosLabelZh(key);
-    return describe(`如果拼写的是${label}，获得`, money("4"), "（词性在关卡结束时都会变化）");
+    return describe(`如果拼写的是${label}，获得`, money("4"), "（词性会在关卡结束时变化）");
   },
   onLevelEnter(ctx) {
     const rs = ctx.treasureRun;

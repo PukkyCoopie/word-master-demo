@@ -24,11 +24,11 @@ const RARITY_BONUS = {
 
   common: 1,
 
-  rare: 2,
+  rare: 3,
 
-  epic: 4,
+  epic: 9,
 
-  legendary: 10,
+  legendary: 16,
 
 };
 
@@ -54,10 +54,10 @@ export const LETTER_RARITY_ORDER = Object.freeze(["common", "rare", "epic", "leg
  * `floor((等级-1) * multPerLevel)` 取整，仅当跨整数边界时倍率才 +1（与商店升级动画一致）。
  */
 export const RARITY_UPGRADE_BALANCE = Object.freeze({
-  common: Object.freeze({ scorePerLevel: 1, multPerLevel: 1.0 / 3 }),
-  rare: Object.freeze({ scorePerLevel: 2, multPerLevel: 0.5 }),
-  epic: Object.freeze({ scorePerLevel: 4, multPerLevel: 1 }),
-  legendary: Object.freeze({ scorePerLevel: 5, multPerLevel: 2 }),
+  common: Object.freeze({ scorePerLevel: 2, multPerLevel: 1.0 / 2 }),
+  rare: Object.freeze({ scorePerLevel: 4, multPerLevel: 2.0 / 3 }),
+  epic: Object.freeze({ scorePerLevel: 6, multPerLevel: 1 }),
+  legendary: Object.freeze({ scorePerLevel: 8, multPerLevel: 2 }),
 });
 
 const DEFAULT_RARITY_LEVEL = 1;
@@ -82,20 +82,20 @@ export const BASE_SCORE_PER_LETTER = 3;
  * - upgrade: [每升一级增加的分数, 每升一级增加的倍率]
  */
 export const WORD_LENGTH_BALANCE = {
-  3: { base: [5, 3], upgrade: [3, 1] },
-  4: { base: [6, 3], upgrade: [3, 2] },
-  5: { base: [7, 4], upgrade: [4, 2] },
-  6: { base: [8, 5], upgrade: [4, 3] },
-  7: { base: [10, 7], upgrade: [5, 4] },
-  8: { base: [12, 9], upgrade: [6, 5] },
-  9: { base: [15, 11], upgrade: [8, 6] },
-  10: { base: [20, 15], upgrade: [10, 8] },
-  11: { base: [27, 18], upgrade: [13, 9] },
-  12: { base: [36, 21], upgrade: [18, 11] },
-  13: { base: [48, 25], upgrade: [24, 13] },
-  14: { base: [64, 30], upgrade: [32, 15] },
-  15: { base: [84, 42], upgrade: [42, 21] },
-  16: { base: [120, 60], upgrade: [60, 30] },
+  3: { base: [5, 4], upgrade: [3, 2] },
+  4: { base: [6, 5], upgrade: [3, 3] },
+  5: { base: [7, 6], upgrade: [4, 3] },
+  6: { base: [8, 7], upgrade: [4, 4] },
+  7: { base: [10, 9], upgrade: [5, 5] },
+  8: { base: [12, 11], upgrade: [6, 6] },
+  9: { base: [15, 15], upgrade: [8, 8] },
+  10: { base: [20, 18], upgrade: [10, 9] },
+  11: { base: [27, 21], upgrade: [13, 11] },
+  12: { base: [36, 25], upgrade: [18, 13] },
+  13: { base: [48, 30], upgrade: [24, 15] },
+  14: { base: [64, 42], upgrade: [32, 21] },
+  15: { base: [84, 60], upgrade: [42, 30] },
+  16: { base: [120, 80], upgrade: [60, 40] },
 };
 
 /** 单词实际字母数 → 每个字母的基础分（不含稀有度加成） */

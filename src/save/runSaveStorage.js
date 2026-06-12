@@ -12,7 +12,9 @@ import {
   hasMeaningfulRunProgress,
   isAbandonedFreshRunPayload,
 } from "./runSaveMeaningfulProgress.js";
+import { migrateRunSaveEnvelopeToLatest } from "./migrateRunSaveEnvelope.js";
 import { normalizeSlotCareerStats } from "./slotCareerStats.js";
+import { SAVE_SCHEMA_VERSION } from "./runSaveSchema.js";
 
 /** @type {import('./runSaveSchema.js').SaveEnvelope | null} */
 let cachedEnvelope = null;
@@ -36,7 +38,13 @@ function readRawEnvelope() {
 }
 
 export function loadSaveEnvelope() {
-  cachedEnvelope = readRawEnvelope();
+  const raw = readRawEnvelope();
+  if (Math.floor(Number(raw.schemaVersion) || 1) < SAVE_SCHEMA_VERSION) {
+    const migrated = migrateRunSaveEnvelopeToLatest(raw);
+    persistEnvelope(migrated);
+    return migrated;
+  }
+  cachedEnvelope = raw;
   return cachedEnvelope;
 }
 

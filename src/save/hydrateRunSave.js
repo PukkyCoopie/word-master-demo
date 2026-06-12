@@ -1,3 +1,4 @@
+import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
 import { createRunRng } from "../game/runRng.js";
 import { deserializeRunMatchStats } from "./runMatchStatsCodec.js";
 import { deserializeTreasureRunState } from "./treasureRunStateCodec.js";
@@ -124,10 +125,7 @@ export function hydrateRunSave(payload, ctx) {
     ctx.runPresetIdRef.value = String(payload.runPresetId ?? "preset_01");
   }
   if (ctx.runDifficultyIndexRef) {
-    ctx.runDifficultyIndexRef.value = Math.max(
-      0,
-      Math.min(7, Math.floor(Number(payload.runDifficultyIndex) || 0)),
-    );
+    ctx.runDifficultyIndexRef.value = normalizeRunDifficultyIndex(payload.runDifficultyIndex);
   }
   if (ctx.runDiscoveryLogRef) {
     ctx.runDiscoveryLogRef.value = deserializeRunDiscoveryLog(payload.runDiscoveryLog);
