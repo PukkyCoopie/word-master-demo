@@ -622,31 +622,30 @@
         ref="flyCloneRef"
         class="treasure-detail-fly-clone-root"
         :class="{
-          'treasure-detail-fly-clone-root--deck-tile': isDeckOffer && !isPackInnerDeckOfferFly,
-          'shop-deck-offer-product-stack': isPackInnerDeckOfferFly,
+          'shop-deck-offer-product-stack': isDeckOffer,
           'treasure-detail-fly-clone-root--voucher-stack': isVoucherOffer && voucherDetailStacked,
         }"
         :style="collectionLockedFlyCloneStyle"
         aria-hidden="true"
       >
-        <template v-if="isPackInnerDeckOfferFly">
+        <template v-if="isDeckOffer">
           <LetterTile
             variant="grid"
             class="shop-shelf-letter-tile"
             v-bind="deckOfferLetterTileBind"
           />
           <div class="shop-treasure-price" aria-hidden="true">
-            <div class="shop-treasure-price-inner shop-treasure-price-inner--pack-struck" :class="offerShelfPriceInnerClasses">
+            <div
+              class="shop-treasure-price-inner"
+              :class="[
+                { 'shop-treasure-price-inner--pack-struck': mode === 'pack-inner' },
+                offerShelfPriceInnerClasses,
+              ]"
+            >
               ${{ offerPriceDisplayed }}
             </div>
           </div>
         </template>
-        <LetterTile
-          v-else-if="isDeckOffer"
-          variant="grid"
-          class="shop-shelf-letter-tile"
-          v-bind="deckOfferLetterTileBind"
-        />
         <div
           v-else-if="isVoucherOffer && voucherDetailStacked"
           class="voucher-detail-stamp-stack"
@@ -1559,13 +1558,11 @@ function resolveDetailFlyFrameRect() {
   return null;
 }
 
-/** 货架字母块飞入：商店仅 letter tile；包内预览为 tile + 价签整列 */
+/** 货架字母块飞入：tile + 价签整列 */
 function resolveDeckOfferFlyTargetRect() {
-  if (isPackInnerDeckOfferFly.value) {
-    const stack = refToFlyFrameEl(deckOfferStackRef.value);
-    const r = stack?.getBoundingClientRect?.();
-    if (r && r.width > 2 && r.height > 2) return rectToFlyBox(r);
-  }
+  const stack = refToFlyFrameEl(deckOfferStackRef.value);
+  const r = stack?.getBoundingClientRect?.();
+  if (r && r.width > 2 && r.height > 2) return rectToFlyBox(r);
   const frameRect = resolveDetailFlyFrameRect();
   if (frameRect) return frameRect;
   const visual = targetVisualRef.value;
@@ -1582,21 +1579,6 @@ const previewNavRef = ref(null);
 const flyCloneStyle = computed(() => {
   const r = props.originRect;
   if (!validOrigin(r)) return {};
-  if (isDeckOffer.value && !isPackInnerDeckOfferFly.value) {
-    const cx = r.left + r.width * 0.5;
-    const cy = r.top + r.height * 0.5;
-    return {
-      position: "fixed",
-      left: `${cx}px`,
-      top: `${cy}px`,
-      width: `${r.width}px`,
-      height: `${r.height}px`,
-      marginLeft: `${-r.width / 2}px`,
-      marginTop: `${-r.height / 2}px`,
-      zIndex: 9999,
-      boxSizing: "border-box",
-    };
-  }
   return {
     position: "fixed",
     left: `${r.left}px`,
@@ -1758,9 +1740,7 @@ function runEnterAnimation() {
         }
 
         gsap.killTweensOf(clone);
-        const deckStackFly = isPackInnerDeckOfferFly.value;
-        const deckTileFly = isDeckOffer.value && !deckStackFly;
-        if (deckStackFly) {
+        if (isDeckOffer.value) {
           gsap.set(clone, { clearProps: "transform" });
           gsap.set(clone, {
             visibility: "visible",
@@ -1770,26 +1750,6 @@ function runEnterAnimation() {
             width: flyFrom.width,
             height: flyFrom.height,
             margin: "0",
-            pointerEvents: "none",
-          });
-        } else if (deckTileFly) {
-          const fc = rectCenter(flyFrom);
-          gsap.set(clone, {
-            clearProps: "transform",
-            visibility: "visible",
-            opacity: 1,
-            left: fc.x,
-            top: fc.y,
-            width: flyFrom.width,
-            height: flyFrom.height,
-            marginLeft: -flyFrom.width / 2,
-            marginTop: -flyFrom.height / 2,
-            x: 0,
-            y: 0,
-            scale: 1,
-            rotation: 0,
-            transformOrigin: "50% 50%",
-            force3D: true,
             pointerEvents: "none",
           });
         } else {
@@ -1809,7 +1769,7 @@ function runEnterAnimation() {
       enterTl = gsap.timeline();
 
       if (hasFly) {
-        if (isPackInnerDeckOfferFly.value) {
+        if (isDeckOffer.value) {
           enterTl.to(
             clone,
             {
@@ -1817,21 +1777,6 @@ function runEnterAnimation() {
               top: flyTo.top,
               width: flyTo.width,
               height: flyTo.height,
-              duration: 0.36,
-              ease: EASE_TRANSFORM,
-            },
-            0,
-          );
-        } else if (isDeckOffer.value) {
-          const fc = rectCenter(flyFrom);
-          const tc = rectCenter(flyTo);
-          const scaleEnd = Math.min(32, Math.max(0.06, flyTo.width / Math.max(2, flyFrom.width)));
-          enterTl.to(
-            clone,
-            {
-              x: tc.x - fc.x,
-              y: tc.y - fc.y,
-              scale: scaleEnd,
               duration: 0.36,
               ease: EASE_TRANSFORM,
             },
@@ -2165,8 +2110,11 @@ onUnmounted(() => {
 
 defineExpose({
   getEmojiEl: () => emojiRef.value,
-  /** 购买飞入槽位：详情内 LetterTile 或 shop-treasure-frame 根 DOM */
-  getFlyFrameEl: () => refToFlyFrameEl(detailFlyFrameRef.value),
+  /** 购买飞入槽位 / 牌库：字母块为 tile + 价签整列 */
+  getFlyFrameEl: () =>
+    isDeckOffer.value
+      ? refToFlyFrameEl(deckOfferStackRef.value)
+      : refToFlyFrameEl(detailFlyFrameRef.value),
   /** 预览区 `.shop-treasure-visual`（星星法术失败反馈等） */
   getTargetVisualEl: () => targetVisualRef.value,
   getWalletEl: () => walletBoxRef.value,

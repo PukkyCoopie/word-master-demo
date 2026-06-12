@@ -34,7 +34,7 @@ const ITEMS = [
   ["triple_letter_score", 5, "rare", "三明治", "🥪", "如果单词中某个字母出现的次数为3次或以上，+100分数"],
   ["unique_letters_score", 3, "rare", "雪花挂件", "❄️", "如果单词中不包含重复的字母，+60分数"],
   ["three_rarities_score", 4, "rare", "甜筒", "🍦", "如果单词中包含至少3种稀有度，+150分数"],
-  ["uniform_rarity_score", 4, "rare", "西装领带", "👔", "如果单词中所有字母的稀有度相同，+120分数"],
+  ["uniform_rarity_score", 4, "rare", "公文包", "💼", "如果单词中所有字母的稀有度相同，+120分数"],
   ["short_word_mult", 5, "rare", "腕表", "⌚", "如果单词的长度为3或更短，+30倍率"],
   ["empty_slot_mult", 8, "epic", "空礼盒", "🎁", "你每有一个空的宝藏槽位便获得x1倍率（当前x1）"],
   ["spare_removal_score", 5, "rare", "餐刀", "🔪", "你每剩余一次移除机会，+40分数"],

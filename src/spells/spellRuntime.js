@@ -24,6 +24,7 @@ import {
   computeOwnedTreasureSellRefund,
   serializeOwnedTreasureSlot,
 } from "../treasures/ownedTreasureSlot.js";
+import { ownedTreasureHasNoSellAccessory } from "../game/runDifficultyRuntime.js";
 
 const WATER_MATERIAL_SCORE_BONUS = 30;
 const FIRE_MATERIAL_MULT_BONUS = 5;
@@ -976,8 +977,12 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       const pick = owned[Math.floor(rngU(rng) * owned.length)];
       const proto = /** @type {Record<string, unknown>} */ (pick.t);
       const kept = serializeOwnedTreasureSlot(proto);
-      const newSlots = slots.map(() => null);
-      newSlots[pick.i] = buildOwnedTreasureSlot(kept);
+      const newSlots = slots.map((t, i) => {
+        if (t == null) return null;
+        if (i === pick.i) return buildOwnedTreasureSlot(kept);
+        if (ownedTreasureHasNoSellAccessory(t)) return t;
+        return null;
+      });
       let copyIx = -1;
       for (let j = 0; j < newSlots.length; j++) {
         if (j !== pick.i && newSlots[j] == null) {

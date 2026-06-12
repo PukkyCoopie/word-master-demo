@@ -8,6 +8,8 @@
  * @param {import('vue').Ref<boolean>} ctx.showPlayerProfile
  * @param {import('vue').Ref<boolean>} ctx.showSettings
  * @param {import('vue').Ref<boolean>} ctx.showAbout
+ * @param {import('vue').Ref<boolean>} ctx.showPrivacyConsent
+ * @param {import('vue').Ref<'consent' | 'view'>} ctx.privacyConsentMode
  * @param {import('vue').Ref<{ open: boolean }>} ctx.runStartQuickConfirm
  * @param {import('vue').Ref<boolean>} ctx.showRunStartDialog
  * @param {() => boolean} ctx.showCollection
@@ -17,6 +19,8 @@
  * @param {() => void} ctx.closePlayerProfile
  * @param {() => void} ctx.closeSettings
  * @param {() => void} ctx.closeAbout
+ * @param {() => void} ctx.closePrivacyConsentView
+ * @param {() => void | Promise<void>} ctx.onPrivacyConsentDecline
  * @param {() => void} ctx.dismissRunStartQuickConfirm
  * @param {() => void} ctx.cancelRunStartDialog
  * @param {() => void} ctx.closeCollection
@@ -39,6 +43,14 @@ export function handleAppAndroidBack(ctx) {
   }
   if (ctx.showSettings.value) {
     ctx.closeSettings();
+    return true;
+  }
+  if (ctx.showPrivacyConsent.value) {
+    if (ctx.privacyConsentMode.value === "view") {
+      ctx.closePrivacyConsentView();
+    } else {
+      void ctx.onPrivacyConsentDecline();
+    }
     return true;
   }
   if (ctx.showAbout.value) {

@@ -23,7 +23,12 @@ public class TapTapPlugin extends Plugin {
     @Override
     public void load() {
         instance = this;
+    }
+
+    @PluginMethod
+    public void initSdk(PluginCall call) {
         TapTapBridge.init(getContext());
+        call.resolve();
     }
 
     static void dispatchComplianceResult(int code, Map<String, ?> extra) {

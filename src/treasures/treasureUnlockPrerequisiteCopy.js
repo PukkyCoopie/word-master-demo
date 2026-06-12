@@ -8,11 +8,11 @@ function buildPoolPrerequisitePlainText(pre) {
 
   switch (type) {
     case "treasure29SelfDestructed":
-      return "在本轮游戏中使一个炸弹爆炸";
+      return "使一个炸弹爆炸";
     case "playedAllGoldWord":
-      return "在本轮游戏中拼写一个全部由黄金块组成的单词";
+      return "拼写一个全部由黄金块组成的单词";
     case "probabilityEffectTriggered":
-      return "在本轮游戏中成功触发一个概率效果";
+      return "成功触发一个概率效果";
     default:
       return "";
   }
@@ -30,7 +30,7 @@ function buildUnlockPrerequisitePlainText(pre) {
     case "levelAllLegendaryDeckExhausted":
       return "在一个关卡中用尽了牌库中所有的传说字母";
     case "runIceMaterialShattered":
-      return "在本轮游戏中，使一个碎冰块碎裂";
+      return "使一个碎冰块碎裂";
     case "everTwoTreasuresWithAccessory":
       return "同时拥有2个装备了配饰的宝藏";
     case "deckEpicMin":

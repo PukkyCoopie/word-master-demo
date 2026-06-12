@@ -104,6 +104,27 @@ export function usePanelScrollbar(options = {}) {
     event.preventDefault();
   }
 
+  /** @param {PointerEvent} event */
+  function onTrackPointerDown(event) {
+    if (event.target !== scrollTrackRef.value) return;
+
+    const container = scrollBodyRef.value;
+    const track = scrollTrackRef.value;
+    if (!container || !track) return;
+
+    const rect = track.getBoundingClientRect();
+    const trackInner = Math.max(0, rect.height - SCROLLBAR_TRACK_INSET * 2);
+    const maxThumbTop = Math.max(0, trackInner - thumbHeightPx.value);
+    const y = event.clientY - rect.top - SCROLLBAR_TRACK_INSET;
+    const targetTop = Math.max(0, Math.min(maxThumbTop, y - thumbHeightPx.value / 2));
+    const scrollRange = container.scrollHeight - container.clientHeight;
+
+    if (maxThumbTop > 0 && scrollRange > 0) {
+      container.scrollTop = (targetTop / maxThumbTop) * scrollRange;
+    }
+    updateScrollbarMetrics();
+  }
+
   function bindResizeObserver() {
     const container = scrollBodyRef.value;
     if (!container || typeof ResizeObserver === "undefined") return;
@@ -132,6 +153,8 @@ export function usePanelScrollbar(options = {}) {
     thumbStyle,
     onScrollBody,
     onThumbPointerDown,
+    onTrackPointerDown,
     updateScrollbarMetrics,
+    bindResizeObserver,
   };
 }

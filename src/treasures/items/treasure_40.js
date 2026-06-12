@@ -1,4 +1,4 @@
-import { dictionaryPosMatchesTreasureLevelKey } from "../../game/wordPosMatch.js";
+import { dictionaryPosIsExclusivelyTreasureLevelKey } from "../../game/wordPosMatch.js";
 import { describe, mult } from "../treasureDescription.js";
 import { addMultAddBank, getMultAddBank } from "../treasureBankHelpers.js";
 
@@ -11,7 +11,7 @@ function isNonNounSubmittedWord(ctx) {
   const word = String(ctx.resolvedWord ?? "").toLowerCase().trim();
   if (!word) return false;
   const def = ctx.getWordDefinition?.(word);
-  return !dictionaryPosMatchesTreasureLevelKey(def?.pos, "n");
+  return !dictionaryPosIsExclusivelyTreasureLevelKey(def?.pos, "n");
 }
 
 /**

@@ -280,6 +280,7 @@ html.viewport-narrower-than-design #game-view-portal-frame .boss-blind-reroll-ba
 /* App 级对话框：宽屏在逻辑框内，窄屏 scrim 铺满视口 */
 .settings-layer-backdrop,
 .about-layer-backdrop,
+.privacy-consent-layer-backdrop,
 .run-start-dialog-backdrop {
 	position: absolute;
 	inset: 0;
@@ -288,6 +289,7 @@ html.viewport-narrower-than-design #game-view-portal-frame .boss-blind-reroll-ba
 
 .settings-layer-scrim,
 .about-layer-scrim,
+.privacy-consent-layer-scrim,
 .run-start-dialog-scrim {
 	position: absolute;
 	inset: 0;
@@ -295,9 +297,11 @@ html.viewport-narrower-than-design #game-view-portal-frame .boss-blind-reroll-ba
 
 html.viewport-narrower-than-design .settings-layer-backdrop,
 html.viewport-narrower-than-design .about-layer-backdrop,
+html.viewport-narrower-than-design .privacy-consent-layer-backdrop,
 html.viewport-narrower-than-design .run-start-dialog-backdrop,
 html.viewport-narrower-than-design .settings-layer-scrim,
 html.viewport-narrower-than-design .about-layer-scrim,
+html.viewport-narrower-than-design .privacy-consent-layer-scrim,
 html.viewport-narrower-than-design .run-start-dialog-scrim {
 	position: fixed;
 	inset: 0;

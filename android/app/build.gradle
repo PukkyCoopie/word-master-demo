@@ -5,6 +5,12 @@ def packageJson = new groovy.json.JsonSlurper().parseText(
 )
 def appVersion = packageJson.version as String
 def appVersionSlug = appVersion.replace('.', '_')
+def versionParts = appVersion.tokenize('.')
+def versionMajor = versionParts.size() > 0 ? (versionParts[0] as Integer) : 0
+def versionMinor = versionParts.size() > 1 ? (versionParts[1] as Integer) : 0
+def versionPatch = versionParts.size() > 2 ? (versionParts[2].replaceAll(/[^0-9].*/, '') as Integer) : 0
+// 与 semver 同步：0.7.27 → 7027；每次 bump patch/minor/major 都会单调递增
+def appVersionCode = versionMajor * 100000 + versionMinor * 1000 + versionPatch
 
 android {
     namespace = "com.timeshift_games.word_master"
@@ -13,7 +19,7 @@ android {
         applicationId "com.timeshift_games.word_master"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode appVersionCode
         versionName appVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         ndk {

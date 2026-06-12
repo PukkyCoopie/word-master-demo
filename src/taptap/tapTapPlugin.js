@@ -24,8 +24,24 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 /** @type {import('@capacitor/core').PluginImplementations} */
 const TapTapNative = registerPlugin("TapTap");
 
+/** @type {Promise<void> | null} */
+let tapTapSdkInitPromise = null;
+
+/** 用户同意隐私政策后再初始化 TapTap SDK（避免未经同意读取 OAID / Android ID）。 */
+export async function ensureTapTapSdkInitialized() {
+  if (!Capacitor.isNativePlatform()) return;
+  if (!tapTapSdkInitPromise) {
+    tapTapSdkInitPromise = TapTapNative.initSdk().catch((err) => {
+      tapTapSdkInitPromise = null;
+      throw err;
+    });
+  }
+  await tapTapSdkInitPromise;
+}
+
 /** 浏览器 / 非原生环境 stub，便于本地 Vite 开发 */
 const TapTapWebStub = {
+  async initSdk() {},
   async getCurrentAccount() {
     return null;
   },

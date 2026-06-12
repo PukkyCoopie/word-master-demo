@@ -1,11 +1,10 @@
-# 推送 main 时构建并发布到腾讯云 CloudBase 静态托管。
-# GitHub Pages 部署流程已暂时停用（保留 CloudBase 发布）。
+# CloudBase 发布已改由本地 pre-push 钩子（scripts/deploy-cloudbase.mjs）执行，
+# 避免 GitHub Actions  runner 到腾讯云出现 UserNetworkTooSlow。
+# 本 workflow 仅保留手动触发，供应急使用。
 # CloudBase：在仓库 Secrets 配置 TCB_SECRET_ID、TCB_SECRET_KEY、TCB_ENV_ID。
 name: Deploy static (CloudBase)
 
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch:
 
 permissions:

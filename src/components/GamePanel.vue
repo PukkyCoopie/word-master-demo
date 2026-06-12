@@ -792,7 +792,7 @@ import {
   resolveDeckTileFlyStartScale,
   runDeckTileFlyToDeckTween,
 } from "../game/deckTileFlyToDeckAnim.js";
-import { buildPackDeckOfferFlySnapshot, normalizeSquareFlyRect } from "../game/packDeckOfferVisual.js";
+import { buildPackDeckOfferFlySnapshot, mountDeckOfferFlyProductStack, normalizeSquareFlyRect } from "../game/packDeckOfferVisual.js";
 import {
   applyTreasureAcquireImmediateEffects,
   initTreasureBankOnAcquire,
@@ -2676,10 +2676,12 @@ function onTilePreviewNav(delta) {
 
 function onShopSelectOffer(payload) {
   const root = payload.originEl;
+  const t = payload.treasure;
+  const deckOffer = t?.offerType === "deckTile" || t?.offerType === "deckLetter";
   treasureDetail.value = {
     kind: "offer",
     treasure: payload.treasure,
-    originRect: treasureOriginRectFromEl(root),
+    originRect: deckOffer ? packDeckOfferFlyOriginRectFromEl(root) : treasureOriginRectFromEl(root),
     previewNav: createPreviewNavGroupFromItems(
       shopOffers.value,
       (o) => o.offerInstanceId === payload.treasure.offerInstanceId,
@@ -3163,6 +3165,7 @@ async function fulfillPackInnerPurchase(
     restoreLayersAfter = false,
     keepSourceHiddenAfterDeckFly = false,
     fromRect = null,
+    priceStruck = false,
   } = {},
 ) {
   if (!t) return;
@@ -3193,6 +3196,7 @@ async function fulfillPackInnerPurchase(
       await animatePackDeckOfferFlyToDeck(t, flyRoot, deckBtn, {
         keepSourceHidden: keepSourceHiddenAfterDeckFly,
         fromRect,
+        priceStruck,
       });
     }
     appendShopDeckEntriesAndNotify([
@@ -3258,6 +3262,7 @@ async function onPackInnerClaim() {
           restoreLayersAfter: willNeedMorePicks,
           keepSourceHiddenAfterDeckFly: true,
           fromRect,
+          priceStruck: true,
         }),
       ]);
       treasureDetail.value = null;
@@ -3910,6 +3915,15 @@ function clearOwnedTreasureSlotById(treasureId) {
   ownedTreasures.value = ownedTreasures.value.map((s) => (s?.treasureId === tid ? null : s));
 }
 
+/** @param {number} slotIndex */
+function clearOwnedTreasureSlotAtIndex(slotIndex) {
+  const ix = Math.floor(Number(slotIndex));
+  if (ix < 0 || ix >= ownedTreasures.value.length) return;
+  const slots = [...ownedTreasures.value];
+  slots[ix] = null;
+  ownedTreasures.value = slots;
+}
+
 /** @param {HTMLElement} el @param {number} sp */
 async function awaitTreasureSlotWobbleEl(el, sp) {
   const wobbleTl = createWobbleScoreSlotTimeline(el);
@@ -3935,8 +3949,8 @@ async function wobbleTreasureSlotWithDestroyBubbleConcurrent(slotIndex, el, sp) 
   return bubble;
 }
 
-/** @param {HTMLElement} el @param {ReturnType<typeof showScoreBubble>} bubble @param {string} treasureId @param {number} sp */
-async function shrinkTreasureSlotAndClear(treasureId, el, bubble, sp) {
+/** @param {number} slotIndex @param {HTMLElement} el @param {ReturnType<typeof showScoreBubble>} bubble @param {number} sp */
+async function shrinkTreasureSlotAndClear(slotIndex, el, bubble, sp) {
   gsap.killTweensOf(el);
   if (!shouldSkipDecorativeMotion()) {
     await new Promise((resolve) => {
@@ -3954,7 +3968,7 @@ async function shrinkTreasureSlotAndClear(treasureId, el, bubble, sp) {
   }
   scheduleSmallPlusBubbleOutro(bubble, sp);
   gsap.set(el, { clearProps: "scale,opacity,transform" });
-  clearOwnedTreasureSlotById(treasureId);
+  clearOwnedTreasureSlotAtIndex(slotIndex);
 }
 
 /** 自毁宝藏：wobble → 气泡（宝藏钩子可定制文案/样式）→ 缩至 0 后清空槽位 */
@@ -3966,36 +3980,43 @@ function resolveSelfDestructBubbleForTreasure(treasureId) {
   return { text: "摧毁！", kind: "destroy" };
 }
 
-async function destroyOwnedTreasureWithFx(treasureId) {
-  const ix = findOwnedTreasureSlotIndex(treasureId);
+async function destroyOwnedTreasureWithFx(treasureId, slotIndex = null) {
+  const ix =
+    typeof slotIndex === "number" && slotIndex >= 0
+      ? slotIndex
+      : findOwnedTreasureSlotIndex(treasureId);
   if (ix < 0) return;
   const slot = ownedTreasures.value[ix];
   if (ownedTreasureHasNoSellAccessory(slot)) return;
   const el = getOwnedTreasureSlotEl(ix);
+  const tid = String(treasureId ?? slot?.treasureId ?? "");
   if (!el) {
-    clearOwnedTreasureSlotById(treasureId);
+    clearOwnedTreasureSlotAtIndex(ix);
     return;
   }
   const sp = 1;
-  const { text: bubbleText, kind: bubbleKind } = resolveSelfDestructBubbleForTreasure(treasureId);
+  const { text: bubbleText, kind: bubbleKind } = resolveSelfDestructBubbleForTreasure(tid);
   await awaitTreasureSlotWobbleEl(el, sp);
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
   const bubble = showScoreBubble(el, bubbleText, bubbleKind, sp);
-  await shrinkTreasureSlotAndClear(treasureId, el, bubble, sp);
+  await shrinkTreasureSlotAndClear(ix, el, bubble, sp);
   scheduleRunAutoSave();
 }
-async function destroyOtherOwnedTreasureFromSourceFx(sourceTreasureId, victimTreasureId) {
+async function destroyOtherOwnedTreasureFromSourceFx(sourceTreasureId, victimTreasureId, victimSlotIndex = null) {
   const sourceId = String(sourceTreasureId ?? "");
   const victimId = String(victimTreasureId ?? "");
   if (!victimId) return;
-  const victimIx = findOwnedTreasureSlotIndex(victimId);
+  const victimIx =
+    typeof victimSlotIndex === "number" && victimSlotIndex >= 0
+      ? victimSlotIndex
+      : findOwnedTreasureSlotIndex(victimId);
   if (victimIx >= 0 && ownedTreasureHasNoSellAccessory(ownedTreasures.value[victimIx])) return;
   if (sourceId) await playOwnedTreasureWobbleOnlyFx(sourceId);
-  const ix = findOwnedTreasureSlotIndex(victimId);
+  const ix = victimIx;
   if (ix < 0) return;
   const el = getOwnedTreasureSlotEl(ix);
   if (!el) {
-    clearOwnedTreasureSlotById(victimId);
+    clearOwnedTreasureSlotAtIndex(ix);
     return;
   }
   const sp = 1;
@@ -4003,7 +4024,7 @@ async function destroyOtherOwnedTreasureFromSourceFx(sourceTreasureId, victimTre
   await nextTick();
   const bubble = await wobbleTreasureSlotWithDestroyBubbleConcurrent(ix, el, sp);
   shopOverlayLayersSuppressed.value = false;
-  await shrinkTreasureSlotAndClear(victimId, el, bubble, sp);
+  await shrinkTreasureSlotAndClear(ix, el, bubble, sp);
 }
 
 function scheduleAfterGridTilesSettled(fn) {
@@ -4098,6 +4119,8 @@ function buildTreasureLevelEnterEffectContext(levelId) {
         ownedVoucherIds.value,
       );
     },
+    isOwnedTreasureSlotNoSell: (slotIndex) =>
+      ownedTreasureHasNoSellAccessory(ownedTreasures.value[slotIndex]),
     addRemainingRemovals: addRemainingRemovalsClamped,
   };
 }
@@ -4123,12 +4146,7 @@ function runTreasureLevelEnterHooks(levelId) {
 }
 
 async function wobbleOwnedTreasureById(treasureId) {
-  const tid = String(treasureId ?? "");
-  if (!tid) return;
-  const indices = [];
-  ownedTreasures.value.forEach((s, i) => {
-    if (s?.treasureId === tid) indices.push(i);
-  });
+  const indices = findAllOwnedTreasureSlotIndices(treasureId);
   if (!indices.length) return;
   shopOverlayLayersSuppressed.value = true;
   await nextTick();
@@ -4220,6 +4238,18 @@ function findOwnedTreasureSlotIndex(treasureId) {
   const tid = String(treasureId ?? "");
   if (!tid) return -1;
   return ownedTreasures.value.findIndex((s) => s?.treasureId === tid);
+}
+
+/** @param {string} treasureId @returns {number[]} */
+function findAllOwnedTreasureSlotIndices(treasureId) {
+  const tid = String(treasureId ?? "");
+  if (!tid) return [];
+  /** @type {number[]} */
+  const indices = [];
+  ownedTreasures.value.forEach((s, i) => {
+    if (s?.treasureId === tid) indices.push(i);
+  });
+  return indices;
 }
 
 function setRarityLevelWithTreasurePairs(rarity, level) {
@@ -7719,6 +7749,7 @@ async function animatePackDeckOfferFlyToDeck(offer, fromEl, toTarget, opts = {})
   const fromNode = refToDom(fromEl) ?? (fromEl instanceof HTMLElement ? fromEl : null);
   if (!fromNode || typeof fromNode.getBoundingClientRect !== "function") return;
   const snap = buildPackDeckOfferFlySnapshot(offer);
+  const priceStruck = opts.priceStruck === true;
   if (!snap) {
     const restoreSourceHide = beginFlySourceHide(fromNode);
     try {
@@ -7731,7 +7762,20 @@ async function animatePackDeckOfferFlyToDeck(offer, fromEl, toTarget, opts = {})
   const from =
     opts.fromRect && opts.fromRect.width >= 2 && opts.fromRect.height >= 2
       ? opts.fromRect
-      : normalizeSquareFlyRect(fromNode.getBoundingClientRect());
+      : (() => {
+          const visual =
+            fromNode.closest?.(".shop-treasure-visual") ??
+            fromNode.closest?.(".shop-deck-offer-product-stack") ??
+            (fromNode.classList.contains("shop-treasure-visual") ||
+            fromNode.classList.contains("shop-deck-offer-product-stack")
+              ? fromNode
+              : null);
+          const measure = visual ?? fromNode;
+          const r = measure.getBoundingClientRect();
+          return r.width >= 2 && r.height >= 2
+            ? { left: r.left, top: r.top, width: r.width, height: r.height }
+            : normalizeSquareFlyRect(fromNode.getBoundingClientRect());
+        })();
   if (!from.width || !from.height) return;
 
   const host = document.createElement("div");
@@ -7750,9 +7794,7 @@ async function animatePackDeckOfferFlyToDeck(offer, fromEl, toTarget, opts = {})
     transformOrigin: "50% 50%",
   });
   document.body.appendChild(host);
-  const disposeTile = mountLetterTileClone(host, snap, "grid", {
-    tileClass: "shop-shelf-letter-tile",
-  });
+  const disposeTile = mountDeckOfferFlyProductStack(host, offer, { priceStruck });
   ensureFlyCloneVisible(host);
   gsap.set(host, {
     x: 0,
@@ -8094,33 +8136,33 @@ async function playTreasureSlotBubbleBurstAtPeak(slotIndex, text, kind = "score"
 
 /** @param {string} treasureId @param {string} text @param {string} [kind] */
 async function playOwnedTreasureBubbleFx(treasureId, text, kind = "score") {
-  const ix = findOwnedTreasureSlotIndex(treasureId);
-  if (ix < 0) return;
-  await playTreasureSlotBubbleBurstAtPeak(ix, text, kind);
+  for (const ix of findAllOwnedTreasureSlotIndices(treasureId)) {
+    await playTreasureSlotBubbleBurstAtPeak(ix, text, kind);
+  }
 }
 
 /** 仅弹气泡（不含 wobble、不等待字间节拍），用于需要自行编排时序的宝藏 */
 async function playOwnedTreasureBubbleOnlyFx(treasureId, text, kind = "score") {
-  const ix = findOwnedTreasureSlotIndex(treasureId);
-  if (ix < 0) return;
-  const el = gameTreasureSlotRefs[ix];
-  if (!el) return;
-  const label = String(text ?? "").trim();
-  if (!label) return;
-  scoringTreasureBarIndex.value = ix;
-  await nextTick();
-  await new Promise((r) => requestAnimationFrame(r));
-  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, 1);
-  const bubble = showScoreBubble(el, label, kind, 1);
-  scheduleSmallPlusBubbleOutro(bubble, 1);
-  scoringTreasureBarIndex.value = null;
+  for (const ix of findAllOwnedTreasureSlotIndices(treasureId)) {
+    const el = gameTreasureSlotRefs[ix];
+    if (!el) continue;
+    const label = String(text ?? "").trim();
+    if (!label) continue;
+    scoringTreasureBarIndex.value = ix;
+    await nextTick();
+    await new Promise((r) => requestAnimationFrame(r));
+    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, 1);
+    const bubble = showScoreBubble(el, label, kind, 1);
+    scheduleSmallPlusBubbleOutro(bubble, 1);
+    scoringTreasureBarIndex.value = null;
+  }
 }
 
 /** 仅播放宝藏槽 wobble（不改遮罩层），用于与其他特效并发 */
 async function playOwnedTreasureWobbleOnlyFx(treasureId) {
-  const ix = findOwnedTreasureSlotIndex(treasureId);
-  if (ix < 0) return;
-  await wobbleGameTreasureSlot(ix);
+  for (const ix of findAllOwnedTreasureSlotIndices(treasureId)) {
+    await wobbleGameTreasureSlot(ix);
+  }
 }
 
 /** @param {number} slotIndex @param {number} delta */
@@ -8152,16 +8194,16 @@ async function playTreasureSlotMultDeltaBurstAtPeak(slotIndex, delta) {
 
 /** @param {string} treasureId @param {number} delta */
 async function playOwnedTreasureMultDeltaFx(treasureId, delta) {
-  const ix = findOwnedTreasureSlotIndex(treasureId);
-  if (ix < 0) return;
-  await playTreasureSlotMultDeltaBurstAtPeak(ix, delta);
+  for (const ix of findAllOwnedTreasureSlotIndices(treasureId)) {
+    await playTreasureSlotMultDeltaBurstAtPeak(ix, delta);
+  }
 }
 
 /** @param {string} treasureId @param {number} delta */
 async function playOwnedTreasureScoreDeltaFx(treasureId, delta) {
-  const ix = findOwnedTreasureSlotIndex(treasureId);
-  if (ix < 0) return;
-  await playTreasureSlotScoreBurstAtPeak(ix, delta);
+  for (const ix of findAllOwnedTreasureSlotIndices(treasureId)) {
+    await playTreasureSlotScoreBurstAtPeak(ix, delta);
+  }
 }
 
 /** 工具箱移除：气泡展示后停顿再缩至 0；字间间隔与气泡淡出略短于通用记分 */

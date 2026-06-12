@@ -90,6 +90,14 @@
         @close="closeAbout"
         @enable-developer-mode="enableDeveloperMode"
         @open-material-bench="openMaterialBench"
+        @open-privacy="openPrivacyPolicyView"
+      />
+      <PrivacyConsentLayer
+        :open="showPrivacyConsent"
+        :mode="privacyConsentMode"
+        @agree="onPrivacyConsentAgree"
+        @decline="onPrivacyConsentDecline"
+        @close="closePrivacyConsentView"
       />
       <AchievementToastLayer :queue="achievementToastQueue" />
       <PlayerProfileLayer
@@ -127,6 +135,7 @@
 </template>
 
 <script setup>
+import { Capacitor } from "@capacitor/core";
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from "vue";
 import MainMenu from "./components/MainMenu.vue";
 import CollectionPage from "./components/CollectionPage.vue";
@@ -135,6 +144,7 @@ import RunStartDialog from "./components/RunStartDialog.vue";
 import RunStartQuickConfirmLayer from "./components/RunStartQuickConfirmLayer.vue";
 import SettingsLayer from "./components/SettingsLayer.vue";
 import AboutLayer from "./components/AboutLayer.vue";
+import PrivacyConsentLayer from "./components/PrivacyConsentLayer.vue";
 import PlayerProfileLayer from "./components/PlayerProfileLayer.vue";
 import SaveSlotLayer from "./components/SaveSlotLayer.vue";
 import { loadGameSettings } from "./settings/gameSettings.js";
@@ -143,7 +153,14 @@ import { usePortalFrameSync } from "./composables/usePortalFrameSync.js";
 import { useDictionary } from "./composables/useDictionary";
 import { formatDictionaryLoadErrorForPlayer } from "./dictionary/dictionaryBootErrorCopy.js";
 import { useRemixIconFont } from "./composables/useRemixIconFont.js";
-import { useTapTapAuth } from "./composables/useTapTapAuth.js";
+import { onPrivacyConsentGrantedForAuth, TAP_TAP_AUTH_MENU_ONLY_PHASES, useTapTapAuth } from "./composables/useTapTapAuth.js";
+import { ensureTapTapSdkInitialized } from "./taptap/tapTapPlugin.js";
+import {
+  hasPrivacyConsent,
+  isPrivacyConsentRequired,
+  markPrivacyConsentAgreed,
+  privacyConsentGranted,
+} from "./privacy/privacyConsent.js";
 import IrisTransition from "./components/IrisTransition.vue";
 import {
   resumeGamePauseGsapFreeze,
@@ -265,6 +282,9 @@ watch(showRunStartDialog, (open) => {
 });
 const showSettings = ref(false);
 const showAbout = ref(false);
+const showPrivacyConsent = ref(false);
+/** @type {import('vue').Ref<'consent' | 'view'>} */
+const privacyConsentMode = ref("consent");
 const showPlayerProfile = ref(false);
 /** @type {import('vue').Ref<{ chip: DOMRect, avatar: DOMRect | null, name: DOMRect | null } | null>} */
 const profileOpenOrigin = ref(null);
@@ -436,6 +456,42 @@ function openAbout() {
 
 function closeAbout() {
   showAbout.value = false;
+}
+
+function openPrivacyPolicyView() {
+  privacyConsentMode.value = "view";
+  showPrivacyConsent.value = true;
+}
+
+function closePrivacyConsentView() {
+  showPrivacyConsent.value = false;
+}
+
+async function onPrivacyConsentAgree() {
+  markPrivacyConsentAgreed();
+  try {
+    await ensureTapTapSdkInitialized();
+  } catch {
+    /* 初始化失败不阻塞进入；TapTap 登录时再重试 */
+  }
+  showPrivacyConsent.value = false;
+  onPrivacyConsentGrantedForAuth();
+}
+
+async function onPrivacyConsentDecline() {
+  try {
+    const { App } = await import("@capacitor/app");
+    await App.exitApp();
+  } catch {
+    /* Web 预览等环境无法退出 */
+  }
+}
+
+function maybeOpenPrivacyConsentOnBoot() {
+  if (!appBootReady.value || !isPrivacyConsentRequired() || hasPrivacyConsent()) return;
+  if (showPrivacyConsent.value) return;
+  privacyConsentMode.value = "consent";
+  showPrivacyConsent.value = true;
 }
 
 async function openCollection() {
@@ -668,9 +724,12 @@ const bootCombinedProgress = computed(() => {
 const appBootReady = computed(
   () => dictionaryReady.value && remixIconReady.value && bootImagesReady.value,
 );
-const showMenu = computed(() => appBootReady.value && screen.value === "menu");
-const showCollection = computed(() => appBootReady.value && screen.value === "collection");
-const showGame = computed(() => appBootReady.value && screen.value === "game");
+const appShellUnlocked = computed(
+  () => appBootReady.value && (!isPrivacyConsentRequired() || privacyConsentGranted.value),
+);
+const showMenu = computed(() => appShellUnlocked.value && screen.value === "menu");
+const showCollection = computed(() => appShellUnlocked.value && screen.value === "collection");
+const showGame = computed(() => appShellUnlocked.value && screen.value === "game");
 
 const collectionCareer = computed(() => {
   void collectionRefreshKey.value;
@@ -730,6 +789,20 @@ watch([appBootReady, tapTapPhase], () => {
   void maybeInitProfile();
 });
 
+watch(tapTapPhase, (phase) => {
+  if (isE2eMode() || !Capacitor.isNativePlatform()) return;
+  if (!TAP_TAP_AUTH_MENU_ONLY_PHASES.has(phase)) return;
+  if (screen.value !== "game" && screen.value !== "collection") return;
+  showRunStartDialog.value = false;
+  runStartQuickConfirm.value = { ...runStartQuickConfirm.value, open: false };
+  sessionRestoredSave.value = null;
+  screen.value = "menu";
+});
+
+watch(appBootReady, (ready) => {
+  if (ready) maybeOpenPrivacyConsentOnBoot();
+});
+
 onMounted(() => {
   loadGameSettings();
   loadPlayerProfile();
@@ -739,6 +812,7 @@ onMounted(() => {
   loadRemixIconFont({ shouldAbort: () => !appAlive });
   loadBootImages({ shouldAbort: () => !appAlive });
   void maybeInitProfile();
+  maybeOpenPrivacyConsentOnBoot();
   disposeDevConsole = registerDevConsole({
     getActiveSlotIndex: () => getActiveSaveSlotIndex(),
     mutateCareer: mutateSlotCareer,
@@ -1083,6 +1157,8 @@ onMounted(() => {
       showPlayerProfile,
       showSettings,
       showAbout,
+      showPrivacyConsent,
+      privacyConsentMode,
       runStartQuickConfirm,
       showRunStartDialog,
       showCollection: () => showCollection.value,
@@ -1092,6 +1168,8 @@ onMounted(() => {
       closePlayerProfile,
       closeSettings,
       closeAbout,
+      closePrivacyConsentView,
+      onPrivacyConsentDecline,
       dismissRunStartQuickConfirm: onRunStartQuickDismiss,
       cancelRunStartDialog: onRunStartCancel,
       closeCollection,

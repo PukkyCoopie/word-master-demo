@@ -18,14 +18,60 @@ const DIST_SHIP_PRUNE = [
   path.join("images", "challenge.png"),
   "labs",
   path.join("data", "dictionary", "dict.json"),
+  path.join("data", "dictionary", ".gitkeep"),
+  path.join("taptap", "login", "README.txt"),
 ];
 
+/** @param {string} dir */
+function pruneAchievementPngSources(dir) {
+  if (!fs.existsSync(dir)) return 0;
+  let removedBytes = 0;
+  for (const name of fs.readdirSync(dir)) {
+    if (!name.toLowerCase().endsWith(".png")) continue;
+    const filePath = path.join(dir, name);
+    removedBytes += fs.statSync(filePath).size;
+    fs.rmSync(filePath, { force: true });
+  }
+  return removedBytes;
+}
+
 function pruneDistShipArtifacts() {
+  let removedBytes = 0;
+
   for (const rel of DIST_SHIP_PRUNE) {
     const target = path.join(DIST_DIR, rel);
     if (!fs.existsSync(target)) continue;
+    if (fs.statSync(target).isFile()) {
+      removedBytes += fs.statSync(target).size;
+    } else {
+      removedBytes += dirSizeBytes(target);
+    }
     fs.rmSync(target, { recursive: true, force: true });
   }
+
+  removedBytes += pruneAchievementPngSources(
+    path.join(DIST_DIR, "images", "achievements"),
+  );
+
+  if (removedBytes > 0) {
+    console.log(
+      `[vite] 已剔除不应随包发布的静态资源：${(removedBytes / 1024 / 1024).toFixed(2)} MB`,
+    );
+  }
+}
+
+/** @param {string} dir */
+function dirSizeBytes(dir) {
+  let total = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      total += dirSizeBytes(fullPath);
+    } else {
+      total += fs.statSync(fullPath).size;
+    }
+  }
+  return total;
 }
 
 function writeBrotliDictionaryToDist() {

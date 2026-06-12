@@ -33,6 +33,32 @@ export function dictionaryPosMatchesTreasureLevelKey(dictPos, requiredKey) {
   return dictionaryPosMatchesClubKey(dictPos, requiredKey);
 }
 
+/**
+ * 词性是否**仅**为某一类（如仅有名词、无动词/形容词等并列标注）。
+ * @param {string | null | undefined} dictPos
+ * @param {string} requiredKey `n` | `v` | `adj`
+ */
+export function dictionaryPosIsExclusivelyTreasureLevelKey(dictPos, requiredKey) {
+  const raw = String(dictPos ?? "").trim();
+  if (!raw) return false;
+  const requiredOpt = BOSS_CLUB_POS_OPTIONS.find((o) => o.key === requiredKey);
+  if (!requiredOpt) return false;
+  const tokens = raw
+    .split("|")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const toCheck = tokens.length ? tokens : [raw];
+  const matchesRequired = toCheck.some((token) => requiredOpt.patterns.some((re) => re.test(token)));
+  if (!matchesRequired) return false;
+  for (const token of toCheck) {
+    for (const opt of BOSS_CLUB_POS_OPTIONS) {
+      if (opt.key === requiredKey) continue;
+      if (opt.patterns.some((re) => re.test(token))) return false;
+    }
+  }
+  return true;
+}
+
 /** @param {string | null | undefined} dictPos */
 export function dictionaryPosMatchesAdverb(dictPos) {
   const raw = String(dictPos ?? "").trim();

@@ -1,6 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { isE2eMode } from "../e2e/isE2eMode.js";
+import { hasPrivacyConsent } from "../privacy/privacyConsent.js";
 import { resetTapTapAchievementBootstrap } from "../achievements/achievementTapTapSync.js";
 import {
   COMPLIANCE_AGE_LIMIT,
@@ -11,12 +12,13 @@ import {
   COMPLIANCE_PERIOD_RESTRICT,
   COMPLIANCE_REAL_NAME_STOP,
   COMPLIANCE_SWITCH_ACCOUNT,
+  ensureTapTapSdkInitialized,
   isTapTapAccount,
   TapTap,
 } from "../taptap/tapTapPlugin.js";
 
 /**
- * @typedef {'idle' | 'checking' | 'needsLogin' | 'compliance' | 'ready' | 'blocked' | 'error'} TapTapAuthPhase
+ * @typedef {'awaitingPrivacy' | 'needsLogin' | 'compliance' | 'ready' | 'blocked' | 'error'} TapTapAuthPhase
  */
 
 const BLOCK_MESSAGES = {
@@ -28,8 +30,14 @@ const BLOCK_MESSAGES = {
 const isNative = Capacitor.isNativePlatform();
 const bypassAuth = !isNative || isE2eMode();
 
+/** @returns {TapTapAuthPhase} */
+function resolveInitialAuthPhase() {
+  if (bypassAuth) return "ready";
+  return hasPrivacyConsent() ? "needsLogin" : "awaitingPrivacy";
+}
+
 /** @type {import('vue').Ref<TapTapAuthPhase>} */
-const phase = ref(bypassAuth ? "ready" : "checking");
+const phase = ref(resolveInitialAuthPhase());
 /** @type {import('vue').Ref<import('../taptap/tapTapPlugin.js').TapTapAccount | null>} */
 const account = ref(null);
 const authMessage = ref("");
@@ -38,7 +46,7 @@ const loginBusy = ref(false);
 /** @type {import('@capacitor/core').PluginListenerHandle | null} */
 let complianceListener = null;
 let authMountCount = 0;
-let authBootstrapped = false;
+let loginFlowActive = false;
 
 /** @returns {Promise<string>} */
 async function formatSignatureMismatchHint() {
@@ -54,6 +62,11 @@ async function formatSignatureMismatchHint() {
   return "TapTap 应用配置与当前安装包不一致（包名或签名 MD5）。请在 TapTap 开发者中心核对 Android 包名与签名。";
 }
 
+function finishLoginFlow() {
+  loginFlowActive = false;
+  loginBusy.value = false;
+}
+
 /**
  * @param {number} code
  */
@@ -61,6 +74,7 @@ function handleComplianceCode(code) {
   if (code === COMPLIANCE_LOGIN_SUCCESS) {
     authMessage.value = "";
     phase.value = "ready";
+    finishLoginFlow();
     return;
   }
   if (
@@ -72,47 +86,107 @@ function handleComplianceCode(code) {
     authMessage.value = "";
     phase.value = "needsLogin";
     resetTapTapAchievementBootstrap();
+    finishLoginFlow();
     return;
   }
   if (code === COMPLIANCE_NETWORK_ERROR) {
     authMessage.value = "网络或应用配置异常，请检查后重试。";
     phase.value = "error";
+    finishLoginFlow();
     return;
   }
   if (code in BLOCK_MESSAGES) {
     authMessage.value = BLOCK_MESSAGES[/** @type {keyof typeof BLOCK_MESSAGES} */ (code)];
     phase.value = "blocked";
+    finishLoginFlow();
     return;
   }
+  authMessage.value = `防沉迷验证异常（${code}），请重试或切换账号。`;
+  phase.value = "error";
+  finishLoginFlow();
 }
 
-/**
- * @param {import('../taptap/tapTapPlugin.js').TapTapAccount} nextAccount
- */
+/** @param {import('../taptap/tapTapPlugin.js').TapTapAccount} nextAccount */
+function resolveComplianceUserIdentifier(nextAccount) {
+  const openId = String(nextAccount.openId ?? "").trim();
+  if (openId) return openId;
+  return String(nextAccount.unionId ?? "").trim();
+}
+
 async function beginCompliance(nextAccount) {
+  const userIdentifier = resolveComplianceUserIdentifier(nextAccount);
+  if (!userIdentifier) {
+    phase.value = "needsLogin";
+    finishLoginFlow();
+    return;
+  }
   account.value = nextAccount;
   phase.value = "compliance";
   authMessage.value = "";
-  await TapTap.startCompliance({ userIdentifier: nextAccount.unionId });
+  await TapTap.startCompliance({ userIdentifier });
 }
 
-async function bootstrapAuth() {
+/**
+ * @param {unknown} err
+ * @returns {boolean} 是否已写入 authMessage / phase
+ */
+async function handleLoginFlowError(err) {
+  const message = err instanceof Error ? err.message : String(err);
+  if (message.includes("cancelled") || message.includes("取消")) {
+    authMessage.value = "";
+    phase.value = "needsLogin";
+    return true;
+  }
+  if (
+    message.includes("包名") ||
+    message.includes("签名") ||
+    /signature/i.test(message)
+  ) {
+    authMessage.value = await formatSignatureMismatchHint();
+    phase.value = "error";
+    return true;
+  }
+  const trimmed = message.trim();
+  if (trimmed) {
+    authMessage.value = trimmed;
+    phase.value = "error";
+    return true;
+  }
+  return false;
+}
+
+async function runTapTapLoginAndCompliance() {
+  if (bypassAuth || loginFlowActive) return;
+  loginFlowActive = true;
+  loginBusy.value = true;
+  authMessage.value = "";
+  phase.value = "needsLogin";
+  try {
+    await ensureTapTapSdkInitialized();
+    const loggedIn = await TapTap.login();
+    if (!isTapTapAccount(loggedIn)) {
+      phase.value = "needsLogin";
+      finishLoginFlow();
+      return;
+    }
+    await beginCompliance(loggedIn);
+  } catch (err) {
+    const handled = await handleLoginFlowError(err);
+    if (!handled) {
+      authMessage.value = "登录失败，请重试。";
+      phase.value = "error";
+    }
+    finishLoginFlow();
+  }
+}
+
+/** 用户同意隐私政策后进入 TapTap 登录入口（不自动登录/验证）。 */
+export function onPrivacyConsentGrantedForAuth() {
   if (bypassAuth) {
     phase.value = "ready";
     return;
   }
-  phase.value = "checking";
-  authMessage.value = "";
-  try {
-    const current = await TapTap.getCurrentAccount();
-    if (!isTapTapAccount(current)) {
-      phase.value = "needsLogin";
-      return;
-    }
-    await beginCompliance(current);
-  } catch {
-    phase.value = "needsLogin";
-  }
+  phase.value = "needsLogin";
 }
 
 async function ensureAuthListener() {
@@ -122,54 +196,47 @@ async function ensureAuthListener() {
   });
 }
 
+async function resetTapTapSession() {
+  authMessage.value = "";
+  finishLoginFlow();
+  try {
+    await TapTap.logout();
+  } catch {
+    /* ignore */
+  }
+  account.value = null;
+  resetTapTapAchievementBootstrap();
+  phase.value = "needsLogin";
+}
+
 /**
  * 原生 App：TapTap 登录 + 合规认证；Web / E2E 直接放行。
  */
 export function useTapTapAuth() {
   const showMenuActions = computed(() => phase.value === "ready");
-  const showLoginButton = computed(() => phase.value === "needsLogin");
-  const showAuthBusy = computed(() => phase.value === "checking" || phase.value === "compliance");
+  const showLoginButton = computed(
+    () => phase.value === "needsLogin" || phase.value === "compliance",
+  );
   const showAuthBlocked = computed(() => phase.value === "blocked" || phase.value === "error");
 
   async function loginWithTapTap() {
-    if (bypassAuth || loginBusy.value) return;
-    loginBusy.value = true;
-    authMessage.value = "";
-    try {
-      const loggedIn = await TapTap.login();
-      if (!isTapTapAccount(loggedIn)) {
-        phase.value = "needsLogin";
-        return;
-      }
-      await beginCompliance(loggedIn);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message.includes("cancelled") || message.includes("取消")) {
-        authMessage.value = "";
-      } else if (
-        message.includes("包名") ||
-        message.includes("签名") ||
-        /signature/i.test(message)
-      ) {
-        authMessage.value = await formatSignatureMismatchHint();
-        phase.value = "error";
-      } else {
-        authMessage.value = message.trim() || "登录失败，请重试。";
-        phase.value = "error";
-      }
-    } finally {
-      loginBusy.value = false;
-    }
+    await runTapTapLoginAndCompliance();
   }
 
   async function retryAuth() {
     authMessage.value = "";
-    await bootstrapAuth();
+    await runTapTapLoginAndCompliance();
+  }
+
+  async function switchTapTapAccount() {
+    if (bypassAuth || loginFlowActive) return;
+    await resetTapTapSession();
   }
 
   /** 跳过 TapTap 登录与防沉迷，直接进入主菜单。 */
   function playOffline() {
     authMessage.value = "";
+    finishLoginFlow();
     account.value = null;
     phase.value = "ready";
     resetTapTapAchievementBootstrap();
@@ -178,11 +245,14 @@ export function useTapTapAuth() {
   onMounted(async () => {
     authMountCount += 1;
     if (bypassAuth) return;
-    await ensureAuthListener();
-    if (!authBootstrapped) {
-      authBootstrapped = true;
-      await bootstrapAuth();
+    if (hasPrivacyConsent()) {
+      try {
+        await ensureTapTapSdkInitialized();
+      } catch {
+        /* ignore */
+      }
     }
+    await ensureAuthListener();
   });
 
   onBeforeUnmount(async () => {
@@ -190,7 +260,6 @@ export function useTapTapAuth() {
     if (authMountCount === 0 && complianceListener) {
       await complianceListener.remove();
       complianceListener = null;
-      authBootstrapped = false;
     }
   });
 
@@ -203,10 +272,18 @@ export function useTapTapAuth() {
     loginBusy,
     showMenuActions,
     showLoginButton,
-    showAuthBusy,
     showAuthBlocked,
     loginWithTapTap,
     retryAuth,
+    switchTapTapAccount,
     playOffline,
   };
 }
+
+/** 防沉迷未通过时须离开对局/收藏，回到主菜单展示限制说明。 */
+export const TAP_TAP_AUTH_MENU_ONLY_PHASES = new Set([
+  "blocked",
+  "needsLogin",
+  "error",
+  "awaitingPrivacy",
+]);

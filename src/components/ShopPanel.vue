@@ -910,7 +910,8 @@ function shopOfferFlyOriginEl(root) {
 function onSelectOffer(slot, e) {
   if (props.interactionsDisabled) return;
   const root = e.currentTarget;
-  emit("select-offer", { treasure: slot, originEl: shopOfferFlyOriginEl(root) });
+  const originEl = isDeckShopOffer(slot) ? root : shopOfferFlyOriginEl(root);
+  emit("select-offer", { treasure: slot, originEl });
 }
 
 function onSelectPackOffer(slot, e) {

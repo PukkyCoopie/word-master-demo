@@ -20,17 +20,22 @@ export const treasureHooks = {
   async onLevelEnter(ctx) {
     const rng = ctx.rng ?? Math.random;
     const owned = ctx.ownedSlotTreasureIds ?? [];
+    /** @type {number[]} */
     const candidates = [];
     for (let i = 0; i < owned.length; i += 1) {
       const tid = owned[i];
-      if (tid && tid !== ID) candidates.push(tid);
+      if (!tid || tid === ID) continue;
+      if (ctx.isOwnedTreasureSlotNoSell?.(i)) continue;
+      candidates.push(i);
     }
     if (!candidates.length) return;
-    const victimId = candidates[Math.floor(rng() * candidates.length)];
+    const victimIx = candidates[Math.floor(rng() * candidates.length)];
+    const victimId = String(owned[victimIx] ?? "");
+    if (!victimId) return;
     if (ctx.destroyOtherTreasureFromSource) {
-      await ctx.destroyOtherTreasureFromSource(ID, victimId);
+      await ctx.destroyOtherTreasureFromSource(ID, victimId, victimIx);
     } else if (ctx.destroyTreasureSlotById) {
-      await ctx.destroyTreasureSlotById(victimId);
+      await ctx.destroyTreasureSlotById(victimId, victimIx);
     } else {
       ctx.clearTreasureSlotById?.(victimId);
     }

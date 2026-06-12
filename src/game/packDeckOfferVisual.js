@@ -1,4 +1,5 @@
 import { getRarityForLetter } from "../composables/useScoring.js";
+import { mountLetterTileClone } from "./mountLetterTileClone.js";
 
 /**
  * 牌包 / 商店 deckTile 选项 → LetterTile 展示与飞字快照（与入库后牌张字段对齐）。
@@ -85,4 +86,31 @@ export function normalizeSquareFlyRect(rect) {
     width: side,
     height: side,
   };
+}
+
+/**
+ * 字母块商品飞行动画：tile + 价签整列（与货架 / 详情 `shop-deck-offer-product-stack` 一致）。
+ * @param {HTMLElement} host
+ * @param {Record<string, unknown>} offer
+ * @param {{ priceText?: string, priceStruck?: boolean }} [opts]
+ * @returns {() => void}
+ */
+export function mountDeckOfferFlyProductStack(host, offer, opts = {}) {
+  host.classList.add("shop-deck-offer-product-stack");
+  const snap = buildPackDeckOfferFlySnapshot(offer);
+  if (!snap) return () => {};
+  const disposeTile = mountLetterTileClone(host, snap, "grid", {
+    tileClass: "shop-shelf-letter-tile",
+  });
+  const priceWrap = document.createElement("div");
+  priceWrap.className = "shop-treasure-price";
+  priceWrap.setAttribute("aria-hidden", "true");
+  const priceInner = document.createElement("div");
+  priceInner.className = "shop-treasure-price-inner";
+  if (opts.priceStruck) priceInner.classList.add("shop-treasure-price-inner--pack-struck");
+  const base = Math.max(0, Math.floor(Number(offer.price) || 0));
+  priceInner.textContent = opts.priceText ?? `$${base}`;
+  priceWrap.appendChild(priceInner);
+  host.appendChild(priceWrap);
+  return () => disposeTile();
 }

@@ -78,6 +78,14 @@
                   @open-poster="openTapTapPoster"
                 />
               </article>
+              <button
+                v-if="showPrivacyButton"
+                type="button"
+                class="about-privacy-btn"
+                @click="emit('open-privacy')"
+              >
+                隐私政策
+              </button>
             </div>
           </section>
 
@@ -209,11 +217,17 @@ const props = defineProps({
   open: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["close", "openMaterialBench", "enableDeveloperMode"]);
+const emit = defineEmits(["close", "openMaterialBench", "enableDeveloperMode", "open-privacy"]);
 
 /** 仅在 Capacitor 原生 App 内展示工作室名称 */
 const showGameStudio =
   typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.() === true;
+
+/** @type {import('vue').Ref<boolean> | null} */
+const developerModeEnabled = inject("developerModeEnabled", null);
+const devModeActive = computed(() => developerModeEnabled?.value === true);
+/** 原生壳内，或已开启开发者模式时展示隐私入口 */
+const showPrivacyButton = computed(() => showGameStudio || devModeActive.value);
 
 const showTapTapWebPromo = isTapTapWebPromoEnabled();
 /** @type {() => void} */
@@ -814,6 +828,9 @@ function splitSummary(summary) {
 }
 
 .about-panel--game {
+  display: flex;
+  flex-direction: column;
+  gap: calc(12 * var(--rpx));
   padding: 0;
 }
 
@@ -912,6 +929,37 @@ function splitSummary(summary) {
   line-height: 1.25;
   color: var(--text-soft, #8f7a66);
   letter-spacing: calc(0.3 * var(--rpx));
+}
+
+.about-privacy-btn {
+  width: 100%;
+  border: none;
+  font-family: inherit;
+  padding: calc(14 * var(--rpx)) calc(16 * var(--rpx));
+  font-size: calc(26 * var(--rpx));
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-dark, #3c3a32);
+  background: var(--card, #eee4da);
+  border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  touch-action: manipulation;
+  box-sizing: border-box;
+}
+
+.about-privacy-btn:hover {
+  filter: brightness(1.03);
+}
+
+.about-privacy-btn:active {
+  filter: brightness(0.94);
+}
+
+.about-privacy-btn:focus-visible {
+  outline: calc(2 * var(--rpx)) solid rgba(60, 58, 50, 0.55);
+  outline-offset: calc(2 * var(--rpx));
 }
 
 .about-panel--third-party {

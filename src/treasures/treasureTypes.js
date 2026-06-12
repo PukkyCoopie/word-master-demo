@@ -278,13 +278,14 @@
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string) => void} [clearTreasureSlotById]
- * @property {(treasureId: string) => Promise<void>} [destroyTreasureSlotById]
- * @property {(sourceTreasureId: string, victimTreasureId: string) => Promise<void>} [destroyOtherTreasureFromSource] 来源宝藏 wobble 后，目标 wobble 与「摧毁！」气泡并发，再缩至 0 清空
+ * @property {(treasureId: string, slotIndex?: number | null) => Promise<void>} [destroyTreasureSlotById]
+ * @property {(sourceTreasureId: string, victimTreasureId: string, victimSlotIndex?: number | null) => Promise<void>} [destroyOtherTreasureFromSource] 来源宝藏 wobble 后，目标 wobble 与「摧毁！」气泡并发，再缩至 0 清空
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  * @property {(count?: number) => number} [grantRandomOwnedTreasure] 本关赠送随机宝藏次数，返回实际获得数
  * @property {(count?: number) => Promise<number>} [grantRandomOwnedTreasureWithPopAnim] 同上，新宝藏槽 scale 0→过冲→1 入场
  * @property {(n: number) => void} [addRemainingWords]
  * @property {(n: number) => void} [addRemainingRemovals]
+ * @property {(slotIndex: number) => boolean} [isOwnedTreasureSlotNoSell] 槽位是否带禁售配饰
  * @property {(tiles: object[]) => void} [stripEnhancementsFromScoringTiles]
  * @property {(spec: { raw: string, accessoryId?: string | null, tileScoreBonus?: number, letterMultBonus?: number, materialId?: string | null }) => object | null} [appendDeckCardSpecToInitialSnapshot]
  * @property {(opts?: { spellId?: string, treasureSlotIndex?: number, treasureId?: string }) => Promise<void>} [requestInRunSpellGrant]

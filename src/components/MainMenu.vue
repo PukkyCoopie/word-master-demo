@@ -12,12 +12,7 @@
         :rows="showcaseRows"
       />
 
-      <div v-if="showAuthBusy" class="menu-auth-status" aria-live="polite">
-        <span class="menu-auth-spinner" aria-hidden="true"></span>
-        <span>{{ authBusyLabel }}</span>
-      </div>
-
-      <div v-else-if="showAuthBlocked || phase === 'error'" class="menu-auth-status menu-auth-status--blocked">
+      <div v-if="showAuthBlocked" class="menu-auth-status menu-auth-status--blocked">
         <p class="menu-auth-message">{{ authMessage || "暂时无法进入游戏。" }}</p>
         <div v-if="phase === 'error'" class="menu-auth-actions">
           <button
@@ -35,12 +30,20 @@
             离线游玩
           </button>
         </div>
+        <div v-else-if="phase === 'blocked'" class="menu-auth-actions">
+          <button
+            type="button"
+            class="menu-btn menu-btn--settings menu-auth-action"
+            @click="switchTapTapAccount"
+          >
+            切换账号
+          </button>
+        </div>
       </div>
 
       <nav v-else-if="showLoginButton" class="menu-actions menu-actions--login" aria-label="TapTap 登录">
         <TapTapLoginButton :disabled="loginBusy" @click="loginWithTapTap" />
-        <p v-if="loginBusy" class="menu-auth-hint">登录中…</p>
-        <p v-else-if="authMessage" class="menu-auth-hint">{{ authMessage }}</p>
+        <p v-if="authMessage" class="menu-auth-hint">{{ authMessage }}</p>
       </nav>
 
       <nav v-else-if="showMenuActions" class="menu-actions" aria-label="主菜单">
@@ -100,10 +103,10 @@ const {
   loginBusy,
   showMenuActions,
   showLoginButton,
-  showAuthBusy,
   showAuthBlocked,
   loginWithTapTap,
   retryAuth,
+  switchTapTapAccount,
   playOffline,
 } = useTapTapAuth();
 
@@ -112,10 +115,6 @@ const { isMobileLayout } = useWebLayoutMode();
 const openTapTapPoster = inject("openTapTapPoster", () => {});
 const showTapTapMenuPromo = computed(
   () => isTapTapWebPromoEnabled() && isMobileLayout.value,
-);
-
-const authBusyLabel = computed(() =>
-  phase.value === "compliance" ? "正在验证…" : "正在检查登录…"
 );
 
 const showcaseRows = [

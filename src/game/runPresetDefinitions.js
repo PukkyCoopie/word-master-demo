@@ -87,15 +87,17 @@ const PRESETS = [
   },
   {
     id: "preset_07",
-    emoji: "📡",
-    name: "天线",
+    emoji: "👔",
+    name: "领带",
     description: describe(
       "开局时拥有",
+      entityInline("voucher", "v_overstock_1"),
+      "和",
       entityInline("voucher", "v_magic_1"),
       "，字母块和字母包的价格降低",
       money("1"),
     ),
-    effects: { startVoucherIds: ["v_magic_1"], shopFlatDiscount: { letter: 1 } },
+    effects: { startVoucherIds: ["v_overstock_1", "v_magic_1"], shopFlatDiscount: { letter: 1 } },
   },
   {
     id: "preset_08",
