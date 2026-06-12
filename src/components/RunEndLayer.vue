@@ -138,7 +138,7 @@ const bestWordLabel = computed(() =>
 );
 
 const bestWordDisplayValue = computed(() =>
-  bestWordShowLength.value ? props.bestWordLengthValue : props.bestWordValue,
+  bestWordShowLength.value ? props.longestWordValue : props.bestWordValue,
 );
 
 async function copyRunSeed() {
