@@ -1,5 +1,5 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { getViewportSize } from "./useScale.js";
+import { getViewportSize } from "./viewportSize.js";
 
 /**
  * 视口宽高比是否大于 1:1（比正方形更宽）。

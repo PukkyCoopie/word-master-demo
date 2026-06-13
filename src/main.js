@@ -8,6 +8,8 @@ import { deferReglMaterialWarmupAtBoot } from "./lib/reglMaterialPerf.js";
 import { startRemixIconFontLoad } from "./composables/useRemixIconFont.js";
 import { initAnimationSpeedSettings } from "./settings/animationSpeed.js";
 import { initAndroidBackButton } from "./platform/androidBackButton.js";
+import { applyBorderlessLayoutHtmlClass } from "./settings/displayLayoutMode.js";
+import { getViewportSize } from "./composables/viewportSize.js";
 function disableNativeWebNotificationPrompt() {
   if (typeof window === "undefined" || !window.Capacitor?.isNativePlatform?.()) {
     return;
@@ -42,6 +44,10 @@ startRemixIconFontLoad();
 
 if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
   document.documentElement.classList.add("platform-native");
+}
+{
+  const { w, h } = getViewportSize();
+  applyBorderlessLayoutHtmlClass(w, h);
 }
 if (!deferReglMaterialWarmupAtBoot()) {
   warmupAllReglMaterialHubs();

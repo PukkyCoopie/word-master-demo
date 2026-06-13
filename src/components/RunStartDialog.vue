@@ -274,6 +274,10 @@ import {
 } from "../game/runStartDialogEnterAnim.js";
 import DifficultyPill from "./DifficultyPill.vue";
 import RunStartDifficultyPicker from "./RunStartDifficultyPicker.vue";
+import {
+  resolveRunStartDifficultyDraft,
+  resolveRunStartPresetDraft,
+} from "../game/runStartFreshUnlock.js";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import PresetDescRichText from "./PresetDescRichText.vue";
 import RunStartPresetPicker from "./RunStartPresetPicker.vue";
@@ -462,7 +466,14 @@ const primaryButtonDisabled = computed(
 );
 
 watch(
-  () => [props.open, props.initialSeed, props.continueSnapshot, props.slotCareer],
+  () => [
+    props.open,
+    props.initialSeed,
+    props.continueSnapshot,
+    props.slotCareer,
+    props.freshUnlockPresetIds,
+    props.freshUnlockDifficultyIndices,
+  ],
   ([isOpen], oldTuple) => {
     const wasOpen = oldTuple?.[0] ?? false;
     if (!isOpen) {
@@ -479,8 +490,17 @@ watch(
       props.continueSnapshot != null && props.continueSnapshot.continueEnabled !== false
         ? "continue"
         : "new";
-    presetDraft.value = getLastSelectedPresetId(normalizedCareer.value);
-    difficultyDraft.value = getLastSelectedDifficultyBrowseIndex(normalizedCareer.value);
+    const career = normalizedCareer.value;
+    presetDraft.value = resolveRunStartPresetDraft(
+      getLastSelectedPresetId(career),
+      props.freshUnlockPresetIds,
+      career,
+    );
+    difficultyDraft.value = resolveRunStartDifficultyDraft(
+      getLastSelectedDifficultyBrowseIndex(career),
+      props.freshUnlockDifficultyIndices,
+      career,
+    );
     if (!wasOpen) {
       applyDialogOpenState();
     }

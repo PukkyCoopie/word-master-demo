@@ -1,4 +1,5 @@
 import { reactive } from "vue";
+import { inferDefaultDisplayLayoutMode } from "../composables/viewportSize.js";
 
 const STORAGE_KEY = "word_master_game_settings_v1";
 
@@ -32,6 +33,14 @@ export function normalizeSwapButtonMode(value) {
 
 /** @typedef {'slow' | 'normal' | 'fast'} AnimationSpeedTier */
 
+/** @typedef {'centered' | 'borderless'} DisplayLayoutMode */
+
+/** @type {readonly { id: DisplayLayoutMode; label: string }[]} */
+export const DISPLAY_LAYOUT_MODE_OPTIONS = [
+  { id: "centered", label: "有边框" },
+  { id: "borderless", label: "无边框" },
+];
+
 const ANIMATION_SPEED_TIER_IDS = new Set(["slow", "normal", "fast"]);
 
 /** @param {unknown} value @returns {AnimationSpeedTier} */
@@ -42,7 +51,14 @@ export function normalizeAnimationSpeedTier(value) {
     : "normal";
 }
 
-/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; reduceMotion: boolean }} */
+/** @param {unknown} value @returns {DisplayLayoutMode} */
+export function normalizeDisplayLayoutMode(value) {
+  const s = String(value ?? "");
+  if (s === "centered" || s === "borderless") return s;
+  return inferDefaultDisplayLayoutMode();
+}
+
+/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; reduceMotion: boolean; displayLayoutMode: DisplayLayoutMode }} */
 export const gameSettings = reactive({
   allowSpellingAbbreviations: false,
   uiScalePercent: UI_SCALE_DEFAULT,
@@ -50,6 +66,7 @@ export const gameSettings = reactive({
   markOnSwap: true,
   animationSpeedTier: "normal",
   reduceMotion: false,
+  displayLayoutMode: inferDefaultDisplayLayoutMode(),
 });
 
 /**
@@ -85,6 +102,9 @@ export function loadGameSettings() {
     if (typeof parsed.reduceMotion === "boolean") {
       gameSettings.reduceMotion = parsed.reduceMotion;
     }
+    if (parsed.displayLayoutMode != null) {
+      gameSettings.displayLayoutMode = normalizeDisplayLayoutMode(parsed.displayLayoutMode);
+    }
   } catch {
     /* 损坏或不可读时沿用默认 */
   }
@@ -101,6 +121,7 @@ export function persistGameSettings() {
         markOnSwap: gameSettings.markOnSwap,
         animationSpeedTier: gameSettings.animationSpeedTier,
         reduceMotion: gameSettings.reduceMotion,
+        displayLayoutMode: gameSettings.displayLayoutMode,
       }),
     );
   } catch {
@@ -190,6 +211,17 @@ export function getReduceMotion() {
 /** @param {boolean} enabled */
 export function setReduceMotion(enabled) {
   gameSettings.reduceMotion = Boolean(enabled);
+  persistGameSettings();
+}
+
+/** @returns {DisplayLayoutMode} */
+export function getDisplayLayoutMode() {
+  return normalizeDisplayLayoutMode(gameSettings.displayLayoutMode);
+}
+
+/** @param {DisplayLayoutMode} mode */
+export function setDisplayLayoutMode(mode) {
+  gameSettings.displayLayoutMode = normalizeDisplayLayoutMode(mode);
   persistGameSettings();
 }
 

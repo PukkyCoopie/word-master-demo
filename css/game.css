@@ -4193,8 +4193,8 @@ textarea::-moz-placeholder {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: calc(78 * var(--rpx));
-	height: calc(195 * var(--rpx));
+	width: calc(94 * var(--rpx));
+	height: calc(215 * var(--rpx));
 	padding: 0;
 	border: none;
 	background: rgba(255, 255, 255, 0.12);
@@ -4203,7 +4203,7 @@ textarea::-moz-placeholder {
 	line-height: 1;
 	cursor: pointer;
 	transform: none;
-	margin-top: calc(-97.5 * var(--rpx));
+	margin-top: calc(-108 * var(--rpx));
 	pointer-events: auto;
 	opacity: 0;
 	transition: background calc(0.12s / var(--anim-speed-scale, 1)) ease;

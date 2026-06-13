@@ -49,6 +49,8 @@ export function normalizeSlotCareerStats(raw) {
     lastSelectedDifficultyIndex: Number.isFinite(Number(o.lastSelectedDifficultyIndex))
       ? Math.max(0, Math.min(RUN_DIFFICULTY_COUNT - 1, Math.floor(Number(o.lastSelectedDifficultyIndex))))
       : 0,
+    tapTapEngagementPromptHandled: o.tapTapEngagementPromptHandled === true,
+    tapTapEngagementAutoPending: o.tapTapEngagementAutoPending === true,
   };
   normalizeCollectionCareerFields(career, o);
   normalizeAchievementCareerFields(career, o);

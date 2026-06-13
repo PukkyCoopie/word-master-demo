@@ -4,7 +4,8 @@
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
 import { pickDistinctSpellDefsForPack } from "../spells/spellPackOfferRoll.js";
 import { rollDistinctShopTreasures } from "../treasures/shopTreasureRoll.js";
-import { RARITY_BY_LETTER, LETTER_RARITY_ORDER, getRarityForLetter } from "../composables/useScoring.js";
+import { LETTER_RARITY_ORDER, getRarityForLetter } from "../composables/useScoring.js";
+import { allLetterRaws } from "../game/initialDeckLetterCounts.js";
 import {
   getPackOfferSlotCount,
   PACK_OFFER_CATEGORY_WEIGHTS,
@@ -21,6 +22,7 @@ import {
   UPGRADE_RARITY_LETTER_LABEL,
 } from "./shopOfferRowBuilders.js";
 import { buildDeckTileOfferDisplay, rollDeckTileModifiers } from "./rollDeckTileModifiers.js";
+import { pickDistinctWeightedLetterRaws } from "./tilePackLetterRoll.js";
 import {
   getSpellCategoryWeightMultiplier,
   getUpgradeCategoryWeightMultiplier,
@@ -36,15 +38,6 @@ function shuffleArrayInPlace(arr, rnd) {
     arr[j] = t;
   }
   return arr;
-}
-
-function allLetterRaws() {
-  /** @type {string[]} */
-  const out = [];
-  for (const letters of Object.values(RARITY_BY_LETTER)) {
-    for (const x of letters) out.push(x);
-  }
-  return out;
 }
 
 /**
@@ -459,7 +452,7 @@ export function rollBundleOptionsForOffer(bundleOffer, ctx) {
     const letterRaws = allLetterRaws();
     const materialIds = [...getShopTilePackMaterialIds()];
     const n = tier === "normal" ? 3 : 5;
-    const raws = pickDistinctFromPool(rng, letterRaws, n);
+    const raws = pickDistinctWeightedLetterRaws(rng, n, letterRaws);
     return raws.map((raw, i) => {
       const mods = rollDeckTileModifiers(rng, { honeAccessoryMult: honeMult, materialIds });
       const rarity = getRarityForLetter(raw);

@@ -166,7 +166,7 @@ export function getBaseRemovalsPerLevel(owned) {
   return Math.max(1, n);
 }
 
-/** 白方块·二级：宝藏栏额外格数 */
+/** 空白格·二级：宝藏栏额外格数 */
 export function getOwnedTreasureSlotBonusFromVouchers(owned) {
   return has(owned, "v_blank_2") ? 1 : 0;
 }

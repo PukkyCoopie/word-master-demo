@@ -32,6 +32,7 @@
           v-if="showMenu"
           :profile-layer-open="showPlayerProfile"
           :collection-progress-suffix="menuCollectionProgressSuffix"
+          :save-ui-refresh-key="saveUiRefreshKey"
           @request-start="onMenuRequestStart"
           @open-profile="openPlayerProfile"
           @open-settings="openSettings"
@@ -175,6 +176,11 @@ import { registerAppTestHarness } from "./e2e/registerAppTestHarness.js";
 import TapTapPromoIcon from "./components/TapTapPromoIcon.vue";
 import TapTapPosterLayer from "./components/TapTapPosterLayer.vue";
 import { isTapTapWebPromoEnabled } from "./taptap/tapTapWebPromo.js";
+import {
+  markTapTapEngagementAutoPending,
+  shouldMarkTapTapEngagementAutoPending,
+} from "./taptap/tapTapEngagementPrompt.js";
+import { openTapTapEngagementLayer } from "./taptap/tapTapEngagementUi.js";
 import { useWebLayoutMode } from "./composables/useWebLayoutMode.js";
 import {
   applyProfileDefaultsFromTapTap,
@@ -412,6 +418,9 @@ provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyInde
   const career = normalizeSlotCareerStats(slot.career);
   const careerBefore = normalizeSlotCareerStats(JSON.parse(JSON.stringify(career)));
   mergeRunMatchStatsIntoCareer(career, stats, outcome);
+  if (shouldMarkTapTapEngagementAutoPending(career, outcome, runDifficultyIndex)) {
+    markTapTapEngagementAutoPending(career);
+  }
   if (outcome === "win") {
     const presetWinNew = recordPresetWin(career, normalizeRunPresetId(runPresetId));
     recordDifficultyWin(
@@ -819,6 +828,7 @@ onMounted(() => {
     refreshUi: bumpCollectionUi,
     openMaterialBench,
     enableDeveloperMode,
+    openTapTapEngagementPrompt: () => openTapTapEngagementLayer({ showIntroQuestion: true }),
   });
 
   globalThis.__WM_previewAchievementToast = () =>

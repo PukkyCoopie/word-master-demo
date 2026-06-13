@@ -1,6 +1,8 @@
 package com.timeshift_games.word_master;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -13,6 +15,8 @@ import com.taptap.sdk.kit.internal.exception.TapTapException;
 import com.taptap.sdk.login.Scopes;
 import com.taptap.sdk.login.TapTapAccount;
 import com.taptap.sdk.login.TapTapLogin;
+import com.taptap.sdk.moment.TapTapMoment;
+import com.taptap.sdk.review.TapTapReview;
 import java.util.Map;
 
 @CapacitorPlugin(name = "TapTap")
@@ -154,6 +158,40 @@ public class TapTapPlugin extends Plugin {
     @PluginMethod
     public void showAchievements(PluginCall call) {
         TapTapAchievement.showAchievements();
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void openReview(PluginCall call) {
+        TapTapReview.openReview();
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void openMomentScene(PluginCall call) {
+        String sceneId = call.getString("sceneId");
+        if (sceneId == null || sceneId.trim().isEmpty()) {
+            call.reject("sceneId is required");
+            return;
+        }
+        TapTapMoment.openScene(sceneId.trim());
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void openExternalUrl(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || url.trim().isEmpty()) {
+            call.reject("url is required");
+            return;
+        }
+        Activity activity = getActivity();
+        if (activity == null) {
+            call.reject("Activity unavailable");
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url.trim()));
+        activity.startActivity(intent);
         call.resolve();
     }
 

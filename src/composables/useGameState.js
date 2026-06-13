@@ -33,6 +33,7 @@ import { applyBossTileDebuffState } from "../game/bossTileDebuff.js";
 import { vowelDisplayLetter } from "../game/vowelNeighborSubstitute.js";
 import { resolvedWordToRemovalLetterRaws } from "../treasures/treasureLogicShared.js";
 import { normalizeExclusiveTileAccessoryPair } from "../accessories/accessoryState.js";
+import { VOWEL_DECK_COUNT } from "../game/initialDeckLetterCounts.js";
 
 const VOWEL_LETTERS = new Set(["a", "e", "i", "o", "u"]);
 
@@ -53,15 +54,6 @@ function tileRawForDeckStack(tile) {
   if (L === "?") return WILDCARD_STACK_RAW;
   return tileLetterToRawLowerForDeck(tile.letter);
 }
-
-/** 元音张数按英文频率大致分层：E 最高，U 最低（较基础版略多，便于组词） */
-const VOWEL_DECK_COUNT = Object.freeze({
-  e: 9,
-  a: 7,
-  o: 7,
-  i: 7,
-  u: 6,
-});
 
 const WILDCARD_MATERIAL_ID = "wildcard";
 const WILDCARD_TILE_LETTER = "?";

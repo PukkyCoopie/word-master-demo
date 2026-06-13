@@ -85,6 +85,7 @@ function pickWeightedCategory(keys, weights, rng) {
  *     shopPrerequisiteTreasureSingleCardAppearanceCounts: Record<string, number>,
  *   },
  *   onPrerequisiteTreasureShopAppeared?: (treasureId: string) => void,
+ *   guaranteeFirstShopTreasureSlot?: boolean,
  * }} ctx
  */
 /**
@@ -268,16 +269,24 @@ function createShopRandomCardRoller(ctx) {
     return makeEmpty();
   }
 
-  return { rollOneSlot };
+  return { rollOneSlot, tryTreasure };
 }
 
 export function rollShopRandomCardOffers(ctx) {
   const ownedV = ctx.ownedVoucherIds != null ? new Set([...ctx.ownedVoucherIds]) : new Set();
   const slotCount = getShopRandomCardSlotCount(getShopRandomCardSlotBonus(ownedV));
-  const { rollOneSlot } = createShopRandomCardRoller(ctx);
+  const { rollOneSlot, tryTreasure } = createShopRandomCardRoller(ctx);
+  const guaranteeTreasure = ctx.guaranteeFirstShopTreasureSlot === true;
   /** @type {object[]} */
   const rows = [];
   for (let i = 0; i < slotCount; i += 1) {
+    if (guaranteeTreasure && i === 0) {
+      const treasureRow = tryTreasure();
+      if (treasureRow) {
+        rows.push(treasureRow);
+        continue;
+      }
+    }
     rows.push(rollOneSlot());
   }
   return rows;

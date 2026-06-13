@@ -1,40 +1,21 @@
 import { onMounted, onUnmounted, watch } from "vue";
 import { gameSettings } from "../settings/gameSettings.js";
+import { applyBorderlessLayoutHtmlClass } from "../settings/displayLayoutMode.js";
 import { syncPortalFrameToGameSurface } from "./usePortalFrameSync.js";
+import { getViewportSize, LOGIC_H, LOGIC_W } from "./viewportSize.js";
 
-const LOGIC_W = 750;
-const LOGIC_H = 1500;
-/** 设计画布宽高比（750×1500）；视口更「窄」时 w/h 小于该值（与 useViewportLayoutMode 一致） */
-export const DESIGN_ASPECT = LOGIC_W / LOGIC_H;
+export { DESIGN_ASPECT, getViewportSize, LOGIC_H, LOGIC_W } from "./viewportSize.js";
 
+/** 视口比 750×1500 更窄（偏高）时：留白与容器同色、去掉圆角与阴影 */
+function updateViewportAspectLayoutClass(w, h) {
+  applyBorderlessLayoutHtmlClass(w, h);
+}
+
+/** 原生 WebView 偶发注入 safe-area 变量，清零以免顶栏留白 */
 function isNativeApp() {
   return typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.() === true;
 }
 
-export function getViewportSize() {
-  const vv = window.visualViewport;
-  if (vv && vv.width > 0 && vv.height > 0) {
-    return {
-      w: Math.round(vv.width),
-      h: Math.round(vv.height),
-    };
-  }
-  return {
-    w: window.innerWidth,
-    h: window.innerHeight,
-  };
-}
-
-/** 视口比 750×1500 更窄（偏高）时：留白与容器同色、去掉圆角与阴影 */
-function updateViewportAspectLayoutClass(w, h) {
-  const narrowerThanDesign = h > 0 && w / h < DESIGN_ASPECT;
-  document.documentElement.classList.toggle(
-    "viewport-narrower-than-design",
-    narrowerThanDesign,
-  );
-}
-
-/** 原生 WebView 偶发注入 safe-area 变量，清零以免顶栏留白 */
 function resetNativeSafeAreaInsets() {
   if (!isNativeApp()) {
     return;
@@ -84,6 +65,10 @@ export function useScale() {
   });
   watch(
     () => gameSettings.uiScalePercent,
+    () => updateRpx(),
+  );
+  watch(
+    () => gameSettings.displayLayoutMode,
     () => updateRpx(),
   );
 

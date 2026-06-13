@@ -2151,6 +2151,8 @@ const shopTreasurePool = computed(() =>
 const shopRerollsThisVisit = ref(0);
 /** 对齐 Balatro：整局仅第一次进店时牌包区第一格必为法术小包 */
 const balatroFirstShopPackConsumed = ref(false);
+/** 本局首次进店单卡区保底一件宝藏（商店「刷新」不重掷牌包区，也不重复触发） */
+const firstShopTreasureConsumed = ref(false);
 
 function judgedLengthTableLenForRun(wordLetterCount) {
   const bonus = resolveWordLengthJudgmentBonus({
@@ -2482,10 +2484,11 @@ function buildShopRandomCardRollCtx(sessionExcludeTreasureIds = null) {
   };
 }
 
-function rollShopStock(rng = Math.random, sessionExcludeTreasureIds = null) {
+function rollShopStock(rng = Math.random, sessionExcludeTreasureIds = null, opts = {}) {
   const rows = rollShopRandomCardOffers({
     ...buildShopRandomCardRollCtx(sessionExcludeTreasureIds),
     rng,
+    guaranteeFirstShopTreasureSlot: opts.guaranteeFirstShopTreasureSlot === true,
   });
   applyRandomSaleToShopStockRows(rows, rng);
   return rows;
@@ -2506,7 +2509,11 @@ function appendShopRandomCardSlotsAfterPurchase(extraCount) {
 /** 进店生成单卡区 + 牌包区，同次 visit 内宝藏 id 互不重复；单卡区法术/升级同键不重复 */
 function rollShopVisitStock(rng = Math.random) {
   const sessionExcludeTreasureIds = new Set();
-  const shop = rollShopStock(rng, sessionExcludeTreasureIds);
+  const guaranteeTreasure = firstShopTreasureConsumed.value === false;
+  const shop = rollShopStock(rng, sessionExcludeTreasureIds, {
+    guaranteeFirstShopTreasureSlot: guaranteeTreasure,
+  });
+  if (guaranteeTreasure) firstShopTreasureConsumed.value = true;
   const pack = rollPackStock(rng, sessionExcludeTreasureIds);
   return { shop, pack };
 }

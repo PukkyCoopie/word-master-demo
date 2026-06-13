@@ -65,6 +65,16 @@
               :inert="activeTab !== 'ui'"
             >
               <div class="settings-layer-list">
+                <div class="settings-row settings-row--segment">
+                  <span class="settings-row-label">显示模式</span>
+                  <SettingsSegmentControl
+                    :options="DISPLAY_LAYOUT_MODE_OPTIONS"
+                    :model-value="displayLayoutMode"
+                    aria-label="显示模式"
+                    @update:model-value="onDisplayLayoutModeChange"
+                  />
+                </div>
+
                 <div class="settings-row settings-row--scale">
                   <span class="settings-row-label">界面缩放</span>
                   <div class="settings-scale-controls">
@@ -225,10 +235,12 @@ import {
   UI_SCALE_MAX,
   UI_SCALE_MIN,
   SWAP_BUTTON_MODE_OPTIONS,
+  DISPLAY_LAYOUT_MODE_OPTIONS,
   clampUiScalePercent,
   gameSettings,
   setAllowSpellingAbbreviations,
   setAnimationSpeedTier,
+  setDisplayLayoutMode,
   setMarkOnSwap,
   setReduceMotion,
   setUiScalePercent,
@@ -284,8 +296,14 @@ function setActiveTab(id) {
 const allowAbbrev = computed(() => gameSettings.allowSpellingAbbreviations === true);
 const markOnSwap = computed(() => gameSettings.markOnSwap !== false);
 const uiScalePercent = computed(() => gameSettings.uiScalePercent);
+const displayLayoutMode = computed(() => gameSettings.displayLayoutMode);
 const animationSpeedTier = computed(() => gameSettings.animationSpeedTier);
 const reduceMotionEnabled = computed(() => gameSettings.reduceMotion === true);
+
+/** @param {string} mode */
+function onDisplayLayoutModeChange(mode) {
+  setDisplayLayoutMode(/** @type {import('../settings/gameSettings.js').DisplayLayoutMode} */ (mode));
+}
 
 /** @param {string} tier */
 function onAnimationSpeedChange(tier) {

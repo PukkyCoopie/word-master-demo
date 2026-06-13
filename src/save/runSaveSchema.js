@@ -45,6 +45,8 @@
  * @property {number} [totalWordsSubmitted]
  * @property {number} [peakWalletAmount]
  * @property {number} [maxLevelIndexReached]
+ * @property {boolean} [tapTapEngagementPromptHandled]
+ * @property {boolean} [tapTapEngagementAutoPending]
  */
 
 /** @typedef {Object} RunSaveSlot
@@ -109,6 +111,8 @@ export function createEmptySlotCareerStats() {
     totalWordsSubmitted: 0,
     peakWalletAmount: 0,
     maxLevelIndexReached: -1,
+    tapTapEngagementPromptHandled: false,
+    tapTapEngagementAutoPending: false,
   };
 }
 

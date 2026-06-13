@@ -15,10 +15,10 @@ export const TAP_TAP_ICON_SRC = "/taptap/taptap.svg";
 export const TAP_TAP_EXPERIENCE_PROMO_ENABLED = false;
 
 const TAP_TAP_PROMO_LABEL_LIVE = "前往TapTap体验完整游戏";
-const TAP_TAP_PROMO_LABEL_COMING_SOON = "即将在TapTap上线，欢迎关注";
+const TAP_TAP_PROMO_LABEL_COMING_SOON = "已在TapTap上线，欢迎关注";
 const TAP_TAP_PROMO_ABOUT_LEAD_LIVE = "前往";
 const TAP_TAP_PROMO_ABOUT_TAIL_LIVE = "体验完整游戏";
-const TAP_TAP_PROMO_ABOUT_LEAD_COMING_SOON = "即将在";
+const TAP_TAP_PROMO_ABOUT_LEAD_COMING_SOON = "已在";
 const TAP_TAP_PROMO_ABOUT_TAIL_COMING_SOON = "上线，欢迎关注";
 
 export function getTapTapPromoLabel() {

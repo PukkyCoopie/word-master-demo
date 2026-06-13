@@ -9,11 +9,19 @@ import { applyFullCollectionUnlockToCareer } from "./unlockFullCollection.js";
  * @param {() => void} [deps.refreshUi]
  * @param {() => void} [deps.openMaterialBench]
  * @param {() => void} [deps.enableDeveloperMode]
+ * @param {() => void} [deps.openTapTapEngagementPrompt]
  */
 export function registerDevConsole(deps) {
   if (!import.meta.env.DEV) return () => {};
 
-  const { getActiveSlotIndex, mutateCareer, refreshUi, openMaterialBench, enableDeveloperMode } = deps;
+  const {
+    getActiveSlotIndex,
+    mutateCareer,
+    refreshUi,
+    openMaterialBench,
+    enableDeveloperMode,
+    openTapTapEngagementPrompt,
+  } = deps;
 
   /**
    * @param {number | undefined} slotIndex
@@ -50,6 +58,7 @@ export function registerDevConsole(deps) {
         "  __WM_DEV__.unlockFullCollection(0)      — 指定槽位（0/1/2）",
         "  __WM_DEV__.openMaterialBench()        — 材质性能实验（10 格）",
         "  __WM_DEV__.enableDeveloperMode()      — 开启开发者模式（收藏成就连点作弊）",
+        "  __WM_DEV__.openTapTapEngagementPrompt() — 打开评价和反馈弹窗（含引导问句）",
         "  __WM_DEV__.startMaskBubbleBlueprintTest() — 进关后：[面具][泡泡] + 棋盘 2 个 B（计分动画测试）",
         "  或 URL ?dev=maskBubble 新开一局自动启用",
         "  __WM_DEV__.help()                       — 显示本帮助",
@@ -67,6 +76,10 @@ export function registerDevConsole(deps) {
     enableDeveloperMode: () => {
       enableDeveloperMode?.();
       console.log("[DEV] 已开启开发者模式");
+    },
+    openTapTapEngagementPrompt: () => {
+      openTapTapEngagementPrompt?.();
+      console.log("[DEV] 已打开评价和反馈弹窗");
     },
     help,
   };

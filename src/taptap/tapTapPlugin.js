@@ -57,6 +57,9 @@ const TapTapWebStub = {
   async incrementAchievement() {},
   async setAchievementToastEnabled() {},
   async showAchievements() {},
+  async openReview() {},
+  async openMomentScene() {},
+  async openExternalUrl() {},
   async addListener() {
     return { remove: async () => {} };
   },

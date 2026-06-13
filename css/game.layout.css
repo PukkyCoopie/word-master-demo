@@ -281,7 +281,8 @@ html.viewport-narrower-than-design #game-view-portal-frame .boss-blind-reroll-ba
 .settings-layer-backdrop,
 .about-layer-backdrop,
 .privacy-consent-layer-backdrop,
-.run-start-dialog-backdrop {
+.run-start-dialog-backdrop,
+.taptap-engagement-layer-backdrop {
 	position: absolute;
 	inset: 0;
 	box-sizing: border-box;
@@ -290,7 +291,8 @@ html.viewport-narrower-than-design #game-view-portal-frame .boss-blind-reroll-ba
 .settings-layer-scrim,
 .about-layer-scrim,
 .privacy-consent-layer-scrim,
-.run-start-dialog-scrim {
+.run-start-dialog-scrim,
+.taptap-engagement-layer-scrim {
 	position: absolute;
 	inset: 0;
 }
@@ -299,10 +301,12 @@ html.viewport-narrower-than-design .settings-layer-backdrop,
 html.viewport-narrower-than-design .about-layer-backdrop,
 html.viewport-narrower-than-design .privacy-consent-layer-backdrop,
 html.viewport-narrower-than-design .run-start-dialog-backdrop,
+html.viewport-narrower-than-design .taptap-engagement-layer-backdrop,
 html.viewport-narrower-than-design .settings-layer-scrim,
 html.viewport-narrower-than-design .about-layer-scrim,
 html.viewport-narrower-than-design .privacy-consent-layer-scrim,
-html.viewport-narrower-than-design .run-start-dialog-scrim {
+html.viewport-narrower-than-design .run-start-dialog-scrim,
+html.viewport-narrower-than-design .taptap-engagement-layer-scrim {
 	position: fixed;
 	inset: 0;
 }

@@ -5,8 +5,27 @@
       :suppressed="profileLayerOpen"
       @open-profile="$emit('open-profile', $event)"
     />
-    <div class="main-menu-inner">
+    <TapTapEngagementButton
+      v-if="showMenuActions"
+      @open="openEngagementManual"
+    />
+    <Teleport defer to="#game-view-portal-frame">
+      <TapTapEngagementLayer
+        :open="tapTapEngagementLayerOpen"
+        :show-intro-question="tapTapEngagementShowIntro"
+        @close="closeTapTapEngagementLayer"
+        @engaged="onTapTapEngagementAction"
+      />
+    </Teleport>
+    <div
+      ref="innerRef"
+      class="main-menu-inner"
+      :class="{
+        'main-menu-inner--enter-anim': showMenuActions && !menuEnterDone,
+      }"
+    >
       <TileLetterShowcase
+        ref="showcaseRef"
         class="menu-letter-showcase"
         aria-label="单词大师"
         :rows="showcaseRows"
@@ -46,31 +65,37 @@
         <p v-if="authMessage" class="menu-auth-hint">{{ authMessage }}</p>
       </nav>
 
-      <nav v-else-if="showMenuActions" class="menu-actions" aria-label="主菜单">
-        <button type="button" class="menu-btn menu-btn--start" @click="$emit('request-start')">
-          <i class="ri-play-fill menu-btn-icon" aria-hidden="true"></i>
-          <span>开始游戏</span>
-        </button>
-        <button
-          type="button"
-          class="menu-btn menu-btn--collection"
-          :aria-label="`收藏${collectionProgressSuffix}`"
-          @click="$emit('open-collection')"
-        >
-          <i class="ri-bookmark-3-line menu-btn-icon" aria-hidden="true"></i>
-          <span>
-            收藏<span v-if="collectionProgressSuffix" class="menu-btn-progress">{{ collectionProgressSuffix }}</span>
-          </span>
-        </button>
-        <button type="button" class="menu-btn menu-btn--settings" @click="$emit('open-settings')">
-          <i class="ri-settings-3-line menu-btn-icon" aria-hidden="true"></i>
-          <span>设置</span>
-        </button>
-        <button type="button" class="menu-btn menu-btn--about" @click="$emit('open-about')">
-          <i class="ri-information-line menu-btn-icon" aria-hidden="true"></i>
-          <span>关于</span>
-        </button>
-      </nav>
+      <div
+        v-else-if="showMenuActions"
+        ref="actionsWrapRef"
+        class="menu-actions-wrap"
+      >
+        <nav ref="actionsRef" class="menu-actions" aria-label="主菜单">
+          <button type="button" class="menu-btn menu-btn--start" @click="$emit('request-start')">
+            <i class="ri-play-fill menu-btn-icon" aria-hidden="true"></i>
+            <span>开始游戏</span>
+          </button>
+          <button
+            type="button"
+            class="menu-btn menu-btn--collection"
+            :aria-label="`收藏${collectionProgressSuffix}`"
+            @click="$emit('open-collection')"
+          >
+            <i class="ri-bookmark-3-line menu-btn-icon" aria-hidden="true"></i>
+            <span>
+              收藏<span v-if="collectionProgressSuffix" class="menu-btn-progress">{{ collectionProgressSuffix }}</span>
+            </span>
+          </button>
+          <button type="button" class="menu-btn menu-btn--settings" @click="$emit('open-settings')">
+            <i class="ri-settings-3-line menu-btn-icon" aria-hidden="true"></i>
+            <span>设置</span>
+          </button>
+          <button type="button" class="menu-btn menu-btn--about" @click="$emit('open-about')">
+            <i class="ri-information-line menu-btn-icon" aria-hidden="true"></i>
+            <span>关于</span>
+          </button>
+        </nav>
+      </div>
     </div>
     <TapTapPromoIcon
       v-if="showTapTapMenuPromo"
@@ -81,18 +106,44 @@
 </template>
 
 <script setup>
-import { computed, inject } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import TileLetterShowcase from "./TileLetterShowcase.vue";
 import TapTapLoginButton from "./TapTapLoginButton.vue";
 import TapTapPromoIcon from "./TapTapPromoIcon.vue";
+import TapTapEngagementButton from "./TapTapEngagementButton.vue";
+import TapTapEngagementLayer from "./TapTapEngagementLayer.vue";
 import PlayerProfileChip from "./PlayerProfileChip.vue";
 import { useTapTapAuth } from "../composables/useTapTapAuth.js";
 import { useWebLayoutMode } from "../composables/useWebLayoutMode.js";
 import { isTapTapWebPromoEnabled } from "../taptap/tapTapWebPromo.js";
+import {
+  TAP_TAP_ENGAGEMENT_AUTO_DELAY_MS,
+  clearTapTapEngagementAutoPending,
+  isTapTapEngagementAutoPending,
+  isTapTapEngagementPromptHandled,
+  markTapTapEngagementPromptHandled,
+} from "../taptap/tapTapEngagementPrompt.js";
+import {
+  closeTapTapEngagementLayer,
+  openTapTapEngagementLayer,
+  tapTapEngagementLayerOpen,
+  tapTapEngagementShowIntro,
+} from "../taptap/tapTapEngagementUi.js";
+import { animSleep } from "../settings/animationSpeed.js";
+import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
+import { getSlotCareer, mutateSlotCareer } from "../save/runSaveStorage.js";
+import { getActiveSaveSlotIndex } from "../profile/playerProfile.js";
+import {
+  killMainMenuEnter,
+  measureMainMenuEnterLayout,
+  playMainMenuEnter,
+  prepareMainMenuEnterHidden,
+} from "../menu/mainMenuEnterAnim.js";
 
-defineProps({
+const props = defineProps({
   profileLayerOpen: { type: Boolean, default: false },
   collectionProgressSuffix: { type: String, default: "" },
+  saveUiRefreshKey: { type: Number, default: 0 },
 });
 
 defineEmits(["request-start", "open-profile", "open-settings", "open-about", "open-collection"]);
@@ -113,9 +164,144 @@ const {
 const { isMobileLayout } = useWebLayoutMode();
 /** @type {() => void} */
 const openTapTapPoster = inject("openTapTapPoster", () => {});
+/** @type {import('vue').Ref<boolean> | null} */
+const developerModeEnabled = inject("developerModeEnabled", null);
 const showTapTapMenuPromo = computed(
   () => isTapTapWebPromoEnabled() && isMobileLayout.value,
 );
+
+/** @type {import('vue').Ref<HTMLElement | null>} */
+const innerRef = ref(null);
+/** @type {import('vue').Ref<import('vue').ComponentPublicInstance | null>} */
+const showcaseRef = ref(null);
+/** @type {import('vue').Ref<HTMLElement | null>} */
+const actionsWrapRef = ref(null);
+/** @type {import('vue').Ref<HTMLElement | null>} */
+const actionsRef = ref(null);
+const menuEnterDone = ref(false);
+/** @type {number} */
+let menuEnterRunId = 0;
+
+/** @returns {HTMLElement | null} */
+function resolveShowcaseEl() {
+  const raw = showcaseRef.value;
+  if (!raw) return null;
+  if (raw instanceof HTMLElement) return raw;
+  const el = raw.$el;
+  return el instanceof HTMLElement ? el : null;
+}
+
+async function runMenuEnterAnimation() {
+  menuEnterRunId += 1;
+  const runId = menuEnterRunId;
+
+  if (!showMenuActions.value) return;
+
+  menuEnterDone.value = false;
+  await nextTick();
+  if (runId !== menuEnterRunId) return;
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  if (runId !== menuEnterRunId) return;
+
+  const inner = innerRef.value;
+  const showcase = resolveShowcaseEl();
+  const actionsWrap = actionsWrapRef.value;
+  const nav = actionsRef.value;
+  if (!inner || !showcase || !actionsWrap || !nav) return;
+
+  const layout = measureMainMenuEnterLayout(nav, showcase);
+  prepareMainMenuEnterHidden(showcase, actionsWrap, layout.buttons);
+
+  requestAnimationFrame(() => {
+    if (runId !== menuEnterRunId) return;
+    playMainMenuEnter({
+      inner,
+      showcase,
+      actionsWrap,
+      buttons: layout.buttons,
+      navHeight: layout.navHeight,
+      showcaseGapPx: layout.showcaseGapPx,
+      onComplete: () => {
+        if (runId === menuEnterRunId) menuEnterDone.value = true;
+      },
+    });
+  });
+}
+
+watch(
+  showMenuActions,
+  (visible) => {
+    if (visible) {
+      void runMenuEnterAnimation();
+    } else {
+      menuEnterRunId += 1;
+      menuEnterDone.value = false;
+    }
+  },
+  { immediate: true },
+);
+
+/** @type {number} */
+let autoEngagementRunId = 0;
+
+function persistEngagementHandled(slotIndex) {
+  mutateSlotCareer(slotIndex, markTapTapEngagementPromptHandled);
+}
+
+function onTapTapEngagementAction() {
+  persistEngagementHandled(getActiveSaveSlotIndex());
+}
+
+function openEngagementManual() {
+  const showIntro = developerModeEnabled?.value === true;
+  openTapTapEngagementLayer({ showIntroQuestion: showIntro });
+}
+
+async function tryScheduleAutoEngagementPrompt() {
+  autoEngagementRunId += 1;
+  const runId = autoEngagementRunId;
+
+  if (!showMenuActions.value) return;
+
+  const slotIndex = getActiveSaveSlotIndex();
+  const career = normalizeSlotCareerStats(getSlotCareer(slotIndex));
+  if (!isTapTapEngagementAutoPending(career) || isTapTapEngagementPromptHandled(career)) {
+    return;
+  }
+
+  await animSleep(TAP_TAP_ENGAGEMENT_AUTO_DELAY_MS);
+  if (runId !== autoEngagementRunId || !showMenuActions.value) return;
+
+  const careerAfterWait = normalizeSlotCareerStats(getSlotCareer(slotIndex));
+  if (!isTapTapEngagementAutoPending(careerAfterWait) || isTapTapEngagementPromptHandled(careerAfterWait)) {
+    return;
+  }
+
+  mutateSlotCareer(slotIndex, (nextCareer) => {
+    clearTapTapEngagementAutoPending(nextCareer);
+    markTapTapEngagementPromptHandled(nextCareer);
+  });
+  openTapTapEngagementLayer({ showIntroQuestion: true });
+}
+
+watch(
+  () => [showMenuActions.value, props.saveUiRefreshKey],
+  () => {
+    if (showMenuActions.value) {
+      void tryScheduleAutoEngagementPrompt();
+    } else {
+      autoEngagementRunId += 1;
+    }
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  autoEngagementRunId += 1;
+  menuEnterRunId += 1;
+  killMainMenuEnter(resolveShowcaseEl(), actionsRef.value, actionsWrapRef.value);
+});
 
 const showcaseRows = [
   [
@@ -157,6 +343,25 @@ const showcaseRows = [
   flex-direction: column;
   align-items: center;
   gap: 0;
+}
+
+.main-menu-inner--enter-anim .menu-letter-showcase {
+  margin-bottom: 0;
+}
+
+.menu-actions-wrap {
+  width: 100%;
+  overflow: hidden;
+}
+
+.main-menu-inner--enter-anim .menu-actions-wrap {
+  height: 0;
+  overflow: visible;
+}
+
+.main-menu-inner--enter-anim .menu-btn {
+  transform: scale(0);
+  transform-origin: 50% 50%;
 }
 
 .menu-letter-showcase {
@@ -291,4 +496,3 @@ const showcaseRows = [
   }
 }
 </style>
-
