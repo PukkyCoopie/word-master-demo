@@ -4261,6 +4261,7 @@ function setRarityLevelWithTreasurePairs(rarity, level) {
 function buildSubmitAfterLettersContext(tiles, detailed) {
   return {
     submittedScoringTiles: tiles,
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     resolveSubmitTileAtIndex: (index, scoringTile) =>
       resolveRealSubmitTileForWordSlot(index, scoringTile),
     touchGrid,

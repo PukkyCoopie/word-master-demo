@@ -1,23 +1,47 @@
 import { describe, mult } from "../treasureDescription.js";
 import {
   stripEnhancementsFromTileOrDeckCard,
-  tileHasScoringEnhancement,
+  submitScoringTileHasEnhancement,
 } from "../../game/treasureEnhancementStrip.js";
 import { syncTileStateToDeckCard } from "../../game/deckCardSync.js";
 import { addMultMulBank, getMultMulBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { isBossDebuffedSubmitTile } from "../treasureScoring.js";
 
 const ID = "88";
 const MULT_GAIN_PER_STRIP = 0.1;
+/** 本手逐字结算会把持久平面分/倍率写回牌张的宝藏（计分板、回形针；非玩家标记折角） */
+const INTRINSIC_PERSIST_TREASURE_IDS = new Set(["75", "76"]);
+
+/**
+ * @param {import('../treasureTypes.js').TreasureLogicContext | import('../treasureTypes.js').TreasureSubmitAfterLettersContext} ctx
+ * @param {number} index
+ * @param {object | null | undefined} scoringTile
+ */
+function spongeSubmitTileCountsAsEnhanced(ctx, index, scoringTile) {
+  if (isBossDebuffedSubmitTile(scoringTile)) return false;
+  const real = ctx.resolveSubmitTileAtIndex?.(index, scoringTile) ?? null;
+  if (submitScoringTileHasEnhancement(scoringTile, real)) return true;
+  const owned = new Set((ctx.ownedSlotTreasureIds ?? []).filter(Boolean).map(String));
+  for (const tid of INTRINSIC_PERSIST_TREASURE_IDS) {
+    if (owned.has(tid)) return true;
+  }
+  return false;
+}
 
 /** @param {import('../treasureTypes.js').TreasureSubmitAfterLettersContext} ctx @param {number} index @param {object | null | undefined} scoringTile */
 function stripSubmitTileAt(ctx, index, scoringTile) {
-  const real = ctx.resolveSubmitTileAtIndex?.(index, scoringTile) ?? scoringTile;
-  if (real && typeof real === "object") {
-    stripEnhancementsFromTileOrDeckCard(real);
-    syncTileStateToDeckCard(real);
+  const real = ctx.resolveSubmitTileAtIndex?.(index, scoringTile) ?? null;
+  /** @type {object[]} */
+  const targets = [];
+  if (real && typeof real === "object") targets.push(real);
+  if (scoringTile && typeof scoringTile === "object" && scoringTile !== real) targets.push(scoringTile);
+  for (const t of targets) {
+    stripEnhancementsFromTileOrDeckCard(t);
+    syncTileStateToDeckCard(t);
   }
-  if (scoringTile && scoringTile !== real && typeof scoringTile === "object") {
-    stripEnhancementsFromTileOrDeckCard(scoringTile);
+  const deckCard = real?._deckCard ?? scoringTile?._deckCard;
+  if (deckCard && typeof deckCard === "object" && !targets.includes(deckCard)) {
+    stripEnhancementsFromTileOrDeckCard(deckCard);
   }
 }
 
@@ -37,8 +61,9 @@ export const treasureHooks = {
   ...patchCurrentBankDescription(ID, "multMul"),
   /** 计分前：每个带增强的提交字母擦除时 +0.1 入银行（与字后 `buildPostLetterStep` 读取的累计倍率一致） */
   prepareSubmitScoringBank(ctx) {
-    for (const t of ctx.tiles ?? []) {
-      if (!tileHasScoringEnhancement(t)) continue;
+    const tiles = ctx.tiles ?? [];
+    for (let i = 0; i < tiles.length; i++) {
+      if (!spongeSubmitTileCountsAsEnhanced(ctx, i, tiles[i])) continue;
       addMultMulBank(ctx.treasureRun, ID, MULT_GAIN_PER_STRIP);
     }
   },
@@ -52,7 +77,7 @@ export const treasureHooks = {
     /** @type {number[]} */
     const indices = [];
     for (let i = 0; i < tiles.length; i++) {
-      if (tileHasScoringEnhancement(tiles[i])) indices.push(i);
+      if (spongeSubmitTileCountsAsEnhanced(ctx, i, tiles[i])) indices.push(i);
     }
     if (indices.length === 0) return;
 

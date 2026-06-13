@@ -1,12 +1,19 @@
-/** 牌库牌张是否具「增益」（材质或配饰） */
+/**
+ * 牌库牌张是否具「增益」（书包等）：材质、配饰、或计分板/回形针等写入牌张的持久平面分/倍率。
+ * 玩家本关标记（`playerMarked` 折角）仅棋盘提示、不进牌库 multiset，不在此统计。
+ */
+
+import { entityHasAccessory } from "../accessories/accessoryState.js";
+import { deckCardHasPersistedIntrinsicGain } from "../game/tileIntrinsicGains.js";
 
 /** @param {unknown} card */
 export function deckCardHasEnhancement(card) {
   if (!card || typeof card !== "object") return false;
-  const c = /** @type {{ materialId?: string | null, accessoryId?: string | null }} */ (card);
+  const c = /** @type {{ materialId?: string | null }} */ (card);
   const mat = String(c.materialId ?? "").trim();
-  const acc = String(c.accessoryId ?? "").trim();
-  return !!mat || !!acc;
+  if (mat) return true;
+  if (entityHasAccessory(c)) return true;
+  return deckCardHasPersistedIntrinsicGain(c);
 }
 
 /** @param {readonly unknown[] | null | undefined} deck */

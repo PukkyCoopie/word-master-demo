@@ -7,7 +7,7 @@ const ID = "86";
 export default {
   price: 7,
   rarity: "rare",
-  description: describe("每当进入关卡时，随机摧毁一个其他宝藏以获得", mult("x0.5"), "倍率（当前", mult("x1"), "）"),
+  description: describe("每当进入关卡时，随机摧毁一个其他宝藏以获得", mult("x0.5"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
