@@ -41,12 +41,14 @@ const phase = ref(resolveInitialAuthPhase());
 /** @type {import('vue').Ref<import('../taptap/tapTapPlugin.js').TapTapAccount | null>} */
 const account = ref(null);
 const authMessage = ref("");
-const loginBusy = ref(false);
+/** 隐私已同意且待尝试静默登录时，先隐藏登录按钮避免闪一下。 */
+const loginBusy = ref(!bypassAuth && hasPrivacyConsent());
 
 /** @type {import('@capacitor/core').PluginListenerHandle | null} */
 let complianceListener = null;
 let authMountCount = 0;
 let loginFlowActive = false;
+let silentLoginAttempted = false;
 
 /** @returns {Promise<string>} */
 async function formatSignatureMismatchHint() {
@@ -180,13 +182,36 @@ async function runTapTapLoginAndCompliance() {
   }
 }
 
-/** 用户同意隐私政策后进入 TapTap 登录入口（不自动登录/验证）。 */
-export function onPrivacyConsentGrantedForAuth() {
+/** 已登录玩家再次进入：读取 SDK 本地缓存账号并走合规，无需点登录按钮。 */
+async function trySilentTapTapLogin() {
+  if (bypassAuth || loginFlowActive || silentLoginAttempted) return;
+  silentLoginAttempted = true;
+  loginFlowActive = true;
+  loginBusy.value = true;
+  authMessage.value = "";
+  try {
+    await ensureTapTapSdkInitialized();
+    const cached = await TapTap.getCurrentAccount();
+    if (!isTapTapAccount(cached)) {
+      phase.value = "needsLogin";
+      finishLoginFlow();
+      return;
+    }
+    await beginCompliance(cached);
+  } catch {
+    phase.value = "needsLogin";
+    finishLoginFlow();
+  }
+}
+
+/** 用户同意隐私政策后尝试 TapTap 静默登录；无缓存时再展示登录入口。 */
+export async function onPrivacyConsentGrantedForAuth() {
   if (bypassAuth) {
     phase.value = "ready";
     return;
   }
-  phase.value = "needsLogin";
+  await ensureAuthListener();
+  await trySilentTapTapLogin();
 }
 
 async function ensureAuthListener() {
@@ -199,6 +224,7 @@ async function ensureAuthListener() {
 async function resetTapTapSession() {
   authMessage.value = "";
   finishLoginFlow();
+  silentLoginAttempted = false;
   try {
     await TapTap.logout();
   } catch {
@@ -215,7 +241,9 @@ async function resetTapTapSession() {
 export function useTapTapAuth() {
   const showMenuActions = computed(() => phase.value === "ready");
   const showLoginButton = computed(
-    () => phase.value === "needsLogin" || phase.value === "compliance",
+    () =>
+      !loginBusy.value &&
+      (phase.value === "needsLogin" || phase.value === "compliance"),
   );
   const showAuthBlocked = computed(() => phase.value === "blocked" || phase.value === "error");
 
@@ -245,14 +273,10 @@ export function useTapTapAuth() {
   onMounted(async () => {
     authMountCount += 1;
     if (bypassAuth) return;
-    if (hasPrivacyConsent()) {
-      try {
-        await ensureTapTapSdkInitialized();
-      } catch {
-        /* ignore */
-      }
-    }
     await ensureAuthListener();
+    if (hasPrivacyConsent()) {
+      await trySilentTapTapLogin();
+    }
   });
 
   onBeforeUnmount(async () => {

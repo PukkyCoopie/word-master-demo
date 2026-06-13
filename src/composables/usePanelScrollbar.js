@@ -83,11 +83,17 @@ export function usePanelScrollbar(options = {}) {
     const onMove = (moveEvent) => {
       if (!thumbDragState || !container) return;
       const dy = moveEvent.clientY - thumbDragState.startY;
-      const thumbTravel = thumbDragState.maxThumbTop;
-      const scrollDelta =
-        thumbTravel > 0 ? (dy / thumbTravel) * thumbDragState.scrollRange : 0;
-      container.scrollTop = thumbDragState.startScrollTop + scrollDelta;
-      updateScrollbarMetrics();
+      const { maxThumbTop, scrollRange, startScrollTop } = thumbDragState;
+      if (maxThumbTop <= 0) return;
+
+      const nextScrollTop = Math.max(
+        0,
+        Math.min(scrollRange, startScrollTop + (dy / maxThumbTop) * scrollRange),
+      );
+      container.scrollTop = nextScrollTop;
+
+      const ratio = scrollRange > 0 ? nextScrollTop / scrollRange : 0;
+      thumbTopPx.value = SCROLLBAR_TRACK_INSET + ratio * maxThumbTop;
     };
 
     const onUp = () => {
@@ -96,6 +102,7 @@ export function usePanelScrollbar(options = {}) {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
+      updateScrollbarMetrics();
     };
 
     window.addEventListener("pointermove", onMove);

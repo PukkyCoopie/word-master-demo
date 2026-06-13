@@ -1,8 +1,12 @@
 <script setup>
-import { computed, ref, watch, watchEffect } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch, watchEffect } from "vue";
 import gsap from "gsap";
 import { bumpOverlayZ, getOverlayStackTop } from "../game/overlayStack.js";
 import { getAchievementIconUrl } from "../achievements/achievementDefinitions.js";
+import {
+  resumeGamePauseGsapFreeze,
+  suspendGamePauseGsapFreeze,
+} from "../game/gamePause.js";
 import { animSleep, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 const props = defineProps({
@@ -18,9 +22,21 @@ const stackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } :
 watch(
   () => props.queue.playing.value,
   (playing) => {
-    stackZ.value = playing ? bumpOverlayZ() : 0;
+    if (playing) {
+      stackZ.value = bumpOverlayZ();
+      suspendGamePauseGsapFreeze();
+    } else {
+      stackZ.value = 0;
+      resumeGamePauseGsapFreeze();
+    }
   },
 );
+
+onBeforeUnmount(() => {
+  if (props.queue.playing.value) {
+    resumeGamePauseGsapFreeze();
+  }
+});
 
 /** 结算 / 整局结束等层打开时会 bump 栈顶，播放期间保持 Toast 在其上方 */
 watchEffect(() => {
@@ -56,10 +72,11 @@ function setAchievementToastRest(skip) {
 }
 
 watch(
-  () => props.queue.playing.value,
-  async (playing) => {
-    if (!playing || !activeDef.value) return;
+  () => [props.queue.playing.value, props.queue.active.value?.id],
+  async ([playing, activeId]) => {
+    if (!playing || !activeId) return;
     await animSleep(0);
+    await nextTick();
     const backdrop = backdropRef.value;
     const content = contentRef.value;
     const skip = shouldSkipDecorativeMotion();
