@@ -99,6 +99,14 @@
 	--tile-lucky-char-outline: rgba(70, 28, 88, 0.62);
 	--radius: calc(8 * var(--rpx));
 	--shadow: 0 calc(2 * var(--rpx)) calc(8 * var(--rpx)) rgba(0, 0, 0, 0.08);
+	/* 无 filter 叠层：Boss 削弱压暗、按钮 hover/active、宝藏栏变暗 */
+	--overlay-debuff: rgba(58, 54, 50, 0.3);
+	--overlay-debuff-light: rgba(58, 54, 50, 0.24);
+	--overlay-hover-bright: rgba(255, 255, 255, 0.08);
+	--overlay-active-dim: rgba(0, 0, 0, 0.07);
+	--tile-scoring-highlight-shadow:
+		0 0 0 calc(2.5 * var(--rpx)) rgba(255, 248, 220, 0.62),
+		inset 0 0 calc(14 * var(--rpx)) rgba(255, 255, 255, 0.18);
 	/* 底部四按钮配色（与主题协调） */
 	--btn-white: #f9f6f2;
 	--btn-yellow: #edc22e;
@@ -404,7 +412,7 @@ textarea::-moz-placeholder {
 
 .boss-tape-wrap--violate .boss-tape-ripple {
 	border-width: calc(3.4 * var(--rpx));
-	filter: drop-shadow(0 0 calc(7 * var(--rpx)) rgba(210, 56, 48, 0.46));
+	box-shadow: 0 0 calc(7 * var(--rpx)) rgba(210, 56, 48, 0.46);
 }
 
 .boss-tape-wrap--violate .boss-tape-desc {
@@ -415,7 +423,7 @@ textarea::-moz-placeholder {
 /* Boss 效果触发：单次大幅外扩 ripple（警示态约 -12rpx，此处约 -52rpx） */
 .boss-tape-wrap--trigger-impact .boss-tape-ripple {
 	border-width: calc(3.6 * var(--rpx));
-	filter: drop-shadow(0 0 calc(11 * var(--rpx)) rgba(210, 56, 48, 0.42));
+	box-shadow: 0 0 calc(11 * var(--rpx)) rgba(210, 56, 48, 0.42);
 	animation: boss-tape-ripple-out-trigger 1.05s cubic-bezier(0.18, 0.72, 0.32, 1) 1 forwards;
 }
 
@@ -887,9 +895,9 @@ textarea::-moz-placeholder {
 	letter-spacing: 0.02em;
 }
 
-/* word-slot 记分高光与占位（削弱格见 .letter-tile-boss-debuff 与 :has 规则，避免父级 filter 盖掉变暗） */
+/* word-slot 记分高光与占位（削弱格见 .letter-tile-boss-debuff ::before 叠层） */
 .word-slots .word-slot-tile.word-slot-scoring-highlight:not(:has(.letter-tile-boss-debuff)) {
-	filter: brightness(1.06);
+	box-shadow: var(--shadow), var(--tile-scoring-highlight-shadow);
 	z-index: 5;
 }
 
@@ -952,14 +960,23 @@ textarea::-moz-placeholder {
 	color: var(--text);
 	box-shadow: var(--shadow);
 	cursor: pointer;
-	transition: filter 0.15s;
 }
-.word-slots .word-slot-tile:hover:not(.word-slot-tile--boss-debuff) {
-	filter: brightness(1.05);
+.word-slots .word-slot-tile::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	z-index: 3;
+	background: transparent;
+	transition: background 0.15s;
+}
+.word-slots .word-slot-tile:hover:not(.word-slot-tile--boss-debuff)::after {
+	background: var(--overlay-hover-bright);
 }
 
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff:hover {
-	filter: brightness(0.76) saturate(0.85);
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff:hover::after {
+	background: rgba(255, 255, 255, 0.04);
 }
 .word-slots .word-slot-tile .letter-gem {
 	position: absolute;
@@ -1003,7 +1020,16 @@ textarea::-moz-placeholder {
 	font-weight: 600;
 	cursor: pointer;
 	box-shadow: var(--shadow);
-	transition: filter 0.15s;
+	position: relative;
+}
+.deck-btn::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	background: transparent;
+	transition: background 0.15s;
 }
 .grid-deck-aux-row {
 	--grid-deck-aux-btn-size: calc(52 * var(--rpx));
@@ -1066,11 +1092,11 @@ textarea::-moz-placeholder {
 	padding: calc(1 * var(--rpx));
 	pointer-events: none;
 }
-.deck-btn:hover {
-	filter: brightness(1.08);
+.deck-btn:hover::after {
+	background: var(--overlay-hover-bright);
 }
-.deck-btn:active {
-	filter: brightness(0.92);
+.deck-btn:active::after {
+	background: var(--overlay-active-dim);
 }
 .deck-btn-icon {
 	font-size: calc(32 * var(--rpx));
@@ -1116,13 +1142,22 @@ textarea::-moz-placeholder {
 	color: #fff;
 	cursor: pointer;
 	box-shadow: var(--shadow);
-	transition: filter 0.12s ease;
+	position: relative;
 }
-.action-aux-btn:hover:not(.action-aux-btn--disabled) {
-	filter: brightness(1.08);
+.action-aux-btn::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	background: transparent;
+	transition: background 0.12s ease;
 }
-.action-aux-btn:active:not(.action-aux-btn--disabled) {
-	filter: brightness(0.92);
+.action-aux-btn:hover:not(.action-aux-btn--disabled)::after {
+	background: var(--overlay-hover-bright);
+}
+.action-aux-btn:active:not(.action-aux-btn--disabled)::after {
+	background: var(--overlay-active-dim);
 }
 .action-aux-btn--blue {
 	background: var(--player-mark-accent);
@@ -1132,7 +1167,6 @@ textarea::-moz-placeholder {
 }
 .action-aux-btn--disabled {
 	opacity: 0.42;
-	filter: saturate(0.45) brightness(0.88);
 	cursor: not-allowed;
 	pointer-events: none;
 }
@@ -1171,7 +1205,16 @@ textarea::-moz-placeholder {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	transition: filter 0.15s;
+	position: relative;
+}
+.icon-btn::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	background: transparent;
+	transition: background 0.15s;
 }
 
 .icon-btn .ri-information-line,
@@ -1183,22 +1226,22 @@ textarea::-moz-placeholder {
 	background: var(--btn-white);
 	color: var(--text);
 }
-.icon-btn-white:hover {
-	filter: brightness(1.08);
+.icon-btn-white:hover::after {
+	background: var(--overlay-hover-bright);
 }
-.icon-btn-white:active {
-	filter: brightness(0.92);
+.icon-btn-white:active::after {
+	background: var(--overlay-active-dim);
 }
 
 .icon-btn-yellow {
 	background: var(--btn-yellow);
 	color: #776e65;
 }
-.icon-btn-yellow:hover {
-	filter: brightness(1.08);
+.icon-btn-yellow:hover::after {
+	background: var(--overlay-hover-bright);
 }
-.icon-btn-yellow:active {
-	filter: brightness(0.92);
+.icon-btn-yellow:active::after {
+	background: var(--overlay-active-dim);
 }
 
 .letter-grid-wrap {
@@ -1234,69 +1277,40 @@ textarea::-moz-placeholder {
 .grid-tile.letter-tile-boss-debuff,
 .fly-letter.letter-tile-boss-debuff,
 .fly-letter-back.letter-tile-boss-debuff {
-	filter: brightness(0.72) saturate(0.85);
+	position: relative;
 }
 
-/* 词槽：压暗整块槽位（含底色），仅滤内层会显得「变亮」 */
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff {
-	filter: brightness(0.72) saturate(0.85);
+.grid-tile.letter-tile-boss-debuff::before,
+.fly-letter.letter-tile-boss-debuff::before,
+.fly-letter-back.letter-tile-boss-debuff::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: var(--overlay-debuff);
+	pointer-events: none;
+	z-index: 4;
 }
 
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff .word-slot-content.letter-tile-boss-debuff {
-	filter: none;
-}
-
-/* 材质 Regl canvas 不参与父级 filter 时：父级不滤、canvas 与字/宝石分别压暗 */
-.letter-tile-boss-debuff:has(.tile-material-gold-canvas),
-.letter-tile-boss-debuff:has(.tile-material-steel-canvas),
-.letter-tile-boss-debuff:has(.tile-material-ice-canvas),
-.letter-tile-boss-debuff:has(.tile-material-water-canvas),
-.letter-tile-boss-debuff:has(.tile-material-fire-canvas),
-.letter-tile-boss-debuff:has(.tile-material-wildcard-canvas),
-.letter-tile-boss-debuff:has(.tile-material-lucky-canvas) {
-	filter: none;
-}
-
-.letter-tile-boss-debuff .tile-material-gold-canvas,
-.letter-tile-boss-debuff .tile-material-steel-canvas,
-.letter-tile-boss-debuff .tile-material-ice-canvas,
-.letter-tile-boss-debuff .tile-material-water-canvas,
-.letter-tile-boss-debuff .tile-material-fire-canvas,
-.letter-tile-boss-debuff .tile-material-wildcard-canvas,
-.letter-tile-boss-debuff .tile-material-lucky-canvas,
-.letter-tile-boss-debuff:has(.tile-material-gold-canvas) .letter-gem,
-.letter-tile-boss-debuff:has(.tile-material-steel-canvas) .letter-gem,
-.letter-tile-boss-debuff:has(.tile-material-ice-canvas) .letter-gem,
-.letter-tile-boss-debuff:has(.tile-material-water-canvas) .letter-gem,
-.letter-tile-boss-debuff:has(.tile-material-fire-canvas) .letter-gem,
-.letter-tile-boss-debuff:has(.tile-material-wildcard-canvas) .letter-gem,
-.letter-tile-boss-debuff:has(.tile-material-lucky-canvas) .letter-gem,
-.letter-tile-boss-debuff:has(.tile-material-gold-canvas) .letter-tile-char,
-.letter-tile-boss-debuff:has(.tile-material-steel-canvas) .letter-tile-char,
-.letter-tile-boss-debuff:has(.tile-material-ice-canvas) .letter-tile-char,
-.letter-tile-boss-debuff:has(.tile-material-water-canvas) .letter-tile-char,
-.letter-tile-boss-debuff:has(.tile-material-fire-canvas) .letter-tile-char,
-.letter-tile-boss-debuff:has(.tile-material-wildcard-canvas) .letter-tile-char,
-.letter-tile-boss-debuff:has(.tile-material-lucky-canvas) .letter-tile-char {
-	filter: brightness(0.72) saturate(0.85);
-}
-
-/* 词槽父级已整块压暗时，内层材质/字不再叠 filter */
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-gold-canvas,
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-steel-canvas,
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-ice-canvas,
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-water-canvas,
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-fire-canvas,
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-wildcard-canvas,
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .tile-material-lucky-canvas,
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .letter-gem,
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff .letter-tile-boss-debuff .letter-tile-char {
-	filter: none;
+/* 词槽：压暗整块槽位（含底色） */
+.word-slots .word-slot-tile.word-slot-tile--boss-debuff::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: var(--overlay-debuff);
+	pointer-events: none;
+	z-index: 2;
 }
 
 /* 记分高光：削弱格整块槽位略提亮，仍明显偏暗 */
 .word-slots .word-slot-tile.word-slot-scoring-highlight.word-slot-tile--boss-debuff {
-	filter: brightness(0.76) saturate(0.85);
+	box-shadow: var(--shadow), var(--tile-scoring-highlight-shadow);
+	z-index: 5;
+}
+
+.word-slots .word-slot-tile.word-slot-scoring-highlight.word-slot-tile--boss-debuff::before {
+	background: var(--overlay-debuff-light);
 }
 
 .grid-tile .letter-tile-boss-x,
@@ -1308,15 +1322,26 @@ textarea::-moz-placeholder {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: calc(56 * var(--rpx));
 	font-weight: 900;
 	color: #c83030;
 	opacity: 0.2;
 	pointer-events: none;
 	z-index: 0;
-	transform: scale(1.75);
 	transform-origin: 50% 50%;
 	text-shadow: none;
+}
+
+.grid-tile .letter-tile-boss-x {
+	font-size: calc(56 * var(--rpx));
+	transform: scale(1.75);
+}
+
+/* 词槽缩小时与主字母同比例（--slot-scale 由 GamePanel RAF / 飞字 GSAP 写入） */
+.word-slots .word-slot-content .letter-tile-boss-x,
+.fly-letter .letter-tile-boss-x,
+.fly-letter-back .letter-tile-boss-x {
+	font-size: calc(56 * var(--rpx) * var(--slot-scale, 1));
+	transform: scale(1.75);
 }
 
 .grid-tile .letter-gem,
@@ -1398,13 +1423,23 @@ textarea::-moz-placeholder {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: calc(56 * var(--rpx));
 	color: #1c6ea8;
 	opacity: 0.2;
 	pointer-events: none;
 	z-index: 1;
-	transform: scale(1.3875);
 	transform-origin: 50% 50%;
+}
+
+.grid-tile .letter-tile-cerulean-lock-icon {
+	font-size: calc(56 * var(--rpx));
+	transform: scale(1.3875);
+}
+
+.word-slots .word-slot-content .letter-tile-cerulean-lock-icon,
+.fly-letter .letter-tile-cerulean-lock-icon,
+.fly-letter-back .letter-tile-cerulean-lock-icon {
+	font-size: calc(56 * var(--rpx) * var(--slot-scale, 1));
+	transform: scale(1.3875);
 }
 
 .grid-tile.letter-tile-cerulean-lock .letter-gem,
@@ -2224,15 +2259,6 @@ textarea::-moz-placeholder {
 	clip-path: polygon(100% 0, 0 0, 100% 100%);
 	pointer-events: none;
 	z-index: 1;
-	filter: none;
-	opacity: 1;
-}
-
-.grid-tile.letter-tile-boss-debuff.player-marked:not(.selected)::after,
-.word-slots .word-slot-tile.word-slot-tile--boss-debuff .word-slot-content.player-marked::after,
-.fly-letter.letter-tile-boss-debuff.player-marked::after,
-.fly-letter-back.letter-tile-boss-debuff.player-marked::after {
-	filter: none;
 	opacity: 1;
 }
 
@@ -2322,9 +2348,18 @@ textarea::-moz-placeholder {
 	border-radius: var(--radius);
 	cursor: pointer;
 	box-shadow: var(--shadow);
-	transition: filter 0.15s;
 	font-size: calc(26 * var(--rpx));
 	color: #333;
+	position: relative;
+}
+.action-btn::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	background: transparent;
+	transition: background 0.15s;
 }
 
 .action-btn .action-icon {
@@ -2335,22 +2370,17 @@ textarea::-moz-placeholder {
 	background: var(--btn-green);
 	color: #fff;
 }
-.action-btn-green:hover {
-	filter: brightness(1.08);
+.action-btn-green:hover::after {
+	background: var(--overlay-hover-bright);
 }
-.action-btn-green:active {
-	filter: brightness(0.92);
+.action-btn-green:active::after {
+	background: var(--overlay-active-dim);
 }
 
 .action-btn-disabled {
 	opacity: 0.45;
-	filter: saturate(0.4) brightness(0.85);
 	cursor: not-allowed;
 	pointer-events: none;
-}
-.action-btn-disabled:hover,
-.action-btn-disabled:active {
-	filter: saturate(0.4) brightness(0.85);
 }
 .action-btn-disabled.action-btn-disabled--interactive {
 	pointer-events: auto;
@@ -2361,11 +2391,11 @@ textarea::-moz-placeholder {
 	background: var(--btn-red);
 	color: #fff;
 }
-.action-btn-red:hover {
-	filter: brightness(1.08);
+.action-btn-red:hover::after {
+	background: var(--overlay-hover-bright);
 }
-.action-btn-red:active {
-	filter: brightness(0.92);
+.action-btn-red:active::after {
+	background: var(--overlay-active-dim);
 }
 
 /* ----- 宝藏槽位（局内：在 bottom-bar 上方；整行均分宽度、保持正方形） ----- */
@@ -2425,8 +2455,14 @@ textarea::-moz-placeholder {
 	opacity: 0.45;
 }
 
-.treasure-slot.filled.treasure-slot--boss-hand-disabled {
-	filter: brightness(0.68) saturate(0.82);
+.treasure-slot.filled.treasure-slot--boss-hand-disabled::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: rgba(58, 54, 50, 0.34);
+	pointer-events: none;
+	z-index: 2;
 }
 
 .treasure-slot.filled.treasure-slot--boss-hand-disabled .treasure-boss-hand-lock {
@@ -2441,7 +2477,7 @@ textarea::-moz-placeholder {
 
 /* 拼词记分：宝藏效果触发时与 word-slot 记分高光同款 */
 .treasure-slot.filled.treasure-slot--scoring-highlight {
-	filter: brightness(1.06);
+	box-shadow: var(--shadow), var(--tile-scoring-highlight-shadow);
 	z-index: 5;
 }
 
@@ -2571,7 +2607,7 @@ textarea::-moz-placeholder {
 
 .treasure-slot.filled.treasure-slot--accessory-expired .treasure-slot-emoji,
 .treasure-slot.filled.treasure-slot--accessory-expired .letter-gem {
-	filter: brightness(0.72) saturate(0.85);
+	opacity: 0.72;
 }
 
 .header-box-level-title {
@@ -2643,7 +2679,7 @@ textarea::-moz-placeholder {
 }
 
 .treasure-slot.filled.treasure-slot--effect-charge:not(.treasure-slot--effect-charge-active) .treasure-slot-emoji {
-	filter: brightness(0.52) saturate(0.78);
+	opacity: 0.52;
 }
 
 .treasure-slot.filled.treasure-slot--effect-charge:not(.treasure-slot--effect-charge-active) .letter-gem {
@@ -2704,7 +2740,6 @@ textarea::-moz-placeholder {
 .treasure-slot.filled.treasure-slot--effect-charge-active .treasure-charge-corner-icon {
 	color: #72ff6a;
 	background-image: none;
-	filter: none;
 }
 
 .treasure-slot.filled .treasure-charge-corner-icon,
@@ -2726,22 +2761,34 @@ textarea::-moz-placeholder {
 	color: #f9f6f2;
 	box-shadow: var(--shadow);
 	cursor: pointer;
-	transition: filter 0.12s ease, transform 0.1s var(--ease-expo-out);
+	position: relative;
+	transition: transform 0.1s var(--ease-expo-out);
+}
+.shop-btn::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	background: transparent;
+	transition: background 0.12s ease;
 }
 
-.shop-btn:hover:not(:disabled) {
-	filter: brightness(1.05);
+.shop-btn:hover:not(:disabled)::after {
+	background: var(--overlay-hover-bright);
 }
 
 .shop-btn:active:not(:disabled) {
 	transform: scale(0.99);
-	filter: brightness(0.96);
+}
+
+.shop-btn:active:not(:disabled)::after {
+	background: var(--overlay-active-dim);
 }
 
 .shop-btn:disabled {
 	cursor: not-allowed;
 	opacity: 0.48;
-	filter: grayscale(0.25);
 	box-shadow: none;
 }
 
@@ -3741,7 +3788,7 @@ textarea::-moz-placeholder {
 }
 
 .shop-treasure-frame.treasure-detail-frame--charge-inactive .shop-treasure-emoji--detail {
-	filter: brightness(0.52) saturate(0.78);
+	opacity: 0.52;
 }
 
 .shop-treasure-frame.treasure-detail-frame--charge-inactive .letter-gem {
@@ -3751,7 +3798,6 @@ textarea::-moz-placeholder {
 .shop-treasure-frame.treasure-detail-frame--charge-active .treasure-charge-corner-icon {
 	color: #72ff6a;
 	background-image: none;
-	filter: none;
 }
 
 .treasure-detail-desc-card {
@@ -4873,9 +4919,9 @@ textarea::-moz-placeholder {
 	outline: calc(2 * var(--rpx)) solid transparent;
 	transition:
 		outline-color 0.15s ease,
-		filter 0.12s ease,
 		transform 0.12s var(--ease-expo-out),
-		box-shadow 0.15s ease;
+		box-shadow 0.15s ease,
+		opacity 0.12s ease;
 }
 
 /* 法术确认动效：GSAP 缩放与 hover transition 叠加会发飘 */
@@ -4892,14 +4938,13 @@ textarea::-moz-placeholder {
 
 .spell-target-offer-cell:not(:disabled):hover {
 	outline-color: rgba(91, 155, 213, 0.55);
-	filter: brightness(1.03);
+	box-shadow: 0 0 0 calc(1 * var(--rpx)) rgba(91, 155, 213, 0.18);
 }
 
 .spell-target-offer-cell--empty {
 	opacity: 1;
 	cursor: default;
 	pointer-events: none;
-	filter: none;
 }
 
 .spell-target-empty-cell {
@@ -4920,7 +4965,6 @@ textarea::-moz-placeholder {
 	box-shadow:
 		0 0 0 calc(3 * var(--rpx)) rgba(91, 155, 213, 0.55),
 		0 calc(6 * var(--rpx)) calc(18 * var(--rpx)) rgba(47, 111, 171, 0.35);
-	filter: brightness(1.06);
 	transform: scale(1.04);
 }
 
@@ -4962,12 +5006,14 @@ textarea::-moz-placeholder {
 }
 
 .spell-target-letter-grid-wrap--random-picking .spell-target-offer-cell:not(.spell-target-offer-cell--random-hot) {
-	filter: brightness(0.9) saturate(0.9);
+	opacity: 0.88;
 }
 
 .spell-target-offer-cell--random-hot {
-	filter: brightness(1.08);
 	transform: scale(1.02);
+	box-shadow:
+		0 0 calc(8 * var(--rpx)) rgba(212, 162, 74, 0.4),
+		0 0 0 calc(1 * var(--rpx)) rgba(255, 248, 230, 0.45);
 }
 
 .spell-target-offer-wrap--random-winner .spell-target-offer-cell {
@@ -4976,7 +5022,6 @@ textarea::-moz-placeholder {
 	box-shadow:
 		0 0 calc(14 * var(--rpx)) rgba(232, 184, 74, 0.75),
 		0 0 calc(28 * var(--rpx)) rgba(232, 184, 74, 0.35);
-	filter: brightness(1.14);
 	animation: spell-offer-winner-glow 0.42s ease-in-out 2;
 }
 

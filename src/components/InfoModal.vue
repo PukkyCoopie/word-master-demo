@@ -10,6 +10,7 @@
     aria-modal="true"
     aria-label="信息"
     :style="layerStackStyle"
+    @click.self="onBackdropSelfClick"
   >
     <div
       ref="layerInnerRef"
@@ -418,6 +419,7 @@ import { copyTextToClipboard } from "../utils/copyTextToClipboard.js";
 import PresetDescRichText from "./PresetDescRichText.vue";
 import TreasureDetailLayer from "./TreasureDetailLayer.vue";
 import TileDetailLayer from "./TileDetailLayer.vue";
+import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -461,6 +463,7 @@ const emit = defineEmits(["update:modelValue", "select-owned-voucher"]);
 const stackZ = ref(0);
 const layerRef = ref(/** @type {HTMLElement | null} */ (null));
 const closing = ref(false);
+const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
 const layerStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
 
 watch(
@@ -795,6 +798,7 @@ const VALID_INFO_TABS = new Set(["level", "rarity", "stage", "coupon", "preset"]
 
 /** 打开弹窗：设 Tab、量高、与外壳同时播当前 Tab 入场（v-if 挂载时 watch 不会触发，onMounted 也需调用） */
 function applyInfoModalOpenState() {
+  backdropSelfCloseGuard.arm();
   skipTabSwitchAnim = true;
   openingStaggerGuard.value = true;
   const tab = String(props.initialTab ?? "level");
@@ -1008,6 +1012,19 @@ function runCloseAnimation() {
 
 function close() {
   void runCloseAnimation();
+}
+
+function onBackdropSelfClick() {
+  if (closing.value) return;
+  if (presetVoucherDetail.value) {
+    presetVoucherDetail.value = null;
+    return;
+  }
+  if (presetWildcardDetailOpen.value) {
+    presetWildcardDetailOpen.value = false;
+    return;
+  }
+  backdropSelfCloseGuard.onBackdropSelfClick(close);
 }
 </script>
 
@@ -1527,15 +1544,25 @@ function close() {
   color: #5c534c;
   font-size: calc(28 * var(--rpx));
   cursor: pointer;
-  transition: filter 0.1s ease;
+  position: relative;
 }
 
-.info-stage-seed-copy:hover {
-  filter: brightness(1.04);
+.info-stage-seed-copy::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: transparent;
+  transition: background 0.1s ease;
 }
 
-.info-stage-seed-copy:active {
-  filter: brightness(0.94);
+.info-stage-seed-copy:hover::after {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.info-stage-seed-copy:active::after {
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .info-stage-progress {
@@ -1856,15 +1883,25 @@ function close() {
   color: #faf8ef;
   background: #edc22e;
   cursor: pointer;
-  transition: filter 0.1s ease;
+  position: relative;
 }
 
-.info-back-btn:hover {
-  filter: brightness(1.05);
+.info-back-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: transparent;
+  transition: background 0.1s ease;
 }
 
-.info-back-btn:active {
-  filter: brightness(0.95);
+.info-back-btn:hover::after {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.info-back-btn:active::after {
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .info-back-btn:disabled {

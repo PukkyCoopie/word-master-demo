@@ -1,4 +1,5 @@
 import { NORMAL_BOSS_SLUGS, SHOWDOWN_BOSS_SLUGS } from "./bossBlindDefinitions.js";
+import { parseMajorFromLevelId } from "../vouchers/voucherRuntime.js";
 import { hashSeed32, mulberry32 } from "./runRng.js";
 
 /**
@@ -19,21 +20,21 @@ function shuffledBossPool(pool, runSeed, poolKey) {
 }
 
 /**
- * 本局各章 Boss：对池子洗牌后按章序号依次取用，同局内不重复（1–7 普通池，8 终局池）。
- * @param {number} chapter 1..8
+ * 本局各章 Boss：对池子洗牌后按章序号依次取用，同局内不重复（0–7 普通池各 1 个，8 终局池）。
+ * 第 0 章在开局即占位；通常不可达，卷轴券回退至 0-3 时使用该位。
+ * @param {number} chapter 0..8
  * @param {number} runSeed
  * @returns {string}
  */
 function pickBossForChapterDeterministic(chapter, runSeed) {
-  const ch = Math.floor(Number(chapter)) || 0;
-  if (ch < 1) return "";
+  const ch = Math.floor(Number(chapter));
+  if (!Number.isFinite(ch) || ch < 0 || ch > 8) return "";
   if (ch === 8) {
     const order = shuffledBossPool(SHOWDOWN_BOSS_SLUGS, runSeed, "showdown");
     return order[0] ?? "";
   }
   const order = shuffledBossPool(NORMAL_BOSS_SLUGS, runSeed, "normal");
-  const idx = ch - 1;
-  return order[idx % order.length] ?? order[0] ?? "";
+  return order[ch % order.length] ?? order[0] ?? "";
 }
 
 /**
@@ -43,8 +44,8 @@ function pickBossForChapterDeterministic(chapter, runSeed) {
  */
 function usedBossSlugsInRunExcludingChapter(chapter, runSeed) {
   const used = new Set();
-  const skip = Math.floor(Number(chapter)) || 0;
-  for (let c = 1; c <= 8; c++) {
+  const skip = Math.floor(Number(chapter));
+  for (let c = 0; c <= 8; c++) {
     if (c === skip) continue;
     const slug = pickBossForChapterDeterministic(c, runSeed);
     if (slug) used.add(slug);
@@ -60,8 +61,8 @@ function usedBossSlugsInRunExcludingChapter(chapter, runSeed) {
  * @returns {string}
  */
 function pickBossForChapterReroll(chapter, runSeed, rerollNonce) {
-  const ch = Math.floor(Number(chapter)) || 0;
-  if (ch < 1) return "";
+  const ch = Math.floor(Number(chapter));
+  if (!Number.isFinite(ch) || ch < 0 || ch > 8) return "";
   const pool = ch === 8 ? [...SHOWDOWN_BOSS_SLUGS] : [...NORMAL_BOSS_SLUGS];
   if (!pool.length) return "";
   const current = pickBossForChapterDeterministic(ch, runSeed);
@@ -83,9 +84,8 @@ function pickBossForChapterReroll(chapter, runSeed, rerollNonce) {
  * @returns {string}
  */
 export function pickBossSlugForLevel(levelId, runSeed = 0, rerollNonce = 0) {
-  const parts = String(levelId).split("-");
-  const sub = Math.floor(Number(parts[1])) || 1;
-  const chapter = Math.floor(Number(parts[0])) || 1;
+  const sub = Math.floor(Number(String(levelId).split("-")[1])) || 1;
+  const chapter = parseMajorFromLevelId(levelId);
   if (sub !== 3) return "";
   const seed = Math.floor(Number(runSeed) || 0);
   const nonce = Math.max(0, Math.floor(Number(rerollNonce) || 0));

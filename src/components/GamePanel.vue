@@ -251,7 +251,11 @@
           @keydown.space.prevent="openInfoModal('stage')"
         >
           <span class="header-level-title-text">{{ levelTitleLabel }}</span>
-          <DifficultyPill class="header-level-difficulty-pill" :index="runDifficultyIndex" />
+          <DifficultyPill
+            v-if="runDifficultyIndex > 0"
+            class="header-level-difficulty-pill"
+            :index="runDifficultyIndex"
+          />
         </div>
         <div
           class="header-box header-box-split header-box-reward-dollars"
@@ -366,8 +370,8 @@
               :content-hidden="isSlotContentHidden(i)"
               :boss-tile-debuffed="!!entry.bossTileDebuffed"
               :cerulean-bell-locked="entry.ceruleanBellLocked === true"
-              :vowel-ghost-prev="vowelGhostForTile(entry)?.prev ?? null"
-              :vowel-ghost-next="vowelGhostForTile(entry)?.next ?? null"
+              :vowel-ghost-prev="entry.vowelGhostPrev ?? null"
+              :vowel-ghost-next="entry.vowelGhostNext ?? null"
             />
           </div>
         </div>
@@ -468,8 +472,8 @@
                 :boss-grid-blocked="tile.bossGridBlocked === true"
                 :boss-tile-debuffed="tile.bossTileDebuffed === true"
                 :cerulean-bell-locked="tile.ceruleanBellLocked === true"
-                :vowel-ghost-prev="vowelGhostForTile(tile)?.prev ?? null"
-                :vowel-ghost-next="vowelGhostForTile(tile)?.next ?? null"
+                :vowel-ghost-prev="gridTileVowelGhostForRender.get(tile.id)?.prev ?? null"
+                :vowel-ghost-next="gridTileVowelGhostForRender.get(tile.id)?.next ?? null"
                 :ref="el => setGridTileRef(index, el)"
                 :class="{
                   selected: tile.selected,
@@ -1173,6 +1177,7 @@ import {
   applyRandomBLettersToGrid,
   isMaskBubbleDevScenario,
 } from "../dev/maskBubbleBlueprintScenario.js";
+import { applyRandomMaterialsToGridTilesWithoutMaterial } from "../dev/randomizeGridTileMaterials.js";
 
 /** 提交时是否展示词典释义；暂时关闭，后续可改回 true 恢复 */
 const SHOW_SUBMIT_TRANSLATION = false;
@@ -3702,7 +3707,10 @@ const showPauseOptions = ref(false);
 
 watch(showPauseOptions, (open) => {
   if (open) enterGamePause();
-  else exitGamePause();
+  else {
+    exitGamePause();
+    ensureSlotRafRunning();
+  }
 });
 
 /** 整局结束层（失败 / 通关 8-3） */
@@ -4093,11 +4101,26 @@ async function startMaskBubbleBlueprintDevTest() {
   );
 }
 
+function randomizeGridTileMaterialsDev() {
+  const result = applyRandomMaterialsToGridTilesWithoutMaterial(
+    grid.value,
+    ROWS,
+    COLS,
+    undefined,
+    runRandom,
+  );
+  touchGrid();
+  scheduleRunAutoSave();
+  console.log(`[DEV] 已为 ${result.updated} 格无材质 tile 随机添加材质`, result);
+  return result;
+}
+
 function registerMaskBubbleDevConsoleHook() {
   if (!import.meta.env.DEV) return;
   const dev = globalThis.__WM_DEV__;
   if (!dev || typeof dev !== "object") return;
   dev.startMaskBubbleBlueprintTest = () => startMaskBubbleBlueprintDevTest();
+  dev.randomizeGridTileMaterials = () => randomizeGridTileMaterialsDev();
 }
 
 /** @param {string} levelId @returns {import('../treasures/treasureTypes.js').TreasureLevelEnterContext} */
@@ -5245,6 +5268,17 @@ const slotScaleTarget = computed(() => {
   const total = n * SLOT_TILE_W + (n - 1) * SLOT_GAP;
   return Math.min(1, MIDDLE_MAX_W / total);
 });
+
+watch(
+  () => [
+    selectedLetters.value.length,
+    flyingLetters.value.length,
+    flyingBackBatches.value.length,
+    slotScaleTarget.value,
+  ],
+  () => ensureSlotRafRunning(),
+);
+
 /** 当前槽缩放，由 RAF 向 slotScaleTarget 插值，实现与移入一致的动画 */
 /** 与 .word-slots 上 --slot-scale 同步；仅用普通变量，由 slotRafLoop 与 DOM 同步更新 */
 let slotScaleRuntime = 1;
@@ -5253,13 +5287,44 @@ let slotScaleRuntime = 1;
 const slotCurrentPositions = [];
 /** expo.out 风格：1 - 2^(-10*t)，时间常数约 250ms，前快后慢 */
 const SLOT_EXPO_TIME_MS = 250;
+const SLOT_SCALE_SETTLE_EPS = 0.002;
+const SLOT_POS_SETTLE_EPS = 0.6;
 let slotRafId = 0;
 let slotRafLastTime = 0;
+let slotLayoutRpx = 1;
+let slotScaleCssWritten = 1;
+
+function refreshSlotLayoutRpx() {
+  slotLayoutRpx =
+    parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
+  return slotLayoutRpx;
+}
+
+function writeWordSlotsScaleCss(scale) {
+  const scaleRoot = wordSlotsScaleRootRef.value;
+  if (!scaleRoot) return;
+  if (Math.abs(scale - slotScaleCssWritten) < SLOT_SCALE_SETTLE_EPS) return;
+  scaleRoot.style.setProperty("--slot-scale", String(scale));
+  slotScaleCssWritten = scale;
+}
+
+function ensureSlotRafRunning() {
+  if (slotRafId) return;
+  slotRafLastTime = performance.now();
+  slotRafId = requestAnimationFrame(slotRafLoop);
+}
+
+function onWordSlotsLayoutResize() {
+  refreshSlotLayoutRpx();
+  ensureSlotRafRunning();
+  updateSlotPositions(true);
+}
 
 /** 计算目标并写 DOM；deltaMs 为数字时用 expo.out 风格插值，为 true 时直接 snap（首帧防闪） */
 function updateSlotPositions(deltaMs) {
   const wrapEl = wordSlotsWrapRef.value;
   if (!wrapEl) return;
+  refreshSlotLayoutRpx();
   const wrapRect = wrapEl.getBoundingClientRect();
   const N = selectedLetters.value.length;
   const batches = flyingBackBatches.value;
@@ -5330,8 +5395,35 @@ function findFirstOwnedTreasureSlotIndex(treasureId) {
   return -1;
 }
 
+function isSlotLayoutSettled() {
+  const targetScale = slotScaleTarget.value;
+  if (Math.abs(slotScaleRuntime - targetScale) > SLOT_SCALE_SETTLE_EPS) return false;
+  const N = selectedLetters.value.length;
+  if (N === 0) return true;
+  const wrapEl = wordSlotsWrapRef.value;
+  if (!wrapEl) return true;
+  const wrapRect = wrapEl.getBoundingClientRect();
+  const batches = flyingBackBatches.value;
+  const effectiveNumSlots =
+    batches.length > 0
+      ? Math.min(...batches.map((b) => b.slotIndex))
+      : N + flyingLetters.value.length;
+  for (let i = 0; i < N; i++) {
+    if (batches.some((b) => i >= b.slotIndex)) continue;
+    const r = getScaledSlotRect(wrapRect, effectiveNumSlots, i);
+    const cur = slotCurrentPositions[i];
+    if (!r || !cur) return false;
+    const tgtX = r.left - wrapRect.left;
+    const tgtY = r.top - wrapRect.top;
+    if (Math.abs(cur.x - tgtX) > SLOT_POS_SETTLE_EPS || Math.abs(cur.y - tgtY) > SLOT_POS_SETTLE_EPS) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function slotRafLoop() {
-  slotRafId = requestAnimationFrame(slotRafLoop);
+  slotRafId = 0;
   if (isGamePaused()) {
     slotRafLastTime = 0;
     return;
@@ -5343,14 +5435,23 @@ function slotRafLoop() {
   const dt = delta === 0 ? 1 : delta / SLOT_EXPO_TIME_MS;
   const factor = delta === 0 ? 1 : 1 - Math.pow(2, -10 * Math.min(dt, 1));
   slotScaleRuntime += (slotScaleTarget.value - slotScaleRuntime) * factor;
+  writeWordSlotsScaleCss(slotScaleRuntime);
+  if (!isSlotLayoutSettled()) {
+    slotRafId = requestAnimationFrame(slotRafLoop);
+    return;
+  }
+  slotScaleRuntime = slotScaleTarget.value;
   const scaleRoot = wordSlotsScaleRootRef.value;
-  if (scaleRoot) scaleRoot.style.setProperty("--slot-scale", String(slotScaleRuntime));
+  if (scaleRoot) {
+    scaleRoot.style.setProperty("--slot-scale", String(slotScaleRuntime));
+    slotScaleCssWritten = slotScaleRuntime;
+  }
 }
 
 /** 计算「第 numSlots 个 slot」在 numSlots 缩放下的视口矩形（像素），用于飞字目标；slotIndex 为 0..numSlots-1 */
 function getScaledSlotRect(wrapRect, numSlots, slotIndex) {
   if (numSlots <= 0) return null;
-  const rpx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
+  const rpx = slotLayoutRpx || 1;
   const totalDesign = numSlots * SLOT_TILE_W + (numSlots - 1) * SLOT_GAP;
   const scale = Math.min(1, MIDDLE_MAX_W / totalDesign);
   const slotVisualSizePx = SLOT_TILE_W * scale * rpx;
@@ -5364,6 +5465,7 @@ function getScaledSlotRect(wrapRect, numSlots, slotIndex) {
 function syncFlyingInTargets() {
   const wrapEl = wordSlotsWrapRef.value;
   if (!wrapEl) return;
+  refreshSlotLayoutRpx();
   const wrapRect = wrapEl.getBoundingClientRect();
   if (wrapRect.width <= 0 || wrapRect.height <= 0) return;
   const base = selectedOrder.value.length;
@@ -5393,6 +5495,7 @@ function syncFlyingInTargets() {
       overwrite: "auto",
     });
   });
+  ensureSlotRafRunning();
 }
 
 function flushFlyInSelections() {
@@ -5618,7 +5721,8 @@ function resolveSwapGridTargets(excludePositionKeys, pickCount = getSwapGridPick
 }
 
 /** 用于提交按钮的「即将生效」单词：飞入中视为已加入，飞回中视为已移除，不等到动画结束 */
-const effectiveWordForSubmit = computed(() => buildEffectiveWordPartsForSubmit().word);
+const effectiveWordPartsForSubmit = computed(() => buildEffectiveWordPartsForSubmit());
+const effectiveWordForSubmit = computed(() => effectiveWordPartsForSubmit.value.word);
 
 /** @returns {{ word: string, vowelAltMask: boolean[] }} */
 function buildEffectiveWordPartsForSubmit(opts = {}) {
@@ -5696,31 +5800,26 @@ function listEffectiveTilesForSubmit(extraTile = null) {
 }
 
 /**
- * 给定整词解析，计算单格在词槽/飞字上应展示的字母、稀有度与元音 ghost
- * @param {object} tile
+ * 给定整词解析，批量计算各格在词槽/飞字上应展示的字母、稀有度与元音 ghost（O(N)）
  * @param {string | null} res
  * @param {string} effWord
  * @param {object | null | undefined} [extraTile]
+ * @returns {Map<string, { letter: string, rarity: string, vowelGhostPrev: string | null, vowelGhostNext: string | null }>}
  */
-function tilePresentationInResolvedWord(tile, res, effWord, extraTile = null) {
+function buildTilePresentationIndex(res, effWord, extraTile = null) {
+  /** @type {Map<string, { letter: string, rarity: string, vowelGhostPrev: string | null, vowelGhostNext: string | null }>} */
+  const byId = new Map();
   const upGhost = (ch) => (ch ? (ch === "q" ? "Qu" : ch.toUpperCase()) : null);
-  if (!res || !effWord || effWord.length !== res.length) {
-    const g = vowelGhostForTile(tile);
-    return {
-      letter: tile.letter,
-      rarity: tile.rarity,
-      vowelGhostPrev: g?.prev ?? null,
-      vowelGhostNext: g?.next ?? null,
-    };
-  }
+  if (!res || !effWord || effWord.length !== res.length) return byId;
+
   const owned = ownedSlotTreasureIdList();
   const vowelTreasure = hasVowelNeighborSubstitute(owned);
   let pos = 0;
-  for (const t of listEffectiveTilesForSubmit(extraTile)) {
-    const frag = String(t?.letter ?? "").toLowerCase();
+  for (const tile of listEffectiveTilesForSubmit(extraTile)) {
+    if (!tile?.id) continue;
+    const frag = String(tile?.letter ?? "").toLowerCase();
     const start = pos;
     pos += frag.length;
-    if (t !== tile && t?.id !== tile?.id) continue;
 
     let letter = tile.letter;
     let rarity = tile.rarity;
@@ -5757,8 +5856,22 @@ function tilePresentationInResolvedWord(tile, res, effWord, extraTile = null) {
       }
     }
 
-    return { letter, rarity, vowelGhostPrev, vowelGhostNext };
+    byId.set(tile.id, { letter, rarity, vowelGhostPrev, vowelGhostNext });
   }
+  return byId;
+}
+
+/**
+ * 给定整词解析，计算单格在词槽/飞字上应展示的字母、稀有度与元音 ghost
+ * @param {object} tile
+ * @param {string | null} res
+ * @param {string} effWord
+ * @param {object | null | undefined} [extraTile]
+ */
+function tilePresentationInResolvedWord(tile, res, effWord, extraTile = null) {
+  const indexed = buildTilePresentationIndex(res, effWord, extraTile);
+  const hit = tile?.id != null ? indexed.get(tile.id) : null;
+  if (hit) return hit;
   const g = vowelGhostForTile(tile);
   return {
     letter: tile.letter,
@@ -5828,7 +5941,9 @@ function computeFlyBackTilePresentation(tile) {
 }
 
 /** 若包含 `?`，返回首个可匹配的真实单词（小写）；无匹配则为 null。 */
-const resolvedWordForSubmit = computed(() => resolveWordFromEffectiveParts(buildEffectiveWordPartsForSubmit()));
+const resolvedWordForSubmit = computed(() =>
+  resolveWordFromEffectiveParts(effectiveWordPartsForSubmit.value),
+);
 
 /** @param {object | null | undefined} tile */
 function selectedSlotIndexForTile(tile) {
@@ -5969,8 +6084,17 @@ const wordSlotTilePresentations = computed(() => {
   const minSlot = batches.length > 0 ? Math.min(...batches.map((b) => b.slotIndex)) : orderTiles.length;
   const res = resolvedWordForSubmit.value;
   const eff = effectiveWordForSubmit.value;
+  const presById =
+    res && eff.length === res.length ? buildTilePresentationIndex(res, eff) : null;
   if (!res || eff.length !== res.length) {
-    return orderTiles.map(normalizeWordSlotPresentationTile);
+    return orderTiles.map((tile) => {
+      const g = vowelGhostForTile(tile);
+      return normalizeWordSlotPresentationTile({
+        ...tile,
+        vowelGhostPrev: g?.prev ?? null,
+        vowelGhostNext: g?.next ?? null,
+      });
+    });
   }
   return orderTiles.map((tile, idx) => {
     if (idx >= minSlot) {
@@ -5980,14 +6104,18 @@ const wordSlotTilePresentations = computed(() => {
         letter: back.letter,
         rarity: back.rarity,
         baseScore: getBaseScoreForRarity(back.rarity, rarityLevelsByRarity.value),
+        vowelGhostPrev: back.vowelGhostPrev,
+        vowelGhostNext: back.vowelGhostNext,
       });
     }
-    const pres = tilePresentationInResolvedWord(tile, res, eff);
+    const pres = presById?.get(tile.id) ?? tilePresentationInResolvedWord(tile, res, eff);
     return normalizeWordSlotPresentationTile({
       ...tile,
       letter: pres.letter,
       rarity: pres.rarity,
       baseScore: getBaseScoreForRarity(pres.rarity, rarityLevelsByRarity.value),
+      vowelGhostPrev: pres.vowelGhostPrev,
+      vowelGhostNext: pres.vowelGhostNext,
     });
   });
 });
@@ -6013,6 +6141,17 @@ const gridTileRarityForRender = computed(() => {
   selectedTiles.value.forEach(({ tile }, i) => {
     m.set(tile.id, wordSlotTilePresentations.value[i]?.rarity ?? tile.rarity);
   });
+  return m;
+});
+
+/** 棋盘格元音 ghost：computed 缓存，避免模板每格重复调用 vowelGhostForTile */
+const gridTileVowelGhostForRender = computed(() => {
+  const m = new Map();
+  for (const tile of flatGrid.value) {
+    if (!tile) continue;
+    const g = vowelGhostForTile(tile);
+    if (g) m.set(tile.id, g);
+  }
   return m;
 });
 
@@ -6154,6 +6293,7 @@ function buildTileDetailPayloadFromTile(tile) {
     accessoryId: tile.accessoryId ?? null,
     treasureAccessoryId: tile.treasureAccessoryId ?? null,
     foilOverlay: tile.foilOverlay === true,
+    bossTileDebuffed: tile.bossTileDebuffed === true,
   };
 }
 
@@ -7440,7 +7580,7 @@ function playLevelAdvanceHeaderFx() {
       levelAdvanceFxTl.kill();
       levelAdvanceFxTl = null;
     }
-    gsap.killTweensOf(el, "scale,rotation,boxShadow,filter");
+    gsap.killTweensOf(el, "scale,rotation,boxShadow");
     const shadowDefault = "0 2px 8px rgba(0, 0, 0, 0.08)";
     const shadowGlow =
       "0 0 0 3px rgba(237, 194, 46, 0.55), 0 4px 18px rgba(237, 194, 46, 0.3)";
@@ -7449,13 +7589,12 @@ function playLevelAdvanceHeaderFx() {
       scale: 1,
       rotation: 0,
       boxShadow: shadowDefault,
-      filter: "brightness(1)",
     });
 
     levelAdvanceFxTl = gsap.timeline({
       onComplete: () => {
         levelAdvanceFxTl = null;
-        gsap.set(el, { clearProps: "boxShadow,filter" });
+        gsap.set(el, { clearProps: "boxShadow" });
         gsap.set(el, { scale: 1, rotation: 0 });
         resolve();
       },
@@ -7468,7 +7607,6 @@ function playLevelAdvanceHeaderFx() {
         scale: 1.14,
         rotation: -2.5,
         boxShadow: shadowGlow,
-        filter: "brightness(1.09)",
         duration: 0.34,
         ease: EASE_TRANSFORM,
       },
@@ -7480,7 +7618,6 @@ function playLevelAdvanceHeaderFx() {
         scale: 1,
         rotation: 0,
         boxShadow: shadowDefault,
-        filter: "brightness(1)",
         duration: 0.58,
         ease: EASE_TRANSFORM,
       },
@@ -7828,6 +7965,7 @@ async function animatePackDeckOfferFlyToDeck(offer, fromEl, toTarget, opts = {})
     });
   } finally {
     disposeTile();
+    host.remove();
   }
 }
 
@@ -11141,7 +11279,7 @@ async function runLetterAccessoryCoinMoneyBurst(tile, slotEl, speed = 1) {
 
 /**
  * 单字母一轮：与 **tile 本体**同拍的只有——稀有度基础分 + tile/材质平面分 + tile 角标分；以及声明了
- * `mergeLetter*IntoIntrinsic*` 的宝藏（当前：备忘录平面分、回形针倍率加法）。元音倍率、某字母加分等仍走单独步。
+ * `mergeLetter*IntoIntrinsic*` 的宝藏（当前：海螺平面分、回形针倍率加法）。元音倍率、某字母加分等仍走单独步。
  * 顺序：上述「本体同一拍」→ 水滴 +50 → 其余逐字加分宝藏 → 钱币 →「本体倍率」→ 火焰 +10 → 扳手 ×1.5 → 其余逐字倍率宝藏 → 铅笔～王冠。
  * （宝藏槽火焰/水滴/扳手仍在整词字后步，见 postLetterTreasureSteps。）
  */
@@ -13184,6 +13322,9 @@ onMounted(async () => {
     handleGamePanelAndroidBack,
   );
 
+  window.addEventListener("resize", onWordSlotsLayoutResize);
+  window.visualViewport?.addEventListener("resize", onWordSlotsLayoutResize);
+
   await loadDictionary({ shouldAbort: () => !gamePanelAlive });
   if (!gamePanelAlive) return;
 
@@ -13195,7 +13336,7 @@ onMounted(async () => {
     mountE2eHarnessIfNeeded();
     registerMaskBubbleDevConsoleHook();
     slotRafLastTime = performance.now();
-    slotRafId = requestAnimationFrame(slotRafLoop);
+    ensureSlotRafRunning();
     await nextTick();
     gridIntroDone.value = true;
     gridRefillAnimating.value = false;
@@ -13226,7 +13367,7 @@ onMounted(async () => {
   mountE2eHarnessIfNeeded();
   registerMaskBubbleDevConsoleHook();
   slotRafLastTime = performance.now();
-  slotRafId = requestAnimationFrame(slotRafLoop);
+  ensureSlotRafRunning();
   if (!gamePanelAlive) return;
   const levelDef = currentLevel.value ?? getRunLevelAtIndex(levelIndex.value);
   await resetLevelAfterTreasurePrep(levelDef);
@@ -13249,6 +13390,8 @@ onMounted(async () => {
 });
 onUnmounted(() => {
   resetGamePause();
+  window.removeEventListener("resize", onWordSlotsLayoutResize);
+  window.visualViewport?.removeEventListener("resize", onWordSlotsLayoutResize);
   unregisterGameAndroidBack?.();
   unregisterGameAndroidBack = null;
   runAutoSave.cancelPending();
@@ -13271,7 +13414,7 @@ onUnmounted(() => {
   const levelEl = levelTitleBoxRef.value;
   if (levelEl) {
     gsap.killTweensOf(levelEl);
-    gsap.set(levelEl, { clearProps: "boxShadow,filter,scale,rotation" });
+    gsap.set(levelEl, { clearProps: "boxShadow,scale,rotation" });
   }
   const wEl = headerWalletMarksRef.value;
   if (wEl) gsap.killTweensOf(wEl);
@@ -13297,25 +13440,35 @@ onUnmounted(() => {
 /* 关卡标题：进关动效用 GSAP 写 scale/阴影，此处保证变换原点 */
 .header-box-level-title {
   transform-origin: 50% 50%;
+  position: relative;
 }
 
 .header-box-level-title--clickable {
   cursor: pointer;
-  transition: filter 0.1s ease;
+}
+
+.header-box-level-title--clickable::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: transparent;
+  transition: background 0.1s ease;
+}
+
+.header-box-level-title--clickable:hover::after {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.header-box-level-title--clickable:active::after {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .run-end-confetti-canvas {
   width: 100%;
   height: 100%;
   pointer-events: none;
-}
-
-.header-box-level-title--clickable:hover {
-  filter: brightness(1.04);
-}
-
-.header-box-level-title--clickable:active {
-  filter: brightness(0.96);
 }
 
 .header-box-level-title--clickable:focus-visible {
@@ -13344,11 +13497,17 @@ onUnmounted(() => {
 }
 .action-count-delta-green {
   color: #ffeb3b;
-  filter: drop-shadow(0 0 calc(6 * var(--rpx)) rgba(255, 235, 59, 0.55));
+  text-shadow:
+    0 calc(2 * var(--rpx)) calc(2 * var(--rpx)) rgba(255, 255, 255, 0.45),
+    0 calc(4 * var(--rpx)) calc(10 * var(--rpx)) rgba(0, 0, 0, 0.4),
+    0 0 calc(6 * var(--rpx)) rgba(255, 235, 59, 0.55);
 }
 .action-count-delta-red {
   color: #ff8a80;
-  filter: drop-shadow(0 0 calc(6 * var(--rpx)) rgba(255, 82, 82, 0.45));
+  text-shadow:
+    0 calc(2 * var(--rpx)) calc(2 * var(--rpx)) rgba(255, 255, 255, 0.45),
+    0 calc(4 * var(--rpx)) calc(10 * var(--rpx)) rgba(0, 0, 0, 0.4),
+    0 0 calc(6 * var(--rpx)) rgba(255, 82, 82, 0.45);
 }
 @keyframes actionCountDeltaPop {
   0% {
@@ -13440,8 +13599,7 @@ onUnmounted(() => {
 .deck-layer {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.52);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -13535,12 +13693,22 @@ onUnmounted(() => {
   font-weight: 700;
   cursor: pointer;
   box-shadow: var(--shadow);
+  position: relative;
 }
-.dict-fatal-btn:hover {
-  filter: brightness(1.08);
+.dict-fatal-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: transparent;
+  transition: background 0.15s;
 }
-.dict-fatal-btn:active {
-  filter: brightness(0.92);
+.dict-fatal-btn:hover::after {
+  background: rgba(255, 255, 255, 0.08);
+}
+.dict-fatal-btn:active::after {
+  background: rgba(0, 0, 0, 0.07);
 }
 .deck-layer-grid-slot {
   flex: 0 1 auto;
@@ -13587,8 +13755,14 @@ onUnmounted(() => {
   cursor: default;
   pointer-events: none;
 }
-.deck-stack:not(:disabled):hover .deck-stack-pile {
-  filter: brightness(1.06);
+.deck-stack:not(:disabled):hover .deck-stack-pile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.06);
 }
 .deck-stack:not(:disabled):active .deck-stack-pile {
   transform: scale(0.97);
@@ -13622,7 +13796,7 @@ onUnmounted(() => {
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  transition: transform 0.12s var(--ease-expo-out), filter 0.15s;
+  transition: transform 0.12s var(--ease-expo-out);
   transform-origin: 50% 50%;
 }
 .deck-stack-pile-cell {
@@ -13723,9 +13897,7 @@ onUnmounted(() => {
   gap: calc(12 * var(--rpx));
   padding: calc(12 * var(--rpx)) calc(16 * var(--rpx)) calc(16 * var(--rpx));
   overflow: visible;
-  background: rgba(58, 52, 46, 0.4);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(58, 52, 46, 0.72);
 }
 .deck-stack-expand-toolbar {
   flex: 0 0 auto;
@@ -13983,16 +14155,29 @@ onUnmounted(() => {
   background: #5a8fb8;
   box-shadow: var(--shadow);
   cursor: pointer;
-  transition: filter 0.12s ease, transform 0.1s var(--ease-expo-out);
+  position: relative;
+  transition: transform 0.1s var(--ease-expo-out);
+}
+.stage-settlement-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: transparent;
+  transition: background 0.12s ease;
 }
 
-.stage-settlement-btn:hover:not(:disabled) {
-  filter: brightness(1.05);
+.stage-settlement-btn:hover:not(:disabled)::after {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .stage-settlement-btn:active:not(:disabled) {
   transform: scale(0.99);
-  filter: brightness(0.96);
+}
+
+.stage-settlement-btn:active:not(:disabled)::after {
+  background: rgba(0, 0, 0, 0.07);
 }
 
 .stage-settlement-btn:disabled {

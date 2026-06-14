@@ -106,6 +106,16 @@ function onBackdropSelfClick() {
   cursor: pointer;
   box-shadow: var(--shadow);
   color: #f9f6f2;
+  position: relative;
+}
+.pause-options-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: transparent;
+  transition: background 0.12s ease;
 }
 
 .pause-options-btn--primary {
@@ -132,12 +142,12 @@ function onBackdropSelfClick() {
   box-shadow: none;
 }
 
-.pause-options-btn:not(:disabled):hover {
-  filter: brightness(1.05);
+.pause-options-btn:not(:disabled):hover::after {
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.pause-options-btn:not(:disabled):active {
-  filter: brightness(0.92);
+.pause-options-btn:not(:disabled):active::after {
+  background: rgba(0, 0, 0, 0.07);
 }
 
 .pause-options-layer-enter-active,

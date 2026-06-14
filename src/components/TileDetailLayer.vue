@@ -34,6 +34,7 @@
                   :tile-score-bonus="Number(payload.tileScoreBonus) || 0"
                   :tile-mult-bonus="Number(payload.tileMultBonus) || 0"
                   :hide-rarity-gem="Boolean(payload.hideRarityGem)"
+                  :boss-tile-debuffed="payload.bossTileDebuffed === true"
                 />
               </div>
             </div>
@@ -59,6 +60,20 @@
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div
+              v-if="bossDebuffConceptPanel"
+              class="treasure-detail-desc-card tile-detail-entry tile-detail-stagger-el"
+            >
+              <div class="treasure-detail-desc-panel-title-row">
+                <span class="treasure-detail-desc-panel-title-text">{{ bossDebuffConceptPanel.title }}</span>
+              </div>
+              <TreasureDescRichText
+                class="treasure-detail-desc-panel-rich"
+                :description="bossDebuffConceptPanel.effectDescription"
+                :panel-body="true"
+              />
             </div>
 
             <div v-if="showMaterialRegion" class="treasure-detail-desc-card tile-detail-entry tile-detail-stagger-el">
@@ -174,6 +189,7 @@
                 :tile-score-bonus="Number(payload.tileScoreBonus) || 0"
                 :tile-mult-bonus="Number(payload.tileMultBonus) || 0"
                 :hide-rarity-gem="Boolean(payload.hideRarityGem)"
+                :boss-tile-debuffed="payload.bossTileDebuffed === true"
               />
             </div>
           </div>
@@ -206,7 +222,7 @@ import {
   getTileDetailMaterialTitle,
   getTileDetailAccessoryTitle,
 } from "../game/tileDetailLayerCopy.js";
-import { getTileAccessoryLinkedConceptPanels } from "../game/gameConceptCopy.js";
+import { getGameTermConceptPanel, getTileAccessoryLinkedConceptPanels } from "../game/gameConceptCopy.js";
 import { EASE_TRANSFORM } from "../constants.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
@@ -917,6 +933,10 @@ const treasureAccessoryChipVisual = computed(() =>
 
 const showTreasureAccessoryRegion = computed(
   () => Boolean(treasureAccessoryIdNorm.value && treasureAccessoryDesc.value),
+);
+
+const bossDebuffConceptPanel = computed(() =>
+  props.payload?.bossTileDebuffed === true ? getGameTermConceptPanel("削弱") : null,
 );
 </script>
 

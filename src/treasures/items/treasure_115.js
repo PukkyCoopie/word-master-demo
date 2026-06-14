@@ -44,9 +44,11 @@ export const treasureHooks = {
     if (!rs) return;
     const n = Math.max(0, Math.floor(Number(ctx.letterCount) || 0));
     if (n <= 0) return;
-    const before = Math.max(0, Math.floor(Number(rs.runLettersDiscardedTotal) || 0));
+    // runLettersDiscardedTotal 在 onDiscardBatch 之前已含本批 n，勿再 +n
+    const after = Math.max(0, Math.floor(Number(rs.runLettersDiscardedTotal) || 0));
+    const before = Math.max(0, after - n);
     const stepsBefore = Math.floor(before / LETTERS_PER_STEP);
-    const stepsAfter = Math.floor((before + n) / LETTERS_PER_STEP);
+    const stepsAfter = Math.floor(after / LETTERS_PER_STEP);
     const delta = stepsAfter - stepsBefore;
     if (delta <= 0) return;
     for (let i = 0; i < delta; i += 1) addMultMulBank(rs, ID, DISCARD_26_MULT_INCREMENT);

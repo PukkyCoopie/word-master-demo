@@ -2,8 +2,8 @@ import { describe, mult, score } from "../treasureDescription.js";
 
 /** 与简介「A,B,C,E,H,M,U」一致；改效果时请同步改此集合与 description 文案 */
 const MEMO_LETTER_SET = new Set(["a", "b", "c", "e", "h", "m", "u"]);
-const MEMO_SCORE = 10;
-const MEMO_MULT = 4;
+const MEMO_SCORE = 5;
+const MEMO_MULT = 2;
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
@@ -11,9 +11,9 @@ export default {
   rarity: "rare",
   description: describe(
     "A,B,C,E,H,M,U给予",
-    score("+10"),
+    score("+5"),
     "分数和",
-    mult("+4"),
+    mult("+2"),
     "倍率",
   ),
 };
@@ -36,11 +36,11 @@ export const treasureHooks = {
   getPerLetterScoreCue(_ctx, part) {
     const letter = String(part?.letter ?? "").toLowerCase();
     if (!letter || !MEMO_LETTER_SET.has(letter)) return null;
-    return { delta: MEMO_SCORE, label: "+10" };
+    return { delta: MEMO_SCORE, label: "+5" };
   },
   getPerLetterMultCue(_ctx, part) {
     const letter = String(part?.letter ?? "").toLowerCase();
     if (!letter || !MEMO_LETTER_SET.has(letter)) return null;
-    return { delta: MEMO_MULT, label: "+4" };
+    return { delta: MEMO_MULT, label: "+2" };
   },
 };

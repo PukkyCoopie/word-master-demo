@@ -280,7 +280,7 @@ const effectiveMaterialAnimate = computed(() => {
   color: var(--text);
   /* 装饰性 infinite，animation-easing 规则不强制 expo.out */
   animation: menu-logo-chase var(--menu-logo-cycle, 8s) ease-in-out infinite;
-  will-change: transform, filter;
+  will-change: transform;
 }
 
 .menu-logo-tile .letter-tile-char {
@@ -321,15 +321,12 @@ const effectiveMaterialAnimate = computed(() => {
   0%,
   100% {
     transform: translateY(0);
-    filter: brightness(1);
   }
   5% {
     transform: translateY(calc(-6 * var(--rpx)));
-    filter: brightness(1.09);
   }
   11% {
     transform: translateY(0);
-    filter: brightness(1);
   }
 }
 </style>

@@ -61,6 +61,7 @@ export function registerDevConsole(deps) {
         "  __WM_DEV__.openTapTapEngagementPrompt() — 打开评价和反馈弹窗（含引导问句）",
         "  __WM_DEV__.startMaskBubbleBlueprintTest() — 进关后：[面具][泡泡] + 棋盘 2 个 B（计分动画测试）",
         "  或 URL ?dev=maskBubble 新开一局自动启用",
+        "  __WM_DEV__.randomizeGridTileMaterials() — 局内：为棋盘无材质格各随机加一种材质",
         "  __WM_DEV__.help()                       — 显示本帮助",
       ].join("\n"),
     );

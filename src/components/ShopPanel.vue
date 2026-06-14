@@ -1134,15 +1134,25 @@ defineExpose({
 
 .header-box-next-level--clickable {
   cursor: pointer;
-  transition: filter 0.1s ease;
+  position: relative;
 }
 
-.header-box-next-level--clickable:hover {
-  filter: brightness(1.04);
+.header-box-next-level--clickable::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: transparent;
+  transition: background 0.1s ease;
 }
 
-.header-box-next-level--clickable:active {
-  filter: brightness(0.96);
+.header-box-next-level--clickable:hover::after {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.header-box-next-level--clickable:active::after {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .header-box-next-level--clickable:focus-visible {
@@ -1153,7 +1163,6 @@ defineExpose({
 .header-box-next-level--clickable[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.48;
-  filter: none;
   pointer-events: none;
 }
 

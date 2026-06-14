@@ -1,6 +1,11 @@
 import { formatVoucherDisplayName } from "./voucherDisplay.js";
 import { pairHasTier2Owned } from "./voucherDefinitions.js";
 
+/** 法术「促销」追加的商店优惠券：详情预览补充说明 */
+export const SHOP_SPELL_GRANTED_VOUCHER_PANEL_TITLE = "临时";
+export const SHOP_SPELL_GRANTED_VOUCHER_PANEL_DESCRIPTION =
+  "这张优惠券会在进入下个Boss关卡后消失";
+
 /**
  * @param {import("./voucherTypes.js").VoucherDef} def
  * @param {number} offerInstanceId

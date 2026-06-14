@@ -76,9 +76,8 @@ async function playWinnerReveal(slotIx, getOfferWrapEl) {
   await new Promise((resolve) => {
     gsap.fromTo(
       cell,
-      { filter: "brightness(1)", scale: 1 },
+      { scale: 1 },
       {
-        filter: "brightness(1.2)",
         scale: 1.06,
         duration: 0.11,
         yoyo: true,

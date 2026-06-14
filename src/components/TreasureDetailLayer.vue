@@ -474,6 +474,23 @@
           </div>
 
           <div
+            v-if="showSpellGrantedVoucherPanel"
+            ref="spellGrantedVoucherPanelRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span class="treasure-detail-desc-panel-title-text">{{
+                SHOP_SPELL_GRANTED_VOUCHER_PANEL_TITLE
+              }}</span>
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="SHOP_SPELL_GRANTED_VOUCHER_PANEL_DESCRIPTION"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
             v-if="showTreasureGainPanel && !isDeckOffer"
             ref="treasureGainPanelRef"
             class="treasure-detail-extra-regions treasure-detail-stagger-el"
@@ -836,6 +853,10 @@ import {
   SHOP_PRESET_SALE_TITLE,
 } from "../game/runPresetRuntime.js";
 import {
+  SHOP_SPELL_GRANTED_VOUCHER_PANEL_DESCRIPTION,
+  SHOP_SPELL_GRANTED_VOUCHER_PANEL_TITLE,
+} from "../vouchers/shopVoucherOfferBuild.js";
+import {
   getPerLetterIntrinsicMultDisplay,
   getPerLetterIntrinsicScoreDisplay,
   getRarityForLetter,
@@ -982,6 +1003,14 @@ const showRandomSalePanel = computed(
     props.mode === "offer" &&
     !isCollectionPreviewMode.value &&
     randomSaleDiscountAmount.value > 0,
+);
+
+const showSpellGrantedVoucherPanel = computed(
+  () =>
+    props.mode === "offer" &&
+    !isCollectionPreviewMode.value &&
+    isVoucherOffer.value &&
+    props.treasure?.spellGranted === true,
 );
 
 const presetSalePanelDescription = computed(() =>
@@ -1414,6 +1443,7 @@ function descriptionConceptExcludeTitles() {
   }
   if (showPresetSalePanel.value) exclude.add(SHOP_PRESET_SALE_TITLE);
   if (showRandomSalePanel.value) exclude.add(SHOP_RANDOM_SALE_TITLE);
+  if (showSpellGrantedVoucherPanel.value) exclude.add(SHOP_SPELL_GRANTED_VOUCHER_PANEL_TITLE);
   return exclude;
 }
 
@@ -1472,6 +1502,7 @@ const spellGainPanelRef = ref(null);
 const treasureGainPanelRef = ref(null);
 const randomSalePanelRef = ref(null);
 const presetSalePanelRef = ref(null);
+const spellGrantedVoucherPanelRef = ref(null);
 const collectionUnlockHintPanelRef = ref(null);
 const collectionUnlockPrerequisitePanelRef = ref(null);
 const accessoryPanelRef = ref(null);
@@ -1511,6 +1542,7 @@ function staggerTargets() {
     treasureGainPanelRef.value,
     presetSalePanelRef.value,
     randomSalePanelRef.value,
+    spellGrantedVoucherPanelRef.value,
     collectionUnlockHintPanelRef.value,
     collectionUnlockPrerequisitePanelRef.value,
     spellGainPanelRef.value,
@@ -1904,6 +1936,12 @@ function onPreviewNavStep(delta) {
   emit("preview-nav", delta);
 }
 
+function dismissFlyClone() {
+  const clone = flyCloneRef.value;
+  if (clone) gsap.killTweensOf(clone);
+  flyCloneActive.value = false;
+}
+
 function runCloseAnimation(shouldEmit, options = {}) {
   const deckFlyParallelClose = options.deckFlyParallelClose === true;
   if (closeFlightPromise) {
@@ -1913,6 +1951,7 @@ function runCloseAnimation(shouldEmit, options = {}) {
   bootMask.value = false;
   const backdrop = backdropRef.value;
   const targetVisual = targetVisualRef.value;
+  const clone = flyCloneRef.value;
   const staggerEls = staggerTargets();
 
   if (enterTl) {
@@ -1920,7 +1959,15 @@ function runCloseAnimation(shouldEmit, options = {}) {
     enterTl = null;
   }
 
-  gsap.killTweensOf([backdrop, targetVisual, ...staggerEls, ...(previewNavRef.value?.getAnimTargets?.() ?? [])].filter(Boolean));
+  dismissFlyClone();
+
+  gsap.killTweensOf([
+    backdrop,
+    targetVisual,
+    clone,
+    ...staggerEls,
+    ...(previewNavRef.value?.getAnimTargets?.() ?? []),
+  ].filter(Boolean));
 
   closeFlightPromise = new Promise((resolve) => {
     const finishClose = () => {
@@ -2011,18 +2058,24 @@ function playClose(options = {}) {
 
 function consumeDeckOfferTileVisual() {
   const tile = refToFlyFrameEl(detailFlyFrameRef.value);
-  if (!tile) return;
-  gsap.set(tile, {
-    opacity: 0,
-    visibility: "hidden",
-    pointerEvents: "none",
-    height: 0,
-    minHeight: 0,
-    margin: 0,
-    padding: 0,
-    overflow: "hidden",
-    aspectRatio: "auto",
-  });
+  if (tile) {
+    gsap.set(tile, {
+      opacity: 0,
+      visibility: "hidden",
+      pointerEvents: "none",
+      height: 0,
+      minHeight: 0,
+      margin: 0,
+      padding: 0,
+      overflow: "hidden",
+      aspectRatio: "auto",
+    });
+  }
+  const stack = refToFlyFrameEl(deckOfferStackRef.value);
+  const price = stack?.querySelector?.(".shop-treasure-price");
+  if (price instanceof HTMLElement) {
+    gsap.set(price, { opacity: 0, visibility: "hidden", pointerEvents: "none" });
+  }
 }
 
 /** 包内字母加入牌库：tile 已从预览移除，与飞行动画同时执行其余离场 */

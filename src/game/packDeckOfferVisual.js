@@ -112,5 +112,8 @@ export function mountDeckOfferFlyProductStack(host, offer, opts = {}) {
   priceInner.textContent = opts.priceText ?? `$${base}`;
   priceWrap.appendChild(priceInner);
   host.appendChild(priceWrap);
-  return () => disposeTile();
+  return () => {
+    disposeTile();
+    host.remove();
+  };
 }

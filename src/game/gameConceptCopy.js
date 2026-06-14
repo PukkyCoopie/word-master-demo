@@ -205,6 +205,10 @@ export const GAME_TERM_CONCEPT_BY_LABEL = Object.freeze({
     title: "配饰",
     effectDescription: "可以镶嵌在宝藏或字母块上，提供一些增益",
   }),
+  削弱: Object.freeze({
+    title: "削弱",
+    effectDescription: "会跳过计分",
+  }),
 });
 
 /** @typedef {{ title: string, effectDescription: string }} DescriptionConceptPanel */
