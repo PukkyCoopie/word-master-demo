@@ -1274,9 +1274,7 @@ textarea::-moz-placeholder {
 	pointer-events: none;
 }
 
-.grid-tile.letter-tile-boss-debuff,
-.fly-letter.letter-tile-boss-debuff,
-.fly-letter-back.letter-tile-boss-debuff {
+.grid-tile.letter-tile-boss-debuff {
 	position: relative;
 }
 
