@@ -15,6 +15,7 @@ import {
   getAnimationSpeedScale,
   shouldSkipDecorativeMotion,
 } from "../settings/animationSpeed.js";
+import { notifyOverlayOpened, triggerHaptic } from "../platform/haptics.js";
 
 const props = defineProps({
   color: { type: String, default: "#5a8fb8" },
@@ -180,6 +181,10 @@ async function play(_ignored, opts) {
 
   await nextTick();
   await animateIrisR(0, iris.maxR, coverDur);
+  if (!skipMotion) {
+    notifyOverlayOpened();
+    triggerHaptic("overlayPresent");
+  }
 
   await resolvedOpts?.onCovered?.();
 
@@ -197,6 +202,7 @@ async function play(_ignored, opts) {
   iris.phase = "reveal";
   iris.r = 0;
   await animateIrisR(0, iris.maxR, revealDur);
+  if (!skipMotion) triggerHaptic("overlayDismiss");
 
   iris.active = false;
   overlayEl.style.zIndex = "";

@@ -213,6 +213,24 @@
                     </span>
                   </button>
                 </label>
+
+                <label v-if="hapticsAvailable" class="settings-row">
+                  <span class="settings-row-label">震动反馈</span>
+                  <button
+                    type="button"
+                    class="settings-toggle"
+                    role="switch"
+                    :aria-checked="hapticsEnabled"
+                    @click="onToggleHaptics"
+                  >
+                    <span
+                      class="settings-toggle-track"
+                      :class="{ 'settings-toggle-track--on': hapticsEnabled }"
+                    >
+                      <span class="settings-toggle-thumb" />
+                    </span>
+                  </button>
+                </label>
               </div>
             </section>
           </div>
@@ -241,11 +259,13 @@ import {
   setAllowSpellingAbbreviations,
   setAnimationSpeedTier,
   setDisplayLayoutMode,
+  setHapticsEnabled,
   setMarkOnSwap,
   setReduceMotion,
   setUiScalePercent,
   stepSwapButtonMode,
 } from "../settings/gameSettings.js";
+import { isHapticsAvailable, previewHaptic, scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -258,11 +278,14 @@ const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.v
 
 watch(
   () => props.open,
-  (v) => {
+  (v, prev) => {
     if (v) {
       nextTick(() => {
         stackZ.value = settingsOverlayZ();
       });
+      scheduleOverlayPresent(280);
+    } else if (prev) {
+      scheduleOverlayDismiss(240);
     }
   },
   { immediate: true },
@@ -290,6 +313,7 @@ const tabSlideStyle = computed(() => ({
 /** @param {SettingsTabId} id */
 function setActiveTab(id) {
   if (activeTab.value === id) return;
+  triggerHaptic("tabSwitch");
   activeTab.value = id;
 }
 
@@ -299,6 +323,20 @@ const uiScalePercent = computed(() => gameSettings.uiScalePercent);
 const displayLayoutMode = computed(() => gameSettings.displayLayoutMode);
 const animationSpeedTier = computed(() => gameSettings.animationSpeedTier);
 const reduceMotionEnabled = computed(() => gameSettings.reduceMotion === true);
+const hapticsAvailable = isHapticsAvailable();
+const hapticsEnabled = computed(() => gameSettings.hapticsEnabled !== false);
+
+function onToggleHaptics() {
+  const next = !hapticsEnabled.value;
+  setHapticsEnabled(next);
+  if (next) previewHaptic("tap");
+}
+
+/** 设置项变更：分段控件自带 tabSwitch，此处供开关/滑条等（仅原生端） */
+function settingsChangeTap() {
+  if (!hapticsAvailable) return;
+  triggerHaptic("tap");
+}
 
 /** @param {string} mode */
 function onDisplayLayoutModeChange(mode) {
@@ -312,6 +350,7 @@ function onAnimationSpeedChange(tier) {
 
 function onToggleReduceMotion() {
   setReduceMotion(!reduceMotionEnabled.value);
+  settingsChangeTap();
 }
 
 const swapModeSizerLabel = SWAP_BUTTON_MODE_OPTIONS.reduce((a, b) =>
@@ -325,14 +364,17 @@ const swapModeLabel = computed(() => {
 
 function onSwapModePrev() {
   stepSwapButtonMode(-1);
+  if (hapticsAvailable) triggerHaptic("tabSwitch");
 }
 
 function onSwapModeNext() {
   stepSwapButtonMode(1);
+  if (hapticsAvailable) triggerHaptic("tabSwitch");
 }
 
 function onToggleMarkOnSwap() {
   setMarkOnSwap(!markOnSwap.value);
+  settingsChangeTap();
 }
 
 const scaleSliderStyle = computed(() => {
@@ -349,6 +391,7 @@ watch(uiScalePercent, (v) => {
 
 function onToggleAbbrev() {
   setAllowSpellingAbbreviations(!allowAbbrev.value);
+  settingsChangeTap();
 }
 
 /** @param {Event} e */
@@ -356,6 +399,7 @@ function onScaleSliderInput(e) {
   const raw = /** @type {HTMLInputElement} */ (e.target).value;
   setUiScalePercent(Number(raw));
   scaleInputText.value = String(gameSettings.uiScalePercent);
+  if (hapticsAvailable) triggerHaptic("land");
 }
 
 /** @param {Event} e */
@@ -364,10 +408,12 @@ function onScaleTextInput(e) {
 }
 
 function commitScaleInput() {
+  const prev = gameSettings.uiScalePercent;
   const digits = scaleInputText.value.replace(/\D/g, "");
-  const next = digits === "" ? gameSettings.uiScalePercent : clampUiScalePercent(digits);
+  const next = digits === "" ? prev : clampUiScalePercent(digits);
   setUiScalePercent(next);
   scaleInputText.value = String(gameSettings.uiScalePercent);
+  if (gameSettings.uiScalePercent !== prev) settingsChangeTap();
 }
 
 /** @param {KeyboardEvent} e */

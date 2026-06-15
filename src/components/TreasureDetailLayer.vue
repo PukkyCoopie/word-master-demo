@@ -831,6 +831,7 @@ import ShopSpellShelfCell from "./ShopSpellShelfCell.vue";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
 import LetterTile from "./LetterTile.vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { scheduleOverlayDismiss, schedulePreviewLayerPresent, triggerHaptic } from "../platform/haptics.js";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 import {
   instantPortalLayerClose,
@@ -1943,6 +1944,7 @@ function dismissFlyClone() {
 }
 
 function runCloseAnimation(shouldEmit, options = {}) {
+  scheduleOverlayDismiss(240);
   const deckFlyParallelClose = options.deckFlyParallelClose === true;
   if (closeFlightPromise) {
     return closeFlightPromise;
@@ -2117,6 +2119,7 @@ watch(
 onMounted(() => {
   armBackdropSelfCloseGuard();
   document.addEventListener("keydown", onDocumentKeydown);
+  schedulePreviewLayerPresent(280);
   void nextTick(() => {
     const backdrop = backdropRef.value;
     const targetVisual = targetVisualRef.value;
@@ -2146,6 +2149,7 @@ watch(
   (next, prev) => {
     if (prev == null || next === prev || !initialEnterDone.value) return;
     if (props.previewNavTotal <= 1) return;
+    triggerHaptic("tabSwitch");
     void nextTick(() => {
       requestAnimationFrame(() => runContentEnterAnimation());
     });

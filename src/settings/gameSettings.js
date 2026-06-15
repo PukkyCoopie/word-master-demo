@@ -58,7 +58,7 @@ export function normalizeDisplayLayoutMode(value) {
   return inferDefaultDisplayLayoutMode();
 }
 
-/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; reduceMotion: boolean; displayLayoutMode: DisplayLayoutMode }} */
+/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; reduceMotion: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode }} */
 export const gameSettings = reactive({
   allowSpellingAbbreviations: false,
   uiScalePercent: UI_SCALE_DEFAULT,
@@ -66,6 +66,7 @@ export const gameSettings = reactive({
   markOnSwap: true,
   animationSpeedTier: "normal",
   reduceMotion: false,
+  hapticsEnabled: true,
   displayLayoutMode: inferDefaultDisplayLayoutMode(),
 });
 
@@ -102,6 +103,9 @@ export function loadGameSettings() {
     if (typeof parsed.reduceMotion === "boolean") {
       gameSettings.reduceMotion = parsed.reduceMotion;
     }
+    if (typeof parsed.hapticsEnabled === "boolean") {
+      gameSettings.hapticsEnabled = parsed.hapticsEnabled;
+    }
     if (parsed.displayLayoutMode != null) {
       gameSettings.displayLayoutMode = normalizeDisplayLayoutMode(parsed.displayLayoutMode);
     }
@@ -121,6 +125,7 @@ export function persistGameSettings() {
         markOnSwap: gameSettings.markOnSwap,
         animationSpeedTier: gameSettings.animationSpeedTier,
         reduceMotion: gameSettings.reduceMotion,
+        hapticsEnabled: gameSettings.hapticsEnabled,
         displayLayoutMode: gameSettings.displayLayoutMode,
       }),
     );
@@ -211,6 +216,17 @@ export function getReduceMotion() {
 /** @param {boolean} enabled */
 export function setReduceMotion(enabled) {
   gameSettings.reduceMotion = Boolean(enabled);
+  persistGameSettings();
+}
+
+/** @returns {boolean} */
+export function getHapticsEnabled() {
+  return gameSettings.hapticsEnabled !== false;
+}
+
+/** @param {boolean} enabled */
+export function setHapticsEnabled(enabled) {
+  gameSettings.hapticsEnabled = Boolean(enabled);
   persistGameSettings();
 }
 

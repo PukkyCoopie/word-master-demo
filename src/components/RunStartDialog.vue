@@ -33,7 +33,7 @@
           class="run-start-dialog-tab"
           :class="{ 'run-start-dialog-tab--active': activeTab === 'new' }"
           :aria-selected="activeTab === 'new'"
-          @click="activeTab = 'new'"
+          @click="setRunStartTab('new')"
         >
           新游戏
         </button>
@@ -259,6 +259,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { recordPointerClientFromEvent } from "../game/lastPointerClient.js";
+import { scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 import { generateRandomRunSeedString, normalizeRunSeedInput, resolveRunSeedFromDialog } from "../game/runRng.js";
 import { getPresetDescriptionLayoutTier, getRunPresetDef, normalizeRunPresetId } from "../game/runPresetDefinitions.js";
 import { getLastSelectedPresetId, isPresetUnlocked } from "../game/runPresetProgress.js";
@@ -383,11 +384,14 @@ onBeforeUnmount(() => {
 
 watch(
   () => props.open,
-  (v) => {
+  (v, prev) => {
     if (v) {
       nextTick(() => {
         stackZ.value = bumpOverlayZ();
       });
+      scheduleOverlayPresent(280);
+    } else if (prev) {
+      scheduleOverlayDismiss(240);
     }
   },
   { immediate: true },
@@ -521,8 +525,17 @@ function onRandomSeed() {
   seedDraft.value = generateRandomRunSeedString();
 }
 
+/** @param {'new' | 'continue'} tab */
+function setRunStartTab(tab) {
+  if (activeTab.value === tab) return;
+  triggerHaptic("tabSwitch");
+  activeTab.value = tab;
+}
+
 function onContinueTabClick() {
   if (!continueEnabled.value) return;
+  if (activeTab.value === "continue") return;
+  triggerHaptic("tabSwitch");
   activeTab.value = "continue";
 }
 

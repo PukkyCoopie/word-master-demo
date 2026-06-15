@@ -1,0 +1,148 @@
+word,pos,translation
+ai,n,n. 人工智能（artificial intelligence）
+ok,adj|adv,adj/adv. 好的；可以；同意
+covid,n,n. 新冠病毒；新冠肺炎（COVID-19）
+coronavirus,n,n. 冠状病毒
+chatgpt,n,n. ChatGPT；聊天生成预训练转换器
+gpt,n,n. 生成式预训练转换器（GPT）
+tiktok,n,n. TikTok；抖音国际版
+instagram,n,n. Instagram；照片分享社交平台
+facebook,n,n. Facebook；脸书
+twitter,n,n. Twitter/X；社交媒体平台
+youtube,n,n. YouTube；视频分享网站
+whatsapp,n,n. WhatsApp；即时通讯应用
+discord,n,n. Discord；游戏与社区聊天平台
+netflix,n,n. Netflix；奈飞；流媒体平台
+spotify,n,n. Spotify；音乐流媒体平台
+paypal,n,n. PayPal；在线支付平台
+uber,n,n. Uber；优步；网约车平台
+zoom,n,n. Zoom；视频会议软件
+reddit,n,n. Reddit；社交新闻网站
+snapchat,n,n. Snapchat；阅后即焚社交应用
+linkedin,n,n. LinkedIn；领英；职业社交网络
+github,n,n. GitHub；代码托管平台
+wifi,n,n. 无线网络（Wi-Fi）
+web,n,n. 网络；万维网
+website,n,n. 网站
+webpage,n,n. 网页
+online,adj|adv,adj/adv. 在线的；在线地
+offline,adj|adv,adj/adv. 离线的；离线地
+internet,n,n. 互联网；因特网
+email,n|v,n/v. 电子邮件；发邮件
+browser,n,n. 浏览器
+software,n,n. 软件
+hardware,n,n. 硬件
+smartphone,n,n. 智能手机
+tablet,n,n. 平板电脑
+app,n,n. 应用程序
+emoji,n,n. 表情符号
+meme,n,n. 网络迷因；梗
+stream,n|v,n/v. 直播；流媒体；流式传输
+streamer,n,n. 主播；流媒体播放者
+podcast,n,n. 播客
+vlog,n,n. 视频博客
+blog,n,n. 博客
+hashtag,n,n. 话题标签
+selfie,n,n. 自拍
+unfriend,v,v. 删除好友；解除好友关系
+unfollow,v,v. 取消关注
+influencer,n,n. 网红；意见领袖
+gameplay,n,n. 游戏玩法；游戏体验
+multiplayer,n|adj,n/adj. 多人游戏；多人的
+singleplayer,n|adj,n/adj. 单人游戏；单人的
+speedrun,n|v,n/v. 速通；以最快速度通关
+roguelike,n|adj,n/adj. 肉鸽类游戏；类 Rogue 游戏
+roguelite,n|adj,n/adj. 轻度肉鸽游戏
+sandbox,n,n. 沙盒（游戏模式或环境）
+esports,n,n. 电子竞技
+streamer,n,n. 主播
+noob,n,n. 新手；菜鸟（游戏俚语）
+pro,n,n. 高手；职业选手
+lag,n|v,n/v. 延迟；卡顿
+fps,n,n. 第一人称射击游戏；帧率
+rpg,n,n. 角色扮演游戏
+mmo,n,n. 大型多人在线游戏
+dlc,n,n. 可下载内容（DLC）
+npc,n,n. 非玩家角色（NPC）
+xp,n,n. 经验值（XP）
+hp,n,n. 生命值（HP）
+mp,n,n. 魔法值（MP）
+buff,n|v,n/v. 增益效果；增强
+debuff,n|v,n/v. 减益效果；削弱
+nerf,v|n,v/n. 削弱（游戏平衡调整）
+meta,n|adj,n/adj. 元；主流套路；(meta)
+nft,n,n. 非同质化代币（NFT）
+crypto,n,n. 加密货币
+bitcoin,n,n. 比特币
+ethereum,n,n. 以太坊
+blockchain,n,n. 区块链
+dont,v,v. do not 的缩略形式（don't）
+wasnt,v,v. was not 的缩略形式（wasn't）
+werent,v,v. were not 的缩略形式（weren't）
+hasnt,v,v. has not 的缩略形式（hasn't）
+havent,v,v. have not 的缩略形式（haven't）
+didnt,v,v. did not 的缩略形式（didn't）
+doesnt,v,v. does not 的缩略形式（doesn't）
+isnt,v,v. is not 的缩略形式（isn't）
+arent,v,v. are not 的缩略形式（aren't）
+whats,pron|det,pron/det. what is / what has 的缩略形式（what's）
+thats,pron|det,pron/det. that is / that has 的缩略形式（that's）
+youre,v,you're. 你是；你们是（you are）
+theyre,v,they're. 他们是（they are）
+weve,v,we've. 我们已经（we have）
+ive,v,I've. 我已经（I have）
+hes,v,he's. 他是；他已经（he is / he has）
+shes,v,she's. 她是；她已经（she is / she has）
+lets,v,let's. 让我们（let us）
+gotta,v,gotta. 必须；得（got to 口语）
+wanna,v,wanna. 想要（want to 口语）
+kinda,adv,kinda. 有点；某种程度上（kind of 口语）
+sorta,adv,sorta. 有点；算是（sort of 口语）
+gonna,v,gonna. 将要（going to 口语）
+lmao,interj,interj. 笑死我了（laughing my ass off）
+omg,interj,interj. 天啊（oh my god）
+wtf,interj,interj. 什么鬼（what the fuck）
+tbh,adv,adv. 老实说（to be honest）
+fyi,abbr,abbr. 供参考（for your information）
+imo,abbr,abbr. 依我看（in my opinion）
+imho,abbr,abbr. 依 humble 之见（in my humble opinion）
+brb,abbr,abbr. 马上回来（be right back）
+idk,abbr,abbr. 我不知道（I don't know）
+irl,abbr,abbr. 现实中（in real life）
+afk,abbr,abbr. 离开键盘（away from keyboard）
+gg,interj,interj. 好局；打得不错（good game）
+glhf,interj,interj. 祝好运玩得开心（good luck have fun）
+pog,interj,interj. 太棒了（网络感叹）
+sus,adj,adj. 可疑的（suspicious 口语）
+vibe,n|v,n/v. 氛围；感觉
+vibes,n,n. 氛围；感觉（复数）
+lit,adj,adj. 很棒的；很燃的（俚语）
+based,adj,adj. 有主见；很酷（网络俚语）
+cringe,adj|n,adj/n. 尴尬；令人社死的
+yeet,v|interj,v/interj. 扔；抛（网络梗）
+nintendo,n,n. 任天堂（游戏公司）
+playstation,n,n. PlayStation；索尼游戏主机
+xbox,n,n. Xbox；微软游戏主机
+switch,n,n. Nintendo Switch；任天堂 Switch 主机
+minecraft,n,n. Minecraft；我的世界
+fortnite,n,n. Fortnite；堡垒之夜
+roblox,n,n. Roblox；罗布乐思
+valorant,n,n. Valorant；无畏契约
+overwatch,n,n. Overwatch；守望先锋
+cyberpunk,n,n. 赛博朋克
+steampunk,n,n. 蒸汽朋克
+cosplay,n|v,n/v. 角色扮演；cos 扮演
+anime,n,n. 日本动画；动漫
+manga,n,n. 日本漫画
+kpop,n,n. 韩国流行音乐（K-pop）
+euro,n,n. 欧元
+yuan,n,n. 元（货币）
+vegan,n|adj,n/adj. 纯素食者；纯素的
+keto,adj,adj. 生酮的（饮食法）
+gluten,n,n. 麸质
+protein,n,n. 蛋白质
+veggie,n,n. 蔬菜；素食者（口语）
+airbnb,n,n. Airbnb；爱彼迎
+tesla,n,n. Tesla；特斯拉
+spacex,n,n. SpaceX；太空探索技术公司
+openai,n,n. OpenAI；开放人工智能研究中心

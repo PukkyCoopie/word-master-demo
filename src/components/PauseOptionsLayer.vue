@@ -34,6 +34,7 @@
 <script setup>
 import { watch } from "vue";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
+import { scheduleOverlayDismiss, scheduleOverlayPresent } from "../platform/haptics.js";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -47,8 +48,13 @@ const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
 
 watch(
   () => props.open,
-  (isOpen) => {
-    if (isOpen) backdropSelfCloseGuard.arm();
+  (isOpen, wasOpen) => {
+    if (isOpen) {
+      backdropSelfCloseGuard.arm();
+      scheduleOverlayPresent(280);
+    } else if (wasOpen) {
+      scheduleOverlayDismiss(240);
+    }
   },
 );
 

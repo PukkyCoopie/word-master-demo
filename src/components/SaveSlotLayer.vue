@@ -137,6 +137,7 @@ import { getProfileInitialLetter, getProfileInitialLetterStyle, getSlotProfile, 
 import { isSlotOccupied, listAllSlotEntries } from "../save/runSaveStorage.js";
 import { formatRelativeSaveTime } from "../save/saveDisplayUtils.js";
 import { getSlotCareerSummaryRows } from "../save/slotCareerStats.js";
+import { scheduleOverlayDismiss, scheduleOverlayPresent } from "../platform/haptics.js";
 
 /** @typedef {'select' | 'load' | 'new'} SaveSlotMode */
 
@@ -166,10 +167,13 @@ const titleText = computed(() => {
 
 watch(
   () => props.open,
-  (v) => {
+  (v, prev) => {
     if (v) {
       pendingDeleteIndex.value = null;
       pendingOverwriteIndex.value = null;
+      scheduleOverlayPresent(280);
+    } else if (prev) {
+      scheduleOverlayDismiss(240);
     }
   },
 );

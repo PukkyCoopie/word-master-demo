@@ -389,6 +389,7 @@ import {
   resolveInfoStageShopConnector,
 } from "../game/infoStageProgress.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 import {
   buildOwnedVoucherPairGroups,
   ownedVoucherGroupDisplayName,
@@ -468,11 +469,14 @@ const layerStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.valu
 
 watch(
   () => props.modelValue,
-  (v) => {
+  (v, prev) => {
     if (v) {
       nextTick(() => {
         stackZ.value = bumpOverlayZ();
       });
+      scheduleOverlayPresent(280);
+    } else if (prev) {
+      scheduleOverlayDismiss(240);
     }
   },
   { immediate: true },
@@ -732,6 +736,7 @@ function prepareActiveTabEnterHidden() {
  */
 function switchInfoTab(tabId) {
   if (!VALID_INFO_TABS.has(tabId) || activeTab.value === tabId) return;
+  triggerHaptic("tabSwitch");
   if (!props.modelValue || skipTabSwitchAnim) {
     activeTab.value = tabId;
     return;

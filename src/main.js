@@ -8,6 +8,7 @@ import { deferReglMaterialWarmupAtBoot } from "./lib/reglMaterialPerf.js";
 import { startRemixIconFontLoad } from "./composables/useRemixIconFont.js";
 import { initAnimationSpeedSettings } from "./settings/animationSpeed.js";
 import { initAndroidBackButton } from "./platform/androidBackButton.js";
+import { initUIButtonHaptics } from "./platform/haptics.js";
 import { applyBorderlessLayoutHtmlClass } from "./settings/displayLayoutMode.js";
 import { getViewportSize } from "./composables/viewportSize.js";
 function disableNativeWebNotificationPrompt() {
@@ -54,6 +55,9 @@ if (!deferReglMaterialWarmupAtBoot()) {
 }
 
 document.addEventListener("contextmenu", (e) => e.preventDefault(), { capture: true });
+if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
+  initUIButtonHaptics();
+}
 
 const app = createApp(App);
 initAnimationSpeedSettings();

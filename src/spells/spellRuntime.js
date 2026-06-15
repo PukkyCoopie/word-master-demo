@@ -155,8 +155,7 @@ export function getSpellTileAppearanceTargets(effectiveSpellId, ordered, g, ROWS
       for (const p of ord) add(p.row, p.col);
       break;
     case "ouija":
-      for (const p of ord) add(p.row, p.col);
-      break;
+      return buildSpellAnimPickTargetsFromOrdered(ord, g);
     default:
       break;
   }

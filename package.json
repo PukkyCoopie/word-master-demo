@@ -1,7 +1,7 @@
 {
   "name": "word-master-demo",
   "private": true,
-  "version": "0.7.34",
+  "version": "0.7.35",
   "type": "module",
   "scripts": {
     "icons:render": "node scripts/render-achievement-icons.mjs",
@@ -39,6 +39,7 @@
     "@capacitor/android": "^8.3.4",
     "@capacitor/app": "^8.1.0",
     "@capacitor/core": "^8.3.4",
+    "@capacitor/haptics": "^8.0.2",
     "@vitejs/plugin-vue": "^6.0.5",
     "brotli-dec-wasm": "^2.3.2",
     "canvas-confetti": "^1.9.4",

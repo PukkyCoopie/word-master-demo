@@ -225,6 +225,7 @@ import {
 import { getGameTermConceptPanel, getTileAccessoryLinkedConceptPanels } from "../game/gameConceptCopy.js";
 import { EASE_TRANSFORM } from "../constants.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { schedulePreviewLayerPresent } from "../platform/haptics.js";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 import {
   instantPortalLayerClose,
@@ -811,6 +812,7 @@ watch(
 
 onMounted(() => {
   armBackdropSelfCloseGuard();
+  schedulePreviewLayerPresent(280);
   void nextTick().then(() => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => runEnterAnimation());

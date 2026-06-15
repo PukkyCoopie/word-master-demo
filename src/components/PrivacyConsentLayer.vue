@@ -112,6 +112,7 @@
 <script setup>
 import { computed, defineComponent, h, nextTick, ref, watch } from "vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { scheduleOverlayDismiss, scheduleOverlayPresent } from "../platform/haptics.js";
 import { usePanelScrollbar } from "../composables/usePanelScrollbar.js";
 import {
   PRIVACY_POLICY_BODY_BLOCKS,
@@ -185,13 +186,17 @@ const backdropStackStyle = computed(() =>
 
 watch(
   () => props.open,
-  async (isOpen) => {
-    if (!isOpen) return;
-    stackZ.value = bumpOverlayZ();
-    await nextTick();
-    bindResizeObserver();
-    if (scrollBodyRef.value) scrollBodyRef.value.scrollTop = 0;
-    updateScrollbarMetrics();
+  async (isOpen, prev) => {
+    if (isOpen) {
+      stackZ.value = bumpOverlayZ();
+      scheduleOverlayPresent(280);
+      await nextTick();
+      bindResizeObserver();
+      if (scrollBodyRef.value) scrollBodyRef.value.scrollTop = 0;
+      updateScrollbarMetrics();
+    } else if (prev) {
+      scheduleOverlayDismiss(240);
+    }
   },
   { immediate: true },
 );

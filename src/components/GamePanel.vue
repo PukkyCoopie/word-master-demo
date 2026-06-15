@@ -537,6 +537,7 @@
               :class="{ 'action-aux-btn--disabled': !canSwapWordSelection }"
               :title="swapWordButtonTitle"
               :aria-label="swapWordButtonTitle"
+              data-haptic-skip-ui-tap
               @click="onSwapWordSelectionClick"
             >
               <i class="ri-arrow-up-down-line" aria-hidden="true"></i>
@@ -551,6 +552,7 @@
               class="action-btn action-btn-green"
               :class="{ 'action-btn-disabled': !canSubmit || scoringAnimating || gridRefillAnimating }"
               title="提交"
+              data-haptic-skip-ui-tap
               @click="canSubmit && !scoringAnimating && !gridRefillAnimating && flyingLetters.length === 0 && flyingBackBatches.length === 0 ? submitWord() : null"
             >
               <i class="ri-check-line action-icon"></i>
@@ -574,6 +576,7 @@
                 'action-btn-disabled--interactive': discardBtnOverLimit,
               }"
               title="丢弃选中的字母（先选字再点）"
+              data-haptic-skip-ui-tap
               @click="onDiscardBtnClick"
             >
               <i class="ri-delete-bin-line action-icon"></i>
@@ -1143,6 +1146,7 @@ import { createFlyBackTileElement, disposeFlyBackTileElement } from "../utils/le
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { registerAndroidBackHandler } from "../platform/androidBackButton.js";
 import { handleGameAndroidBack } from "../platform/handleGameAndroidBack.js";
+import { scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 import { recordPointerClientFromEvent } from "../game/lastPointerClient.js";
 import {
   killDeckLayerEnter,
@@ -1534,6 +1538,8 @@ let bossTapeTriggerRippleClearTimer = null;
 let submitBossToothTapeCuePlayed = false;
 
 function playBossTapeTriggerCue() {
+  triggerHaptic("warning");
+  triggerHaptic("wobble");
   if (bossTapeWobbleClearTimer) clearTimeout(bossTapeWobbleClearTimer);
   if (bossTapeTriggerRippleClearTimer) clearTimeout(bossTapeTriggerRippleClearTimer);
   bossTapeTriggerImpactFx.value = false;
@@ -1829,8 +1835,9 @@ watch(deckStackExpandRaw, async (raw) => {
   });
 });
 
-watch(showDeckLayer, async (open) => {
+watch(showDeckLayer, async (open, prev) => {
   if (open) {
+    scheduleOverlayPresent(280);
     deckPortalZ.value = bumpOverlayZ();
     deckLayerEnterBoot.value = true;
     await nextTick();
@@ -1840,7 +1847,8 @@ watch(showDeckLayer, async (open) => {
     requestAnimationFrame(() => {
       if (deckLayerInnerRef.value) playDeckLayerEnter(deckLayerInnerRef.value);
     });
-  } else {
+  } else if (prev) {
+    scheduleOverlayDismiss(240);
     killDeckLayerEnter(deckLayerInnerRef.value);
     deckExpandFlipTl?.kill();
     deckExpandFlipTl = null;
@@ -2570,6 +2578,21 @@ function runOwnedTreasuresOnShopEnterFx() {
 
 /** @type {import('vue').Ref<null | { kind: 'offer', treasure: object, originRect?: object | null } | { kind: 'owned', slotIndex: number, treasure: object, originRect?: object | null }>} */
 const treasureDetail = ref(null);
+
+/** @param {NonNullable<typeof treasureDetail.value>} detail */
+function presentTreasureDetail(detail) {
+  triggerHaptic("previewOpen");
+  treasureDetail.value = detail;
+}
+
+/** @param {number} count @param {number} staggerSec */
+function scheduleStaggeredTileRemoveHaptics(count, staggerSec) {
+  if (count <= 0) return;
+  const staggerMs = Math.max(0, Math.round(staggerSec * 1000));
+  for (let i = 0; i < count; i += 1) {
+    window.setTimeout(() => triggerHaptic("tileRemove"), i * staggerMs);
+  }
+}
 /** 重播详情内点击「上一张法术」时叠开的只读法术预览 */
 const spellReferencePreview = ref(/** @type {object | null} */ (null));
 const treasureDetailLayerRef = ref(null);
@@ -2692,7 +2715,7 @@ function onShopSelectOffer(payload) {
   const root = payload.originEl;
   const t = payload.treasure;
   const deckOffer = t?.offerType === "deckTile" || t?.offerType === "deckLetter";
-  treasureDetail.value = {
+  presentTreasureDetail({
     kind: "offer",
     treasure: payload.treasure,
     originRect: deckOffer ? packDeckOfferFlyOriginRectFromEl(root) : treasureOriginRectFromEl(root),
@@ -2700,12 +2723,12 @@ function onShopSelectOffer(payload) {
       shopOffers.value,
       (o) => o.offerInstanceId === payload.treasure.offerInstanceId,
     ),
-  };
+  });
 }
 
 function onShopSelectPackOffer(payload) {
   const root = payload.originEl;
-  treasureDetail.value = {
+  presentTreasureDetail({
     kind: "offer",
     treasure: payload.treasure,
     originRect: treasureOriginRectFromEl(root),
@@ -2713,19 +2736,19 @@ function onShopSelectPackOffer(payload) {
       packOffers.value,
       (o) => o.offerInstanceId === payload.treasure.offerInstanceId,
     ),
-  };
+  });
 }
 
 function onShopSelectOwned(payload) {
   if (!payload?.treasure) return;
   const items = buildShopOwnedPreviewNavItems();
-  treasureDetail.value = {
+  presentTreasureDetail({
     kind: "owned",
     slotIndex: payload.index,
     treasure: payload.treasure,
     originRect: treasureOriginRectFromEl(payload.originEl),
     previewNav: createPreviewNavGroupFromItems(items, (x) => x.index === payload.index),
-  };
+  });
 }
 
 /** @param {{ pairId: string, originEl?: HTMLElement | null }} payload */
@@ -2736,11 +2759,11 @@ function onInfoSelectOwnedVoucher(payload) {
   if (!group) return;
   const treasure = buildOwnedVoucherDetailTreasure(group);
   if (!treasure) return;
-  treasureDetail.value = {
+  presentTreasureDetail({
     kind: "voucher-owned",
     treasure,
     originRect: treasureOriginRectFromEl(payload.originEl),
-  };
+  });
 }
 
 function buildRollBundleOptionsCtx() {
@@ -3289,6 +3312,7 @@ async function onPackInnerClaim() {
     }
     await maybeAutoClosePackPickSession();
     ensurePackPickOverlayVisible();
+    triggerHaptic("selection");
   } finally {
     packPickBusy.value = false;
     scheduleRunAutoSave();
@@ -4483,6 +4507,7 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
 
 function noteRunShopPurchase() {
   recordShopPurchase(runMatchStats.value);
+  triggerHaptic("confirm");
 }
 
 function noteRunReroll() {
@@ -4711,6 +4736,7 @@ function buildSettlementDollarSubTimeline(animRef, count, rowEl, stepGap, interR
     st.call(() => {
       animRef.value = sign * k;
       shakeSettlementRow(rowEl);
+      triggerHaptic("settleDollar");
     });
     if (k < steps) st.to({}, { duration: stepGap });
   }
@@ -4767,11 +4793,14 @@ function onSettlementOverlayPointerDown(ev) {
   finishSettlementIntroInstant();
 }
 
-watch(showSettlement, (open) => {
+watch(showSettlement, (open, prev) => {
   if (open) {
+    scheduleOverlayPresent(280);
     settlementPortalZ.value = bumpOverlayZ();
     showDeckLayer.value = false;
     void dismissTileDetailLayer();
+  } else if (prev) {
+    scheduleOverlayDismiss(240);
   }
 });
 
@@ -4791,12 +4820,14 @@ watch(showRunEnd, (open) => {
   }
 });
 
-watch(showShop, async (open) => {
+watch(showShop, async (open, prev) => {
   if (!open) {
+    if (prev) scheduleOverlayDismiss(240);
     shopOverlayLayersSuppressed.value = false;
     packPickOverlaySuppressed.value = false;
     return;
   }
+  scheduleOverlayPresent(280);
   shopPortalZ.value = bumpOverlayZ();
   void dismissTileDetailLayer();
   showInfoLayer.value = false;
@@ -5059,6 +5090,7 @@ function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
   const duration = Number.isFinite(options.duration) ? options.duration : 0.28;
   const stagger = Number.isFinite(options.stagger) ? options.stagger : 0.12;
   if (shouldSkipDecorativeMotion()) {
+    scheduleStaggeredTileRemoveHaptics(Math.max(slotEls.length, gridEls.length), stagger);
     return runStaggeredInstantLeave(slotEls, gridEls, { stagger });
   }
   return new Promise((resolve) => {
@@ -5072,6 +5104,7 @@ function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
       done += 1;
       if (done >= need) resolve();
     };
+    const removeHapticStagger = { each: stagger, onStart: () => triggerHaptic("tileRemove") };
     if (slotEls.length > 0) {
       gsap.fromTo(
         slotEls,
@@ -5081,7 +5114,7 @@ function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
           scale: 0.88,
           y: -10,
           duration,
-          stagger,
+          stagger: removeHapticStagger,
           ease: EASE_TRANSFORM,
           onComplete: finish,
         }
@@ -5094,7 +5127,7 @@ function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
         scale: 0.82,
         y: 0,
         duration,
-        stagger,
+        stagger: slotEls.length > 0 ? stagger : removeHapticStagger,
         ease: EASE_TRANSFORM,
         onComplete: finish,
       });
@@ -5113,6 +5146,7 @@ const DISCARD_TRASH_FX_HOLD_MS = Math.round(200 * SCORING_GAP_SCALE);
  */
 function animateOneDiscardTileLeave(slotEl, gridEl, duration) {
   if (shouldSkipDecorativeMotion()) {
+    scheduleStaggeredTileRemoveHaptics((slotEl ? 1 : 0) + (gridEl ? 1 : 0), 0);
     return runStaggeredInstantLeave(
       slotEl ? [slotEl] : [],
       gridEl ? [gridEl] : [],
@@ -5130,6 +5164,7 @@ function animateOneDiscardTileLeave(slotEl, gridEl, duration) {
       done += 1;
       if (done >= need) resolve();
     };
+    const fireRemoveHaptic = () => triggerHaptic("tileRemove");
     if (slotEl) {
       gsap.killTweensOf(slotEl);
       gsap.fromTo(
@@ -5141,6 +5176,7 @@ function animateOneDiscardTileLeave(slotEl, gridEl, duration) {
           y: -10,
           duration,
           ease: EASE_TRANSFORM,
+          onStart: fireRemoveHaptic,
           onComplete: finish,
         },
       );
@@ -5154,6 +5190,7 @@ function animateOneDiscardTileLeave(slotEl, gridEl, duration) {
         y: 0,
         duration,
         ease: EASE_TRANSFORM,
+        onStart: slotEl ? undefined : fireRemoveHaptic,
         onComplete: finish,
       });
     }
@@ -6017,10 +6054,9 @@ function vowelGhostForTile(tile) {
   return { prev: up(ghosts.prev), next: up(ghosts.next) };
 }
 
-/** 整词软规则：当前串若提交将违规时，Boss 条红色波纹持续提示（格级削弱仍走 tile） */
-const bossTapeSoftPreview = computed(() => {
+/** 整词软规则：当前串若提交将违规（与提交结算判定一致；格级削弱仍走 tile） */
+const bossSoftWordViolationPreview = computed(() => {
   if (!dictionaryReady.value) return false;
-  if (scoringAnimating.value) return false;
   const slug = bossSlugForMechanics();
   if (!bossHasWholeWordSoftRule(slug)) return false;
   const res = resolvedWordForSubmit.value;
@@ -6041,6 +6077,11 @@ const bossTapeSoftPreview = computed(() => {
   });
   return soft.violated;
 });
+
+/** 整词软规则：违规时 Boss 条红色波纹持续提示（记分动画期间不叠波纹） */
+const bossTapeSoftPreview = computed(
+  () => !scoringAnimating.value && bossSoftWordViolationPreview.value,
+);
 
 /**
  * 分数×倍率面板用：与 effectiveWordForSubmit 同步的 tile 序列（飞入即算入、飞回截断即算移除）
@@ -6066,6 +6107,7 @@ const effectiveFormulaTiles = computed(() => {
 const resultFormulaBasePreviewActive = computed(() => {
   const tiles = effectiveFormulaTiles.value;
   if (tiles.length === 0) return false;
+  if (bossSoftWordViolationPreview.value) return false;
   return dictionaryReady.value && resolvedWordForSubmit.value != null;
 });
 
@@ -6242,6 +6284,7 @@ function tileOriginRectFromElement(el) {
 
 function openTileDetail(payload, originRect = null, previewNav = null) {
   if (!payload) return;
+  triggerHaptic("previewOpen");
   if (previewNav?.kind === "run-end-tile") {
     treasureDetail.value = null;
   }
@@ -6843,6 +6886,7 @@ function onSendMarkedTilesClick() {
 
 async function onSwapWordSelectionClick() {
   if (!canSwapWordSelection.value || wordSelectionSwapBusy.value) return;
+  triggerHaptic("tabSwitch");
   wordSelectionSwapBusy.value = true;
   try {
     if (getMarkOnSwap()) {
@@ -7077,6 +7121,7 @@ function resetSettlementAnimValues() {
 }
 
 async function openStageSettlement() {
+  triggerHaptic("milestone");
   await runHourglassStageEndFx();
   await runTreasureLevelCompleteHooks();
   disableSettlementLayerAnim.value = false;
@@ -7096,6 +7141,7 @@ async function openStageSettlement() {
  */
 async function openRunEnd(outcome, opts = {}) {
   const won = outcome === "win";
+  triggerHaptic(won ? "success" : "warning");
   if (won) {
     flushAchievementUnlocks({
       runWon: true,
@@ -7138,19 +7184,19 @@ function openRunEndDiscoveryTreasurePreview(item, originRect, previewNav = null)
   if (item.kind === "treasure") {
     const treasure = buildCollectionTreasurePreview(item.treasureId);
     if (!treasure) return;
-    treasureDetail.value = { kind: "offer", treasure, originRect, previewNav };
+    presentTreasureDetail({ kind: "offer", treasure, originRect, previewNav });
     return;
   }
   if (item.kind === "spell") {
     const treasure = buildCollectionSpellPreview(item.spellId);
     if (!treasure) return;
-    treasureDetail.value = { kind: "offer", treasure, originRect, previewNav };
+    presentTreasureDetail({ kind: "offer", treasure, originRect, previewNav });
     return;
   }
   if (item.kind === "upgrade") {
     const treasure = buildCollectionUpgradePreview(item.upgradeId);
     if (!treasure) return;
-    treasureDetail.value = { kind: "offer", treasure, originRect, previewNav };
+    presentTreasureDetail({ kind: "offer", treasure, originRect, previewNav });
     return;
   }
   if (item.kind === "voucher") {
@@ -7159,7 +7205,7 @@ function openRunEndDiscoveryTreasurePreview(item, originRect, previewNav = null)
     if (!tier1) return;
     const treasure = buildOwnedVoucherDetailTreasure({ pairId: item.pairId, tier1, tier2 });
     if (!treasure) return;
-    treasureDetail.value = { kind: "offer", treasure, originRect, previewNav };
+    presentTreasureDetail({ kind: "offer", treasure, originRect, previewNav });
   }
 }
 
@@ -7679,13 +7725,13 @@ function openGameTreasureDetail(ti, slot, ev) {
   if (!slot) return;
   const el = ev?.currentTarget ?? null;
   const items = buildShopOwnedPreviewNavItems();
-  treasureDetail.value = {
+  presentTreasureDetail({
     kind: "owned",
     slotIndex: ti,
     treasure: slot,
     originRect: treasureOriginRectFromEl(el),
     previewNav: createPreviewNavGroupFromItems(items, (x) => x.index === ti),
-  };
+  });
 }
 
 function swapArrayItems(list, a, b) {
@@ -8398,6 +8444,7 @@ function animateToolboxTileShrinkToZero(slotEl, gridEl, duration) {
       done += 1;
       if (done >= need) resolve();
     };
+    const fireRemoveHaptic = () => triggerHaptic("tileRemove");
     if (slotEl) {
       gsap.killTweensOf(slotEl);
       gsap.set(slotEl, { transformOrigin: "50% 55%" });
@@ -8406,6 +8453,7 @@ function animateToolboxTileShrinkToZero(slotEl, gridEl, duration) {
         scale: 0,
         duration,
         ease: EASE_TRANSFORM,
+        onStart: fireRemoveHaptic,
         onComplete: finish,
       });
     }
@@ -8417,6 +8465,7 @@ function animateToolboxTileShrinkToZero(slotEl, gridEl, duration) {
         scale: 0,
         duration,
         ease: EASE_TRANSFORM,
+        onStart: slotEl ? undefined : fireRemoveHaptic,
         onComplete: finish,
       });
     }
@@ -8468,11 +8517,16 @@ async function runSubmittedIceShatterEffects(tiles) {
   const snowmanSlotIx = findOwnedTreasureSlotIndex(TREASURE_78_ID);
   const iceShatterTreasureFxHandled = snowmanSlotIx >= 0;
   let shatterCount = 0;
+  let iceShatterHapticCount = 0;
   for (let i = 0; i < list.length; i += 1) {
     const t = list[i];
     if (t?.materialId !== "ice" || isBossTileDebuffed(t)) continue;
     if (runRandom() >= ICE_MATERIAL_SELF_DESTRUCT_CHANCE) continue;
     shatterCount += 1;
+    if (iceShatterHapticCount < 3) {
+      triggerHaptic("land");
+      iceShatterHapticCount += 1;
+    }
     treasureRunState.value.runIceMaterialShattered = true;
     const slotEl = wordSlotRefs[i];
     const gridEl = gridEls[i];
@@ -9789,8 +9843,10 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
   const useOfferSlotConfirmPath =
     offerSlotAnimIxs.length > 0 &&
     (sid === "delete_back" ||
+      sid === "ouija" ||
       !targets.length ||
-      (usePickSequenceAnim && offerSlotAnimIxs.length !== targets.length));
+      (usePickSequenceAnim && offerSlotAnimIxs.length !== targets.length) ||
+      (s.pickMode === "confirm_all" && offerSlotAnimIxs.length !== targets.length));
 
   if (useOfferSlotConfirmPath) {
     const slotIxs = offerSlotAnimIxs;
@@ -10408,7 +10464,8 @@ function runGridDropAnimation(prevFlip, options = {}) {
       let newDropCount = 0;
       let fallbackNodeCount = 0;
       /** 单格动画结束：立刻清掉 GSAP 行内 opacity，避免盖住 `.selected` / `.tile-flying` 的 0.1 */
-      const tickOne = (el) => {
+      const tickOne = (el, opts = {}) => {
+        if (opts.landHaptic) triggerHaptic("land");
         clearGridTileGsapAfterDrop(el);
         if (settled) return;
         if (++completed >= pending) settleOnce();
@@ -10440,7 +10497,7 @@ function runGridDropAnimation(prevFlip, options = {}) {
 
         if (isInitial) {
           gsap
-            .timeline({ delay: stagger, onComplete: () => tickOne(el) })
+            .timeline({ delay: stagger, onComplete: () => tickOne(el, { landHaptic: true }) })
             .to(el, { y: 0, duration: dDrop, ease: EASE_GRID_GRAVITY_Y }, 0);
         } else if (tid && prevCellMap?.has(tid)) {
           const pCell = prevCellMap.get(tid);
@@ -10471,7 +10528,7 @@ function runGridDropAnimation(prevFlip, options = {}) {
             const gravityDom = Math.abs(dy) >= Math.abs(dx) && Math.abs(dy) > 1.5;
             if (gravityDom) {
               gsap
-                .timeline({ delay: flipDelay, onComplete: () => tickOne(el) })
+                .timeline({ delay: flipDelay, onComplete: () => tickOne(el, { landHaptic: true }) })
                 .to(el, { x: 0, duration: dFlip, ease: EASE_GRID_LINEAR }, 0)
                 .to(el, { y: 0, duration: dFlip, ease: EASE_GRID_GRAVITY_Y }, 0);
             } else {
@@ -10481,7 +10538,7 @@ function runGridDropAnimation(prevFlip, options = {}) {
                 duration: dFlip,
                 delay: flipDelay,
                 ease: EASE_TRANSFORM,
-                onComplete: () => tickOne(el),
+                onComplete: () => tickOne(el, { landHaptic: true }),
               });
             }
           }
@@ -10495,7 +10552,7 @@ function runGridDropAnimation(prevFlip, options = {}) {
             y: y0,
             ...(dropFromAboveGrid ? { opacity: 0.55 } : {}),
           });
-          const dropTl = gsap.timeline({ delay: stagger, onComplete: () => tickOne(el) });
+          const dropTl = gsap.timeline({ delay: stagger, onComplete: () => tickOne(el, { landHaptic: true }) });
           dropTl.to(el, { y: 0, duration: dDrop, ease: EASE_GRID_GRAVITY_Y }, 0);
           if (dropFromAboveGrid) {
             dropTl.to(el, { opacity: 1, duration: dDrop, ease: EASE_GRID_LINEAR }, 0);
@@ -10687,6 +10744,7 @@ function createWobbleScoreSlotTimeline(slotEl, pillAugment) {
   tl.to(slotEl, { scale: WOBBLE_SCALE_COMPRESS_TO, duration: tCompress, ease: "circ.out" }, t0);
   tl.to(slotEl, { scale: 1.18, duration: tExpand, ease: "circ.inOut" }, tCompress);
   tl.to(slotEl, { scale: 1, duration: 0.3, ease: "circ.in" }, scaleDownStart);
+  tl.call(() => triggerHaptic("wobble"), null, rotStart);
   tl.to(slotEl, { rotation: 2.6, duration: rotD1, ease: "power2.out" }, rotStart);
   tl.to(slotEl, { rotation: -1.9, duration: rotD2, ease: "power2.inOut" }, rotStart + rotD1);
   tl.to(slotEl, { rotation: 0, duration: 0.12, ease: "power2.out" }, rotStart + rotD1 + rotD2);
@@ -12030,6 +12088,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
         : null;
     const fxTargetEl = gridFxEl || wordSlotFxEl || tel;
     if (hasMultMul) {
+      if (multMul >= 2) triggerHaptic("scoreTotal");
       if (fxTargetEl) {
         wobbleScoreSlot(fxTargetEl, spPost);
         if (step.accessoryTriggered) triggerAccessoryChipRipple(fxTargetEl, spPost, true);
@@ -12107,6 +12166,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   hideResultWordLengthBeforeTotal.value = false;
   await nextTick();
   pulseFill(getResultTotalEl());
+  triggerHaptic("scoreTotal");
   await sleep(220);
 
   if (shouldSkipDecorativeMotion()) {
@@ -12349,6 +12409,7 @@ function setFlyingInRef(fly, el) {
     "--slot-scale": 1,
   });
   const finishFlyIn = () => {
+    triggerHaptic("land");
     flyingInAnimStarted.delete(item.id);
     flyingInElById.delete(item.id);
     flyInPendingComplete.push(item);
@@ -12415,6 +12476,7 @@ async function onRemoveClick() {
   if (dictFatalError.value) return;
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (!canRemove.value) return;
+  triggerHaptic("warning");
   gridRefillAnimating.value = true;
   try {
   if (flyingLetters.value.length > 0) {
@@ -12631,6 +12693,7 @@ function startOneMoveIn(row, col, tile, options = {}) {
     },
   ];
   syncFlyingInTargets();
+  triggerHaptic("selection");
 }
 
 function onSlotClick(i) {
@@ -12687,6 +12750,7 @@ function startOneMoveOut(slotIndex) {
     ...flyingBackBatches.value,
     { id: batchId, slotIndex, list: listWithScale },
   ];
+  triggerHaptic("selection");
   for (const item of listWithScale) {
     const el = createFlyBackElement(item);
     meta.elements.push(el);
@@ -12712,6 +12776,7 @@ function startOneMoveOut(slotIndex) {
       el.remove();
       meta.completed += 1;
       if (meta.completed >= meta.total) {
+        triggerHaptic("land");
         removeFromSlot(meta.slotIndex);
         flyingBackBatches.value = flyingBackBatches.value.filter((b) => b.id !== batchId);
         delete flyingBackBatchMeta[batchId];
@@ -12758,8 +12823,10 @@ async function submitWord() {
   if (submitInput.error === "empty") return;
   if (submitInput.error === "invalid") {
     showToast("不是有效单词");
+    triggerHaptic("reject");
     return;
   }
+  triggerHaptic("confirm");
   submitWordBusy.value = true;
   let submitChanceConsumed = false;
   try {

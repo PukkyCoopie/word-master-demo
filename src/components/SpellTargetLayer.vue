@@ -205,6 +205,7 @@ import { collectExplicitDescriptionConceptPanels } from "../game/gameConceptCopy
 import LetterTile from "./LetterTile.vue";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
+import { scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 import {
   instantPortalLayerClose,
   instantPortalLayerEnter,
@@ -427,6 +428,7 @@ async function onConfirm() {
   });
   tileAnimActive.value = true;
   orderedSlotIndices.value = [];
+  triggerHaptic("confirm");
   await nextTick();
   emit("confirm", ordered, selectionSlotIndices);
 }
@@ -635,6 +637,7 @@ async function playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnaps,
  */
 function playClose() {
   if (closing.value) return Promise.resolve();
+  scheduleOverlayDismiss(240);
   closing.value = true;
 
   const backdrop = backdropRef.value;
@@ -816,6 +819,7 @@ function runEnterAnimation() {
 }
 
 onMounted(() => {
+  scheduleOverlayPresent(280);
   void nextTick().then(() => {
     const backdrop = backdropRef.value;
     if (backdrop) {

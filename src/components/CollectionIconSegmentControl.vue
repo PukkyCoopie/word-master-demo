@@ -24,6 +24,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { isHapticsAvailable, triggerHaptic } from "../platform/haptics.js";
 
 const props = defineProps({
   options: { type: Array, required: true },
@@ -46,6 +47,7 @@ const segmentStyle = computed(() => ({
 /** @param {string} id */
 function onSelect(id) {
   if (id === props.modelValue) return;
+  if (isHapticsAvailable()) triggerHaptic("tabSwitch");
   emit("update:modelValue", id);
 }
 </script>

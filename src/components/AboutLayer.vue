@@ -212,6 +212,7 @@ import { computed, inject, nextTick, onUnmounted, ref, watch } from "vue";
 import { APP_CHANGELOG, APP_VERSION } from "../appVersion.js";
 import TapTapPromoIcon from "./TapTapPromoIcon.vue";
 import { isTapTapWebPromoEnabled } from "../taptap/tapTapWebPromo.js";
+import { scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -396,6 +397,7 @@ function scrollToSection(id) {
   const container = scrollBodyRef.value;
   const sectionEl = sectionElById[id];
   if (!container || !sectionEl) return;
+  if (activeTab.value !== id) triggerHaptic("tabSwitch");
 
   activeTab.value = id;
   programmaticScrollTargetId = id;
@@ -592,8 +594,9 @@ function updateActiveFromScroll() {
 
 watch(
   () => props.open,
-  async (isOpen) => {
+  async (isOpen, wasOpen) => {
     if (!isOpen) {
+      if (wasOpen) scheduleOverlayDismiss(240);
       scrollSpyLocked = false;
       programmaticScrollTargetId = null;
       clearScrollSpyLockTimer();
@@ -603,6 +606,7 @@ watch(
       return;
     }
 
+    scheduleOverlayPresent(280);
     activeTab.value = "game";
     scrollSpyLocked = false;
     programmaticScrollTargetId = null;

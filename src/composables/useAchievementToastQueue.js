@@ -1,4 +1,5 @@
 import { ref, shallowRef } from "vue";
+import { triggerHaptic } from "../platform/haptics.js";
 
 /** @typedef {import('../achievements/achievementTypes.js').AchievementDefinition} AchievementDefinition */
 
@@ -35,6 +36,7 @@ export function createAchievementToastQueue() {
       const def = pending.shift();
       if (!def) continue;
       active.value = def;
+      triggerHaptic("celebrate");
       playing.value = true;
       await new Promise((resolve) => {
         resolveItem = resolve;

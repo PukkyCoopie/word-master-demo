@@ -3,8 +3,10 @@
  * 与 scripts/render-favicon.mjs 输出一致；改 favicon 后运行 npm run android:icons
  */
 import sharp from "sharp";
+import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { unlink, rename, writeFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +48,46 @@ if (!existsSync(FAVICON)) {
 const source = sharp(FAVICON);
 
 /**
+ * Windows 上 sharp 直接 toFile 覆盖已有 PNG 偶发 EINVAL；先写临时文件再替换，并带短重试。
+ * @param {import("sharp").Sharp} pipeline
+ * @param {string} outPath
+ */
+async function writePngFile(pipeline, outPath) {
+  const buffer = await pipeline.png({ compressionLevel: 9 }).toBuffer();
+  const tmpPath = join(
+    dirname(outPath),
+    `.${basename(outPath)}.${randomBytes(4).toString("hex")}.tmp`,
+  );
+  const maxAttempts = 4;
+  let lastError = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      await writeFile(tmpPath, buffer);
+      try {
+        await unlink(outPath);
+      } catch (err) {
+        if (/** @type {NodeJS.ErrnoException} */ (err).code !== "ENOENT") throw err;
+      }
+      await rename(tmpPath, outPath);
+      return;
+    } catch (err) {
+      lastError = err;
+      try {
+        await unlink(tmpPath);
+      } catch {
+        /* ignore */
+      }
+      if (attempt < maxAttempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 60 * (attempt + 1)));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+/**
  * @param {number} width
  * @param {number} height
  * @param {string} outPath
@@ -58,12 +100,12 @@ async function writeSplash(width, height, outPath) {
     .png()
     .toBuffer();
 
-  await sharp({
-    create: { width, height, channels: 4, background: SPLASH_BG },
-  })
-    .composite([{ input: logo, gravity: "center" }])
-    .png({ compressionLevel: 9 })
-    .toFile(outPath);
+  await writePngFile(
+    sharp({
+      create: { width, height, channels: 4, background: SPLASH_BG },
+    }).composite([{ input: logo, gravity: "center" }]),
+    outPath,
+  );
 }
 
 for (const [folder, { width, height }] of Object.entries(SPLASH_SCREENS)) {
@@ -76,23 +118,20 @@ for (const [density, sizes] of Object.entries(DENSITIES)) {
   const dir = join(ANDROID_RES, `mipmap-${density}`);
   const resizeOpts = { kernel: sharp.kernel.lanczos3, fit: "fill" };
 
-  await source
-    .clone()
-    .resize(sizes.launcher, sizes.launcher, resizeOpts)
-    .png({ compressionLevel: 9 })
-    .toFile(join(dir, "ic_launcher.png"));
+  await writePngFile(
+    source.clone().resize(sizes.launcher, sizes.launcher, resizeOpts),
+    join(dir, "ic_launcher.png"),
+  );
 
-  await source
-    .clone()
-    .resize(sizes.launcher, sizes.launcher, resizeOpts)
-    .png({ compressionLevel: 9 })
-    .toFile(join(dir, "ic_launcher_round.png"));
+  await writePngFile(
+    source.clone().resize(sizes.launcher, sizes.launcher, resizeOpts),
+    join(dir, "ic_launcher_round.png"),
+  );
 
-  await source
-    .clone()
-    .resize(sizes.foreground, sizes.foreground, resizeOpts)
-    .png({ compressionLevel: 9 })
-    .toFile(join(dir, "ic_launcher_foreground.png"));
+  await writePngFile(
+    source.clone().resize(sizes.foreground, sizes.foreground, resizeOpts),
+    join(dir, "ic_launcher_foreground.png"),
+  );
 
   console.log(`Wrote mipmap-${density} (launcher ${sizes.launcher}px, foreground ${sizes.foreground}px)`);
 }

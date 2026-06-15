@@ -7,6 +7,8 @@ import {
 import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 const SHRINK = 0.26;
+/** 缩小→换图谷底：缩至 0 再弹出 */
+const SHRINK_SCALE = 0;
 const STAGGER = 0.1;
 const FRAME_YIELD = 0.04;
 /** 法术「删除」确认动效 */
@@ -218,7 +220,7 @@ function runBundledTileAppearanceAnim(p) {
       const el = els[i];
       if (!(el instanceof HTMLElement)) return;
       gsap.set(el, { transformOrigin: "50% 50%", rotation: 0 });
-      tl.to(el, { scale: 0.12, duration: SHRINK, ease: "power3.in" }, i * STAGGER);
+      tl.to(el, { scale: SHRINK_SCALE, duration: SHRINK, ease: "power3.in" }, i * STAGGER);
     });
 
     tl.add(() => {
@@ -316,7 +318,7 @@ function animateOneTileIndependent(p) {
       },
     });
 
-    tl.to(el, { scale: 0.12, duration: SHRINK, ease: "power3.in" });
+    tl.to(el, { scale: SHRINK_SCALE, duration: SHRINK, ease: "power3.in" });
     tl.add(() => {
       const cell = g[row]?.[col];
       if (cell && typeof cell === "object") assignCellFromSnap(cell, newSnap);
@@ -358,7 +360,7 @@ function animateOneTileDetachedTimeline(p) {
       },
     });
 
-    tl.to(el, { scale: 0.12, duration: SHRINK, ease: "power3.in" });
+    tl.to(el, { scale: SHRINK_SCALE, duration: SHRINK, ease: "power3.in" });
     tl.add(() => {
       onMidShrink?.();
     });
@@ -392,7 +394,7 @@ function runDetachedBundledTimeline(p) {
       const el = els[i];
       if (!(el instanceof HTMLElement)) continue;
       gsap.set(el, { transformOrigin: "50% 50%", rotation: 0 });
-      tl.to(el, { scale: 0.12, duration: SHRINK, ease: "power3.in" }, i * STAGGER);
+      tl.to(el, { scale: SHRINK_SCALE, duration: SHRINK, ease: "power3.in" }, i * STAGGER);
     }
 
     tl.add(() => {

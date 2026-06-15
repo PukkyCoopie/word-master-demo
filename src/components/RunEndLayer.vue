@@ -97,9 +97,10 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import RunEndDiscoveryStrip from "./RunEndDiscoveryStrip.vue";
 import { copyTextToClipboard } from "../utils/copyTextToClipboard.js";
+import { scheduleOverlayDismiss, scheduleOverlayPresent } from "../platform/haptics.js";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -139,6 +140,18 @@ const bestWordLabel = computed(() =>
 
 const bestWordDisplayValue = computed(() =>
   bestWordShowLength.value ? props.longestWordValue : props.bestWordValue,
+);
+
+watch(
+  () => props.open,
+  (v, prev) => {
+    if (v) {
+      scheduleOverlayPresent(280);
+    } else if (prev) {
+      scheduleOverlayDismiss(240);
+    }
+  },
+  { immediate: true },
 );
 
 async function copyRunSeed() {
