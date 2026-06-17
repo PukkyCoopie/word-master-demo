@@ -46,7 +46,7 @@ export const treasureHooks = {
     const word = String(ctx.resolvedWord ?? "").toLowerCase().trim();
     if (!word) return;
     const def = ctx.getWordDefinition?.(word);
-    if (!dictionaryPosMatchesTreasureLevelKey(def?.pos, rs.levelPosTargetKey)) return;
+    if (!dictionaryPosMatchesTreasureLevelKey(def?.pos, rs.levelPosTargetKey, def?.translation_zh)) return;
     await ctx.playOwnedTreasureMoneyFx?.(ID, REWARD);
   },
 };

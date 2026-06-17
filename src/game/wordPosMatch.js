@@ -28,9 +28,10 @@ export function rollTreasureLevelPosKey(rng = Math.random) {
 /**
  * @param {string | null | undefined} dictPos
  * @param {string} requiredKey `n` | `v` | `adj`
+ * @param {string | null | undefined} [translationZh]
  */
-export function dictionaryPosMatchesTreasureLevelKey(dictPos, requiredKey) {
-  return dictionaryPosMatchesClubKey(dictPos, requiredKey);
+export function dictionaryPosMatchesTreasureLevelKey(dictPos, requiredKey, translationZh) {
+  return dictionaryPosMatchesClubKey(dictPos, requiredKey, translationZh);
 }
 
 /**

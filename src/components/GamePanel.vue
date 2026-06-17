@@ -1145,6 +1145,10 @@ import {
   gridTileEntranceDelayKey,
   gridSelectedPositionKeySet,
 } from "../game/gridOnlyMaterialScoring.js";
+import {
+  ICE_MATERIAL_SCORE_MULT_MUL,
+  isIceMaterialPostLetterStep,
+} from "../game/iceMaterialScoring.js";
 import { runClearWinLengthUpgradeShopLikeFx } from "../utils/runClearWinLengthUpgradeShopLikeFx";
 import { runLengthDowngradeShopLikeFx } from "../utils/runLengthDowngradeShopLikeFx.js";
 import { runInGameRarityUpgradeShopLikeFx } from "../utils/runInGameRarityUpgradeShopLikeFx";
@@ -11457,6 +11461,23 @@ async function runTileTreasureAccessoryFireMultBurst(tile, slotEl, speed = 1) {
   return true;
 }
 
+/** 碎冰块：该字母每次计分时 ×2.5 倍率（晚于本体与宝藏 +分/+倍率，早于宝藏 ×n）。 */
+async function runIceMaterialMultBurst(tile, slotEl, speed = 1) {
+  if (!slotEl || tile?.materialId !== "ice" || isBossTileDebuffed(tile)) return false;
+  const sp = Math.max(0.01, Number(speed) || 1);
+  const multMul = ICE_MATERIAL_SCORE_MULT_MUL;
+  wobbleScoreSlot(slotEl, sp);
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+  animMultTotal.value = Math.round(animMultTotal.value * multMul);
+  await nextTick();
+  triggerHaptic("scoreTotal");
+  const bubbleX = showMultMultiplyBubble(slotEl, multMul, sp);
+  pulseFormulaMultMultiplyBurst(getResultMultNumEl());
+  scheduleMultMultiplyBubbleOutro(bubbleX, sp);
+  await scoringSleep(SCORING_STEP_BEAT_MS + 120, sp);
+  return true;
+}
+
 /** 字母块宝藏配饰「扳手」：该字母每次计分时 ×1.5 倍率。 */
 async function runTileTreasureAccessoryWrenchMultBurst(tile, slotEl, speed = 1) {
   if (!slotEl || String(tile?.treasureAccessoryId ?? "").trim() !== TREASURE_ACCESSORY_WRENCH) return false;
@@ -11495,7 +11516,7 @@ async function runLetterAccessoryCoinMoneyBurst(tile, slotEl, speed = 1) {
 /**
  * 单字母一轮：与 **tile 本体**同拍的只有——稀有度基础分 + tile/材质平面分 + tile 角标分；以及声明了
  * `mergeLetter*IntoIntrinsic*` 的宝藏（当前：海螺平面分、回形针倍率加法）。元音倍率、某字母加分等仍走单独步。
- * 顺序：上述「本体同一拍」→ 水滴 +50 → 其余逐字加分宝藏 → 钱币 →「本体倍率」→ 火焰 +10 → 扳手 ×1.5 → 其余逐字倍率宝藏 → 铅笔～王冠。
+ * 顺序：上述「本体同一拍」→ 水滴 +50 → 其余逐字加分宝藏 → 钱币 →「本体倍率」→ 火焰 +10 → 其余逐字 +倍率宝藏 → 铅笔等 +倍率 → 碎冰 ×2.5 → 扳手 ×1.5 → 棱光等 ×倍率 → 幸运金币。
  * （宝藏槽火焰/水滴/扳手仍在整词字后步，见 postLetterTreasureSteps。）
  */
 async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVisitIndex = 0) {
@@ -11713,9 +11734,6 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   if (await runTileTreasureAccessoryFireMultBurst(tile, slotEl, sp)) {
     wordSlotIntrinsicWobblePlayed = true;
   }
-  if (await runTileTreasureAccessoryWrenchMultBurst(tile, slotEl, sp)) {
-    wordSlotIntrinsicWobblePlayed = true;
-  }
 
   const mergedMultSiSkip = new Set(mergedIntrinsicMultSlots.map((x) => x.si));
   for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(ownedSlotIds)) {
@@ -11739,11 +11757,40 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(ownedSlotIds)) {
     const animCfg = TREASURE_HOOKS_BY_ID.get(tid)?.getLetterRarityMultAnimConfig?.(ctxLetterRarityMult);
     if (!animCfg) continue;
+    const multMul = Number(animCfg.multMul) || 0;
+    const multDelta = Number(animCfg.multDelta) || 0;
+    if (multMul > 1 || multDelta <= 0) continue;
     const didRarity = await runLetterRarityTreasureMultStep(part, slotEl, {
       treasureId: tid,
       slotIndex: si,
-      multDelta: animCfg.multDelta,
-      multMul: animCfg.multMul,
+      multDelta,
+      multMul: 0,
+      bubbleLabel: animCfg.bubbleLabel,
+      rarity: animCfg.targetRarity,
+      matchesPart: animCfg.matchesPart,
+      active: true,
+    }, sp);
+    if (didRarity) wordSlotIntrinsicWobblePlayed = true;
+  }
+
+  if (await runIceMaterialMultBurst(tile, slotEl, sp)) {
+    wordSlotIntrinsicWobblePlayed = true;
+  }
+
+  if (await runTileTreasureAccessoryWrenchMultBurst(tile, slotEl, sp)) {
+    wordSlotIntrinsicWobblePlayed = true;
+  }
+
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(ownedSlotIds)) {
+    const animCfg = TREASURE_HOOKS_BY_ID.get(tid)?.getLetterRarityMultAnimConfig?.(ctxLetterRarityMult);
+    if (!animCfg) continue;
+    const multMul = Number(animCfg.multMul) || 0;
+    if (multMul <= 1) continue;
+    const didRarity = await runLetterRarityTreasureMultStep(part, slotEl, {
+      treasureId: tid,
+      slotIndex: si,
+      multDelta: 0,
+      multMul,
       bubbleLabel: animCfg.bubbleLabel,
       rarity: animCfg.targetRarity,
       matchesPart: animCfg.matchesPart,
@@ -12219,6 +12266,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
 
     const postSteps = detailed.postLetterTreasureSteps ?? [];
     for (const step of postSteps) {
+    if (isIceMaterialPostLetterStep(step)) continue;
     const multAdd = Number(step.multAdd) || 0;
     const scoreAdd = Number(step.scoreAdd) || 0;
     const multMul = Number(step.multMul) || 0;

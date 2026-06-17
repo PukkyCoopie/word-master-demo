@@ -21,7 +21,7 @@ export const COLLECTION_MATERIAL_RICH_SEGMENTS = Object.freeze({
   ]),
   ice: Object.freeze([
     { type: "text", v: "计分时提供 " },
-    { type: "mult", v: "×2" },
+    { type: "mult", v: "×2.5" },
     { type: "text", v: " 倍率，有 " },
     { type: "prob", v: "1/4" },
     { type: "text", v: " 的概率碎裂" },

@@ -31,7 +31,7 @@ export const TILE_MATERIAL_CONCEPT_BY_ID = Object.freeze({
   }),
   ice: Object.freeze({
     blockTitle: "碎冰块",
-    effectDescription: "计分时提供 x2 倍率，有 1/4 的概率碎裂",
+    effectDescription: "计分时提供 x2.5 倍率，有 1/4 的概率碎裂",
   }),
   water: Object.freeze({
     blockTitle: "水波块",

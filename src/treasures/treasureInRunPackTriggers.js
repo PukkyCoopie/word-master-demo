@@ -25,8 +25,9 @@ async function requestInRunPackOpen(ctx, opts) {
 function wordMatchesPosRule(ctx, word, match) {
   const def = ctx.getWordDefinition?.(word);
   const pos = def?.pos;
+  const translationZh = def?.translation_zh;
   if (match.requireAdverb) return dictionaryPosMatchesAdverb(pos);
-  if (match.posKey) return dictionaryPosMatchesTreasureLevelKey(pos, match.posKey);
+  if (match.posKey) return dictionaryPosMatchesTreasureLevelKey(pos, match.posKey, translationZh);
   return false;
 }
 

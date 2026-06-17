@@ -15,7 +15,7 @@ export const treasureHooks = {
     const word = String(ctx.resolvedWord ?? "").toLowerCase().trim();
     if (!word) return null;
     const def = ctx.getWordDefinition?.(word);
-    if (!dictionaryPosMatchesTreasureLevelKey(def?.pos, "v")) return null;
+    if (!dictionaryPosMatchesTreasureLevelKey(def?.pos, "v", def?.translation_zh)) return null;
     return { multMul: 3 };
   },
 };

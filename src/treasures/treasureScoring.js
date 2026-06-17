@@ -17,9 +17,10 @@ import {
   accumulateTileTreasureAccessoryPerLetter,
   buildTreasureAccessoryPostLetterStepForSlot,
 } from "./treasureAccessoryScoring.js";
+import { buildIceMaterialPostLetterSteps } from "../game/iceMaterialScoring.js";
 
 /** 新宝藏接入后请同步 `treasureCatalog.js` 的 implemented 字段；具体效果写在对应 `items/treasure_*.js`（本文件不出现具体 treasureId）。 */
-/** 拼词中公式区预览用 `useScoring` 的 `computeWordScore`（无宝藏）；提交结算用 `computeWordScoreDetailedForSubmit`（棋盘光环类材质倍率由 `gridOnlyMaterialScoring.js` 的 `buildGridPresencePostLetterSteps` 提供字后乘法步；冰为入词格 ×2）。 */
+/** 拼词中公式区预览用 `useScoring` 的 `computeWordScore`（无宝藏）；提交结算用 `computeWordScoreDetailedForSubmit`（棋盘光环类材质倍率由 `gridOnlyMaterialScoring.js` 的 `buildGridPresencePostLetterSteps` 提供字后乘法步；冰为入词格逐字 ×2.5，见 `iceMaterialScoring.js`）。 */
 
 /**
  * 累计乘法倍率银行仍为 ×1、且无其它增益时，不计入字后步（避免计分 wobble 显示 ×1）。
@@ -477,20 +478,9 @@ export function computeWordScoreDetailedForSubmit(
     });
   }
 
-  // 冰材质：仅当该字母位于本次提交单词中并被计分时，才触发 x2（含 replay 轮次）。
-  for (let i = 0; i < tiles.length; i++) {
-    if (isBossDebuffedSubmitTile(tiles[i])) continue;
-    if (tiles[i]?.materialId !== "ice") continue;
-    const triggerCount = 1 + Math.max(0, Math.floor(Number(replayCounts[i]) || 0));
-    for (let k = 0; k < triggerCount; k++) {
-      postLetterTreasureSteps.push({
-        treasureId: null,
-        slotIndex: -1,
-        multMul: 2,
-        scoreFxWordSlotIndex: i,
-      });
-    }
-  }
+  postLetterTreasureSteps.push(
+    ...buildIceMaterialPostLetterSteps(tiles, replayCounts, isBossDebuffedSubmitTile),
+  );
 
   /** 存在字后「倍率乘法」步时，幸运材质的平面倍率加法须仍在乘法之后结算，保持与动画面板一致。 */
   const hasPostLetterMultMul = postLetterTreasureSteps.some((st) => {

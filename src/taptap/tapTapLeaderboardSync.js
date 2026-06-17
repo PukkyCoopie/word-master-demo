@@ -31,13 +31,13 @@ export function computeRunAverageWordLetterLength(stats) {
 }
 
 /**
- * 平均长度榜：保留两位小数，以整数上报（如 5.25 → 525）。
+ * 平均长度榜：四舍五入为整数上报（如 5.25 → 5，5.5 → 6）。
  * @param {number} avg
  * @returns {number}
  */
 export function encodeAverageWordLengthScore(avg) {
   const n = Math.max(0, Number(avg) || 0);
-  return Math.max(0, Math.round(n * 100));
+  return Math.max(0, Math.round(n));
 }
 
 /**
@@ -48,7 +48,7 @@ async function submitLeaderboardScores(scores) {
   const batch = scores
     .map((s) => ({
       leaderboardId: String(s.leaderboardId ?? "").trim(),
-      score: Math.floor(Number(s.score) || 0),
+      score: Math.round(Number(s.score) || 0),
     }))
     .filter((s) => s.leaderboardId && s.score >= 0);
   if (!batch.length) return;
@@ -96,7 +96,7 @@ export function openTapTapLeaderboardFromMenu(opts = {}) {
  * @param {number} chapter
  */
 export function reportEndlessChapterLeaderboard(chapter) {
-  const ch = Math.max(0, Math.floor(Number(chapter) || 0));
+  const ch = Math.max(0, Math.round(Number(chapter) || 0));
   if (ch <= 0) return;
   void submitLeaderboardScores([{ leaderboardId: TAPTAP_LB_ENDLESS_CHAPTER, score: ch }]);
 }
@@ -127,8 +127,8 @@ export function reportDifficultyAchievedLeaderboard(difficultyIndex) {
  * @returns {boolean} 是否已触发上报
  */
 export function reportBestSingleWordScoreIfImproved(score, previouslyReportedBest) {
-  const sc = Math.max(0, Math.floor(Number(score) || 0));
-  const prev = Math.max(0, Math.floor(Number(previouslyReportedBest) || 0));
+  const sc = Math.max(0, Math.round(Number(score) || 0));
+  const prev = Math.max(0, Math.round(Number(previouslyReportedBest) || 0));
   if (sc <= prev) return false;
   void submitLeaderboardScores([{ leaderboardId: TAPTAP_LB_BEST_SINGLE_WORD_SCORE, score: sc }]);
   return true;

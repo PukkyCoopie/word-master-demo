@@ -119,10 +119,11 @@ export function recordTreasureChapterWordPos(rs, word, getWordDefinition) {
   if (!w) return;
   const def = getWordDefinition?.(w);
   const pos = def?.pos;
+  const translationZh = def?.translation_zh;
   const set = ensureChapterPosSet(rs);
-  if (dictionaryPosMatchesTreasureLevelKey(pos, "n")) set.add("n");
-  if (dictionaryPosMatchesTreasureLevelKey(pos, "adj")) set.add("adj");
-  if (dictionaryPosMatchesTreasureLevelKey(pos, "v")) set.add("v");
+  if (dictionaryPosMatchesTreasureLevelKey(pos, "n", translationZh)) set.add("n");
+  if (dictionaryPosMatchesTreasureLevelKey(pos, "adj", translationZh)) set.add("adj");
+  if (dictionaryPosMatchesTreasureLevelKey(pos, "v", translationZh)) set.add("v");
 }
 
 /**

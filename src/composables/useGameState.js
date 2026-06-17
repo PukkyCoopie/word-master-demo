@@ -26,6 +26,7 @@ import {
   gridSelectedPositionKeySet,
   previewGridPresenceMultProduct,
 } from "../game/gridOnlyMaterialScoring.js";
+import { previewIceMaterialMultProduct } from "../game/iceMaterialScoring.js";
 import { deckCardRaw, syncTileStateToDeckCard } from "../game/deckCardSync.js";
 import { snapshotMaxIntrinsicGainsFromTile, applyIntrinsicGainsToTileAndLinkedCard } from "../game/tileIntrinsicGains.js";
 import { getWordLengthJudgmentBonus } from "../vouchers/voucherRuntime.js";
@@ -819,11 +820,8 @@ export function useGameState(gameOpts = {}) {
     const excludedKeys = gridSelectedPositionKeySet(selectedTiles.value);
     const gridPresenceMul = previewGridPresenceMultProduct(g, ROWS, COLS, excludedKeys);
     // 预览对齐当前规则：棋盘光环类材质仅统计未入本手拼词的格；冰材质仅对本次入词的冰字母位触发。
-    const selectedIceCount = tiles.reduce(
-      (n, t) => n + (t?.materialId === "ice" && !t?.bossTileDebuffed ? 1 : 0),
-      0,
-    );
-    const mul = gridPresenceMul * Math.pow(2, selectedIceCount);
+    const iceMul = previewIceMaterialMultProduct(tiles);
+    const mul = gridPresenceMul * iceMul;
     if (mul === 1) return base;
     return {
       ...base,
