@@ -41,7 +41,10 @@
           </div>
 
           <div ref="regionsRef" class="tile-detail-regions">
-            <div class="treasure-detail-desc-card tile-detail-entry tile-detail-stagger-el">
+            <div
+              v-if="showRarityScoreMultRegion"
+              class="treasure-detail-desc-card tile-detail-entry tile-detail-stagger-el"
+            >
               <div class="treasure-detail-rarity-row">
                 <span
                   class="treasure-rarity-tag"
@@ -207,6 +210,7 @@ import LetterTile from "./LetterTile.vue";
 import {
   getPerLetterIntrinsicMultDisplay,
   getPerLetterIntrinsicScoreDisplay,
+  shouldShowTileDetailRarityScoreMult,
 } from "../composables/useScoring";
 import { getTileMaterialEffectDescription, getTileAccessoryEffectDescription } from "../game/tileDetailDescriptions";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
@@ -829,6 +833,8 @@ onUnmounted(() => {
 });
 
 defineExpose({ playClose });
+
+const showRarityScoreMultRegion = computed(() => shouldShowTileDetailRarityScoreMult(props.payload));
 
 const rarityKey = computed(() => {
   const r = String(props.payload?.rarity ?? "common");

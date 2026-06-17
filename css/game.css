@@ -3182,6 +3182,10 @@ textarea::-moz-placeholder {
 	color: var(--shop-discount-emphasis);
 }
 
+.shop-treasure-price-inner--discounted-unaffordable {
+	color: rgba(74, 222, 128, 0.6);
+}
+
 .shop-treasure-price-inner--stack {
 	flex-direction: column;
 	align-items: center;

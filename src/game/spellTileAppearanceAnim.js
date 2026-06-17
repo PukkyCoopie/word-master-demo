@@ -11,11 +11,13 @@ const SHRINK = 0.26;
 const SHRINK_SCALE = 0;
 const STAGGER = 0.1;
 const FRAME_YIELD = 0.04;
-/** 法术「删除」确认动效 */
+/** 法术「删除 / 火柴」确认动效：先略放大再缩没 */
 const DELETE_GROW_SCALE = 1.22;
 const DELETE_GROW_DUR = 0.26;
 const DELETE_SHRINK_DUR = 0.34;
 const DELETE_STAGGER = 0.09;
+export const SPELL_TILE_REMOVE_GROW_DUR_S = DELETE_GROW_DUR;
+export const SPELL_TILE_REMOVE_STAGGER_S = DELETE_STAGGER;
 /** 谷底弹出：略带回弹、无大角度晃，避免「廉价 wobble」感 */
 const POP_PEAK = 1.06;
 const POP_IN = 0.26;

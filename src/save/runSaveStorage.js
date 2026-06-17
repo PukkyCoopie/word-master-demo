@@ -52,10 +52,18 @@ function persistEnvelope(envelope) {
   cachedEnvelope = envelope;
   try {
     localStorage.setItem(RUN_SAVES_STORAGE_KEY, JSON.stringify(envelope));
+    markCloudSyncDirtyLater();
     return true;
   } catch {
     return false;
   }
+}
+
+/** 延迟加载，避免 cloudSave ↔ runSaveStorage 循环依赖。 */
+function markCloudSyncDirtyLater() {
+  void import("./cloudSave/cloudSaveSync.js").then(({ markCloudSyncDirty }) => {
+    markCloudSyncDirty();
+  });
 }
 
 /** @returns {import('./runSaveSchema.js').SaveEnvelope} */

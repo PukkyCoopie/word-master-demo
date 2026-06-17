@@ -606,7 +606,7 @@ async function playConfirmAppearanceOnOfferSlots(spellId, slotIndices, oldSnaps,
         gridWrapEl: offerGridWrapRef.value,
       });
       await applyAllAtValley();
-    } else if (sid === "delete_back") {
+    } else if (sid === "delete_back" || sid === "immolate") {
       await applyAllAtValley();
       await runDetachedDeleteBackConfirmAnim({
         targetCount: slotIndices.length,

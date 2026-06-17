@@ -57,9 +57,26 @@ const TapTapWebStub = {
   async incrementAchievement() {},
   async setAchievementToastEnabled() {},
   async showAchievements() {},
+  async openLeaderboard() {},
+  async submitLeaderboardScores() {},
   async openReview() {},
   async openMomentScene() {},
   async openExternalUrl() {},
+  async cloudSaveGetArchiveList() {
+    return { archives: [] };
+  },
+  async cloudSaveCreateArchive() {
+    throw new Error("Cloud save is only available in the native app");
+  },
+  async cloudSaveUpdateArchive() {
+    throw new Error("Cloud save is only available in the native app");
+  },
+  async cloudSaveGetArchiveData() {
+    throw new Error("Cloud save is only available in the native app");
+  },
+  async cloudSaveDeleteArchive() {
+    throw new Error("Cloud save is only available in the native app");
+  },
   async addListener() {
     return { remove: async () => {} };
   },

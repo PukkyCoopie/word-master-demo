@@ -8,7 +8,7 @@ import {
 export const TREASURE_89_ID = "89";
 const ID = TREASURE_89_ID;
 const INBOX_LETTER_MULT_INCREMENT = 0.25;
-const INBOX_LETTER_BUBBLE = "×0.25";
+const INBOX_LETTER_BUBBLE = "+0.25";
 
 /**
  * @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx

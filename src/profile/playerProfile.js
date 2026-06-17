@@ -155,6 +155,9 @@ export function persistPlayerProfile() {
         })),
       }),
     );
+    void import("../save/cloudSave/cloudSaveSync.js").then(({ markCloudSyncDirty }) => {
+      markCloudSyncDirty();
+    });
   } catch {
     /* quota */
   }

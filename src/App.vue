@@ -117,6 +117,14 @@
         @close="closeSaveSlots"
         @select="onSaveSlotSelect"
       />
+      <CloudSaveConflictLayer
+        :open="cloudSaveUiState.conflictOpen"
+        :local-bundle="cloudSaveUiState.localBundle"
+        :cloud-bundle="cloudSaveUiState.cloudBundle"
+        @use-cloud="onCloudSaveUseCloud"
+        @use-local="onCloudSaveUseLocal"
+        @defer="onCloudSaveDefer"
+      />
     </Teleport>
     <Teleport to="body">
       <MaterialPerfBench v-if="showMaterialBench" @close="showMaterialBench = false" />
@@ -148,6 +156,15 @@ import AboutLayer from "./components/AboutLayer.vue";
 import PrivacyConsentLayer from "./components/PrivacyConsentLayer.vue";
 import PlayerProfileLayer from "./components/PlayerProfileLayer.vue";
 import SaveSlotLayer from "./components/SaveSlotLayer.vue";
+import CloudSaveConflictLayer from "./components/CloudSaveConflictLayer.vue";
+import { cloudSaveUiState } from "./save/cloudSave/cloudSaveState.js";
+import {
+  resolveCloudSaveDefer,
+  resolveCloudSaveUseCloud,
+  resolveCloudSaveUseLocal,
+  setCloudSaveAppliedCallback,
+} from "./save/cloudSave/cloudSaveSync.js";
+import { initAppLifecycle, disposeAppLifecycle } from "./platform/appLifecycle.js";
 import { loadGameSettings } from "./settings/gameSettings.js";
 import { useScale } from "./composables/useScale";
 import { usePortalFrameSync } from "./composables/usePortalFrameSync.js";
@@ -411,6 +428,10 @@ provide("recordCollectionWordSubmit", ({ word, score, length, tiles, ownedTreasu
   });
 });
 
+provide("patchActiveSlotCareer", (mutator) => {
+  persistCollectionCareer(sessionSaveSlotIndex.value, mutator);
+});
+
 provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyIndex }) => {
   const ix = sessionSaveSlotIndex.value;
   const slot = loadSaveEnvelope().slots[ix];
@@ -560,6 +581,27 @@ function closeSaveSlots() {
 
 function bumpSaveUi() {
   saveUiRefreshKey.value += 1;
+}
+
+function onCloudSaveApplied() {
+  bumpSaveUi();
+  collectionRefreshKey.value += 1;
+  if (screen.value === "game") {
+    sessionRestoredSave.value = null;
+    screen.value = "menu";
+  }
+}
+
+async function onCloudSaveUseCloud() {
+  await resolveCloudSaveUseCloud();
+}
+
+async function onCloudSaveUseLocal() {
+  await resolveCloudSaveUseLocal();
+}
+
+function onCloudSaveDefer() {
+  resolveCloudSaveDefer();
 }
 
 function bumpCollectionUi() {
@@ -817,6 +859,8 @@ onMounted(() => {
   loadPlayerProfile();
   loadSaveEnvelope();
   repairSlotProfilesAfterLoad();
+  setCloudSaveAppliedCallback(onCloudSaveApplied);
+  void initAppLifecycle();
   loadDictionary({ shouldAbort: () => !appAlive });
   loadRemixIconFont({ shouldAbort: () => !appAlive });
   loadBootImages({ shouldAbort: () => !appAlive });
@@ -865,6 +909,8 @@ onBeforeUnmount(() => {
   disposeMaterialBenchShortcut = null;
   disposeAppE2eHarness?.();
   disposeAppE2eHarness = null;
+  setCloudSaveAppliedCallback(() => {});
+  void disposeAppLifecycle();
   delete globalThis.__WM_previewAchievementToast;
   appAlive = false;
 });

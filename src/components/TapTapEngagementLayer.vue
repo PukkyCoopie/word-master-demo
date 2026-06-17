@@ -98,7 +98,6 @@ async function onFeedback() {
 
 <style scoped>
 .taptap-engagement-layer-backdrop {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;

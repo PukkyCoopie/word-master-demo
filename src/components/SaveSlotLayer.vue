@@ -9,7 +9,10 @@
         :aria-labelledby="titleId"
         @click.stop
       >
-        <h2 :id="titleId" class="save-slot-layer-title">{{ titleText }}</h2>
+        <div class="save-slot-layer-header">
+          <h2 :id="titleId" class="save-slot-layer-title">{{ titleText }}</h2>
+          <CloudSaveStatusChip :account="account" />
+        </div>
 
         <div class="save-slot-list">
           <div
@@ -133,6 +136,8 @@
 
 <script setup>
 import { computed, ref, watch } from "vue";
+import CloudSaveStatusChip from "./CloudSaveStatusChip.vue";
+import { useTapTapAuth } from "../composables/useTapTapAuth.js";
 import { getProfileInitialLetter, getProfileInitialLetterStyle, getSlotProfile, isSlotProfileActivated } from "../profile/playerProfile.js";
 import { isSlotOccupied, listAllSlotEntries } from "../save/runSaveStorage.js";
 import { formatRelativeSaveTime } from "../save/saveDisplayUtils.js";
@@ -149,6 +154,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["close", "select"]);
+
+const { account } = useTapTapAuth();
 
 const titleId = "save-slot-layer-title";
 const pendingDeleteIndex = ref(/** @type {number | null} */ (null));
@@ -275,8 +282,17 @@ function onBackdropClick() {
   box-sizing: border-box;
 }
 
+.save-slot-layer-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: calc(10 * var(--rpx));
+  margin-bottom: calc(16 * var(--rpx));
+}
+
 .save-slot-layer-title {
-  margin: 0 0 calc(16 * var(--rpx));
+  margin: 0;
   font-size: calc(36 * var(--rpx));
   font-weight: 800;
   text-align: center;

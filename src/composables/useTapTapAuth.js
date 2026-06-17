@@ -4,6 +4,10 @@ import { isE2eMode } from "../e2e/isE2eMode.js";
 import { hasPrivacyConsent } from "../privacy/privacyConsent.js";
 import { resetTapTapAchievementBootstrap } from "../achievements/achievementTapTapSync.js";
 import {
+  setCloudSaveActiveAccount,
+  syncOnLogin,
+} from "../save/cloudSave/cloudSaveSync.js";
+import {
   COMPLIANCE_AGE_LIMIT,
   COMPLIANCE_DURATION_LIMIT,
   COMPLIANCE_EXITED,
@@ -76,6 +80,10 @@ function handleComplianceCode(code) {
   if (code === COMPLIANCE_LOGIN_SUCCESS) {
     authMessage.value = "";
     phase.value = "ready";
+    if (isTapTapAccount(account.value)) {
+      setCloudSaveActiveAccount(account.value);
+      void syncOnLogin(account.value);
+    }
     finishLoginFlow();
     return;
   }
@@ -85,6 +93,7 @@ function handleComplianceCode(code) {
     code === COMPLIANCE_REAL_NAME_STOP
   ) {
     account.value = null;
+    setCloudSaveActiveAccount(null);
     authMessage.value = "";
     phase.value = "needsLogin";
     resetTapTapAchievementBootstrap();
@@ -123,6 +132,7 @@ async function beginCompliance(nextAccount) {
     return;
   }
   account.value = nextAccount;
+  setCloudSaveActiveAccount(nextAccount);
   phase.value = "compliance";
   authMessage.value = "";
   await TapTap.startCompliance({ userIdentifier });
@@ -266,6 +276,7 @@ export function useTapTapAuth() {
     authMessage.value = "";
     finishLoginFlow();
     account.value = null;
+    setCloudSaveActiveAccount(null);
     phase.value = "ready";
     resetTapTapAchievementBootstrap();
   }

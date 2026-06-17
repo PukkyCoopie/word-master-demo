@@ -21,13 +21,13 @@ export function getPackOfferSlotCount() {
 }
 
 /**
- * 组合包售价（美元）。按 `bundleKind` + `bundleSize`（与 Balatro 补充包同档：$4 / $6 / $8）。
+ * 组合包售价（美元）。按 `bundleKind` + `bundleSize`。
  */
 export const SHOP_BUNDLE_PACK_PRICES = Object.freeze({
   spell: Object.freeze({ normal: 4, jumbo: 6, mega: 8 }),
   upgrade: Object.freeze({ normal: 3, jumbo: 5, mega: 7 }),
   treasure: Object.freeze({ normal: 4, jumbo: 6, mega: 8 }),
-  tile: Object.freeze({ normal: 4, jumbo: 6, mega: 8 }),
+  tile: Object.freeze({ normal: 2, jumbo: 4, mega: 6 }),
 });
 
 /**
@@ -39,9 +39,9 @@ export const SHOP_SINGLE_ROW_PRICES = Object.freeze({
   lengthUpgrade: 3,
   rarityUpgrade: 4,
   /** 单张字母块进库（无材质/配饰） */
-  deckTilePlain: 3,
+  deckTilePlain: 1,
   /** 单张字母块进库（带材质/配饰） */
-  deckTile: 5,
+  deckTile: 3,
 });
 
 /**
@@ -78,7 +78,7 @@ export const SHOP_TILE_PACK_MATERIAL_IDS = Object.freeze([
 export const SHOP_WILDCARD_MATERIAL_ID = "wildcard";
 
 /** 商店单张万能材质字母块售价 */
-export const SHOP_WILDCARD_TILE_PRICE = 6;
+export const SHOP_WILDCARD_TILE_PRICE = 4;
 
 /** @returns {readonly string[]} */
 export function getShopTilePackMaterialIds() {

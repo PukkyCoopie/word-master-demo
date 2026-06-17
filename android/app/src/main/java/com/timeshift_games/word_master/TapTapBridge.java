@@ -12,6 +12,8 @@ import com.taptap.sdk.achievement.options.TapTapAchievementOptions;
 import com.taptap.sdk.compliance.TapTapCompliance;
 import com.taptap.sdk.compliance.TapTapComplianceCallback;
 import com.taptap.sdk.compliance.option.TapTapComplianceOptions;
+import com.taptap.sdk.cloudsave.TapTapCloudSave;
+import com.taptap.sdk.cloudsave.internal.TapCloudSaveCallback;
 import com.taptap.sdk.core.TapTapRegion;
 import com.taptap.sdk.core.TapTapSdk;
 import com.taptap.sdk.core.TapTapSdkOptions;
@@ -95,6 +97,14 @@ final class TapTapBridge {
                 @Override
                 public void onComplianceResult(int code, java.util.Map<String, ?> extra) {
                     TapTapPlugin.dispatchComplianceResult(code, extra);
+                }
+            }
+        );
+        TapTapCloudSave.registerCloudSaveCallback(
+            new TapCloudSaveCallback() {
+                @Override
+                public void onResult(int resultCode) {
+                    TapTapPlugin.dispatchCloudSaveStatus(resultCode);
                 }
             }
         );

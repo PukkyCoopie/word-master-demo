@@ -129,6 +129,9 @@ export function persistGameSettings() {
         displayLayoutMode: gameSettings.displayLayoutMode,
       }),
     );
+    void import("../save/cloudSave/cloudSaveSync.js").then(({ markCloudSyncDirty }) => {
+      markCloudSyncDirty();
+    });
   } catch {
     /* 隐私模式等 */
   }

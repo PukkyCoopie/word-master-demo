@@ -14,6 +14,7 @@ import TileWaterRegl from "./TileWaterRegl.vue";
 import { normalizeExclusiveTileAccessoryPair } from "../accessories/accessoryState.js";
 import { getTileAccessoryChipVisual } from "../game/tileAccessories";
 import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories";
+import { shouldHideRarityGemForTile } from "../composables/useScoring.js";
 import { resolveTileMaterialAnimate } from "../lib/reglMaterialPerf.js";
 import { reducedMotionSignal } from "../settings/animationSpeed.js";
 
@@ -199,6 +200,8 @@ const effectiveMaterialAnimate = computed(() => {
   void reducedMotionSignal.value;
   return resolveTileMaterialAnimate(props.variant, props.materialAnimate);
 });
+
+const effectiveHideRarityGem = computed(() => shouldHideRarityGemForTile(props));
 </script>
 
 <template>
@@ -228,7 +231,7 @@ const effectiveMaterialAnimate = computed(() => {
       class="letter-tile-cerulean-lock-icon ri-lock-fill"
       aria-hidden="true"
     />
-    <span v-if="!hideRarityGem" class="letter-gem" :class="`gem-${rarity}`" aria-hidden="true" />
+    <span v-if="!effectiveHideRarityGem" class="letter-gem" :class="`gem-${rarity}`" aria-hidden="true" />
     <span
       v-if="vowelGhostPrev && showVowelGhost"
       class="vowel-ghost vowel-ghost--prev"

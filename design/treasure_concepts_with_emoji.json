@@ -1712,7 +1712,7 @@
       "rarity": "epic",
       "name": "垃圾桶",
       "emoji": "🗑️",
-      "description": "你每弃掉一个E，获得x0.25倍率（倍率在关卡结束时重置）",
+      "description": "你每弃掉一个E，获得x0.25倍率，倍率在关卡结束时重置",
       "userBatchIndex": null,
       "userOriginalText": null,
       "userDevNotes": null,

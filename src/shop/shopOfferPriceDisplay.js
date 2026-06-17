@@ -4,8 +4,9 @@ import {
 } from "../game/runPresetRuntime.js";
 import { canAffordWallet } from "../treasures/treasureWalletFloor.js";
 import { readOfferRandomSaleDiscount } from "./shopRandomSale.js";
+import { readOfferVoucherSaleDiscountAmount } from "./shopVoucherSale.js";
 
-/** @typedef {'default' | 'unaffordable' | 'discounted'} ShopOfferPriceTone */
+/** @typedef {'default' | 'unaffordable' | 'discounted' | 'discounted-unaffordable'} ShopOfferPriceTone */
 
 /**
  * @param {number} basePrice
@@ -21,17 +22,30 @@ export function resolveShopOfferEffectivePrice(basePrice, offer, ownedVouchers, 
  * @param {{
  *   wallet: number,
  *   effectivePrice: number,
+ *   basePrice?: number,
  *   offer?: { randomSaleDiscount?: number, offerType?: string, bundleKind?: string },
+ *   ownedVoucherIds?: Iterable<string>,
  *   runPresetId?: string | null,
  *   walletFloor?: number,
  * }} ctx
  * @returns {ShopOfferPriceTone}
  */
 export function resolveShopOfferPriceTone(ctx) {
-  if (readOfferRandomSaleDiscount(ctx.offer) > 0) return "discounted";
-  if (readOfferPresetSaleDiscount(ctx.offer, ctx.runPresetId) > 0) return "discounted";
+  const basePrice = Math.max(0, Math.floor(Number(ctx.basePrice) || 0));
+  const hasDiscount =
+    readOfferRandomSaleDiscount(ctx.offer) > 0 ||
+    readOfferPresetSaleDiscount(ctx.offer, ctx.runPresetId) > 0 ||
+    readOfferVoucherSaleDiscountAmount(
+      basePrice,
+      ctx.offer,
+      ctx.ownedVoucherIds ?? [],
+      ctx.runPresetId,
+    ) > 0;
   const floor = ctx.walletFloor ?? 0;
-  if (!canAffordWallet(ctx.wallet, ctx.effectivePrice, floor)) return "unaffordable";
+  const unaffordable = !canAffordWallet(ctx.wallet, ctx.effectivePrice, floor);
+  if (hasDiscount && unaffordable) return "discounted-unaffordable";
+  if (hasDiscount) return "discounted";
+  if (unaffordable) return "unaffordable";
   return "default";
 }
 
@@ -40,6 +54,7 @@ export function resolveShopOfferPriceTone(ctx) {
  * @returns {string}
  */
 export function shopOfferPriceInnerClass(tone) {
+  if (tone === "discounted-unaffordable") return "shop-treasure-price-inner--discounted-unaffordable";
   if (tone === "discounted") return "shop-treasure-price-inner--discounted";
   if (tone === "unaffordable") return "shop-treasure-price-inner--unaffordable";
   return "";
@@ -80,7 +95,9 @@ export function buildShopOfferPriceView(basePrice, offer, ctx) {
   const tone = resolveShopOfferPriceTone({
     wallet: ctx.wallet,
     effectivePrice: effective,
+    basePrice,
     offer,
+    ownedVoucherIds: ctx.ownedVoucherIds ?? [],
     runPresetId: ctx.runPresetId,
     walletFloor: ctx.walletFloor,
   });

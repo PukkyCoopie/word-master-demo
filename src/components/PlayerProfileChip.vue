@@ -1,17 +1,25 @@
 <template>
-  <button
-    ref="chipRef"
-    type="button"
-    class="profile-chip"
-    :class="{ 'profile-chip--suppressed': suppressed }"
-    :aria-label="`玩家 ${displayName}`"
-    @click="onOpenProfile"
-  >
-    <span class="profile-chip-avatar" :style="avatarStyle">
-      <span class="profile-chip-avatar-letter">{{ initialLetter }}</span>
-    </span>
-    <span class="profile-chip-name">{{ displayName }}</span>
-  </button>
+  <div class="profile-chip-wrap">
+    <button
+      ref="chipRef"
+      type="button"
+      class="profile-chip"
+      :class="{ 'profile-chip--suppressed': suppressed }"
+      :aria-label="`玩家 ${displayName}`"
+      @click="onOpenProfile"
+    >
+      <span class="profile-chip-avatar" :style="avatarStyle">
+        <span class="profile-chip-avatar-letter">{{ initialLetter }}</span>
+      </span>
+      <span class="profile-chip-name">{{ displayName }}</span>
+    </button>
+    <div v-if="suppressed" class="profile-chip-placeholder" aria-hidden="true">
+      <span class="profile-chip-avatar profile-chip-avatar--placeholder" :style="avatarStyle">
+        <span class="profile-chip-avatar-letter">{{ initialLetter }}</span>
+      </span>
+      <span class="profile-chip-name profile-chip-name--placeholder">{{ displayName }}</span>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -52,16 +60,21 @@ const avatarStyle = computed(() => getProfileInitialLetterStyle());
 </script>
 
 <style scoped>
+.profile-chip-wrap {
+  position: relative;
+  display: inline-flex;
+  max-width: calc(280 * var(--rpx));
+  min-width: 0;
+}
+
 .profile-chip {
-  position: absolute;
-  top: var(--menu-padding, calc(56 * var(--rpx)));
-  left: var(--menu-padding, calc(56 * var(--rpx)));
-  z-index: 2;
+  position: relative;
+  z-index: 1;
   width: auto;
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: calc(10 * var(--rpx));
-  max-width: calc(280 * var(--rpx));
   padding: calc(8 * var(--rpx)) calc(12 * var(--rpx));
   border: none;
   border-radius: var(--radius);
@@ -70,6 +83,28 @@ const avatarStyle = computed(() => getProfileInitialLetterStyle());
   cursor: pointer;
   font-family: inherit;
   transition: filter 0.12s ease;
+}
+
+.profile-chip-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--rpx));
+  padding: calc(8 * var(--rpx)) calc(12 * var(--rpx));
+  border-radius: var(--radius);
+  background: var(--card-bright);
+  box-shadow: var(--shadow);
+  opacity: 0.38;
+  pointer-events: none;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.profile-chip-avatar--placeholder,
+.profile-chip-name--placeholder {
+  opacity: 1;
 }
 
 .profile-chip:hover {

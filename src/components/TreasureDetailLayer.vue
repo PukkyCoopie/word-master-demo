@@ -240,14 +240,14 @@
             class="treasure-detail-desc-card treasure-detail-stagger-el"
           >
             <template v-if="isDeckOffer">
-              <div v-if="showDetailRarityTag" class="treasure-detail-rarity-row">
+              <div v-if="showDetailRarityTag && showDeckOfferRarityScoreMult" class="treasure-detail-rarity-row">
                 <span
                   class="treasure-rarity-tag"
                   :class="'treasure-rarity-tag--' + deckOfferRarityKey"
                   >{{ deckOfferRarityTagLabel }}</span
                 >
               </div>
-              <div class="tile-detail-rarity-score-mult">
+              <div v-if="showDeckOfferRarityScoreMult" class="tile-detail-rarity-score-mult">
                 <div class="tile-detail-score-mult-frame">
                   <div class="info-score-mult" role="group" :aria-label="deckOfferScoreMultAria">
                     <span class="tile-detail-score-mult-side-label">{{
@@ -433,6 +433,24 @@
             <TreasureDescRichText
               class="treasure-detail-desc-panel-rich"
               :description="deckOfferTreasureAccessoryDesc"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
+            v-if="showVoucherSalePanel"
+            ref="voucherSalePanelRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span
+                class="treasure-detail-desc-panel-title-text treasure-detail-desc-panel-title-text--shop-discount"
+                >{{ SHOP_VOUCHER_SALE_TITLE }}</span
+              >
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="voucherSalePanelDescription"
               :panel-body="true"
             />
           </div>
@@ -850,6 +868,11 @@ import {
   SHOP_RANDOM_SALE_TITLE,
 } from "../shop/shopRandomSale.js";
 import {
+  formatShopVoucherSaleDescription,
+  readOfferVoucherSaleDiscountAmount,
+  SHOP_VOUCHER_SALE_TITLE,
+} from "../shop/shopVoucherSale.js";
+import {
   readOfferPresetSaleDiscount,
   SHOP_PRESET_SALE_TITLE,
 } from "../game/runPresetRuntime.js";
@@ -861,6 +884,7 @@ import {
   getPerLetterIntrinsicMultDisplay,
   getPerLetterIntrinsicScoreDisplay,
   getRarityForLetter,
+  shouldShowTileDetailRarityScoreMult,
 } from "../composables/useScoring.js";
 import {
   tileDetailLayerCopy,
@@ -986,6 +1010,26 @@ const offerShelfPriceInnerClasses = computed(() => {
   return offerShelfPriceView.value.innerClasses;
 });
 
+const voucherSaleDiscountAmount = computed(() =>
+  readOfferVoucherSaleDiscountAmount(
+    Math.max(0, Math.floor(Number(props.treasure?.price) || 0)),
+    props.treasure,
+    props.ownedVoucherIds ?? [],
+    props.runPresetId,
+  ),
+);
+
+const showVoucherSalePanel = computed(
+  () =>
+    props.mode === "offer" &&
+    !isCollectionPreviewMode.value &&
+    voucherSaleDiscountAmount.value > 0,
+);
+
+const voucherSalePanelDescription = computed(() =>
+  formatShopVoucherSaleDescription(props.ownedVoucherIds ?? [], voucherSaleDiscountAmount.value),
+);
+
 const randomSaleDiscountAmount = computed(() => readOfferRandomSaleDiscount(props.treasure));
 
 const presetSaleDiscountAmount = computed(() =>
@@ -1070,6 +1114,10 @@ const deckOfferLetterTileBind = computed(() => {
     tileMultBonus: p.tileMultBonus,
   };
 });
+
+const showDeckOfferRarityScoreMult = computed(() =>
+  shouldShowTileDetailRarityScoreMult(deckOfferLetterTileBind.value),
+);
 
 const deckOfferLetter = computed(() => {
   const raw = String(props.treasure?.deckLetterRaw ?? "a").toLowerCase();
@@ -1303,7 +1351,7 @@ const showMainVoucherDesc = computed(() => !showVoucherTierPanels.value);
 
 const showTreasureMainDescCard = computed(() => {
   if (isCollectionLockedPreview.value) return false;
-  if (isDeckOffer.value) return true;
+  if (isDeckOffer.value) return showDeckOfferRarityScoreMult.value;
   if (isVoucherOffer.value && showVoucherTierPanels.value) return false;
   if (showSpellReplayTargetRow.value) return true;
   if (showDetailRarityTag.value) return true;
@@ -1442,6 +1490,7 @@ function descriptionConceptExcludeTitles() {
   if (showDeckOfferTreasureAccessoryRegion.value && deckOfferTreasureAccessoryTitle.value) {
     exclude.add(deckOfferTreasureAccessoryTitle.value);
   }
+  if (showVoucherSalePanel.value) exclude.add(SHOP_VOUCHER_SALE_TITLE);
   if (showPresetSalePanel.value) exclude.add(SHOP_PRESET_SALE_TITLE);
   if (showRandomSalePanel.value) exclude.add(SHOP_RANDOM_SALE_TITLE);
   if (showSpellGrantedVoucherPanel.value) exclude.add(SHOP_SPELL_GRANTED_VOUCHER_PANEL_TITLE);
@@ -1501,6 +1550,7 @@ const deckOfferTreasureAccessoryRef = ref(null);
 const deckOfferStackRef = ref(null);
 const spellGainPanelRef = ref(null);
 const treasureGainPanelRef = ref(null);
+const voucherSalePanelRef = ref(null);
 const randomSalePanelRef = ref(null);
 const presetSalePanelRef = ref(null);
 const spellGrantedVoucherPanelRef = ref(null);
@@ -1541,6 +1591,7 @@ function staggerTargets() {
     deckOfferAccessoryRef.value,
     deckOfferTreasureAccessoryRef.value,
     treasureGainPanelRef.value,
+    voucherSalePanelRef.value,
     presetSalePanelRef.value,
     randomSalePanelRef.value,
     spellGrantedVoucherPanelRef.value,

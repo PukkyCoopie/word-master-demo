@@ -113,7 +113,18 @@ export function buildAccessoryTileDetailPayload(accessoryId) {
 export function buildTileDetailPayloadFromCollectionSnapshot(tile) {
   if (!tile || typeof tile !== "object") return null;
   const isWc = tile.isWildcard === true;
-  const letter = isWc ? "?" : String(tile.letter ?? "e").toUpperCase();
+  const rawLetter = String(tile.letter ?? "").trim();
+  const letter = isWc
+    ? rawLetter && rawLetter !== "?"
+      ? rawLetter === "Qu" || rawLetter === "qu"
+        ? "Qu"
+        : rawLetter.toUpperCase()
+      : "?"
+    : rawLetter
+      ? rawLetter === "Qu" || rawLetter === "qu"
+        ? "Qu"
+        : rawLetter.toUpperCase()
+      : "E";
   return {
     letter,
     rarity: String(tile.rarity ?? "common"),

@@ -42,6 +42,7 @@
  * @property {string[]} [collectionTabsPendingNewClear]
  * @property {string[]} [unlockedAchievementIds]
  * @property {Record<string, number>} [taptapReportedAchievementSteps]
+ * @property {number} [taptapReportedBestSingleWordScore]
  * @property {number} [totalWordsSubmitted]
  * @property {number} [peakWalletAmount]
  * @property {number} [maxLevelIndexReached]
@@ -108,6 +109,7 @@ export function createEmptySlotCareerStats() {
     collectionTabsPendingNewClear: [],
     unlockedAchievementIds: [],
     taptapReportedAchievementSteps: {},
+    taptapReportedBestSingleWordScore: 0,
     totalWordsSubmitted: 0,
     peakWalletAmount: 0,
     maxLevelIndexReached: -1,

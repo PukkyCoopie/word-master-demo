@@ -1,10 +1,12 @@
 <template>
   <div class="main-menu">
-    <PlayerProfileChip
-      v-if="showMenuActions"
-      :suppressed="profileLayerOpen"
-      @open-profile="$emit('open-profile', $event)"
-    />
+    <div v-if="showMenuActions" class="menu-top-left">
+      <PlayerProfileChip
+        :suppressed="profileLayerOpen"
+        @open-profile="$emit('open-profile', $event)"
+      />
+      <TapTapLeaderboardButton @open="openTapTapLeaderboard" />
+    </div>
     <TapTapEngagementButton
       v-if="showMenuActions"
       @open="openEngagementManual"
@@ -15,6 +17,11 @@
         :show-intro-question="tapTapEngagementShowIntro"
         @close="closeTapTapEngagementLayer"
         @engaged="onTapTapEngagementAction"
+      />
+      <TapTapLeaderboardWebHintLayer
+        :open="leaderboardWebHintOpen"
+        @close="leaderboardWebHintOpen = false"
+        @open-poster="openTapTapPoster"
       />
     </Teleport>
     <div
@@ -113,6 +120,8 @@ import TapTapPromoIcon from "./TapTapPromoIcon.vue";
 import TapTapEngagementButton from "./TapTapEngagementButton.vue";
 import TapTapEngagementLayer from "./TapTapEngagementLayer.vue";
 import PlayerProfileChip from "./PlayerProfileChip.vue";
+import TapTapLeaderboardButton from "./TapTapLeaderboardButton.vue";
+import TapTapLeaderboardWebHintLayer from "./TapTapLeaderboardWebHintLayer.vue";
 import { useTapTapAuth } from "../composables/useTapTapAuth.js";
 import { useWebLayoutMode } from "../composables/useWebLayoutMode.js";
 import { isTapTapWebPromoEnabled } from "../taptap/tapTapWebPromo.js";
@@ -129,6 +138,7 @@ import {
   tapTapEngagementLayerOpen,
   tapTapEngagementShowIntro,
 } from "../taptap/tapTapEngagementUi.js";
+import { openTapTapLeaderboardFromMenu } from "../taptap/tapTapLeaderboardSync.js";
 import { animSleep } from "../settings/animationSpeed.js";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import { getSlotCareer, mutateSlotCareer } from "../save/runSaveStorage.js";
@@ -164,6 +174,17 @@ const {
 const { isMobileLayout } = useWebLayoutMode();
 /** @type {() => void} */
 const openTapTapPoster = inject("openTapTapPoster", () => {});
+
+const leaderboardWebHintOpen = ref(false);
+
+function openTapTapLeaderboard() {
+  openTapTapLeaderboardFromMenu({
+    onWebHint: () => {
+      leaderboardWebHintOpen.value = true;
+    },
+  });
+}
+
 /** @type {import('vue').Ref<boolean> | null} */
 const developerModeEnabled = inject("developerModeEnabled", null);
 const showTapTapMenuPromo = computed(
@@ -335,6 +356,17 @@ const showcaseRows = [
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+}
+
+.menu-top-left {
+  position: absolute;
+  top: var(--menu-padding, calc(56 * var(--rpx)));
+  left: var(--menu-padding, calc(56 * var(--rpx)));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--rpx));
+  max-width: calc(100% - 2 * var(--menu-padding, calc(56 * var(--rpx))) - calc(80 * var(--rpx)));
 }
 
 .main-menu-inner {

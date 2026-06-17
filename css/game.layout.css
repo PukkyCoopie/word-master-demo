@@ -282,7 +282,11 @@ html.viewport-narrower-than-design #game-view-portal-frame .boss-blind-reroll-ba
 .about-layer-backdrop,
 .privacy-consent-layer-backdrop,
 .run-start-dialog-backdrop,
-.taptap-engagement-layer-backdrop {
+.taptap-engagement-layer-backdrop,
+.taptap-lb-web-hint-layer-backdrop,
+.endless-diff0-hint-layer-backdrop,
+.profile-layer-backdrop,
+.save-slot-layer-backdrop {
 	position: absolute;
 	inset: 0;
 	box-sizing: border-box;
@@ -292,7 +296,11 @@ html.viewport-narrower-than-design #game-view-portal-frame .boss-blind-reroll-ba
 .about-layer-scrim,
 .privacy-consent-layer-scrim,
 .run-start-dialog-scrim,
-.taptap-engagement-layer-scrim {
+.taptap-engagement-layer-scrim,
+.taptap-lb-web-hint-layer-scrim,
+.endless-diff0-hint-layer-scrim,
+.profile-layer-scrim,
+.save-slot-layer-scrim {
 	position: absolute;
 	inset: 0;
 }
@@ -302,13 +310,26 @@ html.viewport-narrower-than-design .about-layer-backdrop,
 html.viewport-narrower-than-design .privacy-consent-layer-backdrop,
 html.viewport-narrower-than-design .run-start-dialog-backdrop,
 html.viewport-narrower-than-design .taptap-engagement-layer-backdrop,
+html.viewport-narrower-than-design .taptap-lb-web-hint-layer-backdrop,
+html.viewport-narrower-than-design .endless-diff0-hint-layer-backdrop,
+html.viewport-narrower-than-design .profile-layer-backdrop,
+html.viewport-narrower-than-design .save-slot-layer-backdrop,
 html.viewport-narrower-than-design .settings-layer-scrim,
 html.viewport-narrower-than-design .about-layer-scrim,
 html.viewport-narrower-than-design .privacy-consent-layer-scrim,
 html.viewport-narrower-than-design .run-start-dialog-scrim,
-html.viewport-narrower-than-design .taptap-engagement-layer-scrim {
+html.viewport-narrower-than-design .taptap-engagement-layer-scrim,
+html.viewport-narrower-than-design .taptap-lb-web-hint-layer-scrim,
+html.viewport-narrower-than-design .endless-diff0-hint-layer-scrim,
+html.viewport-narrower-than-design .profile-layer-scrim,
+html.viewport-narrower-than-design .save-slot-layer-scrim {
 	position: fixed;
 	inset: 0;
+}
+
+html.viewport-narrower-than-design .profile-layer-scrim,
+html.viewport-narrower-than-design .save-slot-layer-scrim {
+	border-radius: 0;
 }
 
 /* 商店升级动效播放时暂隐其它 portal 浮层，露出后方 ShopPanel 顶栏动画 */

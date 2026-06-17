@@ -566,6 +566,24 @@ export function isWildcardMaterialTile(tile) {
   );
 }
 
+/** 万能块尚未解析为具体字母（展示 `?`）时为 true。 */
+export function isUndeformedWildcardLetter(letter) {
+  return String(letter ?? "").trim() === "?";
+}
+
+/** 未变形万能块不展示左下稀有度宝石（含显式 `hideRarityGem`）。 */
+export function shouldHideRarityGemForTile(props) {
+  if (!props || typeof props !== "object") return false;
+  if (props.hideRarityGem === true) return true;
+  return isUndeformedWildcardLetter(props.letter);
+}
+
+/** 字母块详情：未变形万能块（仍为 `?`）无固定稀有度计分，不展示价签式稀有度区。 */
+export function shouldShowTileDetailRarityScoreMult(payload) {
+  if (!payload || typeof payload !== "object") return true;
+  return !isUndeformedWildcardLetter(payload.letter);
+}
+
 /**
  * 按 `resolveWordPattern` 得到的小写整词，把各槽位 pattern 片段为单个 `?` 的格写回真实 `letter`/`rarity`/`baseScore`（与棋盘普通字母一致）。
  * `resolvedLower` 须与 `tiles` 拼出的 pattern 等长（`qu` 等双字符格占 pattern 中两格）。

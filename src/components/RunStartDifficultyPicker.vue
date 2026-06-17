@@ -280,10 +280,9 @@ defineExpose({
 .run-start-difficulty-content {
   position: relative;
   flex: 1 1 auto;
+  align-self: stretch;
   min-width: 0;
-  height: calc(152 * var(--rpx));
   min-height: calc(152 * var(--rpx));
-  max-height: calc(152 * var(--rpx));
   border-radius: var(--radius);
   background: var(--card, #eee4da);
   padding: calc(12 * var(--rpx)) calc(14 * var(--rpx));

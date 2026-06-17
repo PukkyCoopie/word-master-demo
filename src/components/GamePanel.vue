@@ -600,9 +600,9 @@
     <Teleport to="body">
       <!-- v-memo：列表追加时不要用新 :style 对象去重绘已在飞的项，否则会写回 fromRect 顶掉 GSAP 的 left/top（快速连点闪烁） -->
       <LetterTile
-        v-for="fly in flyingLetters"
+        v-for="fly in flyingLettersForRender"
         :key="fly.id"
-        v-memo="[fly.id, fly.bossTileDebuffed, fly.materialId, fly.vowelGhostPrev, fly.vowelGhostNext, fly.playerMarked, fly.tileScoreBonus, fly.tileMultBonus]"
+        v-memo="[fly.id, fly.letter, fly.rarity, fly.bossTileDebuffed, fly.materialId, fly.vowelGhostPrev, fly.vowelGhostNext, fly.playerMarked, fly.tileScoreBonus, fly.tileMultBonus]"
         variant="fly"
         :class="{ 'player-marked': fly.playerMarked === true }"
         :letter="fly.letter"
@@ -647,6 +647,11 @@
         @main-menu="onRunEndMainMenu"
         @endless="onRunEndEndless"
         @select-discovery="onRunEndDiscoverySelect"
+      />
+      <EndlessDifficultyLeaderboardHintLayer
+        :open="showEndlessDifficulty0Hint"
+        :portal-stack-style="endlessDifficulty0HintPortalStackStyle"
+        @confirm="onEndlessDifficulty0HintConfirm"
       />
     </Teleport>
 
@@ -884,6 +889,7 @@ import {
   isStandardRunFinalLevelIndex,
 } from "../levelDefinitions";
 import RunEndLayer from "./RunEndLayer.vue";
+import EndlessDifficultyLeaderboardHintLayer from "./EndlessDifficultyLeaderboardHintLayer.vue";
 import PauseOptionsLayer from "./PauseOptionsLayer.vue";
 import { ACHIEVEMENT_DEFINITIONS } from "../achievements/achievementDefinitions.js";
 import {
@@ -897,6 +903,13 @@ import {
   resolveMaxLengthAndRarityLevel,
 } from "../achievements/achievementEvaluate.js";
 import { computeMaxLetterScoreTriggers } from "../achievements/achievementSubmitMetrics.js";
+import {
+  getChapterFromLevelId,
+  reportAverageWordLengthOnWin,
+  reportBestSingleWordScoreIfImproved,
+  reportDifficultyAchievedLeaderboard,
+  reportEndlessChapterLeaderboard,
+} from "../taptap/tapTapLeaderboardSync.js";
 import { pickBossSlugForLevel } from "../game/bossRoll.js";
 import {
   applyBossTileDebuffState,
@@ -910,6 +923,7 @@ import {
   saveGamePanelToSlot,
 } from "../save/gamePanelSaveApi.js";
 import { createRunAutoSave } from "../save/runAutoSave.js";
+import { requestCloudSync } from "../save/cloudSave/cloudSaveSync.js";
 import { clearSlotRunProgress, loadSaveEnvelope } from "../save/runSaveStorage.js";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import {
@@ -982,6 +996,7 @@ import {
   diffGridAppearanceTargets,
   restoreGridFromDeepClone,
   runDetachedTileShrinkReplacePop,
+  SPELL_TILE_REMOVE_GROW_DUR_S,
 } from "../game/spellTileAppearanceAnim.js";
 import {
   SPELL_DEFINITIONS,
@@ -1240,6 +1255,7 @@ const dictFatalPortalZ = ref(0);
 const settlementPortalZ = ref(0);
 const runEndPortalZ = ref(0);
 const pauseOptionsPortalZ = ref(0);
+const endlessDifficulty0HintPortalZ = ref(0);
 const toastPortalZ = ref(0);
 
 const shopPortalStackStyle = computed(() => (shopPortalZ.value > 0 ? { zIndex: shopPortalZ.value } : undefined));
@@ -1261,6 +1277,9 @@ const runEndConfettiPortalStackStyle = computed(() =>
 );
 const pauseOptionsPortalStackStyle = computed(() =>
   pauseOptionsPortalZ.value > 0 ? { zIndex: pauseOptionsPortalZ.value } : undefined,
+);
+const endlessDifficulty0HintPortalStackStyle = computed(() =>
+  endlessDifficulty0HintPortalZ.value > 0 ? { zIndex: endlessDifficulty0HintPortalZ.value } : undefined,
 );
 const toastPortalStackStyle = computed(() => (toastPortalZ.value > 0 ? { zIndex: toastPortalZ.value } : undefined));
 
@@ -1497,6 +1516,8 @@ const suppressTilePrimaryClick = ref(false);
 const levelIndex = ref(RUN_START_LEVEL_INDEX);
 /** 通关 8-3 后进入 Ante 9+ 无尽流程 */
 const isEndlessRun = ref(false);
+/** 无尽模式已上报 TapTap 排行榜的大关序号（非难度 0 时） */
+const endlessReportedLeaderboardChapter = ref(0);
 /** 卷轴券购买后已写入「下一关」下标；离店时不再 +1 */
 const glyphShopSkipLevelAdvance = ref(false);
 
@@ -3543,6 +3564,7 @@ const tryUnlockAchievementsInject = inject("tryUnlockAchievements", null);
 const recordCollectionDiscovery = inject("recordCollectionDiscovery", null);
 const recordPrerequisiteTreasureShopAppeared = inject("recordPrerequisiteTreasureShopAppeared", null);
 const recordCollectionWordSubmit = inject("recordCollectionWordSubmit", null);
+const patchActiveSlotCareer = inject("patchActiveSlotCareer", null);
 
 const achievementToastQueue = inject("achievementToastQueue", null);
 const achievementRunState = ref(createAchievementRunState());
@@ -3741,6 +3763,7 @@ watch(showPauseOptions, (open) => {
 
 /** 整局结束层（失败 / 通关 8-3） */
 const showRunEnd = ref(false);
+const showEndlessDifficulty0Hint = ref(false);
 /** @type {import('vue').Ref<'fail' | 'win'>} */
 const runEndOutcome = ref("fail");
 const runEndConfettiCanvasRef = ref(null);
@@ -4343,6 +4366,7 @@ function flushDeferredWordSubmitRecord() {
   const { word, length, tiles, detailedRef } = deferredWordSubmitPayload;
   const score = Math.round(Number(detailedRef?.finalScore) || 0);
   recordWordSubmit(runMatchStats.value, { word, score, length });
+  maybeReportTapTapBestSingleWordScore(score);
   noteCollectionWordSubmitted({ word, score, length, tiles });
   deferredWordSubmitPayload = null;
 }
@@ -5790,7 +5814,7 @@ function buildEffectiveWordPartsForSubmit(opts = {}) {
   for (const { tile } of slots) pushFromTile(tile);
   for (const f of flyingLetters.value) {
     const t = grid.value[f.pendingRow]?.[f.pendingCol];
-    if (t) pushFromTile(t);
+    if (t) pushFromTile(gridTileWithInFlightPresentation(t, f));
     else {
       const frag = String(f.letter ?? "").toLowerCase();
       for (const ch of frag) {
@@ -5828,7 +5852,7 @@ function listEffectiveTilesForSubmit(extraTile = null) {
   }
   for (const f of flyingLetters.value) {
     const t = grid.value[f.pendingRow]?.[f.pendingCol];
-    if (t) tiles.push(t);
+    if (t) tiles.push(gridTileWithInFlightPresentation(t, f));
   }
   if (extraTile) tiles.push(extraTile);
   return tiles;
@@ -5923,6 +5947,30 @@ function computeFlyInTilePresentation(tile) {
   return tilePresentationInResolvedWord(tile, res, parts.word, tile);
 }
 
+/** 飞入在途：拼词/展示用解析字母，而非棋盘格上存的 ? */
+function gridTileWithInFlightPresentation(gridTile, flyItem) {
+  if (!gridTile || !flyItem) return gridTile;
+  const flyLetter = String(flyItem.letter ?? "").trim();
+  if (!flyLetter || flyLetter === String(gridTile.letter ?? "").trim()) return gridTile;
+  return {
+    ...gridTile,
+    letter: flyLetter,
+    rarity: flyItem.rarity ?? gridTile.rarity,
+  };
+}
+
+/** 词槽/详情/飞回：已入词万能块优先用词内解析展示 */
+function resolveWildcardInWordPresentation(tile) {
+  if (!tile?.letter || !isWildcardMaterialTile(tile)) return null;
+  const parts = buildEffectiveWordPartsForSubmit();
+  const res = resolveWordFromEffectiveParts(parts);
+  const eff = parts.word;
+  if (!res || eff.length !== res.length) return null;
+  const pres = tilePresentationInResolvedWord(tile, res, eff);
+  if (String(pres.letter ?? "").trim() === "?") return null;
+  return pres;
+}
+
 /** 飞回棋盘：牌张自然展示（deck + vowelDisplayShift），不用词槽解析态 */
 function computeFlyBackTilePresentation(tile) {
   const upGhost = (ch) => (ch ? (ch === "q" ? "Qu" : ch.toUpperCase()) : null);
@@ -5930,6 +5978,15 @@ function computeFlyBackTilePresentation(tile) {
     return { letter: "", rarity: "common", vowelGhostPrev: null, vowelGhostNext: null };
   }
   if (isWildcardMaterialTile(tile)) {
+    const inWord = resolveWildcardInWordPresentation(tile);
+    if (inWord) {
+      return {
+        letter: inWord.letter,
+        rarity: inWord.rarity ?? tile.rarity ?? "common",
+        vowelGhostPrev: inWord.vowelGhostPrev ?? null,
+        vowelGhostNext: inWord.vowelGhostNext ?? null,
+      };
+    }
     return {
       letter: tile.letter,
       rarity: tile.rarity ?? "common",
@@ -6093,9 +6150,38 @@ const effectiveFormulaTiles = computed(() => {
   }
   for (const f of flyingLetters.value) {
     const t = grid.value[f.pendingRow]?.[f.pendingCol];
-    if (t) tiles.push(t);
+    if (t) tiles.push(gridTileWithInFlightPresentation(t, f));
   }
   return tiles;
+});
+
+/**
+ * 飞字渲染：随词串解析同步更新万能块变形字母（与词槽/棋盘 selected 展示一致）。
+ */
+const flyingLettersForRender = computed(() => {
+  const parts = buildEffectiveWordPartsForSubmit();
+  const res = resolveWordFromEffectiveParts(parts);
+  const eff = parts.word;
+  return flyingLetters.value.map((fly) => {
+    const t = grid.value[fly.pendingRow]?.[fly.pendingCol];
+    if (!t) return fly;
+    const pres = tilePresentationInResolvedWord(t, res, eff, t);
+    if (
+      pres.letter === fly.letter &&
+      pres.rarity === fly.rarity &&
+      pres.vowelGhostPrev === fly.vowelGhostPrev &&
+      pres.vowelGhostNext === fly.vowelGhostNext
+    ) {
+      return fly;
+    }
+    return {
+      ...fly,
+      letter: pres.letter,
+      rarity: pres.rarity,
+      vowelGhostPrev: pres.vowelGhostPrev,
+      vowelGhostNext: pres.vowelGhostNext,
+    };
+  });
 });
 
 /**
@@ -6322,6 +6408,13 @@ function buildTileDetailPayloadFromTile(tile) {
   if (id != null) {
     if (gridTileLetterForRender.value.has(id)) letter = gridTileLetterForRender.value.get(id);
     if (gridTileRarityForRender.value.has(id)) rarity = gridTileRarityForRender.value.get(id);
+  }
+  if (isWildcardMaterialTile(tile) && String(letter ?? "").trim() === "?") {
+    const inWord = resolveWildcardInWordPresentation(tile);
+    if (inWord) {
+      letter = inWord.letter;
+      rarity = inWord.rarity ?? rarity;
+    }
   }
   return {
     letter: letter ?? tile.letter,
@@ -6942,6 +7035,41 @@ function showToast(msg, ms = 2000) {
   }, ms);
 }
 
+function syncEndlessLeaderboardChapterBaseline(levelId) {
+  if (!isEndlessRun.value || runDifficultyIndex.value <= 0) return;
+  const chapter = getChapterFromLevelId(levelId);
+  if (chapter > endlessReportedLeaderboardChapter.value) {
+    endlessReportedLeaderboardChapter.value = chapter;
+  }
+}
+
+function maybeReportEndlessChapterLeaderboard(levelId) {
+  if (!isEndlessRun.value || runDifficultyIndex.value <= 0) return;
+  const chapter = getChapterFromLevelId(levelId);
+  if (chapter <= 0 || chapter <= endlessReportedLeaderboardChapter.value) return;
+  endlessReportedLeaderboardChapter.value = chapter;
+  reportEndlessChapterLeaderboard(chapter);
+}
+
+/** @param {number} score */
+function maybeReportTapTapBestSingleWordScore(score) {
+  if (isEndlessRun.value) return;
+  const sc = Math.max(0, Math.floor(Number(score) || 0));
+  if (sc <= 0) return;
+  const patch = patchActiveSlotCareer;
+  if (typeof patch !== "function") return;
+  patch((career) => {
+    const prev = Math.max(0, Math.floor(Number(career.taptapReportedBestSingleWordScore) || 0));
+    if (reportBestSingleWordScoreIfImproved(sc, prev)) {
+      career.taptapReportedBestSingleWordScore = Math.max(prev, sc);
+    }
+  });
+}
+
+function resetTapTapLeaderboardRunTracking() {
+  endlessReportedLeaderboardChapter.value = 0;
+}
+
 function sleep(ms) {
   return pauseAwareDelay(ms);
 }
@@ -7153,6 +7281,10 @@ async function openRunEnd(outcome, opts = {}) {
     });
   }
   runEndOutcome.value = won ? "win" : "fail";
+  if (won) {
+    reportAverageWordLengthOnWin(runMatchStats.value);
+    reportDifficultyAchievedLeaderboard(runDifficultyIndex.value);
+  }
   mergeCareerOnRunEnd?.({
     outcome: runEndOutcome.value,
     stats: runMatchStats.value,
@@ -7171,6 +7303,7 @@ async function openRunEnd(outcome, opts = {}) {
   showRunEnd.value = true;
   await nextTick();
   scheduleRunAutoSave();
+  requestCloudSync({ priority: "high" });
 }
 
 function onRunEndRetry() {
@@ -7293,6 +7426,7 @@ function abandonStandardWinRunProgressIfNeeded() {
 
 function onRunEndMainMenu() {
   runAutoSave.tryFlush();
+  requestCloudSync({ priority: "high" });
   abandonStandardWinRunProgressIfNeeded();
   emit("exit-to-menu");
 }
@@ -7405,8 +7539,24 @@ function onPauseMainMenu() {
 
 async function onRunEndEndless() {
   if (transitionBusy.value) return;
+  if (runDifficultyIndex.value <= 0) {
+    endlessDifficulty0HintPortalZ.value = bumpOverlayZ();
+    showEndlessDifficulty0Hint.value = true;
+    return;
+  }
+  await enterEndlessModeAfterWin();
+}
+
+function onEndlessDifficulty0HintConfirm() {
+  showEndlessDifficulty0Hint.value = false;
+  void enterEndlessModeAfterWin();
+}
+
+async function enterEndlessModeAfterWin() {
+  if (transitionBusy.value) return;
   showRunEnd.value = false;
   isEndlessRun.value = true;
+  syncEndlessLeaderboardChapterBaseline(currentLevel.value?.id ?? "");
   if (!settlementSnapshot.value) {
     settlementSnapshot.value = buildSettlementSnapshot();
   }
@@ -8316,20 +8466,29 @@ async function playOwnedTreasureMoneyFx(treasureId, amount, opts = {}) {
 
 /** @param {number} slotIndex @param {string} text @param {string} [kind] */
 async function playTreasureSlotBubbleBurstAtPeak(slotIndex, text, kind = "score") {
-  const el = gameTreasureSlotRefs[slotIndex];
+  const el = getOwnedTreasureSlotEl(slotIndex);
   if (!el || slotIndex < 0) return;
   const label = String(text ?? "").trim();
   if (!label) return;
   const sp = 1;
-  scoringTreasureBarIndex.value = slotIndex;
+  const prevShopSuppressed = shopOverlayLayersSuppressed.value;
+  shopOverlayLayersSuppressed.value = true;
   await nextTick();
   await new Promise((r) => requestAnimationFrame(r));
-  wobbleScoreSlot(el, sp);
-  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-  const bubble = showScoreBubble(el, label, kind, sp);
-  scheduleSmallPlusBubbleOutro(bubble, sp);
-  await scoringSleep(SCORING_LETTER_GAP_MS, sp);
-  scoringTreasureBarIndex.value = null;
+  const bubbleZ = bumpOverlayZ();
+  try {
+    scoringTreasureBarIndex.value = slotIndex;
+    await nextTick();
+    await new Promise((r) => requestAnimationFrame(r));
+    wobbleScoreSlot(el, sp);
+    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+    const bubble = showScoreBubble(el, label, kind, sp, bubbleZ);
+    scheduleSmallPlusBubbleOutro(bubble, sp);
+    await scoringSleep(SCORING_LETTER_GAP_MS, sp);
+  } finally {
+    scoringTreasureBarIndex.value = null;
+    shopOverlayLayersSuppressed.value = prevShopSuppressed;
+  }
 }
 
 /** @param {string} treasureId @param {string} text @param {string} [kind] */
@@ -8342,7 +8501,7 @@ async function playOwnedTreasureBubbleFx(treasureId, text, kind = "score") {
 /** 仅弹气泡（不含 wobble、不等待字间节拍），用于需要自行编排时序的宝藏 */
 async function playOwnedTreasureBubbleOnlyFx(treasureId, text, kind = "score") {
   for (const ix of findAllOwnedTreasureSlotIndices(treasureId)) {
-    const el = gameTreasureSlotRefs[ix];
+    const el = getOwnedTreasureSlotEl(ix);
     if (!el) continue;
     const label = String(text ?? "").trim();
     if (!label) continue;
@@ -8842,22 +9001,24 @@ async function playInstantSpellShopFx(effectiveSpellId) {
 
 const IMMOLATE_SPELL_REWARD = 15;
 
-/** 火柴：候选格全体 wobble → 法术图标弹出 $15 气泡，预览层保持至本函数结束再由父级播离场 */
-async function playImmolateConfirmFxOnOfferSlots(slotIndices, applySpellFn) {
+/** 火柴：候选格 stagger 放大→缩没（与「删除」同款）→ 法术图标弹出 $15 气泡 */
+async function playImmolateConfirmFxOnOfferSlots(
+  slotIndices,
+  oldSnaps,
+  applySpellFn,
+  buildNewSnapsAfterApply,
+) {
   const layer = spellTargetLayerRef.value;
-  if (!layer || !slotIndices.length) return false;
-
-  const sp = 1;
-  const tileEls = slotIndices
-    .map((ix) => layer.getOfferTileEl?.(ix))
-    .filter((el) => el instanceof HTMLElement);
-  if (!tileEls.length) return false;
+  if (!layer || !slotIndices.length || oldSnaps.length !== slotIndices.length) return false;
 
   const iconEl = layer.getSpellIconEl?.();
-  const bubbleAnchor = iconEl instanceof HTMLElement ? iconEl : tileEls[0];
+  const bubbleAnchor =
+    iconEl instanceof HTMLElement
+      ? iconEl
+      : layer.getOfferTileEl?.(slotIndices[0]);
 
-  if (shouldSkipDecorativeMotion()) {
-    applySpellFn();
+  const sp = 1;
+  const showMoneyBubble = () => {
     const bubble = showScoreBubble(
       bubbleAnchor,
       formatMoneyBubbleLabel(IMMOLATE_SPELL_REWARD),
@@ -8866,40 +9027,23 @@ async function playImmolateConfirmFxOnOfferSlots(slotIndices, applySpellFn) {
       bumpOverlayZ(),
     );
     scheduleSmallPlusBubbleOutro(bubble, sp);
-    await animSleep(LEVEL_COMPLETE_MONEY_FX_OUTRO_WAIT_MS);
-    return true;
+  };
+
+  const animPromise = playSpellConfirmAnimOnOfferSlots(
+    "immolate",
+    slotIndices,
+    oldSnaps,
+    applySpellFn,
+    buildNewSnapsAfterApply,
+  );
+
+  if (!shouldSkipDecorativeMotion()) {
+    await animSleep(Math.round(SPELL_TILE_REMOVE_GROW_DUR_S * 1000));
   }
+  showMoneyBubble();
 
-  const wobbleTls = tileEls
-    .map((el) => {
-      const tl = createWobbleScoreSlotTimeline(el);
-      if (tl) {
-        tl.timeScale(sp);
-        tl.play(0);
-      }
-      return tl;
-    })
-    .filter(Boolean);
-
-  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-  applySpellFn();
-  const bubble = showScoreBubble(
-    bubbleAnchor,
-    formatMoneyBubbleLabel(IMMOLATE_SPELL_REWARD),
-    "money",
-    sp,
-    bumpOverlayZ(),
-  );
-  scheduleSmallPlusBubbleOutro(bubble, sp);
-
-  await Promise.all(
-    wobbleTls.map(
-      (tl) =>
-        new Promise((resolve) => {
-          tl.eventCallback("onComplete", () => resolve(undefined));
-        }),
-    ),
-  );
+  const ok = await animPromise;
+  if (!ok) return false;
   await animSleep(LEVEL_COMPLETE_MONEY_FX_OUTRO_WAIT_MS);
   return true;
 }
@@ -9867,8 +10011,13 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
       lastSpellFx = r?.spellFx ?? null;
     };
     let playedOnOffer = false;
-    if (sid === "immolate" && slotIxs.length > 0) {
-      playedOnOffer = await playImmolateConfirmFxOnOfferSlots(slotIxs, applySpellNow);
+    if (sid === "immolate" && slotIxs.length > 0 && oldOfferSnaps.every(Boolean)) {
+      playedOnOffer = await playImmolateConfirmFxOnOfferSlots(
+        slotIxs,
+        oldOfferSnaps,
+        applySpellNow,
+        () => slotIxs.map((ix) => buildSpellOfferSnapFromSlot(offerSlotsList[ix])).filter(Boolean),
+      );
     } else if (slotIxs.length > 0 && oldOfferSnaps.every(Boolean)) {
       playedOnOffer = await playSpellConfirmAnimOnOfferSlots(
         sid,
@@ -10328,6 +10477,7 @@ async function executeShopLeaveToNextLevel(event) {
       levelIndex.value += 1;
       const next = getRunLevelAtIndex(levelIndex.value);
       await resetLevelAfterTreasurePrep(next);
+      maybeReportEndlessChapterLeaderboard(next.id);
     }
     pendingBossSlugOverride.value = "";
     showShop.value = false;
@@ -10347,6 +10497,7 @@ async function executeShopLeaveToNextLevel(event) {
   flushAchievementUnlocks();
   transitionBusy.value = false;
   scheduleRunAutoSave();
+  requestCloudSync({ priority: "high" });
 }
 
 /** 下落时长略长，便于看出加速过程 */
@@ -12986,6 +13137,7 @@ async function submitWord() {
       score: detailed.finalScore,
       length: actualWordLen,
     });
+    maybeReportTapTapBestSingleWordScore(detailed.finalScore);
     if (!submitViolated) {
       noteCollectionWordSubmitted({
         word: resolvedWord,
@@ -13108,6 +13260,14 @@ watch(
     nextTick(() => updateSlotPositions(true));
   }
 );
+
+watch(isEndlessRun, (endless) => {
+  if (!endless) {
+    resetTapTapLeaderboardRunTracking();
+    return;
+  }
+  syncEndlessLeaderboardChapterBaseline(currentLevel.value?.id ?? "");
+});
 
 let gamePanelAlive = true;
 /** @type {(() => void) | null} */

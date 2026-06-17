@@ -12,6 +12,7 @@ import { attachLuckyRegl } from "../lib/luckyReglMount.js";
 import { attachSteelRegl } from "../lib/steelReglMount.js";
 import { attachWildcardRegl } from "../lib/wildcardReglMount.js";
 import { attachWaterRegl } from "../lib/waterReglMount.js";
+import { shouldHideRarityGemForTile } from "../composables/useScoring.js";
 import { resolveTileMaterialAnimate } from "../lib/reglMaterialPerf.js";
 import { appendImperativeAugmentBadges, appendImperativeTileChrome } from "./tileImperativeChrome.js";
 
@@ -110,10 +111,12 @@ export function createFlyBackTileElement(item) {
     el.appendChild(bossX);
   }
 
-  const gem = document.createElement("span");
-  gem.className = `letter-gem gem-${item.rarity}`;
-  gem.setAttribute("aria-hidden", "true");
-  el.appendChild(gem);
+  if (!shouldHideRarityGemForTile(item)) {
+    const gem = document.createElement("span");
+    gem.className = `letter-gem gem-${item.rarity}`;
+    gem.setAttribute("aria-hidden", "true");
+    el.appendChild(gem);
+  }
   if (item.vowelGhostPrev) {
     const prev = document.createElement("span");
     prev.className = "vowel-ghost vowel-ghost--prev";
