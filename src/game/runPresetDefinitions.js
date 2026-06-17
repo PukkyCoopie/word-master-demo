@@ -58,8 +58,8 @@ const PRESETS = [
     id: "preset_04",
     emoji: "🔀",
     name: "交叉",
-    description: describe(handDelta("+1"), "宝藏栏位，", discardDelta("-1"), "拼词次数"),
-    effects: { treasureSlotDelta: 1, handsPerLevelDelta: -1 },
+    description: describe(handDelta("+1"), "宝藏栏位"),
+    effects: { treasureSlotDelta: 1 },
   },
   {
     id: "preset_05",

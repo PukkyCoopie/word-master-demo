@@ -10,13 +10,10 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  buildPostLetterStep(ctx) {
-    const parts = ctx.letterParts ?? [];
-    let epicCount = 0;
-    for (const p of parts) {
-      if (p?.rarity === "epic") epicCount += 1;
-    }
-    if (epicCount <= 0) return null;
-    return { multMul: 2 ** epicCount };
+  getLetterRarityMultMulForLetterPart(part) {
+    return part?.rarity === "epic" ? 2 : 1;
+  },
+  getLetterRarityMultAnimConfig() {
+    return { targetRarity: "epic", multMul: 2, bubbleLabel: "x2" };
   },
 };

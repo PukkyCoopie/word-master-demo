@@ -84,6 +84,9 @@
  * @property {(amount: number) => void} [addMoney]
  * @property {(treasureId: string, amount: number) => Promise<void>} [playOwnedTreasureMoneyFx]
  * @property {(treasureId: string, delta: number) => Promise<void>} [playOwnedTreasureMultDeltaFx] 宝藏槽 wobble + 倍率 ±n 气泡（如天平）
+ * @property {(slotIndex: number, delta: number) => Promise<void>} [playTreasureMultDeltaFxAtSlot] 指定槽位 wobble + 倍率 ±n 气泡（面具镜像等）
+ * @property {number} [hookSlotIndex] 本次 hook 对应栏位（面具镜像时为面具/绵羊槽）
+ * @property {'self' | 'blueprint'} [hookSource] 本次 hook 来自实体宝藏或蓝图镜像
  * @property {(treasureId: string, delta: number) => Promise<void>} [playOwnedTreasureScoreDeltaFx] 宝藏槽 wobble + 分数 +n 气泡（累加分数银行）
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
@@ -232,6 +235,7 @@
  * @property {(ctx: TreasureIceBreakContext) => void | Promise<void>} [onIceMaterialBreak] 碎冰块碎裂（`iceShatterTreasureFxHandled` 为 true 时 GamePanel 已入银行并播宝藏槽动效，钩子勿重复）
  * @property {(ctx: TreasureLogicContext) => number} [getSubmitLengthBonus] 等效词长加成（直尺券之外）
  * @property {(ctx: TreasureLogicContext) => number} [getHandsPerLevelDelta] 每小关开局拼写次数增减（在 `resetLevel` 建盘前计入，无动效）
+ * @property {(ctx: TreasureLogicContext) => number} [getRemovalsPerLevelDelta] 每小关开局丢弃次数增减（在 `resetLevel` 建盘前计入，无动效）
  * @property {() => number} [getLengthJudgmentPenalty] 判定词长减益（视为更短）
  * @property {(ctx: TreasureBossRestrictionContext) => void | Promise<void>} [onBossRestrictionTriggered]
  * @property {(ctx: TreasureDeckCardsAddedContext) => void | Promise<void>} [onDeckCardsAdded]

@@ -1,6 +1,7 @@
 import { dictionaryPosIsExclusivelyTreasureLevelKey } from "../../game/wordPosMatch.js";
+import { shouldTreasureRunAccumulationMutate } from "../../game/treasureBlueprintMirror.js";
 import { describe, mult } from "../treasureDescription.js";
-import { addMultAddBank, getMultAddBank } from "../treasureBankHelpers.js";
+import { addMultAddBank, getMultAddBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 
 const ID = "40";
 
@@ -45,6 +46,7 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  ...patchCurrentBankDescription(ID, "multAdd"),
   replaceDescriptionWithPatch: true,
   patchDescription: buildBookDescription,
   buildPostLetterStep(ctx) {
@@ -53,9 +55,14 @@ export const treasureHooks = {
     const total = base + pendingGain;
     return total !== 0 ? { multAdd: total } : null;
   },
-  onSuccessfulWordSubmit(ctx) {
+  async onSuccessfulWordSubmit(ctx) {
     if (!isNonNounSubmittedWord(ctx)) return;
-    // 不再单独播 +2 气泡：只在字后步展示“总倍率”气泡。
-    addMultAddBank(ctx.treasureRun, ID, 3);
+    const slotIx = Math.max(0, Math.floor(Number(ctx.hookSlotIndex) || 0));
+    const source = ctx.hookSource ?? "self";
+    const owned = ctx.ownedSlotTreasureIds ?? [];
+    if (shouldTreasureRunAccumulationMutate(owned, slotIx, ID, source)) {
+      addMultAddBank(ctx.treasureRun, ID, 3);
+    }
+    await ctx.playTreasureMultDeltaFxAtSlot?.(slotIx, 3);
   },
 };
