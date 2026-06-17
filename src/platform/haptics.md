@@ -169,6 +169,58 @@ scheduleOverlayDismiss(240);      // 收起收尾
 
 ---
 
+## 12. TapPlay 沙箱与直接安装 APK
+
+### 12.1 是什么
+
+[TapPlay](https://developer.taptap.cn/docs/sdk/tap-play/features/) 指在 **TapTap 客户端内的沙箱环境**里运行 APK，免安装即点即玩；与「小游戏」（`tap.vibrateShort` 等 JS API）是不同产品线。
+
+官方说明要点：
+
+- 沙箱内运行，接入 Themis 等加固（[功能介绍](https://developer.taptap.cn/docs/sdk/tap-play/features/)）
+- 玩家**无需再走一遍权限弹窗**（[商店接入说明](https://developer.taptap.cn/docs/store/integration/tap-play/)）
+- **FAQ 未提及震动/触觉**，也无 TapPlay 专用振动 API
+
+因此：直接安装的 APK 与 TapPlay 内运行**不是同一运行环境**，触感差异是预期内风险，不是单纯「throttle 设错了」。
+
+### 12.2 为何 TapPlay 更容易「漏震」
+
+| 因素 | 直接安装 | TapPlay 沙箱 |
+|------|----------|--------------|
+| 进程 / Activity | 独立前台应用 | 宿主 TapTap 内的虚拟化进程 |
+| `Vibrator` 服务 | 通常可用 | 可能被代理、限频或权限未下放 |
+| `performHapticFeedback` | 走系统 View 反馈 | 沙箱 DecorView 上更易返回 `false` 或被宿主合并 |
+| 本工程 `AndroidManifest` | 未声明 `VIBRATE` | 强震路径（`performBloom` 等）更依赖 `Vibrator`，沙箱下更易失效 |
+| JS 节流（§4） | 密集操作下已会合并 | 与系统限频叠加后「漏感」更明显 |
+
+本工程原生层注意点（`UiHapticsPlugin.java`）：
+
+- **`performBloom` / `gameConfirm` 等**：优先调 `Vibrator.vibrate(EFFECT_HEAVY_CLICK)`，成功则**不再**走 `performHapticFeedback`；沙箱里 `vibrate()` 可能「调用成功但无体感」。
+- **弱震**（`gameLand`、`gameSettleDollar` 等）：主要 `CLOCK_TICK` / `KEYBOARD_TAP`，在沙箱里本身就更弱，再叠 JS `land` 100ms、`settleDollar` 85ms 节流，连续落格/结算 `$` 时体感稀疏。
+- **游戏高峰**：选字 + 多格 `land` + wobble + `tileRemove` 等在数百毫秒内连发，全局 `THROTTLE_MS` 70ms 会丢弃大量次震。
+
+### 12.3 官方文档能查到什么
+
+| 文档 | 与震动相关 |
+|------|------------|
+| [TapPlay 功能介绍](https://developer.taptap.cn/docs/sdk/tap-play/features/) | 无 |
+| [TapPlay FAQ](https://developer.taptap.cn/docs/sdk/tap-play/faq/) | 登录/支付/存档；无震动 |
+| [TapPlay 上架流程](https://developer.taptap.cn/docs/sdk/tap-play/input/) | 兼容性自测、32/64 位；无震动 |
+| [小游戏 tap.vibrateShort](https://developer.taptap.cn/minigameapidoc/dev/api/device/vibrate/tap.vibrateShort/) | **仅小游戏**，不适用于 Capacitor APK |
+
+震动问题需通过 TapTap **内部测试 / 工单**反馈，文档未给 APK 沙箱触感保证。
+
+### 12.4 验证与改进方向（待做）
+
+1. **对比测试**：同一包体在「直接安装」与「TapPlay 内启动」各玩一局拼词 + 结算；确认是否仅沙箱路径变差。
+2. **Manifest**：显式添加 `android.permission.VIBRATE`（当前 manifest 未声明，强震依赖 `Vibrator` 回退）。
+3. **原生策略**：`performBloom` 等改为 **先 `performHapticFeedback`，再 `Vibrator` 回退**；避免沙箱里 vibrate 空成功阻断 View 路径。
+4. **TapPlay 环境**：若 SDK 提供运行环境检测，可对沙箱 **放宽 JS 节流**（或单独常量）；目前仓库未接入 TapPlay 检测 API。
+5. **产品侧**：TapPlay 引导用户「添加到桌面」后走完整安装流程（官方支持），触感与直接安装一致。
+6. **向 TapTap 提工单**：说明沙箱内 `UiHaptics` / 系统触觉反馈受限，询问是否有推荐接入方式。
+
+---
+
 ## 11. 相关文件
 
 | 文件 | 说明 |

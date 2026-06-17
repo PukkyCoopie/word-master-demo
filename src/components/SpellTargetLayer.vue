@@ -95,7 +95,7 @@
         <div ref="spellCardRef" class="spell-target-card spell-target-stagger-el">
           <p class="spell-target-hint">
             <template v-if="session.offerDeckSource === 'remainingDeck'">
-              从剩余牌库中选取字母块（修改会立即同步至牌库）
+              从剩余牌库中选取字母块
             </template>
             <template v-else-if="session.pickMode === 'confirm_all'">
               将会在下列字母中进行随机

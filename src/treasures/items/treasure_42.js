@@ -10,6 +10,9 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  getRemovalsPerLevelDelta() {
+    return 4;
+  },
   getLengthJudgmentPenalty() {
     return 1;
   },

@@ -368,6 +368,12 @@ function applyRolledMaterialIdToDeckCard(card, materialId) {
 /** 单次移除棋盘上已选字母上限（与 remove 按钮可用条件一致） */
 export const MAX_LETTERS_PER_REMOVAL = 8;
 
+/** 丢弃上限：按 tile 数计（Qu 等双字母块为 1 格），不含在途飞入 */
+export function countStableSelectedTilesForRemoval(order, flyingBackMinSlotIndex = null) {
+  const n = Array.isArray(order) ? order.length : 0;
+  return flyingBackMinSlotIndex != null ? Math.max(0, Math.floor(Number(flyingBackMinSlotIndex) || 0)) : n;
+}
+
 
 
 /**
@@ -1191,7 +1197,7 @@ export function useGameState(gameOpts = {}) {
     if (n === 0) return { success: false, error: "请先选择要丢弃的字母", prevCells: null };
 
     if (n > cap)
-      return { success: false, error: `一次至多丢弃 ${cap} 个字母`, prevCells: null };
+      return { success: false, error: `一次至多丢弃 ${cap} 个字母块`, prevCells: null };
 
     if (remainingRemovals.value <= 0) return { success: false, error: "丢弃次数已用完", prevCells: null };
 

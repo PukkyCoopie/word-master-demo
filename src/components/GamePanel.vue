@@ -780,6 +780,7 @@ import {
   notifyOwnedTreasuresOnDeckCardsAdded,
   notifyOwnedTreasuresOnDeckCardsRemoved,
   sumTreasureHandsPerLevelDelta,
+  sumTreasureRemovalsPerLevelDelta,
   resolveTreasureDescriptionPatches,
   treasureDescriptionPatchReplacesBase,
   resolveTreasureChargeProgress,
@@ -1650,7 +1651,8 @@ function buildLevelResetRunOpts(levelDef) {
   let rem =
     getBaseRemovalsPerLevel(ownedVoucherIds.value) +
     getPresetRemovalsPerLevelDelta(runPresetId.value) +
-    getDifficultyRemovalsDelta(runDifficultyIndex.value);
+    getDifficultyRemovalsDelta(runDifficultyIndex.value) +
+    sumTreasureRemovalsPerLevelDelta(ownedSlotTreasureIdListEarly());
   if (mechSlug === "the_water") rem = 0;
   let hands =
     getBaseHandsPerLevel(ownedVoucherIds.value) +
@@ -4474,6 +4476,10 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
     },
     playOwnedTreasureMoneyFx,
     playOwnedTreasureMultDeltaFx,
+    playTreasureMultDeltaFxAtSlot: async (slotIndex, delta) => {
+      const ix = Math.floor(Number(slotIndex) || 0);
+      if (ix >= 0) await playTreasureSlotMultDeltaBurstAtPeak(ix, delta);
+    },
     playOwnedTreasureScoreDeltaFx,
     playOwnedTreasureBubbleFx,
     playOwnedTreasureBubbleOnlyFx,
@@ -5135,9 +5141,8 @@ function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
   });
 }
 
-const DISCARD_POTTERY_EXTRA_GAP_MS = Math.round(90 * SCORING_GAP_SCALE);
-/** 垃圾桶触发：宝藏气泡后再略停，再让本字消失（对齐工具箱「移除」气泡后停顿） */
-const DISCARD_TRASH_FX_HOLD_MS = Math.round(200 * SCORING_GAP_SCALE);
+/** 陶罐/垃圾桶等逐字弃牌 FX：气泡播完后的后摇（对齐工具箱「移除」气泡后停顿） */
+const DISCARD_PROC_FX_HOLD_MS = Math.round(200 * SCORING_GAP_SCALE);
 
 /**
  * @param {HTMLElement | null | undefined} slotEl
@@ -5198,7 +5203,7 @@ function animateOneDiscardTileLeave(slotEl, gridEl, duration) {
 }
 
 /**
- * 弃牌消失：无逐字宝藏结算时批量播；陶罐/垃圾桶命中字与 tile 同步 wobble+气泡并多留一拍后摇，其余字仍按索引 stagger 与批量一致。
+ * 弃牌消失：无逐字宝藏结算时批量播；陶罐/垃圾桶等仅对命中格在消失+气泡后追加后摇，其余格仍按索引 stagger 正常节奏。
  * @param {HTMLElement[]} slotEls
  * @param {HTMLElement[]} gridEls
  * @param {{ letter?: string }[]} discardedLetters
@@ -5229,7 +5234,6 @@ async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, opti
   const trashMultIncrement = 0.25;
   const trashBubble = "×0.25";
   const staggerMs = Math.round(stagger * 1000);
-  /** 与 runSlotAndGridLeaveAnimation 一致：按索引错开起始，非宝藏字不互相等待 */
   /** @type {Promise<void>[]} */
   const leaveTasks = [];
   for (let i = 0; i < slotEls.length; i++) {
@@ -5240,23 +5244,17 @@ async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, opti
     leaveTasks.push(
       (async () => {
         if (i > 0) await sleep(i * staggerMs);
-        const leaveP = animateOneDiscardTileLeave(slotEl, gridEl, duration);
-        if (!triggersPottery && !triggersTrash) {
-          await leaveP;
-          return;
-        }
-        /** @type {Promise<void>[]} */
-        const fxPromises = [leaveP];
+        await animateOneDiscardTileLeave(slotEl, gridEl, duration);
         if (triggersPottery) {
           addScoreAddBank(rs, TREASURE_65_ID, scorePerLetter);
-          fxPromises.push(playTreasureSlotScoreBurstAtPeak(potterySlotIx, scorePerLetter));
+          await playTreasureSlotScoreBurstAtPeak(potterySlotIx, scorePerLetter);
+          await sleep(DISCARD_PROC_FX_HOLD_MS);
         }
         if (triggersTrash) {
           addMultMulBank(rs, TREASURE_99_ID, trashMultIncrement);
-          fxPromises.push(playTreasureSlotBubbleBurstAtPeak(trashSlotIx, trashBubble, "mult"));
+          await playTreasureSlotBubbleBurstAtPeak(trashSlotIx, trashBubble, "mult");
+          await sleep(DISCARD_PROC_FX_HOLD_MS);
         }
-        await Promise.all(fxPromises);
-        if (i < slotEls.length - 1) await sleep(DISCARD_POTTERY_EXTRA_GAP_MS);
       })(),
     );
   }
@@ -5566,7 +5564,7 @@ function waitForFlyingBackIdle() {
   });
 }
 
-/** 飞回 batch 中最小槽下标；无飞回时为 null（与 effectiveSelectedCount / 提交预览一致） */
+/** 飞回 batch 中最小槽下标；无飞回时为 null（与 selectedTileCountForRemoval / 提交预览一致） */
 function getFlyingBackMinSlotIndex() {
   const batches = flyingBackBatches.value;
   if (batches.length === 0) return null;
@@ -6770,12 +6768,18 @@ const effectiveSelectedCount = computed(() => {
   return batches.length > 0 ? Math.min(...batches.map((b) => b.slotIndex)) : nSelRaw;
 });
 
+/** 丢弃上限：按棋盘格（tile）计，Qu 等双字母块仍算 1 格；含在途飞入 */
+const selectedTileCountForRemoval = computed(() => {
+  const stable = effectiveSelectedCount.value;
+  return stable + flyingLetters.value.length;
+});
+
 const discardBtnOverLimit = computed(
-  () => effectiveSelectedCount.value > MAX_LETTERS_PER_REMOVAL,
+  () => selectedTileCountForRemoval.value > MAX_LETTERS_PER_REMOVAL,
 );
 
 const canRemove = computed(() => {
-  const nSelEffective = effectiveSelectedCount.value;
+  const nTiles = selectedTileCountForRemoval.value;
   const hasFlying = flyingLetters.value.length > 0;
   const cap = MAX_LETTERS_PER_REMOVAL;
   return (
@@ -6785,8 +6789,8 @@ const canRemove = computed(() => {
     remainingRemovals.value > 0 &&
     !scoringAnimating.value &&
     !gridRefillAnimating.value &&
-    (nSelEffective > 0 || hasFlying) &&
-    nSelEffective <= cap
+    (nTiles > 0 || hasFlying) &&
+    nTiles <= cap
   );
 });
 
@@ -6795,7 +6799,7 @@ function onDiscardBtnClick() {
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value || gridRefillAnimating.value) return;
   if (discardBtnOverLimit.value) {
-    showToast(`一次至多丢弃 ${MAX_LETTERS_PER_REMOVAL} 个字母`);
+    showToast(`一次至多丢弃 ${MAX_LETTERS_PER_REMOVAL} 个字母块`);
     return;
   }
   void onRemoveClick();
@@ -9736,7 +9740,9 @@ async function runInRunSpellGrant(spellId, { treasureSlotIndex } = {}) {
     await wobbleGameTreasureSlot(treasureSlotIndex);
     shopOverlayLayersSuppressed.value = false;
   }
-  return runSpellPreviewChain(spellId, "inRun", "remainingDeck");
+  const pid = String(spellId ?? "");
+  if (!pid) return { confirmed: false, skipped: true };
+  return openSpellGrantDetailPreviewThenCast(pid, pid, "inRun", "remainingDeck");
 }
 
 async function queueOrRunSpellTileAppearanceAnim(opts) {

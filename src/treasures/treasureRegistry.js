@@ -82,9 +82,11 @@ export function resolveTreasureChargeProgress(treasureId, chargeWordsSubmitted, 
  * @returns {Promise<void>}
  */
 export async function notifyOwnedTreasuresSuccessfulWordSubmit(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onSuccessfulWordSubmit;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn({ ...ctx, hookSlotIndex: slotIndex, hookSource: source }))
+      : undefined;
   });
 }
 
@@ -231,6 +233,18 @@ export function sumTreasureHandsPerLevelDelta(ownedSlotTreasureIds) {
   let sum = 0;
   for (const { treasureId: tid } of iterTreasureHookContributions(slots)) {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.getHandsPerLevelDelta;
+    if (!fn) continue;
+    sum += Math.floor(Number(fn({ ownedSlotTreasureIds: slots })) || 0);
+  }
+  return sum;
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
+export function sumTreasureRemovalsPerLevelDelta(ownedSlotTreasureIds) {
+  const slots = ownedSlotTreasureIds ?? [];
+  let sum = 0;
+  for (const { treasureId: tid } of iterTreasureHookContributions(slots)) {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.getRemovalsPerLevelDelta;
     if (!fn) continue;
     sum += Math.floor(Number(fn({ ownedSlotTreasureIds: slots })) || 0);
   }
