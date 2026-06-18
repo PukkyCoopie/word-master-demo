@@ -98,10 +98,10 @@ import {
 } from "../game/runDifficultyDefinitions.js";
 import {
   getLastSelectedDifficultyBrowseIndex,
-  isDifficultyUnlocked,
   setLastSelectedDifficultyIndex,
   stepDifficultyBrowseIndex,
 } from "../game/runDifficultyProgress.js";
+import { isRunStartDifficultySelectable } from "../game/runStartSelectability.js";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import {
   playRunStartContentJellySwap,
@@ -143,7 +143,9 @@ watch(browseIndex, (_newIx, oldIx) => {
 });
 
 const currentDef = computed(() => getRunDifficultyDef(browseIndex.value));
-const isCurrentLocked = computed(() => !isDifficultyUnlocked(browseIndex.value, normalizedCareer.value));
+const isCurrentLocked = computed(
+  () => !isRunStartDifficultySelectable(browseIndex.value, normalizedCareer.value),
+);
 const showStackHint = computed(() => browseIndex.value > 2);
 
 const showFreshBadge = computed(() => {
@@ -176,7 +178,7 @@ function closeStatusHint() {
 
 /** @param {number} index */
 function isDifficultyIndexUnlocked(index) {
-  return isDifficultyUnlocked(index, normalizedCareer.value);
+  return isRunStartDifficultySelectable(index, normalizedCareer.value);
 }
 
 function setBrowseIndex(index, direction = 1) {

@@ -451,6 +451,8 @@ export function useGameState(gameOpts = {}) {
     return tile;
   }
 
+  /** 青铃锁：被锁字母块 tile.id；与格上 ceruleanBellLocked 一并写入存档，读档不重掷 */
+  const ceruleanBellLockedTileId = ref(/** @type {string | null} */ (null));
   /** 青铃锁：被锁字母在 `selectedOrder` 中的下标；不可 `removeFromSlot` 清到该位之前 */
   const ceruleanBellSlotIndex = ref(/** @type {number | null} */ (null));
 
@@ -918,6 +920,7 @@ export function useGameState(gameOpts = {}) {
 
   function clearCeruleanBellFlagsOnGrid() {
     ceruleanBellSlotIndex.value = null;
+    ceruleanBellLockedTileId.value = null;
     const g = grid.value;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
@@ -927,13 +930,75 @@ export function useGameState(gameOpts = {}) {
     }
   }
 
-  /**
-   * 棋盘稳定后：青铃锁 Boss 随机标记一格（不立刻 selectTile；由 GamePanel 飞字入槽）。
-   * @returns {{ row: number, col: number } | null}
-   */
-  function prepareCeruleanBellPickAfterGridStable() {
+  /** 读档后按存档 tileId 恢复格上锁标记（不重掷随机） */
+  function syncCeruleanBellLockFromSavedTileId() {
+    if (bossSlugForMechanics() !== "cerulean_bell") {
+      ceruleanBellLockedTileId.value = null;
+      return false;
+    }
+    const tid = String(ceruleanBellLockedTileId.value ?? "").trim();
+    if (!tid) return false;
+    const g = grid.value;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const t = g[r]?.[c];
+        if (t?.letter && String(t.id ?? "") === tid) {
+          t.ceruleanBellLocked = true;
+          triggerRef(grid);
+          return true;
+        }
+      }
+    }
+    ceruleanBellLockedTileId.value = null;
+    return false;
+  }
+
+  function findCeruleanBellLockedTileIdOnGrid() {
+    const g = grid.value;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const t = g[r]?.[c];
+        if (t?.letter && t.ceruleanBellLocked === true) {
+          return String(t.id ?? "");
+        }
+      }
+    }
+    return null;
+  }
+
+  /** @returns {{ row: number, col: number } | null} 棋盘上已标记、尚未入词槽的青铃锁格 */
+  function findCeruleanBellLockedTileOnGrid() {
     if (bossSlugForMechanics() !== "cerulean_bell") return null;
-    clearCeruleanBellFlagsOnGrid();
+    const g = grid.value;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const t = g[r]?.[c];
+        if (t?.letter && t.ceruleanBellLocked === true && !t.selected) {
+          return { row: r, col: c };
+        }
+      }
+    }
+    return null;
+  }
+
+  function hasCeruleanBellLockOnGrid() {
+    const g = grid.value;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (g[r]?.[c]?.ceruleanBellLocked === true) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 青铃 Boss：若尚无锁定格则随机标记一格（仅锁图标，不 selectTile）。
+   * @returns {{ row: number, col: number } | null} 本次新标记的格；已有待飞入锁则 null
+   */
+  function ensureCeruleanBellMarkedOnGrid() {
+    if (bossSlugForMechanics() !== "cerulean_bell") return null;
+    syncCeruleanBellLockFromSavedTileId();
+    if (hasCeruleanBellLockOnGrid()) return null;
     const g = grid.value;
     const top = bossSlugForMechanics() === "the_manacle" ? 1 : 0;
     /** @type {{ r: number, c: number }[]} */
@@ -947,7 +1012,10 @@ export function useGameState(gameOpts = {}) {
     if (!opts.length) return null;
     const { r, c } = opts[Math.floor(getRng() * opts.length)];
     const t = g[r][c];
-    if (t && typeof t === "object") t.ceruleanBellLocked = true;
+    if (t && typeof t === "object") {
+      t.ceruleanBellLocked = true;
+      ceruleanBellLockedTileId.value = String(t.id ?? "");
+    }
     triggerRef(grid);
     return { row: r, col: c };
   }
@@ -1088,6 +1156,7 @@ export function useGameState(gameOpts = {}) {
     triggerRef(grid);
 
     selectedOrder.value = [];
+    ceruleanBellSlotIndex.value = null;
 
   }
 
@@ -1288,6 +1357,7 @@ export function useGameState(gameOpts = {}) {
     triggerRef(grid);
 
     selectedOrder.value = [];
+    ceruleanBellSlotIndex.value = null;
 
     remainingRemovals.value -= 1;
 
@@ -1729,6 +1799,13 @@ export function useGameState(gameOpts = {}) {
       remainingRemovals: remainingRemovals.value,
       activeBossSlug: activeBossSlug.value,
       ceruleanBellSlotIndex: ceruleanBellSlotIndex.value,
+      ceruleanBellLockedTileId:
+        (() => {
+          const fromRef = ceruleanBellLockedTileId.value;
+          if (fromRef != null && String(fromRef).trim()) return String(fromRef).trim();
+          const fromGrid = findCeruleanBellLockedTileIdOnGrid();
+          return fromGrid && String(fromGrid).trim() ? String(fromGrid).trim() : null;
+        })(),
       lengthLevelsByLength: { ...lengthLevelsByLength.value },
       rarityLevelsByRarity: { ...rarityLevelsByRarity.value },
       lengthUpgradeObservatoryExtra: { ...lengthUpgradeObservatoryExtra.value },
@@ -1772,6 +1849,10 @@ export function useGameState(gameOpts = {}) {
     activeBossSlug.value = String(state.activeBossSlug ?? "");
     ceruleanBellSlotIndex.value =
       state.ceruleanBellSlotIndex != null ? Math.floor(Number(state.ceruleanBellSlotIndex)) : null;
+    ceruleanBellLockedTileId.value =
+      state.ceruleanBellLockedTileId != null && String(state.ceruleanBellLockedTileId).trim()
+        ? String(state.ceruleanBellLockedTileId).trim()
+        : null;
     lengthLevelsByLength.value = { ...(state.lengthLevelsByLength ?? {}) };
     rarityLevelsByRarity.value = { ...(state.rarityLevelsByRarity ?? {}) };
     lengthUpgradeObservatoryExtra.value = { ...(state.lengthUpgradeObservatoryExtra ?? {}) };
@@ -1827,6 +1908,7 @@ export function useGameState(gameOpts = {}) {
     }
     grid.value = nextGrid;
     triggerRef(grid);
+    syncCeruleanBellLockFromSavedTileId();
     selectedOrder.value = [];
     clearCurrentWord();
     void ownedUpgrades;
@@ -1890,6 +1972,8 @@ export function useGameState(gameOpts = {}) {
 
     ceruleanBellSlotIndex,
 
+    ceruleanBellLockedTileId,
+
     selectedTiles,
 
     currentWordString,
@@ -1906,7 +1990,9 @@ export function useGameState(gameOpts = {}) {
 
     applySubmitRefill,
 
-    prepareCeruleanBellPickAfterGridStable,
+    findCeruleanBellLockedTileOnGrid,
+    ensureCeruleanBellMarkedOnGrid,
+    syncCeruleanBellLockFromSavedTileId,
     finalizeCeruleanBellSlotIndex,
 
     finalizeSubmitAfterAnimation,

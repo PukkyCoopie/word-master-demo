@@ -343,6 +343,9 @@
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
  * @property {string} [soldTreasureId]
  * @property {number} [soldSlotIndex]
+ * @property {(string | null | undefined)[]} [ownedSlotTreasureIds]
+ * @property {number} [hookSlotIndex]
+ * @property {'self' | 'blueprint'} [hookSource]
  * @property {(targetSlotIndex?: number) => boolean} [grantRandomTreasureCopy] 卖出时创建随机其他宝藏原始版；可选指定落位槽（如镜子卖出格）
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]

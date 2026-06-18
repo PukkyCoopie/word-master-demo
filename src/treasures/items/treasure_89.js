@@ -1,6 +1,8 @@
 import { describe, mult } from "../treasureDescription.js";
 import {
   addMultMulBank,
+  canMutateTreasureBankFromCtx,
+  formatMultMulBankGainLabel,
   getMultMulBank,
   playBankMultMulGainFx,
 } from "../treasureBankHelpers.js";
@@ -8,7 +10,6 @@ import {
 export const TREASURE_89_ID = "89";
 const ID = TREASURE_89_ID;
 const INBOX_LETTER_MULT_INCREMENT = 0.25;
-const INBOX_LETTER_BUBBLE = "+0.25";
 
 /**
  * @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx
@@ -51,9 +52,14 @@ export const treasureHooks = {
   async onDeckCardsAdded(ctx) {
     const n = Math.max(0, Math.floor(Number(ctx.count) || 0));
     if (n <= 0 || !ctx.treasureRun) return;
+    const canBank = canMutateTreasureBankFromCtx(ctx, ID);
     for (let i = 0; i < n; i += 1) {
-      addMultMulBank(ctx.treasureRun, ID, INBOX_LETTER_MULT_INCREMENT);
-      await playBankMultMulGainFx(ctx, ID, INBOX_LETTER_BUBBLE);
+      if (canBank) addMultMulBank(ctx.treasureRun, ID, INBOX_LETTER_MULT_INCREMENT, ctx);
+      await playBankMultMulGainFx(
+        ctx,
+        ID,
+        formatMultMulBankGainLabel(INBOX_LETTER_MULT_INCREMENT),
+      );
     }
   },
 };

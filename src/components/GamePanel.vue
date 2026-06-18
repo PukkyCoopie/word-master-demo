@@ -43,7 +43,10 @@
         <div
           v-show="showDeckLayer"
           class="deck-layer portal-overlay-fill"
-          :class="{ 'portal-overlay--shop-upgrade-suppressed': shopOverlayLayersSuppressed }"
+          :class="{
+            'portal-overlay--shop-upgrade-suppressed': shopOverlayLayersSuppressed,
+            'deck-layer--stack-expanded': deckStackExpandRaw != null,
+          }"
           :style="deckPortalStackStyle"
           @click.self="onDeckLayerBackdropClick"
         >
@@ -101,14 +104,9 @@
               aria-labelledby="deck-stack-expand-heading"
               @click.self="closeDeckStackDetail"
             >
-              <div class="deck-stack-expand-toolbar" @click.stop>
-                <button type="button" class="shop-btn shop-btn--next deck-stack-expand-back" @click="closeDeckStackDetail">
-                  返回
-                </button>
-                <span id="deck-stack-expand-heading" class="deck-stack-expand-sr-title">{{
-                  `「${deckExpandedStack.displayLetter}」${deckExpandedStack.count} 张`
-                }}</span>
-              </div>
+              <span id="deck-stack-expand-heading" class="deck-stack-expand-sr-title">{{
+                `「${deckExpandedStack.displayLetter}」${deckExpandedStack.count} 张`
+              }}</span>
               <div ref="deckExpandScrollRef" class="deck-stack-expand-scroll" @click.stop>
                 <template v-for="(entry, idx) in deckExpandedStack.entries" :key="deckEntryKey(entry, idx)">
                   <div
@@ -126,6 +124,15 @@
             </div>
           </Transition>
           <button
+            v-if="deckStackExpandRaw != null"
+            type="button"
+            class="shop-btn shop-btn--next deck-layer-confirm deck-layer-enter-stagger"
+            @click="closeDeckStackDetail"
+          >
+            返回
+          </button>
+          <button
+            v-else
             type="button"
             class="shop-btn shop-btn--buy deck-layer-confirm deck-layer-enter-stagger"
             @click="showDeckLayer = false"
@@ -457,6 +464,7 @@
             <template v-for="(tile, index) in flatGrid" :key="tile ? tile.id : `void-${index}`">
               <LetterTile
                 v-if="tile"
+                v-memo="gridTileRenderMemoDeps(tile, index)"
                 variant="grid"
                 :letter="gridTileLetterForRender.get(tile.id) ?? tile.letter"
                 :rarity="gridTileRarityForRender.get(tile.id) ?? tile.rarity"
@@ -466,8 +474,7 @@
                 :tile-score-bonus="Number(tile.tileScoreBonus) || 0"
                 :tile-mult-bonus="Number(tile.letterMultBonus) || 0"
                 :material-animate="
-                  !tile.selected &&
-                  !isTileFlying(Math.floor(index / COLS), index % COLS)
+                  !isGridTilePlaceholder(Math.floor(index / COLS), index % COLS, tile)
                 "
                 :boss-grid-blocked="tile.bossGridBlocked === true"
                 :boss-tile-debuffed="tile.bossTileDebuffed === true"
@@ -851,7 +858,7 @@ import {
   rollPotteryDiscardProcIndices,
   TREASURE_65_ID,
 } from "../treasures/items/treasure_65.js";
-import { TREASURE_99_ID } from "../treasures/items/treasure_99.js";
+import { TREASURE_99_E_MULT_GAIN_BUBBLE, TREASURE_99_ID } from "../treasures/items/treasure_99.js";
 import {
   TREASURE_78_ID,
   TREASURE_78_ICE_SHATTER_MULT_BUBBLE,
@@ -926,6 +933,7 @@ import { createRunAutoSave } from "../save/runAutoSave.js";
 import { requestCloudSync } from "../save/cloudSave/cloudSaveSync.js";
 import { clearSlotRunProgress, loadSaveEnvelope } from "../save/runSaveStorage.js";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
+import { normalizeRunSavePhase } from "../save/runSaveSchema.js";
 import {
   createRunMatchStats,
   formatRunEndBestWordValue,
@@ -1416,7 +1424,8 @@ const {
   clearCurrentWord,
   setLastWordFromSubmit,
   applySubmitRefill,
-  prepareCeruleanBellPickAfterGridStable,
+  ensureCeruleanBellMarkedOnGrid,
+  findCeruleanBellLockedTileOnGrid,
   finalizeCeruleanBellSlotIndex,
   removeSelectedLetters,
   snapshotGridCellsByTileId,
@@ -2055,12 +2064,25 @@ function clearShopVoucherBonusShelf() {
   shopVoucherBonusShelf.value = null;
 }
 
+/** 法术临时券抽取时排除当前货架正在出售的券 */
+function spellBonusVoucherRollExcludeIds() {
+  const shelf = shopVoucherShelf.value;
+  if (shelf?.kind === "offer" && shelf.voucherId) {
+    return [String(shelf.voucherId)];
+  }
+  return [];
+}
+
 /** @returns {{ ok: boolean }} */
 function grantSpellBonusShopVoucher() {
   if (shopVoucherBonusShelf.value?.kind === "offer") {
     return { ok: false };
   }
-  const d = rollShopVoucherOfferDef(ownedVoucherIds.value, runRandom);
+  const d = rollShopVoucherOfferDef(
+    ownedVoucherIds.value,
+    runRandom,
+    spellBonusVoucherRollExcludeIds(),
+  );
   if (!d) {
     showToast("暂无随机优惠券可添加");
     return { ok: false };
@@ -2189,6 +2211,8 @@ const shopTreasurePool = computed(() =>
 );
 
 const shopRerollsThisVisit = ref(0);
+/** 读档恢复商店阶段时为 true，避免 watch(showShop) 当作新一次进店而重掷货架 */
+const suppressShopEnterVisitInit = ref(false);
 /** 对齐 Balatro：整局仅第一次进店时牌包区第一格必为法术小包 */
 const balatroFirstShopPackConsumed = ref(false);
 /** 本局首次进店单卡区保底一件宝藏（商店「刷新」不重掷牌包区，也不重复触发） */
@@ -2558,13 +2582,9 @@ function rollShopVisitStock(rng = Math.random) {
   return { shop, pack };
 }
 
-/** @param {unknown[]} rows */
-function shopOfferRowsHasOffer(rows) {
-  return Array.isArray(rows) && rows.some((s) => s?.kind === "offer");
-}
-
-function shopShelfNeedsStockRoll() {
-  return !shopOfferRowsHasOffer(shopOffers.value) || !shopOfferRowsHasOffer(packOffers.value);
+/** 旧档或缺字段：phase 为 shop 但从未写入货架行 */
+function shopVisitStockMissingFromSave() {
+  return shopOffers.value.length === 0 && packOffers.value.length === 0;
 }
 
 function refreshShopVoucherShelfForCurrentVisit() {
@@ -2598,8 +2618,7 @@ function runOwnedTreasuresOnShopEnterFx() {
   void notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIdList(), {
     treasureRun: treasureRunState.value,
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
-    wobbleOwnedTreasureById,
-    playOwnedTreasureBubbleFx,
+    ...ownedTreasureHookFxBridge(),
   });
 }
 
@@ -3098,10 +3117,11 @@ async function dismissPackPickLayer() {
   if (!packPickSession.value) return;
   const layer = packPickLayerRef.value;
   if (layer && typeof layer.playClose === "function") {
-    await layer.playClose();
+    await layer.playClose({ forDismiss: true });
   }
   packPickSession.value = null;
-  packPickOverlaySuppressed.value = false;
+  // 勿在此清零 packPickOverlaySuppressed：与 playClose 同拍会触发 PackPickLayer 重播入场。
+  // 下次开包 / 离店 / 跳过时由其它路径复位。
 }
 
 async function onPackPickSkip() {
@@ -3114,6 +3134,7 @@ async function onPackPickSkip() {
       await dismissTreasureDetailOnBack();
     }
     await dismissPackPickLayer();
+    packPickOverlaySuppressed.value = false;
     await nextTick();
     await new Promise((r) => requestAnimationFrame(r));
     await notifyOwnedTreasuresOnPackSkipped(owned, {
@@ -3134,6 +3155,7 @@ async function maybeAutoClosePackPickSession() {
   const claimed = sess.claimedKeys ?? [];
   if (claimed.length >= packPickRequiredPicks(sess)) {
     await dismissPackPickLayer();
+    packPickOverlaySuppressed.value = false;
     resolvePackPickFlow();
     scheduleRunAutoSave();
   }
@@ -3338,7 +3360,9 @@ async function onPackInnerClaim() {
       sess.claimedKeys = [...claimed, key];
     }
     await maybeAutoClosePackPickSession();
-    ensurePackPickOverlayVisible();
+    if (packPickSession.value) {
+      ensurePackPickOverlayVisible();
+    }
     triggerHaptic("selection");
   } finally {
     packPickBusy.value = false;
@@ -3882,8 +3906,7 @@ async function notifyTreasureDeckCardsRemovedByRaws(raws) {
     ownedSlotTreasureIds: slots,
     treasureRun: treasureRunState.value,
     vowelsRemoved,
-    wobbleOwnedTreasureById,
-    playOwnedTreasureBubbleFx,
+    ...ownedTreasureHookFxBridge(),
   });
 }
 
@@ -3906,8 +3929,7 @@ function appendShopDeckEntriesAndNotify(entries) {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     treasureRun: treasureRunState.value,
     count: n,
-    wobbleOwnedTreasureById,
-    playOwnedTreasureBubbleFx,
+    ...ownedTreasureHookFxBridge(),
   });
   flushDeckMultisetAchievements();
   return created;
@@ -3923,8 +3945,7 @@ function appendDeckCardSpecToInitialSnapshotAndNotify(spec) {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     treasureRun: treasureRunState.value,
     count: 1,
-    wobbleOwnedTreasureById,
-    playOwnedTreasureBubbleFx,
+    ...ownedTreasureHookFxBridge(),
   });
   flushDeckMultisetAchievements();
   return card;
@@ -4184,10 +4205,9 @@ function buildTreasureLevelEnterEffectContext(levelId) {
     rng: runRandom,
     levelId,
     findOwnedTreasureSlotIndex,
-    wobbleOwnedTreasureById,
+    ...ownedTreasureHookFxBridge(),
     destroyTreasureSlotById: destroyOwnedTreasureWithFx,
     destroyOtherTreasureFromSource: destroyOtherOwnedTreasureFromSourceFx,
-    playOwnedTreasureBubbleFx,
     clearTreasureSlotById: clearOwnedTreasureSlotById,
     grantRandomOwnedTreasure: grantRandomOwnedTreasuresInRun,
     grantRandomOwnedTreasureWithPopAnim: grantRandomOwnedTreasuresInRunWithPopAnim,
@@ -4295,10 +4315,9 @@ async function runTreasureLevelCompleteHooks() {
     clearTreasureSlotById: clearOwnedTreasureSlotById,
     destroyTreasureSlotById: destroyOwnedTreasureWithFx,
     findOwnedTreasureSlotIndex,
-    wobbleOwnedTreasureById,
+    ...ownedTreasureHookFxBridge(),
     playOwnedTreasureMoneyFx: (treasureId, amount, fxOpts) =>
       playOwnedTreasureMoneyFx(treasureId, amount, { ...fxOpts, awaitOutro: true }),
-    playOwnedTreasureBubbleFx,
     remainingRemovals: remainingRemovals.value,
     addMoney: (n) => {
       money.value += Math.max(0, Math.floor(Number(n) || 0));
@@ -4503,16 +4522,8 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
       money.value += Math.max(0, Math.floor(Number(n) || 0));
     },
     playOwnedTreasureMoneyFx,
-    playOwnedTreasureMultDeltaFx,
-    playTreasureMultDeltaFxAtSlot: async (slotIndex, delta) => {
-      const ix = Math.floor(Number(slotIndex) || 0);
-      if (ix >= 0) await playTreasureSlotMultDeltaBurstAtPeak(ix, delta);
-    },
-    playOwnedTreasureScoreDeltaFx,
-    playOwnedTreasureBubbleFx,
-    playOwnedTreasureBubbleOnlyFx,
+    ...ownedTreasureHookFxBridge(),
     playOwnedTreasureWobbleOnlyFx,
-    wobbleOwnedTreasureById,
     destroyTreasureSlotById: destroyOwnedTreasureWithFx,
     playSubmitWordLetterRemoveAndRewardLeave,
     playSubmitTileEnhancementStripLeave,
@@ -4867,6 +4878,10 @@ watch(showShop, async (open, prev) => {
   showInfoLayer.value = false;
   showDeckLayer.value = false;
   treasureDetail.value = null;
+  if (suppressShopEnterVisitInit.value) {
+    suppressShopEnterVisitInit.value = false;
+    return;
+  }
   packPickSession.value = null;
   shopRerollsThisVisit.value = 0;
   refreshShopVoucherShelfForCurrentVisit();
@@ -5260,7 +5275,7 @@ async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, opti
 
   const scorePerLetter = DISCARD_SCORE_AWARD;
   const trashMultIncrement = 0.25;
-  const trashBubble = "×0.25";
+  const trashBubble = TREASURE_99_E_MULT_GAIN_BUBBLE;
   const staggerMs = Math.round(stagger * 1000);
   /** @type {Promise<void>[]} */
   const leaveTasks = [];
@@ -5309,6 +5324,44 @@ function isSlotOutOfFlow(slotIndex) {
 /** 该格子是否正在飞入（占位、不可点） */
 function isTileFlying(row, col) {
   return flyingLetters.value.some((f) => f.pendingRow === row && f.pendingCol === col);
+}
+
+/** 棋盘格已选 / 飞入中：半透明占位 ghost */
+function isGridTilePlaceholder(row, col, tile) {
+  return tile?.selected === true || isTileFlying(row, col);
+}
+
+/**
+ * 占位格 v-memo：不含词串解析后的 letter/rarity，避免新字入词时整盘占位材质被重绘。
+ * @param {object} tile
+ * @param {number} index flatGrid index
+ */
+function gridTileRenderMemoDeps(tile, index) {
+  const row = Math.floor(index / COLS);
+  const col = index % COLS;
+  const placeholder = isGridTilePlaceholder(row, col, tile);
+  const shared = [
+    tile.id,
+    tile.materialId,
+    tile.accessoryId,
+    tile.treasureAccessoryId,
+    tile.tileScoreBonus,
+    tile.letterMultBonus,
+    tile.bossTileDebuffed,
+    tile.ceruleanBellLocked,
+    tile.playerMarked,
+    tile.bossGridBlocked,
+    placeholder,
+  ];
+  if (placeholder) return shared;
+  const ghost = gridTileVowelGhostForRender.value.get(tile.id);
+  return [
+    ...shared,
+    gridTileLetterForRender.value.get(tile.id) ?? tile.letter,
+    gridTileRarityForRender.value.get(tile.id) ?? tile.rarity,
+    ghost?.prev ?? null,
+    ghost?.next ?? null,
+  ];
 }
 
 const flatGrid = computed(() => grid.value.flat());
@@ -7696,7 +7749,7 @@ async function runGridIntroAfterReset() {
   await runGridDropAnimation(null, { initial: true });
   gridRefillAnimating.value = false;
   await runPendingAfterGridTilesSettled();
-  await tryCeruleanBellFlyInAfterGridStable();
+  await tryCeruleanBellMarkAfterGridStable();
   nextTick(() => updateSlotPositions(true));
 }
 
@@ -8567,6 +8620,44 @@ async function playOwnedTreasureScoreDeltaFx(treasureId, delta) {
   }
 }
 
+/** @param {number} slotIndex @param {string} text @param {string} [kind] */
+async function playOwnedTreasureBubbleFxAtSlot(slotIndex, text, kind = "score") {
+  const ix = Math.floor(Number(slotIndex));
+  if (!Number.isFinite(ix) || ix < 0) return;
+  await playTreasureSlotBubbleBurstAtPeak(ix, text, kind);
+}
+
+/** @param {number} slotIndex */
+async function wobbleOwnedTreasureAtSlot(slotIndex) {
+  const ix = Math.floor(Number(slotIndex));
+  if (!Number.isFinite(ix) || ix < 0) return;
+  shopOverlayLayersSuppressed.value = true;
+  await nextTick();
+  await wobbleGameTreasureSlot(ix);
+  shopOverlayLayersSuppressed.value = false;
+}
+
+/** 宝藏 hook 动效桥：同 id 多槽 / 面具镜像时须用按槽 API（见 treasureBankHelpers）。 */
+function ownedTreasureHookFxBridge() {
+  return {
+    playOwnedTreasureBubbleFx,
+    playOwnedTreasureBubbleFxAtSlot,
+    playOwnedTreasureBubbleOnlyFx,
+    wobbleOwnedTreasureById,
+    wobbleOwnedTreasureAtSlot,
+    playOwnedTreasureMultDeltaFx,
+    playTreasureMultDeltaFxAtSlot: async (slotIndex, delta) => {
+      const ix = Math.floor(Number(slotIndex) || 0);
+      if (ix >= 0) await playTreasureSlotMultDeltaBurstAtPeak(ix, delta);
+    },
+    playOwnedTreasureScoreDeltaFx,
+    playTreasureScoreDeltaFxAtSlot: async (slotIndex, delta) => {
+      const ix = Math.floor(Number(slotIndex) || 0);
+      if (ix >= 0) await playTreasureSlotScoreBurstAtPeak(ix, delta);
+    },
+  };
+}
+
 /** 工具箱移除：气泡展示后停顿再缩至 0；字间间隔与气泡淡出略短于通用记分 */
 const TOOLBOX_REMOVE_BUBBLE_HOLD_MS = 200;
 const TOOLBOX_REMOVE_SHRINK_S = 0.14;
@@ -8709,8 +8800,8 @@ async function runSubmittedIceShatterEffects(tiles) {
     await notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIdList(), {
       treasureRun: treasureRunState.value,
       iceShatterTreasureFxHandled,
-      wobbleOwnedTreasureById,
-      playOwnedTreasureBubbleFx,
+      ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+      ...ownedTreasureHookFxBridge(),
     });
   }
   return shatterCount;
@@ -10178,6 +10269,7 @@ async function onTreasurePurchase() {
     noteRunShopPurchase();
     clearOfferSlotAfterPurchase(t);
     treasureDetail.value = null;
+    packPickOverlaySuppressed.value = false;
     packPickSession.value = buildPackPickSessionFromBundle(t);
     return;
   }
@@ -10355,6 +10447,7 @@ async function onTreasureSell() {
   let copyGrantedAtSoldSlot = false;
   let copyGrantedSlotIndex = -1;
   await notifyOwnedTreasuresOnTreasureSold(ownedSlotTreasureIdList(), {
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     treasureRun: treasureRunState.value,
     soldTreasureId: soldId,
     soldSlotIndex: ix,
@@ -10363,8 +10456,7 @@ async function onTreasureSell() {
       copyGrantedAtSoldSlot = copyGrantedSlotIndex >= 0;
       return copyGrantedAtSoldSlot;
     },
-    wobbleOwnedTreasureById,
-    playOwnedTreasureBubbleFx,
+    ...ownedTreasureHookFxBridge(),
   });
   if (copyGrantedSlotIndex >= 0) {
     await playTreasureGrantPopAtSlotIndex(copyGrantedSlotIndex);
@@ -12659,6 +12751,7 @@ function onTileClick(row, col, tile) {
   if (scoringAnimating.value || gridRefillAnimating.value) return;
   if (wordSelectionSwapBusy.value) return;
   if (tile.selected) return;
+  if (tile.ceruleanBellLocked === true) return;
   if (isTileFlying(row, col)) return;
   startOneMoveIn(row, col, tile);
 }
@@ -12818,10 +12911,7 @@ async function onRemoveClick() {
         money.value += Math.max(0, Math.floor(Number(amount) || 0));
       },
       playOwnedTreasureMoneyFx,
-      playOwnedTreasureMultDeltaFx,
-      playOwnedTreasureScoreDeltaFx,
-      playOwnedTreasureBubbleFx,
-      wobbleOwnedTreasureById,
+      ...ownedTreasureHookFxBridge(),
       findOwnedTreasureSlotIndex,
     }),
   ]);
@@ -12835,12 +12925,17 @@ async function onRemoveClick() {
   }
 }
 
-/** 青铃锁：棋盘稳定后从格内飞入词槽（与玩家点选同一套飞字） */
-async function tryCeruleanBellFlyInAfterGridStable() {
-  const pick = prepareCeruleanBellPickAfterGridStable();
+/** 青铃锁：新进关时随机标记锁定格（读档走存档，不在此重掷） */
+async function tryCeruleanBellMarkAfterGridStable() {
+  const pick = ensureCeruleanBellMarkedOnGrid();
   if (!pick) return;
   playBossTapeTriggerCue();
   await notifyBossRestrictionTreasures("cerulean_bell");
+  scheduleRunAutoSave();
+}
+
+/** 将已标记、尚未入槽的青铃锁格飞入词槽 */
+async function flyCeruleanBellLockedTileIntoWordSlot(pick) {
   const tile = grid.value[pick.row]?.[pick.col];
   if (!tile?.letter) return;
   await nextTick();
@@ -12856,6 +12951,17 @@ async function tryCeruleanBellFlyInAfterGridStable() {
   }
   startOneMoveIn(pick.row, pick.col, tile, { ceruleanBell: true });
   await waitForFlyingInIdle();
+}
+
+/** 拼词 / 丢弃后：飞入待选锁格；锁格已消耗则标记下一枚 */
+async function tryCeruleanBellFlyInAfterGridStable() {
+  if (ceruleanBellSlotIndex.value != null) return;
+  const pick = findCeruleanBellLockedTileOnGrid();
+  if (pick) {
+    await flyCeruleanBellLockedTileIntoWordSlot(pick);
+    return;
+  }
+  if (ensureCeruleanBellMarkedOnGrid()) scheduleRunAutoSave();
 }
 
 function startOneMoveIn(row, col, tile, options = {}) {
@@ -13611,6 +13717,7 @@ onMounted(async () => {
 
   const restored = props.restoredSave;
   if (restored && typeof restored === "object") {
+    suppressShopEnterVisitInit.value = normalizeRunSavePhase(restored.phase) === "shop";
     applyGamePanelSave(restored, buildHydrateContext());
     syncPlayerMarkBatchCounterFromGrid();
     ensureBigramTargetPair(treasureRunState.value, rollRandomBigramForTreasure);
@@ -13625,9 +13732,8 @@ onMounted(async () => {
       const el = gridTileRefs.value[i];
       if (el) gsap.set(el, { x: 0, y: 0, opacity: 1 });
     }
-    await tryCeruleanBellFlyInAfterGridStable();
     updateSlotPositions(true);
-    if (showShop.value && shopShelfNeedsStockRoll()) {
+    if (showShop.value && shopVisitStockMissingFromSave()) {
       refreshShopVoucherShelfForCurrentVisit();
       applyShopVisitStockRoll();
     }
@@ -13660,7 +13766,7 @@ onMounted(async () => {
       const el = gridTileRefs.value[i];
       if (el) gsap.set(el, { x: 0, y: 0, opacity: 1 });
     }
-    await tryCeruleanBellFlyInAfterGridStable();
+    await tryCeruleanBellMarkAfterGridStable();
     updateSlotPositions(true);
     await runPendingAfterGridTilesSettled();
   } else {
@@ -13886,6 +13992,10 @@ onUnmounted(() => {
   justify-content: center;
   padding: calc(12 * var(--rpx));
   border-radius: calc(12 * var(--rpx));
+  transition: background 0.18s var(--ease-expo-out);
+}
+.deck-layer--stack-expanded {
+  background: rgba(0, 0, 0, 0.72);
 }
 .deck-layer-inner--enter-boot :deep(.deck-layer-enter-stagger) {
   opacity: 0;
@@ -14176,17 +14286,10 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: calc(12 * var(--rpx));
-  padding: calc(12 * var(--rpx)) calc(16 * var(--rpx)) calc(16 * var(--rpx));
+  padding: calc(20 * var(--rpx)) calc(16 * var(--rpx)) calc(16 * var(--rpx));
   overflow: visible;
-  background: rgba(58, 52, 46, 0.72);
-}
-.deck-stack-expand-toolbar {
-  flex: 0 0 auto;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: calc(10 * var(--rpx));
+  background: rgba(28, 24, 20, 0.88);
+  transition: background 0.18s var(--ease-expo-out);
 }
 .deck-stack-expand-sr-title {
   position: absolute;
@@ -14198,14 +14301,6 @@ onUnmounted(() => {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-.deck-stack-expand-toolbar .shop-btn.deck-stack-expand-back {
-  flex: 0 0 auto;
-  width: auto;
-  min-width: calc(160 * var(--rpx));
-  max-width: calc(280 * var(--rpx));
-  padding: calc(16 * var(--rpx)) calc(20 * var(--rpx));
-  font-size: calc(24 * var(--rpx));
 }
 .deck-stack-expand-scroll {
   --deck-expand-tile-size: var(--deck-layer-tile-size);

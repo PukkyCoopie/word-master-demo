@@ -69,8 +69,12 @@ export async function forEachTreasureHookContribution(ownedSlotTreasureIds, visi
  */
 export function resolvePhysicalTreasureSlotIndex(ownedSlotTreasureIds, treasureId, hookSlotIndex) {
   const tid = String(treasureId ?? "");
-  if (!tid) return Math.max(0, Math.floor(Number(hookSlotIndex) || 0));
   const slots = ownedSlotTreasureIds ?? [];
+  const ix = Math.floor(Number(hookSlotIndex));
+  if (tid && Number.isFinite(ix) && ix >= 0 && ix < slots.length && slots[ix] === tid) {
+    return ix;
+  }
+  if (!tid) return Math.max(0, Math.floor(Number(hookSlotIndex) || 0));
   for (let i = 0; i < slots.length; i++) {
     if (slots[i] === tid) return i;
   }

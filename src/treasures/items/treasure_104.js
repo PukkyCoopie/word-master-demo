@@ -1,5 +1,5 @@
 import { describe } from "../treasureDescription.js";
-import { addScoreAddBank, getScoreAddBank } from "../treasureBankHelpers.js";
+import { addScoreAddBank, canMutateTreasureBankFromCtx, getScoreAddBank } from "../treasureBankHelpers.js";
 
 const ID = "104";
 const LEVELS_NEEDED = 2;
@@ -33,7 +33,8 @@ export const treasureHooks = {
   },
   async onLevelComplete(ctx) {
     if (getScoreAddBank(ctx.treasureRun, ID) >= LEVELS_NEEDED) return;
-    addScoreAddBank(ctx.treasureRun, ID, 1);
+    if (!canMutateTreasureBankFromCtx(ctx, ID)) return;
+    addScoreAddBank(ctx.treasureRun, ID, 1, ctx);
     const n = Math.min(LEVELS_NEEDED, Math.max(0, Math.round(getScoreAddBank(ctx.treasureRun, ID))));
     await ctx.playOwnedTreasureBubbleFx?.(ID, `${n}/${LEVELS_NEEDED}`, "score");
   },

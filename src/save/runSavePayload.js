@@ -49,6 +49,7 @@
  * @property {number} remainingRemovals
  * @property {string} activeBossSlug
  * @property {number | null} ceruleanBellSlotIndex
+ * @property {string | null} ceruleanBellLockedTileId
  * @property {Record<string, number>} lengthLevelsByLength
  * @property {Record<string, number>} rarityLevelsByRarity
  * @property {Record<string, number>} lengthUpgradeObservatoryExtra

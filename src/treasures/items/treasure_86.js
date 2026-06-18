@@ -39,6 +39,6 @@ export const treasureHooks = {
     } else {
       ctx.clearTreasureSlotById?.(victimId);
     }
-    await bankMultMulGain(ctx, ID, 0.5, "×0.5");
+    await bankMultMulGain(ctx, ID, 0.5);
   },
 };

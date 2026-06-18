@@ -1,5 +1,44 @@
+import { resolvePostLetterAnimSlotIndex, shouldTreasureRunAccumulationMutate } from "../game/treasureBlueprintMirror.js";
 import { describe, mult, score } from "./treasureDescription.js";
 import { ensureTreasureBank } from "./treasureRunState.js";
+
+/**
+ * @param {{ ownedSlotTreasureIds?: (string | null | undefined)[], hookSlotIndex?: number, hookSource?: 'self' | 'blueprint' }} ctx
+ * @param {string} treasureId
+ * @returns {number | undefined}
+ */
+function resolveTreasureHookFxSlotIndex(ctx, treasureId) {
+  const owned = ctx.ownedSlotTreasureIds;
+  const hookSlotIndex = ctx.hookSlotIndex;
+  if (!owned?.length || typeof hookSlotIndex !== "number" || !Number.isFinite(hookSlotIndex)) {
+    return undefined;
+  }
+  return resolvePostLetterAnimSlotIndex(
+    owned,
+    treasureId,
+    hookSlotIndex,
+    ctx.hookSource === "blueprint" ? "blueprint" : "self",
+  );
+}
+
+/**
+ * 面具/绵羊 blueprint 镜像只复现计分结果，不写被复制宝藏的 run 银行。
+ * @param {{ ownedSlotTreasureIds?: (string | null | undefined)[], hookSlotIndex?: number, hookSource?: 'self' | 'blueprint' } | null | undefined} ctx
+ * @param {string} treasureId
+ */
+export function canMutateTreasureBankFromCtx(ctx, treasureId) {
+  if (!ctx) return true;
+  const owned = ctx.ownedSlotTreasureIds;
+  const slotIx = ctx.hookSlotIndex;
+  if (!Array.isArray(owned) || slotIx == null || Number.isNaN(Number(slotIx))) return true;
+  const source = ctx.hookSource === "blueprint" ? "blueprint" : "self";
+  return shouldTreasureRunAccumulationMutate(
+    owned,
+    Math.max(0, Math.floor(Number(slotIx))),
+    treasureId,
+    source,
+  );
+}
 
 /**
  * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
@@ -34,9 +73,22 @@ export function getScoreAddBank(runState, treasureId) {
  * @param {string} treasureId
  * @param {number} delta
  */
-export function addMultAddBank(runState, treasureId, delta) {
+export function addMultAddBank(runState, treasureId, delta, hookCtx) {
+  if (hookCtx && !canMutateTreasureBankFromCtx(hookCtx, treasureId)) return;
   if (!runState) return;
   ensureTreasureBank(runState, treasureId).multAdd += Number(delta) || 0;
+}
+
+/**
+ * 倍率银行单次 increment 的获得动效文案（+0.25、-0.01）；计分时乘入总倍率仍用 × 气泡。
+ * @param {number} increment 与 `addMultMulBank` 相同（x0.25 → 0.25）
+ */
+export function formatMultMulBankGainLabel(increment) {
+  const d = Number(increment);
+  if (!Number.isFinite(d) || d === 0) return "+0";
+  const abs = Math.abs(d);
+  const shown = Number.isInteger(abs) ? String(abs) : abs.toFixed(2).replace(/\.?0+$/, "");
+  return d > 0 ? `+${shown}` : `-${shown}`;
 }
 
 /**
@@ -46,7 +98,8 @@ export function addMultAddBank(runState, treasureId, delta) {
  * @param {string} treasureId
  * @param {number} increment 加法增量（可为负，如磁铁每弃字 -0.01）
  */
-export function addMultMulBank(runState, treasureId, increment) {
+export function addMultMulBank(runState, treasureId, increment, hookCtx) {
+  if (hookCtx && !canMutateTreasureBankFromCtx(hookCtx, treasureId)) return;
   if (!runState) return;
   const d = Number(increment);
   if (!Number.isFinite(d) || d === 0) return;
@@ -58,7 +111,8 @@ export function addMultMulBank(runState, treasureId, increment) {
  * @param {string} treasureId
  * @param {number} delta
  */
-export function addScoreAddBank(runState, treasureId, delta) {
+export function addScoreAddBank(runState, treasureId, delta, hookCtx) {
+  if (hookCtx && !canMutateTreasureBankFromCtx(hookCtx, treasureId)) return;
   if (!runState) return;
   ensureTreasureBank(runState, treasureId).scoreAdd += Number(delta) || 0;
 }
@@ -70,7 +124,14 @@ export function addScoreAddBank(runState, treasureId, delta) {
  * @param {number} delta
  */
 export async function bankMultAddGain(ctx, treasureId, delta) {
-  addMultAddBank(ctx.treasureRun, treasureId, delta);
+  if (canMutateTreasureBankFromCtx(ctx, treasureId)) {
+    addMultAddBank(ctx.treasureRun, treasureId, delta);
+  }
+  const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
+  if (slotIx != null && ctx.playTreasureMultDeltaFxAtSlot) {
+    await ctx.playTreasureMultDeltaFxAtSlot(slotIx, delta);
+    return;
+  }
   await ctx.playOwnedTreasureMultDeltaFx?.(treasureId, delta);
 }
 
@@ -81,19 +142,35 @@ export async function bankMultAddGain(ctx, treasureId, delta) {
  * @param {number} delta
  */
 export async function bankScoreAddGain(ctx, treasureId, delta) {
-  addScoreAddBank(ctx.treasureRun, treasureId, delta);
+  if (canMutateTreasureBankFromCtx(ctx, treasureId)) {
+    addScoreAddBank(ctx.treasureRun, treasureId, delta);
+  }
+  const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
+  if (slotIx != null && ctx.playTreasureScoreDeltaFxAtSlot) {
+    await ctx.playTreasureScoreDeltaFxAtSlot(slotIx, delta);
+    return;
+  }
   await ctx.playOwnedTreasureScoreDeltaFx?.(treasureId, delta);
 }
 
 /**
- * 乘法倍率银行累乘后的动效（× 文案气泡，不含再次乘算）。
+ * 倍率银行累加后的获得动效（+n 文案气泡，不含再次乘算）。
  * @param {{ wobbleOwnedTreasureById?: (id: string) => Promise<void>, playOwnedTreasureBubbleFx?: (id: string, text: string, kind?: string) => Promise<void> }} ctx
  * @param {string} treasureId
- * @param {string} [bubbleText]
+ * @param {string} [bubbleText] 默认由 {@link formatMultMulBankGainLabel} 从 increment 生成
  */
 export async function playBankMultMulGainFx(ctx, treasureId, bubbleText) {
+  const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
   if (bubbleText) {
+    if (slotIx != null && ctx.playOwnedTreasureBubbleFxAtSlot) {
+      await ctx.playOwnedTreasureBubbleFxAtSlot(slotIx, bubbleText, "mult");
+      return;
+    }
     await ctx.playOwnedTreasureBubbleFx?.(treasureId, bubbleText, "mult");
+    return;
+  }
+  if (slotIx != null && ctx.wobbleOwnedTreasureAtSlot) {
+    await ctx.wobbleOwnedTreasureAtSlot(slotIx);
     return;
   }
   await ctx.wobbleOwnedTreasureById?.(treasureId);
@@ -104,11 +181,17 @@ export async function playBankMultMulGainFx(ctx, treasureId, bubbleText) {
  * @param {{ treasureRun?: import('./treasureRunState.js').TreasureRunState, wobbleOwnedTreasureById?: (id: string) => Promise<void>, playOwnedTreasureBubbleFx?: (id: string, text: string, kind?: string) => Promise<void> }} ctx
  * @param {string} treasureId
  * @param {number} increment 与 `addMultMulBank` 相同（x0.25 → 0.25）
- * @param {string} [bubbleText]
+ * @param {string} [bubbleText] 省略时用 {@link formatMultMulBankGainLabel}(increment)
  */
 export async function bankMultMulGain(ctx, treasureId, increment, bubbleText) {
-  addMultMulBank(ctx.treasureRun, treasureId, increment);
-  await playBankMultMulGainFx(ctx, treasureId, bubbleText);
+  if (canMutateTreasureBankFromCtx(ctx, treasureId)) {
+    addMultMulBank(ctx.treasureRun, treasureId, increment);
+  }
+  await playBankMultMulGainFx(
+    ctx,
+    treasureId,
+    bubbleText ?? formatMultMulBankGainLabel(increment),
+  );
 }
 
 /**

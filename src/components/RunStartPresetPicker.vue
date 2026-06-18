@@ -131,10 +131,10 @@ import {
   getLastSelectedPresetId,
   getPresetIdAtBrowseIndex,
   getPresetIndexById,
-  isPresetUnlocked,
   isPresetWonWith,
   stepPresetBrowseIndex,
 } from "../game/runPresetProgress.js";
+import { isRunStartPresetSelectable } from "../game/runStartSelectability.js";
 import { getRunDifficultyDef } from "../game/runDifficultyDefinitions.js";
 import { getPresetHighestDifficultyWon } from "../game/runDifficultyProgress.js";
 import {
@@ -184,7 +184,9 @@ watch(browseIndex, (_newIx, oldIx) => {
 
 const currentDef = computed(() => getRunPresetDef(getPresetIdAtBrowseIndex(browseIndex.value)));
 
-const isCurrentLocked = computed(() => !isPresetUnlocked(currentDef.value.id, normalizedCareer.value));
+const isCurrentLocked = computed(
+  () => !isRunStartPresetSelectable(currentDef.value.id, normalizedCareer.value),
+);
 const isCurrentWon = computed(() => isPresetWonWith(currentDef.value.id, normalizedCareer.value));
 const presetHighestDifficultyWon = computed(() =>
   getPresetHighestDifficultyWon(normalizedCareer.value, currentDef.value.id),
@@ -255,7 +257,7 @@ const wildcardDetailPayload = {
 /** @param {number} index */
 function isPresetIndexUnlocked(index) {
   const id = getPresetIdAtBrowseIndex(index);
-  return isPresetUnlocked(id, normalizedCareer.value);
+  return isRunStartPresetSelectable(id, normalizedCareer.value);
 }
 
 function setBrowseIndex(index, direction = 1) {

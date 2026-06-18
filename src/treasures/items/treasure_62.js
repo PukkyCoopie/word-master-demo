@@ -54,6 +54,6 @@ export const treasureHooks = {
   onDiscardBatch(ctx) {
     const n = Math.max(0, Math.floor(Number(ctx.letterCount) || 0));
     if (n <= 0 || !ctx.treasureRun) return;
-    addMultMulBank(ctx.treasureRun, ID, -0.01 * n);
+    addMultMulBank(ctx.treasureRun, ID, -0.01 * n, ctx);
   },
 };

@@ -159,8 +159,9 @@ const entries = computed(() =>
 }
 
 .collection-material-tile {
-  width: calc(100 * var(--rpx));
-  height: calc(100 * var(--rpx));
+  --shop-shelf-cell-size: calc(100 * var(--rpx));
+  width: var(--shop-shelf-cell-size);
+  height: var(--shop-shelf-cell-size);
   flex-shrink: 0;
   pointer-events: none;
   cursor: default;

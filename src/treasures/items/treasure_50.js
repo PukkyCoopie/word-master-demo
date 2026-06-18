@@ -1,5 +1,5 @@
 import { describe, mult } from "../treasureDescription.js";
-import { addMultAddBank, getMultAddBank } from "../treasureBankHelpers.js";
+import { addMultAddBank, canMutateTreasureBankFromCtx, getMultAddBank } from "../treasureBankHelpers.js";
 
 const ID = "50";
 
@@ -42,7 +42,8 @@ export default {
  * @param {number} delta
  */
 async function bumpBalanceBank(ctx, delta) {
-  addMultAddBank(ctx.treasureRun, ID, delta);
+  if (!canMutateTreasureBankFromCtx(ctx, ID)) return;
+  addMultAddBank(ctx.treasureRun, ID, delta, ctx);
   await ctx.playOwnedTreasureMultDeltaFx?.(ID, delta);
 }
 

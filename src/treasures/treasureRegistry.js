@@ -75,8 +75,17 @@ export function resolveTreasureChargeProgress(treasureId, chargeWordsSubmitted, 
   return hooks.getChargeProgress({ chargeWordsSubmitted, treasureRun: treasureRun ?? undefined });
 }
 
+/** @param {object} ctx @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {{ slotIndex: number, source: 'self' | 'blueprint' }} entry */
+function withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source }) {
+  return {
+    ...ctx,
+    ownedSlotTreasureIds: ownedSlotTreasureIds ?? ctx.ownedSlotTreasureIds,
+    hookSlotIndex: slotIndex,
+    hookSource: source,
+  };
+}
+
 /**
- * 本词结算成功后：对每个**已出现的** treasureId 调用一次 `onSuccessfulWordSubmit`（同 id 多槽不重复）
  * @param {(string | null | undefined)[]} ownedSlotTreasureIds
  * @param {import('./treasureTypes.js').TreasureSubmitSuccessContext} ctx
  * @returns {Promise<void>}
@@ -85,7 +94,7 @@ export async function notifyOwnedTreasuresSuccessfulWordSubmit(ownedSlotTreasure
   await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onSuccessfulWordSubmit;
     return fn
-      ? Promise.resolve(fn({ ...ctx, hookSlotIndex: slotIndex, hookSource: source }))
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
       : undefined;
   });
 }
@@ -96,33 +105,41 @@ export async function notifyOwnedTreasuresSuccessfulWordSubmit(ownedSlotTreasure
  * @param {import('./treasureTypes.js').TreasureSubmitAfterLettersContext} ctx
  */
 export async function notifySubmitAfterLettersBeforePostSteps(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.runAfterLettersBeforePostSteps;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureDiscardContext} ctx */
 export async function notifyOwnedTreasuresOnDiscardBatch(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onDiscardBatch;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureLevelEnterContext} ctx */
 export async function notifyOwnedTreasuresPrepareLevelEnter(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.prepareLevelEnter;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureLevelEnterContext} ctx */
 export async function notifyOwnedTreasuresOnLevelEnter(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onLevelEnter;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 
@@ -131,7 +148,7 @@ export async function notifyOwnedTreasuresOnLevelComplete(ownedSlotTreasureIds, 
   await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onLevelComplete;
     return fn
-      ? Promise.resolve(fn({ ...ctx, hookSlotIndex: slotIndex, hookSource: source }))
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
       : undefined;
   });
 }
@@ -145,73 +162,91 @@ export function notifyOwnedTreasuresOnChapterEnter(ownedSlotTreasureIds, ctx) {
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureShopEnterContext} ctx */
 export async function notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onShopEnter;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureShopRerollContext} ctx */
 export async function notifyOwnedTreasuresOnShopReroll(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onShopReroll;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasurePackSkippedContext} ctx */
 export async function notifyOwnedTreasuresOnPackSkipped(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onPackSkipped;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureSoldContext} ctx */
 export async function notifyOwnedTreasuresOnTreasureSold(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onTreasureSold;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureShopLeaveContext} ctx */
 export async function notifyOwnedTreasuresOnShopLeave(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onShopLeave;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureDeckCardsRemovedContext} ctx */
 export async function notifyOwnedTreasuresOnDeckCardsRemoved(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onDeckCardsRemoved;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureIceBreakContext} ctx */
 export async function notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onIceMaterialBreak;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureBossRestrictionContext} ctx */
 export async function notifyOwnedTreasuresOnBossRestrictionTriggered(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onBossRestrictionTriggered;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureDeckCardsAddedContext} ctx */
 export async function notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid }) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onDeckCardsAdded;
-    return fn ? Promise.resolve(fn(ctx)) : undefined;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
   });
 }
 

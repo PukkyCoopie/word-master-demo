@@ -1,3 +1,4 @@
+import { isDeveloperModeEnabled } from "../dev/developerMode.js";
 import {
   DEFAULT_RUN_DIFFICULTY_INDEX,
   normalizeRunDifficultyIndex,
@@ -97,7 +98,7 @@ export function recordDifficultyWin(career, difficultyIndex, presetId) {
 /** @param {import('../save/runSaveSchema.js').SlotCareerStats | null | undefined} career */
 export function getLastSelectedDifficultyIndex(career) {
   const ix = normalizeRunDifficultyIndex(career?.lastSelectedDifficultyIndex);
-  if (isDifficultyUnlocked(ix, career)) return ix;
+  if (isDeveloperModeEnabled() || isDifficultyUnlocked(ix, career)) return ix;
   return DEFAULT_RUN_DIFFICULTY_INDEX;
 }
 
@@ -107,9 +108,8 @@ export function getLastSelectedDifficultyIndex(career) {
  */
 export function setLastSelectedDifficultyIndex(career, index) {
   const ix = normalizeRunDifficultyIndex(index);
-  career.lastSelectedDifficultyIndex = isDifficultyUnlocked(ix, career)
-    ? ix
-    : DEFAULT_RUN_DIFFICULTY_INDEX;
+  career.lastSelectedDifficultyIndex =
+    isDeveloperModeEnabled() || isDifficultyUnlocked(ix, career) ? ix : DEFAULT_RUN_DIFFICULTY_INDEX;
 }
 
 /** @param {import('../save/runSaveSchema.js').SlotCareerStats | null | undefined} career */

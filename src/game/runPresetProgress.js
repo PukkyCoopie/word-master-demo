@@ -1,3 +1,4 @@
+import { isDeveloperModeEnabled } from "../dev/developerMode.js";
 import { RUN_PRESET_DEFINITIONS } from "./runPresetDefinitions.js";
 import { normalizeRunPresetId } from "./runPresetDefinitions.js";
 
@@ -114,7 +115,7 @@ export function recordPresetWin(career, presetId) {
 /** @param {import('../save/runSaveSchema.js').SlotCareerStats | null | undefined} career */
 export function getLastSelectedPresetId(career) {
   const id = String(career?.lastSelectedPresetId ?? "").trim();
-  if (id && isPresetUnlocked(id, career)) return id;
+  if (id && (isDeveloperModeEnabled() || isPresetUnlocked(id, career))) return id;
   return RUN_PRESET_DEFINITIONS[0].id;
 }
 

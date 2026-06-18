@@ -1,5 +1,4 @@
 import { dictionaryPosIsExclusivelyTreasureLevelKey } from "../../game/wordPosMatch.js";
-import { shouldTreasureRunAccumulationMutate } from "../../game/treasureBlueprintMirror.js";
 import { describe, mult } from "../treasureDescription.js";
 import { addMultAddBank, getMultAddBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 
@@ -58,11 +57,7 @@ export const treasureHooks = {
   async onSuccessfulWordSubmit(ctx) {
     if (!isNonNounSubmittedWord(ctx)) return;
     const slotIx = Math.max(0, Math.floor(Number(ctx.hookSlotIndex) || 0));
-    const source = ctx.hookSource ?? "self";
-    const owned = ctx.ownedSlotTreasureIds ?? [];
-    if (shouldTreasureRunAccumulationMutate(owned, slotIx, ID, source)) {
-      addMultAddBank(ctx.treasureRun, ID, 3);
-    }
+    addMultAddBank(ctx.treasureRun, ID, 3, ctx);
     await ctx.playTreasureMultDeltaFxAtSlot?.(slotIx, 3);
   },
 };

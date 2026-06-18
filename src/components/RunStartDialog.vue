@@ -262,11 +262,12 @@ import { recordPointerClientFromEvent } from "../game/lastPointerClient.js";
 import { scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 import { generateRandomRunSeedString, normalizeRunSeedInput, resolveRunSeedFromDialog } from "../game/runRng.js";
 import { getPresetDescriptionLayoutTier, getRunPresetDef, normalizeRunPresetId } from "../game/runPresetDefinitions.js";
-import { getLastSelectedPresetId, isPresetUnlocked } from "../game/runPresetProgress.js";
+import { getLastSelectedPresetId } from "../game/runPresetProgress.js";
+import { getLastSelectedDifficultyBrowseIndex } from "../game/runDifficultyProgress.js";
 import {
-  getLastSelectedDifficultyBrowseIndex,
-  isDifficultyUnlocked,
-} from "../game/runDifficultyProgress.js";
+  isRunStartDifficultySelectable,
+  isRunStartPresetSelectable,
+} from "../game/runStartSelectability.js";
 import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
 import {
   killRunStartDialogEnterTweens,
@@ -451,9 +452,11 @@ const continueMoney = computed(() => Math.max(0, Math.floor(Number(props.continu
 const continueDifficultyIndex = computed(() =>
   normalizeRunDifficultyIndex(props.continueSnapshot?.difficultyIndex ?? 0),
 );
-const presetLockedForNew = computed(() => !isPresetUnlocked(presetDraft.value, normalizedCareer.value));
+const presetLockedForNew = computed(
+  () => !isRunStartPresetSelectable(presetDraft.value, normalizedCareer.value),
+);
 const difficultyLockedForNew = computed(
-  () => !isDifficultyUnlocked(difficultyDraft.value, normalizedCareer.value),
+  () => !isRunStartDifficultySelectable(difficultyDraft.value, normalizedCareer.value),
 );
 const primaryButtonLabel = computed(() => {
   if (activeTab.value === "continue") {
@@ -546,8 +549,8 @@ function onConfirm(event) {
     emit("confirm", { mode: "continue" });
     return;
   }
-  if (!isPresetUnlocked(presetDraft.value, normalizedCareer.value)) return;
-  if (!isDifficultyUnlocked(difficultyDraft.value, normalizedCareer.value)) return;
+  if (!isRunStartPresetSelectable(presetDraft.value, normalizedCareer.value)) return;
+  if (!isRunStartDifficultySelectable(difficultyDraft.value, normalizedCareer.value)) return;
   const { seedNumeric, seedDisplay } = resolveRunSeedFromDialog(seedDraft.value);
   emit("confirm", {
     mode: "new",

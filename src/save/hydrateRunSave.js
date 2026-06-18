@@ -86,10 +86,6 @@ export function hydrateRunSave(payload, ctx) {
     ctx.runEndOutcomeRef.value = payload.runEndOutcome === "win" ? "win" : "fail";
   }
 
-  const phase = normalizeRunSavePhase(payload.phase);
-  if (ctx.showSettlementRef) ctx.showSettlementRef.value = phase === "settlement";
-  if (ctx.showShopRef) ctx.showShopRef.value = phase === "shop";
-  if (ctx.showRunEndRef) ctx.showRunEndRef.value = phase === "run_end_win" || phase === "run_end_fail";
   if (ctx.settlementSnapshotRef) {
     ctx.settlementSnapshotRef.value = payload.settlementSnapshot
       ? cloneSaveData(payload.settlementSnapshot)
@@ -121,6 +117,11 @@ export function hydrateRunSave(payload, ctx) {
       ? cloneSaveData(payload.bossRerollSession)
       : null;
   }
+
+  const phase = normalizeRunSavePhase(payload.phase);
+  if (ctx.showSettlementRef) ctx.showSettlementRef.value = phase === "settlement";
+  if (ctx.showShopRef) ctx.showShopRef.value = phase === "shop";
+  if (ctx.showRunEndRef) ctx.showRunEndRef.value = phase === "run_end_win" || phase === "run_end_fail";
   if (ctx.runPresetIdRef) {
     ctx.runPresetIdRef.value = String(payload.runPresetId ?? "preset_01");
   }

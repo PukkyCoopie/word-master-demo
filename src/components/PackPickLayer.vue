@@ -185,6 +185,8 @@ let closeTl = null;
 /** @type {Promise<void> | null} */
 let closeFlightPromise = null;
 const closing = ref(false);
+/** 整层卸载关闭后勿因 overlaySuppressed 回落而重播入场 */
+let disallowOverlayResume = false;
 
 const PACK_PICK_SCRIM_TRANSPARENT = "rgba(42, 38, 48, 0)";
 
@@ -282,10 +284,12 @@ function runEnterAnimation() {
 
 /**
  * 与 SpellTargetLayer / TreasureDetailLayer 同款：淡出遮罩 + 子块逆序收起，再由父级卸载。
+ * @param {{ forDismiss?: boolean }} [options] forDismiss：父级即将卸载本层，抑制 overlay 恢复时的重入场
  * @returns {Promise<void>}
  */
-function playClose() {
+function playClose(options = {}) {
   if (closeFlightPromise) return closeFlightPromise;
+  if (options.forDismiss === true) disallowOverlayResume = true;
   closing.value = true;
   enterBoot.value = false;
 
@@ -484,10 +488,12 @@ onMounted(() => {
 watch(
   () => props.overlaySuppressed,
   (suppressed, was) => {
-    if (was && !suppressed) {
-      enterBoot.value = true;
-      void nextTick().then(() => runEnterAnimation());
-    }
+    if (!was || suppressed || disallowOverlayResume) return;
+    enterBoot.value = true;
+    void nextTick().then(() => {
+      if (props.overlaySuppressed || disallowOverlayResume) return;
+      runEnterAnimation();
+    });
   },
 );
 
@@ -498,5 +504,6 @@ onUnmounted(() => {
   closeFlightPromise = null;
   closing.value = false;
   enterBoot.value = true;
+  disallowOverlayResume = false;
 });
 </script>

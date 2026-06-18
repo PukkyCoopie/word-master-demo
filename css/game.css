@@ -4456,6 +4456,8 @@ textarea::-moz-placeholder {
 	flex-shrink: 0;
 	z-index: 2;
 	box-sizing: border-box;
+	/* 货架格非 108 参考尺寸时，宝藏配饰角标随 --slot-scale 回退缩放（@container 优先） */
+	--slot-scale: calc(var(--shop-shelf-cell-size) / (108 * var(--rpx)));
 	container-type: size;
 	container-name: treasure-cell;
 }
@@ -4596,6 +4598,29 @@ textarea::-moz-placeholder {
 	.shop-shelf-letter-tile.grid-tile .tile-accessory-chip-icon,
 	.desc-inline-entity__letter.grid-tile .tile-accessory-chip-icon {
 		font-size: calc(100cqmin * 13 / 108);
+	}
+
+	.shop-shelf-letter-tile.grid-tile .tile-treasure-accessory-chip,
+	.desc-inline-entity__letter.grid-tile .tile-treasure-accessory-chip {
+		right: calc(100cqmin * 3 / 108);
+		bottom: calc(100cqmin * 3 / 108);
+		top: auto;
+		left: auto;
+		width: calc(100cqmin * 28 / 108);
+		height: calc(100cqmin * 28 / 108);
+		border-radius: calc(100cqmin * 6 / 108);
+	}
+
+	.shop-shelf-letter-tile.grid-tile .tile-treasure-accessory-chip .treasure-accessory-chip-ripple,
+	.desc-inline-entity__letter.grid-tile .tile-treasure-accessory-chip .treasure-accessory-chip-ripple {
+		inset: calc(100cqmin * -4 / 108);
+		border-radius: calc(100cqmin * 8 / 108);
+		box-shadow: 0 0 0 calc(100cqmin * 2.4 / 108) rgba(255, 255, 255, 0);
+	}
+
+	.shop-shelf-letter-tile.grid-tile .tile-treasure-accessory-chip .treasure-accessory-chip-icon,
+	.desc-inline-entity__letter.grid-tile .tile-treasure-accessory-chip .treasure-accessory-chip-icon {
+		font-size: calc(100cqmin * 17 / 108);
 	}
 
 	.shop-shelf-letter-tile.grid-tile .tile-bonus-pill,

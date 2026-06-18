@@ -10,6 +10,13 @@ import {
   shouldTreasureRunAccumulationMutate,
 } from "./treasureBlueprintMirror.js";
 
+test("resolvePhysicalTreasureSlotIndex 同 id 多槽用 hook 槽位", () => {
+  const slots = ["98", "66", "66"];
+  assert.equal(resolvePhysicalTreasureSlotIndex(slots, "66", 1), 1);
+  assert.equal(resolvePhysicalTreasureSlotIndex(slots, "66", 2), 2);
+  assert.equal(resolvePostLetterAnimSlotIndex(slots, "66", 0, "blueprint"), 0);
+});
+
 test("resolvePhysicalTreasureSlotIndex 蓝图贡献用实体宝藏槽", () => {
   const slots = ["98", "80", null];
   assert.equal(resolvePhysicalTreasureSlotIndex(slots, "80", 0), 1);
