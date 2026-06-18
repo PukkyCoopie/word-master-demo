@@ -1,13 +1,15 @@
 import { reactive } from "vue";
 import { loadCloudSaveMeta } from "./cloudSaveMeta.js";
 
-/** @type {import('vue').Reactive<{ syncState: import('./cloudSaveConstants.js').CloudSaveSyncState; conflictOpen: boolean; localBundle: import('./cloudSaveConstants.js').CloudSaveBundle | null; cloudBundle: import('./cloudSaveConstants.js').CloudSaveBundle | null; cloudArchive: import('./cloudSaveConstants.js').CloudSaveArchiveInfo | null }>} */
+/** @type {import('vue').Reactive<{ syncState: import('./cloudSaveConstants.js').CloudSaveSyncState; conflictOpen: boolean; localBundle: import('./cloudSaveConstants.js').CloudSaveBundle | null; cloudBundle: import('./cloudSaveConstants.js').CloudSaveBundle | null; cloudArchive: import('./cloudSaveConstants.js').CloudSaveArchiveInfo | null; foreignLocalOpen: boolean; foreignLocalBundle: import('./cloudSaveConstants.js').CloudSaveBundle | null }>} */
 export const cloudSaveUiState = reactive({
   syncState: loadCloudSaveMeta().syncState,
   conflictOpen: false,
   localBundle: null,
   cloudBundle: null,
   cloudArchive: null,
+  foreignLocalOpen: false,
+  foreignLocalBundle: null,
 });
 
 /** @param {import('./cloudSaveConstants.js').CloudSaveSyncState} syncState */
@@ -51,4 +53,18 @@ export function closeCloudSaveConflict() {
   cloudSaveUiState.localBundle = null;
   cloudSaveUiState.cloudBundle = null;
   cloudSaveUiState.cloudArchive = null;
+}
+
+/**
+ * @param {{ localBundle: import('./cloudSaveConstants.js').CloudSaveBundle }} payload
+ */
+export function openCloudSaveForeignLocal(payload) {
+  cloudSaveUiState.foreignLocalBundle = payload.localBundle;
+  cloudSaveUiState.foreignLocalOpen = true;
+  cloudSaveUiState.syncState = "conflict";
+}
+
+export function closeCloudSaveForeignLocal() {
+  cloudSaveUiState.foreignLocalOpen = false;
+  cloudSaveUiState.foreignLocalBundle = null;
 }

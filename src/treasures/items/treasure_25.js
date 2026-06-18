@@ -10,7 +10,7 @@ export default {
   price: 8,
   rarity: "rare",
   description: describe(
-    "A,B,C,E,H,M,U给予",
+    "A,B,C,E,H,M,U提供",
     score("+5"),
     "分数和",
     mult("+2"),

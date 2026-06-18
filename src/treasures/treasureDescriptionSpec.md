@@ -10,7 +10,7 @@ export default {
   description: describe(
     "拼写的",
     rarity("传说"),
-    "字母在记分时给予",
+    "字母提供",
     mult("+7"),
     "倍率",
   ),

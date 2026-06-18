@@ -125,6 +125,12 @@
         @use-local="onCloudSaveUseLocal"
         @defer="onCloudSaveDefer"
       />
+      <CloudSaveForeignLocalLayer
+        :open="cloudSaveUiState.foreignLocalOpen"
+        :local-bundle="cloudSaveUiState.foreignLocalBundle"
+        @continue="onCloudSaveForeignLocalContinue"
+        @new-save="onCloudSaveForeignLocalNew"
+      />
     </Teleport>
     <Teleport to="body">
       <MaterialPerfBench v-if="showMaterialBench" @close="showMaterialBench = false" />
@@ -157,9 +163,12 @@ import PrivacyConsentLayer from "./components/PrivacyConsentLayer.vue";
 import PlayerProfileLayer from "./components/PlayerProfileLayer.vue";
 import SaveSlotLayer from "./components/SaveSlotLayer.vue";
 import CloudSaveConflictLayer from "./components/CloudSaveConflictLayer.vue";
+import CloudSaveForeignLocalLayer from "./components/CloudSaveForeignLocalLayer.vue";
 import { cloudSaveUiState } from "./save/cloudSave/cloudSaveState.js";
 import {
   resolveCloudSaveDefer,
+  resolveCloudSaveForeignLocalContinue,
+  resolveCloudSaveForeignLocalNew,
   resolveCloudSaveUseCloud,
   resolveCloudSaveUseLocal,
   setCloudSaveAppliedCallback,
@@ -185,7 +194,7 @@ import {
   suspendGamePauseGsapFreeze,
 } from "./game/gamePause.js";
 import { coerceRunSeedNumeric, resolveRunSeedFromDialog } from "./game/runRng.js";
-import { registerDevConsole } from "./dev/registerDevConsole.js";
+import { resetTapTapAchievementBootstrap } from "./achievements/achievementTapTapSync.js";
 import { isMaterialBenchEnabled } from "./dev/materialBenchGate.js";
 import MaterialPerfBench from "./dev/MaterialPerfBench.vue";
 import { isE2eMode } from "./e2e/isE2eMode.js";
@@ -602,6 +611,15 @@ async function onCloudSaveUseLocal() {
 
 function onCloudSaveDefer() {
   resolveCloudSaveDefer();
+}
+
+async function onCloudSaveForeignLocalContinue() {
+  await resolveCloudSaveForeignLocalContinue();
+}
+
+async function onCloudSaveForeignLocalNew() {
+  await resolveCloudSaveForeignLocalNew();
+  resetTapTapAchievementBootstrap();
 }
 
 function bumpCollectionUi() {

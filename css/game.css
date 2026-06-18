@@ -3674,6 +3674,11 @@ textarea::-moz-placeholder {
 	opacity: 0;
 }
 
+.treasure-detail-backdrop--boot .shop-treasure-visual--detail {
+	opacity: 0;
+	visibility: hidden;
+}
+
 /* 字母块详情：首帧与宝藏详情 boot 一致，避免 GSAP 写入前闪一帧 */
 .tile-detail-backdrop--boot .tile-detail-visual-stage--target {
 	opacity: 0;

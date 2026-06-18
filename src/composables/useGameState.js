@@ -230,11 +230,14 @@ function emptyTile(idGen) {
     /** 玩家本关内标记（不进牌库、不写回牌张） */
     playerMarked: false,
 
-    /** 标记批次（同一次点「标记」或「对调并标记」共用一批） */
+    /** 标记批次（同一次点「标记」或「对调刷新」共用一批） */
     playerMarkBatch: undefined,
 
     /** 批次内标记顺序（0 起） */
     playerMarkSeq: undefined,
+
+    /** 批次来源：`mark` 普通标记；`swap` 对调时按槽序刷新 */
+    playerMarkBatchSource: undefined,
 
   };
 
@@ -282,6 +285,7 @@ function createTileFromLetter(raw, idGen, rarityLevelsSnapshot = null) {
     playerMarked: false,
     playerMarkBatch: undefined,
     playerMarkSeq: undefined,
+    playerMarkBatchSource: undefined,
 
   };
 
@@ -332,6 +336,7 @@ function createTileFromDeckCard(card, idGen, rarityLevelsSnapshot = null) {
     playerMarked: false,
     playerMarkBatch: undefined,
     playerMarkSeq: undefined,
+    playerMarkBatchSource: undefined,
     _deckCard: card,
   };
 }
@@ -1770,6 +1775,7 @@ export function useGameState(gameOpts = {}) {
         ? {
             playerMarkBatch: Math.max(0, Math.floor(Number(tile.playerMarkBatch) || 0)),
             playerMarkSeq: Math.max(0, Math.floor(Number(tile.playerMarkSeq) || 0)),
+            ...(tile.playerMarkBatchSource === "swap" ? { playerMarkBatchSource: "swap" } : {}),
           }
         : {}),
     };
@@ -1894,9 +1900,11 @@ export function useGameState(gameOpts = {}) {
           if (tile.playerMarked) {
             tile.playerMarkBatch = Math.max(0, Math.floor(Number(ser.playerMarkBatch) || 0));
             tile.playerMarkSeq = Math.max(0, Math.floor(Number(ser.playerMarkSeq) || 0));
+            tile.playerMarkBatchSource = ser.playerMarkBatchSource === "swap" ? "swap" : "mark";
           } else {
             tile.playerMarkBatch = undefined;
             tile.playerMarkSeq = undefined;
+            tile.playerMarkBatchSource = undefined;
           }
           tile._deckCard = card;
           row.push(tile);

@@ -21,7 +21,7 @@ export default {
   price: 8,
   rarity: "epic",
   description: describe(
-    "所有普通字母在计分时提供",
+    "所有普通字母提供",
     mult("x1.25"),
     "倍率",
     "（稀有度和倍率在每关结束时都会变化）",
@@ -45,7 +45,7 @@ export const treasureHooks = {
     return describe(
       "所有",
       rarity(label),
-      "字母在计分时提供",
+      "字母提供",
       mult(`x${mStr}`),
       "倍率",
       "（稀有度和倍率在每关结束时都会变化）",

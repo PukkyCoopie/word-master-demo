@@ -4,7 +4,7 @@ import { describe, mult } from "../treasureDescription.js";
 export default {
   price: 7,
   rarity: "rare",
-  description: describe("史诗字母在计分时提供", mult("x2"), "倍率"),
+  description: describe("史诗字母提供", mult("x2"), "倍率"),
   unlockPrerequisite: { type: "deckEpicMin", min: 8 },
 };
 

@@ -3,10 +3,12 @@ import { isE2eMode } from "../../e2e/isE2eMode.js";
 import { ensureTapTapSdkInitialized, isTapTapAccount } from "../../taptap/tapTapPlugin.js";
 import {
   bundlesHaveEquivalentSaveData,
+  clearAllLocalSaveData,
   exportCloudSaveBundle,
   getBundleExportedAt,
   importCloudSaveBundle,
   localHasSaveData,
+  localSaveBelongsToAccount,
   normalizeCloudSaveBundle,
 } from "./cloudSaveBundle.js";
 import { CLOUD_ARCHIVE_NAME } from "./cloudSaveConstants.js";
@@ -22,8 +24,10 @@ import { buildArchiveMetadata } from "./cloudSaveMetadata.js";
 import { loadCloudSaveMeta, persistCloudSaveMeta } from "./cloudSaveMeta.js";
 import {
   closeCloudSaveConflict,
+  closeCloudSaveForeignLocal,
   cloudSaveUiState,
   openCloudSaveConflict,
+  openCloudSaveForeignLocal,
   setCloudSaveSyncState,
 } from "./cloudSaveState.js";
 
@@ -183,6 +187,18 @@ async function downloadCloudBundle(archive) {
   }
 }
 
+function clearStaleCloudArchiveMetaForAccountSwitch(account) {
+  const meta = loadCloudSaveMeta();
+  if (meta.lastSyncedUnionId && meta.lastSyncedUnionId !== account.unionId) {
+    persistCloudSaveMeta({
+      archiveUuid: null,
+      archiveFileId: null,
+      conflictDeferred: false,
+      lastConflictCloudExportedAt: null,
+    });
+  }
+}
+
 /**
  * @param {import('../../taptap/tapTapPlugin.js').TapTapAccount} account
  */
@@ -192,6 +208,7 @@ export async function syncOnLogin(account) {
 
   activeAccount = account;
   await ensureTapTapSdkInitialized();
+  clearStaleCloudArchiveMetaForAccountSwitch(account);
 
   const localHas = localHasSaveData();
   let archives = [];
@@ -233,6 +250,13 @@ export async function syncOnLogin(account) {
   }
 
   if (localHas && !cloudHas) {
+    if (!localSaveBelongsToAccount(account.unionId)) {
+      conflictBlockingUpload = true;
+      openCloudSaveForeignLocal({
+        localBundle: exportCloudSaveBundle(loadCloudSaveMeta().lastSyncedUnionId ?? ""),
+      });
+      return;
+    }
     dirty = true;
     await flushCloudUpload({ force: true });
     return;
@@ -334,12 +358,54 @@ export function resolveCloudSaveDefer() {
   setCloudSaveSyncState("pending");
 }
 
+export async function resolveCloudSaveForeignLocalContinue() {
+  if (!isTapTapAccount(activeAccount)) return false;
+  conflictBlockingUpload = false;
+  closeCloudSaveForeignLocal();
+  persistCloudSaveMeta({
+    archiveUuid: null,
+    archiveFileId: null,
+    conflictDeferred: false,
+    lastConflictCloudExportedAt: null,
+  });
+  dirty = true;
+  const uploaded = await flushCloudUpload({ force: true });
+  if (!uploaded) {
+    setCloudSaveSyncState("error");
+    return false;
+  }
+  notifyCloudSaveApplied();
+  return true;
+}
+
+export async function resolveCloudSaveForeignLocalNew() {
+  if (!isTapTapAccount(activeAccount)) return false;
+  clearAllLocalSaveData();
+  persistCloudSaveMeta({
+    archiveUuid: null,
+    archiveFileId: null,
+    lastSyncedAt: null,
+    lastSyncedUnionId: activeAccount.unionId,
+    syncState: "idle",
+    conflictDeferred: false,
+    lastConflictCloudExportedAt: null,
+  });
+  conflictBlockingUpload = false;
+  closeCloudSaveForeignLocal();
+  dirty = false;
+  setCloudSaveSyncState("idle");
+  notifyCloudSaveApplied();
+  return true;
+}
+
 /** @param {import('../../taptap/tapTapPlugin.js').TapTapAccount | null} account */
 export function setCloudSaveActiveAccount(account) {
   activeAccount = isTapTapAccount(account) ? account : null;
   if (!activeAccount) {
     dirty = false;
     conflictBlockingUpload = false;
+    closeCloudSaveConflict();
+    closeCloudSaveForeignLocal();
   }
 }
 

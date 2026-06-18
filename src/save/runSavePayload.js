@@ -34,6 +34,7 @@
  * @property {boolean} playerMarked
  * @property {number} [playerMarkBatch]
  * @property {number} [playerMarkSeq]
+ * @property {'mark' | 'swap'} [playerMarkBatchSource]
  */
 
 /** @typedef {Object} SerializedDeckState

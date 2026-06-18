@@ -47,7 +47,7 @@
             </h2>
           </div>
 
-          <div class="treasure-detail-icon-column" :style="collectionLockedVisualStyle">
+          <div ref="iconColumnRef" class="treasure-detail-icon-column" :style="collectionLockedVisualStyle">
             <div
               ref="targetVisualRef"
               class="shop-treasure-visual shop-treasure-visual--detail"
@@ -1537,6 +1537,7 @@ const titleId = useId();
 const backdropRef = ref(null);
 const stackZ = ref(0);
 const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
+const iconColumnRef = ref(null);
 const targetVisualRef = ref(null);
 const detailFlyFrameRef = ref(null);
 const flyCloneRef = ref(null);
@@ -1662,7 +1663,19 @@ const previewNavRef = ref(null);
 /** 首帧即落在起点，避免未定位前露在错误位置；显隐由 CSS visibility + RAF 内 GSAP 接管 */
 const flyCloneStyle = computed(() => {
   const r = props.originRect;
-  if (!validOrigin(r)) return {};
+  if (!validOrigin(r)) {
+    return {
+      position: "fixed",
+      left: "-9999px",
+      top: "0",
+      width: "1px",
+      height: "1px",
+      zIndex: 9999,
+      boxSizing: "border-box",
+      margin: "0",
+      pointerEvents: "none",
+    };
+  }
   return {
     position: "fixed",
     left: `${r.left}px`,
@@ -1687,21 +1700,29 @@ const collectionLockedFlyCloneStyle = computed(() => ({
  * @param {boolean} resetBackdrop
  */
 function applyEnterInitialHide(backdrop, staggerEls, targetVisual, resetBackdrop = true) {
-  gsap.killTweensOf([targetVisual, ...staggerEls].filter(Boolean));
+  const iconColumn = iconColumnRef.value;
+  gsap.killTweensOf([targetVisual, iconColumn, ...staggerEls].filter(Boolean));
   if (resetBackdrop) {
     gsap.killTweensOf(backdrop);
     gsap.set(backdrop, portalScrimGsapVars("rgba(14, 12, 10, 0)"));
   }
   gsap.set(staggerEls, { opacity: 0, y: 7 });
+  /* boot 解除后 icon 列易先亮一帧，与 SpellTargetLayer 同样先写 GSAP */
+  if (iconColumn) {
+    gsap.set(iconColumn, { opacity: 0, pointerEvents: "none" });
+  }
   if (targetVisual) {
-    gsap.set(targetVisual, { opacity: 0, pointerEvents: "none" });
+    gsap.set(targetVisual, {
+      opacity: 0,
+      visibility: "hidden",
+      pointerEvents: "none",
+    });
   }
 }
 
 function runEnterAnimation() {
   const backdrop = backdropRef.value;
   const targetVisual = targetVisualRef.value;
-  const clone = flyCloneRef.value;
   if (!backdrop || !targetVisual) return;
 
   if (shouldSkipDecorativeMotion()) {
@@ -1730,22 +1751,18 @@ function runEnterAnimation() {
   }
 
   const staggerEls = staggerTargets();
-  const hasFly = validOrigin(props.originRect) && clone;
 
   gsap.killTweensOf([
     backdrop,
     targetVisual,
-    clone,
+    iconColumnRef.value,
+    flyCloneRef.value,
     ...staggerEls,
     ...(previewNavRef.value?.getAnimTargets?.() ?? []),
   ].filter(Boolean));
 
   bootMask.value = true;
   applyEnterInitialHide(backdrop, staggerEls, targetVisual);
-
-  if (!hasFly && targetVisual) {
-    gsap.set(targetVisual, { scale: 0.94, transformOrigin: "50% 50%" });
-  }
 
   /* 遮罩与测量解耦：立刻从透明匀缓加深，避免等字体/RAF 后再起 tween 像闪一下 */
   gsap.fromTo(
@@ -1769,165 +1786,198 @@ function runEnterAnimation() {
     .then(() => {
       const backdropLive = backdropRef.value;
       const targetVisualLive = targetVisualRef.value;
+      const iconColumnLive = iconColumnRef.value;
       if (!backdropLive || !targetVisualLive) return;
 
       const staggerLive = staggerTargets();
       /* 二次重置仅处理子块；保留 backdrop 正在进行的渐变，避免瞬间跳黑 */
       applyEnterInitialHide(backdropLive, staggerLive, targetVisualLive, false);
-      if (!hasFly) {
-        gsap.set(targetVisualLive, { scale: 0.94, transformOrigin: "50% 50%" });
-      }
 
       if (props.previewNavTotal > 1) {
         previewNavRef.value?.applyEnterInitialHide?.();
       }
 
-      bootMask.value = false;
-
-      /** @type {{ left: number, top: number, width: number, height: number } | null} */
-      let flyTo = null;
-      /** @type {{ left: number, top: number, width: number, height: number } | null} */
-      let flyFrom = null;
-
-      if (hasFly) {
-        void backdrop.offsetHeight;
-        flyFrom = props.originRect;
-        flyTo = isDeckOffer.value ? resolveDeckOfferFlyTargetRect() : resolveDetailFlyFrameRect();
-
-        if (!flyTo) {
-          flyCloneActive.value = false;
-          gsap.set(targetVisual, {
-            opacity: 1,
-            pointerEvents: "auto",
-            clearProps: "opacity,pointerEvents",
-          });
-          enterTl = gsap.timeline();
-          enterTl.to(
-            staggerEls,
-            {
-              opacity: 1,
-              y: 0,
-              duration: 0.18,
-              stagger: 0.038,
-              ease: EASE_TRANSFORM,
-              clearProps: "opacity,transform",
-            },
-            0.05,
-          );
-          if (props.previewNavTotal > 1) {
-            previewNavRef.value?.appendEnterAnimation?.(enterTl, 0.08);
-          }
-          enterTl.eventCallback("onComplete", () => {
-            initialEnterDone.value = true;
-          });
-          return;
-        }
-
-        gsap.killTweensOf(clone);
-        if (isDeckOffer.value) {
-          gsap.set(clone, { clearProps: "transform" });
-          gsap.set(clone, {
-            visibility: "visible",
-            opacity: 1,
-            left: flyFrom.left,
-            top: flyFrom.top,
-            width: flyFrom.width,
-            height: flyFrom.height,
-            margin: "0",
-            pointerEvents: "none",
-          });
-        } else {
-          gsap.set(clone, { clearProps: "transform" });
-          gsap.set(clone, {
-            visibility: "visible",
-            opacity: 1,
-            left: flyFrom.left,
-            top: flyFrom.top,
-            width: flyFrom.width,
-            height: flyFrom.height,
-            pointerEvents: "none",
-          });
-        }
+      const originOk = validOrigin(props.originRect);
+      let cloneLive = flyCloneRef.value;
+      if (originOk && !cloneLive) {
+        flyCloneActive.value = true;
       }
-
-      enterTl = gsap.timeline();
-
-      if (hasFly) {
-        if (isDeckOffer.value) {
-          enterTl.to(
-            clone,
-            {
-              left: flyTo.left,
-              top: flyTo.top,
-              width: flyTo.width,
-              height: flyTo.height,
-              duration: 0.36,
-              ease: EASE_TRANSFORM,
-            },
-            0,
-          );
-        } else {
-          enterTl.to(
-            clone,
-            {
-              left: flyTo.left,
-              top: flyTo.top,
-              width: flyTo.width,
-              height: flyTo.height,
-              duration: 0.36,
-              ease: EASE_TRANSFORM,
-            },
-            0,
-          );
-        }
-
-        /* emoji/角标字号由 @container treasure-cell 随框体 left/top/width/height 同比缩放，勿再 GSAP fontSize（移动端易与 cq 终值不一致而落地闪缩） */
-
-        if (props.previewNavTotal > 1) {
-          previewNavRef.value?.appendEnterAnimation?.(enterTl, 0.3);
-        }
-
-        enterTl.add(() => {
-          gsap.set(targetVisualLive, {
-            opacity: 1,
-            pointerEvents: "auto",
-            clearProps: "opacity,pointerEvents",
-          });
-          const node = flyCloneRef.value;
-          if (node) gsap.set(node, { opacity: 0, visibility: "hidden" });
-          requestAnimationFrame(() => {
-            flyCloneActive.value = false;
-            if (node?.isConnected) gsap.set(node, { clearProps: "transform" });
+      if (originOk && !cloneLive) {
+        return new Promise((r) => requestAnimationFrame(r)).then(() => {
+          cloneLive = flyCloneRef.value;
+          if (!backdropRef.value || !targetVisualRef.value) return;
+          continueEnterAfterMeasure({
+            backdropLive: backdropRef.value,
+            targetVisualLive: targetVisualRef.value,
+            iconColumnLive: iconColumnRef.value,
+            staggerLive: staggerTargets(),
+            hasFly: originOk && Boolean(cloneLive),
+            cloneLive,
           });
         });
-      } else {
-        flyCloneActive.value = false;
-        enterTl.to(
-          targetVisual,
-          { opacity: 1, scale: 1, duration: 0.22, ease: EASE_TRANSFORM, clearProps: "opacity,scale" },
-          0.06,
-        );
-        if (props.previewNavTotal > 1) {
-          previewNavRef.value?.appendEnterAnimation?.(enterTl, 0.08);
-        }
       }
 
-      enterTl.to(
-        staggerEls,
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.18,
-          stagger: 0.038,
-          ease: EASE_TRANSFORM,
-          clearProps: "opacity,transform",
-        },
-        hasFly ? 0.12 : 0.05,
-      );
-      enterTl.eventCallback("onComplete", () => {
-        initialEnterDone.value = true;
+      continueEnterAfterMeasure({
+        backdropLive,
+        targetVisualLive,
+        iconColumnLive,
+        staggerLive,
+        hasFly: originOk && Boolean(cloneLive),
+        cloneLive,
       });
     });
+}
+
+/**
+ * @param {{
+ *   backdropLive: HTMLElement,
+ *   targetVisualLive: HTMLElement,
+ *   iconColumnLive: HTMLElement | null,
+ *   staggerLive: HTMLElement[],
+ *   hasFly: boolean,
+ *   cloneLive: HTMLElement | null,
+ * }} ctx
+ */
+function continueEnterAfterMeasure(ctx) {
+  const { backdropLive, targetVisualLive, iconColumnLive, staggerLive, hasFly, cloneLive } = ctx;
+
+  if (!hasFly && targetVisualLive) {
+    gsap.set(targetVisualLive, {
+      visibility: "visible",
+      scale: 0.94,
+      transformOrigin: "50% 50%",
+    });
+  }
+
+  /** @type {{ left: number, top: number, width: number, height: number } | null} */
+  let flyTo = null;
+  const flyFrom = validOrigin(props.originRect) ? props.originRect : null;
+
+  if (hasFly && flyFrom) {
+    void backdropLive.offsetHeight;
+    flyTo = isDeckOffer.value ? resolveDeckOfferFlyTargetRect() : resolveDetailFlyFrameRect();
+  }
+
+  if (hasFly && flyFrom && flyTo && cloneLive) {
+    gsap.killTweensOf(cloneLive);
+    gsap.set(cloneLive, { clearProps: "transform" });
+    gsap.set(cloneLive, {
+      visibility: "visible",
+      opacity: 1,
+      left: flyFrom.left,
+      top: flyFrom.top,
+      width: flyFrom.width,
+      height: flyFrom.height,
+      margin: "0",
+      pointerEvents: "none",
+    });
+    if (iconColumnLive) {
+      gsap.set(iconColumnLive, { opacity: 1, pointerEvents: "auto", clearProps: "opacity,pointerEvents" });
+    }
+    bootMask.value = false;
+
+    enterTl = gsap.timeline();
+
+    enterTl.to(
+      cloneLive,
+      {
+        left: flyTo.left,
+        top: flyTo.top,
+        width: flyTo.width,
+        height: flyTo.height,
+        duration: 0.36,
+        ease: EASE_TRANSFORM,
+      },
+      0,
+    );
+
+    if (props.previewNavTotal > 1) {
+      previewNavRef.value?.appendEnterAnimation?.(enterTl, 0.3);
+    }
+
+    enterTl.add(() => {
+      gsap.set(targetVisualLive, {
+        opacity: 1,
+        visibility: "visible",
+        pointerEvents: "auto",
+        clearProps: "opacity,visibility,pointerEvents",
+      });
+      const node = flyCloneRef.value;
+      if (node) gsap.set(node, { opacity: 0, visibility: "hidden" });
+      requestAnimationFrame(() => {
+        flyCloneActive.value = false;
+        if (node?.isConnected) gsap.set(node, { clearProps: "transform" });
+      });
+    });
+
+    enterTl.to(
+      staggerLive,
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.18,
+        stagger: 0.038,
+        ease: EASE_TRANSFORM,
+        clearProps: "opacity,transform",
+      },
+      0.12,
+    );
+    enterTl.eventCallback("onComplete", () => {
+      initialEnterDone.value = true;
+    });
+    return;
+  }
+
+  flyCloneActive.value = false;
+  if (iconColumnLive) {
+    gsap.set(iconColumnLive, { opacity: 1, pointerEvents: "auto", clearProps: "opacity,pointerEvents" });
+  }
+  bootMask.value = false;
+
+  if (hasFly && flyFrom && !flyTo) {
+    gsap.set(targetVisualLive, {
+      visibility: "visible",
+      opacity: 0,
+      scale: 0.94,
+      transformOrigin: "50% 50%",
+      pointerEvents: "none",
+    });
+  }
+
+  enterTl = gsap.timeline();
+
+  enterTl.to(
+    targetVisualLive,
+    {
+      opacity: 1,
+      visibility: "visible",
+      scale: 1,
+      pointerEvents: "auto",
+      duration: 0.22,
+      ease: EASE_TRANSFORM,
+      clearProps: "opacity,visibility,scale,pointerEvents",
+    },
+    0.06,
+  );
+  if (props.previewNavTotal > 1) {
+    previewNavRef.value?.appendEnterAnimation?.(enterTl, 0.08);
+  }
+
+  enterTl.to(
+    staggerLive,
+    {
+      opacity: 1,
+      y: 0,
+      duration: 0.18,
+      stagger: 0.038,
+      ease: EASE_TRANSFORM,
+      clearProps: "opacity,transform",
+    },
+    0.05,
+  );
+  enterTl.eventCallback("onComplete", () => {
+    initialEnterDone.value = true;
+  });
 }
 
 function runContentEnterAnimation() {
@@ -1953,19 +2003,28 @@ function runContentEnterAnimation() {
   }
 
   const staggerEls = staggerTargets();
-  gsap.killTweensOf([targetVisual, ...staggerEls].filter(Boolean));
+  const iconColumn = iconColumnRef.value;
+  gsap.killTweensOf([targetVisual, iconColumn, ...staggerEls].filter(Boolean));
   applyEnterInitialHide(backdrop, staggerEls, targetVisual, false);
-  gsap.set(targetVisual, { scale: 0.94, transformOrigin: "50% 50%" });
+  if (iconColumn) {
+    gsap.set(iconColumn, { opacity: 1, pointerEvents: "auto", clearProps: "opacity,pointerEvents" });
+  }
+  gsap.set(targetVisual, {
+    visibility: "visible",
+    scale: 0.94,
+    transformOrigin: "50% 50%",
+  });
 
   enterTl = gsap.timeline();
   enterTl.to(
     targetVisual,
     {
       opacity: 1,
+      visibility: "visible",
       scale: 1,
       duration: 0.22,
       ease: EASE_TRANSFORM,
-      clearProps: "opacity,scale,pointerEvents",
+      clearProps: "opacity,visibility,scale,pointerEvents",
     },
     0,
   );

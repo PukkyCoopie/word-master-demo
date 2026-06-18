@@ -1,14 +1,22 @@
 import { APP_VERSION } from "../../appVersion.js";
 import { loadGameSettings } from "../../settings/gameSettings.js";
-import { loadPlayerProfile, repairSlotProfilesAfterLoad } from "../../profile/playerProfile.js";
+import {
+  loadPlayerProfile,
+  repairSlotProfilesAfterLoad,
+} from "../../profile/playerProfile.js";
 import { loadSaveEnvelope } from "../runSaveStorage.js";
 import { migrateRunSaveEnvelopeToLatest } from "../migrateRunSaveEnvelope.js";
-import { createEmptySaveEnvelope, RUN_SAVES_STORAGE_KEY, SAVE_SLOT_COUNT } from "../runSaveSchema.js";
+import {
+  createEmptySaveEnvelope,
+  RUN_SAVES_STORAGE_KEY,
+  SAVE_SLOT_COUNT,
+} from "../runSaveSchema.js";
 import {
   CLOUD_BUNDLE_VERSION,
   GAME_SETTINGS_STORAGE_KEY,
   PLAYER_PROFILE_STORAGE_KEY,
 } from "./cloudSaveConstants.js";
+import { loadCloudSaveMeta } from "./cloudSaveMeta.js";
 
 /** @param {string} key */
 function readLocalStorageJson(key) {
@@ -128,6 +136,32 @@ export function bundlesHaveEquivalentSaveData(a, b) {
     stableSavePayload(a.playerProfile) === stableSavePayload(b.playerProfile) &&
     stableSavePayload(a.gameSettings) === stableSavePayload(b.gameSettings)
   );
+}
+
+/** 清除本机游戏存档与玩家档案，保留游戏设置。 */
+export function clearAllLocalSaveData() {
+  writeLocalStorageJson(RUN_SAVES_STORAGE_KEY, createEmptySaveEnvelope());
+  writeLocalStorageJson(PLAYER_PROFILE_STORAGE_KEY, {
+    schemaVersion: 3,
+    activeSaveSlotIndex: 0,
+    slotProfiles: Array.from({ length: SAVE_SLOT_COUNT }, () => ({
+      displayName: "Player",
+      initialized: false,
+    })),
+  });
+  loadSaveEnvelope();
+  loadPlayerProfile();
+  repairSlotProfilesAfterLoad();
+}
+
+/**
+ * @param {string} unionId
+ * @returns {boolean}
+ */
+export function localSaveBelongsToAccount(unionId) {
+  const id = String(unionId ?? "").trim();
+  if (!id) return false;
+  return loadCloudSaveMeta().lastSyncedUnionId === id;
 }
 
 /** @returns {boolean} */

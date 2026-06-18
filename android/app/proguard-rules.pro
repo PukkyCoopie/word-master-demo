@@ -24,6 +24,10 @@
 -dontwarn com.taptap.sdk.servicemanager.annotation.Service
 -dontwarn com.taptap.sdk.startup.annotation.Initialize
 
+# OkHttp 可选 TLS 后端（TapTap / 网络库）；未打包 conscrypt 时 R8 需忽略
+-dontwarn org.conscrypt.Conscrypt
+-dontwarn org.conscrypt.OpenSSLProvider
+
 # Capacitor WebView 桥与自定义插件
 -keep @com.getcapacitor.annotation.CapacitorPlugin class * {
   @com.getcapacitor.PluginMethod *;

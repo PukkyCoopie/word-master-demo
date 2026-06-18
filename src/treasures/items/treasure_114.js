@@ -15,7 +15,7 @@ export default {
   price: 10,
   rarity: "legendary",
   shopEligible: false,
-  description: describe("每个 J、Qu、K 在计分时", mult("x2"), "倍率"),
+  description: describe("每个 J、Qu、K 提供", mult("x2"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

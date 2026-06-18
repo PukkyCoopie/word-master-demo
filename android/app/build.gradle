@@ -12,6 +12,13 @@ def versionPatch = versionParts.size() > 2 ? (versionParts[2].replaceAll(/[^0-9]
 // 与 semver 同步：0.7.27 → 7027；每次 bump patch/minor/major 都会单调递增
 def appVersionCode = versionMajor * 100000 + versionMinor * 1000 + versionPatch
 
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+def releaseKeystoreConfigured = keystorePropertiesFile.exists() && keystoreProperties['storeFile']
+
 android {
     namespace = "com.timeshift_games.word_master"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -32,8 +39,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (releaseKeystoreConfigured) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (releaseKeystoreConfigured) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'

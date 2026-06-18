@@ -6,7 +6,7 @@ import { rollProbabilitySuccess } from "../treasureProbability.js";
 export default {
   price: 4,
   rarity: "common",
-  description: describe("元音字母在记分时有", prob("1/2"), "概率使你获得", money("1")),
+  description: describe("元音字母有", prob("1/2"), "概率使你获得", money("1")),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

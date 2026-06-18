@@ -5720,8 +5720,11 @@ function syncPlayerMarkBatchCounterFromGrid() {
   playerMarkBatchCounter = maxBatch;
 }
 
-/** @param {import('../composables/useGameState.js').GridTile[]} tiles */
-function assignPlayerMarkBatch(tiles) {
+/**
+ * @param {import('../composables/useGameState.js').GridTile[]} tiles
+ * @param {'mark' | 'swap'} [source]
+ */
+function assignPlayerMarkBatch(tiles, source = "mark") {
   if (tiles.length === 0) return;
   playerMarkBatchCounter += 1;
   const batch = playerMarkBatchCounter;
@@ -5730,8 +5733,22 @@ function assignPlayerMarkBatch(tiles) {
     tile.playerMarked = true;
     tile.playerMarkBatch = batch;
     tile.playerMarkSeq = seq;
+    tile.playerMarkBatchSource = source;
     seq += 1;
   }
+}
+
+/**
+ * 对调时：若拼词槽内已有标记字母，将槽内全部字母（含未标记）按当前槽序写入同一新批次。
+ * @returns {boolean} 是否已刷新批次
+ */
+function refreshPlayerMarkBatchFromWordOnSwap() {
+  const tiles = collectWordAuxTargetTiles();
+  if (tiles.length === 0) return false;
+  if (!tiles.some((t) => t.playerMarked === true)) return false;
+  assignPlayerMarkBatch(tiles, "swap");
+  touchGrid();
+  return true;
 }
 
 /** @param {import('../composables/useGameState.js').GridTile} tile */
@@ -5739,11 +5756,12 @@ function clearPlayerMarkMeta(tile) {
   tile.playerMarked = false;
   tile.playerMarkBatch = undefined;
   tile.playerMarkSeq = undefined;
+  tile.playerMarkBatchSource = undefined;
 }
 
 /** @returns {{ row: number, col: number, tile: import('../composables/useGameState.js').GridTile }[]} */
 function collectMarkedGridTilesForSend() {
-  /** @type {{ row: number, col: number, tile: import('../composables/useGameState.js').GridTile, batch: number, seq: number }[]} */
+  /** @type {{ row: number, col: number, tile: import('../composables/useGameState.js').GridTile, batch: number, seq: number, source: 'mark' | 'swap' }[]} */
   const list = [];
   const g = grid.value;
   for (let r = 0; r < ROWS; r += 1) {
@@ -5757,10 +5775,17 @@ function collectMarkedGridTilesForSend() {
       const batch = tile.playerMarkBatch != null ? Math.floor(Number(tile.playerMarkBatch)) : 0;
       const seq =
         tile.playerMarkSeq != null ? Math.floor(Number(tile.playerMarkSeq)) : r * COLS + c;
-      list.push({ row: r, col: c, tile, batch, seq });
+      const source = tile.playerMarkBatchSource === "swap" ? "swap" : "mark";
+      list.push({ row: r, col: c, tile, batch, seq, source });
     }
   }
-  list.sort((a, b) => (a.batch !== b.batch ? a.batch - b.batch : a.seq - b.seq));
+  list.sort((a, b) => {
+    const aSwap = a.source === "swap";
+    const bSwap = b.source === "swap";
+    if (aSwap !== bSwap) return aSwap ? -1 : 1;
+    if (a.batch !== b.batch) return aSwap ? b.batch - a.batch : a.batch - b.batch;
+    return a.seq - b.seq;
+  });
   return list;
 }
 
@@ -7043,7 +7068,8 @@ async function onSwapWordSelectionClick() {
   triggerHaptic("tabSwitch");
   wordSelectionSwapBusy.value = true;
   try {
-    if (getMarkOnSwap()) {
+    const refreshedMarkBatch = refreshPlayerMarkBatchFromWordOnSwap();
+    if (!refreshedMarkBatch && getMarkOnSwap()) {
       const tiles = collectWordAuxTargetTiles();
       const toMark = tiles.filter((t) => t.playerMarked !== true);
       if (toMark.length > 0) assignPlayerMarkBatch(toMark);
@@ -11294,7 +11320,7 @@ async function runLetterScoringSkipStep(slotEl, speed = 1, slotIndex = -1) {
 }
 
 /**
- * 按字母稀有度的宝藏倍率（铅笔/钢笔 +n；棱光等 ×n）：宝藏槽与词槽同时 wobble，字母上出倍率气泡。
+ * 按字母稀有度的宝藏倍率（铅笔/钢笔 +n；阳光等 ×n）：宝藏槽与词槽同时 wobble，字母上出倍率气泡。
  * @param {object} part letterParts[i]
  * @param {HTMLElement | null | undefined} slotEl
  * @param {{ treasureId: string, multDelta?: number, multMul?: number, bubbleLabel: string, rarity?: string, active: boolean, slotIndex?: number, matchesPart?: (part: object) => boolean }} cfg
@@ -11608,7 +11634,7 @@ async function runLetterAccessoryCoinMoneyBurst(tile, slotEl, speed = 1) {
 /**
  * 单字母一轮：与 **tile 本体**同拍的只有——稀有度基础分 + tile/材质平面分 + tile 角标分；以及声明了
  * `mergeLetter*IntoIntrinsic*` 的宝藏（当前：海螺平面分、回形针倍率加法）。元音倍率、某字母加分等仍走单独步。
- * 顺序：上述「本体同一拍」→ 水滴 +50 → 其余逐字加分宝藏 → 钱币 →「本体倍率」→ 火焰 +10 → 其余逐字 +倍率宝藏 → 铅笔等 +倍率 → 碎冰 ×2.5 → 扳手 ×1.5 → 棱光等 ×倍率 → 幸运金币。
+ * 顺序：上述「本体同一拍」→ 水滴 +50 → 其余逐字加分宝藏 → 钱币 →「本体倍率」→ 火焰 +10 → 其余逐字 +倍率宝藏 → 铅笔等 +倍率 → 碎冰 ×2.5 → 扳手 ×1.5 → 阳光等 ×倍率 → 幸运金币。
  * （宝藏槽火焰/水滴/扳手仍在整词字后步，见 postLetterTreasureSteps。）
  */
 async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVisitIndex = 0) {

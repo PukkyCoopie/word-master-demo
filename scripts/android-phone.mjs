@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 编译 / USB 安装 debug APK 到已连接的 Android 真机。
+ * 编译 / USB 安装 APK 到已连接的 Android 真机（debug 或 release）。
  *
  * 用法：
  *   npm run android:phone              # 交互式选择操作
@@ -8,6 +8,7 @@
  *   npm run android:phone -- install   # 仅安装（需已有 APK）
  *   npm run android:phone -- deploy    # 编译 + 安装
  *   npm run android:phone -- install --launch   # 安装后启动 App
+ *   npm run android:phone -- deploy --release   # 非交互：编译 release 并安装
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -31,18 +32,20 @@ function printUsage() {
 无参数时在终端交互选择操作。
 
 模式：
-  build     编译 debug APK（npm run cap:apk）
+  build     编译 APK（默认 debug；选 release 或加 --release）
   install   通过 adb 安装已有 APK 到 USB 连接的真机
   deploy    编译 + 安装
 
 选项：
-  --launch  安装完成后启动 App
-  --help    显示此帮助
+  --launch   安装完成后启动 App
+  --release  编译 / 安装 release 包（非交互时跳过询问）
+  --help     显示此帮助
 
 示例：
   npm run android:phone
   npm run android:phone -- build
   npm run android:phone -- install --launch
+  npm run android:phone -- deploy --release
 `);
 }
 
@@ -55,10 +58,11 @@ const MODE_ALIASES = {
   deploy: "deploy",
 };
 
-/** @param {string[]} argv @returns {{ mode: string | null, launch: boolean | null, interactive: boolean }} */
+/** @param {string[]} argv @returns {{ mode: string | null, launch: boolean | null, release: boolean | null, interactive: boolean }} */
 function parseArgs(argv) {
   let mode = null;
   let launch = null;
+  let release = null;
 
   for (const arg of argv) {
     if (arg === "--help" || arg === "-h") {
@@ -67,6 +71,10 @@ function parseArgs(argv) {
     }
     if (arg === "--launch") {
       launch = true;
+      continue;
+    }
+    if (arg === "--release") {
+      release = true;
       continue;
     }
     if (MODES.has(arg)) {
@@ -79,14 +87,19 @@ function parseArgs(argv) {
   }
 
   if (argv.length === 0) {
-    return { mode: null, launch: null, interactive: true };
+    return { mode: null, launch: null, release: null, interactive: true };
   }
 
-  return { mode: mode ?? "deploy", launch: launch ?? false, interactive: false };
+  return {
+    mode: mode ?? "deploy",
+    launch: launch ?? false,
+    release: release ?? false,
+    interactive: false,
+  };
 }
 
 async function promptMode() {
-  console.log("\nAndroid 真机 debug 包");
+  console.log("\nAndroid 真机");
   console.log("  1) build   — 仅编译 APK");
   console.log("  2) install — 仅安装到手机（需已有 APK）");
   console.log("  3) deploy  — 编译 + 安装\n");
@@ -103,6 +116,20 @@ async function promptMode() {
       if (picked) return picked;
       console.log("无效输入，请输入 1、2、3 或 build / install / deploy。");
     }
+  } finally {
+    rl.close();
+  }
+}
+
+async function promptRelease() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  try {
+    const answer = await rl.question("是否发布 release 版本？[y/N] ");
+    return /^y(es)?$/i.test(answer.trim());
   } finally {
     rl.close();
   }
@@ -125,20 +152,25 @@ async function promptLaunch(mode) {
   }
 }
 
-/** @param {{ mode: string | null, launch: boolean | null, interactive: boolean }} parsed */
+/** @param {{ mode: string | null, launch: boolean | null, release: boolean | null, interactive: boolean }} parsed */
 async function resolveRunOptions(parsed) {
   if (!parsed.interactive) {
-    return { mode: /** @type {string} */ (parsed.mode), launch: parsed.launch ?? false };
+    return {
+      mode: /** @type {string} */ (parsed.mode),
+      launch: parsed.launch ?? false,
+      release: parsed.release ?? false,
+    };
   }
 
   if (!process.stdin.isTTY) {
-    console.log("非交互终端，默认 deploy。");
-    return { mode: "deploy", launch: false };
+    console.log("非交互终端，默认 deploy（debug）。");
+    return { mode: "deploy", launch: false, release: false };
   }
 
   const mode = await promptMode();
+  const release = parsed.release ?? (await promptRelease());
   const launch = parsed.launch ?? (await promptLaunch(mode));
-  return { mode, launch };
+  return { mode, launch, release };
 }
 
 function readAppVersion() {
@@ -195,46 +227,67 @@ function runNpmScript(command, args, cwd) {
   }
 }
 
-function resolveApkPath() {
+function isReleaseKeystoreConfigured() {
+  const propsPath = path.join(ANDROID_DIR, "keystore.properties");
+  if (!fs.existsSync(propsPath)) return false;
+
+  const storeFileLine = fs
+    .readFileSync(propsPath, "utf8")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.startsWith("storeFile="));
+  if (!storeFileLine) return false;
+
+  let storeFile = storeFileLine.slice("storeFile=".length).trim();
+  if (!storeFile) return false;
+  if (!path.isAbsolute(storeFile)) {
+    storeFile = path.join(ANDROID_DIR, storeFile);
+  }
+  return fs.existsSync(storeFile);
+}
+
+function ensureReleaseKeystore() {
+  if (isReleaseKeystoreConfigured()) return;
+  console.error("未配置 release 签名：请创建 android/keystore.properties 并指向有效的 .jks。");
+  process.exit(1);
+}
+
+/** @param {boolean} release */
+function resolveApkPath(release) {
   const { version, slug } = readAppVersion();
-  const expected = path.join(
-    ANDROID_DIR,
-    "app",
-    "build",
-    "outputs",
-    "apk",
-    "debug",
-    `word_master_debug_${slug}.apk`,
-  );
+  const apkDir = path.join(ANDROID_DIR, "app", "build", "outputs", "apk", release ? "release" : "debug");
+  const expectedName = release ? "app-release.apk" : `word_master_debug_${slug}.apk`;
+  const expected = path.join(apkDir, expectedName);
+
   if (fs.existsSync(expected)) {
-    return { apkPath: expected, version };
+    return { apkPath: expected, version, release };
   }
 
-  const debugDir = path.dirname(expected);
-  if (!fs.existsSync(debugDir)) {
-    console.error(`未找到 APK 目录：${debugDir}`);
+  if (!fs.existsSync(apkDir)) {
+    console.error(`未找到 APK 目录：${apkDir}`);
     console.error("请先运行：npm run android:phone -- build");
     process.exit(1);
   }
 
   const apks = fs
-    .readdirSync(debugDir)
-    .filter((name) => name.startsWith("word_master_debug_") && name.endsWith(".apk"))
+    .readdirSync(apkDir)
+    .filter((name) => name.endsWith(".apk"))
     .map((name) => ({
       name,
-      mtime: fs.statSync(path.join(debugDir, name)).mtimeMs,
+      mtime: fs.statSync(path.join(apkDir, name)).mtimeMs,
     }))
     .sort((a, b) => b.mtime - a.mtime);
 
   if (apks.length === 0) {
-    console.error(`未找到 debug APK（期望 word_master_debug_${slug}.apk）。`);
+    const label = release ? "release" : `debug（期望 word_master_debug_${slug}.apk）`;
+    console.error(`未找到 ${label} APK。`);
     console.error("请先运行：npm run android:phone -- build");
     process.exit(1);
   }
 
-  const fallback = path.join(debugDir, apks[0].name);
+  const fallback = path.join(apkDir, apks[0].name);
   console.warn(`未找到 v${version} 对应 APK，改用最新：${apks[0].name}`);
-  return { apkPath: fallback, version };
+  return { apkPath: fallback, version, release };
 }
 
 function ensureDeviceConnected(adb) {
@@ -260,21 +313,43 @@ function ensureDeviceConnected(adb) {
   }
 }
 
-function buildApk() {
-  console.log("\n▶ 编译 debug APK（cap:apk）…\n");
-  runNpmScript("run", ["cap:apk"], REPO_ROOT);
-  const { apkPath, version } = resolveApkPath();
-  console.log(`\n✓ 编译完成：v${version}`);
+function runGradleAssemble(variant) {
+  const gradlew = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
+  const result = spawnSync(gradlew, [`assemble${variant}`], {
+    cwd: ANDROID_DIR,
+    stdio: "inherit",
+    shell: process.platform === "win32",
+  });
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
+/** @param {boolean} release */
+function buildApk(release) {
+  if (release) {
+    ensureReleaseKeystore();
+    console.log("\n▶ 编译 release APK…\n");
+    runNpmScript("run", ["android:icons"], REPO_ROOT);
+    runNpmScript("run", ["cap:sync"], REPO_ROOT);
+    runGradleAssemble("Release");
+  } else {
+    console.log("\n▶ 编译 debug APK（cap:apk）…\n");
+    runNpmScript("run", ["cap:apk"], REPO_ROOT);
+  }
+
+  const { apkPath, version } = resolveApkPath(release);
+  console.log(`\n✓ 编译完成：v${version}（${release ? "release" : "debug"}）`);
   console.log(`  ${apkPath}\n`);
 }
 
-/** @param {boolean} launch */
-function installApk(launch) {
+/** @param {boolean} launch @param {boolean} release */
+function installApk(launch, release) {
   const adb = resolveAdb();
   ensureDeviceConnected(adb);
-  const { apkPath, version } = resolveApkPath();
+  const { apkPath, version } = resolveApkPath(release);
 
-  console.log(`\n▶ 安装 v${version} 到真机…\n  ${apkPath}\n`);
+  console.log(`\n▶ 安装 v${version}（${release ? "release" : "debug"}）到真机…\n  ${apkPath}\n`);
   runAdb(adb, ["install", "-r", apkPath], "安装");
 
   console.log("\n✓ 安装成功");
@@ -289,15 +364,15 @@ function installApk(launch) {
 }
 
 async function main() {
-  const { mode, launch } = await resolveRunOptions(parseArgs(process.argv.slice(2)));
+  const { mode, launch, release } = await resolveRunOptions(parseArgs(process.argv.slice(2)));
 
   if (mode === "build") {
-    buildApk();
+    buildApk(release);
   } else if (mode === "install") {
-    installApk(launch);
+    installApk(launch, release);
   } else {
-    buildApk();
-    installApk(launch);
+    buildApk(release);
+    installApk(launch, release);
   }
 }
 
