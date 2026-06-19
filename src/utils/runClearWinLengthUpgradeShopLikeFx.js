@@ -11,6 +11,7 @@ import {
 } from "../composables/useScoring.js";
 import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { bubbleAtShopPanel } from "../game/popupBubbleFx.js";
+import { createWobbleHighlightTimeline } from "../game/wobbleHighlightFx.js";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -21,8 +22,13 @@ function bubbleAt(targetEl, text, kind) {
 }
 
 function wobblePanelLikeScoreSlot(el, delayS = 0, speed = 1) {
-  if (!el || shouldSkipDecorativeMotion()) return;
+  if (!el) return;
   const s = Math.max(0.01, Number(speed) || 1);
+  if (shouldSkipDecorativeMotion()) {
+    const tl = createWobbleHighlightTimeline(el, { delayS });
+    if (tl) tl.timeScale(s);
+    return;
+  }
   gsap.killTweensOf(el, "rotation,scale,x,y");
   const tCompress = 0.11;
   const tExpand = 0.15;
@@ -46,9 +52,7 @@ async function runPanelWobbleAndBubble(panelEl, text, kind, speed = 1) {
   if (!panelEl) return;
   const s = Math.max(0.01, Number(speed) || 1);
   wobblePanelLikeScoreSlot(panelEl, 0, s);
-  if (!shouldSkipDecorativeMotion()) {
-    await sleep(Math.round(145 / s));
-  }
+  await sleep(Math.round(145 / s));
   bubbleAt(panelEl, text, kind);
 }
 
@@ -56,10 +60,6 @@ function popSettle(el, speed = 1) {
   if (!el) return;
   const s = Math.max(0.01, Number(speed) || 1);
   gsap.killTweensOf(el);
-  if (shouldSkipDecorativeMotion()) {
-    gsap.set(el, { transformOrigin: "50% 55%", scale: 1 });
-    return;
-  }
   gsap.set(el, { transformOrigin: "50% 55%", scale: 1.22 });
   gsap.to(el, { scale: 1, duration: 0.55 / s, ease: "expo.out" });
 }
@@ -70,11 +70,6 @@ function popSettle(el, speed = 1) {
  * @param {import('vue').Ref<number>} model.multValue
  */
 async function tweenResultValues(model, toScore, toMult, durationS = 0.44) {
-  if (shouldSkipDecorativeMotion()) {
-    model.scoreValue.value = Math.max(0, Math.round(toScore));
-    model.multValue.value = Math.max(0, Math.round(toMult));
-    return;
-  }
   const state = { s: model.scoreValue.value, m: model.multValue.value };
   await new Promise((resolve) => {
     gsap.to(state, {

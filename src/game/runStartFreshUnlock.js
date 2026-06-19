@@ -1,10 +1,17 @@
 import { normalizeRunDifficultyIndex, RUN_DIFFICULTY_COUNT } from "./runDifficultyDefinitions.js";
-import { getHighestDifficultyBeaten, isDifficultyUnlocked } from "./runDifficultyProgress.js";
 import {
+  getHighestDifficultyBeaten,
+  getLastSelectedDifficultyBrowseIndex,
+  isDifficultyUnlocked,
+  setLastSelectedDifficultyIndex,
+} from "./runDifficultyProgress.js";
+import {
+  getLastSelectedPresetId,
   getPresetIdAtBrowseIndex,
   getPresetIndexById,
   getUnlockedPresetCount,
   isPresetUnlocked,
+  setLastSelectedPresetId,
 } from "./runPresetProgress.js";
 import { normalizeRunPresetId } from "./runPresetDefinitions.js";
 
@@ -71,4 +78,30 @@ export function resolveRunStartDifficultyDraft(
     .filter((ix) => isDifficultyUnlocked(ix, career));
   if (fresh.length === 0) return fallback;
   return Math.max(...fresh);
+}
+
+/**
+ * 通关新解锁后，将生涯「上次选择」推进到新解锁项（回主菜单再开开局弹窗时仍能默认选中）。
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats} career
+ * @param {{ presetIds?: readonly string[], difficultyIndices?: readonly number[] }} fresh
+ */
+export function applyFreshUnlockCareerDefaults(career, fresh) {
+  const presetIds = fresh.presetIds ?? [];
+  const difficultyIndices = fresh.difficultyIndices ?? [];
+  if (presetIds.length) {
+    setLastSelectedPresetId(
+      career,
+      resolveRunStartPresetDraft(getLastSelectedPresetId(career), presetIds, career),
+    );
+  }
+  if (difficultyIndices.length) {
+    setLastSelectedDifficultyIndex(
+      career,
+      resolveRunStartDifficultyDraft(
+        getLastSelectedDifficultyBrowseIndex(career),
+        difficultyIndices,
+        career,
+      ),
+    );
+  }
 }

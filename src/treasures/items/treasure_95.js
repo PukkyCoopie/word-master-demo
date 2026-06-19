@@ -5,6 +5,7 @@ import {
   isLetterSubstitutableForMouth,
   letterSubstituteNeighborTrio,
 } from "../../game/vowelNeighborSubstitute.js";
+import { resolveLetterFromRaw } from "../../settings/letterQ.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
@@ -36,7 +37,7 @@ export const treasureHooks = {
           if (disp && card.vowelDisplayShift) {
             const sh = Math.sign(Number(card.vowelDisplayShift) || 0);
             const ch = sh < 0 ? (disp.prev ?? disp.self) : sh > 0 ? (disp.next ?? disp.self) : disp.self;
-            tile.letter = ch === "q" ? "Qu" : ch.toUpperCase();
+            tile.letter = resolveLetterFromRaw(ch);
           }
         }
       }

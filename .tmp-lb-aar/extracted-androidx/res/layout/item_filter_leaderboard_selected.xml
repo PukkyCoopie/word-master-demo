@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="48dp"
+    android:orientation="horizontal">
+
+    <!-- 选项名称 -->
+    <TextView
+        android:id="@+id/tvOptionName"
+        style="@style/tap_china_heading_14_r"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:layout_marginStart="32dp"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@drawable/selector_item_filter_leaderboard"
+        tools:text="一二三四五六七八九十" />
+
+    <!-- 这里使用ImageView代替RadioButton -->
+    <ImageView
+        android:id="@+id/radioButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:layout_marginStart="3dp"
+        android:layout_marginEnd="16dp"
+        android:src="@drawable/ic_selected" />
+
+</LinearLayout>

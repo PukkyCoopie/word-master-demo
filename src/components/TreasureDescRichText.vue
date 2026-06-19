@@ -10,6 +10,8 @@
 <script setup>
 import { computed } from "vue";
 import TreasureDescSegmentList from "./TreasureDescSegmentList.vue";
+import { applyLetterQCopyToDescSegments } from "../settings/letterQ.js";
+import { gameSettings } from "../settings/gameSettings.js";
 import {
   expandEffectTokensInDescription,
   injectLineBreaksBeforeParentheses,
@@ -30,8 +32,10 @@ const props = defineProps({
 });
 
 const segments = computed(() => {
+  void gameSettings.letterQMode;
   const norm = normalizeTreasureDescription(props.description);
-  const polished = props.polishTreasureCopy ? polishTreasureDescriptionSegments(norm) : norm;
+  const withLetterQ = applyLetterQCopyToDescSegments(norm);
+  const polished = props.polishTreasureCopy ? polishTreasureDescriptionSegments(withLetterQ) : withLetterQ;
   const expanded = expandEffectTokensInDescription(polished);
   const withProb = resolveDescriptionProbabilityDisplay(expanded, {
     probabilityDisplayDoubled: props.probabilityDisplayDoubled,

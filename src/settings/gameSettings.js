@@ -58,7 +58,46 @@ export function normalizeDisplayLayoutMode(value) {
   return inferDefaultDisplayLayoutMode();
 }
 
-/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; reduceMotion: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode }} */
+/** @typedef {'uppercase' | 'lowercase'} LetterCase */
+
+/** @typedef {'qu' | 'q'} LetterQMode */
+
+const LETTER_Q_MODE_IDS = new Set(["qu", "q"]);
+
+/** @param {unknown} value @returns {LetterQMode} */
+export function normalizeLetterQMode(value) {
+  const s = String(value ?? "");
+  return LETTER_Q_MODE_IDS.has(/** @type {LetterQMode} */ (s)) ? /** @type {LetterQMode} */ (s) : "qu";
+}
+
+const LETTER_CASE_IDS = new Set(["uppercase", "lowercase"]);
+
+/** @param {unknown} value @returns {LetterCase} */
+export function normalizeLetterCase(value) {
+  const s = String(value ?? "");
+  return LETTER_CASE_IDS.has(/** @type {LetterCase} */ (s)) ? /** @type {LetterCase} */ (s) : "uppercase";
+}
+
+/** @typedef {'off' | 'button' | 'definition'} WordDefinitionMode */
+
+/** @type {readonly { id: WordDefinitionMode; label: string }[]} */
+export const WORD_DEFINITION_MODE_OPTIONS = [
+  { id: "off", label: "关闭" },
+  { id: "button", label: "按钮" },
+  { id: "definition", label: "释义" },
+];
+
+const WORD_DEFINITION_MODE_IDS = new Set(WORD_DEFINITION_MODE_OPTIONS.map((o) => o.id));
+
+/** @param {unknown} value @returns {WordDefinitionMode} */
+export function normalizeWordDefinitionMode(value) {
+  const s = String(value ?? "");
+  return WORD_DEFINITION_MODE_IDS.has(/** @type {WordDefinitionMode} */ (s))
+    ? /** @type {WordDefinitionMode} */ (s)
+    : "definition";
+}
+
+/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; reduceMotion: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode }} */
 export const gameSettings = reactive({
   allowSpellingAbbreviations: false,
   uiScalePercent: UI_SCALE_DEFAULT,
@@ -68,6 +107,9 @@ export const gameSettings = reactive({
   reduceMotion: false,
   hapticsEnabled: true,
   displayLayoutMode: inferDefaultDisplayLayoutMode(),
+  wordDefinitionMode: "definition",
+  letterCase: "uppercase",
+  letterQMode: "qu",
 });
 
 /**
@@ -109,6 +151,15 @@ export function loadGameSettings() {
     if (parsed.displayLayoutMode != null) {
       gameSettings.displayLayoutMode = normalizeDisplayLayoutMode(parsed.displayLayoutMode);
     }
+    if (parsed.wordDefinitionMode != null) {
+      gameSettings.wordDefinitionMode = normalizeWordDefinitionMode(parsed.wordDefinitionMode);
+    }
+    if (parsed.letterCase != null) {
+      gameSettings.letterCase = normalizeLetterCase(parsed.letterCase);
+    }
+    if (parsed.letterQMode != null) {
+      gameSettings.letterQMode = normalizeLetterQMode(parsed.letterQMode);
+    }
   } catch {
     /* 损坏或不可读时沿用默认 */
   }
@@ -127,6 +178,9 @@ export function persistGameSettings() {
         reduceMotion: gameSettings.reduceMotion,
         hapticsEnabled: gameSettings.hapticsEnabled,
         displayLayoutMode: gameSettings.displayLayoutMode,
+        wordDefinitionMode: gameSettings.wordDefinitionMode,
+        letterCase: gameSettings.letterCase,
+        letterQMode: gameSettings.letterQMode,
       }),
     );
     void import("../save/cloudSave/cloudSaveSync.js").then(({ markCloudSyncDirty }) => {
@@ -241,6 +295,39 @@ export function getDisplayLayoutMode() {
 /** @param {DisplayLayoutMode} mode */
 export function setDisplayLayoutMode(mode) {
   gameSettings.displayLayoutMode = normalizeDisplayLayoutMode(mode);
+  persistGameSettings();
+}
+
+/** @returns {WordDefinitionMode} */
+export function getWordDefinitionMode() {
+  return normalizeWordDefinitionMode(gameSettings.wordDefinitionMode);
+}
+
+/** @param {WordDefinitionMode} mode */
+export function setWordDefinitionMode(mode) {
+  gameSettings.wordDefinitionMode = normalizeWordDefinitionMode(mode);
+  persistGameSettings();
+}
+
+/** @returns {LetterCase} */
+export function getLetterCase() {
+  return normalizeLetterCase(gameSettings.letterCase);
+}
+
+/** @param {LetterCase} caseMode */
+export function setLetterCase(caseMode) {
+  gameSettings.letterCase = normalizeLetterCase(caseMode);
+  persistGameSettings();
+}
+
+/** @returns {LetterQMode} */
+export function getLetterQMode() {
+  return normalizeLetterQMode(gameSettings.letterQMode);
+}
+
+/** @param {LetterQMode} mode */
+export function setLetterQMode(mode) {
+  gameSettings.letterQMode = normalizeLetterQMode(mode);
   persistGameSettings();
 }
 

@@ -5,9 +5,7 @@ const JKQ = new Set(["j", "k", "q"]);
 
 /** @param {{ letter?: string }} [part] */
 function isJkqLetterPart(part) {
-  const raw = String(part?.letter ?? "").toLowerCase();
-  const ch = raw === "qu" ? "q" : normalizeLetterChar(raw);
-  return JKQ.has(ch);
+  return JKQ.has(normalizeLetterChar(part?.letter));
 }
 
 /** @type {import('../treasureTypes.js').TreasureDef} */

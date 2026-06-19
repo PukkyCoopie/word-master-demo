@@ -318,7 +318,7 @@
     </div>
 
     <div class="shop-footer-panel">
-      <div class="treasure-slots-ctn shop-footer-treasure-row" aria-label="已拥有的宝藏">
+      <div ref="shopTreasureSlotsCtnRef" class="treasure-slots-ctn shop-footer-treasure-row" aria-label="已拥有的宝藏">
         <TransitionGroup
           name="treasure-slot-reorder"
           tag="div"
@@ -327,22 +327,40 @@
           <TreasureSlot
             v-for="(slot, i) in displayOwnedTreasures"
             :key="displayOwnedTreasureKeys[i]"
+            :slot-index="i"
             :treasure="slot"
             :gem-class="gemClassForTreasureRarity(slot?.rarity)"
             :charge-state="displayTreasureChargeBySlot[i]"
             :charge-progress="displayTreasureChargeProgressBySlot[i] ?? 0"
-            :slot-class="{
-              'treasure-slot--dragging': shopOwnedDragActive && i === shopOwnedDragCurrentIndex,
-            }"
-            draggable="true"
             :ref="(el) => setOwnedCellRef(i, el)"
-            @dragstart="onShopOwnedDragStart(i, $event)"
-            @dragover="onShopOwnedDragOver(i, $event)"
-            @drop="onShopOwnedDrop(i, $event)"
-            @dragend="onShopOwnedDragEnd"
+            @pointerdown="onShopOwnedSlotPointerDown(i, $event)"
             @click.stop="onSelectOwned(i, slot, $event)"
           />
         </TransitionGroup>
+        <div
+          v-if="shopOwnedDragGhostVisible"
+          class="treasure-drag-ghost"
+          :style="shopOwnedDragGhostStyle"
+        >
+          <TreasureSlot
+            :treasure="shopOwnedDragTreasure"
+            :gem-class="gemClassForTreasureRarity(shopOwnedDragTreasure?.rarity)"
+            :charge-state="shopOwnedDragChargeState"
+            :charge-progress="shopOwnedDragChargeProgress"
+          />
+        </div>
+        <div
+          v-if="shopOwnedDragPlaceholderVisible"
+          class="treasure-drag-placeholder"
+          :style="shopOwnedDragPlaceholderStyle"
+        >
+          <TreasureSlot
+            :treasure="shopOwnedDragTreasure"
+            :gem-class="gemClassForTreasureRarity(shopOwnedDragTreasure?.rarity)"
+            :charge-state="shopOwnedDragChargeState"
+            :charge-progress="shopOwnedDragChargeProgress"
+          />
+        </div>
       </div>
 
       <div class="shop-footer-actions" role="group" aria-label="选项、信息与牌库">
@@ -377,6 +395,7 @@
 
 <script setup>
 import { computed, ref, nextTick, watch } from "vue";
+import { useTreasureSlotReorder } from "../composables/useTreasureSlotReorder.js";
 import gsap from "gsap";
 import TileLetterShowcase from "./TileLetterShowcase.vue";
 import TreasureSlot from "./TreasureSlot.vue";
@@ -395,10 +414,12 @@ import {
 import { resolveUpgradePlaybackSpeed } from "../shop/randomUpgradeRoll.js";
 import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { bubbleAtShopPanel } from "../game/popupBubbleFx.js";
+import { createWobbleHighlightTimeline } from "../game/wobbleHighlightFx.js";
 import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
 import { buildShopOfferPriceView } from "../shop/shopOfferPriceDisplay.js";
 import { isSingleDigitLabel } from "./detailLayerFormatters.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
+import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { runVoucherShelfEnterPopAnim } from "../game/voucherShelfEnterAnim.js";
 import { resolveOfferFlyOriginEl } from "../game/offerFlyOrigin.js";
 
@@ -484,7 +505,7 @@ function deckOfferLetterTileBind(slot) {
   if (!p) {
     const raw = String(slot?.deckLetterRaw ?? "e").toLowerCase();
     return {
-      letter: raw === "q" ? "Qu" : raw.toUpperCase(),
+      letter: resolveLetterFromRaw(raw),
       rarity: slot?.letterRarity ?? slot?.rarity ?? "common",
       tileScoreBonus: 0,
       tileMultBonus: 0,
@@ -566,8 +587,13 @@ function bubbleAt(targetEl, text, kind) {
 }
 
 function wobblePanelLikeScoreSlot(el, delayS = 0, speed = 1) {
-  if (!el || shouldSkipDecorativeMotion()) return;
+  if (!el) return;
   const s = Math.max(0.01, Number(speed) || 1);
+  if (shouldSkipDecorativeMotion()) {
+    const tl = createWobbleHighlightTimeline(el, { delayS });
+    if (tl) tl.timeScale(s);
+    return;
+  }
   gsap.killTweensOf(el, "rotation,scale,x,y");
   const tCompress = 0.11;
   const tExpand = 0.15;
@@ -591,18 +617,11 @@ async function runPanelWobbleAndBubble(panelEl, text, kind, speed = 1) {
   if (!panelEl) return;
   const s = Math.max(0.01, Number(speed) || 1);
   wobblePanelLikeScoreSlot(panelEl, 0, s);
-  if (!shouldSkipDecorativeMotion()) {
-    await sleep(Math.round(145 / s));
-  }
+  await sleep(Math.round(145 / s));
   bubbleAt(panelEl, text, kind);
 }
 
 async function tweenResultValues(toScore, toMult, durationS = 0.44) {
-  if (shouldSkipDecorativeMotion()) {
-    shopResultScoreValue.value = Math.max(0, Math.round(toScore));
-    shopResultMultValue.value = Math.max(0, Math.round(toMult));
-    return;
-  }
   const state = { s: shopResultScoreValue.value, m: shopResultMultValue.value };
   await new Promise((resolve) => {
     gsap.to(state, {
@@ -625,10 +644,6 @@ function popSettle(el, speed = 1) {
   if (!el) return;
   const s = Math.max(0.01, Number(speed) || 1);
   gsap.killTweensOf(el);
-  if (shouldSkipDecorativeMotion()) {
-    gsap.set(el, { transformOrigin: "50% 55%", scale: 1 });
-    return;
-  }
   gsap.set(el, { transformOrigin: "50% 55%", scale: 1.22 });
   gsap.to(el, { scale: 1, duration: 0.55 / s, ease: "expo.out" });
 }
@@ -933,23 +948,29 @@ function onSelectOwned(index, treasure, e) {
   emit("select-owned", { index, treasure, originEl: e.currentTarget });
 }
 
-function swapArrayItems(list, a, b) {
-  if (!Array.isArray(list)) return list;
-  if (a < 0 || b < 0 || a >= list.length || b >= list.length) return list;
-  if (a === b) return list;
-  const next = [...list];
-  const t = next[a];
-  next[a] = next[b];
-  next[b] = t;
-  return next;
-}
-
-const shopOwnedDragActive = ref(false);
-const shopOwnedDragCurrentIndex = ref(-1);
-const shopOwnedDragMoved = ref(false);
-const shopOwnedDragDroppedInside = ref(false);
-const shopOwnedDragPreview = ref(null);
+const shopTreasureSlotsCtnRef = ref(null);
 const shopOwnedKeyOrder = ref(props.ownedTreasures.map((_, i) => `s-slot-${i}`));
+
+const {
+  dragActive: shopOwnedDragActive,
+  dragGhostVisible: shopOwnedDragGhostVisible,
+  dragPlaceholderVisible: shopOwnedDragPlaceholderVisible,
+  dragSourceIndex: shopOwnedDragSourceIndex,
+  dragMoved: shopOwnedDragMoved,
+  dragTreasure: shopOwnedDragTreasure,
+  dragGhostStyle: shopOwnedDragGhostStyle,
+  dragPlaceholderStyle: shopOwnedDragPlaceholderStyle,
+  displaySlots: displayOwnedTreasures,
+  displayKeys: displayOwnedTreasureKeys,
+  onSlotPointerDown: onShopOwnedSlotPointerDown,
+} = useTreasureSlotReorder({
+  getSourceSlots: () => props.ownedTreasures,
+  keyOrder: shopOwnedKeyOrder,
+  canDrag: () => !props.interactionsDisabled,
+  onCommit: (preview) => emit("reorder-owned", [...preview]),
+  getSlotElement: (i) => ownedCellEls[i] ?? null,
+  getOverlayContainer: () => shopTreasureSlotsCtnRef.value,
+});
 
 watch(
   () => props.ownedTreasures.length,
@@ -963,98 +984,24 @@ watch(
     }
   },
 );
-const shopOwnedDragKeySnapshot = ref(null);
-const shopOwnedDragPreviewCharge = ref(null);
-const shopOwnedDragPreviewProgress = ref(null);
 
-const displayOwnedTreasures = computed(() => shopOwnedDragPreview.value ?? props.ownedTreasures);
-const displayOwnedTreasureKeys = computed(() => {
-  return shopOwnedKeyOrder.value;
+const displayTreasureChargeBySlot = computed(() => props.treasureChargeBySlot);
+const displayTreasureChargeProgressBySlot = computed(() => props.treasureChargeProgressBySlot);
+
+const shopOwnedDragChargeState = computed(() => {
+  const treasure = shopOwnedDragTreasure.value;
+  if (!treasure?.treasureId) return null;
+  const idx = props.ownedTreasures.findIndex((s) => s?.treasureId === treasure.treasureId);
+  if (idx < 0) return null;
+  return displayTreasureChargeBySlot.value[idx] ?? null;
 });
-const displayTreasureChargeBySlot = computed(
-  () => shopOwnedDragPreviewCharge.value ?? props.treasureChargeBySlot,
-);
-const displayTreasureChargeProgressBySlot = computed(
-  () => shopOwnedDragPreviewProgress.value ?? props.treasureChargeProgressBySlot,
-);
-
-function onShopOwnedDragStart(index, e) {
-  if (props.interactionsDisabled) {
-    e.preventDefault();
-    return;
-  }
-  const slot = displayOwnedTreasures.value[index];
-  if (!slot) {
-    e.preventDefault();
-    return;
-  }
-  shopOwnedDragActive.value = true;
-  shopOwnedDragCurrentIndex.value = index;
-  shopOwnedDragMoved.value = false;
-  shopOwnedDragDroppedInside.value = false;
-  shopOwnedDragPreview.value = [...props.ownedTreasures];
-  shopOwnedDragKeySnapshot.value = [...shopOwnedKeyOrder.value];
-  shopOwnedDragPreviewCharge.value = [...props.treasureChargeBySlot];
-  shopOwnedDragPreviewProgress.value = [...props.treasureChargeProgressBySlot];
-  if (e.dataTransfer) {
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.dropEffect = "move";
-    try {
-      e.dataTransfer.setData("text/plain", String(index));
-    } catch {
-      // no-op
-    }
-  }
-}
-
-function onShopOwnedDragOver(index, e) {
-  if (props.interactionsDisabled) return;
-  if (!shopOwnedDragActive.value || !shopOwnedDragPreview.value) return;
-  e.preventDefault();
-  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-  const from = shopOwnedDragCurrentIndex.value;
-  if (index === from) return;
-  shopOwnedDragPreview.value = swapArrayItems(shopOwnedDragPreview.value, from, index);
-  shopOwnedKeyOrder.value = swapArrayItems(shopOwnedKeyOrder.value, from, index);
-  shopOwnedDragPreviewCharge.value = swapArrayItems(shopOwnedDragPreviewCharge.value, from, index);
-  shopOwnedDragPreviewProgress.value = swapArrayItems(shopOwnedDragPreviewProgress.value, from, index);
-  shopOwnedDragCurrentIndex.value = index;
-  shopOwnedDragMoved.value = true;
-}
-
-function onShopOwnedDrop(index, e) {
-  if (props.interactionsDisabled) return;
-  if (!shopOwnedDragActive.value || !shopOwnedDragPreview.value) return;
-  e.preventDefault();
-  const from = shopOwnedDragCurrentIndex.value;
-  if (index !== from) {
-    shopOwnedDragPreview.value = swapArrayItems(shopOwnedDragPreview.value, from, index);
-    shopOwnedKeyOrder.value = swapArrayItems(shopOwnedKeyOrder.value, from, index);
-    shopOwnedDragPreviewCharge.value = swapArrayItems(shopOwnedDragPreviewCharge.value, from, index);
-    shopOwnedDragPreviewProgress.value = swapArrayItems(shopOwnedDragPreviewProgress.value, from, index);
-    shopOwnedDragCurrentIndex.value = index;
-    shopOwnedDragMoved.value = true;
-  }
-  emit("reorder-owned", [...shopOwnedDragPreview.value]);
-  shopOwnedDragDroppedInside.value = true;
-}
-
-function onShopOwnedDragEnd() {
-  if (!shopOwnedDragActive.value) return;
-  if (!shopOwnedDragDroppedInside.value && shopOwnedDragKeySnapshot.value) {
-    shopOwnedKeyOrder.value = [...shopOwnedDragKeySnapshot.value];
-  }
-  shopOwnedDragActive.value = false;
-  shopOwnedDragCurrentIndex.value = -1;
-  shopOwnedDragDroppedInside.value = false;
-  shopOwnedDragPreview.value = null;
-  shopOwnedDragKeySnapshot.value = null;
-  shopOwnedDragPreviewCharge.value = null;
-  shopOwnedDragPreviewProgress.value = null;
-  setTimeout(() => {
-    shopOwnedDragMoved.value = false;
-  }, 0);
-}
+const shopOwnedDragChargeProgress = computed(() => {
+  const treasure = shopOwnedDragTreasure.value;
+  if (!treasure?.treasureId) return 0;
+  const idx = props.ownedTreasures.findIndex((s) => s?.treasureId === treasure.treasureId);
+  if (idx < 0) return 0;
+  return displayTreasureChargeProgressBySlot.value[idx] ?? 0;
+});
 
 /** 卷轴券生效：本轮信息按钮 wobble + 白色「-N大关」气泡 */
 async function playGlyphRoundInfoFx(text, speed = 1) {

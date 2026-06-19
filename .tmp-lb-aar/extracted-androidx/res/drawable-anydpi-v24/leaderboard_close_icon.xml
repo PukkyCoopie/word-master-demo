@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@color/tap_sdk_extension_dialog_white"
+        android:pathData="M12,0L12,0A12,12 0,0 1,24 12L24,12A12,12 0,0 1,12 24L12,24A12,12 0,0 1,0 12L0,12A12,12 0,0 1,12 0z" />
+    <path
+        android:fillColor="@color/tap_sdk_common_gray_08"
+        android:fillType="evenOdd"
+        android:pathData="M16.258,7.742C16.611,8.094 16.605,8.667 16.246,9.012L13.111,12.023L16.77,15.831C16.842,15.906 16.841,16.026 16.767,16.1C16.322,16.545 15.604,16.552 15.151,16.117L12,13.09L8.509,16.443C8.245,16.697 7.826,16.693 7.567,16.434C7.307,16.174 7.303,15.755 7.557,15.491L10.889,12.023L7.755,9.012C7.395,8.667 7.39,8.094 7.742,7.742C8.094,7.39 8.667,7.395 9.012,7.755L12,10.866L14.988,7.755C15.333,7.395 15.906,7.39 16.258,7.742Z" />
+</vector>

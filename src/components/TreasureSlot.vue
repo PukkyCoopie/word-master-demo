@@ -2,6 +2,7 @@
   <div
     ref="rootRef"
     class="treasure-slot"
+    :data-treasure-slot-index="slotIndex != null ? String(slotIndex) : undefined"
     :class="[
       slotClass,
       {
@@ -44,6 +45,8 @@ import { computed, ref } from "vue";
 import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
 
 const props = defineProps({
+  /** 槽位索引：供 pointer 拖动时 hit-test */
+  slotIndex: { type: Number, default: null },
   treasure: { type: Object, default: null },
   gemClass: { type: String, default: "gem-rare" },
   chargeState: { type: String, default: null },

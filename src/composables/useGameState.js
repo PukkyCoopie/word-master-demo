@@ -35,6 +35,9 @@ import { vowelDisplayLetter } from "../game/vowelNeighborSubstitute.js";
 import { resolvedWordToRemovalLetterRaws } from "../treasures/treasureLogicShared.js";
 import { normalizeExclusiveTileAccessoryPair } from "../accessories/accessoryState.js";
 import { VOWEL_DECK_COUNT } from "../game/initialDeckLetterCounts.js";
+import { gameSettings } from "../settings/gameSettings.js";
+import { formatTileLetterDisplay } from "../settings/letterCase.js";
+import { resolveLetterFromRaw } from "../settings/letterQ.js";
 
 const VOWEL_LETTERS = new Set(["a", "e", "i", "o", "u"]);
 
@@ -247,7 +250,7 @@ function emptyTile(idGen) {
 
 function createTileFromLetter(raw, idGen, rarityLevelsSnapshot = null) {
 
-  const letter = raw === "q" ? "Qu" : raw.toUpperCase();
+  const letter = resolveLetterFromRaw(raw);
 
   const rarity = getRarityForLetter(raw);
 
@@ -308,7 +311,7 @@ function createTileFromDeckCard(card, idGen, rarityLevelsSnapshot = null) {
     : card.rarity != null && String(card.rarity).trim() !== ""
       ? String(card.rarity)
       : getRarityForLetter(raw);
-  const letter = useWildcard ? WILDCARD_TILE_LETTER : raw === "q" ? "Qu" : String(raw).toUpperCase();
+  const letter = useWildcard ? WILDCARD_TILE_LETTER : resolveLetterFromRaw(raw);
   const baseScore = getBaseScoreForRarity(rarity, rarityLevelsSnapshot);
   const normalizedAccessory = normalizeExclusiveTileAccessoryPair(
     /** @type {{ accessoryId?: unknown }} */ (card).accessoryId,
@@ -516,6 +519,8 @@ export function useGameState(gameOpts = {}) {
    * `dimmed`：曾上场（`everLeftDrawPile`）——半透明。`count` 为全集张数；`inDrawPile` 为仍在抽牌堆可抽的张数。
    */
   const deckStacksView = computed(() => {
+    void gameSettings.letterCase;
+    void gameSettings.letterQMode;
     const snap = initialDeckSnapshot.value;
     const d = deck.value;
     const g = grid.value;
@@ -543,8 +548,9 @@ export function useGameState(gameOpts = {}) {
     /** @type {object[]} */
     const out = [];
     for (const raw of stackRaws) {
-      const displayLetter =
-        raw === "q" ? "Qu" : raw === WILDCARD_STACK_RAW ? "?" : String(raw).toUpperCase();
+      const displayLetter = formatTileLetterDisplay(
+        raw === WILDCARD_STACK_RAW ? "?" : resolveLetterFromRaw(raw),
+      );
       const cardsForRaw = cardsByRaw.get(raw) ?? [];
       const count = cardsForRaw.length;
       const isGhost = count <= 0;
@@ -885,6 +891,69 @@ export function useGameState(gameOpts = {}) {
 
     triggerRef(grid);
 
+  }
+
+  /** 从拼词区移除单个槽位（不影响其后的字母）；青铃锁位及之前不可移除 */
+  function removeSingleTileFromWord(slotIndex) {
+    const order = selectedOrder.value;
+    if (slotIndex < 0 || slotIndex >= order.length) return false;
+    if (ceruleanBellSlotIndex.value != null && slotIndex <= ceruleanBellSlotIndex.value) return false;
+
+    const { row, col } = order[slotIndex];
+    const g = grid.value;
+    const tile = g[row]?.[col];
+    if (!tile) return false;
+
+    tile.selected = false;
+    const next = [...order];
+    next.splice(slotIndex, 1);
+    selectedOrder.value = next;
+
+    const bell = ceruleanBellSlotIndex.value;
+    if (bell != null && slotIndex < bell) {
+      ceruleanBellSlotIndex.value = bell - 1;
+    }
+
+    triggerRef(grid);
+    return true;
+  }
+
+  /** 将棋盘格字母插入拼词区指定下标（含末尾 append） */
+  function insertSelectedTileAt(row, col, slotIndex) {
+    const g = grid.value;
+    const tile = g[row]?.[col];
+    if (!tile || tile.selected || tile.bossGridBlocked) return false;
+    if (tile.ceruleanBellLocked === true) return false;
+
+    const bell = ceruleanBellSlotIndex.value;
+    const clamped = Math.max(0, Math.min(selectedOrder.value.length, slotIndex));
+    if (bell != null && clamped <= bell) return false;
+
+    tile.selected = true;
+    const order = [...selectedOrder.value];
+    order.splice(clamped, 0, { row, col });
+    selectedOrder.value = order;
+
+    triggerRef(grid);
+    return true;
+  }
+
+  /** 拼词区内重排；青铃锁位及之前不可作为 from/to */
+  function reorderSelectedOrder(fromIndex, toIndex) {
+    const order = selectedOrder.value;
+    if (fromIndex < 0 || fromIndex >= order.length) return false;
+
+    const bell = ceruleanBellSlotIndex.value;
+    if (bell != null && (fromIndex <= bell || toIndex <= bell)) return false;
+
+    const clampedTo = Math.max(0, Math.min(order.length - 1, toIndex));
+    if (fromIndex === clampedTo) return false;
+
+    const next = [...order];
+    const [item] = next.splice(fromIndex, 1);
+    next.splice(clampedTo, 0, item);
+    selectedOrder.value = next;
+    return true;
   }
 
 
@@ -1991,6 +2060,12 @@ export function useGameState(gameOpts = {}) {
     selectTile,
 
     removeFromSlot,
+
+    removeSingleTileFromWord,
+
+    insertSelectedTileAt,
+
+    reorderSelectedOrder,
 
     clearCurrentWord,
 

@@ -6,6 +6,8 @@
 
  */
 
+import { resolveLetterFromRaw } from "../settings/letterQ.js";
+
 export const RARITY_BY_LETTER = {
 
   common: ["a", "d", "e", "g", "i", "l", "n", "o", "r", "s", "t", "u"],
@@ -600,7 +602,7 @@ export function withWildcardsResolvedForScoring(tiles, resolvedLower, rarityLeve
     if (!isWildcardMaterialTile(tile) || frag !== "?") return out;
     const ch = res[start];
     if (!ch || ch < "a" || ch > "z") return out;
-    const letter = ch === "q" ? "Qu" : ch.toUpperCase();
+    const letter = resolveLetterFromRaw(ch);
     const rarity = getRarityForLetter(ch);
     out.letter = letter;
     out.rarity = rarity;

@@ -7,6 +7,7 @@ import { buildSpellOfferPreviewFromId } from "../spells/spellReplayUi.js";
 import { buildCollectionUpgradePreview } from "./collectionUpgradeCatalog.js";
 import { getTreasureDef } from "../treasures/treasureRegistry.js";
 import { buildOwnedTreasureSlot } from "../treasures/ownedTreasureSlot.js";
+import { normalizeStoredTileLetter } from "../settings/letterQ.js";
 
 /** @type {() => number} */
 let previewOfferInstanceSeq = 0;
@@ -114,16 +115,19 @@ export function buildTileDetailPayloadFromCollectionSnapshot(tile) {
   if (!tile || typeof tile !== "object") return null;
   const isWc = tile.isWildcard === true;
   const rawLetter = String(tile.letter ?? "").trim();
+  const normalizeLetter = (s) => {
+    const t = String(s ?? "").trim();
+    if (!t) return "";
+    const lower = t.toLowerCase();
+    if (lower === "q" || lower === "qu") return normalizeStoredTileLetter(t);
+    return t.toUpperCase();
+  };
   const letter = isWc
     ? rawLetter && rawLetter !== "?"
-      ? rawLetter === "Qu" || rawLetter === "qu"
-        ? "Qu"
-        : rawLetter.toUpperCase()
+      ? normalizeLetter(rawLetter)
       : "?"
     : rawLetter
-      ? rawLetter === "Qu" || rawLetter === "qu"
-        ? "Qu"
-        : rawLetter.toUpperCase()
+      ? normalizeLetter(rawLetter)
       : "E";
   return {
     letter,

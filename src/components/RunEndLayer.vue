@@ -128,10 +128,10 @@ const bestWordShowLength = ref(false);
 /** @type {ReturnType<typeof setTimeout> | null} */
 let seedCopyResetTimer = null;
 
-const titleText = computed(() => (props.outcome === "win" ? "通关！" : "游戏结束"));
+const titleText = computed(() => (props.outcome === "win" ? "胜利！" : "游戏结束"));
 const subtitleText = computed(() => {
   if (props.outcome === "win") return "";
-  return "出牌次数已用尽，未能达到本关目标分";
+  return "拼写次数已用尽，未能达到本关目标分";
 });
 
 const bestWordLabel = computed(() =>

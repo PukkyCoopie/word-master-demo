@@ -100,6 +100,45 @@ export async function notifyOwnedTreasuresSuccessfulWordSubmit(ownedSlotTreasure
 }
 
 /**
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {import('./treasureTypes.js').TreasureWordDefinitionOpenContext} ctx
+ * @returns {Promise<boolean>} 是否被某宝藏拦截（不打开释义弹窗）
+ */
+export async function notifyOwnedTreasuresOnWordDefinitionOpenAttempt(ownedSlotTreasureIds, ctx) {
+  const seen = new Set();
+  for (const raw of ownedSlotTreasureIds ?? []) {
+    const tid = String(raw ?? "").trim();
+    if (!tid || seen.has(tid)) continue;
+    seen.add(tid);
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onWordDefinitionOpenAttempt;
+    if (!fn) continue;
+    const result = await fn({ ...ctx, ownedSlotTreasureIds: ownedSlotTreasureIds ?? [] });
+    if (result?.blocked) return true;
+  }
+  return false;
+}
+
+/**
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {import('./treasureTypes.js').TreasureWordDefinitionPresentationContext} ctx
+ * @returns {'button' | 'definition'}
+ */
+export function resolveWordDefinitionTriggerMode(ownedSlotTreasureIds, ctx) {
+  if (ctx.displayMode !== "definition") return "button";
+  const seen = new Set();
+  for (const raw of ownedSlotTreasureIds ?? []) {
+    const tid = String(raw ?? "").trim();
+    if (!tid || seen.has(tid)) continue;
+    seen.add(tid);
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.resolveWordDefinitionTriggerMode;
+    if (!fn) continue;
+    const result = fn({ ...ctx, ownedSlotTreasureIds: ownedSlotTreasureIds ?? [] });
+    if (result?.triggerMode === "button") return "button";
+  }
+  return "definition";
+}
+
+/**
  * 逐字母计分动画结束后、字后宝藏步开始前（同 id 多槽不重复）
  * @param {(string | null | undefined)[]} ownedSlotTreasureIds
  * @param {import('./treasureTypes.js').TreasureSubmitAfterLettersContext} ctx

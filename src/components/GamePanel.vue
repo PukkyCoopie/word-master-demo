@@ -289,7 +289,7 @@
           <div class="score-value">{{ formatNum(targetScore) }}</div>
         </div>
         <div class="score-card score-round">
-          <div class="score-label">回合分数</div>
+          <div class="score-label">关卡得分</div>
           <div class="score-value">{{ formatNum(roundScoreOverride ?? currentScore) }}</div>
         </div>
       </div>
@@ -340,30 +340,60 @@
     </div>
 
     <div class="middle-area">
-      <div class="middle-word-stack">
+      <div
+        class="middle-word-stack"
+        :class="{ 'middle-word-stack--definition-zone': wordDefinitionZoneVisible }"
+      >
         <div ref="wordSlotsWrapRef" class="word-slots-wrap">
-        <div ref="wordSlotsScaleRootRef" class="word-slots">
+        <div
+          ref="wordSlotsScaleRootRef"
+          class="word-slots"
+          :class="{ 'word-slots--dragging': tileDragActive }"
+        >
           <div
-            v-for="(entry, i) in wordSlotTilePresentations"
-            :key="`w-${entry.id}-${i}`"
+            v-for="(entry, i) in displayWordSlotPresentations"
+            :key="entry ? `w-${entry.id}` : wordSlotPlaceholderKey(i)"
             :ref="el => setWordSlotRef(i, el)"
             :class="[
               'word-slot-tile',
-              entry.letter === 'Qu' ? 'letter-qu' : '',
+              (isQuStyleTileLetter(entry?.letter) || (!entry && isQuStyleTileLetter(tileDragGhostPresentation?.letter)))
+                ? 'letter-qu'
+                : '',
               {
                 'word-slot-tile-out': isSlotOutOfFlow(i),
-                'word-slot-scoring-highlight': scoringLetterIndex === i,
-                'word-slot-tile--boss-debuff': !!entry.bossTileDebuffed,
+                'word-slot-tile--drag-preview-empty': !entry,
+                'word-slot-scoring-highlight': entry && scoringLetterIndex === i,
+                'word-slot-tile--boss-debuff': !!entry?.bossTileDebuffed
+                  || (!!tileDragGhostPresentation?.bossTileDebuffed && !entry),
               },
             ]"
-            @click="onSlotClick(i)"
-            @contextmenu.prevent.stop="onWordSlotContextMenu($event, i)"
-            @pointerdown="onWordSlotDetailPointerDown($event, i)"
+            @click="entry && onSlotClick(i)"
+            @contextmenu.prevent.stop="entry && onWordSlotContextMenu($event, i)"
+            @pointerdown="entry && onWordSlotCombinedPointerDown($event, i)"
             @pointerup="onWordSlotPointerUp($event, i)"
             @pointercancel="onTilePointerCancel($event)"
           >
             <div class="word-slot-placeholder" aria-hidden="true"></div>
             <LetterTile
+              v-if="!entry && tileDragActive && tileDragGhostPresentation"
+              variant="wordSlotContent"
+              class="word-slot-drag-placeholder"
+              :class="{ 'player-marked': tileDragGhostPresentation.playerMarked === true }"
+              :letter="tileDragGhostPresentation.letter"
+              :rarity="tileDragGhostPresentation.rarity"
+              :material-id="tileDragGhostPresentation.materialId ?? null"
+              :accessory-id="tileDragGhostPresentation.accessoryId ?? null"
+              :treasure-accessory-id="tileDragGhostPresentation.treasureAccessoryId ?? null"
+              :tile-score-bonus="Number(tileDragGhostPresentation.tileScoreBonus) || 0"
+              :tile-mult-bonus="Number(tileDragGhostPresentation.letterMultBonus) || 0"
+              :material-animate="false"
+              :boss-tile-debuffed="!!tileDragGhostPresentation.bossTileDebuffed"
+              :cerulean-bell-locked="tileDragGhostPresentation.ceruleanBellLocked === true"
+              :vowel-ghost-prev="tileDragGhostPresentation.vowelGhostPrev ?? null"
+              :vowel-ghost-next="tileDragGhostPresentation.vowelGhostNext ?? null"
+            />
+            <LetterTile
+              v-else-if="entry"
               variant="wordSlotContent"
               :class="{ 'player-marked': entry.playerMarked === true }"
               :letter="entry.letter"
@@ -382,6 +412,16 @@
             />
           </div>
         </div>
+        </div>
+        <div class="word-definition-trigger-wrap">
+          <WordDefinitionTrigger
+            :visible="showWordDefinitionTrigger"
+            :mode="wordDefinitionTriggerMode"
+            :word="wordDefinitionPreviewWord"
+            :preview-line="wordDefinitionPreviewLine"
+            :extra-count="wordDefinitionExtraCount"
+            @open="openWordDefinitionLayer"
+          />
         </div>
         <div
           v-if="SHOW_SUBMIT_TRANSLATION"
@@ -406,7 +446,7 @@
     </div>
 
     <div class="bottom-area">
-      <div class="treasure-slots-ctn" aria-label="宝藏槽位">
+      <div ref="gameTreasureSlotsCtnRef" class="treasure-slots-ctn" aria-label="宝藏槽位">
         <TransitionGroup
           name="treasure-slot-reorder"
           tag="div"
@@ -416,6 +456,7 @@
             v-for="(slot, i) in displayOwnedTreasures"
             :key="displayOwnedTreasureKeys[i]"
             :ref="(el) => setGameTreasureSlotRef(i, el)"
+            :slot-index="i"
             :treasure="slot"
             :gem-class="treasureGemClass(slot?.rarity)"
             :charge-state="displayTreasureChargeVisualBySlot[i]"
@@ -424,16 +465,39 @@
             :crimson-hand-disabled="isCrimsonBossMechanicsActive && scoringAnimating && crimsonTreasureDisabledSlotIndex === i"
             :slot-class="{
               'treasure-slot--scoring-highlight': scoringTreasureBarIndex === i,
-              'treasure-slot--dragging': gameOwnedDragActive && i === gameOwnedDragCurrentIndex,
             }"
-            draggable="true"
-            @dragstart="onGameOwnedDragStart(i, $event)"
-            @dragover="onGameOwnedDragOver(i, $event)"
-            @drop="onGameOwnedDrop(i, $event)"
-            @dragend="onGameOwnedDragEnd"
+            @pointerdown="onGameOwnedSlotPointerDown(i, $event)"
             @click="onGameOwnedSlotClick(i, slot, $event)"
           />
         </TransitionGroup>
+        <div
+          v-if="gameOwnedDragGhostVisible"
+          class="treasure-drag-ghost"
+          :style="gameOwnedDragGhostStyle"
+        >
+          <TreasureSlot
+            :treasure="gameOwnedDragTreasure"
+            :gem-class="treasureGemClass(gameOwnedDragTreasure?.rarity)"
+            :charge-state="gameOwnedDragChargeState"
+            :charge-progress="gameOwnedDragChargeProgress"
+            :amber-boss-mask="isAmberBossMaskActive"
+            :crimson-hand-disabled="isCrimsonBossMechanicsActive && scoringAnimating && crimsonTreasureDisabledSlotIndex === gameOwnedDragSourceIndex"
+          />
+        </div>
+        <div
+          v-if="gameOwnedDragPlaceholderVisible"
+          class="treasure-drag-placeholder"
+          :style="gameOwnedDragPlaceholderStyle"
+        >
+          <TreasureSlot
+            :treasure="gameOwnedDragTreasure"
+            :gem-class="treasureGemClass(gameOwnedDragTreasure?.rarity)"
+            :charge-state="gameOwnedDragChargeState"
+            :charge-progress="gameOwnedDragChargeProgress"
+            :amber-boss-mask="isAmberBossMaskActive"
+            :crimson-hand-disabled="isCrimsonBossMechanicsActive && scoringAnimating && crimsonTreasureDisabledSlotIndex === gameOwnedDragSourceIndex"
+          />
+        </div>
       </div>
       <div class="bottom-bar">
         <div class="side-buttons">
@@ -459,46 +523,87 @@
           </button>
         </div>
         <div class="letter-grid-area">
-          <div class="letter-grid-wrap">
-            <div ref="letterGridRef" class="letter-grid" :class="{ 'letter-grid--pre-intro': !gridIntroDone, 'letter-grid--manacle': isManacleBossGrid }">
+          <div ref="letterGridWrapRef" class="letter-grid-wrap">
+            <div
+              ref="letterGridRef"
+              class="letter-grid"
+              :class="{
+                'letter-grid--pre-intro': !gridIntroDone,
+                'letter-grid--manacle': isManacleBossGrid,
+                'letter-grid--dragging': tileDragActive,
+              }"
+            >
             <template v-for="(tile, index) in flatGrid" :key="tile ? tile.id : `void-${index}`">
-              <LetterTile
+              <div
                 v-if="tile"
-                v-memo="gridTileRenderMemoDeps(tile, index)"
-                variant="grid"
-                :letter="gridTileLetterForRender.get(tile.id) ?? tile.letter"
-                :rarity="gridTileRarityForRender.get(tile.id) ?? tile.rarity"
-                :material-id="tile.materialId ?? null"
-                :accessory-id="tile.accessoryId ?? null"
-                :treasure-accessory-id="tile.treasureAccessoryId ?? null"
-                :tile-score-bonus="Number(tile.tileScoreBonus) || 0"
-                :tile-mult-bonus="Number(tile.letterMultBonus) || 0"
-                :material-animate="
-                  !isGridTilePlaceholder(Math.floor(index / COLS), index % COLS, tile)
-                "
-                :boss-grid-blocked="tile.bossGridBlocked === true"
-                :boss-tile-debuffed="tile.bossTileDebuffed === true"
-                :cerulean-bell-locked="tile.ceruleanBellLocked === true"
-                :vowel-ghost-prev="gridTileVowelGhostForRender.get(tile.id)?.prev ?? null"
-                :vowel-ghost-next="gridTileVowelGhostForRender.get(tile.id)?.next ?? null"
-                :ref="el => setGridTileRef(index, el)"
+                class="letter-grid-cell"
                 :class="{
-                  selected: tile.selected,
-                  'tile-flying': isTileFlying(Math.floor(index / COLS), index % COLS),
-                  'player-marked': tile.playerMarked === true,
+                  'letter-grid-cell--placeholder': isGridTilePlaceholder(
+                    Math.floor(index / COLS),
+                    index % COLS,
+                    tile,
+                  ),
                 }"
-                role="button"
-                tabindex="0"
-                @click="onTileClick(Math.floor(index / COLS), index % COLS, tile)"
-                @contextmenu.prevent.stop="
-                  onGridTileContextMenu($event, Math.floor(index / COLS), index % COLS, tile)
-                "
-                @pointerdown="onGridTileDetailPointerDown($event, Math.floor(index / COLS), index % COLS, tile)"
-                @pointerup="onGridTilePointerUp($event, Math.floor(index / COLS), index % COLS, tile)"
-                @pointercancel="onTilePointerCancel($event)"
-              />
+              >
+                <LetterTile
+                  v-memo="gridTileRenderMemoDeps(tile, index)"
+                  variant="grid"
+                  :letter="gridTileLetterForRender.get(tile.id) ?? tile.letter"
+                  :rarity="gridTileRarityForRender.get(tile.id) ?? tile.rarity"
+                  :material-id="tile.materialId ?? null"
+                  :accessory-id="tile.accessoryId ?? null"
+                  :treasure-accessory-id="tile.treasureAccessoryId ?? null"
+                  :tile-score-bonus="Number(tile.tileScoreBonus) || 0"
+                  :tile-mult-bonus="Number(tile.letterMultBonus) || 0"
+                  :material-animate="
+                    !isGridTilePlaceholder(Math.floor(index / COLS), index % COLS, tile)
+                  "
+                  :boss-grid-blocked="tile.bossGridBlocked === true"
+                  :boss-tile-debuffed="tile.bossTileDebuffed === true"
+                  :cerulean-bell-locked="tile.ceruleanBellLocked === true"
+                  :vowel-ghost-prev="gridTileVowelGhostForRender.get(tile.id)?.prev ?? null"
+                  :vowel-ghost-next="gridTileVowelGhostForRender.get(tile.id)?.next ?? null"
+                  :ref="el => setGridTileRef(index, el)"
+                  :class="{
+                    selected: tile.selected,
+                    'tile-flying': isTileFlying(Math.floor(index / COLS), index % COLS),
+                    'player-marked': tile.playerMarked === true,
+                  }"
+                  role="button"
+                  tabindex="0"
+                  @click="onTileClick(Math.floor(index / COLS), index % COLS, tile)"
+                  @contextmenu.prevent.stop="
+                    onGridTileContextMenu($event, Math.floor(index / COLS), index % COLS, tile)
+                  "
+                  @pointerdown="onGridTileCombinedPointerDown($event, Math.floor(index / COLS), index % COLS, tile)"
+                  @pointerup="onGridTilePointerUp($event, Math.floor(index / COLS), index % COLS, tile)"
+                  @pointercancel="onTilePointerCancel($event)"
+                />
+              </div>
               <div v-else class="letter-grid-cell--void" aria-hidden="true" />
             </template>
+          </div>
+          <div
+            v-if="tileDragGridPlaceholderVisible"
+            class="tile-drag-grid-placeholder"
+            :style="tileDragGridPlaceholderStyle"
+          >
+            <LetterTile
+              v-if="tileDragGhostPresentation"
+              variant="grid"
+              :letter="tileDragGhostPresentation.letter"
+              :rarity="tileDragGhostPresentation.rarity"
+              :material-id="tileDragGhostPresentation.materialId ?? null"
+              :accessory-id="tileDragGhostPresentation.accessoryId ?? null"
+              :treasure-accessory-id="tileDragGhostPresentation.treasureAccessoryId ?? null"
+              :tile-score-bonus="Number(tileDragGhostPresentation.tileScoreBonus) || 0"
+              :tile-mult-bonus="Number(tileDragGhostPresentation.letterMultBonus) || 0"
+              :material-animate="false"
+              :boss-tile-debuffed="!!tileDragGhostPresentation.bossTileDebuffed"
+              :cerulean-bell-locked="tileDragGhostPresentation.ceruleanBellLocked === true"
+              :vowel-ghost-prev="tileDragGhostPresentation.vowelGhostPrev ?? null"
+              :vowel-ghost-next="tileDragGhostPresentation.vowelGhostNext ?? null"
+            />
           </div>
         </div>
         <div class="grid-deck-aux-row">
@@ -605,6 +710,27 @@
 
     <!-- 飞字挂到 body，避免受 .game-scaler 的 transform:scale 影响，getBoundingClientRect 与 position:fixed 坐标系一致 -->
     <Teleport to="body">
+      <div
+        v-if="tileDragGhostVisible && tileDragGhostPresentation"
+        class="tile-drag-ghost"
+        :style="tileDragGhostStyle"
+      >
+        <LetterTile
+          variant="fly"
+          :class="{ 'player-marked': tileDragGhostPresentation.playerMarked === true }"
+          :letter="tileDragGhostPresentation.letter"
+          :rarity="tileDragGhostPresentation.rarity"
+          :material-id="tileDragGhostPresentation.materialId ?? null"
+          :accessory-id="tileDragGhostPresentation.accessoryId ?? null"
+          :treasure-accessory-id="tileDragGhostPresentation.treasureAccessoryId ?? null"
+          :tile-score-bonus="Number(tileDragGhostPresentation.tileScoreBonus) || 0"
+          :tile-mult-bonus="Number(tileDragGhostPresentation.letterMultBonus) || 0"
+          :boss-tile-debuffed="!!tileDragGhostPresentation.bossTileDebuffed"
+          :cerulean-bell-locked="tileDragGhostPresentation.ceruleanBellLocked === true"
+          :vowel-ghost-prev="tileDragGhostPresentation.vowelGhostPrev ?? null"
+          :vowel-ghost-next="tileDragGhostPresentation.vowelGhostNext ?? null"
+        />
+      </div>
       <!-- v-memo：列表追加时不要用新 :style 对象去重绘已在飞的项，否则会写回 fromRect 顶掉 GSAP 的 left/top（快速连点闪烁） -->
       <LetterTile
         v-for="fly in flyingLettersForRender"
@@ -754,6 +880,13 @@
       />
       </Transition>
     </Teleport>
+
+    <WordDefinitionLayer
+      :open="wordDefinitionLayerOpen"
+      :word="wordDefinitionPreviewWord"
+      :lines="wordDefinitionPreviewLines"
+      @close="closeWordDefinitionLayer"
+    />
   </div>
 </template>
 
@@ -761,8 +894,10 @@
 /**
  * 动画约定：位移/尺寸/缩放/旋转统一 EASE_TRANSFORM（expo.out），见 src/constants.js 与 .cursor/rules/animation-easing.mdc
  */
-import { computed, inject, ref, watch, onMounted, onUnmounted, nextTick } from "vue";
+import { computed, inject, ref, shallowRef, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { useViewportLayoutMode } from "../composables/useViewportLayoutMode.js";
+import { useTreasureSlotReorder } from "../composables/useTreasureSlotReorder.js";
+import { useTileDrag, buildInsertDragPreviewSlots } from "../composables/useTileDrag.js";
 import gsap from "gsap";
 import {
   EASE_TRANSFORM,
@@ -789,6 +924,8 @@ import {
   notifyOwnedTreasuresOnTreasureSold,
   notifyOwnedTreasuresOnShopLeave,
   notifyOwnedTreasuresOnBossRestrictionTriggered,
+  notifyOwnedTreasuresOnWordDefinitionOpenAttempt,
+  resolveWordDefinitionTriggerMode,
   notifyOwnedTreasuresOnDeckCardsAdded,
   notifyOwnedTreasuresOnDeckCardsRemoved,
   sumTreasureHandsPerLevelDelta,
@@ -1095,8 +1232,10 @@ import { buildOwnedTreasureSlot, computeOwnedTreasureSellRefund } from "../treas
 import DifficultyPill from "./DifficultyPill.vue";
 import {
   clampRemainingWordsForBossMechanics,
+  clampRemainingRemovalsForBossMechanics,
   getBaseHandsPerLevel,
   getBaseRemovalsPerLevel,
+  getRemovalsForWaterBoss,
   getSubmitHandsForNeedleBoss,
   getEconomyInterestCap,
   getEffectiveShopRerollCost,
@@ -1116,11 +1255,16 @@ import {
 import { useDictionary } from "../composables/useDictionary";
 import { formatDictionaryLoadErrorForPlayer } from "../dictionary/dictionaryBootErrorCopy.js";
 import {
+  buildWordDefinitionPreview,
+  parseTranslationLines,
+} from "../dictionary/parseTranslationLines.js";
+import {
   gameSettings,
   getMarkOnSwap,
   getSwapButtonMode,
   getSwapGridPickCount,
 } from "../settings/gameSettings.js";
+import { isQuStyleTileLetter, resolveLetterFromRaw } from "../settings/letterQ.js";
 import {
   getBaseScoreForRarity,
   getWordLengthScoreForTableLen,
@@ -1163,6 +1307,8 @@ import { runInGameRarityUpgradeShopLikeFx } from "../utils/runInGameRarityUpgrad
 import { runTreasureGrantPopAnim } from "../game/treasureGrantPopAnim.js";
 import LetterTile from "./LetterTile.vue";
 import InfoModal from "./InfoModal.vue";
+import WordDefinitionTrigger from "./WordDefinitionTrigger.vue";
+import WordDefinitionLayer from "./WordDefinitionLayer.vue";
 import ShopPanel from "./ShopPanel.vue";
 import PackPickLayer from "./PackPickLayer.vue";
 import TreasureDetailLayer from "./TreasureDetailLayer.vue";
@@ -1195,20 +1341,31 @@ import {
   scoringSleep,
 } from "../game/submitScoringTiming.js";
 import { animSleep, runStaggeredInstantLeave, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
+import { createWobbleHighlightTimeline } from "../game/wobbleHighlightFx.js";
 import { enterGamePause, exitGamePause, isGamePaused, pauseAwareDelay, resetGamePause } from "../game/gamePause.js";
 import {
   schedulePopupBubbleDismiss,
-  setPopupBubbleVisibleInstant,
 } from "../game/popupBubbleFx.js";
 import { isE2eMode } from "../e2e/isE2eMode.js";
 import { BACKDROP_SELF_CLOSE_GUARD_MS } from "../game/backdropSelfCloseGuard.js";
 import { registerGameTestHarness } from "../e2e/registerGameTestHarness.js";
 import { computeWordScore } from "../composables/useScoring.js";
 import {
+  applyIceMaterialToAllDeckCards,
+  applyIceMaterialToAllGridTiles,
+  isAllIceDevScenario,
+} from "../dev/allIceDevScenario.js";
+import {
   applyMaskBubbleOwnedTreasures,
   applyRandomBLettersToGrid,
   isMaskBubbleDevScenario,
 } from "../dev/maskBubbleBlueprintScenario.js";
+import {
+  CERULEAN_BELL_BOSS_SLUG,
+  CHAPTER_1_BOSS_LEVEL_INDEX,
+  isCeruleanBellDevScenario,
+} from "../dev/ceruleanBellDevScenario.js";
+import { applyPagerOwnedTreasure, isPagerDevScenario } from "../dev/pagerDevScenario.js";
 import { applyRandomMaterialsToGridTilesWithoutMaterial } from "../dev/randomizeGridTileMaterials.js";
 
 /** 提交时是否展示词典释义；暂时关闭，后续可改回 true 恢复 */
@@ -1392,6 +1549,12 @@ const verdantTreasureSold = ref(false);
 const ownedTreasures = ref([null, null, null, null, null]);
 /** 开发：面具+泡泡蓝图镜像手动测试（`?dev=maskBubble` 或控制台命令） */
 const maskBubbleDevScenarioActive = ref(isMaskBubbleDevScenario());
+/** 开发：开局全碎冰块（`?dev=allIce` 或控制台命令） */
+const allIceDevScenarioActive = ref(isAllIceDevScenario());
+/** 开发：第一大关 Boss 关 1-3 固定青铃（`?dev=ceruleanBell` 或控制台命令） */
+const ceruleanBellDevScenarioActive = ref(isCeruleanBellDevScenario());
+/** 开发：开局槽位 1 为寻呼机（`?dev=pager` 或控制台命令） */
+const pagerDevScenarioActive = ref(isPagerDevScenario());
 
 function ownedSlotTreasureIdListEarly() {
   return ownedTreasures.value.map((s) => s?.treasureId ?? null);
@@ -1421,6 +1584,9 @@ const {
   selectedTiles,
   selectTile,
   removeFromSlot,
+  removeSingleTileFromWord,
+  insertSelectedTileAt,
+  reorderSelectedOrder,
   clearCurrentWord,
   setLastWordFromSubmit,
   applySubmitRefill,
@@ -1687,7 +1853,7 @@ function buildLevelResetRunOpts(levelDef) {
     getPresetRemovalsPerLevelDelta(runPresetId.value) +
     getDifficultyRemovalsDelta(runDifficultyIndex.value) +
     sumTreasureRemovalsPerLevelDelta(ownedSlotTreasureIdListEarly());
-  if (mechSlug === "the_water") rem = 0;
+  if (mechSlug === "the_water") rem = getRemovalsForWaterBoss(rem);
   let hands =
     getBaseHandsPerLevel(ownedVoucherIds.value) +
     getPresetHandsPerLevelDelta(runPresetId.value) +
@@ -1712,6 +1878,11 @@ function buildLevelResetRunOpts(levelDef) {
       applyBossPostGridBuild(g, mechSlug);
       if (maskBubbleDevScenarioActive.value) {
         applyRandomBLettersToGrid(g, ROWS, COLS, runRandom, 2);
+      }
+      if (allIceDevScenarioActive.value) {
+        applyIceMaterialToAllGridTiles(g, ROWS, COLS);
+        applyIceMaterialToAllDeckCards(initialDeckSnapshot.value);
+        applyIceMaterialToAllDeckCards(deck.value);
       }
     },
   };
@@ -3450,9 +3621,7 @@ const treasureChargeProgressBySlot = computed(() => {
   );
 });
 
-const gameOwnedDragPreview = ref(/** @type {(Array<object | null>) | null} */ (null));
 const gameOwnedKeyOrder = ref(ownedTreasures.value.map((_, i) => `g-slot-${i}`));
-const gameOwnedDragKeySnapshot = ref(/** @type {(string[]) | null} */ (null));
 
 function syncOwnedTreasureSlots() {
   const arr = ownedTreasures.value;
@@ -3489,15 +3658,50 @@ watch(
   },
   { deep: true },
 );
-const gameOwnedDragActive = ref(false);
-const gameOwnedDragCurrentIndex = ref(-1);
-const gameOwnedDragMoved = ref(false);
-const gameOwnedDragDroppedInside = ref(false);
-
-const displayOwnedTreasures = computed(() => gameOwnedDragPreview.value ?? ownedTreasures.value);
-const displayOwnedTreasureKeys = computed(() => {
-  return gameOwnedKeyOrder.value;
+const gameTreasureSlotsCtnRef = ref(null);
+const {
+  dragActive: gameOwnedDragActive,
+  dragGhostVisible: gameOwnedDragGhostVisible,
+  dragPlaceholderVisible: gameOwnedDragPlaceholderVisible,
+  dragSourceIndex: gameOwnedDragSourceIndex,
+  dragMoved: gameOwnedDragMoved,
+  dragTreasure: gameOwnedDragTreasure,
+  dragGhostStyle: gameOwnedDragGhostStyle,
+  dragPlaceholderStyle: gameOwnedDragPlaceholderStyle,
+  displaySlots: displayOwnedTreasures,
+  displayKeys: displayOwnedTreasureKeys,
+  onSlotPointerDown: onGameOwnedSlotPointerDown,
+} = useTreasureSlotReorder({
+  getSourceSlots: () => ownedTreasures.value,
+  keyOrder: gameOwnedKeyOrder,
+  canDrag: () => !transitionBusy.value && !showShop.value && !isRunFlowOverlayOpen(),
+  onCommit: (preview) => {
+    ownedTreasures.value = [...preview];
+    scheduleRunAutoSave();
+  },
+  getSlotElement: (i) => gameTreasureSlotRefs[i] ?? null,
+  getOverlayContainer: () => gameTreasureSlotsCtnRef.value,
 });
+
+const gameOwnedDragChargeState = computed(() => {
+  const treasure = gameOwnedDragTreasure.value;
+  if (!treasure?.treasureId) return null;
+  return resolveTreasureChargeVisualState(
+    treasure.treasureId,
+    basketballWordsSubmitted.value,
+    treasureRunState.value,
+  );
+});
+const gameOwnedDragChargeProgress = computed(() => {
+  const treasure = gameOwnedDragTreasure.value;
+  if (!treasure?.treasureId) return 0;
+  return resolveTreasureChargeProgress(
+    treasure.treasureId,
+    basketballWordsSubmitted.value,
+    treasureRunState.value,
+  );
+});
+
 const displayTreasureChargeVisualBySlot = computed(() => {
   const run = treasureRunState.value;
   return displayOwnedTreasures.value.map((s) =>
@@ -3854,7 +4058,11 @@ function treasureVoucherExtraSlots() {
 }
 
 function addRemainingRemovalsClamped(n) {
-  remainingRemovals.value = Math.max(0, remainingRemovals.value + Math.floor(Number(n) || 0));
+  const next = remainingRemovals.value + Math.floor(Number(n) || 0);
+  remainingRemovals.value = clampRemainingRemovalsForBossMechanics(
+    next,
+    bossSlugForMechanics(),
+  );
 }
 
 function applyTreasureAcquireImmediateEffectsForRun(treasureId) {
@@ -4189,11 +4397,80 @@ function randomizeGridTileMaterialsDev() {
   return result;
 }
 
+/** 开发：重置当前关，棋盘与牌库牌张全部为碎冰块 */
+async function startAllIceDevTest() {
+  allIceDevScenarioActive.value = true;
+  const levelDef = currentLevel.value ?? getRunLevelAtIndex(levelIndex.value);
+  await resetLevelAfterTreasurePrep(levelDef);
+  await nextTick();
+  gridIntroDone.value = true;
+  gridRefillAnimating.value = false;
+  for (let i = 0; i < ROWS * COLS; i++) {
+    const el = gridTileRefs.value[i];
+    if (el) gsap.set(el, { x: 0, y: 0, opacity: 1 });
+  }
+  touchGrid();
+  updateSlotPositions(true);
+  scheduleRunAutoSave();
+  console.log("[DEV] 全碎冰测试局：棋盘与牌库牌张均已设为碎冰块。");
+}
+
+function applyCeruleanBellDevRunStart() {
+  levelIndex.value = CHAPTER_1_BOSS_LEVEL_INDEX;
+  pendingBossSlugOverride.value = CERULEAN_BELL_BOSS_SLUG;
+}
+
+/** 开发：重置当前关，槽位 1 为寻呼机 */
+async function startPagerDevTest() {
+  pagerDevScenarioActive.value = true;
+  applyPagerOwnedTreasure(ownedTreasures, buildOwnedTreasureSlot);
+  const levelDef = currentLevel.value ?? getRunLevelAtIndex(levelIndex.value);
+  await resetLevelAfterTreasurePrep(levelDef);
+  await nextTick();
+  gridIntroDone.value = true;
+  gridRefillAnimating.value = false;
+  for (let i = 0; i < ROWS * COLS; i++) {
+    const el = gridTileRefs.value[i];
+    if (el) gsap.set(el, { x: 0, y: 0, opacity: 1 });
+  }
+  touchGrid();
+  updateSlotPositions(true);
+  scheduleRunAutoSave();
+  console.log("[DEV] 寻呼机测试局：槽位 1 已装备寻呼机。提交单词触发翻译测验。");
+}
+
+/** 开发：跳至 1-3 并重置为青铃 Boss 关 */
+async function startCeruleanBellDevTest() {
+  ceruleanBellDevScenarioActive.value = true;
+  applyCeruleanBellDevRunStart();
+  const levelDef = getRunLevelAtIndex(levelIndex.value);
+  await resetLevelAfterTreasurePrep(levelDef);
+  await nextTick();
+  if (isE2eMode()) {
+    gridIntroDone.value = true;
+    gridRefillAnimating.value = false;
+    for (let i = 0; i < ROWS * COLS; i++) {
+      const el = gridTileRefs.value[i];
+      if (el) gsap.set(el, { x: 0, y: 0, opacity: 1 });
+    }
+    await tryCeruleanBellMarkAfterGridStable();
+    updateSlotPositions(true);
+    await runPendingAfterGridTilesSettled();
+  } else {
+    await runGridIntroAfterReset();
+  }
+  scheduleRunAutoSave();
+  console.log("[DEV] 青铃测试局：已跳至 1-3，Boss 固定为青铃。");
+}
+
 function registerMaskBubbleDevConsoleHook() {
   if (!import.meta.env.DEV) return;
   const dev = globalThis.__WM_DEV__;
   if (!dev || typeof dev !== "object") return;
   dev.startMaskBubbleBlueprintTest = () => startMaskBubbleBlueprintDevTest();
+  dev.startAllIceDevTest = () => startAllIceDevTest();
+  dev.startCeruleanBellDevTest = () => startCeruleanBellDevTest();
+  dev.startPagerDevTest = () => startPagerDevTest();
   dev.randomizeGridTileMaterials = () => randomizeGridTileMaterialsDev();
 }
 
@@ -4221,7 +4498,6 @@ function buildTreasureLevelEnterEffectContext(levelId) {
       remainingWords.value = clampRemainingWordsForBossMechanics(
         next,
         bossSlugForMechanics(),
-        ownedVoucherIds.value,
       );
     },
     isOwnedTreasureSlotNoSell: (slotIndex) =>
@@ -4429,27 +4705,29 @@ function onPagerQuizClosed() {
   pendingPagerQuizSession.value = null;
 }
 
+/** @param {number} len */
+function buildInRunLengthUpgradeStep(len) {
+  const L = Math.max(3, Math.min(16, Math.round(Number(len) || 0)));
+  const beforeLevel = Math.max(1, Math.round(Number(lengthLevelsByLength.value?.[L])) || 1);
+  const obs = isLengthObservatoryBoosted(ownedVoucherIds.value, L, spellCountsByLength.value);
+  return {
+    payload: {
+      upgradeKind: "length",
+      lengthMin: L,
+      lengthMax: L,
+      beforeLevel,
+      isLengthObservatoryBoosted: () => obs,
+    },
+    apply: () => {
+      noteTreasureRunUpgradeUsed(treasureRunState.value);
+      noteCollectionUpgradeForWordLen(L);
+      bumpWordLengthLevel(L, { observatoryBoost: obs });
+    },
+  };
+}
+
 function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand) {
   const owned = ownedTreasures.value.filter(Boolean);
-  const buildLengthUpgradeStep = (len) => {
-    const L = Math.max(3, Math.min(16, Math.round(Number(len) || 0)));
-    const beforeLevel = Math.max(1, Math.round(Number(lengthLevelsByLength.value?.[L])) || 1);
-    const obs = isLengthObservatoryBoosted(ownedVoucherIds.value, L, spellCountsByLength.value);
-    return {
-      payload: {
-        upgradeKind: "length",
-        lengthMin: L,
-        lengthMax: L,
-        beforeLevel,
-        isLengthObservatoryBoosted: () => obs,
-      },
-      apply: () => {
-        noteTreasureRunUpgradeUsed(treasureRunState.value);
-        noteCollectionUpgradeForWordLen(L);
-        bumpWordLengthLevel(L, { observatoryBoost: obs });
-      },
-    };
-  };
   return {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     findOwnedTreasureSlotIndex,
@@ -4533,7 +4811,7 @@ function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, 
     rng: runRandom,
     moneyAfterSubmit: money.value,
     runSingleInRunLengthUpgradeFx: async (len) => {
-      const step = buildLengthUpgradeStep(len);
+      const step = buildInRunLengthUpgradeStep(len);
       await runInRunUpgradePlaybackSteps([step]);
     },
     bumpWordLengthLevel: (len) => {
@@ -5039,6 +5317,7 @@ const wordTranslationWrapRef = ref(null);
 const wordTranslationInnerRef = ref(null);
 
 const letterGridRef = ref(null);
+const letterGridWrapRef = ref(null);
 const gridTileRefs = ref([]);
 const wordSlotRefs = /** @type {(HTMLElement | undefined)[]} */ ([]);
 /** 记分动效：高亮底部宝藏栏中正在触发的槽位索引 */
@@ -5067,6 +5346,12 @@ const flyingInAnimStarted = new Set();
 const flyInPendingComplete = [];
 /** 互换拼词/棋盘选中进行中 */
 const wordSelectionSwapBusy = ref(false);
+/** 拖动 word→grid 回格动画期间隐藏该槽内容 */
+const wordDragReturnAnimSlot = ref(/** @type {number | null} */ (null));
+/** 离开 word 悬停后 placeholder 缩出动画期间暂留的布局（仅 slotIndex） */
+const wordDragPhExit = ref(/** @type {{ slotIndex: number } | null} */ (null));
+/** 上一次拖动预览列表，供 remap 保留像素位置 */
+let lastWordDragPresentations = null;
 /** 正在飞回网格的 batch 列表，支持多个同时飞回；每 batch { id, slotIndex, list } */
 const flyingBackBatches = ref([]);
 let flyingBackBatchIdCounter = 0;
@@ -5091,7 +5376,28 @@ function getGridTileElByIndex(index) {
   if (byRef) return byRef;
   const host = letterGridRef.value;
   const child = host?.children?.[index];
-  return child instanceof HTMLElement ? child : undefined;
+  if (!(child instanceof HTMLElement)) return undefined;
+  const tileEl = child.querySelector(".grid-tile");
+  return tileEl instanceof HTMLElement ? tileEl : child;
+}
+
+/** 与 css `.letter-grid-cell--placeholder` 一致；离场动画在 cell 外包层 tween，避免盖掉 tile 材质 */
+const GRID_CELL_PLACEHOLDER_OPACITY = 0.42;
+
+function getGridCellElByIndex(index) {
+  const host = letterGridRef.value;
+  const child = host?.children?.[index];
+  if (!(child instanceof HTMLElement)) return undefined;
+  return child.classList.contains("letter-grid-cell") ? child : undefined;
+}
+
+function getSelectedGridCellElsInOrder() {
+  const list = [];
+  for (const pos of selectedOrder.value) {
+    const el = getGridCellElByIndex(pos.row * COLS + pos.col);
+    if (el) list.push(el);
+  }
+  return list;
 }
 
 function setWordSlotRef(index, el) {
@@ -5170,16 +5476,24 @@ function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
       );
     }
     if (gridEls.length > 0) {
-      gsap.set(gridEls, { transformOrigin: "50% 50%", y: 0 });
-      gsap.to(gridEls, {
-        opacity: 0,
-        scale: 0.82,
-        y: 0,
-        duration,
-        stagger: slotEls.length > 0 ? stagger : removeHapticStagger,
-        ease: EASE_TRANSFORM,
-        onComplete: finish,
-      });
+      gsap.fromTo(
+        gridEls,
+        {
+          opacity: GRID_CELL_PLACEHOLDER_OPACITY,
+          scale: 1,
+          y: 0,
+          transformOrigin: "50% 50%",
+        },
+        {
+          opacity: 0,
+          scale: 0.82,
+          y: 0,
+          duration,
+          stagger: slotEls.length > 0 ? stagger : removeHapticStagger,
+          ease: EASE_TRANSFORM,
+          onComplete: finish,
+        },
+      );
     }
   });
 }
@@ -5311,9 +5625,10 @@ const flyingBackList = computed(() =>
   )
 );
 
-/** 槽内字母是否隐藏（飞回未结束时该索引及之后隐藏） */
-function isSlotContentHidden(slotIndex) {
-  return flyingBackBatches.value.some((b) => slotIndex >= b.slotIndex);
+/** 槽内字母是否隐藏（飞回 batch 未结束时该展示索引及之后隐藏） */
+function isSlotContentHidden(displayIndex) {
+  // word→grid 拖动回格：展示列表已 filter 掉回格槽，勿再按原 order 下标隐藏（否则会误伤左移后的字母）
+  return flyingBackBatches.value.some((b) => displayIndex >= b.slotIndex);
 }
 
 /** 飞回时该槽是否移出流（不占位、不显示空白块） */
@@ -5326,8 +5641,16 @@ function isTileFlying(row, col) {
   return flyingLetters.value.some((f) => f.pendingRow === row && f.pendingCol === col);
 }
 
-/** 棋盘格已选 / 飞入中：半透明占位 ghost */
+/** 棋盘格已选 / 飞入中 / 拖动占位：半透明 ghost */
 function isGridTilePlaceholder(row, col, tile) {
+  if (tileDragActive.value && tileDragSource.value?.zone === "grid") {
+    const s = tileDragSource.value;
+    if (s.row === row && s.col === col) return true;
+  }
+  if (wordDragReturnAnimSlot.value != null) {
+    const pos = selectedOrder.value[wordDragReturnAnimSlot.value];
+    if (pos && pos.row === row && pos.col === col) return true;
+  }
   return tile?.selected === true || isTileFlying(row, col);
 }
 
@@ -5340,6 +5663,10 @@ function gridTileRenderMemoDeps(tile, index) {
   const row = Math.floor(index / COLS);
   const col = index % COLS;
   const placeholder = isGridTilePlaceholder(row, col, tile);
+  const dragSourceCell = tileDragActive.value
+    && tileDragSource.value?.zone === "grid"
+    && tileDragSource.value.row === row
+    && tileDragSource.value.col === col;
   const shared = [
     tile.id,
     tile.materialId,
@@ -5351,6 +5678,9 @@ function gridTileRenderMemoDeps(tile, index) {
     tile.ceruleanBellLocked,
     tile.playerMarked,
     tile.bossGridBlocked,
+    tile.selected,
+    tileDragActive.value,
+    dragSourceCell,
     placeholder,
   ];
   if (placeholder) return shared;
@@ -5374,37 +5704,21 @@ const SLOT_GAP = 6;
 const SLOT_TILE_W =
   (LETTER_GRID_WRAP_DESIGN - 2 * LETTER_GRID_PADDING_DESIGN - 3 * SLOT_GAP) / 4;
 const MIDDLE_MAX_W = 722;
-/** 目标槽数（移出时用 effectiveNumSlots，与 updateSlotPositions 一致） */
-const slotScaleTarget = computed(() => {
-  const N = selectedLetters.value.length;
-  const batches = flyingBackBatches.value;
-  const n =
-    batches.length > 0 ? Math.min(...batches.map((b) => b.slotIndex)) : N + flyingLetters.value.length;
-  if (n === 0) return 1;
-  const total = n * SLOT_TILE_W + (n - 1) * SLOT_GAP;
-  return Math.min(1, MIDDLE_MAX_W / total);
-});
-
-watch(
-  () => [
-    selectedLetters.value.length,
-    flyingLetters.value.length,
-    flyingBackBatches.value.length,
-    slotScaleTarget.value,
-  ],
-  () => ensureSlotRafRunning(),
-);
-
 /** 当前槽缩放，由 RAF 向 slotScaleTarget 插值，实现与移入一致的动画 */
 /** 与 .word-slots 上 --slot-scale 同步；仅用普通变量，由 slotRafLoop 与 DOM 同步更新 */
 let slotScaleRuntime = 1;
 
 /** 槽位当前插值位置（wrap 相对），由 RAF 更新并直接写 DOM */
 const slotCurrentPositions = [];
+/** 拖动 placeholder 缩放插值（0↔1） */
+const slotPhScales = [];
+/** 上一帧各槽是否为拖动 placeholder */
+const slotPhPrevActive = [];
 /** expo.out 风格：1 - 2^(-10*t)，时间常数约 250ms，前快后慢 */
 const SLOT_EXPO_TIME_MS = 250;
 const SLOT_SCALE_SETTLE_EPS = 0.002;
 const SLOT_POS_SETTLE_EPS = 0.6;
+const SLOT_PH_SCALE_SETTLE_EPS = 0.02;
 let slotRafId = 0;
 let slotRafLastTime = 0;
 let slotLayoutRpx = 1;
@@ -5436,20 +5750,189 @@ function onWordSlotsLayoutResize() {
   updateSlotPositions(true);
 }
 
+function wordSlotPlaceholderKey(displayIndex) {
+  const exit = wordDragPhExit.value;
+  if (exit && displayIndex === exit.slotIndex) {
+    const src = tileDragSource.value;
+    if (src?.zone === "grid") return `ph-ins-exit-${exit.slotIndex}`;
+    if (src?.zone === "word") return `ph-word-exit-${exit.slotIndex}`;
+  }
+  const src = tileDragSource.value;
+  if (src?.zone === "grid") return "ph-grid-insert";
+  if (src?.zone === "word") return `ph-word-${src.slotIndex}`;
+  return `ph-${displayIndex}`;
+}
+
+function isWordSlotDragPlaceholderAt(displayIndex, presentations) {
+  if (!tileDragActive.value || !tileDragGhostPresentation.value) return false;
+  return displayIndex >= 0 && displayIndex < presentations.length && !presentations[displayIndex];
+}
+
+/** 从拼词区拖出时，留在原槽位的 placeholder（非 word 内重排插入位） */
+function isWordSourceOriginDragPlaceholderAt(displayIndex, presentations) {
+  const src = tileDragSource.value;
+  if (!tileDragActive.value || !src || src.zone !== "word") return false;
+  if (displayIndex !== src.slotIndex) return false;
+  return isWordSlotDragPlaceholderAt(displayIndex, presentations);
+}
+
+function initialWordSlotPhScale(displayIndex, presentations) {
+  if (!isWordSlotPhVisualAt(displayIndex, presentations)) return 1;
+  if (isWordSourceOriginDragPlaceholderAt(displayIndex, presentations)) return 1;
+  return 0;
+}
+
+function resolveWordSlotPhScaleTarget(displayIndex, presentations) {
+  const exit = wordDragPhExit.value;
+  if (exit && exit.slotIndex === displayIndex && !presentations[displayIndex]) return 0;
+  if (isWordSlotDragPlaceholderAt(displayIndex, presentations)) return 1;
+  return 1;
+}
+
+function isWordSlotPhVisualAt(displayIndex, presentations) {
+  const exit = wordDragPhExit.value;
+  if (exit && exit.slotIndex === displayIndex && !presentations[displayIndex]) return true;
+  return isWordSlotDragPlaceholderAt(displayIndex, presentations);
+}
+
+function ensureSlotPhScale(index, scale) {
+  while (slotPhScales.length <= index) slotPhScales.push(1);
+  slotPhScales[index] = scale;
+}
+
+function tryCompleteWordDragPhExit() {
+  const exit = wordDragPhExit.value;
+  if (!exit) return;
+  const idx = exit.slotIndex;
+  if ((slotPhScales[idx] ?? 1) > SLOT_PH_SCALE_SETTLE_EPS) return;
+  const slotIndex = exit.slotIndex;
+  const src = tileDragSource.value;
+  const base = wordSlotTilePresentations.value;
+  wordDragPhExit.value = null;
+  if (src?.zone === "word" && tileDragHoverZone.value === "grid") {
+    const prevPres = buildWordDragPreviewSlots(base, slotIndex, slotIndex);
+    const nextPres = base.filter((_, i) => i !== slotIndex);
+    remapSlotPositionsAfterShuffleAndSync(prevPres, nextPres);
+  } else if (src?.zone === "grid") {
+    const prevPres = buildInsertDragPreviewSlots(base, slotIndex);
+    remapSlotPositionsAfterShuffleAndSync(prevPres, base);
+  }
+  lastWordDragPresentations = displayWordSlotPresentations.value;
+  ensureSlotRafRunning();
+}
+
+/**
+ * 拖动预览重排后，按 tile id 保留各槽当前像素位置，使字母块滑到新槽位而非瞬移。
+ * @param {readonly (object | null)[]} prevPresentations
+ * @param {readonly (object | null)[]} nextPresentations
+ */
+/** grid 插入预览：hoverIdx 无效时与 displayWordSlotPresentations 一致，落末尾 */
+function resolveGridInsertHoverIndex(hoverIdx, baseLength) {
+  return hoverIdx >= 0 ? hoverIdx : baseLength;
+}
+
+function remapSlotPositionsAfterShuffle(prevPresentations, nextPresentations) {
+  while (slotCurrentPositions.length < nextPresentations.length) {
+    const idx = slotCurrentPositions.length;
+    let insertAt = -1;
+    if (nextPresentations.length === prevPresentations.length + 1) {
+      for (let i = 0; i < nextPresentations.length; i += 1) {
+        if (!nextPresentations[i] && (i >= prevPresentations.length || prevPresentations[i])) {
+          insertAt = i;
+          break;
+        }
+      }
+    }
+    const refIdx = insertAt >= 0 && insertAt <= idx
+      ? Math.max(0, insertAt - 1)
+      : idx - 1;
+    const prev = refIdx >= 0 ? slotCurrentPositions[refIdx] : null;
+    const gapPos = {
+      x: prev?.x ?? 0,
+      y: prev?.y ?? 0,
+      w: prev?.w ?? 0,
+      h: prev?.h ?? 0,
+    };
+    if (insertAt >= 0 && insertAt <= idx) {
+      slotCurrentPositions.splice(insertAt, 0, { ...gapPos });
+      slotPhScales.splice(insertAt, 0, 1);
+      slotPhPrevActive.splice(insertAt, 0, false);
+    } else {
+      slotCurrentPositions.push({ ...gapPos });
+      slotPhScales.push(1);
+      slotPhPrevActive.push(false);
+    }
+  }
+  const n = Math.min(
+    prevPresentations.length,
+    nextPresentations.length,
+    slotCurrentPositions.length,
+  );
+  if (n <= 0) return;
+  /** @type {Map<string, { x: number, y: number, w: number, h: number }>} */
+  const posByTileId = new Map();
+  for (let i = 0; i < prevPresentations.length; i += 1) {
+    const entry = prevPresentations[i];
+    const cur = slotCurrentPositions[i];
+    if (entry?.id && cur) {
+      posByTileId.set(entry.id, { x: cur.x, y: cur.y, w: cur.w, h: cur.h });
+    }
+  }
+  for (let i = 0; i < nextPresentations.length; i += 1) {
+    const entry = nextPresentations[i];
+    const cur = slotCurrentPositions[i];
+    if (!entry?.id || !cur) continue;
+    const p = posByTileId.get(entry.id);
+    if (!p) continue;
+    cur.x = p.x;
+    cur.y = p.y;
+    cur.w = p.w;
+    cur.h = p.h;
+  }
+  while (slotCurrentPositions.length > nextPresentations.length) slotCurrentPositions.pop();
+  while (slotPhScales.length > nextPresentations.length) slotPhScales.pop();
+  while (slotPhPrevActive.length > nextPresentations.length) slotPhPrevActive.pop();
+}
+
+/** remap 后于 nextTick 写入 DOM，避免 v-for 重排前 ref 错位导致首帧闪动 */
+function applySlotStylesFromCurrentPositions() {
+  for (let i = 0; i < slotCurrentPositions.length; i += 1) {
+    const el = wordSlotRefs[i];
+    const cur = slotCurrentPositions[i];
+    if (!el || !cur) continue;
+    el.style.left = `${cur.x}px`;
+    el.style.top = `${cur.y}px`;
+    el.style.width = `${cur.w}px`;
+    el.style.height = `${cur.h}px`;
+  }
+}
+
+function remapSlotPositionsAfterShuffleAndSync(prevPresentations, nextPresentations) {
+  remapSlotPositionsAfterShuffle(prevPresentations, nextPresentations);
+  nextTick(() => {
+    applySlotStylesFromCurrentPositions();
+    ensureSlotRafRunning();
+  });
+}
+
 /** 计算目标并写 DOM；deltaMs 为数字时用 expo.out 风格插值，为 true 时直接 snap（首帧防闪） */
 function updateSlotPositions(deltaMs) {
   const wrapEl = wordSlotsWrapRef.value;
   if (!wrapEl) return;
   refreshSlotLayoutRpx();
   const wrapRect = wrapEl.getBoundingClientRect();
-  const N = selectedLetters.value.length;
+  const N = resolveWordSlotLayoutCount();
+  const presentations = displayWordSlotPresentations.value;
   const batches = flyingBackBatches.value;
   const effectiveNumSlots =
     batches.length > 0
       ? Math.min(...batches.map((b) => b.slotIndex))
       : N + flyingLetters.value.length;
+  const skipMotion = shouldSkipDecorativeMotion();
   if (N === 0) {
     slotCurrentPositions.length = 0;
+    slotPhScales.length = 0;
+    slotPhPrevActive.length = 0;
     return;
   }
   while (slotCurrentPositions.length < N) {
@@ -5458,12 +5941,21 @@ function updateSlotPositions(deltaMs) {
     const slotIdx = batches.length > 0 && idx >= effectiveNumSlots ? effectiveNumSlots - 1 : idx;
     const r = getScaledSlotRect(wrapRect, layoutSlots, slotIdx);
     if (!r) break;
+    const tgtW = r.width;
+    const tgtH = r.height;
+    const prev = idx > 0 ? slotCurrentPositions[idx - 1] : null;
     slotCurrentPositions.push({
-      x: r.left - wrapRect.left,
-      y: r.top - wrapRect.top,
+      x: prev ? prev.x : r.left - wrapRect.left,
+      y: prev ? prev.y : r.top - wrapRect.top,
+      w: tgtW,
+      h: tgtH,
     });
+    slotPhScales.push(initialWordSlotPhScale(idx, presentations));
+    slotPhPrevActive.push(false);
   }
   while (slotCurrentPositions.length > N) slotCurrentPositions.pop();
+  while (slotPhScales.length > N) slotPhScales.pop();
+  while (slotPhPrevActive.length > N) slotPhPrevActive.pop();
   const targets = [];
   for (let i = 0; i < N; i++) {
     const outOfFlow = batches.some((b) => i >= b.slotIndex);
@@ -5481,12 +5973,23 @@ function updateSlotPositions(deltaMs) {
     });
   }
   const dt = deltaMs === true ? 1 : (deltaMs || 16) / SLOT_EXPO_TIME_MS;
-  const factor = deltaMs === true ? 1 : 1 - Math.pow(2, -10 * Math.min(dt, 1));
+  const factor = deltaMs === true || skipMotion ? 1 : 1 - Math.pow(2, -10 * Math.min(dt, 1));
+  const phActiveNow = [];
   for (let i = 0; i < N; i++) {
     const outOfFlow = batches.some((b) => i >= b.slotIndex);
     const el = wordSlotRefs[i];
+    const phVisual = isWordSlotPhVisualAt(i, presentations);
+    phActiveNow[i] = phVisual;
+    if (phVisual && !slotPhPrevActive[i]) {
+      slotPhScales[i] = isWordSourceOriginDragPlaceholderAt(i, presentations) ? 1 : 0;
+    }
+    const phTarget = resolveWordSlotPhScaleTarget(i, presentations);
+    if (phVisual) {
+      slotPhScales[i] = (slotPhScales[i] ?? 0) + (phTarget - (slotPhScales[i] ?? 0)) * factor;
+    } else {
+      slotPhScales[i] = 1;
+    }
     if (outOfFlow) {
-      /* 不把 out-of-flow 槽设为 0 尺寸，否则快速连续点击时后续 batch 的 getBoundingClientRect() 会拿到 0×0，飞字失去背景和高度 */
       continue;
     }
     const cur = slotCurrentPositions[i];
@@ -5494,11 +5997,55 @@ function updateSlotPositions(deltaMs) {
     if (!cur || !tgt) continue;
     cur.x += (tgt.x - cur.x) * factor;
     cur.y += (tgt.y - cur.y) * factor;
+    cur.w += (tgt.w - cur.w) * factor;
+    cur.h += (tgt.h - cur.h) * factor;
     if (el) {
       el.style.left = cur.x + "px";
       el.style.top = cur.y + "px";
-      el.style.width = tgt.w + "px";
-      el.style.height = tgt.h + "px";
+      el.style.width = cur.w + "px";
+      el.style.height = cur.h + "px";
+      if (phVisual) {
+        const phScale = slotPhScales[i] ?? 1;
+        el.style.setProperty("--slot-ph-scale", String(phScale));
+        // 行内写入以盖过 GSAP 留在 .word-slot-tile 上的 opacity（对齐棋盘 cell 外包层做法）
+        el.style.opacity = String(0.42 * phScale);
+        if (phScale < 1 - SLOT_PH_SCALE_SETTLE_EPS) {
+          el.style.transform = `scale(${phScale})`;
+          el.style.transformOrigin = "center center";
+        } else {
+          el.style.transform = "";
+          el.style.transformOrigin = "";
+        }
+      } else {
+        el.style.removeProperty("--slot-ph-scale");
+        el.style.removeProperty("opacity");
+        el.style.transform = "";
+        el.style.transformOrigin = "";
+      }
+    }
+  }
+  slotPhPrevActive.length = 0;
+  for (let i = 0; i < phActiveNow.length; i += 1) {
+    slotPhPrevActive.push(!!phActiveNow[i]);
+  }
+  if (!skipMotion) {
+    tryCompleteWordDragPhExit();
+  } else {
+    const exit = wordDragPhExit.value;
+    if (exit) {
+      const src = tileDragSource.value;
+      const base = wordSlotTilePresentations.value;
+      const slotIndex = exit.slotIndex;
+      wordDragPhExit.value = null;
+      if (src?.zone === "word" && tileDragHoverZone.value === "grid") {
+        const prevPres = buildWordDragPreviewSlots(base, slotIndex, slotIndex);
+        const nextPres = base.filter((_, i) => i !== slotIndex);
+        remapSlotPositionsAfterShuffleAndSync(prevPres, nextPres);
+      } else if (src?.zone === "grid") {
+        const prevPres = buildInsertDragPreviewSlots(base, slotIndex);
+        remapSlotPositionsAfterShuffleAndSync(prevPres, base);
+      }
+      lastWordDragPresentations = displayWordSlotPresentations.value;
     }
   }
 }
@@ -5514,11 +6061,12 @@ function findFirstOwnedTreasureSlotIndex(treasureId) {
 function isSlotLayoutSettled() {
   const targetScale = slotScaleTarget.value;
   if (Math.abs(slotScaleRuntime - targetScale) > SLOT_SCALE_SETTLE_EPS) return false;
-  const N = selectedLetters.value.length;
+  const N = resolveWordSlotLayoutCount();
   if (N === 0) return true;
   const wrapEl = wordSlotsWrapRef.value;
   if (!wrapEl) return true;
   const wrapRect = wrapEl.getBoundingClientRect();
+  const presentations = displayWordSlotPresentations.value;
   const batches = flyingBackBatches.value;
   const effectiveNumSlots =
     batches.length > 0
@@ -5531,10 +6079,20 @@ function isSlotLayoutSettled() {
     if (!r || !cur) return false;
     const tgtX = r.left - wrapRect.left;
     const tgtY = r.top - wrapRect.top;
-    if (Math.abs(cur.x - tgtX) > SLOT_POS_SETTLE_EPS || Math.abs(cur.y - tgtY) > SLOT_POS_SETTLE_EPS) {
+    const tgtW = r.width;
+    const tgtH = r.height;
+    if (
+      Math.abs(cur.x - tgtX) > SLOT_POS_SETTLE_EPS
+      || Math.abs(cur.y - tgtY) > SLOT_POS_SETTLE_EPS
+      || Math.abs(cur.w - tgtW) > SLOT_POS_SETTLE_EPS
+      || Math.abs(cur.h - tgtH) > SLOT_POS_SETTLE_EPS
+    ) {
       return false;
     }
+    const phTarget = resolveWordSlotPhScaleTarget(i, presentations);
+    if (Math.abs((slotPhScales[i] ?? 1) - phTarget) > SLOT_PH_SCALE_SETTLE_EPS) return false;
   }
+  if (wordDragPhExit.value) return false;
   return true;
 }
 
@@ -5950,7 +6508,7 @@ function listEffectiveTilesForSubmit(extraTile = null) {
 function buildTilePresentationIndex(res, effWord, extraTile = null) {
   /** @type {Map<string, { letter: string, rarity: string, vowelGhostPrev: string | null, vowelGhostNext: string | null }>} */
   const byId = new Map();
-  const upGhost = (ch) => (ch ? (ch === "q" ? "Qu" : ch.toUpperCase()) : null);
+  const upGhost = (ch) => (ch ? resolveLetterFromRaw(ch) : null);
   if (!res || !effWord || effWord.length !== res.length) return byId;
 
   const owned = ownedSlotTreasureIdList();
@@ -5982,7 +6540,7 @@ function buildTilePresentationIndex(res, effWord, extraTile = null) {
           vowelGhostPrev = upGhost(ghosts?.prev ?? null);
           vowelGhostNext = upGhost(ghosts?.next ?? null);
           if (resolvedCh !== naturalCh) {
-            letter = resolvedCh === "q" ? "Qu" : resolvedCh.toUpperCase();
+            letter = resolveLetterFromRaw(resolvedCh);
             rarity = getRarityForLetter(resolvedCh);
           }
         }
@@ -5992,7 +6550,7 @@ function buildTilePresentationIndex(res, effWord, extraTile = null) {
     if (isWildcardMaterialTile(tile) && frag === "?") {
       const ch = res[start];
       if (ch >= "a" && ch <= "z") {
-        letter = ch === "q" ? "Qu" : ch.toUpperCase();
+        letter = resolveLetterFromRaw(ch);
         rarity = getRarityForLetter(ch);
       }
     }
@@ -6055,7 +6613,7 @@ function resolveWildcardInWordPresentation(tile) {
 
 /** 飞回棋盘：牌张自然展示（deck + vowelDisplayShift），不用词槽解析态 */
 function computeFlyBackTilePresentation(tile) {
-  const upGhost = (ch) => (ch ? (ch === "q" ? "Qu" : ch.toUpperCase()) : null);
+  const upGhost = (ch) => (ch ? resolveLetterFromRaw(ch) : null);
   if (!tile?.letter) {
     return { letter: "", rarity: "common", vowelGhostPrev: null, vowelGhostNext: null };
   }
@@ -6094,7 +6652,7 @@ function computeFlyBackTilePresentation(tile) {
   if (hasVowelNeighborSubstitute(ownedFlyBack) && isLetterSubstitutableForMouth(rawLower, ownedFlyBack)) {
     const shift = card && typeof card === "object" ? Math.sign(Number(card.vowelDisplayShift) || 0) : 0;
     const displayed = vowelDisplayLetter(rawLower, shift, ownedFlyBack);
-    letter = displayed === "q" ? "Qu" : displayed.toUpperCase();
+    letter = resolveLetterFromRaw(displayed);
     rarity =
       card?.rarity != null && String(card.rarity).trim() !== "" && shift === 0
         ? String(card.rarity)
@@ -6104,7 +6662,7 @@ function computeFlyBackTilePresentation(tile) {
     vowelGhostNext = upGhost(ghosts?.next ?? null);
   } else if (card && typeof card === "object") {
     const displayed = rawLower === "q" ? "q" : rawLower;
-    letter = displayed === "q" ? "Qu" : displayed.toUpperCase();
+    letter = resolveLetterFromRaw(displayed);
     rarity =
       card.rarity != null && String(card.rarity).trim() !== ""
         ? String(card.rarity)
@@ -6118,6 +6676,79 @@ function computeFlyBackTilePresentation(tile) {
 const resolvedWordForSubmit = computed(() =>
   resolveWordFromEffectiveParts(effectiveWordPartsForSubmit.value),
 );
+
+const wordDefinitionLayerOpen = ref(false);
+/** 提交记分 / 丢弃离场时与字母动画同步隐藏释义区（selectedTiles 仍保留至退场结束） */
+const wordDefinitionHiddenForWordLeave = ref(false);
+
+const wordDefinitionDisplayMode = computed(() => {
+  const mode = gameSettings.wordDefinitionMode;
+  return mode === "off" || mode === "button" || mode === "definition" ? mode : "definition";
+});
+
+const wordDefinitionZoneVisible = computed(
+  () =>
+    wordDefinitionDisplayMode.value !== "off" &&
+    dictionaryReady.value &&
+    effectiveWordForSubmit.value.length > 0,
+);
+
+const showWordDefinitionTrigger = computed(
+  () =>
+    wordDefinitionZoneVisible.value &&
+    resolvedWordForSubmit.value != null &&
+    !wordDefinitionHiddenForWordLeave.value,
+);
+
+const wordDefinitionTriggerMode = computed(() =>
+  resolveWordDefinitionTriggerMode(ownedSlotTreasureIdList(), {
+    displayMode: wordDefinitionDisplayMode.value,
+  }),
+);
+
+const wordDefinitionPreviewBundle = computed(() => {
+  const word = resolvedWordForSubmit.value;
+  if (!word) {
+    return { word: "", lines: [], previewLine: "", extraCount: 0 };
+  }
+  const def = getWordDefinition(word);
+  const { lines, previewLine, extraCount } = buildWordDefinitionPreview(def);
+  return { word, lines, previewLine, extraCount };
+});
+
+const wordDefinitionPreviewWord = computed(() => wordDefinitionPreviewBundle.value.word);
+const wordDefinitionPreviewLines = computed(() => wordDefinitionPreviewBundle.value.lines);
+const wordDefinitionPreviewLine = computed(() => wordDefinitionPreviewBundle.value.previewLine);
+const wordDefinitionExtraCount = computed(() => wordDefinitionPreviewBundle.value.extraCount);
+
+function openWordDefinitionLayer() {
+  if (!showWordDefinitionTrigger.value) return;
+  triggerHaptic("tap");
+  void (async () => {
+    const blocked = await notifyOwnedTreasuresOnWordDefinitionOpenAttempt(
+      ownedSlotTreasureIdList(),
+      {
+        ...ownedTreasureHookFxBridge(),
+        ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+        word: wordDefinitionPreviewWord.value,
+      },
+    );
+    if (blocked) return;
+    wordDefinitionLayerOpen.value = true;
+  })();
+}
+
+function closeWordDefinitionLayer() {
+  wordDefinitionLayerOpen.value = false;
+}
+
+watch(resolvedWordForSubmit, () => {
+  wordDefinitionLayerOpen.value = false;
+});
+
+watch(showWordDefinitionTrigger, (visible) => {
+  if (!visible) wordDefinitionLayerOpen.value = false;
+});
 
 /** @param {object | null | undefined} tile */
 function selectedSlotIndexForTile(tile) {
@@ -6187,7 +6818,7 @@ function vowelGhostForTile(tile) {
         : 0;
   const ghosts = vowelGhostSlotsForDisplay(raw, shift, owned);
   if (!ghosts) return null;
-  const up = (ch) => (ch ? (ch === "q" ? "Qu" : ch.toUpperCase()) : null);
+  const up = (ch) => (ch ? resolveLetterFromRaw(ch) : null);
   return { prev: up(ghosts.prev), next: up(ghosts.next) };
 }
 
@@ -6335,6 +6966,283 @@ function normalizeWordSlotPresentationTile(tile) {
   if (tile.playerMarked === true) next.playerMarked = true;
   return next;
 }
+
+function canUseTileDrag() {
+  if (dictFatalError.value) return false;
+  if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return false;
+  if (scoringAnimating.value || gridRefillAnimating.value) return false;
+  if (wordSelectionSwapBusy.value) return false;
+  if (flyingLetters.value.length > 0 || flyingBackBatches.value.length > 0) return false;
+  if (wordDragReturnAnimSlot.value != null) return false;
+  return true;
+}
+
+function resolveTileDragWordSlotCount() {
+  return resolveWordDragTargetPresentations().length;
+}
+
+/** 词槽布局槽数：拖动预览与 word→grid 回格飞行动画期间与展示列表一致 */
+function resolveWordSlotLayoutCount() {
+  if (tileDragActive.value) return resolveTileDragWordSlotCount();
+  if (wordDragReturnAnimSlot.value != null) {
+    return Math.max(0, selectedOrder.value.length - 1);
+  }
+  return selectedOrder.value.length;
+}
+
+function resolveTileDragWordSlotRect(index, layoutCountOverride) {
+  const wrapEl = wordSlotsWrapRef.value;
+  if (!wrapEl) return null;
+  const wrapRect = wrapEl.getBoundingClientRect();
+  if (wrapRect.width <= 0 || wrapRect.height <= 0) return null;
+  const numSlots = layoutCountOverride ?? resolveTileDragWordSlotCount();
+  if (index < 0 || index >= numSlots) return null;
+  return getScaledSlotRect(wrapRect, numSlots, index);
+}
+
+const tileDragGhostPresentation = shallowRef(/** @type {object | null} */ (null));
+
+const {
+  dragActive: tileDragActive,
+  dragSource: tileDragSource,
+  dragHoverWordIndex: tileDragHoverWordIndex,
+  dragHoverZone: tileDragHoverZone,
+  dragMoved: tileDragMoved,
+  dragGhostVisible: tileDragGhostVisible,
+  dragGridPlaceholderVisible: tileDragGridPlaceholderVisible,
+  dragGhostStyle: tileDragGhostStyle,
+  dragGridPlaceholderStyle: tileDragGridPlaceholderStyle,
+  onGridTilePointerDown: onTileDragGridPointerDown,
+  onWordSlotPointerDown: onTileDragWordPointerDown,
+  buildDragPreviewSlots: buildWordDragPreviewSlots,
+} = useTileDrag({
+  canDrag: canUseTileDrag,
+  getWordSlotCount: () => selectedOrder.value.length,
+  getWordSlotRect: (index) => resolveTileDragWordSlotRect(index),
+  getWordSlotRectForLayout: (index, layoutCount) => resolveTileDragWordSlotRect(index, layoutCount),
+  getWordSlotElement: (index) => wordSlotRefs[index] ?? null,
+  isWordSlotDragPlaceholder: (index) => {
+    if (!tileDragActive.value) return false;
+    const pres = displayWordSlotPresentations.value;
+    return index >= 0 && index < pres.length && !pres[index];
+  },
+  getWordOverlayContainer: () => wordSlotsWrapRef.value,
+  getGridOverlayContainer: () => letterGridWrapRef.value,
+  getGridTileElement: (i) => gridTileRefs.value[i] ?? getGridTileElByIndex(i),
+  getGridCellCount: () => ROWS * COLS,
+  getGridCols: () => COLS,
+  getWordHitArea: () => wordSlotsWrapRef.value,
+  getGridHitArea: () => letterGridWrapRef.value,
+  getDragTilePresentation: () => tileDragGhostPresentation.value,
+  canStartFromSource: (source) => {
+    if (source.zone === "grid") {
+      const tile = grid.value[source.row]?.[source.col];
+      if (!tile || tile.selected || tile.bossGridBlocked) return false;
+      if (tile.ceruleanBellLocked === true) return false;
+      if (isTileFlying(source.row, source.col)) return false;
+      return true;
+    }
+    const order = selectedOrder.value;
+    if (source.slotIndex < 0 || source.slotIndex >= order.length) return false;
+    if (ceruleanBellSlotIndex.value != null && source.slotIndex <= ceruleanBellSlotIndex.value) {
+      return false;
+    }
+    if (isSlotOutOfFlow(source.slotIndex)) return false;
+    return true;
+  },
+  getWordSourceHomeFlatIndex: () => {
+    const src = tileDragSource.value;
+    if (!src || src.zone !== "word") return -1;
+    const pos = selectedOrder.value[src.slotIndex];
+    if (!pos) return -1;
+    return pos.row * COLS + pos.col;
+  },
+  onDragStarted: (pointerId) => {
+    markTilePrimaryTapConsumed(pointerId);
+    clearTileLongPressArm();
+  },
+  onCommitGridToWord: (row, col, wordIndex) => {
+    if (insertSelectedTileAt(row, col, wordIndex)) {
+      triggerHaptic("selection");
+      nextTick(() => updateSlotPositions(true));
+    }
+  },
+  onCommitWordReorder: (from, to) => {
+    if (reorderSelectedOrder(from, to)) {
+      triggerHaptic("selection");
+      nextTick(() => updateSlotPositions(true));
+    }
+  },
+  onCommitWordToGrid: (slotIndex, clientX, clientY, ghost) => {
+    animateWordTileReturnToGrid(slotIndex, clientX, clientY, ghost);
+  },
+});
+
+/** 目标槽数（移出时用 effectiveNumSlots，与 updateSlotPositions 一致） */
+const slotScaleTarget = computed(() => {
+  const N = resolveWordSlotLayoutCount();
+  const batches = flyingBackBatches.value;
+  const n =
+    batches.length > 0 ? Math.min(...batches.map((b) => b.slotIndex)) : N + flyingLetters.value.length;
+  if (n === 0) return 1;
+  const total = n * SLOT_TILE_W + (n - 1) * SLOT_GAP;
+  return Math.min(1, MIDDLE_MAX_W / total);
+});
+
+watch(
+  () => [
+    selectedLetters.value.length,
+    flyingLetters.value.length,
+    flyingBackBatches.value.length,
+    wordDragReturnAnimSlot.value,
+    slotScaleTarget.value,
+  ],
+  () => ensureSlotRafRunning(),
+);
+
+watch([tileDragActive, tileDragSource], () => {
+  if (!tileDragActive.value || !tileDragSource.value) {
+    tileDragGhostPresentation.value = null;
+    wordDragPhExit.value = null;
+    lastWordDragPresentations = null;
+    return;
+  }
+  const src = tileDragSource.value;
+  if (src.zone === "word") {
+    tileDragGhostPresentation.value = wordSlotTilePresentations.value[src.slotIndex] ?? null;
+    return;
+  }
+  const tile = grid.value[src.row]?.[src.col];
+  if (!tile) {
+    tileDragGhostPresentation.value = null;
+    return;
+  }
+  const flyPres = computeFlyInTilePresentation(tile);
+  tileDragGhostPresentation.value = {
+    ...tile,
+    letter: flyPres.letter,
+    rarity: flyPres.rarity,
+    vowelGhostPrev: flyPres.vowelGhostPrev,
+    vowelGhostNext: flyPres.vowelGhostNext,
+  };
+});
+
+/** 拖动预览槽列表：仅由当前悬停意图与 phExit 决定，与历史路径无关 */
+function resolveWordDragTargetPresentations() {
+  const base = wordSlotTilePresentations.value;
+  const returnSlot = wordDragReturnAnimSlot.value;
+  if (returnSlot != null) {
+    return base.filter((_, i) => i !== returnSlot);
+  }
+  if (!tileDragActive.value || !tileDragSource.value) return base;
+
+  const src = tileDragSource.value;
+  const zone = tileDragHoverZone.value;
+  const hover = tileDragHoverWordIndex.value;
+  const exit = wordDragPhExit.value;
+
+  if (exit) {
+    if (src.zone === "word") {
+      return buildWordDragPreviewSlots(base, exit.slotIndex, exit.slotIndex);
+    }
+    return buildInsertDragPreviewSlots(base, exit.slotIndex);
+  }
+
+  if (zone === "word") {
+    if (src.zone === "grid") {
+      return buildInsertDragPreviewSlots(base, resolveGridInsertHoverIndex(hover, base.length));
+    }
+    const targetHover = hover >= 0 ? hover : src.slotIndex;
+    return buildWordDragPreviewSlots(base, src.slotIndex, targetHover);
+  }
+
+  if (zone === "grid" && src.zone === "word") {
+    return base.filter((_, i) => i !== src.slotIndex);
+  }
+
+  // word 源拖出：指针在 word/grid 热区之间时 zone 为 null，原位仍应留 null 槽 + 半透明 ghost
+  if (src.zone === "word") {
+    return buildWordDragPreviewSlots(base, src.slotIndex, src.slotIndex);
+  }
+
+  return base;
+}
+
+const displayWordSlotPresentations = computed(() => resolveWordDragTargetPresentations());
+
+function syncWordDragLayoutFromHover(prev) {
+  if (!tileDragActive.value) {
+    wordDragPhExit.value = null;
+    lastWordDragPresentations = null;
+    return;
+  }
+
+  const zone = tileDragHoverZone.value;
+  const src = tileDragSource.value;
+  const srcZone = src?.zone;
+  const slotIndex = src?.slotIndex;
+  const hoverIdx = tileDragHoverWordIndex.value;
+  const prevZone = prev?.[1];
+  const prevHover = prev?.[4] ?? -1;
+
+  if (srcZone === "word" && slotIndex != null) {
+    if (zone === "grid" && prevZone !== "grid") {
+      wordDragPhExit.value = { slotIndex };
+      ensureSlotPhScale(slotIndex, 1);
+    } else if (zone === "word" && prevZone === "grid") {
+      wordDragPhExit.value = null;
+    } else if (zone !== "grid" && zone !== "word" && wordDragPhExit.value?.slotIndex === slotIndex) {
+      wordDragPhExit.value = null;
+    }
+  } else if (srcZone === "grid") {
+    if (prevZone === "word" && zone !== "word") {
+      const base = wordSlotTilePresentations.value;
+      const exitSlot = resolveGridInsertHoverIndex(prevHover, base.length);
+      wordDragPhExit.value = { slotIndex: exitSlot };
+      ensureSlotPhScale(exitSlot, 1);
+    } else if (zone === "word" && prevZone !== "word") {
+      wordDragPhExit.value = null;
+    }
+  }
+
+  const nextPres = displayWordSlotPresentations.value;
+  if (lastWordDragPresentations) {
+    remapSlotPositionsAfterShuffleAndSync(lastWordDragPresentations, nextPres);
+  }
+  lastWordDragPresentations = nextPres;
+
+  if (zone === "word" && prevZone === "word" && hoverIdx >= 0 && prevHover !== hoverIdx) {
+    if (slotPhPrevActive.length > hoverIdx) slotPhPrevActive[hoverIdx] = false;
+  }
+
+  ensureSlotRafRunning();
+}
+
+watch(
+  () => [
+    tileDragActive.value,
+    tileDragHoverZone.value,
+    tileDragSource.value?.zone,
+    tileDragSource.value?.slotIndex,
+    tileDragHoverWordIndex.value,
+  ],
+  (curr, prev) => {
+    syncWordDragLayoutFromHover(prev);
+  },
+  { flush: "sync" },
+);
+
+watch(
+  () => [
+    tileDragActive.value,
+    displayWordSlotPresentations.value.length,
+    tileDragHoverWordIndex.value,
+    tileDragHoverZone.value,
+    wordDragReturnAnimSlot.value,
+    wordDragPhExit.value,
+  ],
+  () => ensureSlotRafRunning(),
+);
 
 /** 已选格在棋盘上与词槽同步展示解析后的字母/稀有度 */
 const gridTileLetterForRender = computed(() => {
@@ -6518,7 +7426,7 @@ function buildTileDetailPayloadFromDeckCard(card) {
   if (!card || typeof card !== "object") return null;
   const raw = deckCardRaw(card);
   const isWc = card.isWildcard === true;
-  const letter = isWc ? "?" : raw === "q" ? "Qu" : String(raw || "e").toUpperCase();
+  const letter = isWc ? "?" : resolveLetterFromRaw(raw || "e");
   const rarity =
     card.rarity != null && String(card.rarity).trim() !== ""
       ? String(card.rarity)
@@ -6593,6 +7501,11 @@ function onGridTileContextMenu(e, row, col, tile) {
   if (p) openTileDetail(p, origin);
 }
 
+function onGridTileCombinedPointerDown(e, row, col, tile) {
+  onTileDragGridPointerDown(row, col, e);
+  onGridTileDetailPointerDown(e, row, col, tile);
+}
+
 function onGridTileDetailPointerDown(e, row, col, tile) {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   if (!tile || dictFatalError.value) return;
@@ -6627,6 +7540,19 @@ function onWordSlotContextMenu(e, i) {
   const inner = slotEl?.querySelector?.(".word-slot-content");
   const origin = tileOriginRectFromElement(inner ?? slotEl);
   if (p) openTileDetail(p, origin, buildWordSlotPreviewNav(i));
+}
+
+function orderIndexForWordSlotEntry(entry) {
+  if (!entry?.id) return -1;
+  return wordSlotTilePresentations.value.findIndex((p) => p?.id === entry.id);
+}
+
+function onWordSlotCombinedPointerDown(e, displayIndex) {
+  const entry = displayWordSlotPresentations.value[displayIndex];
+  const orderIndex = entry ? orderIndexForWordSlotEntry(entry) : displayIndex;
+  if (orderIndex < 0) return;
+  onTileDragWordPointerDown(orderIndex, e);
+  onWordSlotDetailPointerDown(e, orderIndex);
 }
 
 function onWordSlotDetailPointerDown(e, i) {
@@ -6722,7 +7648,7 @@ function deckEntryTileProps(entry) {
     const card = entry.card;
     const raw = deckCardRaw(card);
     const isWc = card.isWildcard === true;
-    const letter = isWc ? "?" : raw === "q" ? "Qu" : String(raw || "e").toUpperCase();
+    const letter = isWc ? "?" : resolveLetterFromRaw(raw || "e");
     const rarity =
       card.rarity != null && String(card.rarity).trim() !== ""
         ? String(card.rarity)
@@ -6739,7 +7665,7 @@ function deckEntryTileProps(entry) {
     };
   }
   const raw = entry.raw;
-  const letter = raw === "q" ? "Qu" : raw === "?" ? "?" : String(raw).toUpperCase();
+  const letter = raw === "?" ? "?" : resolveLetterFromRaw(raw);
   return {
     letter,
     rarity: getRarityForLetter(raw),
@@ -6753,7 +7679,7 @@ function deckEntryTileProps(entry) {
 
 function buildDeckMultisetTileDetailPayload(raw) {
   const r = String(raw ?? "").toLowerCase();
-  const letter = r === "q" ? "Qu" : r === "?" ? "?" : r ? r.toUpperCase() : "?";
+  const letter = r === "?" ? "?" : r ? resolveLetterFromRaw(r) : "?";
   return {
     letter,
     rarity: getRarityForLetter(r || "a"),
@@ -7971,87 +8897,6 @@ function openGameTreasureDetail(ti, slot, ev) {
   });
 }
 
-function swapArrayItems(list, a, b) {
-  if (!Array.isArray(list)) return list;
-  if (a < 0 || b < 0 || a >= list.length || b >= list.length) return list;
-  if (a === b) return list;
-  const next = [...list];
-  const t = next[a];
-  next[a] = next[b];
-  next[b] = t;
-  return next;
-}
-
-function onGameOwnedDragStart(slotIndex, e) {
-  if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) {
-    e.preventDefault();
-    return;
-  }
-  const slot = ownedTreasures.value[slotIndex];
-  if (!slot) {
-    e.preventDefault();
-    return;
-  }
-  gameOwnedDragActive.value = true;
-  gameOwnedDragCurrentIndex.value = slotIndex;
-  gameOwnedDragMoved.value = false;
-  gameOwnedDragDroppedInside.value = false;
-  gameOwnedDragPreview.value = [...ownedTreasures.value];
-  gameOwnedDragKeySnapshot.value = [...gameOwnedKeyOrder.value];
-  if (e.dataTransfer) {
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.dropEffect = "move";
-    try {
-      e.dataTransfer.setData("text/plain", String(slotIndex));
-    } catch {
-      // no-op
-    }
-  }
-}
-
-function onGameOwnedDragOver(index, e) {
-  if (!gameOwnedDragActive.value || !gameOwnedDragPreview.value) return;
-  e.preventDefault();
-  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-  const from = gameOwnedDragCurrentIndex.value;
-  if (index === from) return;
-  gameOwnedDragPreview.value = swapArrayItems(gameOwnedDragPreview.value, from, index);
-  gameOwnedKeyOrder.value = swapArrayItems(gameOwnedKeyOrder.value, from, index);
-  gameOwnedDragCurrentIndex.value = index;
-  gameOwnedDragMoved.value = true;
-}
-
-function onGameOwnedDrop(index, e) {
-  if (!gameOwnedDragActive.value || !gameOwnedDragPreview.value) return;
-  e.preventDefault();
-  const from = gameOwnedDragCurrentIndex.value;
-  if (index !== from) {
-    gameOwnedDragPreview.value = swapArrayItems(gameOwnedDragPreview.value, from, index);
-    gameOwnedKeyOrder.value = swapArrayItems(gameOwnedKeyOrder.value, from, index);
-    gameOwnedDragCurrentIndex.value = index;
-    gameOwnedDragMoved.value = true;
-  }
-  ownedTreasures.value = [...gameOwnedDragPreview.value];
-  gameOwnedDragDroppedInside.value = true;
-  scheduleRunAutoSave();
-}
-
-function onGameOwnedDragEnd() {
-  if (!gameOwnedDragActive.value) return;
-  // 未在槽位落下时：回到原顺序（TransitionGroup move 动画回弹）
-  if (!gameOwnedDragDroppedInside.value && gameOwnedDragKeySnapshot.value) {
-    gameOwnedKeyOrder.value = [...gameOwnedDragKeySnapshot.value];
-  }
-  gameOwnedDragPreview.value = null;
-  gameOwnedDragKeySnapshot.value = null;
-  gameOwnedDragActive.value = false;
-  gameOwnedDragCurrentIndex.value = -1;
-  gameOwnedDragDroppedInside.value = false;
-  setTimeout(() => {
-    gameOwnedDragMoved.value = false;
-  }, 0);
-}
-
 function onGameOwnedSlotClick(index, slot, ev) {
   if (gameOwnedDragMoved.value) return;
   openGameTreasureDetail(index, slot, ev);
@@ -8958,10 +9803,6 @@ function showBundlePackBubble(slotEl, _bundleKind, speed = 1) {
     pointerEvents: "none",
     force3D: true,
   });
-  if (shouldSkipDecorativeMotion()) {
-    setPopupBubbleVisibleInstant(div);
-    return div;
-  }
   gsap.fromTo(
     div,
     { opacity: 0, y: 18, scale: 0.5 },
@@ -10742,7 +11583,7 @@ function runGridDropAnimation(prevFlip, options = {}) {
       let movedInstantCount = 0;
       let newDropCount = 0;
       let fallbackNodeCount = 0;
-      /** 单格动画结束：立刻清掉 GSAP 行内 opacity，避免盖住 `.selected` / `.tile-flying` 的 0.1 */
+      /** 单格动画结束：立刻清掉 GSAP 行内 opacity，避免盖住 `.letter-grid-cell--placeholder` */
       const tickOne = (el, opts = {}) => {
         if (opts.landHaptic) triggerHaptic("land");
         clearGridTileGsapAfterDrop(el);
@@ -10854,10 +11695,6 @@ function runGridDropAnimation(prevFlip, options = {}) {
 function pulseFill(el) {
   if (!el) return;
   gsap.killTweensOf(el);
-  if (shouldSkipDecorativeMotion()) {
-    gsap.set(el, { scale: 1, transformOrigin: "50% 50%" });
-    return;
-  }
   gsap.set(el, {
     scale: VALUE_NUM_PULSE_PEAK_SCALE,
     transformOrigin: "50% 50%",
@@ -10873,10 +11710,6 @@ function pulseFill(el) {
 function pulseFormulaPanelNum(el) {
   if (!el) return;
   gsap.killTweensOf(el);
-  if (shouldSkipDecorativeMotion()) {
-    gsap.set(el, { scale: 1, transformOrigin: "50% 55%" });
-    return;
-  }
   gsap.set(el, {
     scale: VALUE_NUM_PULSE_PEAK_SCALE,
     transformOrigin: "50% 55%",
@@ -10892,10 +11725,6 @@ function pulseFormulaPanelNum(el) {
 function pulseFormulaMultMultiplyBurst(el) {
   if (!el) return;
   gsap.killTweensOf(el);
-  if (shouldSkipDecorativeMotion()) {
-    gsap.set(el, { transformOrigin: "50% 55%", scale: 1 });
-    return;
-  }
   gsap.set(el, { transformOrigin: "50% 55%", scale: 1 });
   gsap.set(el, { scale: 1.72 });
   gsap.to(el, {
@@ -10934,10 +11763,6 @@ function showMultMultiplyBubble(slotEl, factor, speed = 1) {
     force3D: true,
     zIndex: 360,
   });
-  if (shouldSkipDecorativeMotion()) {
-    setPopupBubbleVisibleInstant(div);
-    return div;
-  }
   gsap.fromTo(
     div,
     { opacity: 0, scale: 0.22, y: 36, rotation: -14 },
@@ -10991,7 +11816,9 @@ const TILE_AUGMENT_BADGE_BOUNCE_SCALE = 2;
 
 function createWobbleScoreSlotTimeline(slotEl, pillAugment) {
   if (!slotEl) return null;
-  if (shouldSkipDecorativeMotion()) return null;
+  if (shouldSkipDecorativeMotion()) {
+    return createWobbleHighlightTimeline(slotEl);
+  }
   gsap.killTweensOf(slotEl, "rotation,scale,x,y");
   const origin = "50% 55%";
   gsap.set(slotEl, { x: 0, y: 0, rotation: 0, scale: 1, transformOrigin: origin });
@@ -11090,15 +11917,6 @@ function triggerAccessoryChipRipple(slotEl, speed = 1, strong = false) {
   if (tileChip instanceof HTMLElement) rippleOne(tileChip, false);
   const treChip = slotEl.querySelector?.(".tile-treasure-accessory-chip");
   if (treChip instanceof HTMLElement) rippleOne(treChip, true);
-}
-
-function parseTranslationLines(translationZh) {
-  if (translationZh == null || translationZh === "") return [];
-  return String(translationZh)
-    .replace(/\\n/g, "\n")
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
 }
 
 async function expandSubmitTranslation() {
@@ -11257,10 +12075,6 @@ function showScoreBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
     pointerEvents: "none",
     force3D: true,
   });
-  if (shouldSkipDecorativeMotion()) {
-    setPopupBubbleVisibleInstant(div);
-    return div;
-  }
   if (kind === "skip") {
     const risePx = Math.max(10 * rpx, rect.height * 0.2);
     gsap.fromTo(
@@ -11668,6 +12482,12 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   }
 
   const realTile = resolveRealSubmitTileForWordSlot(i, tile);
+  const { sb: liveTileScoreBonus, mb: liveTileMultBonus } = realTile
+    ? snapshotMaxIntrinsicGainsFromTile(realTile)
+    : {
+        sb: Math.max(0, Math.floor(Number(part.tileScoreBonus) || 0)),
+        mb: Math.max(0, Math.round(Number(part.tileLetterMultBonus) || 0)),
+      };
 
   const ownedSlotIds = ownedTreasures.value.map((s) => s?.treasureId ?? null);
   const ctxScoreMerge = {
@@ -11687,7 +12507,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   }
   const mergedIntrinsicScoreAdd = mergedIntrinsicScoreSlots.reduce((s, x) => s + x.delta, 0);
   const baseLetterScore =
-    (part.rarityBonus ?? 0) + (part.tileScoreBonus ?? 0) + (part.materialScoreBonus ?? 0);
+    (part.rarityBonus ?? 0) + liveTileScoreBonus + (part.materialScoreBonus ?? 0);
   /** @type {{ si: number, delta: number, treasureId: string }[]} */
   const mergedScoreBeats =
     mergedIntrinsicScoreSlots.length > 0
@@ -11698,30 +12518,46 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
 
   for (let beatIdx = 0; beatIdx < mergedScoreBeats.length; beatIdx++) {
     const row = mergedScoreBeats[beatIdx];
-    const stepScore = (beatIdx === 0 ? baseLetterScore : 0) + Math.max(0, Math.floor(Number(row.delta) || 0));
-    if (stepScore <= 0) continue;
+    const rowHooks = row.treasureId ? TREASURE_HOOKS_BY_ID.get(row.treasureId) : null;
+    const rowDelta = Math.max(0, Math.floor(Number(row.delta) || 0));
+    const bankOnlyTreasureCue = !!rowHooks?.perLetterScoreCueDepositsTreasureBank;
+    const wordScoreDelta = bankOnlyTreasureCue ? 0 : rowDelta;
+    const stepScore = (beatIdx === 0 ? baseLetterScore : 0) + wordScoreDelta;
 
-    wordSlotIntrinsicWobblePlayed = true;
-    if (row.treasureId && row.delta > 0) {
+    if (row.treasureId && rowDelta > 0) {
       let touchedGrid = false;
-      const rowHooks = TREASURE_HOOKS_BY_ID.get(row.treasureId);
       if (realTile) {
         const didPersist = rowHooks?.persistTileAfterPerLetterTreasureCue?.({
           realTile,
           band: "score",
-          delta: row.delta,
+          delta: rowDelta,
         });
         if (didPersist) touchedGrid = true;
       }
-      if (rowHooks?.perLetterScoreCueDepositsTreasureBank) {
+      if (bankOnlyTreasureCue) {
         if (shouldTreasureRunAccumulationMutate(ownedSlotIds, row.si, row.treasureId, row.source)) {
-          addScoreAddBank(treasureRunState.value, row.treasureId, row.delta);
+          addScoreAddBank(treasureRunState.value, row.treasureId, rowDelta);
         }
       }
       if (touchedGrid) touchGrid();
       await nextTick();
     }
 
+    if (stepScore <= 0) {
+      if (bankOnlyTreasureCue && rowDelta > 0 && row.si >= 0) {
+        wordSlotIntrinsicWobblePlayed = true;
+        scoringTreasureBarIndex.value = row.si;
+        await nextTick();
+        await new Promise((r) => requestAnimationFrame(r));
+        const telBank = gameTreasureSlotRefs[row.si];
+        if (telBank) wobbleScoreSlot(telBank, sp);
+        await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+        scoringTreasureBarIndex.value = null;
+      }
+      continue;
+    }
+
+    wordSlotIntrinsicWobblePlayed = true;
     if (row.si >= 0) {
       scoringTreasureBarIndex.value = row.si;
       await nextTick();
@@ -11732,7 +12568,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
 
     const scorePillAug =
       beatIdx === 0 &&
-      ((part.tileScoreBonus ?? 0) > 0 ||
+      (liveTileScoreBonus > 0 ||
         (part.materialScoreBonus ?? 0) > 0 ||
         mergedIntrinsicScoreAdd > 0);
     const slotTl = createWobbleScoreSlotTimeline(
@@ -11788,7 +12624,8 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     mergedIntrinsicMultSlots.push({ si, delta: d, label: cue?.label, treasureId: tid });
   }
   const mergedIntrinsicMultAdd = mergedIntrinsicMultSlots.reduce((s, x) => s + x.delta, 0);
-  const intrinsicLetterMult = part.letterMultBonus ?? 0;
+  const intrinsicLetterMult =
+    (part.rarityMultBonus ?? 0) + (part.materialMultBonus ?? 0) + liveTileMultBonus;
   const luckyFoldMult =
     detailed.hasPostLetterMultMul !== true && luckyRoll && luckyRoll.multAdd > 0 ? luckyRoll.multAdd : 0;
   /** @type {{ si: number, delta: number, treasureId: string }[]} */
@@ -11827,7 +12664,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     const mb = `+${Math.round(stepMult)}`;
     const multPillAug =
       beatIdx === 0 &&
-      ((part.tileLetterMultBonus ?? 0) > 0 ||
+      (liveTileMultBonus > 0 ||
         (Number(part.materialMultBonus) || 0) !== 0 ||
         mergedIntrinsicMultAdd > 0 ||
         luckyFoldMult > 0);
@@ -12492,25 +13329,20 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   triggerHaptic("scoreTotal");
   await sleep(220);
 
-  if (shouldSkipDecorativeMotion()) {
-    animScoreSum.value = 0;
-    animMultTotal.value = 0;
-  } else {
-    await new Promise((resolve) => {
-      const o = { s: animScoreSum.value, m: animMultTotal.value };
-      gsap.to(o, {
-        s: 0,
-        m: 0,
-        duration: 0.5,
-        ease: EASE_TRANSFORM,
-        onUpdate: () => {
-          animScoreSum.value = Math.round(o.s);
-          animMultTotal.value = Math.round(o.m);
-        },
-        onComplete: resolve,
-      });
+  await new Promise((resolve) => {
+    const o = { s: animScoreSum.value, m: animMultTotal.value };
+    gsap.to(o, {
+      s: 0,
+      m: 0,
+      duration: 0.5,
+      ease: EASE_TRANSFORM,
+      onUpdate: () => {
+        animScoreSum.value = Math.round(o.s);
+        animMultTotal.value = Math.round(o.m);
+      },
+      onComplete: resolve,
     });
-  }
+  });
 
   await sleep(220);
 
@@ -12608,13 +13440,6 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   })();
 
   const scorePromise = (async () => {
-    if (shouldSkipDecorativeMotion()) {
-      currentScore.value = endRound;
-      roundScoreOverride.value = null;
-      animResultTotal.value = 0;
-      setLastWordFromSubmit(getWordDefinition, tiles, detailed, { resolvedWord: wordStr });
-      return;
-    }
     await new Promise((resolve) => {
       const p = { t: 0 };
       roundScoreOverride.value = startRound;
@@ -12685,6 +13510,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     crimsonTreasureDisabledSlotIndex.value = null;
     hideResultWordLengthBeforeTotal.value = false;
     suppressResultWordLengthUntilScoringEnd.value = false;
+    wordDefinitionHiddenForWordLeave.value = false;
   }
 }
 
@@ -12768,6 +13594,10 @@ const FLY_DURATION = 0.25;
 
 function onTileClick(row, col, tile) {
     if (!tile) return;
+  if (tileDragMoved.value) {
+    tileDragMoved.value = false;
+    return;
+  }
   if (suppressTilePrimaryClick.value) {
     suppressTilePrimaryClick.value = false;
     return;
@@ -12853,6 +13683,7 @@ async function onRemoveClick() {
       ? rollPotteryDiscardProcIndices(nSel, runRandom, ownedSlotTreasureIdList())
       : [];
 
+  wordDefinitionHiddenForWordLeave.value = true;
   const discardPotteryFxHandled = await runDiscardLeaveAnimation(
     slotTileEls,
     removeGridLeaveEls,
@@ -12868,6 +13699,7 @@ async function onRemoveClick() {
     maxRemovalLetters: MAX_LETTERS_PER_REMOVAL,
   });
   if (!result.success) {
+    wordDefinitionHiddenForWordLeave.value = false;
     for (const el of removeGridLeaveEls) clearGridTileGsapAfterDrop(el);
     for (const slotEl of slotTileEls) {
       const ph = slotEl.querySelector(".word-slot-placeholder");
@@ -12901,6 +13733,13 @@ async function onRemoveClick() {
     getWordDefinition(w),
   );
 
+  const discardedWordChars = discardedLettersForHooks
+    .map((p) => String(p?.letter ?? "").toLowerCase())
+    .join("");
+  const judgedWordLengthForDiscard = discardedWordChars
+    ? judgedLengthTableLenForRun(discardedWordChars.length)
+    : 0;
+
   /** 与提交一致：补牌下落与宝藏 onDiscardBatch（扫帚 +$ 等）并行，避免格内闪一下 */
   const dropPromise = (async () => {
     await nextTick();
@@ -12922,6 +13761,7 @@ async function onRemoveClick() {
       discardPotteryFxHandled,
       potteryDiscardProcIndices: potteryProcIndices,
       resolveDiscardedWord: (w) => getWordDefinition(w),
+      judgedWordLength: judgedWordLengthForDiscard,
       bumpWordLengthLevel: (len) => {
         noteTreasureRunUpgradeUsed(treasureRunState.value);
         noteCollectionUpgradeForWordLen(len);
@@ -12938,6 +13778,11 @@ async function onRemoveClick() {
       },
       playOwnedTreasureMoneyFx,
       ...ownedTreasureHookFxBridge(),
+      playOwnedTreasureWobbleOnlyFx,
+      runSingleInRunLengthUpgradeFx: async (len) => {
+        const step = buildInRunLengthUpgradeStep(len);
+        await runInRunUpgradePlaybackSteps([step]);
+      },
       findOwnedTreasureSlotIndex,
     }),
   ]);
@@ -12948,16 +13793,19 @@ async function onRemoveClick() {
   scheduleRunAutoSave();
   } finally {
     if (gridRefillAnimating.value) gridRefillAnimating.value = false;
+    wordDefinitionHiddenForWordLeave.value = false;
   }
 }
 
-/** 青铃锁：新进关时随机标记锁定格（读档走存档，不在此重掷） */
+/** 青铃锁：新进关时随机标记锁定格并飞入词槽（读档走存档，不在此重掷） */
 async function tryCeruleanBellMarkAfterGridStable() {
   const pick = ensureCeruleanBellMarkedOnGrid();
-  if (!pick) return;
-  playBossTapeTriggerCue();
-  await notifyBossRestrictionTreasures("cerulean_bell");
-  scheduleRunAutoSave();
+  if (pick) {
+    playBossTapeTriggerCue();
+    await notifyBossRestrictionTreasures("cerulean_bell");
+    scheduleRunAutoSave();
+  }
+  await tryCeruleanBellFlyInAfterGridStable();
 }
 
 /** 将已标记、尚未入槽的青铃锁格飞入词槽 */
@@ -13034,6 +13882,10 @@ function startOneMoveIn(row, col, tile, options = {}) {
 }
 
 function onSlotClick(i) {
+  if (tileDragMoved.value) {
+    tileDragMoved.value = false;
+    return;
+  }
   if (suppressTilePrimaryClick.value) {
     suppressTilePrimaryClick.value = false;
     return;
@@ -13045,6 +13897,95 @@ function onSlotClick(i) {
   const order = selectedOrder.value;
   if (i < 0 || i >= order.length) return;
   startOneMoveOut(i);
+}
+
+/** 拖动松手：word→grid，从松手位置飞回原棋盘格（仅移除该槽） */
+function animateWordTileReturnToGrid(slotIndex, clientX, clientY, ghost) {
+  const order = selectedOrder.value;
+  if (slotIndex < 0 || slotIndex >= order.length) return;
+  if (ceruleanBellSlotIndex.value != null && slotIndex <= ceruleanBellSlotIndex.value) return;
+
+  const { row, col } = order[slotIndex];
+  const tile = grid.value[row]?.[col];
+  const toEl = gridTileRefs.value[row * COLS + col] ?? getGridTileElByIndex(row * COLS + col);
+  if (!tile || !toEl) return;
+
+  const toRect = toEl.getBoundingClientRect();
+  const backPres = computeFlyBackTilePresentation(tile);
+  const fromRect = {
+    left: clientX - (ghost.offsetX ?? ghost.width / 2),
+    top: clientY - (ghost.offsetY ?? ghost.height / 2),
+    width: ghost.width,
+    height: ghost.height,
+  };
+  const item = {
+    fromRect,
+    toRect,
+    letter: backPres.letter,
+    rarity: backPres.rarity,
+    materialId: tile.materialId ?? null,
+    accessoryId: tile.accessoryId ?? null,
+    tileScoreBonus: Math.max(0, Math.floor(Number(tile.tileScoreBonus) || 0)),
+    tileMultBonus: Math.max(0, Math.round(Number(tile.letterMultBonus) || 0)),
+    bossTileDebuffed: tile.bossTileDebuffed === true,
+    vowelGhostPrev: backPres.vowelGhostPrev,
+    vowelGhostNext: backPres.vowelGhostNext,
+    playerMarked: tile.playerMarked === true,
+    startSlotScale: slotScaleRuntime,
+  };
+
+  wordDragReturnAnimSlot.value = slotIndex;
+  triggerHaptic("selection");
+
+  const el = createFlyBackElement(item);
+  document.body.appendChild(el);
+  const tw = Math.max(toRect.width, 1e-6);
+  const th = Math.max(toRect.height, 1e-6);
+  gsap.killTweensOf(el);
+  gsap.set(el, {
+    zIndex: bumpOverlayZ(),
+    left: fromRect.left,
+    top: fromRect.top,
+    width: toRect.width,
+    height: toRect.height,
+    scaleX: fromRect.width / tw,
+    scaleY: fromRect.height / th,
+    transformOrigin: "left top",
+    force3D: true,
+    "--slot-scale": String(item.startSlotScale ?? 1),
+  });
+
+  const finish = () => {
+    disposeFlyBackTileElement(el);
+    el.remove();
+    removeSingleTileFromWord(slotIndex);
+    wordDragReturnAnimSlot.value = null;
+    triggerHaptic("land");
+    nextTick(() => updateSlotPositions(true));
+  };
+
+  if (shouldSkipDecorativeMotion()) {
+    gsap.set(el, {
+      left: toRect.left,
+      top: toRect.top,
+      scaleX: 1,
+      scaleY: 1,
+      "--slot-scale": 1,
+    });
+    finish();
+    return;
+  }
+
+  gsap.to(el, {
+    left: toRect.left,
+    top: toRect.top,
+    scaleX: 1,
+    scaleY: 1,
+    "--slot-scale": 1,
+    duration: FLY_DURATION,
+    ease: EASE_TRANSFORM,
+    onComplete: finish,
+  });
 }
 
 function startOneMoveOut(slotIndex) {
@@ -13164,6 +14105,7 @@ async function submitWord() {
     return;
   }
   triggerHaptic("confirm");
+  wordDefinitionHiddenForWordLeave.value = true;
   submitWordBusy.value = true;
   let submitChanceConsumed = false;
   try {
@@ -13345,6 +14287,7 @@ async function submitWord() {
   submitChanceConsumed = true;
   seedAnimFormulaFromSubmitDetailed(detailed);
   scoringAnimating.value = true;
+  wordDefinitionHiddenForWordLeave.value = true;
   await nextTick();
   await sleep(ACTION_COUNT_DELTA_BEAT_MS);
   scoringLetterIndex.value = -1;
@@ -13419,6 +14362,7 @@ async function submitWord() {
     if (isGamePaused()) exitGamePause();
     if (submitChanceConsumed) remainingWords.value += 1;
     scoringAnimating.value = false;
+    wordDefinitionHiddenForWordLeave.value = false;
     scoringLetterIndex.value = -1;
     roundScoreOverride.value = null;
     submitTranslationLines.value = [];
@@ -13777,12 +14721,18 @@ onMounted(async () => {
   if (maskBubbleDevScenarioActive.value) {
     applyMaskBubbleOwnedTreasures(ownedTreasures, buildOwnedTreasureSlot);
   }
+  if (pagerDevScenarioActive.value) {
+    applyPagerOwnedTreasure(ownedTreasures, buildOwnedTreasureSlot);
+  }
+  if (ceruleanBellDevScenarioActive.value) {
+    applyCeruleanBellDevRunStart();
+  }
   mountE2eHarnessIfNeeded();
   registerMaskBubbleDevConsoleHook();
   slotRafLastTime = performance.now();
   ensureSlotRafRunning();
   if (!gamePanelAlive) return;
-  const levelDef = currentLevel.value ?? getRunLevelAtIndex(levelIndex.value);
+  const levelDef = getRunLevelAtIndex(levelIndex.value);
   await resetLevelAfterTreasurePrep(levelDef);
   await nextTick();
   if (isE2eMode()) {
@@ -13962,6 +14912,17 @@ onUnmounted(() => {
 .word-slots .word-slot-tile {
   position: absolute;
   /* left/top/width/height 由 RAF 循环写入 */
+}
+.word-slot-hover-ph-exit {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.word-slot-hover-ph-exit .word-slot-drag-placeholder {
+  width: 100%;
+  height: 100%;
 }
 .word-slot-tile-out {
   position: absolute;

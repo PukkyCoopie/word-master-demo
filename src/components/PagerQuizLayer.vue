@@ -69,7 +69,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from "v
 import gsap from "gsap";
 import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
 import { EASE_TRANSFORM } from "../constants.js";
-import { bumpOverlayZ } from "../game/overlayStack.js";
+import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { getRarityForLetter } from "../composables/useScoring.js";
 import { animSleep } from "../settings/animationSpeed.js";
 import {
@@ -124,7 +124,7 @@ const wordTiles = computed(() => {
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i];
     if (ch === "q" && raw[i + 1] === "u") {
-      out.push({ letter: "Qu", rarity: getRarityForLetter("q") });
+      out.push({ letter: resolveLetterFromRaw("q"), rarity: getRarityForLetter("q") });
       i += 1;
       continue;
     }

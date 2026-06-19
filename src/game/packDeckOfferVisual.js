@@ -1,4 +1,5 @@
 import { getRarityForLetter } from "../composables/useScoring.js";
+import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { mountLetterTileClone } from "./mountLetterTileClone.js";
 
 /**
@@ -14,7 +15,7 @@ export function buildPackDeckOfferLetterTileProps(offer) {
   if (raw === "qu") raw = "q";
   if (!/^[a-z]$/.test(raw)) raw = "e";
 
-  const letter = raw === "q" ? "Qu" : raw.toUpperCase();
+  const letter = resolveLetterFromRaw(raw);
   const rarityRaw = offer.letterRarity ?? offer.rarity;
   const rarity =
     rarityRaw != null && String(rarityRaw).trim() !== ""

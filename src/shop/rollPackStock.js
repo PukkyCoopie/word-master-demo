@@ -5,6 +5,7 @@ import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
 import { pickDistinctSpellDefsForPack } from "../spells/spellPackOfferRoll.js";
 import { rollDistinctShopTreasures } from "../treasures/shopTreasureRoll.js";
 import { LETTER_RARITY_ORDER, getRarityForLetter } from "../composables/useScoring.js";
+import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { allLetterRaws } from "../game/initialDeckLetterCounts.js";
 import {
   getPackOfferSlotCount,
@@ -456,7 +457,7 @@ export function rollBundleOptionsForOffer(bundleOffer, ctx) {
     return raws.map((raw, i) => {
       const mods = rollDeckTileModifiers(rng, { honeAccessoryMult: honeMult, materialIds });
       const rarity = getRarityForLetter(raw);
-      const letterDisp = raw === "q" ? "Qu" : raw.toUpperCase();
+      const letterDisp = resolveLetterFromRaw(raw);
       const copy = buildDeckTileOfferDisplay(letterDisp, mods);
       return {
         kind: "offer",

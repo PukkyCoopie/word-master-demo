@@ -17,6 +17,9 @@ import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories";
 import { shouldHideRarityGemForTile } from "../composables/useScoring.js";
 import { resolveTileMaterialAnimate } from "../lib/reglMaterialPerf.js";
 import { reducedMotionSignal } from "../settings/animationSpeed.js";
+import { gameSettings } from "../settings/gameSettings.js";
+import { formatTileLetterDisplay } from "../settings/letterCase.js";
+import { isQuStyleTileLetter, normalizeStoredTileLetter } from "../settings/letterQ.js";
 
 defineOptions({ inheritAttrs: false });
 
@@ -146,7 +149,7 @@ const mergedClass = computed(() => {
         : showCeruleanLockVisual.value
           ? "letter-tile-cerulean-lock"
           : "";
-  return [variantClass.value, props.letter === "Qu" ? "letter-qu" : "", matClass, bossClass, attrs.class].filter(
+  return [variantClass.value, isQuStyleTileLetter(props.letter) ? "letter-qu" : "", matClass, bossClass, attrs.class].filter(
     Boolean,
   );
 });
@@ -202,6 +205,24 @@ const effectiveMaterialAnimate = computed(() => {
 });
 
 const effectiveHideRarityGem = computed(() => shouldHideRarityGemForTile(props));
+
+const displayLetter = computed(() => {
+  void gameSettings.letterCase;
+  void gameSettings.letterQMode;
+  return formatTileLetterDisplay(normalizeStoredTileLetter(props.letter));
+});
+
+const displayVowelGhostPrev = computed(() => {
+  void gameSettings.letterCase;
+  void gameSettings.letterQMode;
+  return props.vowelGhostPrev ? formatTileLetterDisplay(normalizeStoredTileLetter(props.vowelGhostPrev)) : null;
+});
+
+const displayVowelGhostNext = computed(() => {
+  void gameSettings.letterCase;
+  void gameSettings.letterQMode;
+  return props.vowelGhostNext ? formatTileLetterDisplay(normalizeStoredTileLetter(props.vowelGhostNext)) : null;
+});
 </script>
 
 <template>
@@ -233,17 +254,17 @@ const effectiveHideRarityGem = computed(() => shouldHideRarityGemForTile(props))
     />
     <span v-if="!effectiveHideRarityGem" class="letter-gem" :class="`gem-${rarity}`" aria-hidden="true" />
     <span
-      v-if="vowelGhostPrev && showVowelGhost"
+      v-if="displayVowelGhostPrev && showVowelGhost"
       class="vowel-ghost vowel-ghost--prev"
       aria-hidden="true"
-      >{{ vowelGhostPrev }}</span
+      >{{ displayVowelGhostPrev }}</span
     >
-    <span v-if="!hideLetter" class="letter-tile-char">{{ letter }}</span>
+    <span v-if="!hideLetter" class="letter-tile-char">{{ displayLetter }}</span>
     <span
-      v-if="vowelGhostNext && showVowelGhost"
+      v-if="displayVowelGhostNext && showVowelGhost"
       class="vowel-ghost vowel-ghost--next"
       aria-hidden="true"
-      >{{ vowelGhostNext }}</span
+      >{{ displayVowelGhostNext }}</span
     >
     <span
       v-if="treasureAccessoryChipVisual"

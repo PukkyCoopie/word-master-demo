@@ -37,6 +37,8 @@ import {
   hasIllusion,
   hasMagicTrick,
 } from "../vouchers/voucherRuntime.js";
+import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
+import { pickDifficulty0FirstShopTreasureId } from "../game/runDifficultyRuntime.js";
 
 export { SHOP_RANDOM_CARD_SLOT_COUNT, getShopRandomCardSlotCount } from "./shopRandomCardEconomy.js";
 
@@ -182,6 +184,27 @@ function createShopRandomCardRoller(ctx) {
     return buildTreasureShopRowFromDef(ctx.nextOfferInstanceId, def, rng, honeMult, ctx.runDifficultyIndex ?? null);
   }
 
+  /**
+   * @param {string} treasureId
+   * @param {{ includeAccessories?: boolean }} [opts]
+   */
+  function tryTreasureById(treasureId, opts = {}) {
+    const tid = String(treasureId ?? "").trim();
+    if (!tid || owned.has(tid) || sessionExcluded?.has(tid)) return null;
+    const def = pool.find((t) => String(t?.treasureId) === tid);
+    if (!def) return null;
+    sessionExcluded?.add(tid);
+    const includeAccessories = opts.includeAccessories !== false;
+    return buildTreasureShopRowFromDef(
+      ctx.nextOfferInstanceId,
+      def,
+      rng,
+      honeMult,
+      includeAccessories ? (ctx.runDifficultyIndex ?? null) : null,
+      includeAccessories,
+    );
+  }
+
   function trySpell() {
     const avail = availableSpellDefs();
     if (!avail.length) return null;
@@ -269,19 +292,31 @@ function createShopRandomCardRoller(ctx) {
     return makeEmpty();
   }
 
-  return { rollOneSlot, tryTreasure };
+  return { rollOneSlot, tryTreasure, tryTreasureById };
 }
 
 export function rollShopRandomCardOffers(ctx) {
   const ownedV = ctx.ownedVoucherIds != null ? new Set([...ctx.ownedVoucherIds]) : new Set();
   const slotCount = getShopRandomCardSlotCount(getShopRandomCardSlotBonus(ownedV));
-  const { rollOneSlot, tryTreasure } = createShopRandomCardRoller(ctx);
+  const { rollOneSlot, tryTreasure, tryTreasureById } = createShopRandomCardRoller(ctx);
   const guaranteeTreasure = ctx.guaranteeFirstShopTreasureSlot === true;
+  const difficulty0FirstShop =
+    guaranteeTreasure && normalizeRunDifficultyIndex(ctx.runDifficultyIndex) === 0;
   /** @type {object[]} */
   const rows = [];
   for (let i = 0; i < slotCount; i += 1) {
     if (guaranteeTreasure && i === 0) {
-      const treasureRow = tryTreasure();
+      let treasureRow = null;
+      if (difficulty0FirstShop) {
+        const forcedId = pickDifficulty0FirstShopTreasureId(
+          typeof ctx.rng === "function" ? ctx.rng : Math.random,
+          ctx.ownedTreasureIdSet,
+          ctx.shopTreasurePool,
+          ctx.sessionExcludeTreasureIds,
+        );
+        if (forcedId) treasureRow = tryTreasureById(forcedId, { includeAccessories: false });
+      }
+      if (!treasureRow) treasureRow = tryTreasure();
       if (treasureRow) {
         rows.push(treasureRow);
         continue;

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <!-- 整体水平排列容器 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <!-- 左侧一级列表 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvLeftCategories"
+            android:layout_width="112dp"
+            android:layout_height="wrap_content"
+            android:background="@color/tap_sdk_extension_surface_gray"
+            android:overScrollMode="never" />
+
+        <!-- 右侧二级列表 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvRightItems"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@color/tap_sdk_extension_dialog_white"
+            android:overScrollMode="never" />
+
+    </LinearLayout>
+
+</FrameLayout>

@@ -1,4 +1,9 @@
-/** 宝藏展示、脚本路径与实现状态目录（集中维护） */
+/**
+ * 宝藏展示、脚本路径与实现状态目录（集中维护）。
+ *
+ * `collectionOrder`（可选）：收藏页同稀有度、同解锁条件组内的排序；数值越小越靠前。
+ * 未指定时按 `treasureId` 排在所有已指定项之后。建议用 0、10、20… 留空隙便于日后插入。
+ */
 export const TREASURE_CATALOG = [
   { treasureId: "1", name: "火花", emoji: "✨", scriptPath: "./items/treasure_1.js", implemented: true },
   { treasureId: "2", name: "铅笔", emoji: "✏️", scriptPath: "./items/treasure_2.js", implemented: true },
@@ -118,6 +123,14 @@ export const TREASURE_CATALOG = [
   { treasureId: "116", name: "盾牌", emoji: "🛡️", scriptPath: "./items/treasure_116.js", implemented: true },
   { treasureId: "117", name: "光盘", emoji: "💿", scriptPath: "./items/treasure_117.js", implemented: true },
   { treasureId: "118", name: "寻呼机", emoji: "📟", scriptPath: "./items/treasure_118.js", implemented: true },
+  {
+    treasureId: "119",
+    name: "风筝",
+    emoji: "🪁",
+    scriptPath: "./items/treasure_119.js",
+    implemented: true,
+    collectionOrder: 0,
+  },
 ];
 
 export const TREASURE_CATALOG_BY_ID = new Map(TREASURE_CATALOG.map((t) => [t.treasureId, t]));

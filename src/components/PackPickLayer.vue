@@ -153,6 +153,7 @@ import { buildPackInnerOfferPriceView } from "../shop/shopOfferPriceDisplay.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { EASE_TRANSFORM } from "../constants.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
+import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import {
   instantPortalLayerClose,
   instantPortalLayerEnter,
@@ -409,7 +410,7 @@ function deckOfferLetterTileBind(opt) {
   if (!p) {
     const raw = String(opt?.deckLetterRaw ?? "a").toLowerCase();
     return {
-      letter: raw === "q" ? "Qu" : raw.toUpperCase(),
+      letter: resolveLetterFromRaw(raw),
       rarity: opt?.letterRarity ?? opt?.rarity ?? "common",
       tileScoreBonus: 0,
       tileMultBonus: 0,

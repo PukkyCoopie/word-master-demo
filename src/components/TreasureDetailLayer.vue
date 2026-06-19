@@ -894,6 +894,7 @@ import {
 } from "../game/tileDetailLayerCopy.js";
 import { formatCompactOneDecimal, formatWalletInteger, isSingleDigitLabel } from "./detailLayerFormatters.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
+import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import PreviewGroupNav from "./PreviewGroupNav.vue";
 import CollectionPrerequisiteBadge from "./collection/CollectionPrerequisiteBadge.vue";
 import { COLLECTION_UNKNOWN_LABEL } from "../collection/collectionDisplayUtils.js";
@@ -1098,7 +1099,7 @@ const deckOfferLetterTileBind = computed(() => {
   if (!p) {
     const raw = String(props.treasure?.deckLetterRaw ?? "a").toLowerCase();
     return {
-      letter: raw === "q" ? "Qu" : raw.toUpperCase(),
+      letter: resolveLetterFromRaw(raw),
       rarity: props.treasure?.letterRarity ?? props.treasure?.rarity ?? "common",
       tileScoreBonus: 0,
       tileMultBonus: 0,
@@ -1121,7 +1122,7 @@ const showDeckOfferRarityScoreMult = computed(() =>
 
 const deckOfferLetter = computed(() => {
   const raw = String(props.treasure?.deckLetterRaw ?? "a").toLowerCase();
-  return raw === "q" ? "Qu" : raw.toUpperCase();
+  return resolveLetterFromRaw(raw);
 });
 
 const deckOfferAccessoryId = computed(() => {
@@ -1737,6 +1738,7 @@ function runEnterAnimation() {
       backdropFinal: portalScrimGsapVars("rgba(14, 12, 10, 0.78)"),
       staggerEls: staggerTargets(),
       primaryEl: targetVisual,
+      extraEls: [iconColumnRef.value].filter(Boolean),
     });
     void nextTick(() => {
       previewNavRef.value?.resetVisible?.();
@@ -1994,6 +1996,13 @@ function runContentEnterAnimation() {
     }
     instantRevealGsapTargets(staggerTargets());
     instantRevealGsapTargets([targetVisual]);
+    if (iconColumnRef.value) {
+      instantRevealGsapTargets([iconColumnRef.value], {
+        opacity: 1,
+        pointerEvents: "auto",
+        visibility: "visible",
+      });
+    }
     return;
   }
 

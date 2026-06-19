@@ -14,6 +14,7 @@ import {
 } from "./shopPackEconomy.js";
 import { buildDeckTileOfferDisplay, rollDeckTileModifiers } from "./rollDeckTileModifiers.js";
 import { RENTAL_TREASURE_LIST_PRICE } from "../treasures/ownedTreasureSlot.js";
+import { resolveLetterFromRaw } from "../settings/letterQ.js";
 
 export const UPGRADE_ICON_CLASS = "ri-arrow-up-box-fill";
 
@@ -205,7 +206,7 @@ export function buildDeckTileShopRow(nextOfferInstanceId, raw, rng, opts = {}) {
     allowModifiers: opts.allowModifiers !== false,
   });
   const rarity = getRarityForLetter(r);
-  const letterDisp = r === "q" ? "Qu" : r.toUpperCase();
+  const letterDisp = resolveLetterFromRaw(r);
   const copy = buildDeckTileOfferDisplay(letterDisp, {
     ...mods,
     rarityLabel: UPGRADE_RARITY_LETTER_LABEL[rarity] ?? rarity,

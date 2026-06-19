@@ -1,5 +1,4 @@
 import gsap from "gsap";
-import { getEffectiveAnimSpeed, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 /** @type {WeakMap<HTMLElement, { timeoutId?: ReturnType<typeof setTimeout>; outroTween?: gsap.core.Tween }>} */
 const dismissHandlesByEl = new WeakMap();
@@ -23,7 +22,7 @@ export function setPopupBubbleVisibleInstant(div) {
 }
 
 /**
- * 按原时序移除气泡；减少动画时不播放淡出，到点直接 remove。
+ * 按原时序移除气泡（含淡出）；减少动画模式下仍播放完整离场。
  * @param {HTMLElement | null | undefined} el
  * @param {object} opts
  * @param {number} opts.delayS
@@ -35,16 +34,6 @@ export function schedulePopupBubbleDismiss(el, opts) {
   if (!el) return;
   const speed = Math.max(0.01, Number(opts.speed) || 1);
   cancelScheduledPopupBubbleDismiss(el);
-  if (shouldSkipDecorativeMotion()) {
-    const s = getEffectiveAnimSpeed(speed);
-    const waitMs = Math.max(1, Math.round(((opts.delayS + opts.durationS) / s) * 1000));
-    const timeoutId = window.setTimeout(() => {
-      dismissHandlesByEl.delete(el);
-      el.remove();
-    }, waitMs);
-    dismissHandlesByEl.set(el, { timeoutId });
-    return;
-  }
   const outroTween = opts.onAnimateOutro?.(speed);
   if (outroTween && typeof outroTween.kill === "function") {
     dismissHandlesByEl.set(el, { outroTween });
@@ -88,10 +77,6 @@ export function createShopStylePopupBubble(targetEl, text, kind = "score") {
  */
 export function playShopStylePopupBubbleEnter(div, speed = 1) {
   const s = Math.max(0.01, Number(speed) || 1);
-  if (shouldSkipDecorativeMotion()) {
-    setPopupBubbleVisibleInstant(div);
-    return;
-  }
   gsap.fromTo(
     div,
     { opacity: 0, y: 18, scale: 0.5 },

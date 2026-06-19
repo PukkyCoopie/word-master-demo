@@ -9,8 +9,8 @@ import { isBossDebuffedSubmitTile } from "../treasureScoring.js";
 
 const ID = "88";
 const MULT_GAIN_PER_STRIP = 0.1;
-/** 本手逐字结算会把持久平面分/倍率写回牌张的宝藏（计分板、回形针；非玩家标记折角） */
-const INTRINSIC_PERSIST_TREASURE_IDS = new Set(["75", "76"]);
+/** 本手逐字结算会把持久平面分/倍率写回牌张的宝藏（计分板、回形针、泡泡；非玩家标记折角） */
+const INTRINSIC_PERSIST_TREASURE_IDS = new Set(["75", "76", "80"]);
 
 /**
  * @param {import('../treasureTypes.js').TreasureLogicContext | import('../treasureTypes.js').TreasureSubmitAfterLettersContext} ctx

@@ -168,6 +168,21 @@
  */
 
 /**
+ * 拼词区释义按钮点击
+ * @typedef {Object} TreasureWordDefinitionOpenContext
+ * @property {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @property {string} [word]
+ * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
+ */
+
+/**
+ * 拼词区释义触发按钮展示（设置「释义」时是否退化为仅 icon）
+ * @typedef {Object} TreasureWordDefinitionPresentationContext
+ * @property {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @property {'button' | 'definition' | 'off'} displayMode 玩家设置中的释义显示档位
+ */
+
+/**
  * @typedef {Object} SubmitWordEnhancementStripLeaveOpts
  * @property {string} [treasureId]
  * @property {number[]} indices 词槽索引（仅增强字母）
@@ -217,6 +232,8 @@
  * @property {() => { title: string, description: string | import('./treasureDescription.js').TreasureDescSegment[] } | null | undefined} [getDetailGainPanel] 详情层主简介下、与具名配饰分区并列的补充说明：**仅**用于**具名棋盘材质**或**具名配饰**（火焰/水滴/扳手/裁剪等）的二次展示；**禁止**类目词（如「宝藏配饰」）作标题、禁止抽象计分复述。**当前仅 id「77」**应实现。原则见 `.cursor/rules/treasure-detail-supplement.mdc`、法术卡见 `spell-gain-panel.mdc`。
  * @property {(ctx: { chargeWordsSubmitted: number, ownedSlotTreasureIds: (string | null | undefined)[], remainingDeckCount?: number }) => import('./treasureDescription.js').TreasureDescSegment[] | null | undefined} [buildOwnedDetailDescriptionSegments] 已拥有详情（非货架报价）：在静态简介后追加片段；**仅限材质/配饰类补充**（与 `getDetailGainPanel` 同一原则）。充能进度、动态倍率数值等请用 footer 充能条等专用 UI，不要在此处追加简介。
  * @property {(ctx: TreasureSubmitSuccessContext) => void | Promise<void>} [onSuccessfulWordSubmit] 本词结算动画成功后调用（每词每宝藏 id 至多一次）
+ * @property {(ctx: TreasureWordDefinitionOpenContext) => void | Promise<{ blocked?: boolean } | void>} [onWordDefinitionOpenAttempt] 拼词区释义按钮：返回 `{ blocked: true }` 时阻止弹窗
+ * @property {(ctx: TreasureWordDefinitionPresentationContext) => { triggerMode?: 'button' | 'definition' } | void} [resolveWordDefinitionTriggerMode] 设置「释义」时：返回 `{ triggerMode: 'button' }` 则退化为仅 icon 按钮（不展示行内预览条）
  * @property {(ctx: TreasureChargeVisualContext) => 'inactive' | 'active'} [getChargeVisualState] 若实现则 footer 显示充能态；未实现则无充能条
  * @property {(ctx: TreasureChargeVisualContext) => number} [getChargeProgress] 0~1，与 `getChargeVisualState` 成对实现
  * @property {(ctx: import('./treasureTypes.js').TreasurePatchDescriptionContext) => import('./treasureDescription.js').TreasureDescSegment[] | null | undefined} [patchDescription] 替换简介中「（当前…）」动态段；若 `replaceDescriptionWithPatch` 为 true 则整段简介由 patch 提供
@@ -271,6 +288,13 @@
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {boolean} [discardPotteryFxHandled] 陶罐/垃圾桶等逐字弃牌动效已在消失动画中结算（避免 onDiscardBatch 重复入银行或播 FX）
  * @property {number[]} [potteryDiscardProcIndices] 陶罐本次弃牌已掷出的触发字索引（与消失动效共用同一 rng）
+ * @property {(word: string) => object | null | undefined} [resolveDiscardedWord] 弃牌字母串是否构成词典词
+ * @property {number} [judgedWordLength] 判定词长（券/预设/宝藏加成与减益后的等效词长表长度）
+ * @property {(len: number, opts?: { observatoryBoost?: boolean }) => void} [bumpWordLengthLevel]
+ * @property {(len: number) => Promise<void>} [runSingleInRunLengthUpgradeFx] 局内播放「单一词长 +1」升级动画并应用升级
+ * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
+ * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleOnlyFx]
+ * @property {(treasureId: string) => Promise<void>} [playOwnedTreasureWobbleOnlyFx]
  */
 
 /**

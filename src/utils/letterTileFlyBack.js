@@ -15,6 +15,8 @@ import { attachWaterRegl } from "../lib/waterReglMount.js";
 import { shouldHideRarityGemForTile } from "../composables/useScoring.js";
 import { resolveTileMaterialAnimate } from "../lib/reglMaterialPerf.js";
 import { appendImperativeAugmentBadges, appendImperativeTileChrome } from "./tileImperativeChrome.js";
+import { formatTileLetterDisplay } from "../settings/letterCase.js";
+import { isQuStyleTileLetter } from "../settings/letterQ.js";
 
 const flyMaterialReglDisposeByEl = new WeakMap();
 
@@ -41,7 +43,7 @@ function pushDispose(el, disposeFn) {
 
 export function createFlyBackTileElement(item) {
   const el = document.createElement("div");
-  let cls = "fly-letter fly-letter-back" + (item.letter === "Qu" ? " letter-qu" : "");
+  let cls = "fly-letter fly-letter-back" + (isQuStyleTileLetter(item.letter) ? " letter-qu" : "");
   if (item.materialId === "gold") cls += " tile-material-gold";
   if (item.materialId === "steel") cls += " tile-material-steel";
   if (item.materialId === "ice") cls += " tile-material-ice";
@@ -121,18 +123,18 @@ export function createFlyBackTileElement(item) {
     const prev = document.createElement("span");
     prev.className = "vowel-ghost vowel-ghost--prev";
     prev.setAttribute("aria-hidden", "true");
-    prev.textContent = item.vowelGhostPrev;
+    prev.textContent = formatTileLetterDisplay(item.vowelGhostPrev);
     el.appendChild(prev);
   }
   const char = document.createElement("span");
   char.className = "letter-tile-char";
-  char.textContent = item.letter;
+  char.textContent = formatTileLetterDisplay(item.letter);
   el.appendChild(char);
   if (item.vowelGhostNext) {
     const next = document.createElement("span");
     next.className = "vowel-ghost vowel-ghost--next";
     next.setAttribute("aria-hidden", "true");
-    next.textContent = item.vowelGhostNext;
+    next.textContent = formatTileLetterDisplay(item.vowelGhostNext);
     el.appendChild(next);
   }
   appendImperativeTileChrome(el, item);

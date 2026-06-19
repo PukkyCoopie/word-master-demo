@@ -137,9 +137,18 @@
                     </span>
                   </button>
                 </label>
+
+                <div class="settings-row settings-row--segment">
+                  <span class="settings-row-label">字母样式</span>
+                  <SettingsSegmentControl
+                    :options="LETTER_CASE_OPTIONS"
+                    :model-value="letterCase"
+                    aria-label="字母样式"
+                    @update:model-value="onLetterCaseChange"
+                  />
+                </div>
               </div>
             </section>
-
             <section
               role="tabpanel"
               class="settings-layer-panel"
@@ -162,6 +171,26 @@
                     </span>
                   </button>
                 </label>
+
+                <div class="settings-row settings-row--segment">
+                  <span class="settings-row-label">释义</span>
+                  <SettingsSegmentControl
+                    :options="WORD_DEFINITION_MODE_OPTIONS"
+                    :model-value="wordDefinitionMode"
+                    aria-label="释义显示"
+                    @update:model-value="onWordDefinitionModeChange"
+                  />
+                </div>
+
+                <div class="settings-row settings-row--segment">
+                  <span class="settings-row-label">字母Q</span>
+                  <SettingsSegmentControl
+                    :options="LETTER_Q_MODE_OPTIONS"
+                    :model-value="letterQMode"
+                    aria-label="字母Q"
+                    @update:model-value="onLetterQModeChange"
+                  />
+                </div>
               </div>
             </section>
 
@@ -249,6 +278,8 @@ import { computed, nextTick, ref, watch } from "vue";
 import { settingsOverlayZ } from "../game/overlayStack.js";
 import SettingsSegmentControl from "./SettingsSegmentControl.vue";
 import { ANIMATION_SPEED_OPTIONS } from "../settings/animationSpeed.js";
+import { LETTER_CASE_OPTIONS } from "../settings/letterCase.js";
+import { LETTER_Q_MODE_OPTIONS } from "../settings/letterQ.js";
 import {
   UI_SCALE_MAX,
   UI_SCALE_MIN,
@@ -260,10 +291,14 @@ import {
   setAnimationSpeedTier,
   setDisplayLayoutMode,
   setHapticsEnabled,
+  setLetterCase,
+  setLetterQMode,
   setMarkOnSwap,
   setReduceMotion,
   setUiScalePercent,
+  setWordDefinitionMode,
   stepSwapButtonMode,
+  WORD_DEFINITION_MODE_OPTIONS,
 } from "../settings/gameSettings.js";
 import { isHapticsAvailable, previewHaptic, scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 
@@ -318,10 +353,13 @@ function setActiveTab(id) {
 }
 
 const allowAbbrev = computed(() => gameSettings.allowSpellingAbbreviations === true);
+const wordDefinitionMode = computed(() => gameSettings.wordDefinitionMode);
 const markOnSwap = computed(() => gameSettings.markOnSwap !== false);
 const uiScalePercent = computed(() => gameSettings.uiScalePercent);
 const displayLayoutMode = computed(() => gameSettings.displayLayoutMode);
 const animationSpeedTier = computed(() => gameSettings.animationSpeedTier);
+const letterCase = computed(() => gameSettings.letterCase);
+const letterQMode = computed(() => gameSettings.letterQMode);
 const reduceMotionEnabled = computed(() => gameSettings.reduceMotion === true);
 const hapticsAvailable = isHapticsAvailable();
 const hapticsEnabled = computed(() => gameSettings.hapticsEnabled !== false);
@@ -350,6 +388,17 @@ function onAnimationSpeedChange(tier) {
 
 function onToggleReduceMotion() {
   setReduceMotion(!reduceMotionEnabled.value);
+  settingsChangeTap();
+}
+
+/** @param {string} caseMode */
+function onLetterCaseChange(caseMode) {
+  setLetterCase(/** @type {import('../settings/gameSettings.js').LetterCase} */ (caseMode));
+}
+
+/** @param {string} mode */
+function onLetterQModeChange(mode) {
+  setLetterQMode(/** @type {import('../settings/gameSettings.js').LetterQMode} */ (mode));
   settingsChangeTap();
 }
 
@@ -391,6 +440,12 @@ watch(uiScalePercent, (v) => {
 
 function onToggleAbbrev() {
   setAllowSpellingAbbreviations(!allowAbbrev.value);
+  settingsChangeTap();
+}
+
+/** @param {string} mode */
+function onWordDefinitionModeChange(mode) {
+  setWordDefinitionMode(/** @type {import('../settings/gameSettings.js').WordDefinitionMode} */ (mode));
   settingsChangeTap();
 }
 

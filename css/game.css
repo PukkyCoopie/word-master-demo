@@ -211,6 +211,7 @@ textarea::-moz-placeholder {
 }
 
 .middle-word-stack {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -218,6 +219,11 @@ textarea::-moz-placeholder {
 	width: 100%;
 	max-width: 100%;
 	min-height: 0;
+}
+
+.middle-word-stack--definition-zone {
+	justify-content: flex-start;
+	transform: translateY(calc(-10 * var(--rpx)));
 }
 
 .word-translation-wrap {
@@ -248,6 +254,183 @@ textarea::-moz-placeholder {
 
 .word-translation-line:last-child {
 	margin-bottom: 0;
+}
+
+.word-definition-trigger-wrap {
+	position: absolute;
+	top: calc(100% + 20 * var(--rpx));
+	left: 50%;
+	transform: translateX(-50%);
+	width: 100%;
+	max-width: calc(620 * var(--rpx));
+	display: flex;
+	justify-content: center;
+	box-sizing: border-box;
+	pointer-events: none;
+}
+
+.word-definition-trigger-item {
+	display: inline-flex;
+	max-width: 100%;
+	transform-origin: center center;
+	pointer-events: auto;
+}
+
+.word-definition-btn {
+	flex: 0 0 auto;
+	border: none;
+	border-radius: var(--radius);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: calc(8 * var(--rpx));
+	padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
+	background: #9b59b6;
+	color: #fff;
+	cursor: pointer;
+	box-shadow: var(--shadow);
+	position: relative;
+	font: inherit;
+}
+
+.word-definition-btn::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	background: transparent;
+	transition: background 0.12s ease;
+}
+
+.word-definition-btn:hover::after {
+	background: var(--overlay-hover-bright);
+}
+
+.word-definition-btn:active::after {
+	background: var(--overlay-active-dim);
+}
+
+.word-definition-btn--icon-only {
+	width: calc(48 * var(--rpx));
+	height: calc(48 * var(--rpx));
+	padding: 0;
+}
+
+.word-definition-btn--icon-only .word-definition-btn__icon {
+	font-size: calc(28 * var(--rpx));
+}
+
+.word-definition-preview-bar {
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: calc(10 * var(--rpx));
+	max-width: calc(620 * var(--rpx));
+	min-height: calc(48 * var(--rpx));
+	padding: calc(4 * var(--rpx)) calc(8 * var(--rpx)) calc(4 * var(--rpx)) calc(4 * var(--rpx));
+	border: none;
+	border-radius:
+		calc(10 * var(--rpx));
+	background: #9b59b6;
+	color: #fff;
+	box-shadow: var(--shadow);
+	overflow: hidden;
+	white-space: nowrap;
+	cursor: pointer;
+	font: inherit;
+	position: relative;
+	transition: width calc(0.22s / var(--anim-speed-scale, 1)) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.word-definition-preview-bar::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	background: transparent;
+	transition: background 0.12s ease;
+}
+
+.word-definition-preview-bar:hover::after {
+	background: var(--overlay-hover-bright);
+}
+
+.word-definition-preview-bar:active::after {
+	background: var(--overlay-active-dim);
+}
+
+.word-definition-preview-icon {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: calc(40 * var(--rpx));
+	height: calc(40 * var(--rpx));
+	border-radius: calc(8 * var(--rpx));
+	background: #fff;
+	color: #9b59b6;
+	font-size: calc(24 * var(--rpx));
+	line-height: 1;
+}
+
+.word-definition-preview-text {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: calc(24 * var(--rpx));
+	font-weight: 600;
+	line-height: 1.2;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	text-align: left;
+}
+
+.word-definition-trigger-enter-active,
+.word-definition-trigger-leave-active {
+	transition:
+		opacity calc(0.18s / var(--anim-speed-scale, 1)) ease,
+		transform calc(0.22s / var(--anim-speed-scale, 1)) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.word-definition-trigger-enter-from,
+.word-definition-trigger-leave-to {
+	opacity: 0;
+	transform: scale(0.88);
+}
+
+.word-definition-pill-enter-active,
+.word-definition-pill-leave-active {
+	transition:
+		opacity calc(0.16s / var(--anim-speed-scale, 1)) ease,
+		transform calc(0.16s / var(--anim-speed-scale, 1)) ease,
+		max-width calc(0.18s / var(--anim-speed-scale, 1)) ease,
+		margin calc(0.18s / var(--anim-speed-scale, 1)) ease,
+		padding calc(0.18s / var(--anim-speed-scale, 1)) ease;
+	overflow: hidden;
+}
+
+.word-definition-pill-enter-from,
+.word-definition-pill-leave-to {
+	opacity: 0;
+	transform: scale(0.86);
+	max-width: 0;
+	margin-left: calc(-10 * var(--rpx));
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.word-definition-extra-pill {
+	flex: 0 0 auto;
+	padding: calc(2 * var(--rpx)) calc(10 * var(--rpx));
+	border-radius: calc(999 * var(--rpx));
+	background: #fff;
+	color: #5c3d72;
+	font-size: calc(20 * var(--rpx));
+	font-weight: 800;
+	line-height: 1.3;
+	box-shadow: 0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.08);
 }
 
 .bottom-area {
@@ -346,7 +529,7 @@ textarea::-moz-placeholder {
 	color: var(--money-debt);
 }
 
-/* ----- 目标/回合分数 ----- */
+/* ----- 目标/关卡分数 ----- */
 .scores {
 	display: flex;
 	gap: calc(8 * var(--rpx));
@@ -960,6 +1143,56 @@ textarea::-moz-placeholder {
 	color: var(--text);
 	box-shadow: var(--shadow);
 	cursor: pointer;
+	-webkit-user-drag: none;
+}
+
+.word-slots-wrap {
+	position: relative;
+}
+
+.word-slots--dragging .word-slot-tile {
+	touch-action: none;
+}
+
+.word-slot-tile--drag-preview-empty {
+	pointer-events: none;
+}
+
+.word-slot-tile--drag-preview-empty:has(.word-slot-drag-placeholder) {
+	opacity: calc(0.42 * var(--slot-ph-scale, 1));
+}
+
+.word-slot-tile--drag-preview-empty:has(.word-slot-drag-placeholder) .word-slot-placeholder {
+	opacity: 0;
+}
+
+.word-slots .word-slot-content.word-slot-drag-placeholder {
+	pointer-events: none;
+}
+
+.tile-drag-ghost {
+	pointer-events: none;
+	box-sizing: border-box;
+}
+
+.tile-drag-ghost .fly-letter {
+	width: 100%;
+	height: 100%;
+	cursor: grabbing;
+	box-shadow: var(--shadow), 0 calc(6 * var(--rpx)) calc(18 * var(--rpx)) rgba(0, 0, 0, 0.16);
+}
+
+.tile-drag-grid-placeholder {
+	position: absolute;
+	pointer-events: none;
+	z-index: 4;
+	box-sizing: border-box;
+}
+
+.tile-drag-grid-placeholder .grid-tile {
+	width: 100%;
+	height: 100%;
+	opacity: 0.42;
 }
 .word-slots .word-slot-tile::after {
 	content: "";
@@ -1255,6 +1488,34 @@ textarea::-moz-placeholder {
 	padding: var(--letter-grid-wrap-padding);
 	box-shadow: inset 0 calc(2 * var(--rpx)) calc(6 * var(--rpx)) rgba(0, 0, 0, 0.1);
 	overflow: hidden;
+	position: relative;
+}
+
+.letter-grid--dragging .grid-tile {
+	touch-action: none;
+}
+
+/* 占位半透明在 cell 外包层，避免 GSAP 行内 opacity 盖掉 .grid-tile 上的 class */
+.letter-grid-cell {
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+}
+
+.letter-grid-cell .grid-tile {
+	width: 100%;
+	height: 100%;
+}
+
+.letter-grid-cell--placeholder {
+	opacity: 0.42;
+	pointer-events: none;
+}
+
+.grid-tile.selected,
+.grid-tile.tile-flying {
+	outline: none;
 }
 
 .letter-grid {
@@ -1429,15 +1690,15 @@ textarea::-moz-placeholder {
 }
 
 .grid-tile .letter-tile-cerulean-lock-icon {
-	font-size: calc(56 * var(--rpx));
-	transform: scale(1.3875);
+	font-size: calc(48 * var(--rpx));
+	transform: scale(1.15);
 }
 
 .word-slots .word-slot-content .letter-tile-cerulean-lock-icon,
 .fly-letter .letter-tile-cerulean-lock-icon,
 .fly-letter-back .letter-tile-cerulean-lock-icon {
-	font-size: calc(56 * var(--rpx) * var(--slot-scale, 1));
-	transform: scale(1.3875);
+	font-size: calc(48 * var(--rpx) * var(--slot-scale, 1));
+	transform: scale(1.15);
 }
 
 .grid-tile.letter-tile-cerulean-lock .letter-gem,
@@ -2222,21 +2483,13 @@ textarea::-moz-placeholder {
 }
 
 .grid-tile {
-	touch-action: manipulation;
+	touch-action: none;
 	-webkit-tap-highlight-color: transparent;
 }
 
 .word-slot-tile {
-	touch-action: manipulation;
+	touch-action: none;
 	-webkit-tap-highlight-color: transparent;
-}
-
-.grid-tile.selected,
-.grid-tile.tile-flying {
-	outline: none;
-	pointer-events: none;
-	/* 整块半透明：由类控制，不依赖动画内联样式 */
-	opacity: 0.1;
 }
 
 /* 玩家本关内标记：右上角折角；z-index 1 低于额外分/倍率角标(2)与配饰(4)；由块圆角 + overflow 裁剪 */
@@ -2419,10 +2672,6 @@ textarea::-moz-placeholder {
 }
 
 .treasure-slot-reorder-move {
-	transition: transform 0.24s var(--ease-expo-out);
-}
-
-.treasure-slots--dragging .treasure-slot-reorder-move {
 	transition: none;
 }
 
@@ -2447,10 +2696,41 @@ textarea::-moz-placeholder {
 	cursor: pointer;
 	container-type: size;
 	container-name: treasure-cell;
+	-webkit-user-drag: none;
+	touch-action: none;
 }
 
-.treasure-slot--dragging {
-	opacity: 0.45;
+.treasure-slots--dragging .treasure-slot {
+	touch-action: none;
+}
+
+.treasure-drag-ghost {
+	pointer-events: none;
+	box-sizing: border-box;
+}
+
+.treasure-drag-ghost .treasure-slot {
+	width: 100%;
+	height: 100%;
+	flex: none;
+	cursor: grabbing;
+	box-shadow: var(--shadow), 0 calc(6 * var(--rpx)) calc(18 * var(--rpx)) rgba(0, 0, 0, 0.16);
+	transition: none;
+}
+
+.treasure-drag-placeholder {
+	position: absolute;
+	pointer-events: none;
+	z-index: 2;
+	box-sizing: border-box;
+	transition: none;
+}
+
+.treasure-drag-placeholder .treasure-slot {
+	width: 100%;
+	height: 100%;
+	flex: none;
+	opacity: 0.42;
 }
 
 .treasure-slot.filled.treasure-slot--boss-hand-disabled::before {
@@ -2481,6 +2761,7 @@ textarea::-moz-placeholder {
 
 /* 槽位外包一层（局内 bottom-area、商店 footer 共用） */
 .treasure-slots-ctn {
+	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -5089,7 +5370,7 @@ textarea::-moz-placeholder {
 	font-weight: 700;
 }
 
-/* 减少动画：跳过 Vue 浮层 enter/leave；计分气泡等见 popupBubbleFx.js / shouldSkipDecorativeMotion */
+/* 减少动画：跳过 Vue 浮层 enter/leave；计分气泡仍保留完整 GSAP 动效 */
 html.reduce-motion [class*="-enter-active"],
 html.reduce-motion [class*="-leave-active"] {
 	transition-duration: 0.001ms !important;

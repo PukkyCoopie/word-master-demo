@@ -25,6 +25,7 @@ import {
   serializeOwnedTreasureSlot,
 } from "../treasures/ownedTreasureSlot.js";
 import { ownedTreasureHasNoSellAccessory } from "../game/runDifficultyRuntime.js";
+import { resolveLetterFromRaw } from "../settings/letterQ.js";
 
 const WATER_MATERIAL_SCORE_BONUS = 30;
 const FIRE_MATERIAL_MULT_BONUS = 5;
@@ -380,7 +381,7 @@ function buildTileSurfaceFromDeckCard(card, rarityLevelsByRarity) {
     : card.rarity != null && String(card.rarity).trim() !== ""
       ? String(card.rarity)
       : getRarityForLetter(raw || "a");
-  const letter = useWildcard ? "?" : raw === "q" ? "Qu" : String(raw || "e").toUpperCase();
+  const letter = useWildcard ? "?" : resolveLetterFromRaw(raw || "e");
   const normalizedAccessory = normalizeExclusiveTileAccessoryPair(card.accessoryId, card.treasureAccessoryId);
   return {
     letter,
@@ -460,7 +461,7 @@ function copyTileOntoPreserveId(dst, src, rarityLevelsByRarity) {
 function deckCardToSpellTargetProxy(card) {
   const raw = deckCardRaw(card);
   const isWc = card.isWildcard === true;
-  const letter = isWc ? "?" : raw === "q" ? "Qu" : String(raw || "e").toUpperCase();
+  const letter = isWc ? "?" : resolveLetterFromRaw(raw || "e");
   return {
     letter,
     rarity: String(card.rarity || "common"),

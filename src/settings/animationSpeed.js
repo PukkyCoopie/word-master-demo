@@ -131,7 +131,10 @@ export function initAnimationSpeedSettings() {
  * @param {gsap.TweenTarget} targets
  * @param {gsap.TweenVars} [finalVars]
  */
-export function instantRevealGsapTargets(targets, finalVars = { opacity: 1, y: 0, scale: 1 }) {
+export function instantRevealGsapTargets(
+  targets,
+  finalVars = { opacity: 1, y: 0, scale: 1, visibility: "visible" },
+) {
   if (!targets || (Array.isArray(targets) && !targets.length)) return;
   gsap.killTweensOf(targets);
   gsap.set(targets, finalVars);
@@ -153,13 +156,16 @@ export function instantPortalLayerEnter(opts) {
     backdropFinal,
     staggerEls = [],
     primaryEl,
-    primaryFinal = { opacity: 1, pointerEvents: "auto", y: 0, scale: 1 },
+    primaryFinal = { opacity: 1, pointerEvents: "auto", y: 0, scale: 1, visibility: "visible" },
     extraEls = [],
   } = opts;
   const all = [backdrop, primaryEl, ...extraEls, ...staggerEls].filter(Boolean);
   gsap.killTweensOf(all);
   if (backdrop && backdropFinal) gsap.set(backdrop, backdropFinal);
-  const primaryVars = { ...primaryFinal, clearProps: "opacity,transform,pointerEvents,scale" };
+  const primaryVars = {
+    ...primaryFinal,
+    clearProps: "opacity,transform,pointerEvents,scale,visibility",
+  };
   if (primaryEl) gsap.set(primaryEl, primaryVars);
   for (const el of extraEls) {
     if (el) gsap.set(el, primaryVars);

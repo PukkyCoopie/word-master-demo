@@ -82,27 +82,46 @@ export function getEconomyInterestCap(owned) {
   return null;
 }
 
-/** 细针 Boss：以 1 手为基底，再叠加手套等额外次数（卷轴已体现在 baseHands 中）。 */
-export function getSubmitHandsForNeedleBoss(baseHandsFromVouchers) {
-  const b = Math.max(1, Math.floor(Number(baseHandsFromVouchers) || 3));
-  return Math.max(1, 1 + Math.max(0, b - 3));
+/** 细针 Boss：本关固定 1 次拼词，覆盖预设/券/宝藏的额外次数。 */
+export function getSubmitHandsForNeedleBoss(_baseHandsFromVouchers) {
+  return 1;
 }
 
-/** 细针 Boss 本关拼词次数下限（与 `getSubmitHandsForNeedleBoss` 一致，含券面基数）。 */
-export function getNeedleBossSubmitHandsFloor(owned) {
-  return getSubmitHandsForNeedleBoss(getBaseHandsPerLevel(owned));
+/** 细针 Boss 本关拼词次数上限（与 `getSubmitHandsForNeedleBoss` 一致）。 */
+export function getNeedleBossSubmitHandsCap() {
+  return 1;
 }
 
 /**
- * 细针 Boss 优先：进关后宝藏/法术等对 `remainingWords` 的加减不得压低于 Boss 给出的次数。
+ * 细针 Boss 优先：本关 `remainingWords` 不得超过 1（含宝藏/法术中途加成）。
  * @param {number} count
  * @param {string} bossSlug
- * @param {Iterable<string>} owned
  */
-export function clampRemainingWordsForBossMechanics(count, bossSlug, owned) {
+export function clampRemainingWordsForBossMechanics(count, bossSlug) {
   const n = Math.max(0, Math.floor(Number(count) || 0));
   if (String(bossSlug ?? "") !== "the_needle") return n;
-  return Math.max(getNeedleBossSubmitHandsFloor(owned), n);
+  return Math.min(getNeedleBossSubmitHandsCap(), n);
+}
+
+/** 死水 Boss：本关固定 0 次丢弃，覆盖预设/券/宝藏的额外次数。 */
+export function getRemovalsForWaterBoss(_baseRemovalsFromVouchers) {
+  return 0;
+}
+
+/** 死水 Boss 本关丢弃次数上限（与 `getRemovalsForWaterBoss` 一致）。 */
+export function getWaterBossRemovalsCap() {
+  return 0;
+}
+
+/**
+ * 死水 Boss 优先：本关 `remainingRemovals` 不得超过 0（含宝藏/法术中途加成）。
+ * @param {number} count
+ * @param {string} bossSlug
+ */
+export function clampRemainingRemovalsForBossMechanics(count, bossSlug) {
+  const n = Math.max(0, Math.floor(Number(count) || 0));
+  if (String(bossSlug ?? "") !== "the_water") return n;
+  return Math.min(getWaterBossRemovalsCap(), n);
 }
 
 /** @param {Iterable<string>} owned */

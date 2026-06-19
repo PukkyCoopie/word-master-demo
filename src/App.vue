@@ -196,6 +196,7 @@ import {
 import { coerceRunSeedNumeric, resolveRunSeedFromDialog } from "./game/runRng.js";
 import { resetTapTapAchievementBootstrap } from "./achievements/achievementTapTapSync.js";
 import { isMaterialBenchEnabled } from "./dev/materialBenchGate.js";
+import { registerDevConsole } from "./dev/registerDevConsole.js";
 import MaterialPerfBench from "./dev/MaterialPerfBench.vue";
 import { isE2eMode } from "./e2e/isE2eMode.js";
 import { registerAppTestHarness } from "./e2e/registerAppTestHarness.js";
@@ -263,7 +264,10 @@ import {
   recordPresetWin,
   setLastSelectedPresetId,
 } from "./game/runPresetProgress.js";
-import { collectFreshUnlocksFromWin } from "./game/runStartFreshUnlock.js";
+import {
+  applyFreshUnlockCareerDefaults,
+  collectFreshUnlocksFromWin,
+} from "./game/runStartFreshUnlock.js";
 import { createEmptySlotCareerStats, SAVE_SLOT_COUNT } from "./save/runSaveSchema.js";
 import { ACHIEVEMENT_DEFINITIONS, getAchievementDef } from "./achievements/achievementDefinitions.js";
 import { createAchievementToastQueue } from "./achievements/achievementToastQueue.js";
@@ -460,6 +464,7 @@ provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyInde
     );
     const fresh = collectFreshUnlocksFromWin(careerBefore, career, presetWinNew);
     if (fresh.presetIds.length || fresh.difficultyIndices.length) {
+      applyFreshUnlockCareerDefaults(career, fresh);
       runStartFreshUnlocks.value = {
         presetIds: [...new Set([...runStartFreshUnlocks.value.presetIds, ...fresh.presetIds])],
         difficultyIndices: [
@@ -1200,7 +1205,6 @@ function onRunStartCancel() {
   showRunStartDialog.value = false;
   runStartPrefillSeed.value = "";
   pendingNewRunSlotIndex.value = null;
-  clearRunStartFreshUnlocks();
 }
 
 async function onGameExitToMenu() {

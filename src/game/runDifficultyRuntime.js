@@ -11,6 +11,41 @@ import { normalizeRunDifficultyIndex } from "./runDifficultyDefinitions.js";
 /** 难度负面配饰独立掷骰概率 */
 export const DIFFICULTY_NEGATIVE_ACCESSORY_CHANCE = 0.3;
 
+/** 难度0首次进店单卡区保底格：火花 / 风筝（各占原本「必出宝藏」位，且不附带任何配饰） */
+export const DIFFICULTY0_FIRST_SHOP_TREASURE_IDS = Object.freeze(["1", "119"]);
+
+/**
+ * 难度0首次商店保底宝藏 id：在火花与风筝中随机；已拥有、已排除或不在池中的跳过。生成货架行时不掷配饰。
+ * @param {() => number} rng
+ * @param {Iterable<string>} ownedTreasureIds
+ * @param {readonly import('../treasures/treasureTypes.js').TreasureDef[]} shopPool
+ * @param {Iterable<string> | null | undefined} sessionExcludeTreasureIds
+ * @returns {string | null}
+ */
+export function pickDifficulty0FirstShopTreasureId(
+  rng,
+  ownedTreasureIds,
+  shopPool,
+  sessionExcludeTreasureIds = null,
+) {
+  const rnd = typeof rng === "function" ? rng : Math.random;
+  const owned = new Set([...(ownedTreasureIds ?? [])].map(String));
+  const excluded =
+    sessionExcludeTreasureIds != null
+      ? new Set([...sessionExcludeTreasureIds].map(String))
+      : null;
+  const poolIds = new Set(
+    (shopPool ?? [])
+      .filter((d) => d?.treasureId)
+      .map((d) => String(d.treasureId)),
+  );
+  const eligible = DIFFICULTY0_FIRST_SHOP_TREASURE_IDS.filter(
+    (id) => poolIds.has(id) && !owned.has(id) && !excluded?.has(id),
+  );
+  if (!eligible.length) return null;
+  return eligible[Math.floor(rnd() * eligible.length)];
+}
+
 /**
  * @param {number | null | undefined} index
  * @returns {number}

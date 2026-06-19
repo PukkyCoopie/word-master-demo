@@ -1,3 +1,6 @@
+import { iterTreasureHookContributions } from "./treasureBlueprintMirror.js";
+import { TREASURE_HOOKS_BY_ID } from "../treasures/treasureRegistry.js";
+
 /**
  * 计分板 / 回形针等写在格与 `_deckCard` 上的持久平面分、倍率（`tileScoreBonus` / `letterMultBonus`）。
  * 与玩家本关「标记」折角（`playerMarked`，不进牌库、不算书包等「增益」）无关。
@@ -50,4 +53,51 @@ export function applyIntrinsicGainsToTileAndLinkedCard(tile, gains) {
     c.tileScoreBonus = sb;
     c.letterMultBonus = mb;
   }
+}
+
+/**
+ * 单次逐字计分 visit 写回 tile 的平面分增量（计分板等；不含仅入宝藏银行的泡泡）。
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {{ letter?: string }} part
+ * @param {number} letterIndex
+ */
+export function sumWordScoreIntrinsicPersistScoreDeltaPerVisit(
+  ownedSlotTreasureIds,
+  part,
+  letterIndex,
+) {
+  const slots = ownedSlotTreasureIds ?? [];
+  const ctx = { ownedSlotTreasureIds: slots };
+  let delta = 0;
+  for (const { treasureId: tid } of iterTreasureHookContributions(slots)) {
+    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
+    if (!hooks?.mergeLetterScoreCueIntoIntrinsicLetterScoreStep) continue;
+    if (hooks?.perLetterScoreCueDepositsTreasureBank) continue;
+    const cue = hooks.getPerLetterScoreCue?.(ctx, part, letterIndex);
+    delta += Math.max(0, Math.floor(Number(cue?.delta) || 0));
+  }
+  return delta;
+}
+
+/**
+ * 单次逐字计分 visit 写回 tile 的倍率加法增量（回形针等）。
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {{ letter?: string }} part
+ * @param {number} letterIndex
+ */
+export function sumWordScoreIntrinsicPersistMultDeltaPerVisit(
+  ownedSlotTreasureIds,
+  part,
+  letterIndex,
+) {
+  const slots = ownedSlotTreasureIds ?? [];
+  const ctx = { ownedSlotTreasureIds: slots };
+  let delta = 0;
+  for (const { treasureId: tid } of iterTreasureHookContributions(slots)) {
+    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
+    if (!hooks?.mergeLetterMultCueIntoIntrinsicLetterMultStep) continue;
+    const cue = hooks.getPerLetterMultCue?.(ctx, part, letterIndex);
+    delta += Math.max(0, Math.round(Number(cue?.delta) || 0));
+  }
+  return delta;
 }

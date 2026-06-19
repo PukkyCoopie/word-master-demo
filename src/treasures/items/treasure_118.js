@@ -23,6 +23,15 @@ export const treasureHooks = {
   buildPostLetterStep() {
     return null;
   },
+  resolveWordDefinitionTriggerMode(ctx) {
+    if (ctx.displayMode === "definition") {
+      return { triggerMode: "button" };
+    }
+  },
+  async onWordDefinitionOpenAttempt(ctx) {
+    await ctx.playOwnedTreasureBubbleFx?.(ID, "不行哦", "destroy");
+    return { blocked: true };
+  },
   async runAfterLettersBeforePostSteps(ctx) {
     const session = ctx.pagerQuizSession;
     if (!session?.options?.length) return;
