@@ -5370,17 +5370,17 @@ textarea::-moz-placeholder {
 	font-weight: 700;
 }
 
-/* 减少动画：跳过 Vue 浮层 enter/leave；计分气泡仍保留完整 GSAP 动效 */
-html.reduce-motion [class*="-enter-active"],
-html.reduce-motion [class*="-leave-active"] {
+/* 减少动画：跳过 Vue 浮层 enter/leave；计分气泡 / result-area 仍保留完整动效 */
+html.reduce-motion [class*="-enter-active"]:not([class*="result-wordlen-fade-scale"]),
+html.reduce-motion [class*="-leave-active"]:not([class*="result-wordlen-fade-scale"]) {
 	transition-duration: 0.001ms !important;
 	transition-delay: 0ms !important;
 	animation-duration: 0.001ms !important;
 	animation-delay: 0ms !important;
 }
 
-html.reduce-motion [class*="-enter-from"],
-html.reduce-motion [class*="-leave-to"] {
+html.reduce-motion [class*="-enter-from"]:not([class*="result-wordlen-fade-scale"]),
+html.reduce-motion [class*="-leave-to"]:not([class*="result-wordlen-fade-scale"]) {
 	opacity: 1 !important;
 	transform: none !important;
 }
