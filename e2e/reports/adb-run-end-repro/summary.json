@@ -1,0 +1,258 @@
+{
+  "at": "2026-06-19T17:36:02.704Z",
+  "iterations": 5,
+  "failCount": 0,
+  "pageErrors": [],
+  "results": [
+    {
+      "iteration": 1,
+      "seed": "repro1",
+      "playResult": {
+        "ok": true,
+        "word": "choicer",
+        "len": 7,
+        "state": {
+          "idle": true,
+          "levelId": "1-1",
+          "levelIndex": 3,
+          "currentScore": 42544,
+          "targetScore": 1,
+          "remainingWords": 3,
+          "remainingRemovals": 3,
+          "money": 8,
+          "canSubmit": false,
+          "showShop": false,
+          "showSettlement": false,
+          "showRunEnd": true,
+          "runEndOutcome": "win",
+          "isEndlessRun": false,
+          "bossBlindOpen": false,
+          "packPickOpen": false,
+          "treasureDetailOpen": false,
+          "spellTargetOpen": false,
+          "activeBoss": "",
+          "ownedTreasureIds": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      },
+      "after": {
+        "showRunEnd": true,
+        "runEndOutcome": "win",
+        "levelId": "1-1",
+        "currentScore": 42544,
+        "targetScore": 1,
+        "layerExists": true,
+        "layerOpacity": 1,
+        "titleText": "胜利！",
+        "suspectedWhiteScreen": false
+      },
+      "screenshot": null,
+      "failed": false
+    },
+    {
+      "iteration": 2,
+      "seed": "repro2",
+      "playResult": {
+        "ok": true,
+        "word": "choicer",
+        "len": 7,
+        "state": {
+          "idle": true,
+          "levelId": "1-1",
+          "levelIndex": 3,
+          "currentScore": 42544,
+          "targetScore": 1,
+          "remainingWords": 3,
+          "remainingRemovals": 3,
+          "money": 8,
+          "canSubmit": false,
+          "showShop": false,
+          "showSettlement": false,
+          "showRunEnd": true,
+          "runEndOutcome": "win",
+          "isEndlessRun": false,
+          "bossBlindOpen": false,
+          "packPickOpen": false,
+          "treasureDetailOpen": false,
+          "spellTargetOpen": false,
+          "activeBoss": "",
+          "ownedTreasureIds": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      },
+      "after": {
+        "showRunEnd": true,
+        "runEndOutcome": "win",
+        "levelId": "1-1",
+        "currentScore": 42544,
+        "targetScore": 1,
+        "layerExists": true,
+        "layerOpacity": 1,
+        "titleText": "胜利！",
+        "suspectedWhiteScreen": false
+      },
+      "screenshot": null,
+      "failed": false
+    },
+    {
+      "iteration": 3,
+      "seed": "repro3",
+      "playResult": {
+        "ok": true,
+        "word": "choicer",
+        "len": 7,
+        "state": {
+          "idle": true,
+          "levelId": "1-1",
+          "levelIndex": 3,
+          "currentScore": 42544,
+          "targetScore": 1,
+          "remainingWords": 3,
+          "remainingRemovals": 3,
+          "money": 8,
+          "canSubmit": false,
+          "showShop": false,
+          "showSettlement": false,
+          "showRunEnd": true,
+          "runEndOutcome": "win",
+          "isEndlessRun": false,
+          "bossBlindOpen": false,
+          "packPickOpen": false,
+          "treasureDetailOpen": false,
+          "spellTargetOpen": false,
+          "activeBoss": "",
+          "ownedTreasureIds": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      },
+      "after": {
+        "showRunEnd": true,
+        "runEndOutcome": "win",
+        "levelId": "1-1",
+        "currentScore": 42544,
+        "targetScore": 1,
+        "layerExists": true,
+        "layerOpacity": 1,
+        "titleText": "胜利！",
+        "suspectedWhiteScreen": false
+      },
+      "screenshot": null,
+      "failed": false
+    },
+    {
+      "iteration": 4,
+      "seed": "repro4",
+      "playResult": {
+        "ok": true,
+        "word": "choicer",
+        "len": 7,
+        "state": {
+          "idle": true,
+          "levelId": "1-1",
+          "levelIndex": 3,
+          "currentScore": 42544,
+          "targetScore": 1,
+          "remainingWords": 3,
+          "remainingRemovals": 3,
+          "money": 8,
+          "canSubmit": false,
+          "showShop": false,
+          "showSettlement": false,
+          "showRunEnd": true,
+          "runEndOutcome": "win",
+          "isEndlessRun": false,
+          "bossBlindOpen": false,
+          "packPickOpen": false,
+          "treasureDetailOpen": false,
+          "spellTargetOpen": false,
+          "activeBoss": "",
+          "ownedTreasureIds": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      },
+      "after": {
+        "showRunEnd": true,
+        "runEndOutcome": "win",
+        "levelId": "1-1",
+        "currentScore": 42544,
+        "targetScore": 1,
+        "layerExists": true,
+        "layerOpacity": 1,
+        "titleText": "胜利！",
+        "suspectedWhiteScreen": false
+      },
+      "screenshot": null,
+      "failed": false
+    },
+    {
+      "iteration": 5,
+      "seed": "repro5",
+      "playResult": {
+        "ok": true,
+        "word": "choicer",
+        "len": 7,
+        "state": {
+          "idle": true,
+          "levelId": "1-1",
+          "levelIndex": 3,
+          "currentScore": 42544,
+          "targetScore": 1,
+          "remainingWords": 3,
+          "remainingRemovals": 3,
+          "money": 8,
+          "canSubmit": false,
+          "showShop": false,
+          "showSettlement": false,
+          "showRunEnd": true,
+          "runEndOutcome": "win",
+          "isEndlessRun": false,
+          "bossBlindOpen": false,
+          "packPickOpen": false,
+          "treasureDetailOpen": false,
+          "spellTargetOpen": false,
+          "activeBoss": "",
+          "ownedTreasureIds": [
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      },
+      "after": {
+        "showRunEnd": true,
+        "runEndOutcome": "win",
+        "levelId": "1-1",
+        "currentScore": 42544,
+        "targetScore": 1,
+        "layerExists": true,
+        "layerOpacity": 1,
+        "titleText": "胜利！",
+        "suspectedWhiteScreen": false
+      },
+      "screenshot": null,
+      "failed": false
+    }
+  ]
+}

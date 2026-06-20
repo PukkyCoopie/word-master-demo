@@ -4111,6 +4111,79 @@ textarea::-moz-placeholder {
 	text-align: left;
 }
 
+.upgrade-preview-gain-block {
+	margin-top: calc(12 * var(--rpx));
+}
+
+.upgrade-preview-gain-block + .upgrade-preview-gain-block {
+	margin-top: calc(16 * var(--rpx));
+}
+
+.upgrade-preview-gain-row {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: calc(10 * var(--rpx));
+}
+
+.upgrade-preview-gain-label {
+	flex-shrink: 0;
+	font-size: calc(26 * var(--rpx));
+	line-height: 1.35;
+	font-weight: 700;
+	color: rgba(255, 255, 255, 0.88);
+}
+
+.treasure-detail-desc-card .upgrade-preview-gain-row .tile-detail-score-mult-frame {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: calc(11 * var(--rpx)) calc(15 * var(--rpx));
+	border-radius: calc(12 * var(--rpx));
+	background: rgba(143, 122, 102, 0.06);
+	border: calc(1 * var(--rpx)) solid rgba(143, 122, 102, 0.12);
+	box-sizing: border-box;
+	margin-top: 0;
+}
+
+.treasure-detail-desc-card .upgrade-preview-gain-row .info-score-mult {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: calc(7 * var(--rpx));
+	flex-wrap: nowrap;
+}
+
+.treasure-detail-desc-card .upgrade-preview-gain-row .info-mini-box {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: calc(56 * var(--rpx));
+	padding: calc(7 * var(--rpx)) calc(12 * var(--rpx));
+	border-radius: calc(8 * var(--rpx));
+	font-size: calc(28 * var(--rpx));
+	font-weight: 800;
+	color: #fff;
+	line-height: 1;
+}
+
+.treasure-detail-desc-card .upgrade-preview-gain-row .info-mini-box--score {
+	background: #6ec4f0;
+}
+
+.treasure-detail-desc-card .upgrade-preview-gain-row .info-mini-box--mult {
+	background: var(--mult-accent);
+}
+
+.treasure-detail-desc-card .upgrade-preview-gain-row .info-mini-times {
+	font-size: calc(30 * var(--rpx));
+	font-weight: 800;
+	color: #8f7a66;
+	flex-shrink: 0;
+	line-height: 1;
+}
+
 .treasure-detail-spell-replay-prev-label {
 	font-size: calc(26 * var(--rpx));
 	line-height: 1.35;
@@ -4404,9 +4477,10 @@ textarea::-moz-placeholder {
 	background: #8f7a66;
 }
 
-/* 字母块详情 / 商店字母块预览：稀有度下「分数×倍率」 */
+/* 字母块详情 / 商店字母块预览 / 升级卡详情：「分数×倍率」 */
 .tile-detail-layer .tile-detail-rarity-score-mult,
-.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult {
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult,
+.treasure-detail-desc-card .tile-detail-rarity-score-mult {
 	display: flex;
 	justify-content: center;
 	margin-top: calc(10 * var(--rpx));
@@ -4414,7 +4488,8 @@ textarea::-moz-placeholder {
 
 /* 外圈：略浅底 + 细线，不抢内层色块 */
 .tile-detail-layer .tile-detail-rarity-score-mult .tile-detail-score-mult-frame,
-.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .tile-detail-score-mult-frame {
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .tile-detail-score-mult-frame,
+.treasure-detail-desc-card .tile-detail-rarity-score-mult .tile-detail-score-mult-frame {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -4426,7 +4501,8 @@ textarea::-moz-placeholder {
 }
 
 .tile-detail-layer .tile-detail-rarity-score-mult .info-score-mult,
-.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-score-mult {
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-score-mult,
+.treasure-detail-desc-card .tile-detail-rarity-score-mult .info-score-mult {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -4435,7 +4511,8 @@ textarea::-moz-placeholder {
 }
 
 .tile-detail-layer .tile-detail-rarity-score-mult .tile-detail-score-mult-side-label,
-.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .tile-detail-score-mult-side-label {
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .tile-detail-score-mult-side-label,
+.treasure-detail-desc-card .tile-detail-rarity-score-mult .tile-detail-score-mult-side-label {
 	flex-shrink: 0;
 	font-size: calc(24 * var(--rpx));
 	font-weight: 700;
@@ -4452,7 +4529,8 @@ textarea::-moz-placeholder {
 }
 
 .tile-detail-layer .tile-detail-rarity-score-mult .info-mini-box,
-.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-mini-box {
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-mini-box,
+.treasure-detail-desc-card .tile-detail-rarity-score-mult .info-mini-box {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -4466,17 +4544,20 @@ textarea::-moz-placeholder {
 }
 
 .tile-detail-layer .tile-detail-rarity-score-mult .info-mini-box--score,
-.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-mini-box--score {
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-mini-box--score,
+.treasure-detail-desc-card .tile-detail-rarity-score-mult .info-mini-box--score {
 	background: #6ec4f0;
 }
 
 .tile-detail-layer .tile-detail-rarity-score-mult .info-mini-box--mult,
-.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-mini-box--mult {
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-mini-box--mult,
+.treasure-detail-desc-card .tile-detail-rarity-score-mult .info-mini-box--mult {
 	background: var(--mult-accent);
 }
 
 .tile-detail-layer .tile-detail-rarity-score-mult .info-mini-times,
-.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-mini-times {
+.treasure-detail-backdrop--deck-offer .tile-detail-rarity-score-mult .info-mini-times,
+.treasure-detail-desc-card .tile-detail-rarity-score-mult .info-mini-times {
 	font-size: calc(30 * var(--rpx));
 	font-weight: 800;
 	color: #8f7a66;

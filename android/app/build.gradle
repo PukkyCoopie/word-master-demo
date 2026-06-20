@@ -50,6 +50,11 @@ android {
         }
     }
     buildTypes {
+        debug {
+            if (releaseKeystoreConfigured) {
+                signingConfig signingConfigs.release
+            }
+        }
         release {
             if (releaseKeystoreConfigured) {
                 signingConfig signingConfigs.release

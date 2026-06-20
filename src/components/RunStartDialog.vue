@@ -273,6 +273,7 @@ import {
   killRunStartDialogEnterTweens,
   playRunStartDialogEnter,
   prepareRunStartDialogEnterHidden,
+  resetRunStartPanelGsapProps,
 } from "../game/runStartDialogEnterAnim.js";
 import DifficultyPill from "./DifficultyPill.vue";
 import RunStartDifficultyPicker from "./RunStartDifficultyPicker.vue";
@@ -517,6 +518,8 @@ watch(
 watch(activeTab, () => {
   if (!props.open || skipTabSwitchAnim || !hasContinueTab.value) return;
   killAllDialogStaggerTweens();
+  const inactivePanel = activeTab.value === "new" ? continuePanelRef.value : newGamePanelRef.value;
+  resetRunStartPanelGsapProps(inactivePanel);
   nextTick(() => runActiveTabEnterAnim());
 });
 

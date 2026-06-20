@@ -21,6 +21,7 @@
     "e2e:audit": "node e2e/static-content-audit.mjs",
     "e2e:play": "node e2e/run-auto-play.mjs",
     "e2e": "npm run e2e:audit && npm run e2e:play",
+    "adb:run-end-repro": "node scripts/adb-run-end-repro.mjs",
     "version:minor": "node scripts/bump-version.mjs minor",
     "version:major": "node scripts/bump-version.mjs major",
     "changelog:new": "node scripts/new-changelog.mjs",

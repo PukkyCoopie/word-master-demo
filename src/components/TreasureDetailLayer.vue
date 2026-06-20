@@ -277,6 +277,28 @@
                 polish-treasure-copy
                 :probability-display-doubled="probabilityDisplayDoubled"
               />
+              <template v-if="showUpgradePreviewGainRows">
+                <div
+                  v-for="(row, gainRowIdx) in upgradePreviewGainRows"
+                  :key="'upgrade-gain-' + gainRowIdx"
+                  class="upgrade-preview-gain-block"
+                >
+                  <div class="upgrade-preview-gain-row">
+                    <div class="upgrade-preview-gain-label">{{ row.label }}</div>
+                    <div class="tile-detail-score-mult-frame">
+                      <div
+                        class="info-score-mult"
+                        role="group"
+                        :aria-label="formatUpgradePreviewGainAria(row)"
+                      >
+                        <span class="info-mini-box info-mini-box--score">{{ row.scoreDisplay }}</span>
+                        <span class="info-mini-times" aria-hidden="true">×</span>
+                        <span class="info-mini-box info-mini-box--mult">{{ row.multDisplay }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
               <div
                 v-if="showSpellReplayTargetRow"
                 class="treasure-detail-spell-replay-prev-row"
@@ -298,6 +320,21 @@
                 </button>
               </div>
             </template>
+          </div>
+
+          <div
+            v-if="showUpgradeRoundingRulesPanel"
+            ref="upgradeRoundingRulesPanelRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span class="treasure-detail-desc-panel-title-text">取整规则</span>
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="upgradeRoundingRulesText"
+              :panel-body="true"
+            />
           </div>
 
           <div
@@ -881,6 +918,11 @@ import {
   SHOP_SPELL_GRANTED_VOUCHER_PANEL_TITLE,
 } from "../vouchers/shopVoucherOfferBuild.js";
 import {
+  buildUpgradeOfferPreviewGainRows,
+  upgradeOfferPreviewHasDecimalGains,
+  UPGRADE_PREVIEW_ROUNDING_RULES_TEXT,
+} from "../shop/upgradeOfferPreviewGains.js";
+import {
   getPerLetterIntrinsicMultDisplay,
   getPerLetterIntrinsicScoreDisplay,
   getRarityForLetter,
@@ -1295,6 +1337,27 @@ const gemRarityKey = computed(() => {
 
 const isUpgradeOffer = computed(() => props.treasure?.offerType === "upgrade");
 
+const upgradePreviewGainRows = computed(() =>
+  isUpgradeOffer.value ? buildUpgradeOfferPreviewGainRows(props.treasure) : [],
+);
+
+const showUpgradePreviewGainRows = computed(
+  () => !isCollectionLockedPreview.value && upgradePreviewGainRows.value.length > 0,
+);
+
+const showUpgradeRoundingRulesPanel = computed(
+  () =>
+    showUpgradePreviewGainRows.value &&
+    upgradeOfferPreviewHasDecimalGains(upgradePreviewGainRows.value),
+);
+
+const upgradeRoundingRulesText = UPGRADE_PREVIEW_ROUNDING_RULES_TEXT;
+
+/** @param {import('../shop/upgradeOfferPreviewGains.js').UpgradePreviewGainRow} row */
+function formatUpgradePreviewGainAria(row) {
+  return tileDetailLayerCopy.rarity.formatTotalPerLetterAria(row.scoreDisplay, row.multDisplay);
+}
+
 const isPackRarityUpgrade = computed(
   () => isUpgradeOffer.value && props.treasure?.upgradeKind === "rarity",
 );
@@ -1356,6 +1419,7 @@ const showTreasureMainDescCard = computed(() => {
   if (isVoucherOffer.value && showVoucherTierPanels.value) return false;
   if (showSpellReplayTargetRow.value) return true;
   if (showDetailRarityTag.value) return true;
+  if (showUpgradePreviewGainRows.value) return true;
   if (hasTreasureDescBody.value) {
     return !isVoucherOffer.value || showMainVoucherDesc.value;
   }
@@ -1546,6 +1610,7 @@ const emojiRef = ref(null);
 const walletBoxRef = ref(null);
 const nameRef = ref(null);
 const descRef = ref(null);
+const upgradeRoundingRulesPanelRef = ref(null);
 const deckOfferMaterialRef = ref(null);
 const deckOfferAccessoryRef = ref(null);
 const deckOfferTreasureAccessoryRef = ref(null);
@@ -1588,6 +1653,7 @@ function staggerTargets() {
   return [
     titleGroupRef.value,
     descRef.value,
+    upgradeRoundingRulesPanelRef.value,
     ...voucherTierPanelRefs.filter((el) => el instanceof HTMLElement),
     deckOfferMaterialRef.value,
     deckOfferAccessoryRef.value,

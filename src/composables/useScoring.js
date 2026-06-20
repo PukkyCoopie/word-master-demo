@@ -57,9 +57,9 @@ export const LETTER_RARITY_ORDER = Object.freeze(["common", "rare", "epic", "leg
  */
 export const RARITY_UPGRADE_BALANCE = Object.freeze({
   common: Object.freeze({ scorePerLevel: 2, multPerLevel: 1.0 / 2 }),
-  rare: Object.freeze({ scorePerLevel: 4, multPerLevel: 2.0 / 3 }),
-  epic: Object.freeze({ scorePerLevel: 6, multPerLevel: 1 }),
-  legendary: Object.freeze({ scorePerLevel: 8, multPerLevel: 2 }),
+  rare: Object.freeze({ scorePerLevel: 4, multPerLevel: 1 }),
+  epic: Object.freeze({ scorePerLevel: 6, multPerLevel: 2 }),
+  legendary: Object.freeze({ scorePerLevel: 8, multPerLevel: 3 }),
 });
 
 const DEFAULT_RARITY_LEVEL = 1;
@@ -84,12 +84,12 @@ export const BASE_SCORE_PER_LETTER = 3;
  * - upgrade: [每升一级增加的分数, 每升一级增加的倍率]
  */
 export const WORD_LENGTH_BALANCE = {
-  3: { base: [5, 4], upgrade: [3, 2] },
-  4: { base: [6, 5], upgrade: [3, 3] },
-  5: { base: [7, 6], upgrade: [4, 3] },
-  6: { base: [8, 7], upgrade: [4, 4] },
-  7: { base: [10, 9], upgrade: [5, 5] },
-  8: { base: [12, 11], upgrade: [6, 6] },
+  3: { base: [5, 4], upgrade: [4, 3] },
+  4: { base: [6, 5], upgrade: [4, 4] },
+  5: { base: [7, 6], upgrade: [5, 4] },
+  6: { base: [8, 7], upgrade: [5, 5] },
+  7: { base: [10, 9], upgrade: [6, 5] },
+  8: { base: [12, 12], upgrade: [6, 6] },
   9: { base: [15, 15], upgrade: [8, 8] },
   10: { base: [20, 18], upgrade: [10, 9] },
   11: { base: [27, 21], upgrade: [13, 11] },

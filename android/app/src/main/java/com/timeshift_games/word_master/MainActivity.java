@@ -1,5 +1,6 @@
 package com.timeshift_games.word_master;
 
+import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -22,6 +23,11 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            boolean debuggable =
+                (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+            WebView.setWebContentsDebuggingEnabled(debuggable);
+        }
         registerPlugin(TapTapPlugin.class);
         registerPlugin(UiHapticsPlugin.class);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
