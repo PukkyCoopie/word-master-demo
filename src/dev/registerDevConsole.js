@@ -15,6 +15,8 @@ import {
  * @param {() => void} [deps.enableDeveloperMode]
  * @param {() => void} [deps.openTapTapEngagementPrompt]
  * @param {() => void | Promise<void>} [deps.openCollection]
+ * @param {(mode?: 'view' | 'consent') => void} [deps.openPrivacyPolicy]
+ * @param {() => void} [deps.clearPrivacyConsent]
  */
 export function registerDevConsole(deps) {
   if (!import.meta.env.DEV) return () => {};
@@ -27,6 +29,8 @@ export function registerDevConsole(deps) {
     enableDeveloperMode,
     openTapTapEngagementPrompt,
     openCollection,
+    openPrivacyPolicy,
+    clearPrivacyConsent,
   } = deps;
 
   /**
@@ -106,6 +110,9 @@ export function registerDevConsole(deps) {
         "  __WM_DEV__.openMaterialBench()        — 材质性能实验（10 格）",
         "  __WM_DEV__.enableDeveloperMode()      — 开启开发者模式（收藏成就连点作弊）",
         "  __WM_DEV__.openTapTapEngagementPrompt() — 打开评价和反馈弹窗（含引导问句）",
+        "  __WM_DEV__.openPrivacyPolicy()          — 预览隐私政策（只读，确定关闭）",
+        "  __WM_DEV__.openPrivacyPolicy('consent') — 预览首次同意弹窗（同意/不同意）",
+        "  __WM_DEV__.clearPrivacyConsent()        — 清除本地隐私同意记录",
         "  __WM_DEV__.startFirstWordTutorial() — 局内：从头启动首词 PLAY 新手引导",
         "  __WM_DEV__.startMaskBubbleBlueprintTest() — 进关后：[面具][泡泡] + 棋盘 2 个 B（计分动画测试）",
         "  或 URL ?dev=maskBubble 新开一局自动启用",
@@ -142,6 +149,17 @@ export function registerDevConsole(deps) {
     openTapTapEngagementPrompt: () => {
       openTapTapEngagementPrompt?.();
       console.log("[DEV] 已打开评价和反馈弹窗");
+    },
+    openPrivacyPolicy: (mode = "view") => {
+      const resolvedMode = mode === "consent" ? "consent" : "view";
+      openPrivacyPolicy?.(resolvedMode);
+      console.log(
+        `[DEV] 已打开隐私政策（${resolvedMode === "consent" ? "同意弹窗" : "只读预览"}）`,
+      );
+    },
+    clearPrivacyConsent: () => {
+      clearPrivacyConsent?.();
+      console.log("[DEV] 已清除本地隐私同意记录");
     },
     startFirstWordTutorial: () => {
       console.warn(

@@ -38,3 +38,13 @@ export function markPrivacyConsentAgreed() {
   }
   privacyConsentGranted.value = true;
 }
+
+/** 清除本地同意记录（DEV 预览首次同意弹窗用）。 */
+export function clearPrivacyConsent() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+  privacyConsentGranted.value = false;
+}

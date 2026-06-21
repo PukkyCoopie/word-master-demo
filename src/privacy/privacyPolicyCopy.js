@@ -4,7 +4,7 @@ export const TAPTAP_SDK_PRIVACY_POLICY_URL =
 
 export const PRIVACY_CONTACT_EMAIL = "chutz@foxmail.com";
 
-export const PRIVACY_POLICY_EFFECTIVE_DATE = "2026年6月18日";
+export const PRIVACY_POLICY_EFFECTIVE_DATE = "2026年6月21日";
 
 /** @typedef {{ type: 'text' | 'link' | 'bold'; value: string; href?: string }} PrivacyPolicySegment */
 
@@ -68,7 +68,7 @@ export const PRIVACY_POLICY_BODY_BLOCKS = [
     t("时移游戏（以下简称「我们」）系移动应用程序「单词大师」的运营者。我们非常重视保护用户（以下简称「您」）的个人信息和隐私。"),
   ]),
   p([
-    t("您在使用单词大师时，游戏进度与设置主要保存在您的设备本地。在您登录 TapTap 账号并同意本隐私政策后，我们还会通过 TapTap 云存档将游戏进度同步至 TapTap 云端，以便您在不同设备上恢复；并在您游玩过程中向 TapTap 排行榜上报相关游戏成绩，用于参与公开排名。为实现 TapTap 登录、防沉迷、成就同步、云存档与排行榜等功能，我们及接入的第三方 SDK 会按本政策收集必要的设备标识、账号相关信息及游戏表现数据。"),
+    t("您在使用单词大师时，游戏进度与设置主要保存在您的设备本地。在您登录 TapTap 账号并同意本隐私政策后，我们还会通过 TapTap 云存档将游戏进度同步至 TapTap 云端，以便您在不同设备上恢复；并在您游玩过程中向 TapTap 排行榜上报相关游戏成绩，用于参与公开排名。为实现 TapTap 登录、防沉迷、成就同步、云存档与排行榜等功能，我们及接入的第三方 SDK 会按本政策收集必要的设备标识、账号相关信息（含您在 TapTap 登录/注册时主动填写的手机号码）、游戏表现数据等个人信息。"),
   ]),
   p([t("我们在此提醒您：")]),
   p([
@@ -118,6 +118,24 @@ export const PRIVACY_POLICY_BODY_BLOCKS = [
       t("仅在您使用 TapTap 登录、防沉迷、成就、云存档、排行榜等 TapTap 相关功能时收集。"),
     ],
     [
+      b("手机号码"),
+      t("（"),
+      b("输入型个人信息"),
+      t("）：当您使用 TapTap 登录或注册账号时，"),
+      b("TapTap 登录 SDK"),
+      t("会要求您在 TapTap 提供的登录/注册界面"),
+      b("主动输入"),
+      t("手机号码，用于账号注册与登录、身份与安全校验，以及法律法规要求的防沉迷"),
+      b("实名认证"),
+      t("；"),
+      b("收集方式"),
+      t("为您在 TapTap 登录/注册流程中自行填写并提交；"),
+      b("使用目的"),
+      t("完成 TapTap 账号注册与登录、账号安全验证、防沉迷实名认证；"),
+      b("收集范围"),
+      t("您填写的手机号码；本游戏不单独存储该号码，由 TapTap 按其隐私政策处理。仅在您使用 TapTap 登录/注册及防沉迷相关功能时收集。"),
+    ],
+    [
       b("本地游戏数据"),
       t("：游戏进度、设置、存档槽位及收藏页内的本地词榜记录（如高分词、最长词等）默认保存在您的设备本地，由您自行管理。"),
     ],
@@ -156,12 +174,12 @@ export const PRIVACY_POLICY_BODY_BLOCKS = [
   ]),
   h("（三）我们如何使用您的个人信息"),
   p([
-    t("我们仅将上述信息用于提供游戏基本功能、TapTap 登录与防沉迷、成就同步、云存档同步、排行榜排名展示及保障服务安全稳定，不会用于本政策未说明的其他目的。"),
+    t("我们仅将上述信息用于提供游戏基本功能、TapTap 登录与防沉迷（含基于手机号码的实名认证）、成就同步、云存档同步、排行榜排名展示及保障服务安全稳定，不会用于本政策未说明的其他目的。"),
   ]),
   gap(),
   h("二、我们如何保存您的个人信息"),
   p([
-    t("本地游戏数据保存在您的设备中。在您登录 TapTap 账号后，游戏进度还会同步至 TapTap 云存档服务器；与排行榜相关的游戏成绩数值会提交至 TapTap 排行榜服务。上述由 TapTap 托管的数据，由 TapTap 按其隐私政策保存与管理。与 TapTap 登录、防沉迷相关的信息，亦由 TapTap SDK 在必要期限内保存；详情请参阅"),
+    t("本地游戏数据保存在您的设备中。在您登录 TapTap 账号后，游戏进度还会同步至 TapTap 云存档服务器；与排行榜相关的游戏成绩数值会提交至 TapTap 排行榜服务。您在 TapTap 登录/注册时提交的手机号码，由 TapTap 保存与管理。上述由 TapTap 托管的数据，由 TapTap 按其隐私政策保存与管理。与 TapTap 登录、防沉迷相关的信息，亦由 TapTap SDK 在必要期限内保存；详情请参阅"),
     link("TapTap SDK 隐私政策", TAPTAP_SDK_PRIVACY_POLICY_URL),
     t("。"),
   ]),
@@ -176,7 +194,7 @@ export const PRIVACY_POLICY_BODY_BLOCKS = [
   gap(),
   h("五、第三方产品或服务如何获得您的个人信息"),
   p([
-    t("本游戏接入 TapTap SDK，包括 TapTap 登录 SDK、防沉迷 SDK、成就 SDK、云存档 SDK、排行榜 SDK 等。上述 SDK 可能收集设备标识信息（如 OAID、Android ID）、网络状态、账号标识、游戏存档数据及排行榜成绩数值等，用于账号登录、防沉迷、成就同步、云存档上传与下载、排行榜提交与展示等服务。"),
+    t("本游戏接入 TapTap SDK，包括 TapTap 登录 SDK、防沉迷 SDK、成就 SDK、云存档 SDK、排行榜 SDK 等。上述 SDK 可能收集设备标识信息（如 OAID、Android ID）、您在登录/注册时主动填写的手机号码、网络状态、账号标识、游戏存档数据及排行榜成绩数值等，用于账号注册与登录、防沉迷实名认证、成就同步、云存档上传与下载、排行榜提交与展示等服务。"),
   ]),
   p([
     t("TapTap SDK 如何处理您的个人信息，请参阅"),
@@ -191,7 +209,7 @@ export const PRIVACY_POLICY_BODY_BLOCKS = [
   gap(),
   h("七、您如何管理您的个人信息"),
   p([
-    t("本地游戏数据可由您通过卸载应用或清除应用数据自行删除。TapTap 云存档、排行榜记录及与 TapTap 账号相关的信息，请通过 TapTap 客户端或 TapTap 官方渠道管理、删除。"),
+    t("本地游戏数据可由您通过卸载应用或清除应用数据自行删除。您在 TapTap 登录/注册时提交的手机号码、TapTap 云存档、排行榜记录及与 TapTap 账号相关的信息，请通过 TapTap 客户端或 TapTap 官方渠道查询、更正、删除或注销账号。"),
   ]),
   gap(),
   h("八、我们如何处理未成年人的个人信息"),
@@ -223,7 +241,9 @@ export const PRIVACY_POLICY_BODY_BLOCKS = [
 export const PRIVACY_POLICY_CONSENT_BLOCKS = [
   gap(),
   p([
-    t("如您已阅读并同意以上《单词大师隐私政策》，且在使用 TapTap 相关功能时知悉"),
+    t("如您已阅读并同意以上《单词大师隐私政策》，知悉在使用 TapTap 登录/注册时需提供"),
+    b("手机号码"),
+    t("用于账号登录与防沉迷实名认证，且在使用 TapTap 相关功能时知悉"),
     link("TapTap SDK 隐私政策", TAPTAP_SDK_PRIVACY_POLICY_URL),
     t("，请点击「同意」开始使用本游戏。"),
   ]),

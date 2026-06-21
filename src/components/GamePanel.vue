@@ -5880,26 +5880,6 @@ const firstWordTutorialTreasureDetailStackZFloor = computed(() => {
   return firstWordTutorialStackZ.value + 1;
 });
 
-watch(
-  () => [
-    firstWordTutorialLayerOpen.value,
-    firstWordTutorialPhase.value,
-    firstWordTutorialSelectStep.value,
-    scoringAnimating.value,
-    gridRefillAnimating.value,
-    showShop.value,
-    firstWordTutorialRetrySubmitReady.value,
-    canSubmit.value,
-  ],
-  () => {
-    if (firstWordTutorialPhase.value === "scoring" && !scoringAnimating.value && !gridRefillAnimating.value) {
-      firstWordTutorial.onFirstWordScoringSettled();
-    }
-    if (firstWordTutorialLayerOpen.value) scheduleTutorialSpotlightUpdate();
-  },
-  { flush: "post" },
-);
-
 /** 仅用于 imperative 写 --slot-scale，避免 RAF 每帧改 ref 触发整面板重渲染 */
 const wordSlotsScaleRootRef = ref(null);
 const flyLetterRef = ref(null);
@@ -7491,21 +7471,6 @@ watch(resolvedWordForSubmit, () => {
 }, { flush: "post" });
 
 watch(
-  () => [
-    selectedOrder.value.map((p) => `${p.row},${p.col}`).join("|"),
-    flyingLetters.value.map((f) => `${f.id}:${f.pendingRow},${f.pendingCol}`).join("|"),
-    wordDragReturnAnimSlot.value,
-    tileDragActive.value,
-    tileDragSource.value?.zone,
-    tileDragSource.value?.row,
-    tileDragSource.value?.col,
-    tileDragSource.value?.slotIndex,
-  ],
-  () => syncGridPlaceholderFreezeCaptures(),
-  { flush: "sync" },
-);
-
-watch(
   () => selectedOrder.value.length,
   () => {
     if (firstWordTutorialPhase.value === "retry" && firstWordTutorialLayerOpen.value) {
@@ -7871,6 +7836,21 @@ const {
     animateWordTileReturnToGrid(slotIndex, clientX, clientY, ghost);
   },
 });
+
+watch(
+  () => [
+    selectedOrder.value.map((p) => `${p.row},${p.col}`).join("|"),
+    flyingLetters.value.map((f) => `${f.id}:${f.pendingRow},${f.pendingCol}`).join("|"),
+    wordDragReturnAnimSlot.value,
+    tileDragActive.value,
+    tileDragSource.value?.zone,
+    tileDragSource.value?.row,
+    tileDragSource.value?.col,
+    tileDragSource.value?.slotIndex,
+  ],
+  () => syncGridPlaceholderFreezeCaptures(),
+  { flush: "sync" },
+);
 
 /** 目标槽数（移出时用 effectiveNumSlots，与 updateSlotPositions 一致） */
 const slotScaleTarget = computed(() => {
@@ -8693,9 +8673,25 @@ const firstWordTutorialSubmitHighlightReady = computed(
     firstWordTutorialPhase.value === "submit" || firstWordTutorialRetrySubmitReady.value,
 );
 
-watch(canSubmit, () => {
-  if (firstWordTutorialLayerOpen.value) scheduleTutorialSpotlightUpdate();
-}, { flush: "post" });
+watch(
+  () => [
+    firstWordTutorialLayerOpen.value,
+    firstWordTutorialPhase.value,
+    firstWordTutorialSelectStep.value,
+    scoringAnimating.value,
+    gridRefillAnimating.value,
+    showShop.value,
+    firstWordTutorialRetrySubmitReady.value,
+    canSubmit.value,
+  ],
+  () => {
+    if (firstWordTutorialPhase.value === "scoring" && !scoringAnimating.value && !gridRefillAnimating.value) {
+      firstWordTutorial.onFirstWordScoringSettled();
+    }
+    if (firstWordTutorialLayerOpen.value) scheduleTutorialSpotlightUpdate();
+  },
+  { flush: "post" },
+);
 
 /** 与提交按钮一致：飞回中的槽位视为已离开拼词槽，即时参与可用态判断 */
 const effectiveSelectedCount = computed(() => {

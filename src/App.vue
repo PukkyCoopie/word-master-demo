@@ -184,6 +184,7 @@ import { useRemixIconFont } from "./composables/useRemixIconFont.js";
 import { onPrivacyConsentGrantedForAuth, TAP_TAP_AUTH_MENU_ONLY_PHASES, useTapTapAuth } from "./composables/useTapTapAuth.js";
 import { ensureTapTapSdkInitialized } from "./taptap/tapTapPlugin.js";
 import {
+  clearPrivacyConsent,
   hasPrivacyConsent,
   isPrivacyConsentRequired,
   markPrivacyConsentAgreed,
@@ -517,7 +518,12 @@ function closeAbout() {
 }
 
 function openPrivacyPolicyView() {
-  privacyConsentMode.value = "view";
+  openPrivacyPolicyDebug("view");
+}
+
+/** @param {'view' | 'consent'} [mode] */
+function openPrivacyPolicyDebug(mode = "view") {
+  privacyConsentMode.value = mode === "consent" ? "consent" : "view";
   showPrivacyConsent.value = true;
 }
 
@@ -960,6 +966,8 @@ onMounted(() => {
     enableDeveloperMode,
     openTapTapEngagementPrompt: () => openTapTapEngagementLayer({ showIntroQuestion: true }),
     openCollection,
+    openPrivacyPolicy: openPrivacyPolicyDebug,
+    clearPrivacyConsent,
   });
 
   globalThis.__WM_previewAchievementToast = () =>
