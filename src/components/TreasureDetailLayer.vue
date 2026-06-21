@@ -1040,6 +1040,8 @@ const props = defineProps({
   ownedVoucherIds: { type: Array, default: () => [] },
   /** 本局预设 id（商店标价） */
   runPresetId: { type: String, default: "preset_01" },
+  /** 宝藏「门票」：升级卡/升级包免费 */
+  shopUpgradesFree: { type: Boolean, default: false },
   /** 钱包下限（价签「买不起」着色） */
   walletFloor: { type: Number, default: 0 },
   overlaySuppressed: { type: Boolean, default: false },
@@ -1104,6 +1106,7 @@ const offerPriceDisplayed = computed(() => {
     props.treasure ?? {},
     props.ownedVoucherIds ?? [],
     props.runPresetId,
+    props.shopUpgradesFree,
   );
 });
 
@@ -1117,6 +1120,7 @@ const offerShelfPriceView = computed(() => {
     ownedVoucherIds: props.ownedVoucherIds ?? [],
     runPresetId: props.runPresetId,
     walletFloor: props.walletFloor,
+    shopUpgradesFree: props.shopUpgradesFree,
   });
 });
 

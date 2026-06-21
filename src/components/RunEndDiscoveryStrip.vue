@@ -150,6 +150,7 @@ function onChipClick(item, event) {
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
   scrollbar-width: none;
 }
 
@@ -187,6 +188,8 @@ function onChipClick(item, event) {
 
 .run-end-discovery-chip--static {
   cursor: default;
+  /* 覆盖全局 .grid-tile { touch-action: none }，否则在材质块上无法横向拖动滚动 */
+  touch-action: pan-x;
 }
 
 .run-end-discovery-chip--static:hover,
@@ -222,5 +225,6 @@ function onChipClick(item, event) {
   max-width: 100%;
   max-height: 100%;
   flex-shrink: 0;
+  touch-action: pan-x;
 }
 </style>

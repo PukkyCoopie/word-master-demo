@@ -9,13 +9,34 @@ import { readOfferVoucherSaleDiscountAmount } from "./shopVoucherSale.js";
 /** @typedef {'default' | 'unaffordable' | 'discounted' | 'discounted-unaffordable'} ShopOfferPriceTone */
 
 /**
+ * 宝藏「门票」：升级卡与升级包在商店内免费。
+ * @param {{ offerType?: string, bundleKind?: string } | null | undefined} offer
+ * @param {boolean} [shopUpgradesFree=false]
+ */
+export function isShopTicketUpgradeOfferFree(offer, shopUpgradesFree = false) {
+  if (!shopUpgradesFree) return false;
+  if (offer?.offerType === "upgrade") return true;
+  if (offer?.offerType === "bundlePack" && offer?.bundleKind === "upgrade") return true;
+  return false;
+}
+
+/**
  * @param {number} basePrice
  * @param {{ randomSaleDiscount?: number, offerType?: string, bundleKind?: string }} offer
  * @param {Iterable<string>} ownedVouchers
  * @param {string | null | undefined} presetId
+ * @param {boolean} [shopUpgradesFree=false]
  */
-export function resolveShopOfferEffectivePrice(basePrice, offer, ownedVouchers, presetId) {
-  return applyPresetAndShopDiscountPrice(basePrice, offer ?? {}, ownedVouchers, presetId);
+export function resolveShopOfferEffectivePrice(
+  basePrice,
+  offer,
+  ownedVouchers,
+  presetId,
+  shopUpgradesFree = false,
+) {
+  const discounted = applyPresetAndShopDiscountPrice(basePrice, offer ?? {}, ownedVouchers, presetId);
+  if (isShopTicketUpgradeOfferFree(offer, shopUpgradesFree)) return 0;
+  return discounted;
 }
 
 /**
@@ -27,12 +48,14 @@ export function resolveShopOfferEffectivePrice(basePrice, offer, ownedVouchers, 
  *   ownedVoucherIds?: Iterable<string>,
  *   runPresetId?: string | null,
  *   walletFloor?: number,
+ *   shopUpgradesFree?: boolean,
  * }} ctx
  * @returns {ShopOfferPriceTone}
  */
 export function resolveShopOfferPriceTone(ctx) {
   const basePrice = Math.max(0, Math.floor(Number(ctx.basePrice) || 0));
   const hasDiscount =
+    isShopTicketUpgradeOfferFree(ctx.offer, ctx.shopUpgradesFree) ||
     readOfferRandomSaleDiscount(ctx.offer) > 0 ||
     readOfferPresetSaleDiscount(ctx.offer, ctx.runPresetId) > 0 ||
     readOfferVoucherSaleDiscountAmount(
@@ -83,14 +106,17 @@ export function buildPackInnerOfferPriceView(basePrice) {
  *   runPresetId?: string | null,
  *   walletFloor?: number,
  *   packStruck?: boolean,
+ *   shopUpgradesFree?: boolean,
  * }} ctx
  */
 export function buildShopOfferPriceView(basePrice, offer, ctx) {
+  const shopUpgradesFree = ctx.shopUpgradesFree === true;
   const effective = resolveShopOfferEffectivePrice(
     basePrice,
     offer,
     ctx.ownedVoucherIds ?? [],
     ctx.runPresetId,
+    shopUpgradesFree,
   );
   const tone = resolveShopOfferPriceTone({
     wallet: ctx.wallet,
@@ -100,6 +126,7 @@ export function buildShopOfferPriceView(basePrice, offer, ctx) {
     ownedVoucherIds: ctx.ownedVoucherIds ?? [],
     runPresetId: ctx.runPresetId,
     walletFloor: ctx.walletFloor,
+    shopUpgradesFree,
   });
   const innerClass = shopOfferPriceInnerClass(tone);
   /** @type {Record<string, boolean>} */

@@ -460,6 +460,8 @@ const props = defineProps({
   walletFloor: { type: Number, default: 0 },
   /** 离店后将进入的小关 id（如 3-1） */
   nextLevelId: { type: String, default: "" },
+  /** 宝藏「门票」：升级卡/升级包免费 */
+  shopUpgradesFree: { type: Boolean, default: false },
   /** 新手教程进行中：屏蔽空宝藏栏说明弹窗 */
   tutorialActive: { type: Boolean, default: false },
 });
@@ -487,6 +489,7 @@ function shopOfferPriceView(base, offer = {}) {
     ownedVoucherIds: props.ownedVoucherIds ?? [],
     runPresetId: props.runPresetId,
     walletFloor: props.walletFloor,
+    shopUpgradesFree: props.shopUpgradesFree,
   });
 }
 

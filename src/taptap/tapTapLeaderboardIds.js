@@ -4,7 +4,7 @@
 export const TAPTAP_LB_ENDLESS_CHAPTER = "gswe8d8sdb3juo6ouw";
 
 /** 单词平均长度（整局胜利后上报，分值为平均字母数四舍五入取整） */
-export const TAPTAP_LB_AVG_WORD_LENGTH = "prr8mxl2vskhh025kr";
+export const TAPTAP_LB_AVG_WORD_LENGTH = "1q3rev00b59yeuegyy";
 
 /** 单次最高得分（非无尽模式，破纪录时上报） */
 export const TAPTAP_LB_BEST_SINGLE_WORD_SCORE = "xecylsl0yjdd7h4n9v";

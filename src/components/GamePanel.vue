@@ -22,6 +22,7 @@
           :tutorial-active="firstWordTutorialActive"
           @open-treasure-collection="showTreasureCollectionLayer = true"
           :run-preset-id="runPresetId"
+          :shop-upgrades-free="treasureRunState.shopUpgradesFree"
           :wallet-floor="runWalletFloor"
           @open-options="openPauseOptionsFromShop"
           @view-deck="showDeckLayer = true"
@@ -163,6 +164,7 @@
       :origin-rect="treasureDetail.originRect ?? null"
       :owned-voucher-ids="ownedVoucherIds"
       :run-preset-id="runPresetId"
+      :shop-upgrades-free="treasureRunState.shopUpgradesFree"
       :wallet-floor="runWalletFloor"
       :spell-replay-target-spell-id="lastReplayableSpellId"
       :rarity-levels-by-rarity="rarityLevelsByRarity"
@@ -1245,6 +1247,7 @@ import {
   rollRandomUpgradePicks,
 } from "../shop/randomUpgradeRoll.js";
 import { applyRandomSaleToOfferRow, applyRandomSaleToShopStockRows } from "../shop/shopRandomSale.js";
+import { resolveShopOfferEffectivePrice } from "../shop/shopOfferPriceDisplay.js";
 import { buildVoucherShopOfferRow } from "../vouchers/shopVoucherOfferBuild.js";
 import { offerFlyOriginRectFromEl, packDeckOfferFlyOriginRectFromEl } from "../game/offerFlyOrigin.js";
 import { beginFlySourceHide, ensureFlyCloneVisible } from "../game/flySourceHide.js";
@@ -1255,7 +1258,6 @@ import {
 import { getTier1DefForPair, getTier2DefForPair } from "../vouchers/voucherDefinitions.js";
 import { rollShopVoucherOfferDef } from "../vouchers/voucherRegistry.js";
 import {
-  applyPresetAndShopDiscountPrice,
   getPresetHandsPerLevelDelta,
   getPresetRemovalsPerLevelDelta,
   getPresetStartMoneyBonus,
@@ -2696,11 +2698,12 @@ function judgedLengthTableLenForRun(wordLetterCount) {
 }
 
 function shopPriceForOffer(basePrice, offer = {}) {
-  return applyPresetAndShopDiscountPrice(
+  return resolveShopOfferEffectivePrice(
     basePrice,
     offer,
     ownedVoucherIds.value,
     runPresetId.value,
+    treasureRunState.value.shopUpgradesFree,
   );
 }
 
@@ -2804,14 +2807,6 @@ async function triggerTreasureBarCompactAnim() {
   treasureBarCompactAnimating.value = true;
   await animSleep(280);
   treasureBarCompactAnimating.value = false;
-}
-
-/** @param {{ offerType?: string, bundleKind?: string }} t @param {number} basePay */
-function effectiveShopOfferPay(t, basePay) {
-  if (!treasureRunState.value.shopUpgradesFree) return basePay;
-  if (t.offerType === "upgrade") return 0;
-  if (t.offerType === "bundlePack" && t.bundleKind === "upgrade") return 0;
-  return basePay;
 }
 
 const shopNextRerollCostDisplay = computed(() => {
@@ -3733,6 +3728,8 @@ async function fulfillTreasureAfterPackPayment(t, fromEl) {
   const slotsLenBefore = ownedTreasures.value.length;
   const ix = findTreasurePlacementIndex(t);
   if (ix < 0) return;
+  initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
+  applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
   const slotsExpanded = ownedTreasures.value.length > slotsLenBefore;
   const frameEl = fromEl instanceof HTMLElement ? fromEl : null;
   const toTarget = await waitForOwnedTreasureSlotEl(ix, { slotsExpanded });
@@ -3745,8 +3742,7 @@ async function fulfillTreasureAfterPackPayment(t, fromEl) {
       price: t.price,
       treasureAccessoryIds: readTreasureAccessoryIds(t),
     });
-    initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
-    applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
+    syncShopUpgradesFreeFromOwnedTreasures(ownedSlotTreasureIdList(), treasureRunState.value);
   };
   if (frameEl && toTarget) {
     await animateTreasureFrameFly(frameEl, toTarget, {
@@ -5632,6 +5628,7 @@ watch(showShop, async (open, prev) => {
   treasureDetail.value = null;
   if (suppressShopEnterVisitInit.value) {
     suppressShopEnterVisitInit.value = false;
+    syncShopUpgradesFreeFromOwnedTreasures(ownedSlotTreasureIdList(), treasureRunState.value);
     return;
   }
   packPickSession.value = null;
@@ -9736,6 +9733,10 @@ async function onSettlementContinue(event) {
 
 function openGameTreasureDetail(ti, slot, ev) {
   if (!slot) return;
+  if (isAmberBossMaskActive.value) {
+    playBossTapeTriggerCue();
+    return;
+  }
   const el = ev?.currentTarget ?? null;
   const items = buildShopOwnedPreviewNavItems();
   presentTreasureDetail({
@@ -11983,7 +11984,7 @@ async function onTreasurePurchase() {
   if (d.kind !== "offer") return;
   const t = d.treasure;
   const listPrice = Math.max(0, Math.floor(Number(t.price) || 0));
-  const pay = effectiveShopOfferPay(t, shopPriceForOffer(listPrice, t));
+  const pay = shopPriceForOffer(listPrice, t);
 
   if (t.offerType === "bundlePack") {
     if (!canAffordWallet(money.value, pay, runWalletFloor.value)) return;
@@ -12110,6 +12111,9 @@ async function onTreasurePurchase() {
   const ix = findTreasurePlacementIndex(t);
   if (ix < 0) return;
 
+  initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
+  applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
+
   /** 飞行期间货架原格立即清空，避免蒙层淡出后仍看到原商品 */
   clearOfferSlotAfterPurchase(t);
   await nextTick();
@@ -12128,8 +12132,7 @@ async function onTreasurePurchase() {
       price: listPrice,
       treasureAccessoryIds: readTreasureAccessoryIds(t),
     });
-    initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
-    applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
+    syncShopUpgradesFreeFromOwnedTreasures(ownedSlotTreasureIdList(), treasureRunState.value);
   };
 
   /** 点击购买即开始关层动画，与飞入槽位并行，避免等飞完才消失 */
@@ -15783,6 +15786,7 @@ onMounted(async () => {
   if (restored && typeof restored === "object") {
     suppressShopEnterVisitInit.value = normalizeRunSavePhase(restored.phase) === "shop";
     applyGamePanelSave(restored, buildHydrateContext());
+    syncShopUpgradesFreeFromOwnedTreasures(ownedSlotTreasureIdList(), treasureRunState.value);
     syncPlayerMarkBatchCounterFromGrid();
     ensureBigramTargetPair(treasureRunState.value, rollRandomBigramForTreasure);
     mountE2eHarnessIfNeeded();
