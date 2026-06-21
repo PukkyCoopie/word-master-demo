@@ -29,6 +29,8 @@ jobs:
         run: npm ci
 
       - name: Build (CloudBase)
+        env:
+          WM_DICT_SHIP: web
         run: npm run build
 
       - name: Install CloudBase CLI

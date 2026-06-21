@@ -1,8 +1,20 @@
 import { ref, shallowRef, computed } from "vue";
 import {
   PROGRESS_AFTER_DECOMPRESS,
-  resolveDictionaryText,
+  SPLIT_CORE_PROGRESS_END,
+  resolveDictionaryBundle,
+  fetchDictionaryDefinitionsText,
 } from "../dictionary/dictionaryTransport.js";
+import {
+  buildDictionaryIndexesFromCoreText,
+  mergeDictionaryDefinitions,
+  splitPosFieldTokens,
+} from "../dictionary/dictionaryIndexBuild.js";
+import {
+  getDictionaryIndexYieldEvery,
+  yieldDuringDictionaryIndex,
+} from "../dictionary/dictionaryLowEnd.js";
+import { estimateLineCountFromText } from "../dictionary/dictionaryJsonlParse.js";
 import { getAllowSpellingAbbreviations } from "../settings/gameSettings.js";
 import {
   getRarityForLetter,
@@ -43,18 +55,7 @@ const NORMAL_POS_TOKENS = new Set([
   "a",
 ]);
 
-/**
- * @param {string} posField
- * @returns {string[]}
- */
-function splitPosFieldTokens(posField) {
-  return String(posField ?? "")
-    .trim()
-    .toLowerCase()
-    .split("|")
-    .map((t) => t.trim())
-    .filter(Boolean);
-}
+let defsLoadToken = 0;
 
 /** 全局共享：App 预加载与 GamePanel 共用 */
 const dictLoaded = ref(false);
@@ -91,27 +92,51 @@ function raf() {
 const PROGRESS_AFTER_JSON = 0.78;
 const PROGRESS_BEFORE_DONE = 0.99;
 
+function commitDictionaryIndexes(indexes) {
+  clearResolvePatternCache();
+  wordSet.value = indexes.set;
+  wordInfoMap.value = indexes.map;
+  wordsByLength.value = indexes.byLength;
+  posTagsByWord.value = indexes.posTagsLocal;
+  dictLoaded.value = true;
+}
+
 /**
+ * @param {Map<string, { word: string, pos: string, translation_zh: string }>} map
+ * @param {string} defsUrl
+ * @param {import("../dictionary/dictionaryTransport.js").DictionaryMeta | null | undefined} defsMeta
+ * @param {boolean} defsCompressed
  * @param {{ shouldAbort?: () => boolean }} [options]
  */
-async function loadOnce(options = {}) {
+function scheduleDictionaryDefinitionsLoad(map, defsUrl, defsMeta, defsCompressed, options = {}) {
+  const token = ++defsLoadToken;
+  void (async () => {
+    try {
+      const defsText = await fetchDictionaryDefinitionsText(defsUrl, defsMeta, {
+        ...options,
+        compressed: defsCompressed,
+      });
+      if (token !== defsLoadToken || options.shouldAbort?.()) return;
+      await mergeDictionaryDefinitions(map, defsText, options);
+    } catch {
+      // 释义为增强项：失败不影响拼词校验
+    }
+  })();
+}
+
+/**
+ * @param {string} text
+ * @param {{ shouldAbort?: () => boolean }} options
+ */
+async function buildLegacyDictionaryIndexes(text, options) {
   const { shouldAbort } = options;
-  const dictBaseUrl = `${import.meta.env.BASE_URL}data/dictionary/`.replace(/\/+/g, "/");
-
-  const text = await resolveDictionaryText(dictBaseUrl, {
-    shouldAbort,
-    bumpLoadProgress,
-  });
-  if (shouldAbort?.()) return;
-  bumpLoadProgress(PROGRESS_AFTER_DECOMPRESS);
-
   await raf();
   bumpLoadProgress(PROGRESS_AFTER_DECOMPRESS + 0.04);
 
   const raw = JSON.parse(text);
   if (!Array.isArray(raw)) throw new Error("词典格式错误");
 
-  if (shouldAbort?.()) return;
+  if (shouldAbort?.()) return null;
   bumpLoadProgress(PROGRESS_AFTER_JSON);
 
   const set = new Set();
@@ -120,7 +145,7 @@ async function loadOnce(options = {}) {
   /** @type {Map<string, Set<string>>} */
   const posTagsLocal = new Map();
   const n = raw.length;
-  const chunk = Math.max(4000, Math.ceil(n / 96));
+  const yieldEvery = getDictionaryIndexYieldEvery(n);
   const indexSpan = PROGRESS_BEFORE_DONE - PROGRESS_AFTER_JSON;
 
   for (let i = 0; i < n; i++) {
@@ -138,20 +163,60 @@ async function loadOnce(options = {}) {
     if (!byLength.has(len)) byLength.set(len, []);
     byLength.get(len).push(w);
 
-    if (i % chunk === 0) {
+    if (i % yieldEvery === 0) {
       bumpLoadProgress(PROGRESS_AFTER_JSON + (i / Math.max(1, n)) * indexSpan);
-      if (shouldAbort?.()) return;
-      await raf();
+      if (shouldAbort?.()) return null;
+      await yieldDuringDictionaryIndex();
     }
   }
 
+  return { set, map, byLength, posTagsLocal };
+}
+
+/**
+ * @param {{ shouldAbort?: () => boolean }} [options]
+ */
+async function loadOnce(options = {}) {
+  const { shouldAbort } = options;
+  const dictBaseUrl = `${import.meta.env.BASE_URL}data/dictionary/`.replace(/\/+/g, "/");
+
+  const bundle = await resolveDictionaryBundle(dictBaseUrl, {
+    shouldAbort,
+    bumpLoadProgress,
+  });
   if (shouldAbort?.()) return;
-  clearResolvePatternCache();
-  wordSet.value = set;
-  wordInfoMap.value = map;
-  wordsByLength.value = byLength;
-  posTagsByWord.value = posTagsLocal;
-  dictLoaded.value = true;
+
+  if (bundle.mode === "split") {
+    await raf();
+    bumpLoadProgress(SPLIT_CORE_PROGRESS_END + 0.02);
+
+    const indexSpan = PROGRESS_BEFORE_DONE - SPLIT_CORE_PROGRESS_END - 0.02;
+    const indexes = await buildDictionaryIndexesFromCoreText(bundle.coreText, {
+      shouldAbort,
+      estimatedRows: estimateLineCountFromText(bundle.coreText),
+      onProgress: (ratio) => {
+        bumpLoadProgress(SPLIT_CORE_PROGRESS_END + 0.02 + ratio * indexSpan);
+      },
+    });
+    if (!indexes || shouldAbort?.()) return;
+
+    commitDictionaryIndexes(indexes);
+    bumpLoadProgress(1);
+    scheduleDictionaryDefinitionsLoad(
+      indexes.map,
+      bundle.defsUrl,
+      bundle.defsMeta,
+      bundle.defsCompressed,
+      options,
+    );
+    return;
+  }
+
+  bumpLoadProgress(PROGRESS_AFTER_DECOMPRESS);
+  const indexes = await buildLegacyDictionaryIndexes(bundle.text, options);
+  if (!indexes || shouldAbort?.()) return;
+
+  commitDictionaryIndexes(indexes);
   bumpLoadProgress(1);
 }
 
@@ -378,7 +443,12 @@ export function useDictionary() {
       try {
         await loadOnce(options);
       } catch (e) {
-        dictError.value = e?.message || "词典加载失败";
+        const rawMsg = String(e?.message ?? e ?? "");
+        if (/memory|allocation|heap|out of memory|invalid string length/i.test(rawMsg)) {
+          dictError.value = "设备内存不足，请关闭其它应用后重试";
+        } else {
+          dictError.value = rawMsg || "词典加载失败";
+        }
         clearResolvePatternCache();
         wordSet.value = null;
         wordInfoMap.value = null;

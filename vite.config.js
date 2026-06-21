@@ -74,7 +74,38 @@ function dirSizeBytes(dir) {
   return total;
 }
 
-function writeBrotliDictionaryToDist() {
+function brotliCompressBuffer(raw) {
+  return zlib.brotliCompressSync(raw, {
+    params: {
+      [zlib.constants.BROTLI_PARAM_QUALITY]: 11,
+    },
+  });
+}
+
+function buildSplitDictionaryPayload(rawJsonBuffer) {
+  const raw = JSON.parse(rawJsonBuffer.toString("utf8"));
+  if (!Array.isArray(raw)) {
+    throw new Error("dict.json 格式错误");
+  }
+
+  const coreLines = [];
+  const defLines = [];
+  for (const row of raw) {
+    const [word, pos, translation_zh] = row;
+    if (!word || !pos) continue;
+    coreLines.push(`${JSON.stringify([word, pos])}\n`);
+    if (translation_zh) {
+      defLines.push(`${JSON.stringify([word, translation_zh])}\n`);
+    }
+  }
+
+  return {
+    core: Buffer.from(coreLines.join(""), "utf8"),
+    defs: Buffer.from(defLines.join(""), "utf8"),
+  };
+}
+
+function writeDictionaryToDist() {
   if (!fs.existsSync(DICT_SRC)) {
     console.warn(
       "[vite] 未找到 data/dictionary/dict.json，dist 可能不包含完整词典",
@@ -83,27 +114,70 @@ function writeBrotliDictionaryToDist() {
   }
 
   const raw = fs.readFileSync(DICT_SRC);
-  const compressed = zlib.brotliCompressSync(raw, {
-    params: {
-      [zlib.constants.BROTLI_PARAM_QUALITY]: 11,
-    },
-  });
+  const { core, defs } = buildSplitDictionaryPayload(raw);
+  const coreCompressed = brotliCompressBuffer(core);
+  const defsCompressed = brotliCompressBuffer(defs);
 
   const outDir = path.join(DIST_DIR, "data", "dictionary");
   fs.mkdirSync(outDir, { recursive: true });
-  fs.writeFileSync(path.join(outDir, "dict.json.br"), compressed);
+
+  fs.writeFileSync(path.join(outDir, "dict.core.jsonl"), core);
+  fs.writeFileSync(path.join(outDir, "dict.defs.jsonl"), defs);
+  fs.writeFileSync(path.join(outDir, "dict.core.br"), coreCompressed);
+  fs.writeFileSync(path.join(outDir, "dict.defs.br"), defsCompressed);
   fs.writeFileSync(
     path.join(outDir, "dict.meta.json"),
     JSON.stringify({
       format: "brotli",
-      compressedBytes: compressed.length,
-      uncompressedBytes: raw.length,
+      split: true,
+      coreFile: "dict.core.br",
+      defsFile: "dict.defs.br",
+      nativeCoreFile: "dict.core.jsonl",
+      nativeDefsFile: "dict.defs.jsonl",
+      coreUncompressedBytes: core.length,
+      defsUncompressedBytes: defs.length,
+      coreCompressedBytes: coreCompressed.length,
+      defsCompressedBytes: defsCompressed.length,
     }),
   );
 
+  for (const legacyName of ["dict.json.br", "dict.json"]) {
+    const legacyPath = path.join(outDir, legacyName);
+    if (fs.existsSync(legacyPath)) fs.rmSync(legacyPath, { force: true });
+  }
+
   console.log(
-    `[vite] 词典 Brotli：${(raw.length / 1024 / 1024).toFixed(2)} MB → ${(compressed.length / 1024 / 1024).toFixed(2)} MB`,
+    `[vite] 词典分包：core ${(core.length / 1024 / 1024).toFixed(2)} MB（App 明文 / Web Brotli ${(coreCompressed.length / 1024 / 1024).toFixed(2)} MB）；defs ${(defs.length / 1024 / 1024).toFixed(2)} MB（Web Brotli ${(defsCompressed.length / 1024 / 1024).toFixed(2)} MB）`,
   );
+}
+
+/** @param {"web" | "native" | "both"} shipMode */
+function pruneDictionaryByShipTarget(shipMode) {
+  const outDir = path.join(DIST_DIR, "data", "dictionary");
+  if (!fs.existsSync(outDir)) return 0;
+
+  /** @type {string[]} */
+  const removeNames =
+    shipMode === "web"
+      ? ["dict.core.jsonl", "dict.defs.jsonl"]
+      : shipMode === "native"
+        ? ["dict.core.br", "dict.defs.br"]
+        : [];
+
+  let removedBytes = 0;
+  for (const name of removeNames) {
+    const target = path.join(outDir, name);
+    if (!fs.existsSync(target)) continue;
+    removedBytes += fs.statSync(target).size;
+    fs.rmSync(target, { force: true });
+  }
+
+  if (removedBytes > 0) {
+    console.log(
+      `[vite] 词典随 ${shipMode} 发布已剔除 ${(removedBytes / 1024 / 1024).toFixed(2)} MB`,
+    );
+  }
+  return removedBytes;
 }
 
 /**
@@ -134,7 +208,9 @@ function dictionaryFromDataDir() {
       });
     },
     closeBundle() {
-      writeBrotliDictionaryToDist();
+      writeDictionaryToDist();
+      const shipMode = process.env.WM_DICT_SHIP === "web" ? "web" : "native";
+      pruneDictionaryByShipTarget(shipMode);
       pruneDistShipArtifacts();
     },
   };

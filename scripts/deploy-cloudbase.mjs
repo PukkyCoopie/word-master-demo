@@ -15,12 +15,14 @@ import { loadDotEnv, REPO_ROOT } from "./lib/load-dotenv.mjs";
 /**
  * @param {string} cmd
  * @param {string[]} args
+ * @param {{ env?: NodeJS.ProcessEnv }} [options]
  */
-function run(cmd, args) {
+function run(cmd, args, options = {}) {
   const result = spawnSync(cmd, args, {
     cwd: REPO_ROOT,
     stdio: "inherit",
     shell: process.platform === "win32",
+    env: options.env ?? process.env,
   });
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
@@ -62,7 +64,9 @@ function main() {
   const { TCB_SECRET_ID, TCB_SECRET_KEY, TCB_ENV_ID } = requireCloudBaseEnv();
 
   console.log("→ 构建静态资源…");
-  run("npm", ["run", "build"]);
+  run("npm", ["run", "build"], {
+    env: { ...process.env, WM_DICT_SHIP: "web" },
+  });
 
   const login = tcbArgs([
     "login",

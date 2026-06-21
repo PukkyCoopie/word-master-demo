@@ -16,6 +16,9 @@ export function formatDictionaryLoadErrorForPlayer(raw) {
   if (msg.includes("格式") || /json|unexpected token/i.test(msg)) {
     return "词库文件异常，请重装游戏";
   }
+  if (/memory|allocation|heap|out of memory/i.test(msg)) {
+    return "设备内存不足，请关闭其它应用后重试";
+  }
   if (msg.includes("WebView") || msg.includes("不支持")) {
     return "系统组件过旧，请更新后重试";
   }
