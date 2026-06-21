@@ -4,6 +4,16 @@ import { unlockAchievementId } from "../achievements/achievementCareer.js";
 import { getCollectionUnlockProgress } from "../collection/collectionProgress.js";
 import { COLLECTION_MATERIAL_DISPLAY_ORDER } from "../collection/collectionMaterialRichDesc.js";
 import { COLLECTION_UPGRADE_TREASURE_IDS } from "../collection/collectionUpgradeCatalog.js";
+import {
+  collectionNewKeyForAccessory,
+  collectionNewKeyForAchievement,
+  collectionNewKeyForMaterial,
+  collectionNewKeyForSpell,
+  collectionNewKeyForTreasure,
+  collectionNewKeyForUpgrade,
+  collectionNewKeyForVoucher,
+  markCollectionNewDiscovery,
+} from "../collection/collectionNewDiscoveries.js";
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
 import { TREASURE_CATALOG } from "../treasures/treasureCatalog.js";
 import { VOUCHER_PAIR_ORDER } from "../vouchers/voucherDefinitions.js";
@@ -32,5 +42,43 @@ export function applyFullCollectionUnlockToCareer(career) {
   return {
     progress: getCollectionUnlockProgress(career),
     achievements,
+  };
+}
+
+/**
+ * 全解锁收藏并将全部条目标为「新！」（开发/宣传图截图用）。
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats} career
+ * @returns {{ progress: ReturnType<typeof getCollectionUnlockProgress>, achievements: number, newMarkCount: number }}
+ */
+export function applyFullCollectionUnlockAndMarkAllNew(career) {
+  const summary = applyFullCollectionUnlockToCareer(career);
+  career.collectionNewDiscoveryKeys = [];
+  career.collectionTabsPendingNewClear = [];
+
+  for (const id of career.discoveredTreasureIds ?? []) {
+    markCollectionNewDiscovery(career, collectionNewKeyForTreasure(id));
+  }
+  for (const id of career.discoveredSpellIds ?? []) {
+    markCollectionNewDiscovery(career, collectionNewKeyForSpell(id));
+  }
+  for (const id of career.discoveredUpgradeIds ?? []) {
+    markCollectionNewDiscovery(career, collectionNewKeyForUpgrade(id));
+  }
+  for (const pairId of Object.keys(career.discoveredVoucherTiers ?? {})) {
+    markCollectionNewDiscovery(career, collectionNewKeyForVoucher(pairId));
+  }
+  for (const id of career.discoveredMaterialIds ?? []) {
+    markCollectionNewDiscovery(career, collectionNewKeyForMaterial(id));
+  }
+  for (const id of career.discoveredAccessoryIds ?? []) {
+    markCollectionNewDiscovery(career, collectionNewKeyForAccessory(id));
+  }
+  for (const def of ACHIEVEMENT_DEFINITIONS) {
+    markCollectionNewDiscovery(career, collectionNewKeyForAchievement(def.id));
+  }
+
+  return {
+    ...summary,
+    newMarkCount: career.collectionNewDiscoveryKeys?.length ?? 0,
   };
 }

@@ -2,7 +2,7 @@ import { buildRunSaveMetaFromPayload, serializeRunSave } from "./serializeRunSav
 import { hydrateRunSave } from "./hydrateRunSave.js";
 import { canSaveNow } from "./runSaveGuards.js";
 import { getSlotCareer, writeSlot } from "./runSaveStorage.js";
-import { normalizeSlotCareerStats } from "./slotCareerStats.js";
+import { normalizeSlotCareerStats, recordCareerRunStarted } from "./slotCareerStats.js";
 import { createEmptySlotCareerStats } from "./runSaveSchema.js";
 
 /**
@@ -58,12 +58,18 @@ export function buildGamePanelSaveContext(ctx) {
 /**
  * @param {Record<string, unknown>} ctx
  * @param {number} slotIndex
+ * @param {{ immediate?: boolean }} [opts]
  */
-export function saveGamePanelToSlot(ctx, slotIndex) {
+export function saveGamePanelToSlot(ctx, slotIndex, opts = {}) {
   const payload = serializeRunSave(buildGamePanelSaveContext(ctx));
   const meta = buildRunSaveMetaFromPayload(payload, payload.levelIndex);
   const prevCareer = normalizeSlotCareerStats(getSlotCareer(slotIndex) ?? createEmptySlotCareerStats());
-  const ok = writeSlot(slotIndex, meta, payload, prevCareer);
+  if (prevCareer.runsStarted === 0 && payload.phase === "playing") {
+    recordCareerRunStarted(prevCareer);
+  }
+  const ok = writeSlot(slotIndex, meta, payload, prevCareer, {
+    immediate: opts.immediate === true,
+  });
   return ok ? { ok: true } : { ok: false, message: "存储空间不足或无法写入" };
 }
 

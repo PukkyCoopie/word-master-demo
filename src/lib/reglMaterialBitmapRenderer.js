@@ -187,12 +187,20 @@ function paintMaterialSubscribers(materialId, includeStatic = false) {
   drawMaterialFrame(materialId);
   for (const sub of subs) {
     if (includeStatic) {
-      if (sub.viewportVisible === false) continue;
+      if (sub.viewportVisible === false || sub.frameFrozen) continue;
     } else if (!shouldReceiveFrames(sub)) {
       continue;
     }
     void transferFrameToSubscriber(sub);
   }
+}
+
+function freezeBitmapRendererSubscriberFrame(materialId, sub) {
+  const hub = sharedHub;
+  if (!hub || sub.disposed || sub.frameFrozen) return;
+  drawMaterialFrame(materialId);
+  void transferFrameToSubscriber(sub);
+  sub.frameFrozen = true;
 }
 
 function bitmapRendererTick() {
@@ -230,7 +238,8 @@ function bindBitmapVisibility(sub) {
   }
   if (typeof ResizeObserver !== "undefined") {
     const ro = new ResizeObserver(() => {
-      if (!sub.disposed) paintMaterialSubscribers(sub.materialId, true);
+      if (sub.disposed || sub.frameFrozen) return;
+      if (sub.animated) paintMaterialSubscribers(sub.materialId, false);
     });
     ro.observe(sub.canvas);
     cleanups.push(() => ro.disconnect());
@@ -257,6 +266,7 @@ export function attachBitmapRendererMaterial(materialId, canvas, options = {}) {
     canvas,
     ctx,
     animated: options.animated !== false,
+    frameFrozen: false,
     viewportVisible: true,
     pending: false,
     disposed: false,
@@ -266,8 +276,12 @@ export function attachBitmapRendererMaterial(materialId, canvas, options = {}) {
   };
   bindBitmapVisibility(sub);
   ensureSubscribersSet(materialId).add(sub);
-  paintMaterialSubscribers(materialId, true);
-  if (sub.animated) ensureTick();
+  if (sub.animated) {
+    paintMaterialSubscribers(materialId, false);
+    ensureTick();
+  } else {
+    freezeBitmapRendererSubscriberFrame(materialId, sub);
+  }
   publishBitmapRendererStats();
 
   return function disposeBitmapRendererMaterial() {
@@ -292,8 +306,12 @@ export function setBitmapRendererMaterialAnimated(materialId, canvas, animated) 
   for (const sub of subs) {
     if (sub.canvas !== canvas) continue;
     sub.animated = animated;
-    if (animated) ensureTick();
-    else paintMaterialSubscribers(materialId, true);
+    if (animated) {
+      sub.frameFrozen = false;
+      ensureTick();
+    } else {
+      freezeBitmapRendererSubscriberFrame(materialId, sub);
+    }
     stopTickIfIdle();
     publishBitmapRendererStats();
     return true;

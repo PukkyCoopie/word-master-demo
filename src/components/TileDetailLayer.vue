@@ -232,6 +232,12 @@ import { bumpOverlayZ } from "../game/overlayStack.js";
 import { schedulePreviewLayerPresent } from "../platform/haptics.js";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 import {
+  PREVIEW_FLY_COMMIT_LEAD_SEC,
+  commitPreviewFlyCloneSwap,
+  preparePreviewFlyTargetHidden,
+  preRevealPreviewFlyTargetUnderClone,
+} from "../game/previewFlyCloneCommit.js";
+import {
   instantPortalLayerClose,
   instantPortalLayerEnter,
   instantRevealGsapTargets,
@@ -421,7 +427,8 @@ function runEnterAnimation() {
       const hasFly = Boolean(originOk && cloneLive);
 
       if (hasFly) {
-        gsap.set(fadeEl, { opacity: 0, pointerEvents: "none", y: 0, clearProps: "transform" });
+        preparePreviewFlyTargetHidden(fadeEl);
+        gsap.set(fadeEl, { y: 0, clearProps: "transform" });
       } else {
         flyCloneActive.value = false;
         gsap.set(fadeEl, { opacity: 0, pointerEvents: "none", y: 8 });
@@ -471,16 +478,23 @@ function runEnterAnimation() {
           0,
         );
 
-        tl.add(() => {
-          gsap.set(fadeEl, { opacity: 1, pointerEvents: "auto", clearProps: "transform" });
-          const node = flyCloneRef.value;
-          if (node) gsap.set(node, { opacity: 0, visibility: "hidden" });
-          requestAnimationFrame(() => {
-            flyCloneActive.value = false;
-            flyCloneAnchorRect.value = null;
-            if (node?.isConnected) gsap.set(node, { clearProps: "transform" });
-          });
-        });
+        tl.add(
+          () => preRevealPreviewFlyTargetUnderClone(fadeEl),
+          Math.max(0, FLY_DURATION - PREVIEW_FLY_COMMIT_LEAD_SEC),
+        );
+        tl.add(
+          () =>
+            commitPreviewFlyCloneSwap({
+              targetEl: fadeEl,
+              flyCloneEl: flyCloneRef.value,
+              onDeactivateClone: () => {
+                flyCloneActive.value = false;
+                flyCloneAnchorRect.value = null;
+              },
+              targetClearProps: "transform",
+            }),
+          FLY_DURATION,
+        );
       } else {
         flyCloneActive.value = false;
         tl.to(

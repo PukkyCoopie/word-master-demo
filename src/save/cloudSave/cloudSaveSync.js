@@ -12,6 +12,7 @@ import {
   normalizeCloudSaveBundle,
 } from "./cloudSaveBundle.js";
 import { CLOUD_ARCHIVE_NAME } from "./cloudSaveConstants.js";
+import { markPendingTutorialAutoStart, prepareFirstWordTutorialAfterFreshLocalSaveChoice } from "../../tutorial/firstWordTutorial.js";
 import {
   cloudSaveCreateArchive,
   cloudSaveDownloadBundleJson,
@@ -224,6 +225,7 @@ export async function syncOnLogin(account) {
   const cloudHas = cloudArchive != null;
 
   if (!localHas && !cloudHas) {
+    markPendingTutorialAutoStart();
     persistCloudSaveMeta({
       lastSyncedUnionId: account.unionId,
       syncState: "idle",
@@ -341,6 +343,7 @@ export async function resolveCloudSaveUseLocal() {
     return false;
   }
   notifyCloudSaveApplied();
+  prepareFirstWordTutorialAfterFreshLocalSaveChoice();
   return true;
 }
 
@@ -395,6 +398,7 @@ export async function resolveCloudSaveForeignLocalNew() {
   dirty = false;
   setCloudSaveSyncState("idle");
   notifyCloudSaveApplied();
+  prepareFirstWordTutorialAfterFreshLocalSaveChoice();
   return true;
 }
 

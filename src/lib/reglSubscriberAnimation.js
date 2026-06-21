@@ -10,7 +10,7 @@ import { isMaterialProfilerEnabled, recordMaterialHubProfile } from "./reglMater
  * 未展开牌库 stack 等场景只需绘制一帧并保留，避免大量 canvas 共用 RAF。
  */
 
-/** @typedef {{ animated?: boolean, viewportVisible?: boolean, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number, _disposeReglBindings?: (() => void) | null }} ReglDisplaySubscriber */
+/** @typedef {{ animated?: boolean, viewportVisible?: boolean, frameFrozen?: boolean, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number, _disposeReglBindings?: (() => void) | null }} ReglDisplaySubscriber */
 
 /**
  * @param {ReglDisplaySubscriber} sub
@@ -165,7 +165,7 @@ export function bindReglSubscriberViewport(sub, repaintOnce) {
       const h = sub.canvas.clientHeight;
       if (w > 0 && h > 0 && !paintedAtSize) {
         paintedAtSize = true;
-        repaintOnce(sub);
+        if (!sub.frameFrozen) repaintOnce(sub);
       }
     });
     ro.observe(sub.canvas);
@@ -205,9 +205,11 @@ export function applyReglSubscriberAnimated(sub, animated, hub) {
   if (prev === animated) return;
   sub.animated = animated;
   if (animated) {
+    sub.frameFrozen = false;
     hub.ensureTick();
   } else {
     hub.paintSubscriberOnce(sub);
+    sub.frameFrozen = true;
   }
   hub.stopTickIfIdle();
 }

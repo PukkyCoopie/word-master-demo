@@ -67,6 +67,18 @@ import { parseProbabilityFraction } from "./treasureProbability.js";
  */
 
 /**
+ * @typedef {Object} TreasureDescRiskBlock
+ * @property {'riskBlock'} type
+ * @property {TreasureDescSegment[]} parts
+ */
+
+/**
+ * @typedef {Object} TreasureDescRiskText
+ * @property {'riskText'} type
+ * @property {string} v  橙红警示色单行文案（不加粗，区别于 riskBlock）
+ */
+
+/**
  * @typedef {Object} TreasureDescHandDelta
  * @property {'handDelta'} type
  * @property {string} v  如 "+1"
@@ -86,7 +98,7 @@ import { parseProbabilityFraction } from "./treasureProbability.js";
  */
 
 /**
- * @typedef {TreasureDescText | TreasureDescRarity | TreasureDescMult | TreasureDescScore | TreasureDescMoney | TreasureDescProb | TreasureDescBreak | TreasureDescGain | TreasureDescConcept | TreasureDescGainBlock | TreasureDescHandDelta | TreasureDescDiscardDelta | TreasureDescEntityInline} TreasureDescSegment
+ * @typedef {TreasureDescText | TreasureDescRarity | TreasureDescMult | TreasureDescScore | TreasureDescMoney | TreasureDescProb | TreasureDescBreak | TreasureDescGain | TreasureDescConcept | TreasureDescGainBlock | TreasureDescRiskBlock | TreasureDescRiskText | TreasureDescHandDelta | TreasureDescDiscardDelta | TreasureDescEntityInline} TreasureDescSegment
  * 导出类型供 JSDoc 引用（treasureTypes.js）
  */
 
@@ -243,6 +255,8 @@ export function polishTreasureDescriptionSegments(segments) {
       out.push({ type: "text", v: normalizeTreasureDescTextContent(seg.v) });
     } else if (seg.type === "gainBlock") {
       out.push({ type: "gainBlock", parts: polishTreasureDescriptionSegments(seg.parts) });
+    } else if (seg.type === "riskBlock") {
+      out.push({ type: "riskBlock", parts: polishTreasureDescriptionSegments(seg.parts) });
     } else {
       out.push(seg);
     }
@@ -254,7 +268,13 @@ export function injectLineBreaksBeforeParentheses(segments) {
   /** @type {TreasureDescSegment[]} */
   const out = [];
   for (const seg of segments) {
-    if (seg.type === "gain" || seg.type === "concept" || seg.type === "gainBlock") {
+    if (
+      seg.type === "gain" ||
+      seg.type === "concept" ||
+      seg.type === "gainBlock" ||
+      seg.type === "riskBlock" ||
+      seg.type === "riskText"
+    ) {
       out.push(seg);
       continue;
     }
@@ -443,6 +463,8 @@ export function expandEffectTokensInDescription(segments) {
       out.push(...parsePlainEffectCopyToSegments(seg.v));
     } else if (seg.type === "gainBlock") {
       out.push({ type: "gainBlock", parts: expandEffectTokensInDescription(seg.parts) });
+    } else if (seg.type === "riskBlock") {
+      out.push({ type: "riskBlock", parts: expandEffectTokensInDescription(seg.parts) });
     } else if (seg.type === "concept" || seg.type === "gain") {
       out.push(seg);
     } else {
@@ -461,4 +483,20 @@ export function gainBlock(...parts) {
   const raw = describe(...parts);
   const expanded = expandEffectTokensInDescription(raw);
   return { type: "gainBlock", parts: injectLineBreaksBeforeParentheses(expanded) };
+}
+
+/**
+ * 高风险法术简介：橙红粗体包裹，内部 chip（金额/分数/倍率等）保留原色。
+ * @param {...(string | TreasureDescSegment)} parts
+ * @returns {TreasureDescRiskBlock}
+ */
+export function riskBlock(...parts) {
+  const raw = describe(...parts);
+  const expanded = expandEffectTokensInDescription(raw);
+  return { type: "riskBlock", parts: injectLineBreaksBeforeParentheses(expanded) };
+}
+
+/** 橙红警示单行（不加粗），如沙漏配饰「（已失效）」 */
+export function riskText(v) {
+  return /** @type {TreasureDescRiskText} */ ({ type: "riskText", v: String(v ?? "") });
 }

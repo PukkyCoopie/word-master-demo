@@ -4,7 +4,7 @@ import { getMultMulBank, patchCurrentBankDescription } from "../treasureBankHelp
 export const TREASURE_78_ID = "78";
 const ID = TREASURE_78_ID;
 export const TREASURE_78_ICE_SHATTER_MULT_INCREMENT = 1;
-export const TREASURE_78_ICE_SHATTER_MULT_BUBBLE = "+1";
+export const TREASURE_78_ICE_SHATTER_MULT_BUBBLE = "×1";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {

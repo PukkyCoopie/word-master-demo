@@ -116,9 +116,11 @@
                   'shop-treasure-frame--collection-unknown': isCollectionLockedPreview,
                   'treasure-detail-frame--charge-inactive': chargeVisualState === 'inactive',
                   'treasure-detail-frame--charge-active': chargeVisualState === 'active',
+                  'shop-treasure-frame--accessory-expired': hourglassAccessoryExpired,
                 }"
                 :style="{ '--charge-progress': String(chargeProgress ?? 0) }"
               >
+                <span v-if="hourglassAccessoryExpired" class="letter-tile-boss-x" aria-hidden="true">×</span>
                 <template v-if="isCollectionLockedPreview">
                   <span ref="emojiRef" class="collection-detail-unknown-mark" aria-hidden="true">?</span>
                 </template>
@@ -475,7 +477,7 @@
           </div>
 
           <div
-            v-if="showVoucherSalePanel"
+            v-if="isDeckOffer && showVoucherSalePanel"
             ref="voucherSalePanelRef"
             class="treasure-detail-desc-card treasure-detail-stagger-el"
           >
@@ -493,7 +495,7 @@
           </div>
 
           <div
-            v-if="showPresetSalePanel"
+            v-if="isDeckOffer && showPresetSalePanel"
             ref="presetSalePanelRef"
             class="treasure-detail-desc-card treasure-detail-stagger-el"
           >
@@ -511,7 +513,7 @@
           </div>
 
           <div
-            v-if="showRandomSalePanel"
+            v-if="isDeckOffer && showRandomSalePanel"
             ref="randomSalePanelRef"
             class="treasure-detail-desc-card treasure-detail-stagger-el"
           >
@@ -628,28 +630,82 @@
           </div>
 
           <div
+            v-if="!isDeckOffer && showVoucherSalePanel"
+            ref="voucherSalePanelRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span
+                class="treasure-detail-desc-panel-title-text treasure-detail-desc-panel-title-text--shop-discount"
+                >{{ SHOP_VOUCHER_SALE_TITLE }}</span
+              >
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="voucherSalePanelDescription"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
+            v-if="!isDeckOffer && showPresetSalePanel"
+            ref="presetSalePanelRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span
+                class="treasure-detail-desc-panel-title-text treasure-detail-desc-panel-title-text--shop-discount"
+                >{{ SHOP_PRESET_SALE_TITLE }}</span
+              >
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="presetSalePanelDescription"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
+            v-if="!isDeckOffer && showRandomSalePanel"
+            ref="randomSalePanelRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span
+                class="treasure-detail-desc-panel-title-text treasure-detail-desc-panel-title-text--shop-discount"
+                >{{ SHOP_RANDOM_SALE_TITLE }}</span
+              >
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :description="randomSalePanelDescription"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
             ref="actionsRef"
             class="treasure-detail-actions treasure-detail-stagger-el"
             :class="{ 'treasure-detail-actions--spell-grant': mode === 'offer' && spellGrantFlow }"
           >
-            <button
+            <HoldConfirmButton
               v-if="mode === 'offer' && !isCollectionPreviewMode && spellGrantFlow"
-              type="button"
-              class="shop-btn shop-btn--use"
+              variant="use"
+              label="使用"
+              hold-label="按住以使用"
+              :hold-mode="spellOfferHoldConfirm"
               :disabled="!canBuyOffer"
-              @click="emit('purchase')"
-            >
-              使用
-            </button>
-            <button
+              @confirm="emit('purchase')"
+            />
+            <HoldConfirmButton
               v-else-if="mode === 'offer' && !isCollectionPreviewMode"
-              type="button"
-              class="shop-btn shop-btn--buy"
+              variant="buy"
+              label="购买"
+              hold-label="按住以购买"
+              :hold-mode="spellOfferHoldConfirm"
               :disabled="!canBuyOffer"
-              @click="emit('purchase')"
-            >
-              购买
-            </button>
+              @confirm="emit('purchase')"
+            />
             <button
               v-if="mode === 'pack-inner'"
               type="button"
@@ -753,9 +809,11 @@
             'shop-treasure-frame--collection-unknown': isCollectionLockedPreview,
             'treasure-detail-frame--charge-inactive': chargeVisualState === 'inactive',
             'treasure-detail-frame--charge-active': chargeVisualState === 'active',
+            'shop-treasure-frame--accessory-expired': hourglassAccessoryExpired,
           }"
           :style="{ '--charge-progress': String(chargeProgress ?? 0) }"
         >
+          <span v-if="hourglassAccessoryExpired" class="letter-tile-boss-x" aria-hidden="true">×</span>
           <template v-if="isCollectionLockedPreview">
             <span class="collection-detail-unknown-mark" aria-hidden="true">?</span>
           </template>
@@ -870,7 +928,13 @@ import {
   getTreasureAccessoryPanelTitle,
   getTreasureAccessoryPanelDescription,
 } from "../game/treasureAccessories.js";
+import { ACCESSORY_HOURGLASS } from "../accessories/accessoryCatalog.js";
 import { readTreasureAccessoryIds } from "../accessories/accessoryState.js";
+import {
+  buildHourglassOwnedAccessoryStatusSegments,
+  isHourglassAccessoryExpired,
+} from "../game/treasureHourglassRuntime.js";
+import { normalizeTreasureDescription } from "../treasures/treasureDescription.js";
 import { ownedTreasureHasNoSellAccessory } from "../game/runDifficultyRuntime.js";
 import { getTileAccessoryChipVisual } from "../game/tileAccessories.js";
 import { getTileMaterialEffectDescription, getTileAccessoryEffectDescription } from "../game/tileDetailDescriptions.js";
@@ -888,6 +952,12 @@ import LetterTile from "./LetterTile.vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { scheduleOverlayDismiss, schedulePreviewLayerPresent, triggerHaptic } from "../platform/haptics.js";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
+import {
+  PREVIEW_FLY_COMMIT_LEAD_SEC,
+  commitPreviewFlyCloneSwap,
+  preparePreviewFlyTargetHidden,
+  preRevealPreviewFlyTargetUnderClone,
+} from "../game/previewFlyCloneCommit.js";
 import {
   instantPortalLayerClose,
   instantPortalLayerEnter,
@@ -938,6 +1008,9 @@ import { formatCompactOneDecimal, formatWalletInteger, isSingleDigitLabel } from
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import PreviewGroupNav from "./PreviewGroupNav.vue";
+import HoldConfirmButton from "./HoldConfirmButton.vue";
+import { isHighRiskSpellId } from "../spells/highRiskSpells.js";
+import { getHighRiskSpellConfirmEnabled } from "../settings/gameSettings.js";
 import CollectionPrerequisiteBadge from "./collection/CollectionPrerequisiteBadge.vue";
 import { COLLECTION_UNKNOWN_LABEL } from "../collection/collectionDisplayUtils.js";
 import { resolveCollectionUnlockHintPanel } from "../collection/collectionUnlockHintCopy.js";
@@ -986,6 +1059,8 @@ const props = defineProps({
   previewNavIndex: { type: Number, default: 0 },
   /** 同组项总数；≤1 时不显示翻页 */
   previewNavTotal: { type: Number, default: 0 },
+  /** 打开时 z-index 不低于此值（如新手教程商店蒙层在其下） */
+  stackZFloor: { type: Number, default: 0 },
   /** 收藏图鉴：discovered | unknown | prerequisite-locked */
   collectionEntryState: {
     type: String,
@@ -1191,14 +1266,25 @@ const offerTreasureAccessoryIds = computed(() => {
 
 const accessoryChipVisuals = computed(() => getTreasureAccessoryChipVisualsFromEntity(props.treasure));
 
+const hourglassAccessoryExpired = computed(() => isHourglassAccessoryExpired(props.treasure));
+
 const treasureAccessoryPanels = computed(() =>
   offerTreasureAccessoryIds.value
-    .map((id) => ({
-      id,
-      chip: getTreasureAccessoryChipVisual(id),
-      title: getTreasureAccessoryPanelTitle(id),
-      body: getTreasureAccessoryPanelDescription(id),
-    }))
+    .map((id) => {
+      let body = getTreasureAccessoryPanelDescription(id);
+      if (isOwnedMode.value && id === ACCESSORY_HOURGLASS) {
+        const statusSegments = buildHourglassOwnedAccessoryStatusSegments(props.treasure);
+        if (statusSegments?.length) {
+          body = [...normalizeTreasureDescription(body), ...statusSegments];
+        }
+      }
+      return {
+        id,
+        chip: getTreasureAccessoryChipVisual(id),
+        title: getTreasureAccessoryPanelTitle(id),
+        body,
+      };
+    })
     .filter((p) => Boolean(String(p.body ?? "").trim())),
 );
 
@@ -1363,6 +1449,12 @@ const isPackRarityUpgrade = computed(
 );
 
 const isSpellOffer = computed(() => props.treasure?.offerType === "spell");
+const spellOfferId = computed(() =>
+  isSpellOffer.value ? String(props.treasure?.spellId ?? "").trim() : "",
+);
+const spellOfferHoldConfirm = computed(
+  () => isSpellOffer.value && isHighRiskSpellId(spellOfferId.value) && getHighRiskSpellConfirmEnabled(),
+);
 
 const isRestartSpellOffer = computed(
   () => isSpellOffer.value && String(props.treasure?.spellId ?? "") === "restart",
@@ -1650,6 +1742,15 @@ function formatWallet(n) {
 }
 
 function staggerTargets() {
+  const shopDiscountPanels = [
+    voucherSalePanelRef.value,
+    presetSalePanelRef.value,
+    randomSalePanelRef.value,
+  ].filter(Boolean);
+  const deckOfferTail = isDeckOffer.value
+    ? [...shopDiscountPanels]
+    : [];
+  const nonDeckDiscountTail = isDeckOffer.value ? [] : shopDiscountPanels;
   return [
     titleGroupRef.value,
     descRef.value,
@@ -1658,16 +1759,15 @@ function staggerTargets() {
     deckOfferMaterialRef.value,
     deckOfferAccessoryRef.value,
     deckOfferTreasureAccessoryRef.value,
+    ...deckOfferTail,
     treasureGainPanelRef.value,
-    voucherSalePanelRef.value,
-    presetSalePanelRef.value,
-    randomSalePanelRef.value,
     spellGrantedVoucherPanelRef.value,
     collectionUnlockHintPanelRef.value,
     collectionUnlockPrerequisitePanelRef.value,
     spellGainPanelRef.value,
     ...descriptionConceptPanelRefs.filter((el) => el instanceof HTMLElement),
     accessoryPanelRef.value,
+    ...nonDeckDiscountTail,
     actionsRef.value,
   ].filter(Boolean);
 }
@@ -1779,11 +1879,7 @@ function applyEnterInitialHide(backdrop, staggerEls, targetVisual, resetBackdrop
     gsap.set(iconColumn, { opacity: 0, pointerEvents: "none" });
   }
   if (targetVisual) {
-    gsap.set(targetVisual, {
-      opacity: 0,
-      visibility: "hidden",
-      pointerEvents: "none",
-    });
+    preparePreviewFlyTargetHidden(targetVisual);
   }
 }
 
@@ -1946,6 +2042,8 @@ function continueEnterAfterMeasure(ctx) {
 
     enterTl = gsap.timeline();
 
+    const flyDuration = 0.36;
+
     enterTl.to(
       cloneLive,
       {
@@ -1953,7 +2051,7 @@ function continueEnterAfterMeasure(ctx) {
         top: flyTo.top,
         width: flyTo.width,
         height: flyTo.height,
-        duration: 0.36,
+        duration: flyDuration,
         ease: EASE_TRANSFORM,
       },
       0,
@@ -1963,20 +2061,22 @@ function continueEnterAfterMeasure(ctx) {
       previewNavRef.value?.appendEnterAnimation?.(enterTl, 0.3);
     }
 
-    enterTl.add(() => {
-      gsap.set(targetVisualLive, {
-        opacity: 1,
-        visibility: "visible",
-        pointerEvents: "auto",
-        clearProps: "opacity,visibility,pointerEvents",
-      });
-      const node = flyCloneRef.value;
-      if (node) gsap.set(node, { opacity: 0, visibility: "hidden" });
-      requestAnimationFrame(() => {
-        flyCloneActive.value = false;
-        if (node?.isConnected) gsap.set(node, { clearProps: "transform" });
-      });
-    });
+    enterTl.add(
+      () => preRevealPreviewFlyTargetUnderClone(targetVisualLive),
+      Math.max(0, flyDuration - PREVIEW_FLY_COMMIT_LEAD_SEC),
+    );
+    enterTl.add(
+      () =>
+        commitPreviewFlyCloneSwap({
+          targetEl: targetVisualLive,
+          flyCloneEl: flyCloneRef.value,
+          onDeactivateClone: () => {
+            flyCloneActive.value = false;
+          },
+          targetClearProps: "opacity,visibility,pointerEvents",
+        }),
+      flyDuration,
+    );
 
     enterTl.to(
       staggerLive,
@@ -2292,13 +2392,26 @@ function onDocumentKeydown(e) {
   }
 }
 
+function resolveDetailStackZ() {
+  const floor = Math.max(0, Math.floor(Number(props.stackZFloor) || 0));
+  return Math.max(bumpOverlayZ(), floor);
+}
+
 watch(
   () => props.treasure,
   () => {
     armBackdropSelfCloseGuard();
-    stackZ.value = bumpOverlayZ();
+    stackZ.value = resolveDetailStackZ();
   },
   { deep: true, immediate: true },
+);
+
+watch(
+  () => props.stackZFloor,
+  (floor) => {
+    const minZ = Math.max(0, Math.floor(Number(floor) || 0));
+    if (minZ > stackZ.value) stackZ.value = minZ;
+  },
 );
 
 onMounted(() => {

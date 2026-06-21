@@ -131,6 +131,7 @@ export const TREASURE_CATALOG = [
     implemented: true,
     collectionOrder: 0,
   },
+  { treasureId: "120", name: "手枪", emoji: "🔫", scriptPath: "./items/treasure_120.js", implemented: true },
 ];
 
 export const TREASURE_CATALOG_BY_ID = new Map(TREASURE_CATALOG.map((t) => [t.treasureId, t]));

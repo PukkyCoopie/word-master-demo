@@ -142,11 +142,12 @@ export function bundlesHaveEquivalentSaveData(a, b) {
 export function clearAllLocalSaveData() {
   writeLocalStorageJson(RUN_SAVES_STORAGE_KEY, createEmptySaveEnvelope());
   writeLocalStorageJson(PLAYER_PROFILE_STORAGE_KEY, {
-    schemaVersion: 3,
+    schemaVersion: 5,
     activeSaveSlotIndex: 0,
     slotProfiles: Array.from({ length: SAVE_SLOT_COUNT }, () => ({
       displayName: "Player",
       initialized: false,
+      firstWordTutorialCompleted: false,
     })),
   });
   loadSaveEnvelope();

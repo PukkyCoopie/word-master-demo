@@ -1,15 +1,21 @@
 import { reactive } from "vue";
-import { isSlotOccupied } from "../save/runSaveStorage.js";
-import { clampSaveSlotIndex, SAVE_SLOT_COUNT } from "../save/runSaveSchema.js";
+import { isSlotOccupied, getSlotCareer, getSlotPayload } from "../save/runSaveStorage.js";
+import { clampSaveSlotIndex, SAVE_SLOT_COUNT, createEmptySlotCareerStats } from "../save/runSaveSchema.js";
+import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
+import { hasMeaningfulRunProgress } from "../save/runSaveMeaningfulProgress.js";
 
 const STORAGE_KEY = "word_master_player_profile_v1";
-const PROFILE_SCHEMA_VERSION = 3;
+const PROFILE_SCHEMA_VERSION = 5;
 const DISPLAY_NAME_MAX = 16;
 
 /** @typedef {Object} SlotProfile
  * @property {string} displayName
  * @property {boolean} initialized
+ * @property {boolean} firstWordTutorialCompleted
  */
+
+/** @type {boolean} */
+let pendingLegacyGlobalTutorialCompleted = false;
 
 /** @type {import('vue').Reactive<SlotProfile>[]} */
 const slotProfiles = reactive(Array.from({ length: SAVE_SLOT_COUNT }, () => createDefaultSlotProfile()));
@@ -27,6 +33,7 @@ function createDefaultSlotProfile() {
   return {
     displayName: "Player",
     initialized: false,
+    firstWordTutorialCompleted: false,
   };
 }
 
@@ -38,6 +45,7 @@ function normalizeSlotProfile(raw) {
     prof.displayName = normalizeDisplayName(raw.displayName);
   }
   prof.initialized = raw.initialized === true;
+  prof.firstWordTutorialCompleted = raw.firstWordTutorialCompleted === true;
   return prof;
 }
 
@@ -113,6 +121,7 @@ export function loadPlayerProfile() {
     }
 
     playerProfile.activeSaveSlotIndex = clampSaveSlotIndex(parsed.activeSaveSlotIndex);
+    pendingLegacyGlobalTutorialCompleted = parsed.firstWordTutorialCompleted === true;
 
     if (Array.isArray(parsed.slotProfiles)) {
       for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
@@ -152,6 +161,7 @@ export function persistPlayerProfile() {
         slotProfiles: slotProfiles.map((prof) => ({
           displayName: prof.displayName,
           initialized: prof.initialized,
+          firstWordTutorialCompleted: prof.firstWordTutorialCompleted === true,
         })),
       }),
     );
@@ -201,6 +211,24 @@ export function repairSlotProfilesAfterLoad() {
       changed = true;
     }
   }
+  if (pendingLegacyGlobalTutorialCompleted) {
+    for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
+      const prof = slotProfiles[i];
+      if (prof.firstWordTutorialCompleted) continue;
+      if (isSlotOccupied(i)) {
+        prof.firstWordTutorialCompleted = true;
+        changed = true;
+      }
+    }
+    pendingLegacyGlobalTutorialCompleted = false;
+  }
+  for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
+    const prof = slotProfiles[i];
+    if (!prof.firstWordTutorialCompleted) continue;
+    if (isSlotOccupied(i)) continue;
+    prof.firstWordTutorialCompleted = false;
+    changed = true;
+  }
   if (changed) {
     syncReactiveFromSlot(getActiveSaveSlotIndex());
     persistPlayerProfile();
@@ -249,7 +277,43 @@ export function resetSlotProfile(index) {
   persistPlayerProfile();
 }
 
-/** @param {number} index @returns {string} */
+/** @param {number} [slotIndex] @returns {boolean} */
+export function isFirstWordTutorialCompleted(slotIndex = getActiveSaveSlotIndex()) {
+  return slotProfiles[clampSaveSlotIndex(slotIndex)].firstWordTutorialCompleted === true;
+}
+
+/** @param {number} [slotIndex] */
+export function markFirstWordTutorialCompleted(slotIndex = getActiveSaveSlotIndex()) {
+  const ix = clampSaveSlotIndex(slotIndex);
+  const prof = slotProfiles[ix];
+  if (prof.firstWordTutorialCompleted) return;
+  prof.firstWordTutorialCompleted = true;
+  persistPlayerProfile();
+}
+
+/** @param {number} [slotIndex] */
+export function resetFirstWordTutorialCompleted(slotIndex = getActiveSaveSlotIndex()) {
+  slotProfiles[clampSaveSlotIndex(slotIndex)].firstWordTutorialCompleted = false;
+  persistPlayerProfile();
+}
+
+/** 本地尚无实质游玩进度时，清除各槽位误标记的教程完成态。 */
+export function resetFirstWordTutorialIfNoRunProgress() {
+  let changed = false;
+  for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
+    const career = normalizeSlotCareerStats(getSlotCareer(i) ?? createEmptySlotCareerStats());
+    if (career.runsCompleted > 0 || career.runsWon > 0) continue;
+    const payload = getSlotPayload(i);
+    if (payload && hasMeaningfulRunProgress(payload)) continue;
+    const prof = slotProfiles[i];
+    if (!prof.firstWordTutorialCompleted) continue;
+    prof.firstWordTutorialCompleted = false;
+    changed = true;
+  }
+  if (changed) persistPlayerProfile();
+}
+
+/** @param {number} [slotIndex] @returns {string} */
 export function getProfileInitialLetter(slotIndex = getActiveSaveSlotIndex()) {
   const n = getSlotProfile(slotIndex).displayName.trim();
   if (!n) return "P";

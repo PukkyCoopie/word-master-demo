@@ -1,7 +1,8 @@
 import { isBossEffectsSuppressedByTreasures } from "./treasureBossSuppress.js";
-
-/** Boss 元音判定（与棋盘 raw 一致） */
-export const BOSS_VOWELS = new Set(["a", "e", "i", "o", "u"]);
+import {
+  isConsonantLetterWithMask,
+  isVowelLetterWithMask,
+} from "../treasures/treasureLetterClassify.js";
 
 /**
  * @typedef {{ pillarUsedDeckUids?: Set<number>, verdantTreasureSold?: boolean, ownedSlotTreasureIds?: (string | null | undefined)[] }} BossTileDebuffContext
@@ -42,12 +43,16 @@ export function applyBossTileDebuffState(tile, slug, ctx = {}) {
   }
   if (s === "the_vowel") {
     const raw = gridTileRawLowerForBoss(tile);
-    tile.bossTileDebuffed = !!(raw && BOSS_VOWELS.has(raw));
+    tile.bossTileDebuffed = !!(
+      raw && isVowelLetterWithMask(raw, ctx.ownedSlotTreasureIds)
+    );
     return;
   }
   if (s === "the_consonant") {
     const raw = gridTileRawLowerForBoss(tile);
-    tile.bossTileDebuffed = !!(raw && !BOSS_VOWELS.has(raw));
+    tile.bossTileDebuffed = !!(
+      raw && isConsonantLetterWithMask(raw, ctx.ownedSlotTreasureIds)
+    );
     return;
   }
   if (s === "the_pillar") {

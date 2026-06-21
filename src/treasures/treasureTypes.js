@@ -229,6 +229,7 @@
  * @property {boolean} [mergeLetterScoreCueIntoIntrinsicLetterScoreStep] 为 true 时：`getPerLetterScoreCue` 的平面分增量与单字母「本体分数」（稀有度+tile 平面分+材质平面分）**同一拍**展示——词槽一次 wobble/气泡、`animScoreSum` 一次加上该增量，且不再单独走 `runSlotPerLetterTreasureScoreStep`；须与 `persistTileAfterPerLetterTreasureCue`（band `score`）写回角标一致（如剪贴板）。**仅**「增益落在 tile 角标/本体」类；元音、指定字母等条件宝藏勿开。
  * @property {(ctx: { ownedSlotTreasureIds: (string | null | undefined)[] }, part: { letter?: string, rarity?: string }, letterIndex: number) => { delta: number, label?: string } | null | undefined} [getPerLetterMultCue]
  * @property {boolean} [mergeLetterMultCueIntoIntrinsicLetterMultStep] 为 true 时：`getPerLetterMultCue` 的倍率增量与单字母「本体倍率」（稀有度+材质+tile 角标）**同一拍**展示——词槽一次 wobble/气泡、`animMultTotal` 一次加上该增量，且不再单独走 `runSlotPerLetterTreasureMultStep`；须与 `persistTileAfterPerLetterTreasureCue`（band `mult`）写回角标一致（如回形针）。**仅**「增益落在 tile 角标/本体」类；元音倍率等条件宝藏勿开。
+ * @property {(ctx: { ownedSlotTreasureIds: (string | null | undefined)[], scoringVisitIndex?: number, rng?: () => number, treasureRun?: import('./treasureRunState.js').TreasureRunState }, part: { letter?: string, rarity?: string }, letterIndex: number) => { money?: number } | null | undefined} [getPerLetterMoneyCue] 逐字计分后各 visit 独立掷概率得金币；提交时预掷、动画在词槽 wobble 后弹出金币气泡并入账
  * @property {() => { title: string, description: string | import('./treasureDescription.js').TreasureDescSegment[] } | null | undefined} [getDetailGainPanel] 详情层主简介下、与具名配饰分区并列的补充说明：**仅**用于**具名棋盘材质**或**具名配饰**（火焰/水滴/扳手/裁剪等）的二次展示；**禁止**类目词（如「宝藏配饰」）作标题、禁止抽象计分复述。**当前仅 id「77」**应实现。原则见 `.cursor/rules/treasure-detail-supplement.mdc`、法术卡见 `spell-gain-panel.mdc`。
  * @property {(ctx: { chargeWordsSubmitted: number, ownedSlotTreasureIds: (string | null | undefined)[], remainingDeckCount?: number }) => import('./treasureDescription.js').TreasureDescSegment[] | null | undefined} [buildOwnedDetailDescriptionSegments] 已拥有详情（非货架报价）：在静态简介后追加片段；**仅限材质/配饰类补充**（与 `getDetailGainPanel` 同一原则）。充能进度、动态倍率数值等请用 footer 充能条等专用 UI，不要在此处追加简介。
  * @property {(ctx: TreasureSubmitSuccessContext) => void | Promise<void>} [onSuccessfulWordSubmit] 本词结算动画成功后调用（每词每宝藏 id 至多一次）
@@ -278,6 +279,7 @@
  * @typedef {Object} TreasureDiscardContext
  * @property {(string | null | undefined)[]} ownedSlotTreasureIds
  * @property {{ letter?: string }[]} discardedLetters
+ * @property {(number | null | undefined)[]} [discardedDeckCardUids] 本批弃牌对应 `_deckCard._dcUid`（与 `discardedLetters` 同序）
  * @property {number} letterCount
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
  * @property {() => number} [rng]
@@ -287,11 +289,13 @@
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {boolean} [discardPotteryFxHandled] 陶罐/垃圾桶等逐字弃牌动效已在消失动画中结算（避免 onDiscardBatch 重复入银行或播 FX）
+ * @property {boolean} [discardPistolFxHandled] 手枪弃牌「移除」+ $ 动效已在消失动画中结算
  * @property {number[]} [potteryDiscardProcIndices] 陶罐本次弃牌已掷出的触发字索引（与消失动效共用同一 rng）
  * @property {(word: string) => object | null | undefined} [resolveDiscardedWord] 弃牌字母串是否构成词典词
  * @property {number} [judgedWordLength] 判定词长（券/预设/宝藏加成与减益后的等效词长表长度）
  * @property {(len: number, opts?: { observatoryBoost?: boolean }) => void} [bumpWordLengthLevel]
  * @property {(len: number) => Promise<void>} [runSingleInRunLengthUpgradeFx] 局内播放「单一词长 +1」升级动画并应用升级
+ * @property {(uid: number, options?: { clearGrid?: boolean }) => boolean} [removeDeckCardByUid] 从牌库永久移除指定牌张
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleOnlyFx]
  * @property {(treasureId: string) => Promise<void>} [playOwnedTreasureWobbleOnlyFx]

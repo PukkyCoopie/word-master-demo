@@ -22,6 +22,7 @@ import {
   sumWordScoreIntrinsicPersistMultDeltaPerVisit,
   sumWordScoreIntrinsicPersistScoreDeltaPerVisit,
 } from "../game/tileIntrinsicGains.js";
+import { collectPerLetterMoneyCuesByLetter } from "./collectPerLetterMoneyCues.js";
 
 /** 新宝藏接入后请同步 `treasureCatalog.js` 的 implemented 字段；具体效果写在对应 `items/treasure_*.js`（本文件不出现具体 treasureId）。 */
 /** 拼词中公式区预览用 `useScoring` 的 `computeWordScore`（无宝藏）；提交结算用 `computeWordScoreDetailedForSubmit`（棋盘光环类材质倍率由 `gridOnlyMaterialScoring.js` 的 `buildGridPresencePostLetterSteps` 提供字后乘法步；冰为入词格逐字 ×2.5，见 `iceMaterialScoring.js`）。 */
@@ -548,6 +549,14 @@ export function computeWordScoreDetailedForSubmit(
     );
     return 1 + extraLetterScoringPasses + replayExtra;
   });
+  const perLetterMoneyCuesByLetter = collectPerLetterMoneyCuesByLetter(
+    tiles,
+    base.letterParts,
+    slots,
+    scoringVisitCountsByLetter,
+    rnd,
+    submitOptions?.treasureRun ?? null,
+  );
   const tileAccessoryPerLetter = accumulateTileTreasureAccessoryPerLetter(
     tiles,
     scoringVisitCountsByLetter,
@@ -586,6 +595,7 @@ export function computeWordScoreDetailedForSubmit(
     postLetterTreasureSteps,
     hasPostLetterMultMul,
     luckyMaterialRollsByLetter,
+    perLetterMoneyCuesByLetter,
     _multPipelineBase: multPipelineBase,
     _luckyMaterialMultAddTotal: luckyMaterialMultAddTotal,
     letterReplayExtraCounts,

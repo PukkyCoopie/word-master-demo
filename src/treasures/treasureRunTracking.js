@@ -44,6 +44,7 @@ export function resetTreasureLevelTracking(rs) {
   if (!rs) return;
   rs.levelVowelsUsedThisLevel = new Set();
   rs.levelFirstFullWordDiscardDone = false;
+  rs.levelFirstDiscardBatchDone = false;
   rs.levelStartLegendaryInDeckCount = 0;
 }
 

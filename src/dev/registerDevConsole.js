@@ -1,5 +1,9 @@
 import { clampSaveSlotIndex } from "../save/runSaveSchema.js";
-import { applyFullCollectionUnlockToCareer } from "./unlockFullCollection.js";
+import { normalizeScreenshotPresetId } from "./screenshotPresetScenario.js";
+import {
+  applyFullCollectionUnlockToCareer,
+  applyFullCollectionUnlockAndMarkAllNew,
+} from "./unlockFullCollection.js";
 
 /**
  * 开发环境控制台桥接（`globalThis.__WM_DEV__`）。
@@ -10,6 +14,7 @@ import { applyFullCollectionUnlockToCareer } from "./unlockFullCollection.js";
  * @param {() => void} [deps.openMaterialBench]
  * @param {() => void} [deps.enableDeveloperMode]
  * @param {() => void} [deps.openTapTapEngagementPrompt]
+ * @param {() => void | Promise<void>} [deps.openCollection]
  */
 export function registerDevConsole(deps) {
   if (!import.meta.env.DEV) return () => {};
@@ -21,6 +26,7 @@ export function registerDevConsole(deps) {
     openMaterialBench,
     enableDeveloperMode,
     openTapTapEngagementPrompt,
+    openCollection,
   } = deps;
 
   /**
@@ -50,6 +56,47 @@ export function registerDevConsole(deps) {
     return result;
   }
 
+  /**
+   * 宣传图截图预设（1=局内8-3棋盘，2=收藏全解锁标新，3=超级字母包）。
+   * @param {unknown} preset
+   */
+  async function setupScreenshotPreset(preset) {
+    const id = normalizeScreenshotPresetId(preset);
+    if (!id) {
+      console.warn("[DEV] setupScreenshotPreset: 无效参数，可用 1/gameplay、2/collection、3/superPack");
+      help();
+      return null;
+    }
+    if (id === 2) {
+      const ix = clampSaveSlotIndex(getActiveSlotIndex());
+      /** @type {ReturnType<typeof applyFullCollectionUnlockAndMarkAllNew> | null} */
+      let summary = null;
+      mutateCareer(ix, (career) => {
+        summary = applyFullCollectionUnlockAndMarkAllNew(career);
+      });
+      refreshUi?.();
+      await openCollection?.();
+      const result = {
+        preset: 2,
+        slotIndex: ix,
+        ...(summary ?? {
+          progress: { unlocked: 0, total: 0, percent: 0 },
+          achievements: 0,
+          newMarkCount: 0,
+        }),
+      };
+      console.log(
+        `[DEV] 宣传预设 2 — 槽位 ${ix + 1} 全收藏已解锁并标新（${result.newMarkCount} 条）`,
+        result,
+      );
+      return result;
+    }
+    console.warn(
+      `[DEV] 宣传预设 ${id} 需先进入局内（GamePanel 已挂载）后再调用 setupScreenshotPreset(${id})。`,
+    );
+    return null;
+  }
+
   function help() {
     console.log(
       [
@@ -59,6 +106,7 @@ export function registerDevConsole(deps) {
         "  __WM_DEV__.openMaterialBench()        — 材质性能实验（10 格）",
         "  __WM_DEV__.enableDeveloperMode()      — 开启开发者模式（收藏成就连点作弊）",
         "  __WM_DEV__.openTapTapEngagementPrompt() — 打开评价和反馈弹窗（含引导问句）",
+        "  __WM_DEV__.startFirstWordTutorial() — 局内：从头启动首词 PLAY 新手引导",
         "  __WM_DEV__.startMaskBubbleBlueprintTest() — 进关后：[面具][泡泡] + 棋盘 2 个 B（计分动画测试）",
         "  或 URL ?dev=maskBubble 新开一局自动启用",
         "  __WM_DEV__.startAllIceDevTest() — 进关后：棋盘与牌库全部为碎冰块",
@@ -68,6 +116,13 @@ export function registerDevConsole(deps) {
         "  __WM_DEV__.startPagerDevTest() — 进关后：槽位 1 为寻呼机",
         "  或 URL ?dev=pager 新开一局自动启用",
         "  __WM_DEV__.randomizeGridTileMaterials() — 局内：为棋盘无材质格各随机加一种材质",
+        "  __WM_DEV__.grantRandomOwnedTreasures(10) — 局内授予 N 个不重复随机宝藏（槽位满时自动加裁剪配饰扩栏）",
+        "  __WM_DEV__.debugSetScoreCardValues(123, 456) — 顶栏两分数框测试展示（至少得分, 关卡得分）",
+        "  __WM_DEV__.debugClearScoreCardValues() — 清除分数框测试，恢复真实分数",
+        "  __WM_DEV__.setupScreenshotPreset(1) — 宣传图：8-3 棋盘 + 宝藏/材质/加成（需局内）",
+        "  __WM_DEV__.setupScreenshotPreset(2) — 宣传图：收藏全解锁并标新 + 跳转收藏页",
+        "  __WM_DEV__.setupScreenshotPreset(3) — 宣传图：打开定制超级字母包（需局内）",
+        "  别名：1/gameplay、2/collection、3/superPack",
         "  __WM_DEV__.help()                       — 显示本帮助",
       ].join("\n"),
     );
@@ -88,6 +143,12 @@ export function registerDevConsole(deps) {
       openTapTapEngagementPrompt?.();
       console.log("[DEV] 已打开评价和反馈弹窗");
     },
+    startFirstWordTutorial: () => {
+      console.warn(
+        "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startFirstWordTutorial()。",
+      );
+    },
+    setupScreenshotPreset,
     help,
   };
 

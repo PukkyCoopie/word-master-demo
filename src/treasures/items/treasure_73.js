@@ -4,7 +4,7 @@ import { describe, score } from "../treasureDescription.js";
 export default {
   price: 7,
   rarity: "rare",
-  description: describe("稀有字母提供", score("+100"), "分数"),
+  description: describe("稀有字母在计分时提供", score("+100"), "分数"),
   unlockPrerequisite: { type: "deckRareHalf" },
 };
 

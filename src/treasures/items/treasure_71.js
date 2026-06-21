@@ -4,7 +4,7 @@ import { describe, money } from "../treasureDescription.js";
 export default {
   price: 7,
   rarity: "rare",
-  description: describe("传说字母提供", money("10")),
+  description: describe("传说字母在计分时会提供", money("10")),
   unlockPrerequisite: { type: "levelAllLegendaryDeckExhausted" },
 };
 

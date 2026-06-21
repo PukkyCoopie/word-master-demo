@@ -15,6 +15,18 @@ function raf() {
   return new Promise((resolve) => requestAnimationFrame(resolve));
 }
 
+/** @param {Uint8Array[]} chunks */
+function mergeUint8Arrays(chunks) {
+  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
+}
+
 function supportsBrotliDecompressionStream() {
   if (typeof DecompressionStream === "undefined") return false;
   try {
@@ -137,8 +149,8 @@ async function decompressBrotliToText(compressed, meta, options = {}) {
 
   const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("brotli"));
   const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let text = "";
+  /** @type {Uint8Array[]} */
+  const byteChunks = [];
   let decompressed = 0;
   let lastYield = performance.now();
 
@@ -146,8 +158,8 @@ async function decompressBrotliToText(compressed, meta, options = {}) {
     if (shouldAbort?.()) throw new Error("词典加载已取消");
     const { done, value } = await reader.read();
     if (done) break;
+    byteChunks.push(value);
     decompressed += value.length;
-    text += decoder.decode(value, { stream: true });
     onProgress?.(clamp01(decompressed / targetBytes));
 
     const now = performance.now();
@@ -156,9 +168,8 @@ async function decompressBrotliToText(compressed, meta, options = {}) {
       lastYield = now;
     }
   }
-  text += decoder.decode();
   onProgress?.(1);
-  return text;
+  return new TextDecoder().decode(mergeUint8Arrays(byteChunks));
 }
 
 /**
@@ -194,12 +205,14 @@ export async function fetchDictionaryTextPlain(url, options = {}) {
   let text = "";
   if (res.body) {
     const reader = res.body.getReader();
-    const decoder = new TextDecoder();
+    /** @type {Uint8Array[]} */
+    const byteChunks = [];
     let received = 0;
     while (true) {
       if (shouldAbort?.()) throw new Error("词典加载已取消");
       const { done, value } = await reader.read();
       if (done) break;
+      byteChunks.push(value);
       received += value.length;
       if (hasByteEstimate) {
         if (received > downloadByteTarget) {
@@ -211,9 +224,8 @@ export async function fetchDictionaryTextPlain(url, options = {}) {
           PROGRESS_AFTER_COMPRESSED_DOWNLOAD * (1 - Math.exp(-received / (4 * 1024 * 1024))),
         );
       }
-      text += decoder.decode(value, { stream: true });
     }
-    text += decoder.decode();
+    text = new TextDecoder().decode(mergeUint8Arrays(byteChunks));
   } else {
     text = await res.text();
     onProgress?.(PROGRESS_AFTER_COMPRESSED_DOWNLOAD * 0.92);
@@ -240,19 +252,33 @@ export async function resolveDictionaryText(baseUrl, options) {
     meta = null;
   }
 
+  const brotliLoadOptions = {
+    shouldAbort,
+    onDownloadProgress: (ratio) => {
+      bumpLoadProgress(ratio * PROGRESS_AFTER_COMPRESSED_DOWNLOAD);
+    },
+    onDecompressProgress: (ratio) => {
+      bumpLoadProgress(
+        PROGRESS_AFTER_COMPRESSED_DOWNLOAD +
+          ratio * (PROGRESS_AFTER_DECOMPRESS - PROGRESS_AFTER_COMPRESSED_DOWNLOAD),
+      );
+    },
+  };
+
   if (meta?.format === "brotli") {
-    return fetchDictionaryTextFromBrotli(`${base}dict.json.br`, meta, {
-      shouldAbort,
-      onDownloadProgress: (ratio) => {
-        bumpLoadProgress(ratio * PROGRESS_AFTER_COMPRESSED_DOWNLOAD);
-      },
-      onDecompressProgress: (ratio) => {
-        bumpLoadProgress(
-          PROGRESS_AFTER_COMPRESSED_DOWNLOAD +
-            ratio * (PROGRESS_AFTER_DECOMPRESS - PROGRESS_AFTER_COMPRESSED_DOWNLOAD),
-        );
-      },
-    });
+    return fetchDictionaryTextFromBrotli(`${base}dict.json.br`, meta, brotliLoadOptions);
+  }
+
+  // 正式包只随包发布 dict.json.br（明文 dict.json 会在构建时剔除）。
+  // meta 拉取失败时仍应优先尝试 Brotli，避免误回落到不存在的明文文件。
+  if (import.meta.env.PROD) {
+    try {
+      return await fetchDictionaryTextFromBrotli(`${base}dict.json.br`, meta, brotliLoadOptions);
+    } catch (e) {
+      if (shouldAbort?.()) throw e;
+      const msg = String(e?.message ?? "");
+      if (msg !== "词典加载失败") throw e;
+    }
   }
 
   return fetchDictionaryTextPlain(`${base}dict.json`, {

@@ -17,5 +17,8 @@ export const LETTER_CASE_OPTIONS = [
 export function formatTileLetterDisplay(letter, caseMode = getLetterCase()) {
   const s = String(letter ?? "");
   if (!s || s === "?") return s;
-  return caseMode === "lowercase" ? s.toLowerCase() : s;
+  const lower = s.toLowerCase();
+  if (lower === "qu") return caseMode === "lowercase" ? "qu" : "Qu";
+  if (lower === "q") return caseMode === "lowercase" ? "q" : "Q";
+  return caseMode === "lowercase" ? lower : lower.toUpperCase();
 }

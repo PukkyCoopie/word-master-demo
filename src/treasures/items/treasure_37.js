@@ -11,13 +11,12 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  buildPostLetterStep(ctx) {
+  getPerLetterMoneyCue(ctx, part) {
+    const letter = String(part?.letter ?? "").toLowerCase();
+    const slots = ctx.ownedSlotTreasureIds ?? [];
+    if (!letter || !isVowelLetterWithMask(letter, slots)) return null;
     const rnd = ctx.rng ?? Math.random;
-    let moneyAdd = 0;
-    for (const p of ctx.letterParts ?? []) {
-      if (!isVowelLetterWithMask(p?.letter, ctx.ownedSlotTreasureIds)) continue;
-      if (rollProbabilitySuccess(1, 2, rnd, ctx.ownedSlotTreasureIds)) moneyAdd += 1;
-    }
-    return moneyAdd > 0 ? { moneyAdd } : null;
+    if (!rollProbabilitySuccess(1, 2, rnd, slots)) return null;
+    return { money: 1 };
   },
 };

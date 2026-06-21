@@ -74,6 +74,7 @@
 	--money-debt: #8b3a3a;
 	/* 倍率强调：与 .result-box-mult / .mult-popup-bubble 洋红一致 */
 	--mult-accent: #d86b94;
+	--tutorial-scrim: rgba(0, 0, 0, 0.55);
 	/* 字母 tile 字重：普通块（棋盘/词槽/货架/招牌）与材质块 */
 	--tile-letter-weight: 600;
 	--tile-material-letter-weight: 800;
@@ -533,14 +534,17 @@ textarea::-moz-placeholder {
 .scores {
 	display: flex;
 	gap: calc(8 * var(--rpx));
+	min-width: 0;
 }
 
 .score-card {
-	flex: 1;
+	flex: 1 1 0;
+	min-width: 0;
 	background: var(--card-bright);
 	border-radius: var(--radius);
 	padding: calc(14 * var(--rpx)) calc(16 * var(--rpx));
 	box-shadow: var(--shadow);
+	box-sizing: border-box;
 }
 
 .score-label {
@@ -550,10 +554,41 @@ textarea::-moz-placeholder {
 	margin-bottom: calc(4 * var(--rpx));
 }
 
+.score-value-wrap {
+	width: 100%;
+	height: calc(48 * var(--rpx) * 1.1);
+	max-height: calc(48 * var(--rpx) * 1.1);
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
 .score-value {
+	width: 100%;
+	max-width: 100%;
 	font-size: calc(48 * var(--rpx));
 	font-weight: 700;
 	color: var(--text);
+	line-height: 1.1;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	min-width: 0;
+}
+
+.score-value--wrapped {
+	white-space: normal;
+	text-align: left;
+	overflow-wrap: anywhere;
+	word-break: break-all;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	overflow: hidden;
+}
+
+.score-value--scientific {
+	letter-spacing: calc(-0.02 * 1em);
 }
 
 /* ----- Boss 条（.scores 与 ResultArea 之间） ----- */
@@ -1192,7 +1227,7 @@ textarea::-moz-placeholder {
 .tile-drag-grid-placeholder .grid-tile {
 	width: 100%;
 	height: 100%;
-	opacity: 0.42;
+	opacity: 0.26;
 }
 .word-slots .word-slot-tile::after {
 	content: "";
@@ -1491,6 +1526,30 @@ textarea::-moz-placeholder {
 	position: relative;
 }
 
+.letter-grid-wrap--tutorial-glow {
+	box-shadow:
+		0 0 0 calc(3 * var(--rpx)) rgba(255, 255, 255, 0.92),
+		0 calc(4 * var(--rpx)) calc(18 * var(--rpx)) rgba(255, 255, 255, 0.28),
+		inset 0 calc(2 * var(--rpx)) calc(6 * var(--rpx)) rgba(0, 0, 0, 0.1);
+	animation: letter-grid-wrap-tutorial-glow 1.35s ease-in-out infinite;
+}
+
+@keyframes letter-grid-wrap-tutorial-glow {
+	0%,
+	100% {
+		box-shadow:
+			0 0 0 calc(3 * var(--rpx)) rgba(255, 255, 255, 0.92),
+			0 calc(4 * var(--rpx)) calc(18 * var(--rpx)) rgba(255, 255, 255, 0.28),
+			inset 0 calc(2 * var(--rpx)) calc(6 * var(--rpx)) rgba(0, 0, 0, 0.1);
+	}
+	50% {
+		box-shadow:
+			0 0 0 calc(5 * var(--rpx)) rgba(255, 255, 255, 1),
+			0 calc(6 * var(--rpx)) calc(24 * var(--rpx)) rgba(255, 255, 255, 0.38),
+			inset 0 calc(2 * var(--rpx)) calc(6 * var(--rpx)) rgba(0, 0, 0, 0.1);
+	}
+}
+
 .letter-grid--dragging .grid-tile {
 	touch-action: none;
 }
@@ -1509,7 +1568,7 @@ textarea::-moz-placeholder {
 }
 
 .letter-grid-cell--placeholder {
-	opacity: 0.42;
+	opacity: 0.26;
 	pointer-events: none;
 }
 
@@ -1575,7 +1634,9 @@ textarea::-moz-placeholder {
 .grid-tile .letter-tile-boss-x,
 .word-slots .word-slot-content .letter-tile-boss-x,
 .fly-letter .letter-tile-boss-x,
-.fly-letter-back .letter-tile-boss-x {
+.fly-letter-back .letter-tile-boss-x,
+.treasure-slot .letter-tile-boss-x,
+.shop-treasure-frame .letter-tile-boss-x {
 	position: absolute;
 	inset: 0;
 	display: flex;
@@ -1593,6 +1654,19 @@ textarea::-moz-placeholder {
 .grid-tile .letter-tile-boss-x {
 	font-size: calc(56 * var(--rpx));
 	transform: scale(1.75);
+}
+
+.treasure-slot .letter-tile-boss-x,
+.shop-treasure-frame .letter-tile-boss-x {
+	font-size: calc(56 * var(--rpx));
+	transform: scale(1.75);
+}
+
+@container treasure-cell (min-width: 0px) {
+	.treasure-slot .letter-tile-boss-x,
+	.shop-treasure-frame .letter-tile-boss-x {
+		font-size: calc(100cqmin * 56 / 108);
+	}
 }
 
 /* 词槽缩小时与主字母同比例（--slot-scale 由 GamePanel RAF / 飞字 GSAP 写入） */
@@ -2638,6 +2712,36 @@ textarea::-moz-placeholder {
 	cursor: default;
 }
 
+.action-btn--tutorial-ready {
+	opacity: 1;
+	box-shadow:
+		0 0 0 calc(3 * var(--rpx)) rgba(255, 255, 255, 0.85),
+		0 calc(4 * var(--rpx)) calc(14 * var(--rpx)) rgba(72, 160, 88, 0.45);
+	animation: action-btn-tutorial-ready-pulse 1.2s ease-in-out infinite;
+}
+
+.action-bookmark--tutorial-ready {
+	border-radius: var(--radius);
+	box-shadow:
+		0 0 0 calc(3 * var(--rpx)) rgba(255, 255, 255, 0.85),
+		0 calc(4 * var(--rpx)) calc(14 * var(--rpx)) rgba(72, 160, 88, 0.45);
+	animation: action-btn-tutorial-ready-pulse 1.2s ease-in-out infinite;
+}
+
+.action-bookmark--tutorial-ready .action-btn {
+	box-shadow: none;
+}
+
+@keyframes action-btn-tutorial-ready-pulse {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.05);
+	}
+}
+
 .action-btn-red {
 	background: var(--btn-red);
 	color: #fff;
@@ -2669,10 +2773,141 @@ textarea::-moz-placeholder {
 	border: calc(2 * var(--rpx)) dashed var(--text-soft);
 	border-radius: var(--radius);
 	box-sizing: border-box;
+	cursor: pointer;
 }
 
 .treasure-slot-reorder-move {
 	transition: none;
+}
+
+.treasure-slots--compact-animating .treasure-slot-reorder-move {
+	transition: transform calc(0.24s / var(--anim-speed-scale, 1)) ease;
+}
+
+html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-move {
+	transition: none;
+}
+
+.treasure-slots--stack {
+	display: flex;
+	flex-wrap: nowrap;
+	justify-content: flex-start;
+	align-items: flex-start;
+	gap: 0;
+	overflow: visible;
+	flex: 0 0 auto;
+	min-width: 0;
+	width: auto;
+	height: var(--treasure-stack-card-size, calc(108 * var(--rpx)));
+}
+
+.treasure-slots--stack .treasure-slot {
+	flex: 0 0 var(--treasure-stack-card-size, calc(108 * var(--rpx)));
+	width: var(--treasure-stack-card-size, calc(108 * var(--rpx)));
+	max-width: var(--treasure-stack-card-size, calc(108 * var(--rpx)));
+	height: var(--treasure-stack-card-size, calc(108 * var(--rpx)));
+	aspect-ratio: auto;
+	position: relative;
+	overflow: visible;
+}
+
+/* 非叠放：face 不参与盒模型，视觉样式在槽根上 */
+.treasure-slots:not(.treasure-slots--stack) .treasure-slot.filled .treasure-slot-face {
+	display: contents;
+}
+
+/* 叠放：槽根仅作定位/分层，阴影与卡面只在 face 上 */
+.treasure-slots--stack .treasure-slot.filled {
+	background: transparent;
+	border: none;
+	box-shadow: none;
+}
+
+.treasure-slots--stack .treasure-slot.filled.treasure-slot--effect-charge {
+	overflow: visible;
+}
+
+.treasure-slot--stack-overlap {
+	background: transparent;
+	box-shadow: none;
+	overflow: visible;
+	isolation: isolate;
+}
+
+.treasure-slot--stack-overlap .treasure-slot-stack-shadow {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 75%;
+	/* 右端仍落在原 90%+34% 处；75%–90% 为透明→峰值，90% 之后沿用原渐变形状 */
+	width: calc(var(--treasure-stack-card-size, calc(108 * var(--rpx))) * 0.49);
+	pointer-events: none;
+	z-index: 0;
+	transform-origin: 0% 55%;
+	background: linear-gradient(
+		to right,
+		rgba(0, 0, 0, 0) 0%,
+		rgba(0, 0, 0, 0.09) 30.61%,
+		rgba(0, 0, 0, 0.05) 66.69%,
+		rgba(0, 0, 0, 0) 100%
+	);
+}
+
+.treasure-slots--stack .treasure-slot.filled .treasure-slot-face {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: inherit;
+	background: var(--card-bright);
+	box-shadow: var(--shadow);
+	container-type: size;
+	container-name: treasure-cell;
+}
+
+.treasure-slots--stack .treasure-slot--effect-charge .treasure-slot-face {
+	overflow: hidden;
+}
+
+.treasure-slots-row {
+	display: flex;
+	align-items: stretch;
+	width: 100%;
+	min-width: 0;
+	gap: calc(6 * var(--rpx));
+}
+
+.treasure-slots-row .treasure-slots {
+	margin-top: 0;
+}
+
+.treasure-bar-expand-btn {
+	flex: 0 0 calc(52 * var(--rpx));
+	width: calc(52 * var(--rpx));
+	height: var(--treasure-stack-card-size, calc(108 * var(--rpx)));
+	align-self: auto;
+	min-height: 0;
+	padding: 0;
+	border: none;
+	border-radius: var(--radius);
+	background: var(--card-bright);
+	color: var(--text-soft);
+	box-shadow: var(--shadow);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: calc(28 * var(--rpx));
+}
+
+.treasure-bar-expand-btn:hover {
+	filter: brightness(1.04);
+}
+
+.treasure-bar-expand-btn:active {
+	filter: brightness(0.94);
 }
 
 .treasure-slots--layout-five-at-four {
@@ -2705,6 +2940,7 @@ textarea::-moz-placeholder {
 }
 
 .treasure-drag-ghost {
+	position: absolute;
 	pointer-events: none;
 	box-sizing: border-box;
 }
@@ -2759,6 +2995,24 @@ textarea::-moz-placeholder {
 	z-index: 5;
 }
 
+.treasure-slots--stack .treasure-slot.filled.treasure-slot--scoring-highlight {
+	box-shadow: none;
+}
+
+.treasure-slots--stack .treasure-slot.filled.treasure-slot--scoring-highlight .treasure-slot-face {
+	box-shadow: var(--shadow), var(--tile-scoring-highlight-shadow);
+}
+
+/* 宝藏 wobble 期间置顶（含叠放 inline z-index）；动画结束由 JS 移除 class */
+.treasure-slot.filled.treasure-slot--wobble-front {
+	position: relative;
+	z-index: 9999;
+}
+
+.treasure-slots--stack .treasure-slot.filled.treasure-slot--wobble-front {
+	z-index: 9999 !important;
+}
+
 /* 槽位外包一层（局内 bottom-area、商店 footer 共用） */
 .treasure-slots-ctn {
 	position: relative;
@@ -2771,12 +3025,28 @@ textarea::-moz-placeholder {
 	background: rgba(255, 255, 255, 0.22);
 	border-radius: var(--radius);
 	box-shadow: inset 0 calc(2 * var(--rpx)) calc(6 * var(--rpx)) rgba(0, 0, 0, 0.06);
+	overflow: visible;
 }
 
-.treasure-slots-ctn .treasure-slots {
+.treasure-slots-ctn .treasure-slots:not(.treasure-slots--stack) {
 	margin-top: 0;
 	width: 100%;
 	min-width: 0;
+}
+
+.treasure-slots-ctn .treasure-slots--stack {
+	margin-top: 0;
+	width: auto;
+	min-width: 0;
+}
+
+.treasure-slots-ctn--stack {
+	align-items: stretch;
+}
+
+.treasure-slots-ctn--stack .treasure-slots-row {
+	align-items: center;
+	min-height: 0;
 }
 
 .shop-footer-panel > .shop-footer-treasure-row {
@@ -2884,9 +3154,39 @@ textarea::-moz-placeholder {
 	right: auto;
 }
 
+/* 沙漏配饰失效：压暗整块 + boss debuff 叉（对齐字母块；拖拽 ghost / 飞入克隆同样生效） */
+.treasure-slot.filled.treasure-slot--accessory-expired::before,
+.shop-treasure-frame.shop-treasure-frame--accessory-expired::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: var(--overlay-debuff);
+	pointer-events: none;
+	z-index: 4;
+}
+
+.treasure-slots--stack .treasure-slot.filled.treasure-slot--accessory-expired::before {
+	content: none;
+}
+
+.treasure-slots--stack .treasure-slot.filled.treasure-slot--accessory-expired .treasure-slot-face::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: var(--overlay-debuff);
+	pointer-events: none;
+	z-index: 4;
+}
+
+.treasure-slot.filled.treasure-slot--accessory-expired .letter-gem,
 .treasure-slot.filled.treasure-slot--accessory-expired .treasure-slot-emoji,
-.treasure-slot.filled.treasure-slot--accessory-expired .letter-gem {
-	opacity: 0.72;
+.treasure-slot.filled.treasure-slot--accessory-expired .treasure-accessory-chip-stack,
+.shop-treasure-frame.shop-treasure-frame--accessory-expired .letter-gem,
+.shop-treasure-frame.shop-treasure-frame--accessory-expired .shop-treasure-emoji,
+.shop-treasure-frame.shop-treasure-frame--accessory-expired .treasure-accessory-chip-stack {
+	z-index: 1;
 }
 
 .header-box-level-title {
@@ -2915,14 +3215,27 @@ textarea::-moz-placeholder {
 	padding: calc(4 * var(--rpx)) calc(8 * var(--rpx));
 }
 
+.score-popup-bubble-hourglass-inner {
+	display: flex;
+	align-items: center;
+	gap: calc(4 * var(--rpx));
+}
+
 .score-popup-bubble-hourglass-icon {
 	font-size: calc(22 * var(--rpx));
 	line-height: 1;
 	color: #4b5563;
 }
 
+.score-popup-bubble-hourglass-count {
+	font-size: calc(18 * var(--rpx));
+	font-weight: 700;
+	line-height: 1;
+	color: #4b5563;
+}
+
 .score-popup-bubble--accessory-expired {
-	background: #9ca3af;
+	background: #e04545;
 	color: #fff;
 	font-weight: 700;
 }
@@ -4387,6 +4700,23 @@ textarea::-moz-placeholder {
 
 .treasure-detail-desc-body-text .td-desc-gain-block,
 .treasure-detail-desc-panel-body .td-desc-gain-block {
+	font-weight: inherit;
+	color: inherit;
+}
+
+.treasure-detail-desc-body-text .td-desc-risk-block,
+.treasure-detail-desc-panel-body .td-desc-risk-block {
+	font-weight: 700;
+	color: #e86a42;
+}
+
+.treasure-detail-desc-body-text .td-desc-risk-text,
+.treasure-detail-desc-panel-body .td-desc-risk-text {
+	color: #e86a42;
+}
+
+.treasure-detail-desc-body-text .td-desc-risk-block .td-desc-gain-block,
+.treasure-detail-desc-panel-body .td-desc-risk-block .td-desc-gain-block {
 	font-weight: inherit;
 	color: inherit;
 }

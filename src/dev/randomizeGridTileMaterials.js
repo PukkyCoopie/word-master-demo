@@ -19,7 +19,7 @@ function gridTileHasMaterial(tile) {
  * @param {Record<string, unknown>} tile
  * @param {string} materialId
  */
-function applyDevGridMaterial(tile, materialId) {
+export function applyDevGridMaterial(tile, materialId) {
   tile.materialScoreBonus = 0;
   tile.materialMultBonus = 0;
   const card = tile._deckCard;

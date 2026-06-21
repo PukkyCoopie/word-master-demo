@@ -115,17 +115,20 @@ test("canSaveNow blocks during animation", () => {
 test("run auto save flushes when idle", () => {
   let saved = 0;
   let idle = false;
+  let lastImmediate = false;
   const autoSave = createRunAutoSave({
     canSave: () => ({ ok: idle }),
-    save: () => {
+    save: (opts) => {
       saved += 1;
+      lastImmediate = opts?.immediate === true;
     },
   });
   autoSave.scheduleAutoSave();
   assert.equal(saved, 0);
   idle = true;
-  autoSave.tryFlush();
+  autoSave.tryFlush({ force: true });
   assert.equal(saved, 1);
+  assert.equal(lastImmediate, true);
 });
 
 test("empty save envelope has three slots", () => {

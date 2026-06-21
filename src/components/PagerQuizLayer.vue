@@ -68,6 +68,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from "vue";
 import gsap from "gsap";
 import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
+import { bumpOverlayZ } from "../game/overlayStack.js";
 import { EASE_TRANSFORM } from "../constants.js";
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { getRarityForLetter } from "../composables/useScoring.js";

@@ -1,5 +1,6 @@
 import { describe, mult } from "../treasureDescription.js";
 import {
+  commitWildcardMorphBeforeEnhancementStrip,
   stripEnhancementsFromTileOrDeckCard,
   submitScoringTileHasEnhancement,
 } from "../../game/treasureEnhancementStrip.js";
@@ -36,6 +37,7 @@ function stripSubmitTileAt(ctx, index, scoringTile) {
   if (real && typeof real === "object") targets.push(real);
   if (scoringTile && typeof scoringTile === "object" && scoringTile !== real) targets.push(scoringTile);
   for (const t of targets) {
+    commitWildcardMorphBeforeEnhancementStrip(t, scoringTile ?? t);
     stripEnhancementsFromTileOrDeckCard(t);
     syncTileStateToDeckCard(t);
   }

@@ -171,14 +171,13 @@
             >
               跳过
             </button>
-            <button
-              type="button"
-              class="shop-btn shop-btn--buy"
+            <HoldConfirmButton
+              label="确定"
+              hold-label="按住以确认"
+              :hold-mode="confirmHoldMode"
               :disabled="tileAnimActive || !canConfirmSpell"
-              @click="onConfirm"
-            >
-              确定
-            </button>
+              @confirm="onConfirm"
+            />
           </div>
         </div>
       </div>
@@ -204,6 +203,9 @@ import { getSpellGainPanel } from "../spells/spellGainPanel.js";
 import { collectExplicitDescriptionConceptPanels } from "../game/gameConceptCopy.js";
 import LetterTile from "./LetterTile.vue";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
+import HoldConfirmButton from "./HoldConfirmButton.vue";
+import { isHighRiskSpellId } from "../spells/highRiskSpells.js";
+import { getHighRiskSpellConfirmEnabled } from "../settings/gameSettings.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 import {
@@ -346,6 +348,11 @@ const canConfirmSpell = computed(() => {
   if (s.confirmDisabled === true) return false;
   if (s.pickMode === "confirm_all" || s.pickMode === "preview_only") return true;
   return orderedSlotIndices.value.length === s.pickCount;
+});
+
+const confirmHoldMode = computed(() => {
+  const sid = String(props.session?.effectiveSpellId ?? props.session?.purchasedSpellId ?? "");
+  return isHighRiskSpellId(sid) && getHighRiskSpellConfirmEnabled();
 });
 
 function staggerTargets() {

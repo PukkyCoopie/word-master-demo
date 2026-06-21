@@ -84,8 +84,6 @@ import { buildOwnedTreasureSlot } from "../../treasures/ownedTreasureSlot.js";
 /** 默认字母块尺寸（设计 rpx）；超出单行时按行宽等比缩小 */
 const LEADERBOARD_TILE_BASE = 80;
 const LEADERBOARD_TILE_GAP = 3;
-/** 宝藏相对字母块的比例（同组缩放） */
-const LEADERBOARD_TREASURE_TO_TILE = 0.78;
 /** 条目左右 padding（12 × 2）+ 组合区内边距（10 × 2） */
 const LEADERBOARD_ENTRY_PAD_RPX = 44;
 /** 两侧留白，避免阴影 / 亚像素取整贴边被裁切 */
@@ -169,22 +167,10 @@ function filledTreasureEntries(record) {
 /** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record */
 function compositionStyle(record) {
   const tileCount = Math.max(1, record.tiles?.length ?? 0);
-  const treasureCount = filledTreasureEntries(record).length;
-  const treasureBase = LEADERBOARD_TILE_BASE * LEADERBOARD_TREASURE_TO_TILE;
-  const treasureGap = LEADERBOARD_TILE_GAP;
   const tilesWidth = tileCount * LEADERBOARD_TILE_BASE + (tileCount - 1) * LEADERBOARD_TILE_GAP;
-  const treasuresWidth =
-    treasureCount > 0
-      ? treasureCount * treasureBase + (treasureCount - 1) * treasureGap
-      : 0;
-  const combinedWidth =
-    treasureCount > 0
-      ? Math.max(tilesWidth, treasuresWidth)
-      : tilesWidth;
-  const scale = combinedWidth <= rowMaxDesignW.value ? 1 : rowMaxDesignW.value / combinedWidth;
+  const tileScale = tilesWidth <= rowMaxDesignW.value ? 1 : rowMaxDesignW.value / tilesWidth;
   return {
-    "--leaderboard-tile-scale": String(scale),
-    "--leaderboard-treasure-scale": String(scale),
+    "--leaderboard-tile-scale": String(tileScale),
   };
 }
 
@@ -281,7 +267,7 @@ function onTreasureClick(record, slotIx, event) {
 
 .collection-leaderboard-composition {
   --leaderboard-tile-scale: 1;
-  --leaderboard-treasure-scale: 1;
+  --leaderboard-treasure-size: calc(80 * var(--rpx) * 0.78);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -349,10 +335,10 @@ function onTreasureClick(record, slotIx, event) {
 
 .collection-leaderboard-treasures {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: calc(3 * var(--rpx) * var(--leaderboard-treasure-scale, 1));
+  gap: calc(3 * var(--rpx));
   width: 100%;
   min-width: 0;
   overflow: visible;
@@ -363,7 +349,7 @@ function onTreasureClick(record, slotIx, event) {
   flex-direction: column;
   align-items: center;
   flex: 0 0 auto;
-  width: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1));
+  width: var(--leaderboard-treasure-size);
   padding: 0;
   border: none;
   background: transparent;
@@ -383,9 +369,9 @@ function onTreasureClick(record, slotIx, event) {
 
 .collection-leaderboard-treasure-hit :deep(.treasure-slot) {
   flex: 0 0 auto;
-  width: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1));
-  height: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1));
-  max-width: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1));
+  width: var(--leaderboard-treasure-size);
+  height: var(--leaderboard-treasure-size);
+  max-width: var(--leaderboard-treasure-size);
 }
 
 .collection-leaderboard-treasure-hit :deep(.treasure-slot.filled) {
@@ -394,26 +380,26 @@ function onTreasureClick(record, slotIx, event) {
 }
 
 .collection-leaderboard-treasure-hit :deep(.treasure-slot-emoji) {
-  font-size: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1) * 42 / 108);
+  font-size: calc(var(--leaderboard-treasure-size) * 42 / 108);
   line-height: 1;
 }
 
 .collection-leaderboard-treasure-hit :deep(.treasure-slot.filled .letter-gem) {
-  left: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1) * 6 / 108);
-  bottom: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1) * 6 / 108);
-  width: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1) * 14 / 108);
-  height: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1) * 14 / 108);
+  left: calc(var(--leaderboard-treasure-size) * 6 / 108);
+  bottom: calc(var(--leaderboard-treasure-size) * 6 / 108);
+  width: calc(var(--leaderboard-treasure-size) * 14 / 108);
+  height: calc(var(--leaderboard-treasure-size) * 14 / 108);
 }
 
 .collection-leaderboard-treasure-hit :deep(.treasure-slot.filled .treasure-accessory-chip) {
-  top: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1) * 4 / 108);
-  right: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1) * 4 / 108);
-  width: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1) * 22 / 108);
-  height: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1) * 22 / 108);
-  border-radius: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1) * 5 / 108);
+  top: calc(var(--leaderboard-treasure-size) * 4 / 108);
+  right: calc(var(--leaderboard-treasure-size) * 4 / 108);
+  width: calc(var(--leaderboard-treasure-size) * 22 / 108);
+  height: calc(var(--leaderboard-treasure-size) * 22 / 108);
+  border-radius: calc(var(--leaderboard-treasure-size) * 5 / 108);
 }
 
 .collection-leaderboard-treasure-hit :deep(.treasure-slot.filled .treasure-accessory-chip-icon) {
-  font-size: calc(80 * var(--rpx) * 0.78 * var(--leaderboard-treasure-scale, 1) * 13 / 108);
+  font-size: calc(var(--leaderboard-treasure-size) * 13 / 108);
 }
 </style>

@@ -263,6 +263,7 @@ html.viewport-narrower-than-design #game-view-portal > .iris-overlay {
  */
 html.viewport-narrower-than-design #game-view-portal-frame .portal-overlay-fill:not(.shop-portal-root):not(.pack-pick-backdrop):not(.achievement-toast),
 html.viewport-narrower-than-design #game-view-portal-frame .deck-layer,
+html.viewport-narrower-than-design #game-view-portal-frame .treasure-collection-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .dict-fatal-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .stage-settlement-layer,
 html.viewport-narrower-than-design #game-view-portal-frame .info-layer,
@@ -275,6 +276,10 @@ html.viewport-narrower-than-design #game-view-portal-frame .boss-blind-reroll-ba
 	inset: 0;
 	border-radius: 0;
 	box-shadow: none;
+}
+
+html.viewport-narrower-than-design #game-view-portal-frame .treasure-collection-layer .treasure-collection-scrim {
+	border-radius: 0;
 }
 
 /* App 级对话框：宽屏在逻辑框内，窄屏 scrim 铺满视口 */

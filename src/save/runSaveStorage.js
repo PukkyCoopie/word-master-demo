@@ -19,6 +19,20 @@ import { SAVE_SCHEMA_VERSION } from "./runSaveSchema.js";
 /** @type {import('./runSaveSchema.js').SaveEnvelope | null} */
 let cachedEnvelope = null;
 
+/** @type {string | null} */
+let pendingPersistJson = null;
+/** @type {number | null} */
+let persistIdleHandle = null;
+let persistIdleUsesRequestIdle = false;
+
+/** @type {typeof requestIdleCallback | undefined} */
+const schedulePersistIdle =
+  typeof requestIdleCallback === "function"
+    ? requestIdleCallback
+    : undefined;
+
+const PERSIST_IDLE_TIMEOUT_MS = 3000;
+
 function readRawEnvelope() {
   try {
     const raw = localStorage.getItem(RUN_SAVES_STORAGE_KEY);
@@ -41,22 +55,76 @@ export function loadSaveEnvelope() {
   const raw = readRawEnvelope();
   if (Math.floor(Number(raw.schemaVersion) || 1) < SAVE_SCHEMA_VERSION) {
     const migrated = migrateRunSaveEnvelopeToLatest(raw);
-    persistEnvelope(migrated);
+    persistEnvelope(migrated, { immediate: true });
     return migrated;
   }
   cachedEnvelope = raw;
   return cachedEnvelope;
 }
 
-function persistEnvelope(envelope) {
-  cachedEnvelope = envelope;
+function cancelPersistIdle() {
+  if (persistIdleHandle == null) return;
+  if (persistIdleUsesRequestIdle && typeof cancelIdleCallback === "function") {
+    cancelIdleCallback(persistIdleHandle);
+  } else {
+    clearTimeout(persistIdleHandle);
+  }
+  persistIdleHandle = null;
+  persistIdleUsesRequestIdle = false;
+}
+
+function flushSaveStorageToLocal() {
+  const json = pendingPersistJson;
+  if (json == null) return true;
   try {
-    localStorage.setItem(RUN_SAVES_STORAGE_KEY, JSON.stringify(envelope));
+    localStorage.setItem(RUN_SAVES_STORAGE_KEY, json);
+    pendingPersistJson = null;
     markCloudSyncDirtyLater();
     return true;
   } catch {
     return false;
   }
+}
+
+function schedulePersistToStorage() {
+  if (persistIdleHandle != null) return;
+  const run = () => {
+    persistIdleHandle = null;
+    persistIdleUsesRequestIdle = false;
+    flushSaveStorageToLocal();
+  };
+  if (schedulePersistIdle) {
+    persistIdleUsesRequestIdle = true;
+    persistIdleHandle = schedulePersistIdle(run, { timeout: PERSIST_IDLE_TIMEOUT_MS });
+  } else {
+    persistIdleUsesRequestIdle = false;
+    persistIdleHandle = setTimeout(run, 0);
+  }
+}
+
+/** 将尚未写入 localStorage 的缓存立即落盘（退菜单等路径调用）。 */
+export function flushSaveStorageSync() {
+  cancelPersistIdle();
+  return flushSaveStorageToLocal();
+}
+
+/**
+ * @param {import('./runSaveSchema.js').SaveEnvelope} envelope
+ * @param {{ immediate?: boolean }} [opts]
+ */
+function persistEnvelope(envelope, opts = {}) {
+  cachedEnvelope = envelope;
+  try {
+    pendingPersistJson = JSON.stringify(envelope);
+  } catch {
+    return false;
+  }
+  if (opts.immediate === true) {
+    cancelPersistIdle();
+    return flushSaveStorageToLocal();
+  }
+  schedulePersistToStorage();
+  return true;
 }
 
 /** 延迟加载，避免 cloudSave ↔ runSaveStorage 循环依赖。 */
@@ -69,6 +137,25 @@ function markCloudSyncDirtyLater() {
 /** @returns {import('./runSaveSchema.js').SaveEnvelope} */
 export function getSaveEnvelope() {
   return cachedEnvelope ?? loadSaveEnvelope();
+}
+
+/**
+ * 浅拷贝 envelope 并替换单槽，避免 structuredClone 整包。
+ * @param {number} slotIndex
+ * @param {import('./runSaveSchema.js').RunSaveSlot | null} nextSlot
+ */
+function persistEnvelopeWithSlot(slotIndex, nextSlot, persistOpts = {}) {
+  const prev = getSaveEnvelope();
+  const ix = clampSaveSlotIndex(slotIndex);
+  const slots = prev.slots.slice();
+  slots[ix] = nextSlot;
+  return persistEnvelope(
+    {
+      ...prev,
+      slots,
+    },
+    persistOpts,
+  );
 }
 
 /** @param {number} index */
@@ -109,18 +196,16 @@ export function pruneAbandonedFreshRun(index) {
  */
 export function clearSlotRunProgress(index) {
   const ix = clampSaveSlotIndex(index);
-  const envelope = structuredClone(getSaveEnvelope());
-  const slot = envelope.slots[ix];
-  if (!slot?.payload) return persistEnvelope(envelope);
+  const slot = getSaveEnvelope().slots[ix];
+  if (!slot?.payload) return true;
   const career = normalizeSlotCareerStats(slot.career);
-  envelope.slots[ix] = {
+  return persistEnvelopeWithSlot(ix, {
     savedAt: slot.savedAt ?? Date.now(),
     appVersion: slot.appVersion ?? APP_VERSION,
     meta: slot.meta ?? null,
     career,
     payload: null,
-  };
-  return persistEnvelope(envelope);
+  });
 }
 
 export function getOccupiedSlotCount() {
@@ -150,31 +235,35 @@ export function getSlotPayload(index) {
  * @param {import('./runSaveSchema.js').RunSaveMeta} meta
  * @param {import('./runSavePayload.js').RunSavePayload} payload
  * @param {import('./runSaveSchema.js').SlotCareerStats} [careerOverride]
+ * @param {{ immediate?: boolean }} [persistOpts]
  */
-export function writeSlot(index, meta, payload, careerOverride) {
+export function writeSlot(index, meta, payload, careerOverride, persistOpts = {}) {
   const ix = clampSaveSlotIndex(index);
-  const envelope = structuredClone(getSaveEnvelope());
-  const prev = envelope.slots[ix];
-  const career = normalizeSlotCareerStats(careerOverride ?? prev?.career ?? createEmptySlotCareerStats());
+  const prevSlot = getSaveEnvelope().slots[ix];
+  const career = normalizeSlotCareerStats(careerOverride ?? prevSlot?.career ?? createEmptySlotCareerStats());
   const savedAt = Date.now();
-  envelope.slots[ix] = {
-    savedAt,
-    appVersion: APP_VERSION,
-    meta: { ...meta, savedAt, phase: normalizeRunSavePhase(meta.phase) },
-    career,
-    payload,
-  };
-  return persistEnvelope(envelope);
+  return persistEnvelopeWithSlot(
+    ix,
+    {
+      savedAt,
+      appVersion: APP_VERSION,
+      meta: { ...meta, savedAt, phase: normalizeRunSavePhase(meta.phase) },
+      career,
+      payload,
+    },
+    persistOpts,
+  );
 }
 
 /** @param {number} index @param {import('./runSaveSchema.js').SlotCareerStats} career */
 export function updateSlotCareer(index, career) {
   const ix = clampSaveSlotIndex(index);
-  const envelope = structuredClone(getSaveEnvelope());
-  const slot = envelope.slots[ix];
+  const slot = getSaveEnvelope().slots[ix];
   if (!slot) return false;
-  slot.career = normalizeSlotCareerStats(career);
-  return persistEnvelope(envelope);
+  return persistEnvelopeWithSlot(ix, {
+    ...slot,
+    career: normalizeSlotCareerStats(career),
+  });
 }
 
 /**
@@ -183,11 +272,10 @@ export function updateSlotCareer(index, career) {
  */
 export function mutateSlotCareer(index, mutator) {
   const ix = clampSaveSlotIndex(index);
-  const envelope = structuredClone(getSaveEnvelope());
-  let slot = envelope.slots[ix];
+  let slot = getSaveEnvelope().slots[ix];
   if (!slot) {
     const savedAt = Date.now();
-    envelope.slots[ix] = {
+    slot = {
       savedAt,
       appVersion: APP_VERSION,
       meta: {
@@ -202,20 +290,19 @@ export function mutateSlotCareer(index, mutator) {
       career: createEmptySlotCareerStats(),
       payload: null,
     };
-    slot = envelope.slots[ix];
   }
   const career = normalizeSlotCareerStats(slot.career);
   mutator(career);
-  slot.career = career;
-  return persistEnvelope(envelope);
+  return persistEnvelopeWithSlot(ix, {
+    ...slot,
+    career,
+  });
 }
 
 /** @param {number} index */
 export function clearSlot(index) {
   const ix = clampSaveSlotIndex(index);
-  const envelope = structuredClone(getSaveEnvelope());
-  envelope.slots[ix] = null;
-  return persistEnvelope(envelope);
+  return persistEnvelopeWithSlot(ix, null);
 }
 
 /** @returns {import('./runSaveSchema.js').RunSaveMeta | null}[]} */

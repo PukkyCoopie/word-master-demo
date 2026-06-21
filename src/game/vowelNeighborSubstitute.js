@@ -124,6 +124,92 @@ export function vowelGhostSlotsForDisplay(naturalRaw, displayShift = 0, ownedSlo
 }
 
 /**
+ * @typedef {{ letterIdx: number, trio: { prev: string | null, self: string, next: string | null } }} VowelAltMeta
+ */
+
+/**
+ * 按替换位数递增尝试：未改位保持自然字母，改 d 位则各取 prev/next。
+ * 任意合法解必可在某个 d 被找到（d=0 即原串已在入口试过）。
+ * @param {string[]} letters
+ * @param {VowelAltMeta[]} altMeta
+ * @param {number} depth
+ * @param {number} startMeta
+ * @param {(p: string) => string | null} resolveExact
+ * @returns {string | null}
+ */
+function trySubstitutionsAtDepth(letters, altMeta, depth, startMeta, resolveExact) {
+  if (depth === 0) return resolveExact(letters.join(""));
+  for (let pi = startMeta; pi <= altMeta.length - depth; pi += 1) {
+    const { letterIdx, trio } = altMeta[pi];
+    /** @type {string[]} */
+    const alts = [];
+    if (trio.prev) alts.push(trio.prev);
+    if (trio.next) alts.push(trio.next);
+    for (const alt of alts) {
+      const saved = letters[letterIdx];
+      letters[letterIdx] = alt;
+      const hit = trySubstitutionsAtDepth(letters, altMeta, depth - 1, pi + 1, resolveExact);
+      letters[letterIdx] = saved;
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+/**
+ * @param {string[]} letters
+ * @param {VowelAltMeta[]} altMeta
+ * @param {(p: string) => string | null} resolveExact
+ * @returns {string | null}
+ */
+function resolveByHammingExpansion(letters, altMeta, resolveExact) {
+  const work = letters.slice();
+  for (let d = 1; d <= altMeta.length; d += 1) {
+    const hit = trySubstitutionsAtDepth(work, altMeta, d, 0, resolveExact);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/**
+ * 兜底 DFS：self 优先，便于与旧行为一致且尽早命中。
+ * @param {string[]} letters
+ * @param {boolean[]} vowelAltMask
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {(p: string) => string | null} resolveExact
+ * @returns {string | null}
+ */
+function resolveBySubstitutionDfs(letters, vowelAltMask, ownedSlotTreasureIds, resolveExact) {
+  /**
+   * @param {number} i
+   * @returns {string | null}
+   */
+  function dfs(i) {
+    if (i >= letters.length) return resolveExact(letters.join(""));
+    if (!vowelAltMask[i]) {
+      const ch = letters[i];
+      if (ch !== "?" && !/[a-z]/.test(ch)) return null;
+      const saved = letters[i];
+      const rest = dfs(i + 1);
+      letters[i] = saved;
+      return rest;
+    }
+    const opts = letterSubstituteNeighborTrio(letters[i], ownedSlotTreasureIds);
+    if (!opts) return dfs(i + 1);
+    const candidates = [opts.self, opts.prev, opts.next].filter((c) => c != null);
+    for (const c of candidates) {
+      const saved = letters[i];
+      letters[i] = c;
+      const hit = dfs(i + 1);
+      if (hit) return hit;
+      letters[i] = saved;
+    }
+    return null;
+  }
+  return dfs(0);
+}
+
+/**
  * @param {string} pattern 小写串（棋盘选中串）
  * @param {boolean[]} vowelAltMask 与 pattern 等长
  * @param {(p: string) => string | null} resolveExact 无通配解析
@@ -139,40 +225,26 @@ export function resolveWordPatternWithVowelSubstitutions(
   if (!raw) return null;
   if (!vowelAltMask?.length) return resolveExact(raw);
 
+  const exact = resolveExact(raw);
+  if (exact) return exact;
+
   /** @type {string[]} */
   const letters = [];
-  for (let i = 0; i < raw.length; i++) letters.push(raw[i]);
+  for (let i = 0; i < raw.length; i += 1) letters.push(raw[i]);
 
-  /**
-   * @param {number} i
-   * @returns {string | null}
-   */
-  function dfs(i) {
-    if (i >= letters.length) return resolveExact(letters.join(""));
-    if (!vowelAltMask[i]) {
-      const ch = letters[i];
-      if (ch === "?") {
-        // 保留万能，交给 resolveExact
-      } else if (!/[a-z]/.test(ch)) return null;
-      const saved = letters[i];
-      const rest = dfs(i + 1);
-      letters[i] = saved;
-      return rest;
-    }
-    const opts = letterSubstituteNeighborTrio(letters[i], ownedSlotTreasureIds);
-    if (!opts) return dfs(i + 1);
-    const candidates = [opts.prev, opts.self, opts.next].filter((c) => c != null);
-    for (const c of candidates) {
-      const saved = letters[i];
-      letters[i] = c;
-      const hit = dfs(i + 1);
-      if (hit) return hit;
-      letters[i] = saved;
-    }
-    return null;
+  /** @type {VowelAltMeta[]} */
+  const altMeta = [];
+  for (let i = 0; i < letters.length; i += 1) {
+    if (!vowelAltMask[i]) continue;
+    const trio = letterSubstituteNeighborTrio(letters[i], ownedSlotTreasureIds);
+    if (trio) altMeta.push({ letterIdx: i, trio });
   }
+  if (altMeta.length === 0) return resolveExact(letters.join(""));
 
-  return dfs(0);
+  const hammingHit = resolveByHammingExpansion(letters, altMeta, resolveExact);
+  if (hammingHit) return hammingHit;
+
+  return resolveBySubstitutionDfs(letters, vowelAltMask, ownedSlotTreasureIds, resolveExact);
 }
 
 /**

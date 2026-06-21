@@ -15,8 +15,7 @@ import readline from "node:readline";
  * - fallbacks when translation lacks POS prefix:
  *   1) ECDICT pos column (word.csv field 2);
  *   2) Chinese inflection glosses (e.g. "mean的过去式和过去分词" → v);
- *   3) -ing forms whose gloss starts with a bracket tag like [计] → v;
- *   4) [计]/[医]/[人名] 等方括号标注、或纯中文释义（无 n./v. 前缀）→ 推断词性。
+ *   3) -ing forms whose gloss starts with a bracket tag like [计] → v.
  * - drop only when all inference paths fail.
  * - handle translation wrapped in quotes and containing commas.
  * - handle multi-pos / multi-sense entries where translation is split by "\n" or "\\n".
@@ -159,40 +158,12 @@ function inferPosFromBracketTaggedIngForm(word, translationZh) {
 	return "";
 }
 
-/** [计]/[医]/[人名] 等标注，或纯中文/口语释义 → 词性 */
-function inferPosFromBracketOrBareChinese(translationZh) {
-	const t = String(translationZh ?? "").trim();
-	if (!t) return "";
-
-	if (/^啊|^哦|^嗯|^哎|^呀|表大叫|表惊叹|非正式.*叫/.test(t)) return "interj";
-	if (/\[人名\]|\[地名\]|\[电影\]|\[品牌\]|人名\]|地名\]/.test(t)) return "n";
-	if (/\[形\]|\[形语\]|形容词/.test(t)) return "adj";
-	if (/\[副\]|副词/.test(t)) return "adv";
-	if (/\[动\]|动词/.test(t)) return "v";
-	if (/\[介\]|介词/.test(t)) return "prep";
-	if (/\[连\]|连词/.test(t)) return "conj";
-	if (/\[代\]|代词/.test(t)) return "pron";
-	if (/\[数\]|数词/.test(t)) return "num";
-	if (/\[叹\]|叹词/.test(t)) return "interj";
-
-	if (/^\[[^\]]+\]/.test(t)) {
-		if (/缩略|缩写|\bof\b|\bfor\b|\bthe\b/i.test(t)) return "abbr";
-		return "n";
-	}
-
-	// 纯中文或中英混排、但无 n./v. 前缀（如 google → 谷歌；搜索引擎…）
-	if (/[\u4e00-\u9fff]/.test(t) && !/^[A-Za-z]+\./.test(t)) return "n";
-
-	return "";
-}
-
 function inferPos(word, posField, translationZh) {
 	return (
 		inferPosFromTranslation(translationZh) ||
 		inferPosFromEcdictColumn(posField) ||
 		inferPosFromChineseInflection(translationZh, word) ||
-		inferPosFromBracketTaggedIngForm(word, translationZh) ||
-		inferPosFromBracketOrBareChinese(translationZh)
+		inferPosFromBracketTaggedIngForm(word, translationZh)
 	);
 }
 

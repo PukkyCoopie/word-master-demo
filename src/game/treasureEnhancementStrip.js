@@ -1,16 +1,34 @@
 /**
- * 剥离字母块「可擦除增强」：配饰与持久平面分/倍率（不含材质块类型、稀有度、万能）。
- * 玩家本关「标记」折角（`playerMarked`）不在此处理。
+ * 剥离字母块「可擦除增强」：材质块、配饰、持久平面分/倍率（不含稀有度、玩家本关标记折角）。
  */
-import { entityHasAccessory } from "../accessories/accessoryState.js";
-import { deckCardHasPersistedIntrinsicGain } from "./tileIntrinsicGains.js";
+import { writeEntityAccessory } from "../accessories/accessoryState.js";
+import { isUndeformedWildcardLetter, isWildcardMaterialTile } from "../composables/useScoring.js";
+import { deckCardHasEnhancement } from "../treasures/treasureDeckEnhancement.js";
+
+/**
+ * 万能块擦除前：把本词计分快照里已解析的字母写回 live 格（避免仍为 `?` 时 sync 落回变形前 raw）。
+ * @param {object | null | undefined} liveTile
+ * @param {object | null | undefined} scoringSnapshot
+ */
+export function commitWildcardMorphBeforeEnhancementStrip(liveTile, scoringSnapshot) {
+  if (!liveTile || typeof liveTile !== "object") return;
+  const snap =
+    scoringSnapshot && typeof scoringSnapshot === "object" ? scoringSnapshot : liveTile;
+  if (!isWildcardMaterialTile(liveTile) && !isWildcardMaterialTile(snap)) return;
+  const letter = String(snap.letter ?? "").trim();
+  if (isUndeformedWildcardLetter(letter)) return;
+  liveTile.letter = letter;
+  if (snap.rarity != null) liveTile.rarity = snap.rarity;
+  if (snap.baseScore != null) liveTile.baseScore = snap.baseScore;
+}
 
 /** @param {object | null | undefined} tileOrCard */
 export function stripEnhancementsFromTileOrDeckCard(tileOrCard) {
   const t = tileOrCard;
   if (!t || typeof t !== "object") return;
-  t.accessoryId = null;
-  t.treasureAccessoryId = null;
+  writeEntityAccessory(t, null);
+  t.materialId = null;
+  t.isWildcard = false;
   if ("tileScoreBonus" in t) t.tileScoreBonus = 0;
   if ("letterMultBonus" in t) t.letterMultBonus = 0;
   if ("materialScoreBonus" in t) t.materialScoreBonus = 0;
@@ -19,10 +37,9 @@ export function stripEnhancementsFromTileOrDeckCard(tileOrCard) {
 
 /** @param {object | null | undefined} tileOrCard */
 export function tileHasScoringEnhancement(tileOrCard) {
+  if (deckCardHasEnhancement(tileOrCard)) return true;
   const t = tileOrCard;
   if (!t || typeof t !== "object") return false;
-  if (entityHasAccessory(t)) return true;
-  if (deckCardHasPersistedIntrinsicGain(t)) return true;
   if (Math.floor(Number(t.materialScoreBonus) || 0) !== 0) return true;
   if (Math.floor(Number(t.materialMultBonus) || 0) !== 0) return true;
   return false;

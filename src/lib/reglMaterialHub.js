@@ -272,7 +272,10 @@ export function attachMaterialRegl(materialId, canvas, options = {}) {
   };
 
   const subs = ensureSubscribersSet(materialId);
-  bindReglSubscriberViewport(sub, (s) => paintMaterialSubscriberOnce(materialId, s));
+  bindReglSubscriberViewport(sub, (s) => {
+    if (s.frameFrozen) return;
+    paintMaterialSubscriberOnce(materialId, s);
+  });
   ensureSharedHub();
   subs.add(sub);
 
@@ -280,6 +283,7 @@ export function attachMaterialRegl(materialId, canvas, options = {}) {
     ensureUnifiedMaterialTick();
   }
   paintMaterialSubscriberOnce(materialId, sub);
+  if (!animated) sub.frameFrozen = true;
 
   return function disposeMaterialRegl() {
     disposeReglSubscriberBindings(sub);

@@ -395,6 +395,7 @@ export function countStableSelectedTilesForRemoval(order, flyingBackMinSlotIndex
  *   bossMechanicsSuppressedRef?: import("vue").Ref<boolean>,
  *   onBossTapeTriggerCue?: () => void,
  *   onBossRestrictionTreasureCue?: () => void,
+ *   getOwnedSlotTreasureIds?: () => (string | null | undefined)[],
  * }} [gameOpts]
  */
 export function useGameState(gameOpts = {}) {
@@ -410,6 +411,10 @@ export function useGameState(gameOpts = {}) {
       : null;
   const getRng =
     typeof gameOpts?.getRng === "function" ? gameOpts.getRng : defaultRng;
+  const getOwnedSlotTreasureIds =
+    typeof gameOpts?.getOwnedSlotTreasureIds === "function"
+      ? gameOpts.getOwnedSlotTreasureIds
+      : null;
   resetDeckCardUidSeqForRun(gameOpts?.runSeedNumeric ?? 0);
 
   let idCounter = 0;
@@ -439,6 +444,7 @@ export function useGameState(gameOpts = {}) {
     return {
       pillarUsedDeckUids: pillarUsedDeckUidsRef?.value,
       verdantTreasureSold: verdantTreasureSoldRef?.value === true,
+      ownedSlotTreasureIds: getOwnedSlotTreasureIds?.() ?? [],
     };
   }
 

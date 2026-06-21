@@ -19,6 +19,6 @@ export const treasureHooks = {
   },
   async onTreasureSold(ctx) {
     if (ctx.soldTreasureId === ID) return;
-    await bankMultMulGain(ctx, ID, 0.25);
+    await bankMultMulGain(ctx, ID, 0.25, "×0.25");
   },
 };

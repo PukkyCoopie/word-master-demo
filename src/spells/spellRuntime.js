@@ -247,6 +247,48 @@ function bumpTileRarityOne(tile, rarityLevelsByRarity) {
   syncTileStateToDeckCard(tile);
 }
 
+/**
+ * 将法术目标（棋盘格或仅牌库牌张 proxy）改为新 raw 字母。
+ * 须走 `tileAt` 解析目标，勿用 `p.row`/`p.col`——候选格多为 deckOnly，无棋盘坐标。
+ *
+ * @param {Record<string, unknown>} tile
+ * @param {string} raw
+ * @param {Record<string, number> | null | undefined} rarityLevelsByRarity
+ */
+function remapSpellTargetTileToRaw(tile, raw, rarityLevelsByRarity) {
+  if (!tile?.letter || raw == null || String(raw).trim() === "") return;
+  const gains = snapshotMaxIntrinsicGainsFromTile(tile);
+  const r = String(raw).toLowerCase() === "qu" ? "q" : String(raw).toLowerCase();
+  const prevId = tile.id;
+  const acc = tile.accessoryId;
+  const card = tile._deckCard;
+  if (card && typeof card === "object") {
+    card.raw = r;
+    card.isWildcard = false;
+    card.materialId = null;
+    card.materialScoreBonus = 0;
+    card.materialMultBonus = 0;
+    card.rarity = getRarityForLetter(r);
+    Object.assign(tile, buildTileSurfaceFromDeckCard(card, rarityLevelsByRarity));
+    if (prevId != null && tile._spellDeckOnlyProxy !== true) tile.id = prevId;
+    tile.accessoryId = acc ?? null;
+    card.accessoryId = tile.accessoryId;
+    applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
+    syncTileStateToDeckCard(tile);
+    return;
+  }
+  const rarity = getRarityForLetter(r);
+  tile.letter = resolveLetterFromRaw(r);
+  tile.rarity = rarity;
+  tile.baseScore = getBaseScoreForRarity(rarity, rarityLevelsByRarity);
+  tile.isWildcard = false;
+  tile.materialId = null;
+  tile.materialScoreBonus = 0;
+  tile.materialMultBonus = 0;
+  tile.accessoryId = acc ?? null;
+  applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
+}
+
 function allConsonantRaws() {
   const out = [];
   for (const letters of Object.values(RARITY_BY_LETTER)) {
@@ -710,31 +752,31 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
     }
     case "mic": {
       const pool = allConsonantRaws();
+      const rl = ctx.rarityLevelsByRarity.value;
       for (const p of ordered) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        const raw = pickRandomRaw(pool, rng);
-        ctx.remapTileFromRawLetter(p.row, p.col, raw, true);
+        remapSpellTargetTileToRaw(t, pickRandomRaw(pool, rng), rl);
       }
       break;
     }
     case "notification": {
       const pool = allVowelRaws();
+      const rl = ctx.rarityLevelsByRarity.value;
       for (const p of ordered) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        const raw = pickRandomRaw(pool, rng);
-        ctx.remapTileFromRawLetter(p.row, p.col, raw, true);
+        remapSpellTargetTileToRaw(t, pickRandomRaw(pool, rng), rl);
       }
       break;
     }
     case "phone": {
       const pool = allLetterRaws();
+      const rl = ctx.rarityLevelsByRarity.value;
       for (const p of ordered) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        const raw = pickRandomRaw(pool, rng);
-        ctx.remapTileFromRawLetter(p.row, p.col, raw, true);
+        remapSpellTargetTileToRaw(t, pickRandomRaw(pool, rng), rl);
       }
       break;
     }

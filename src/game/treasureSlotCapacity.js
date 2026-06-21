@@ -5,4 +5,5 @@ export {
   computeOwnedTreasureSlotTargetLength,
   countTreasureCropSlotBonus,
   willCropAccessoryExpandSlots,
+  willIncomingTreasureAccessoriesExpandSlots,
 } from "../accessories/accessorySlotCapacity.js";

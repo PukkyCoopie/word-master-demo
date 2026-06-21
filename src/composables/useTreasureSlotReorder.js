@@ -107,13 +107,227 @@ function resolveSlotIndexFromPoint(clientX, clientY, slotCount, getSlotElement) 
  * @param {DOMRect} rect
  * @param {DOMRect} containerRect
  */
-function rectStyleInContainer(rect, containerRect) {
+export function rectStyleInContainer(rect, containerRect) {
   return {
     left: `${rect.left - containerRect.left}px`,
     top: `${rect.top - containerRect.top}px`,
     width: `${rect.width}px`,
     height: `${rect.height}px`,
   };
+}
+
+/**
+ * @param {number} clientX
+ * @param {number} clientY
+ * @param {{ x: number, y: number, w: number, h: number }} ghostOffset
+ * @param {HTMLElement} container
+ */
+export function buildTreasureDragGhostStyle(clientX, clientY, ghostOffset, container) {
+  const containerRect = container.getBoundingClientRect();
+  return {
+    position: "absolute",
+    left: `${clientX - ghostOffset.x - containerRect.left}px`,
+    top: `${clientY - ghostOffset.y - containerRect.top}px`,
+    width: `${ghostOffset.w}px`,
+    height: `${ghostOffset.h}px`,
+    zIndex: "320",
+    pointerEvents: "none",
+    transition: "none",
+  };
+}
+
+/** @param {number} index @param {number} slotCount */
+function clampInsertIndex(index, slotCount) {
+  return Math.max(0, Math.min(slotCount - 1, Math.floor(Number(index) || 0)));
+}
+
+/**
+ * @param {{ index: number, rect: DOMRect }} a
+ * @param {{ index: number, rect: DOMRect }} b
+ */
+function sameGridRow(a, b) {
+  const band = Math.min(a.rect.height, b.rect.height) * 0.42;
+  return Math.abs(a.rect.top - b.rect.top) <= band;
+}
+
+/**
+ * @param {{ index: number, rect: DOMRect }[]} entries
+ */
+function sortGridCellsByReadingOrder(entries) {
+  entries.sort((a, b) => {
+    if (sameGridRow(a, b)) return a.rect.left - b.rect.left;
+    return a.rect.top - b.rect.top;
+  });
+  return entries;
+}
+
+/**
+ * @param {number} slotCount
+ * @param {(index: number) => HTMLElement | null | undefined} getSlotElement
+ * @returns {Map<number, DOMRect>}
+ */
+export function captureGridLayoutRects(slotCount, getSlotElement) {
+  /** @type {Map<number, DOMRect>} */
+  const cache = new Map();
+  for (let i = 0; i < slotCount; i += 1) {
+    const el = getSlotElement(i);
+    if (!(el instanceof HTMLElement)) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.width >= 1 && rect.height >= 1) cache.set(i, rect);
+  }
+  return cache;
+}
+
+/**
+ * 基于拖动开始时的布局缓存，用相邻格中线对称判定落位索引（不随预览重排变化）。
+ *
+ * @param {number} clientX
+ * @param {number} clientY
+ * @param {number} slotCount
+ * @param {Map<number, DOMRect> | null | undefined} rectCache
+ */
+export function resolveGridInsertIndexFromLayoutCache(clientX, clientY, slotCount, rectCache) {
+  if (!rectCache?.size) return -1;
+
+  /** @type {{ index: number, rect: DOMRect }[]} */
+  const entries = [];
+  for (let i = 0; i < slotCount; i += 1) {
+    const rect = rectCache.get(i);
+    if (!rect || rect.width < 1 || rect.height < 1) continue;
+    entries.push({ index: i, rect });
+  }
+  if (!entries.length) return -1;
+  sortGridCellsByReadingOrder(entries);
+
+  for (let si = 0; si < entries.length; si += 1) {
+    const curr = entries[si];
+    const next = entries[si + 1];
+    const { rect, index } = curr;
+
+    if (clientY < rect.top) {
+      return clampInsertIndex(index, slotCount);
+    }
+
+    if (!next) {
+      if (clientY > rect.bottom) return clampInsertIndex(index, slotCount);
+      const midX = rect.left + rect.width * 0.5;
+      return clampInsertIndex(clientX < midX ? index : index + 1, slotCount);
+    }
+
+    if (sameGridRow(curr, next)) {
+      if (clientY > rect.bottom) continue;
+      const boundX = (rect.right + next.rect.left) * 0.5;
+      if (clientY >= rect.top && clientY <= rect.bottom) {
+        if (clientX < boundX) return clampInsertIndex(index, slotCount);
+        continue;
+      }
+    } else {
+      const boundY = (rect.bottom + next.rect.top) * 0.5;
+      if (clientY < boundY) {
+        const midX = rect.left + rect.width * 0.5;
+        return clampInsertIndex(clientX < midX ? index : next.index, slotCount);
+      }
+    }
+  }
+
+  return clampInsertIndex(entries[entries.length - 1].index, slotCount);
+}
+
+/**
+ * @param {number} clientX
+ * @param {number} clientY
+ * @param {number} lo
+ * @param {number} hi
+ * @param {Map<number, DOMRect> | null | undefined} rectCache
+ * @param {number} marginPx
+ */
+function pointerCrossedAdjacentInsertBoundary(clientX, clientY, lo, hi, rectCache, marginPx) {
+  const a = Math.min(lo, hi);
+  const b = Math.max(lo, hi);
+  const rectA = rectCache?.get(a);
+  const rectB = rectCache?.get(b);
+  if (!rectA || !rectB) return true;
+
+  const margin = Math.max(0, Number(marginPx) || 0);
+  const cellA = { index: a, rect: rectA };
+  const cellB = { index: b, rect: rectB };
+
+  if (sameGridRow(cellA, cellB)) {
+    const boundX = (rectA.right + rectB.left) * 0.5;
+    if (hi > lo) return clientX >= boundX + margin;
+    return clientX <= boundX - margin;
+  }
+
+  const boundY = (rectA.bottom + rectB.top) * 0.5;
+  if (hi > lo) return clientY >= boundY + margin;
+  return clientY <= boundY - margin;
+}
+
+/**
+ * 稳定落位：布局缓存 + 相邻索引迟滞，避免预览重排反馈抖动。
+ *
+ * @param {number} clientX
+ * @param {number} clientY
+ * @param {number} slotCount
+ * @param {Map<number, DOMRect> | null | undefined} rectCache
+ * @param {{ insert: number }} hysteresisState
+ * @param {number} [marginPx=10]
+ */
+export function resolveStableGridInsertIndex(
+  clientX,
+  clientY,
+  slotCount,
+  rectCache,
+  hysteresisState,
+  marginPx = 10,
+) {
+  const raw = resolveGridInsertIndexFromLayoutCache(clientX, clientY, slotCount, rectCache);
+  if (raw < 0) {
+    return hysteresisState.insert >= 0
+      ? clampInsertIndex(hysteresisState.insert, slotCount)
+      : -1;
+  }
+
+  const prev = hysteresisState.insert;
+  if (prev < 0 || raw === prev) {
+    hysteresisState.insert = raw;
+    return raw;
+  }
+
+  if (Math.abs(raw - prev) !== 1) {
+    hysteresisState.insert = raw;
+    return raw;
+  }
+
+  if (
+    pointerCrossedAdjacentInsertBoundary(
+      clientX,
+      clientY,
+      prev,
+      raw,
+      rectCache,
+      marginPx,
+    )
+  ) {
+    hysteresisState.insert = raw;
+  }
+
+  return clampInsertIndex(hysteresisState.insert, slotCount);
+}
+
+/**
+ * 按阅读顺序（上→下、左→右），根据指针位置解析插入索引。
+ * 使用实时 DOM（非稳定缓存）；弹窗 grid 请用 `resolveStableGridInsertIndex`。
+ *
+ * @param {number} clientX
+ * @param {number} clientY
+ * @param {number} slotCount
+ * @param {(index: number) => HTMLElement | null | undefined} getSlotElement
+ * @returns {number}
+ */
+export function resolveReadingOrderInsertIndex(clientX, clientY, slotCount, getSlotElement) {
+  const cache = captureGridLayoutRects(slotCount, getSlotElement);
+  return resolveGridInsertIndexFromLayoutCache(clientX, clientY, slotCount, cache);
 }
 
 /**
@@ -126,6 +340,7 @@ function rectStyleInContainer(rect, containerRect) {
  * @param {(preview: (object | null)[]) => void} options.onCommit
  * @param {(index: number) => HTMLElement | null | undefined} [options.getSlotElement]
  * @param {() => HTMLElement | null | undefined} [options.getOverlayContainer]
+ * @param {() => boolean} [options.stackMode]
  */
 export function useTreasureSlotReorder(options) {
   const {
@@ -135,6 +350,7 @@ export function useTreasureSlotReorder(options) {
     onCommit,
     getSlotElement = () => null,
     getOverlayContainer = () => null,
+    stackMode = () => false,
   } = options;
 
   const dragActive = ref(false);
@@ -157,8 +373,9 @@ export function useTreasureSlotReorder(options) {
   });
 
   const displayKeys = computed(() => {
-    if (!dragActive.value) return keyOrder.value;
-    return buildDragPreviewKeys(keyOrder.value, dragSourceIndex.value, dragHoverIndex.value);
+    const keys = Array.isArray(keyOrder?.value) ? keyOrder.value : [];
+    if (!dragActive.value) return keys;
+    return buildDragPreviewKeys(keys, dragSourceIndex.value, dragHoverIndex.value);
   });
 
   /** @type {{ cleanup: (() => void) | null, pointerId: number | null, slotEl: HTMLElement | null }} */
@@ -194,23 +411,16 @@ export function useTreasureSlotReorder(options) {
 
   function updateGhostPosition(clientX, clientY) {
     if (!ghostOffset) return;
-    dragGhostStyle.value = {
-      position: "fixed",
-      left: "0",
-      top: "0",
-      width: `${ghostOffset.w}px`,
-      height: `${ghostOffset.h}px`,
-      transform: `translate(${clientX - ghostOffset.x}px, ${clientY - ghostOffset.y}px)`,
-      zIndex: "320",
-      pointerEvents: "none",
-      transition: "none",
-    };
+    const container = getOverlayContainer();
+    if (!(container instanceof HTMLElement)) return;
+    dragGhostStyle.value = buildTreasureDragGhostStyle(clientX, clientY, ghostOffset, container);
   }
 
   function updatePlaceholderPosition(index) {
     const measured = measureSlotInContainer(index);
     if (!measured) return;
     dragPlaceholderStyle.value = {
+      position: "absolute",
       ...rectStyleInContainer(measured.slotRect, measured.containerRect),
       transition: "none",
     };
@@ -321,12 +531,19 @@ export function useTreasureSlotReorder(options) {
       }
       ev.preventDefault();
       updateGhostPosition(ev.clientX, ev.clientY);
-      const targetIndex = resolveSlotIndexFromPoint(
-        ev.clientX,
-        ev.clientY,
-        getSourceSlots().length,
-        getSlotElement,
-      );
+      const targetIndex = stackMode()
+        ? resolveReadingOrderInsertIndex(
+            ev.clientX,
+            ev.clientY,
+            getSourceSlots().length,
+            getSlotElement,
+          )
+        : resolveSlotIndexFromPoint(
+            ev.clientX,
+            ev.clientY,
+            getSourceSlots().length,
+            getSlotElement,
+          );
       setHoverIndex(targetIndex);
     };
 
@@ -339,12 +556,19 @@ export function useTreasureSlotReorder(options) {
       ev.preventDefault();
       dragging = false;
 
-      const targetIndex = resolveSlotIndexFromPoint(
-        ev.clientX,
-        ev.clientY,
-        getSourceSlots().length,
-        getSlotElement,
-      );
+      const targetIndex = stackMode()
+        ? resolveReadingOrderInsertIndex(
+            ev.clientX,
+            ev.clientY,
+            getSourceSlots().length,
+            getSlotElement,
+          )
+        : resolveSlotIndexFromPoint(
+            ev.clientX,
+            ev.clientY,
+            getSourceSlots().length,
+            getSlotElement,
+          );
       if (targetIndex >= 0) {
         dragHoverIndex.value = targetIndex;
       }

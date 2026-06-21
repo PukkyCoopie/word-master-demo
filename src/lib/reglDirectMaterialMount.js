@@ -93,7 +93,7 @@ function bindDirectViewport(sub) {
 
   if (typeof ResizeObserver !== "undefined") {
     const ro = new ResizeObserver(() => {
-      drawDirectSubscriber(sub);
+      if (sub.animated !== false) drawDirectSubscriber(sub);
     });
     ro.observe(sub.canvas);
     cleanups.push(() => ro.disconnect());

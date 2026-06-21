@@ -32,6 +32,34 @@ export function computeOwnedTreasureSlotTargetLength(ownedSlots, voucherExtraSlo
 }
 
 /**
+ * @param {string | readonly string[] | null | undefined} incomingAccessoryIds
+ * @returns {string[]}
+ */
+function normalizeIncomingTreasureAccessoryIds(incomingAccessoryIds) {
+  if (Array.isArray(incomingAccessoryIds)) {
+    return incomingAccessoryIds.map((x) => String(x ?? "").trim()).filter(Boolean);
+  }
+  const single = incomingAccessoryIds != null ? String(incomingAccessoryIds).trim() : "";
+  return single ? [single] : [];
+}
+
+/**
+ * @param {readonly (null | { accessoryId?: string | null, treasureAccessoryId?: string | null })[]} ownedSlots
+ * @param {number} [voucherExtraSlots=0]
+ * @param {string | readonly string[] | null | undefined} incomingAccessoryIds
+ */
+export function willIncomingTreasureAccessoriesExpandSlots(
+  ownedSlots,
+  voucherExtraSlots,
+  incomingAccessoryIds,
+) {
+  for (const id of normalizeIncomingTreasureAccessoryIds(incomingAccessoryIds)) {
+    if (willCropAccessoryExpandSlots(ownedSlots, voucherExtraSlots, id)) return true;
+  }
+  return false;
+}
+
+/**
  * @param {readonly (null | { accessoryId?: string | null, treasureAccessoryId?: string | null })[]} ownedSlots
  * @param {number} [voucherExtraSlots=0]
  * @param {string | null | undefined} incomingAccessoryId
@@ -67,16 +95,8 @@ export function compactOwnedSlotsAfterCropSell(slots, soldIndex, soldTreasure) {
  * @param {number} [voucherExtraSlots=0]
  * @param {string | null | undefined} [incomingAccessoryId]
  */
-export function canAcquireTreasureOffer(ownedSlots, voucherExtraSlots, incomingAccessoryId) {
+export function canAcquireTreasureOffer(ownedSlots, voucherExtraSlots, incomingAccessoryIds) {
   const arr = Array.isArray(ownedSlots) ? ownedSlots : [];
   if (arr.some((s) => s == null)) return true;
-  const incomingIds = Array.isArray(incomingAccessoryId)
-    ? incomingAccessoryId.map((x) => String(x ?? "").trim()).filter(Boolean)
-    : incomingAccessoryId != null && String(incomingAccessoryId).trim()
-      ? [String(incomingAccessoryId).trim()]
-      : [];
-  for (const id of incomingIds) {
-    if (willCropAccessoryExpandSlots(arr, voucherExtraSlots, id)) return true;
-  }
-  return false;
+  return willIncomingTreasureAccessoriesExpandSlots(arr, voucherExtraSlots, incomingAccessoryIds);
 }

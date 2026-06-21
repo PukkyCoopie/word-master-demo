@@ -1,10 +1,12 @@
-import { describe } from "../treasureDescription.js";
+import { describe, mult, score } from "../treasureDescription.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 5,
   rarity: "common",
-  description: describe("提高分数和倍率，数值等同于当前长度在本轮游戏内被拼出的次数"),
+  description: describe(
+    "将每种长度的单词在本轮游戏内被拼写过的次数同时添加至分数和倍率",
+  ),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

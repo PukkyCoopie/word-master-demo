@@ -1,34 +1,16 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from "vue";
-import { attachIceRegl, setIceReglAnimated } from "../lib/iceReglMount.js";
+/**
+ * 冰裂底纹：展示为 2D canvas，由 reglMaterialHub 离屏单 regl 贴图。
+ */
+import { ref, toRef } from "vue";
+import { useTileMaterialRegl } from "../composables/useTileMaterialRegl.js";
 
 const props = defineProps({
   animated: { type: Boolean, default: true },
 });
 
 const canvasRef = ref(null);
-let dispose = null;
-
-onMounted(() => {
-  const c = canvasRef.value;
-  if (!c) return;
-  dispose = attachIceRegl(c, { animated: props.animated });
-});
-
-watch(
-  () => props.animated,
-  (animated) => {
-    const c = canvasRef.value;
-    if (c) setIceReglAnimated(c, animated);
-  },
-);
-
-onUnmounted(() => {
-  if (dispose) {
-    dispose();
-    dispose = null;
-  }
-});
+useTileMaterialRegl("ice", canvasRef, toRef(props, "animated"));
 </script>
 
 <template>

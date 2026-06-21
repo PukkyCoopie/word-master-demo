@@ -1102,13 +1102,17 @@ function splitSummary(summary) {
 }
 
 .about-changelog-auto-toggle::before {
-  content: "▸ ";
+  content: "▸";
   display: inline-block;
-  transition: transform 0.15s ease;
+  margin-right: calc(4 * var(--rpx));
+  transition:
+    transform 0.15s ease,
+    margin-right 0.15s ease;
 }
 
 .about-changelog-auto[open] .about-changelog-auto-toggle::before {
   transform: rotate(90deg);
+  margin-right: calc(8 * var(--rpx));
 }
 
 .about-changelog-auto-body {

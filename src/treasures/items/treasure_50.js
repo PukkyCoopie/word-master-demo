@@ -11,9 +11,9 @@ function buildBalanceDescription(ctx) {
   const bankLabel = v >= 0 ? `+${v}` : String(v);
   return describe(
     "每拼写一个单词，获得",
-    mult("+4"),
+    mult("+2"),
     "倍率；每丢弃一次字母，获得",
-    mult("-4"),
+    mult("-2"),
     "倍率",
     "（当前",
     mult(bankLabel),
@@ -27,9 +27,9 @@ export default {
   rarity: "common",
   description: describe(
     "每拼写一个单词，获得",
-    mult("+4"),
+    mult("+2"),
     "倍率；每丢弃一次字母，获得",
-    mult("-4"),
+    mult("-2"),
     "倍率",
     "（当前",
     mult("+0"),
@@ -56,9 +56,9 @@ export const treasureHooks = {
     return v !== 0 ? { multAdd: v } : null;
   },
   async onSuccessfulWordSubmit(ctx) {
-    await bumpBalanceBank(ctx, 4);
+    await bumpBalanceBank(ctx, 2);
   },
   async onDiscardBatch(ctx) {
-    await bumpBalanceBank(ctx, -4);
+    await bumpBalanceBank(ctx, -2);
   },
 };

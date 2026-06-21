@@ -1,5 +1,6 @@
 import { reactive } from "vue";
 import { inferDefaultDisplayLayoutMode } from "../composables/viewportSize.js";
+import { RUN_SAVES_STORAGE_KEY } from "../save/runSaveSchema.js";
 
 const STORAGE_KEY = "word_master_game_settings_v1";
 
@@ -28,7 +29,50 @@ export function normalizeSwapButtonMode(value) {
   const s = String(value ?? "");
   return SWAP_BUTTON_MODE_IDS.has(/** @type {SwapButtonMode} */ (s))
     ? /** @type {SwapButtonMode} */ (s)
-    : "bottom8";
+    : "hidden";
+}
+
+/** @returns {boolean} 是否已有生涯/局内存档（用于拼词辅助设置迁移） */
+function hasExistingPlayerSaveData() {
+  try {
+    const raw = localStorage.getItem(RUN_SAVES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const slots = Array.isArray(parsed?.slots) ? parsed.slots : [];
+      for (const slot of slots) {
+        if (!slot) continue;
+        if (slot.payload) return true;
+        const runs = Math.floor(Number(slot.career?.runsStarted) || 0);
+        if (runs > 0) return true;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const settingsRaw = localStorage.getItem(STORAGE_KEY);
+    if (settingsRaw) {
+      const parsed = JSON.parse(settingsRaw);
+      if (parsed && typeof parsed === "object") return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+/** 拼词辅助三项：老玩家默认开启标记、对调最下 8 格、对调时标记 */
+function applyLegacyWordAuxDefaults() {
+  gameSettings.markButtonEnabled = true;
+  gameSettings.swapButtonMode = "bottom8";
+  gameSettings.markOnSwap = true;
+}
+
+/** 拼词辅助三项：新玩家默认关闭标记、不显示对调、对调时不标记 */
+function applyNewPlayerWordAuxDefaults() {
+  gameSettings.markButtonEnabled = false;
+  gameSettings.swapButtonMode = "hidden";
+  gameSettings.markOnSwap = false;
 }
 
 /** @typedef {'slow' | 'normal' | 'fast'} AnimationSpeedTier */
@@ -94,22 +138,34 @@ export function normalizeWordDefinitionMode(value) {
   const s = String(value ?? "");
   return WORD_DEFINITION_MODE_IDS.has(/** @type {WordDefinitionMode} */ (s))
     ? /** @type {WordDefinitionMode} */ (s)
-    : "definition";
+    : "off";
 }
 
-/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; reduceMotion: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode }} */
+/** 释义：老玩家未单独设置时沿用原默认「释义」 */
+function applyLegacyWordDefinitionDefault() {
+  gameSettings.wordDefinitionMode = "definition";
+}
+
+/** 释义：新玩家默认关闭 */
+function applyNewPlayerWordDefinitionDefault() {
+  gameSettings.wordDefinitionMode = "off";
+}
+
+/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; reduceMotion: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean }} */
 export const gameSettings = reactive({
   allowSpellingAbbreviations: false,
   uiScalePercent: UI_SCALE_DEFAULT,
-  swapButtonMode: "bottom8",
-  markOnSwap: true,
+  markButtonEnabled: false,
+  swapButtonMode: "hidden",
+  markOnSwap: false,
   animationSpeedTier: "normal",
   reduceMotion: false,
   hapticsEnabled: true,
   displayLayoutMode: inferDefaultDisplayLayoutMode(),
-  wordDefinitionMode: "definition",
+  wordDefinitionMode: "off",
   letterCase: "uppercase",
   letterQMode: "qu",
+  highRiskSpellConfirm: true,
 });
 
 /**
@@ -123,9 +179,18 @@ export function clampUiScalePercent(value) {
 }
 
 export function loadGameSettings() {
+  let needsWordAuxMigration = false;
+  let needsWordDefinitionMigration = false;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
+    if (!raw) {
+      if (hasExistingPlayerSaveData()) {
+        applyLegacyWordAuxDefaults();
+        applyLegacyWordDefinitionDefault();
+        persistGameSettings();
+      }
+      return;
+    }
     const parsed = JSON.parse(raw);
     if (typeof parsed.allowSpellingAbbreviations === "boolean") {
       gameSettings.allowSpellingAbbreviations = parsed.allowSpellingAbbreviations;
@@ -138,6 +203,11 @@ export function loadGameSettings() {
     }
     if (typeof parsed.markOnSwap === "boolean") {
       gameSettings.markOnSwap = parsed.markOnSwap;
+    }
+    if (typeof parsed.markButtonEnabled === "boolean") {
+      gameSettings.markButtonEnabled = parsed.markButtonEnabled;
+    } else {
+      needsWordAuxMigration = true;
     }
     if (parsed.animationSpeedTier != null) {
       gameSettings.animationSpeedTier = normalizeAnimationSpeedTier(parsed.animationSpeedTier);
@@ -153,12 +223,40 @@ export function loadGameSettings() {
     }
     if (parsed.wordDefinitionMode != null) {
       gameSettings.wordDefinitionMode = normalizeWordDefinitionMode(parsed.wordDefinitionMode);
+    } else {
+      needsWordDefinitionMigration = true;
     }
     if (parsed.letterCase != null) {
       gameSettings.letterCase = normalizeLetterCase(parsed.letterCase);
     }
     if (parsed.letterQMode != null) {
       gameSettings.letterQMode = normalizeLetterQMode(parsed.letterQMode);
+    }
+    if (typeof parsed.highRiskSpellConfirm === "boolean") {
+      gameSettings.highRiskSpellConfirm = parsed.highRiskSpellConfirm;
+    }
+    if (needsWordAuxMigration) {
+      if (hasExistingPlayerSaveData()) {
+        gameSettings.markButtonEnabled = true;
+        if (parsed.swapButtonMode == null) {
+          gameSettings.swapButtonMode = "bottom8";
+        }
+        if (typeof parsed.markOnSwap !== "boolean") {
+          gameSettings.markOnSwap = true;
+        }
+      } else {
+        applyNewPlayerWordAuxDefaults();
+      }
+    }
+    if (needsWordDefinitionMigration) {
+      if (hasExistingPlayerSaveData()) {
+        applyLegacyWordDefinitionDefault();
+      } else {
+        applyNewPlayerWordDefinitionDefault();
+      }
+    }
+    if (needsWordAuxMigration || needsWordDefinitionMigration) {
+      persistGameSettings();
     }
   } catch {
     /* 损坏或不可读时沿用默认 */
@@ -172,6 +270,7 @@ export function persistGameSettings() {
       JSON.stringify({
         allowSpellingAbbreviations: gameSettings.allowSpellingAbbreviations,
         uiScalePercent: gameSettings.uiScalePercent,
+        markButtonEnabled: gameSettings.markButtonEnabled,
         swapButtonMode: gameSettings.swapButtonMode,
         markOnSwap: gameSettings.markOnSwap,
         animationSpeedTier: gameSettings.animationSpeedTier,
@@ -181,6 +280,7 @@ export function persistGameSettings() {
         wordDefinitionMode: gameSettings.wordDefinitionMode,
         letterCase: gameSettings.letterCase,
         letterQMode: gameSettings.letterQMode,
+        highRiskSpellConfirm: gameSettings.highRiskSpellConfirm,
       }),
     );
     void import("../save/cloudSave/cloudSaveSync.js").then(({ markCloudSyncDirty }) => {
@@ -211,6 +311,17 @@ export function setUiScalePercent(percent) {
   persistGameSettings();
 }
 
+/** @returns {boolean} */
+export function getMarkButtonEnabled() {
+  return gameSettings.markButtonEnabled === true;
+}
+
+/** @param {boolean} enabled */
+export function setMarkButtonEnabled(enabled) {
+  gameSettings.markButtonEnabled = Boolean(enabled);
+  persistGameSettings();
+}
+
 export function getSwapButtonMode() {
   return normalizeSwapButtonMode(gameSettings.swapButtonMode);
 }
@@ -227,7 +338,7 @@ export function getSwapGridPickCount() {
 
 /** @returns {boolean} */
 export function getMarkOnSwap() {
-  return gameSettings.markOnSwap !== false;
+  return gameSettings.markOnSwap === true;
 }
 
 /** @param {SwapButtonMode} mode */
@@ -328,6 +439,17 @@ export function getLetterQMode() {
 /** @param {LetterQMode} mode */
 export function setLetterQMode(mode) {
   gameSettings.letterQMode = normalizeLetterQMode(mode);
+  persistGameSettings();
+}
+
+/** @returns {boolean} */
+export function getHighRiskSpellConfirmEnabled() {
+  return gameSettings.highRiskSpellConfirm !== false;
+}
+
+/** @param {boolean} enabled */
+export function setHighRiskSpellConfirm(enabled) {
+  gameSettings.highRiskSpellConfirm = Boolean(enabled);
   persistGameSettings();
 }
 

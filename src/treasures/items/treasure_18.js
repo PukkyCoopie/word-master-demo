@@ -3,7 +3,7 @@ import { describe, score } from "../treasureDescription.js";
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 5,
-  rarity: "common",
+  rarity: "rare",
   description: describe("你每剩余一次丢弃次数，", score("+40"), "分数"),
 };
 

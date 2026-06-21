@@ -54,6 +54,7 @@
             :run-difficulty-index="sessionRunDifficultyIndex"
             :restored-save="sessionRestoredSave"
             :save-slot-index="sessionSaveSlotIndex"
+            :first-word-tutorial="gamePanelFirstWordTutorial"
             @request-restart="onGameRequestRestart"
             @exit-to-menu="onGameExitToMenu"
           />
@@ -220,6 +221,7 @@ import {
   repairSlotProfilesAfterLoad,
   resetSlotProfile,
   setActiveSaveSlotIndex,
+  isFirstWordTutorialCompleted,
 } from "./profile/playerProfile.js";
 import {
   clearSlot,
@@ -284,6 +286,16 @@ import { formatCollectionMenuProgressSuffix } from "./collection/collectionProgr
 import { registerAndroidBackHandler } from "./platform/androidBackButton.js";
 import { handleAppAndroidBack } from "./platform/handleAppAndroidBack.js";
 import { useBootImages } from "./composables/useBootImages.js";
+import {
+  consumePendingTutorialAutoStart,
+  isFreshSaveForTutorial,
+  isLocalSaveFreshForTutorial,
+  markPendingTutorialAutoStart,
+  markTutorialAutoStartAttempted,
+  hasTutorialAutoStartAttempted,
+  shouldAutoStartFirstWordTutorial,
+} from "./tutorial/firstWordTutorial.js";
+import { shouldStartNewRunAtSlot } from "./save/localSaveRunProgress.js";
 
 useScale();
 const { isDesktopLayout } = useWebLayoutMode();
@@ -338,6 +350,8 @@ const sessionRunDifficultyIndex = ref(0);
 /** @type {import('vue').Ref<import('./save/runSavePayload.js').RunSavePayload | null>} */
 const sessionRestoredSave = ref(null);
 const sessionSaveSlotIndex = ref(0);
+/** 继续读档时为 true，阻止本局进入首词教程。 */
+const sessionFirstWordTutorialSuppressed = ref(false);
 const runStartPrefillSeed = ref("");
 const saveUiRefreshKey = ref(0);
 const collectionRefreshKey = ref(0);
@@ -604,6 +618,7 @@ function onCloudSaveApplied() {
     sessionRestoredSave.value = null;
     screen.value = "menu";
   }
+  void tryAutoStartFirstWordTutorial();
 }
 
 async function onCloudSaveUseCloud() {
@@ -744,6 +759,7 @@ function onSaveSlotSelect(payload) {
 }
 
 async function startLoadSlot(index) {
+  disableSessionFirstWordTutorial();
   const payload = getSlotPayload(index);
   if (!payload) return;
   sessionRestoredSave.value = payload;
@@ -765,6 +781,7 @@ async function startLoadSlot(index) {
 
 async function startNewRunAtSlot(index, seedNumeric, seedDisplay, resetProfile = false) {
   recordRunStartedForSlot(index);
+  enableSessionFirstWordTutorialForSlot(index);
   sessionRestoredSave.value = null;
   sessionSaveSlotIndex.value = index;
   setActiveSaveSlotIndex(index);
@@ -804,6 +821,38 @@ const appShellUnlocked = computed(
 const showMenu = computed(() => appShellUnlocked.value && screen.value === "menu");
 const showCollection = computed(() => appShellUnlocked.value && screen.value === "collection");
 const showGame = computed(() => appShellUnlocked.value && screen.value === "game");
+
+const gamePanelFirstWordTutorial = computed(() => {
+  if (sessionFirstWordTutorialSuppressed.value) return false;
+  return shouldStartNewRunAtSlot(sessionSaveSlotIndex.value);
+});
+
+function enableSessionFirstWordTutorialForSlot(_slotIx) {
+  sessionFirstWordTutorialSuppressed.value = false;
+}
+
+function disableSessionFirstWordTutorial() {
+  sessionFirstWordTutorialSuppressed.value = true;
+}
+
+async function maybeScheduleTutorialAutoStartOnBoot() {
+  if (hasTutorialAutoStartAttempted() || !shouldStartNewRunAtSlot(getActiveSaveSlotIndex())) return;
+  if (!isLocalSaveFreshForTutorial()) return;
+  const fresh = await isFreshSaveForTutorial();
+  if (fresh) markPendingTutorialAutoStart();
+}
+
+async function tryAutoStartFirstWordTutorial() {
+  if (hasTutorialAutoStartAttempted()) return;
+  if (!appShellUnlocked.value) return;
+  if (screen.value !== "menu") return;
+  if (transitionBusy.value) return;
+  if (!shouldAutoStartFirstWordTutorial()) return;
+  consumePendingTutorialAutoStart();
+  markTutorialAutoStartAttempted();
+  sessionFirstWordTutorialSuppressed.value = false;
+  await startDirectNewRun(getActiveSaveSlotIndex(), "menu");
+}
 
 const collectionCareer = computed(() => {
   void collectionRefreshKey.value;
@@ -877,11 +926,25 @@ watch(appBootReady, (ready) => {
   if (ready) maybeOpenPrivacyConsentOnBoot();
 });
 
+watch(
+  () => [appShellUnlocked.value, tapTapPhase.value, screen.value, transitionBusy.value],
+  () => {
+    void tryAutoStartFirstWordTutorial();
+  },
+);
+
+watch(tapTapPhase, (phase) => {
+  if (phase === "ready") {
+    void maybeScheduleTutorialAutoStartOnBoot().then(() => tryAutoStartFirstWordTutorial());
+  }
+});
+
 onMounted(() => {
   loadGameSettings();
   loadPlayerProfile();
   loadSaveEnvelope();
   repairSlotProfilesAfterLoad();
+  void maybeScheduleTutorialAutoStartOnBoot().then(() => tryAutoStartFirstWordTutorial());
   setCloudSaveAppliedCallback(onCloudSaveApplied);
   void initAppLifecycle();
   loadDictionary({ shouldAbort: () => !appAlive });
@@ -896,6 +959,7 @@ onMounted(() => {
     openMaterialBench,
     enableDeveloperMode,
     openTapTapEngagementPrompt: () => openTapTapEngagementLayer({ showIntroQuestion: true }),
+    openCollection,
   });
 
   globalThis.__WM_previewAchievementToast = () =>
@@ -1024,7 +1088,7 @@ async function startDirectNewRun(slotIx, mode = "menu") {
   sessionRunPresetId.value = presetId;
   sessionRunDifficultyIndex.value = difficultyIndex;
 
-  if (mode === "menu" && !isSlotOccupied(slotIx)) {
+  if (mode === "menu" && shouldStartNewRunAtSlot(slotIx)) {
     const resetProfile = !isSlotProfileActivated(slotIx);
     await startNewRunAtSlot(slotIx, seedNumeric, seedDisplay, resetProfile);
     return;
@@ -1032,6 +1096,7 @@ async function startDirectNewRun(slotIx, mode = "menu") {
 
   recordRunStartedForSlot(slotIx);
   clearInProgressRunProgressIfAny(slotIx);
+  disableSessionFirstWordTutorial();
 
   sessionRestoredSave.value = null;
   sessionRunSeed.value = seedNumeric;
@@ -1175,7 +1240,7 @@ async function onRunStartConfirm(payload) {
   sessionRunPresetId.value = presetId;
   sessionRunDifficultyIndex.value = difficultyIndex;
 
-  if (runStartMode.value === "menu" && !isSlotOccupied(slotIx)) {
+  if (runStartMode.value === "menu" && shouldStartNewRunAtSlot(slotIx)) {
     const resetProfile = !isSlotProfileActivated(slotIx);
     await startNewRunAtSlot(slotIx, seedNumeric, seedDisplay, resetProfile);
     runStartMode.value = "menu";
@@ -1184,6 +1249,7 @@ async function onRunStartConfirm(payload) {
 
   recordRunStartedForSlot(slotIx);
   clearInProgressRunProgressIfAny(slotIx);
+  disableSessionFirstWordTutorial();
 
   sessionRestoredSave.value = null;
   sessionRunSeed.value = seedNumeric;

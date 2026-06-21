@@ -114,7 +114,6 @@
                   <SettingsSegmentControl
                     :options="ANIMATION_SPEED_OPTIONS"
                     :model-value="animationSpeedTier"
-                    :disabled="reduceMotionEnabled"
                     aria-label="动画速度"
                     @update:model-value="onAnimationSpeedChange"
                   />
@@ -202,13 +201,49 @@
               :inert="activeTab !== 'controls'"
             >
               <div class="settings-layer-list">
-                <div class="settings-row settings-row--cycle">
-                  <span class="settings-row-label">对调按钮</span>
+                <label class="settings-row">
+                  <span class="settings-row-label-group">
+                    <span class="settings-row-label">标记按钮</span>
+                    <SettingsHelpButton
+                      aria-label="标记按钮说明"
+                      :active="activeHelpId === 'mark'"
+                      @click="openHelp('mark')"
+                    />
+                  </span>
+                  <button
+                    type="button"
+                    class="settings-toggle"
+                    role="switch"
+                    :aria-checked="markButtonEnabled"
+                    @click="onToggleMarkButton"
+                  >
+                    <span
+                      class="settings-toggle-track"
+                      :class="{ 'settings-toggle-track--on': markButtonEnabled }"
+                    >
+                      <span class="settings-toggle-thumb" />
+                    </span>
+                  </button>
+                </label>
+
+                <div
+                  class="settings-row settings-row--cycle"
+                  :class="{ 'settings-row--disabled': !markButtonEnabled }"
+                >
+                  <span class="settings-row-label-group">
+                    <span class="settings-row-label">对调按钮</span>
+                    <SettingsHelpButton
+                      aria-label="对调按钮说明"
+                      :active="activeHelpId === 'swap'"
+                      @click="openHelp('swap')"
+                    />
+                  </span>
                   <div class="settings-cycle" role="group" aria-label="对调按钮范围">
                     <button
                       type="button"
                       class="settings-cycle-arrow"
                       aria-label="上一项"
+                      :disabled="!markButtonEnabled"
                       @click="onSwapModePrev"
                     >
                       <i class="ri-arrow-left-s-line" aria-hidden="true" />
@@ -221,6 +256,7 @@
                       type="button"
                       class="settings-cycle-arrow"
                       aria-label="下一项"
+                      :disabled="!markButtonEnabled"
                       @click="onSwapModeNext"
                     >
                       <i class="ri-arrow-right-s-line" aria-hidden="true" />
@@ -228,13 +264,24 @@
                   </div>
                 </div>
 
-                <label class="settings-row">
-                  <span class="settings-row-label">对调时标记</span>
+                <label
+                  class="settings-row"
+                  :class="{ 'settings-row--disabled': !markOnSwapSettingEnabled }"
+                >
+                  <span class="settings-row-label-group">
+                    <span class="settings-row-label">对调时标记</span>
+                    <SettingsHelpButton
+                      aria-label="对调时标记说明"
+                      :active="activeHelpId === 'markOnSwap'"
+                      @click="openHelp('markOnSwap')"
+                    />
+                  </span>
                   <button
                     type="button"
                     class="settings-toggle"
                     role="switch"
                     :aria-checked="markOnSwap"
+                    :disabled="!markOnSwapSettingEnabled"
                     @click="onToggleMarkOnSwap"
                   >
                     <span class="settings-toggle-track" :class="{ 'settings-toggle-track--on': markOnSwap }">
@@ -260,6 +307,31 @@
                     </span>
                   </button>
                 </label>
+
+                <label class="settings-row">
+                  <span class="settings-row-label-group">
+                    <span class="settings-row-label">高风险确认</span>
+                    <SettingsHelpButton
+                      aria-label="高风险确认说明"
+                      :active="activeHelpId === 'highRisk'"
+                      @click="openHelp('highRisk')"
+                    />
+                  </span>
+                  <button
+                    type="button"
+                    class="settings-toggle"
+                    role="switch"
+                    :aria-checked="highRiskSpellConfirmEnabled"
+                    @click="onToggleHighRiskSpellConfirm"
+                  >
+                    <span
+                      class="settings-toggle-track"
+                      :class="{ 'settings-toggle-track--on': highRiskSpellConfirmEnabled }"
+                    >
+                      <span class="settings-toggle-thumb" />
+                    </span>
+                  </button>
+                </label>
               </div>
             </section>
           </div>
@@ -271,12 +343,22 @@
       </div>
     </div>
   </Transition>
+
+  <SettingsHelpDialog
+    :open="activeHelpId != null"
+    :title="activeHelpContent.title"
+    :paragraphs="activeHelpContent.paragraphs"
+    :demo-variant="activeHelpContent.demoVariant"
+    @close="closeHelp"
+  />
 </template>
 
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
 import { settingsOverlayZ } from "../game/overlayStack.js";
 import SettingsSegmentControl from "./SettingsSegmentControl.vue";
+import SettingsHelpButton from "./settings/SettingsHelpButton.vue";
+import SettingsHelpDialog from "./settings/SettingsHelpDialog.vue";
 import { ANIMATION_SPEED_OPTIONS } from "../settings/animationSpeed.js";
 import { LETTER_CASE_OPTIONS } from "../settings/letterCase.js";
 import { LETTER_Q_MODE_OPTIONS } from "../settings/letterQ.js";
@@ -293,12 +375,15 @@ import {
   setHapticsEnabled,
   setLetterCase,
   setLetterQMode,
+  setMarkButtonEnabled,
   setMarkOnSwap,
   setReduceMotion,
   setUiScalePercent,
   setWordDefinitionMode,
   stepSwapButtonMode,
   WORD_DEFINITION_MODE_OPTIONS,
+  setHighRiskSpellConfirm,
+  getHighRiskSpellConfirmEnabled,
 } from "../settings/gameSettings.js";
 import { isHapticsAvailable, previewHaptic, scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 
@@ -354,7 +439,11 @@ function setActiveTab(id) {
 
 const allowAbbrev = computed(() => gameSettings.allowSpellingAbbreviations === true);
 const wordDefinitionMode = computed(() => gameSettings.wordDefinitionMode);
-const markOnSwap = computed(() => gameSettings.markOnSwap !== false);
+const markButtonEnabled = computed(() => gameSettings.markButtonEnabled === true);
+const markOnSwap = computed(() => gameSettings.markOnSwap === true);
+const markOnSwapSettingEnabled = computed(
+  () => markButtonEnabled.value && gameSettings.swapButtonMode !== "hidden",
+);
 const uiScalePercent = computed(() => gameSettings.uiScalePercent);
 const displayLayoutMode = computed(() => gameSettings.displayLayoutMode);
 const animationSpeedTier = computed(() => gameSettings.animationSpeedTier);
@@ -363,6 +452,7 @@ const letterQMode = computed(() => gameSettings.letterQMode);
 const reduceMotionEnabled = computed(() => gameSettings.reduceMotion === true);
 const hapticsAvailable = isHapticsAvailable();
 const hapticsEnabled = computed(() => gameSettings.hapticsEnabled !== false);
+const highRiskSpellConfirmEnabled = computed(() => getHighRiskSpellConfirmEnabled());
 
 function onToggleHaptics() {
   const next = !hapticsEnabled.value;
@@ -408,22 +498,84 @@ const swapModeSizerLabel = SWAP_BUTTON_MODE_OPTIONS.reduce((a, b) =>
 
 const swapModeLabel = computed(() => {
   const id = gameSettings.swapButtonMode;
-  return SWAP_BUTTON_MODE_OPTIONS.find((o) => o.id === id)?.label ?? "最下面8个";
+  return SWAP_BUTTON_MODE_OPTIONS.find((o) => o.id === id)?.label ?? "不显示";
 });
 
 function onSwapModePrev() {
+  if (!markButtonEnabled.value) return;
   stepSwapButtonMode(-1);
   if (hapticsAvailable) triggerHaptic("tabSwitch");
 }
 
 function onSwapModeNext() {
+  if (!markButtonEnabled.value) return;
   stepSwapButtonMode(1);
   if (hapticsAvailable) triggerHaptic("tabSwitch");
 }
 
+function onToggleMarkButton() {
+  setMarkButtonEnabled(!markButtonEnabled.value);
+  settingsChangeTap();
+}
+
 function onToggleMarkOnSwap() {
+  if (!markOnSwapSettingEnabled.value) return;
   setMarkOnSwap(!markOnSwap.value);
   settingsChangeTap();
+}
+
+function onToggleHighRiskSpellConfirm() {
+  setHighRiskSpellConfirm(!highRiskSpellConfirmEnabled.value);
+  settingsChangeTap();
+}
+
+/** @typedef {'mark' | 'swap' | 'markOnSwap' | 'highRisk'} SettingsHelpId */
+
+/** @type {import('vue').Ref<SettingsHelpId | null>} */
+const activeHelpId = ref(null);
+
+/** @type {Record<SettingsHelpId, { title: string; paragraphs: string[]; demoVariant: SettingsHelpId }>} */
+const SETTINGS_HELP_COPY = {
+  mark: {
+    title: "",
+    paragraphs: ["通过该按钮为字母块添加角标"],
+    demoVariant: "mark",
+  },
+  swap: {
+    title: "",
+    paragraphs: ["收回选中的字母，然后选中一些其他字母，方便后续进行丢弃操作"],
+    demoVariant: "swap",
+  },
+  markOnSwap: {
+    title: "",
+    paragraphs: [
+      "将选中的字母送回棋盘时，自动为它们打上标记",
+      "被标记的字母可以通过点击标记键快速选中",
+    ],
+    demoVariant: "markOnSwap",
+  },
+  highRisk: {
+    title: "",
+    paragraphs: ["在使用高风险的法术时，启用此项以防止误操作"],
+    demoVariant: "",
+  },
+};
+
+const activeHelpContent = computed(() => {
+  const id = activeHelpId.value;
+  if (!id) {
+    return { title: "", paragraphs: [], demoVariant: "" };
+  }
+  return SETTINGS_HELP_COPY[id];
+});
+
+/** @param {SettingsHelpId} id */
+function openHelp(id) {
+  activeHelpId.value = id;
+}
+
+function closeHelp() {
+  activeHelpId.value = null;
 }
 
 const scaleSliderStyle = computed(() => {
@@ -628,6 +780,22 @@ function onScaleInputEnter(e) {
   font-size: calc(28 * var(--rpx));
   font-weight: 700;
   color: var(--text-dark, #3c3a32);
+}
+
+.settings-row-label-group {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.settings-row--disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.settings-row--disabled .settings-cycle-arrow:disabled,
+.settings-row--disabled .settings-toggle:disabled {
+  cursor: not-allowed;
 }
 
 .settings-toggle {

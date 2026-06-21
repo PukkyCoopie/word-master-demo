@@ -7,6 +7,10 @@
     <span v-else-if="seg.type === 'gainBlock'" class="td-desc-gain-block">
       <RecurseDescSegments :segments="seg.parts" />
     </span>
+    <span v-else-if="seg.type === 'riskBlock'" class="td-desc-risk-block">
+      <RecurseDescSegments :segments="seg.parts" />
+    </span>
+    <span v-else-if="seg.type === 'riskText'" class="td-desc-risk-text">{{ seg.v }}</span>
     <span v-else-if="seg.type === 'rarity'" class="td-desc-chip td-desc-rarity" :class="'td-desc-rarity--' + rarityClass(seg.v)">{{
       seg.v
     }}</span>

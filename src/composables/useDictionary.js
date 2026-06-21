@@ -4,6 +4,17 @@ import {
   resolveDictionaryText,
 } from "../dictionary/dictionaryTransport.js";
 import { getAllowSpellingAbbreviations } from "../settings/gameSettings.js";
+import {
+  getRarityForLetter,
+  getRarityBonusForRarity,
+  getRarityMultBonusForRarity,
+} from "./useScoring.js";
+import {
+  bossHasWholeWordSoftRule,
+  buildBossWildcardResolveCacheKey,
+  candidatePassesBossSoftWordRule,
+} from "../game/bossWordViolation.js";
+import { isBossEffectsSuppressedByTreasures } from "../game/treasureBossSuppress.js";
 
 /** 词典条目 [word, pos, translation_zh] → 小写 word 为 key 的 Map */
 const wordSet = shallowRef(null);
@@ -135,6 +146,7 @@ async function loadOnce(options = {}) {
   }
 
   if (shouldAbort?.()) return;
+  clearResolvePatternCache();
   wordSet.value = set;
   wordInfoMap.value = map;
   wordsByLength.value = byLength;
@@ -160,6 +172,184 @@ function isWordAllowedByAbbrevSetting(word) {
     if (NORMAL_POS_TOKENS.has(token)) return true;
   }
   return false;
+}
+
+/** 通配符解析 LRU 缓存（pattern + 稀有度等级 → 结果） */
+const RESOLVE_PATTERN_CACHE_MAX = 128;
+/** @type {Map<string, string | null>} */
+const resolvePatternCache = new Map();
+
+/** @param {Record<string, number> | null | undefined} rarityLevelsByRarity */
+function buildRarityLevelsKey(rarityLevelsByRarity) {
+  if (!rarityLevelsByRarity || typeof rarityLevelsByRarity !== "object") return "1|1|1|1";
+  return `${rarityLevelsByRarity.common ?? 1}|${rarityLevelsByRarity.rare ?? 1}|${rarityLevelsByRarity.epic ?? 1}|${rarityLevelsByRarity.legendary ?? 1}`;
+}
+
+function clearResolvePatternCache() {
+  resolvePatternCache.clear();
+}
+
+let letterIntrinsicTablesKey = "";
+/** @type {Float64Array | null} */
+let letterProductByCharCode = null;
+/** @type {Float64Array | null} */
+let letterScoreByCharCode = null;
+
+/** @param {Record<string, number> | null | undefined} rarityLevelsByRarity */
+function getLetterIntrinsicTables(rarityLevelsByRarity) {
+  const key = buildRarityLevelsKey(rarityLevelsByRarity);
+  if (key === letterIntrinsicTablesKey && letterProductByCharCode && letterScoreByCharCode) {
+    return { letterProductByCharCode, letterScoreByCharCode };
+  }
+  const products = new Float64Array(128);
+  const scores = new Float64Array(128);
+  for (let code = 97; code <= 122; code += 1) {
+    const ch = String.fromCharCode(code);
+    const rarity = getRarityForLetter(ch);
+    const score = getRarityBonusForRarity(rarity, rarityLevelsByRarity);
+    const mult = getRarityMultBonusForRarity(rarity, rarityLevelsByRarity);
+    products[code] = score * mult;
+    scores[code] = score;
+  }
+  letterIntrinsicTablesKey = key;
+  letterProductByCharCode = products;
+  letterScoreByCharCode = scores;
+  return { letterProductByCharCode, letterScoreByCharCode };
+}
+
+/**
+ * 各万能位：稀有度奖励分 × 稀有度倍率（含局内升级；不含宝藏/材质/格上角标）。
+ * @param {string} pattern
+ * @param {string} candidate
+ * @param {string} wildcardChar
+ * @param {Float64Array} letterProductByCharCode
+ * @param {Float64Array} letterScoreByCharCode
+ * @returns {{ productSum: number, scoreSum: number }}
+ */
+function scoreWildcardIntrinsicProductSum(
+  pattern,
+  candidate,
+  wildcardChar,
+  letterProductByCharCode,
+  letterScoreByCharCode,
+) {
+  let productSum = 0;
+  let scoreSum = 0;
+  for (let i = 0; i < pattern.length; i++) {
+    if (pattern[i] !== wildcardChar) continue;
+    const code = candidate.charCodeAt(i);
+    productSum += letterProductByCharCode[code] ?? 0;
+    scoreSum += letterScoreByCharCode[code] ?? 0;
+  }
+  return { productSum, scoreSum };
+}
+
+/**
+ * @param {{ productSum: number, scoreSum: number }} metrics
+ * @param {{ productSum: number, scoreSum: number }} bestMetrics
+ * @param {string} candidate
+ * @param {string} best
+ */
+function isWildcardCandidateBetter(metrics, bestMetrics, candidate, best) {
+  if (metrics.productSum !== bestMetrics.productSum) return metrics.productSum > bestMetrics.productSum;
+  if (metrics.scoreSum !== bestMetrics.scoreSum) return metrics.scoreSum > bestMetrics.scoreSum;
+  return candidate < best;
+}
+
+/**
+ * 带通配符 `?` 的匹配：例如 `c?t` 可匹配 `cat` / `cut`。
+ * 多个命中时：Boss 整词软规则合规词优先；其中取各万能位「稀有度奖励分×稀有度倍率（含升级）」之和最大者。
+ * 若无合规词则回退至全体候选的稀有度最优。无命中返回 null。
+ * @param {string} word
+ * @param {string} [wildcardChar]
+ * @param {Record<string, number> | null | undefined} [rarityLevelsByRarity]
+ * @param {import("../game/bossWordViolation.js").BossWildcardResolveContext | null | undefined} [bossResolveContext]
+ * @returns {string | null}
+ */
+export function resolveWordPattern(
+  word,
+  wildcardChar = "?",
+  rarityLevelsByRarity = null,
+  bossResolveContext = null,
+) {
+  const raw = String(word).toLowerCase().trim();
+  if (!raw) return null;
+  const set = wordSet.value;
+  if (!(set instanceof Set)) return null;
+  if (!raw.includes(wildcardChar)) {
+    return set.has(raw) && isWordAllowedByAbbrevSetting(raw) ? raw : null;
+  }
+
+  const rarityKey = buildRarityLevelsKey(rarityLevelsByRarity);
+  const bossKey = buildBossWildcardResolveCacheKey(bossResolveContext);
+  const cacheKey = `${raw}\0${wildcardChar}\0${rarityKey}\0${bossKey}`;
+  if (resolvePatternCache.has(cacheKey)) return resolvePatternCache.get(cacheKey) ?? null;
+
+  const byLength = wordsByLength.value;
+  const candidates = byLength instanceof Map ? byLength.get(raw.length) : null;
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    rememberResolvePatternCache(cacheKey, null);
+    return null;
+  }
+
+  const { letterProductByCharCode, letterScoreByCharCode } = getLetterIntrinsicTables(rarityLevelsByRarity);
+  let patternHasFixed = false;
+  for (let i = 0; i < raw.length; i += 1) {
+    if (raw[i] !== wildcardChar) {
+      patternHasFixed = true;
+      break;
+    }
+  }
+
+  const useBossTier =
+    bossResolveContext &&
+    bossHasWholeWordSoftRule(bossResolveContext.slug) &&
+    !isBossEffectsSuppressedByTreasures(bossResolveContext.ownedSlotTreasureIds);
+
+  let bestBoss = null;
+  let bestBossMetrics = { productSum: -1, scoreSum: -1 };
+  let bestAny = null;
+  let bestAnyMetrics = { productSum: -1, scoreSum: -1 };
+  outer: for (const candidate of candidates) {
+    if (!isWordAllowedByAbbrevSetting(candidate)) continue;
+    if (patternHasFixed) {
+      for (let i = 0; i < raw.length; i++) {
+        const ch = raw[i];
+        if (ch !== wildcardChar && ch !== candidate[i]) continue outer;
+      }
+    }
+    const metrics = scoreWildcardIntrinsicProductSum(
+      raw,
+      candidate,
+      wildcardChar,
+      letterProductByCharCode,
+      letterScoreByCharCode,
+    );
+    if (bestAny === null || isWildcardCandidateBetter(metrics, bestAnyMetrics, candidate, bestAny)) {
+      bestAny = candidate;
+      bestAnyMetrics = metrics;
+    }
+    if (
+      useBossTier &&
+      candidatePassesBossSoftWordRule(candidate, bossResolveContext) &&
+      (bestBoss === null || isWildcardCandidateBetter(metrics, bestBossMetrics, candidate, bestBoss))
+    ) {
+      bestBoss = candidate;
+      bestBossMetrics = metrics;
+    }
+  }
+  const best = bestBoss ?? bestAny;
+  rememberResolvePatternCache(cacheKey, best);
+  return best;
+}
+
+/** @param {string} cacheKey @param {string | null} result */
+function rememberResolvePatternCache(cacheKey, result) {
+  if (resolvePatternCache.size >= RESOLVE_PATTERN_CACHE_MAX) {
+    const first = resolvePatternCache.keys().next().value;
+    if (first !== undefined) resolvePatternCache.delete(first);
+  }
+  resolvePatternCache.set(cacheKey, result);
 }
 
 export function useDictionary() {
@@ -189,6 +379,7 @@ export function useDictionary() {
         await loadOnce(options);
       } catch (e) {
         dictError.value = e?.message || "词典加载失败";
+        clearResolvePatternCache();
         wordSet.value = null;
         wordInfoMap.value = null;
         wordsByLength.value = null;
@@ -216,33 +407,17 @@ export function useDictionary() {
   }
 
   /**
-   * 带通配符 `?` 的匹配：例如 `c?t` 可匹配 `cat` / `cut`。
-   * 返回首个命中的真实单词（小写）；无命中返回 null。
+   * @param {string} word
+   * @param {string} [wildcardChar]
+   * @param {Record<string, number> | null | undefined} [rarityLevelsByRarity]
    */
-  function resolveWordPattern(word, wildcardChar = "?") {
-    const raw = String(word).toLowerCase().trim();
-    if (!raw) return null;
-    const set = wordSet.value;
-    if (!(set instanceof Set)) return null;
-    if (!raw.includes(wildcardChar)) {
-      return set.has(raw) && isWordAllowedByAbbrevSetting(raw) ? raw : null;
-    }
-    const byLength = wordsByLength.value;
-    const candidates = byLength instanceof Map ? byLength.get(raw.length) : null;
-    if (!Array.isArray(candidates) || candidates.length === 0) return null;
-    outer: for (const candidate of candidates) {
-      if (!isWordAllowedByAbbrevSetting(candidate)) continue;
-      for (let i = 0; i < raw.length; i++) {
-        const ch = raw[i];
-        if (ch !== wildcardChar && ch !== candidate[i]) continue outer;
-      }
-      return candidate;
-    }
-    return null;
-  }
-
-  function isValidWordPattern(word, wildcardChar = "?") {
-    return resolveWordPattern(word, wildcardChar) != null;
+  function isValidWordPattern(
+    word,
+    wildcardChar = "?",
+    rarityLevelsByRarity = null,
+    bossResolveContext = null,
+  ) {
+    return resolveWordPattern(word, wildcardChar, rarityLevelsByRarity, bossResolveContext) != null;
   }
 
   function getWordDefinition(word) {

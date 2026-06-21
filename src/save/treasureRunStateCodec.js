@@ -34,6 +34,7 @@ export function serializeTreasureRunState(state) {
     runIceMaterialShattered: !!state.runIceMaterialShattered,
     everTwoTreasuresWithAccessoryUnlocked: !!state.everTwoTreasuresWithAccessoryUnlocked,
     levelFirstFullWordDiscardDone: !!state.levelFirstFullWordDiscardDone,
+    levelFirstDiscardBatchDone: !!state.levelFirstDiscardBatchDone,
     everDiscardedFullWord: !!state.everDiscardedFullWord,
     everDiscardedWordLen7Plus: !!state.everDiscardedWordLen7Plus,
     soldBlueprintTreasure98: !!state.soldBlueprintTreasure98,
@@ -91,6 +92,7 @@ export function deserializeTreasureRunState(raw) {
   base.runIceMaterialShattered = !!o.runIceMaterialShattered;
   base.everTwoTreasuresWithAccessoryUnlocked = !!o.everTwoTreasuresWithAccessoryUnlocked;
   base.levelFirstFullWordDiscardDone = !!o.levelFirstFullWordDiscardDone;
+  base.levelFirstDiscardBatchDone = !!o.levelFirstDiscardBatchDone;
   base.everDiscardedFullWord = !!o.everDiscardedFullWord;
   base.everDiscardedWordLen7Plus = !!o.everDiscardedWordLen7Plus;
   base.soldBlueprintTreasure98 = !!o.soldBlueprintTreasure98;

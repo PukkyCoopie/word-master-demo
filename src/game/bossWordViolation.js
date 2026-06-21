@@ -1,4 +1,5 @@
 import { isBossEffectsSuppressedByTreasures } from "./treasureBossSuppress.js";
+import { getRarityForLetter, isWildcardMaterialTile } from "../composables/useScoring.js";
 
 /**
  * Boss 词长 / 词性「软规则」：不挡提交，违规时本手计 0 分（由调用方处理）。
@@ -87,14 +88,92 @@ export function dictionaryPosMatchesClubKey(dictPos, requiredKey, translationZh)
   return tokens.some((token) => dictionaryPosTokenMatchesClubKey(token, requiredKey));
 }
 
-/**
- * @param {Array<{ rarity?: string }> | null | undefined} tiles 按拼词顺序的字母块
- * @returns {string} common | rare | epic | legendary
- */
 export function getEndingLetterRarityFromTiles(tiles) {
   const list = Array.isArray(tiles) ? tiles : [];
   if (!list.length) return "common";
   return String(list[list.length - 1]?.rarity ?? "common");
+}
+
+/**
+ * 按拼词顺序 + 已解析整词，取末格稀有度（万能块取解析字母；与提交前 tile 展示一致）。
+ * @param {object[] | null | undefined} tiles
+ * @param {string | null | undefined} resolvedWord
+ */
+export function getEndingLetterRarityForResolvedWord(tiles, resolvedWord) {
+  const res = String(resolvedWord ?? "").toLowerCase().trim();
+  const list = Array.isArray(tiles) ? tiles : [];
+  if (!list.length || !res) return "common";
+  let pos = 0;
+  let lastRarity = "common";
+  for (const tile of list) {
+    const frag = String(tile?.letter ?? "").toLowerCase();
+    const start = pos;
+    pos += frag.length;
+    if (isWildcardMaterialTile(tile) && frag === "?") {
+      const ch = res[start];
+      if (ch >= "a" && ch <= "z") lastRarity = getRarityForLetter(ch);
+    } else {
+      lastRarity = String(tile?.rarity ?? "common");
+    }
+  }
+  return lastRarity;
+}
+
+/**
+ * @typedef {Object} BossWildcardResolveContext
+ * @property {string} slug
+ * @property {Set<number>} [usedLengthsThisLevel]
+ * @property {number | null} [mouthLockedLength]
+ * @property {string | null} [clubRequiredKey]
+ * @property {(string | null | undefined)[]} [ownedSlotTreasureIds]
+ * @property {(w: string) => { pos?: string, translation_zh?: string } | null | undefined} [getWordDefinition]
+ * @property {(resolvedWord: string) => number} [getJudgedWordLen]
+ * @property {(resolvedWord: string) => string} [getEndingLetterRarity]
+ * @property {object[]} [tiles]
+ */
+
+/** @param {BossWildcardResolveContext | null | undefined} ctx */
+export function buildBossWildcardResolveCacheKey(ctx) {
+  if (!ctx?.slug) return "";
+  const used =
+    ctx.usedLengthsThisLevel instanceof Set
+      ? [...ctx.usedLengthsThisLevel].sort((a, b) => a - b).join(",")
+      : "";
+  const tiles = Array.isArray(ctx.tiles) ? ctx.tiles : [];
+  const last = tiles[tiles.length - 1];
+  const endingFp = last
+    ? `${String(last.letter ?? "")}:${String(last.rarity ?? "common")}:${isWildcardMaterialTile(last) ? "w" : "f"}`
+    : "";
+  return `${ctx.slug}|${used}|${ctx.mouthLockedLength ?? ""}|${ctx.clubRequiredKey ?? ""}|${endingFp}|${tiles.length}`;
+}
+
+/**
+ * 万能块解析：候选词是否满足 Boss 整词软规则（与提交判定一致）。
+ * @param {string} candidate
+ * @param {BossWildcardResolveContext | null | undefined} ctx
+ */
+export function candidatePassesBossSoftWordRule(candidate, ctx) {
+  if (!ctx?.slug || !bossHasWholeWordSoftRule(ctx.slug)) return true;
+  if (isBossEffectsSuppressedByTreasures(ctx.ownedSlotTreasureIds)) return true;
+  const w = String(candidate ?? "").toLowerCase().trim();
+  if (!w) return false;
+  const wordLen =
+    typeof ctx.getJudgedWordLen === "function" ? ctx.getJudgedWordLen(w) : Math.max(0, w.length);
+  const endingLetterRarity =
+    typeof ctx.getEndingLetterRarity === "function"
+      ? ctx.getEndingLetterRarity(w)
+      : getEndingLetterRarityForResolvedWord(ctx.tiles, w);
+  return !evaluateBossSoftWordViolation({
+    slug: ctx.slug,
+    wordLen,
+    resolvedWord: w,
+    endingLetterRarity,
+    getWordDefinition: ctx.getWordDefinition,
+    usedLengthsThisLevel: ctx.usedLengthsThisLevel,
+    mouthLockedLength: ctx.mouthLockedLength ?? null,
+    clubRequiredKey: ctx.clubRequiredKey ?? null,
+    ownedSlotTreasureIds: ctx.ownedSlotTreasureIds,
+  }).violated;
 }
 
 /**

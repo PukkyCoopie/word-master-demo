@@ -5,7 +5,7 @@ import { isConsonantLetterWithMask } from "../treasureLetterClassify.js";
 export default {
   price: 5,
   rarity: "common",
-  description: describe("辅音字母提供", mult("+5"), "倍率"),
+  description: describe("辅音字母给予", mult("+5"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

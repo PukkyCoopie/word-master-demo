@@ -17,9 +17,12 @@
           :treasure-charge-by-slot="treasureChargeVisualBySlot"
           :treasure-charge-progress-by-slot="treasureChargeProgressBySlot"
           :treasure-slots-layout-class="treasureSlotsLayoutClass"
+          :treasure-bar-compact-animating="treasureBarCompactAnimating"
+          :owned-treasure-key-order-bag="gameOwnedKeyOrderBag"
+          :tutorial-active="firstWordTutorialActive"
+          @open-treasure-collection="showTreasureCollectionLayer = true"
           :run-preset-id="runPresetId"
           :wallet-floor="runWalletFloor"
-        :run-difficulty-index="runDifficultyIndex"
           @open-options="openPauseOptionsFromShop"
           @view-deck="showDeckLayer = true"
           @view-round-info="openInfoModal('level')"
@@ -167,6 +170,7 @@
       :spell-grant-flow="treasureDetail.spellGrantFlow === true"
       :preview-nav-index="treasureDetailPreviewNavIndex"
       :preview-nav-total="treasureDetailPreviewNavTotal"
+      :stack-z-floor="firstWordTutorialTreasureDetailStackZFloor"
       @close="onTreasureDetailClose"
       @purchase="onTreasurePurchase"
       @sell="onTreasureSell"
@@ -195,6 +199,30 @@
       :disabled="packPickBusy || packPickSkipBusy"
       @open-item="onPackPickOpenItem"
       @skip="onPackPickSkip"
+    />
+    <TreasureCollectionLayer
+      :open="showTreasureCollectionLayer"
+      :owned-treasures="ownedTreasures"
+      :key-order-bag="gameOwnedKeyOrderBag"
+      :amber-boss-mask="isAmberBossMaskActive"
+      :gem-class-resolver="gameTreasureGemClassResolver"
+      :charge-states="treasureChargeVisualBySlot"
+      :charge-progresses="treasureChargeProgressBySlot"
+      :slot-class-resolver="gameTreasureSlotClassResolver"
+      :crimson-hand-disabled-resolver="gameTreasureCrimsonDisabledResolver"
+      :drag-gem-class="treasureGemClass(gameOwnedDragTreasure?.rarity)"
+      :drag-charge-state="gameOwnedDragChargeState"
+      :drag-charge-progress="gameOwnedDragChargeProgress"
+      :on-reorder-commit="onTreasureCollectionReorder"
+      @close="showTreasureCollectionLayer = false"
+      @slot-click="onGameOwnedSlotClick"
+      @empty-slot-click="onGameEmptyTreasureSlotClick"
+    />
+    <SettingsHelpDialog
+      :open="showEmptyTreasureSlotHelp"
+      title="空的宝藏栏位"
+      :paragraphs="['空的宝藏栏位，从商店中购买的宝藏会放置在这里']"
+      @close="showEmptyTreasureSlotHelp = false"
     />
     <SpellTargetLayer
       v-if="spellTargetSession"
@@ -253,9 +281,10 @@
           tabindex="0"
           title="查看关卡进度"
           :aria-label="`${levelTitleLabel}，点击查看关卡进度`"
-          @click="openInfoModal('stage')"
-          @keydown.enter.prevent="openInfoModal('stage')"
-          @keydown.space.prevent="openInfoModal('stage')"
+          :class="{ 'header-box-level-title--tutorial-blocked': firstWordTutorialActive }"
+          @click="!firstWordTutorialActive && openInfoModal('stage')"
+          @keydown.enter.prevent="!firstWordTutorialActive && openInfoModal('stage')"
+          @keydown.space.prevent="!firstWordTutorialActive && openInfoModal('stage')"
         >
           <span class="header-level-title-text">{{ levelTitleLabel }}</span>
           <DifficultyPill
@@ -283,14 +312,14 @@
           </span>
         </div>
       </div>
-      <div class="scores">
+      <div ref="scoresHeaderRef" class="scores">
         <div class="score-card score-target">
           <div class="score-label">至少得分</div>
-          <div class="score-value">{{ formatNum(targetScore) }}</div>
+          <ScoreCardValue :value="headerTargetScoreValue" />
         </div>
         <div class="score-card score-round">
           <div class="score-label">关卡得分</div>
-          <div class="score-value">{{ formatNum(roundScoreOverride ?? currentScore) }}</div>
+          <ScoreCardValue :value="headerRoundScoreValue" />
         </div>
       </div>
       <div
@@ -446,59 +475,36 @@
     </div>
 
     <div class="bottom-area">
-      <div ref="gameTreasureSlotsCtnRef" class="treasure-slots-ctn" aria-label="宝藏槽位">
-        <TransitionGroup
-          name="treasure-slot-reorder"
-          tag="div"
-          :class="['treasure-slots', { 'treasure-slots--dragging': gameOwnedDragActive }, treasureSlotsLayoutClass]"
-        >
-          <TreasureSlot
-            v-for="(slot, i) in displayOwnedTreasures"
-            :key="displayOwnedTreasureKeys[i]"
-            :ref="(el) => setGameTreasureSlotRef(i, el)"
-            :slot-index="i"
-            :treasure="slot"
-            :gem-class="treasureGemClass(slot?.rarity)"
-            :charge-state="displayTreasureChargeVisualBySlot[i]"
-            :charge-progress="displayTreasureChargeProgressBySlot[i] ?? 0"
-            :amber-boss-mask="isAmberBossMaskActive"
-            :crimson-hand-disabled="isCrimsonBossMechanicsActive && scoringAnimating && crimsonTreasureDisabledSlotIndex === i"
-            :slot-class="{
-              'treasure-slot--scoring-highlight': scoringTreasureBarIndex === i,
-            }"
-            @pointerdown="onGameOwnedSlotPointerDown(i, $event)"
-            @click="onGameOwnedSlotClick(i, slot, $event)"
-          />
-        </TransitionGroup>
-        <div
-          v-if="gameOwnedDragGhostVisible"
-          class="treasure-drag-ghost"
-          :style="gameOwnedDragGhostStyle"
-        >
-          <TreasureSlot
-            :treasure="gameOwnedDragTreasure"
-            :gem-class="treasureGemClass(gameOwnedDragTreasure?.rarity)"
-            :charge-state="gameOwnedDragChargeState"
-            :charge-progress="gameOwnedDragChargeProgress"
-            :amber-boss-mask="isAmberBossMaskActive"
-            :crimson-hand-disabled="isCrimsonBossMechanicsActive && scoringAnimating && crimsonTreasureDisabledSlotIndex === gameOwnedDragSourceIndex"
-          />
-        </div>
-        <div
-          v-if="gameOwnedDragPlaceholderVisible"
-          class="treasure-drag-placeholder"
-          :style="gameOwnedDragPlaceholderStyle"
-        >
-          <TreasureSlot
-            :treasure="gameOwnedDragTreasure"
-            :gem-class="treasureGemClass(gameOwnedDragTreasure?.rarity)"
-            :charge-state="gameOwnedDragChargeState"
-            :charge-progress="gameOwnedDragChargeProgress"
-            :amber-boss-mask="isAmberBossMaskActive"
-            :crimson-hand-disabled="isCrimsonBossMechanicsActive && scoringAnimating && crimsonTreasureDisabledSlotIndex === gameOwnedDragSourceIndex"
-          />
-        </div>
-      </div>
+      <TreasureBarRow
+        ref="gameTreasureBarRowRef"
+        :display-slots="displayOwnedTreasures"
+        :display-keys="displayOwnedTreasureKeys"
+        :layout-class="treasureSlotsLayoutClass"
+        :stack-mode="treasureBarStackMode"
+        :filled-count="ownedTreasureFilledCount"
+        :compact-animating="treasureBarCompactAnimating"
+        :drag-active="gameOwnedDragActive"
+        :drag-ghost-visible="gameOwnedDragGhostVisible"
+        :drag-placeholder-visible="gameOwnedDragPlaceholderVisible"
+        :drag-treasure="gameOwnedDragTreasure"
+        :drag-ghost-style="gameOwnedDragGhostStyle"
+        :drag-placeholder-style="gameOwnedDragPlaceholderStyle"
+        :drag-gem-class="treasureGemClass(gameOwnedDragTreasure?.rarity)"
+        :drag-charge-state="gameOwnedDragChargeState"
+        :drag-charge-progress="gameOwnedDragChargeProgress"
+        :drag-crimson-hand-disabled="isCrimsonBossMechanicsActive && scoringAnimating && crimsonTreasureDisabledSlotIndex === gameOwnedDragSourceIndex"
+        :amber-boss-mask="isAmberBossMaskActive"
+        :gem-class-resolver="gameTreasureGemClassResolver"
+        :charge-states="displayTreasureChargeVisualBySlot"
+        :charge-progresses="displayTreasureChargeProgressBySlot"
+        :slot-class-resolver="gameTreasureSlotClassResolver"
+        :crimson-hand-disabled-resolver="gameTreasureCrimsonDisabledResolver"
+        :register-slot-ref="setGameTreasureSlotRef"
+        @slot-pointerdown="onGameOwnedSlotPointerDown"
+        @slot-click="onGameOwnedSlotClick"
+        @empty-slot-click="onGameEmptyTreasureSlotClick"
+        @expand-click="showTreasureCollectionLayer = true"
+      />
       <div class="bottom-bar">
         <div class="side-buttons">
           <button
@@ -506,8 +512,8 @@
             class="icon-btn icon-btn-white"
             title="信息"
             aria-label="信息"
-            :disabled="isRunFlowOverlayOpen()"
-            @click="!isRunFlowOverlayOpen() && openInfoModal('level')"
+            :disabled="isRunFlowOverlayOpen() || firstWordTutorialActive"
+            @click="!isRunFlowOverlayOpen() && !firstWordTutorialActive && openInfoModal('level')"
           >
             <i class="ri-information-line"></i>
           </button>
@@ -516,14 +522,14 @@
             class="icon-btn icon-btn-yellow"
             title="选项"
             aria-label="选项"
-            :disabled="transitionBusy || showShop || isBlockingPauseOpen()"
+            :disabled="transitionBusy || showShop || isBlockingPauseOpen() || isFirstWordTutorialBlockingInput()"
             @click="openPauseOptions"
           >
             <i class="ri-settings-3-line"></i>
           </button>
         </div>
         <div class="letter-grid-area">
-          <div ref="letterGridWrapRef" class="letter-grid-wrap">
+          <div ref="letterGridWrapRef" class="letter-grid-wrap" :class="{ 'letter-grid-wrap--tutorial-glow': firstWordTutorialGridGlow }">
             <div
               ref="letterGridRef"
               class="letter-grid"
@@ -548,26 +554,51 @@
                 <LetterTile
                   v-memo="gridTileRenderMemoDeps(tile, index)"
                   variant="grid"
-                  :letter="gridTileLetterForRender.get(tile.id) ?? tile.letter"
-                  :rarity="gridTileRarityForRender.get(tile.id) ?? tile.rarity"
-                  :material-id="tile.materialId ?? null"
-                  :accessory-id="tile.accessoryId ?? null"
-                  :treasure-accessory-id="tile.treasureAccessoryId ?? null"
-                  :tile-score-bonus="Number(tile.tileScoreBonus) || 0"
-                  :tile-mult-bonus="Number(tile.letterMultBonus) || 0"
+                  :letter="gridTileRenderLetter(tile, index)"
+                  :rarity="gridTileRenderRarity(tile, index)"
+                  :material-id="
+                    gridPlaceholderFrozenPresentation(tile)?.materialId ?? tile.materialId ?? null
+                  "
+                  :accessory-id="
+                    gridPlaceholderFrozenPresentation(tile)?.accessoryId ?? tile.accessoryId ?? null
+                  "
+                  :treasure-accessory-id="
+                    gridPlaceholderFrozenPresentation(tile)?.treasureAccessoryId
+                      ?? tile.treasureAccessoryId
+                      ?? null
+                  "
+                  :tile-score-bonus="
+                    gridPlaceholderFrozenPresentation(tile)?.tileScoreBonus
+                      ?? (Number(tile.tileScoreBonus) || 0)
+                  "
+                  :tile-mult-bonus="
+                    gridPlaceholderFrozenPresentation(tile)?.tileMultBonus
+                      ?? (Number(tile.letterMultBonus) || 0)
+                  "
                   :material-animate="
                     !isGridTilePlaceholder(Math.floor(index / COLS), index % COLS, tile)
                   "
-                  :boss-grid-blocked="tile.bossGridBlocked === true"
-                  :boss-tile-debuffed="tile.bossTileDebuffed === true"
-                  :cerulean-bell-locked="tile.ceruleanBellLocked === true"
-                  :vowel-ghost-prev="gridTileVowelGhostForRender.get(tile.id)?.prev ?? null"
-                  :vowel-ghost-next="gridTileVowelGhostForRender.get(tile.id)?.next ?? null"
+                  :boss-grid-blocked="
+                    gridPlaceholderFrozenPresentation(tile)?.bossGridBlocked
+                      ?? tile.bossGridBlocked === true
+                  "
+                  :boss-tile-debuffed="
+                    gridPlaceholderFrozenPresentation(tile)?.bossTileDebuffed
+                      ?? tile.bossTileDebuffed === true
+                  "
+                  :cerulean-bell-locked="
+                    gridPlaceholderFrozenPresentation(tile)?.ceruleanBellLocked
+                      ?? tile.ceruleanBellLocked === true
+                  "
+                  :vowel-ghost-prev="gridTileRenderVowelGhostPrev(tile)"
+                  :vowel-ghost-next="gridTileRenderVowelGhostNext(tile)"
                   :ref="el => setGridTileRef(index, el)"
                   :class="{
                     selected: tile.selected,
                     'tile-flying': isTileFlying(Math.floor(index / COLS), index % COLS),
-                    'player-marked': tile.playerMarked === true,
+                    'player-marked':
+                      (gridPlaceholderFrozenPresentation(tile)?.playerMarked ?? tile.playerMarked)
+                      === true,
                   }"
                   role="button"
                   tabindex="0"
@@ -613,19 +644,21 @@
             class="deck-btn deck-btn--grid-row"
             title="牌库"
             aria-label="牌库"
-            :disabled="isRunFlowOverlayOpen()"
-            @click="!isRunFlowOverlayOpen() && (showDeckLayer = true)"
+            :disabled="isRunFlowOverlayOpen() || isFirstWordTutorialBlockingInput()"
+            @click="!isRunFlowOverlayOpen() && !isFirstWordTutorialBlockingInput() && (showDeckLayer = true)"
           >
             <i class="ri-stack-line deck-btn-icon" aria-hidden="true"></i>
             <span class="deck-btn-label">牌库</span>
             <span class="deck-btn-count">{{ deckCount }}</span>
           </button>
           <div
+            v-if="showMarkButtonInRun || showSwapWordButtonInRun"
             class="action-aux-toolbar"
             role="group"
             aria-label="拼词辅助"
           >
             <button
+              v-if="showMarkButtonInRun"
               type="button"
               class="action-aux-btn action-aux-btn--blue"
               :class="{ 'action-aux-btn--disabled': !canUseMarkButton }"
@@ -643,7 +676,7 @@
               </span>
             </button>
             <button
-              v-if="showSwapWordButton"
+              v-if="showSwapWordButtonInRun"
               type="button"
               class="action-aux-btn action-aux-btn--purple"
               :class="{ 'action-aux-btn--disabled': !canSwapWordSelection }"
@@ -658,11 +691,14 @@
         </div>
         </div>
         <div class="action-buttons">
-          <div class="action-bookmark">
+          <div ref="submitBookmarkRef" class="action-bookmark" :class="{ 'action-bookmark--tutorial-ready': firstWordTutorialSubmitHighlightReady }">
             <button
+              ref="submitBtnRef"
               type="button"
               class="action-btn action-btn-green"
-              :class="{ 'action-btn-disabled': !canSubmit || scoringAnimating || gridRefillAnimating }"
+              :class="{
+                'action-btn-disabled': !canSubmit || scoringAnimating || gridRefillAnimating,
+              }"
               title="提交"
               data-haptic-skip-ui-tap
               @click="canSubmit && !scoringAnimating && !gridRefillAnimating && flyingLetters.length === 0 && flyingBackBatches.length === 0 ? submitWord() : null"
@@ -882,10 +918,26 @@
     </Teleport>
 
     <WordDefinitionLayer
-      :open="wordDefinitionLayerOpen"
+      :open="wordDefinitionLayerOpen && !firstWordTutorialActive"
       :word="wordDefinitionPreviewWord"
       :lines="wordDefinitionPreviewLines"
       @close="closeWordDefinitionLayer"
+    />
+
+    <FirstWordTutorialLayer
+      ref="firstWordTutorialLayerRef"
+      :open="firstWordTutorialLayerOpen"
+      :phase="firstWordTutorialPhase"
+      :holes="tutorialHoles"
+      :show-hint="firstWordTutorialShowHint"
+      :show-continue-button="firstWordTutorialShowContinueButton"
+      :hint-text="firstWordTutorialHintText"
+      :stack-z="firstWordTutorialStackZ"
+      :arrow-target="tutorialArrowTarget"
+      :skip-button-rect="tutorialSkipButtonRect"
+      @skip="onFirstWordTutorialSkip"
+      @continue="onFirstWordTutorialContinue"
+      @fade-complete="firstWordTutorial.onFadeComplete()"
     />
   </div>
 </template>
@@ -958,6 +1010,7 @@ import {
 import { collectGridLetterTiles } from "../treasures/treasureLogicShared.js";
 import { applyRarityLevelUpgrade } from "../game/treasureRarityTierMerge.js";
 import {
+  hasTestTubeAllVowelsForMouth,
   hasVowelNeighborSubstitute,
   isLetterSubstitutableForMouth,
   resolveWordPatternWithVowelSubstitutions,
@@ -996,6 +1049,7 @@ import {
   TREASURE_65_ID,
 } from "../treasures/items/treasure_65.js";
 import { TREASURE_99_E_MULT_GAIN_BUBBLE, TREASURE_99_ID } from "../treasures/items/treasure_99.js";
+import { resolvePistolDiscardBatchPlan, TREASURE_120_ID } from "../treasures/items/treasure_120.js";
 import {
   TREASURE_78_ID,
   TREASURE_78_ICE_SHATTER_MULT_BUBBLE,
@@ -1013,6 +1067,7 @@ import {
   compactOwnedSlotsAfterCropSell,
   computeOwnedTreasureSlotTargetLength,
   willCropAccessoryExpandSlots,
+  willIncomingTreasureAccessoriesExpandSlots,
 } from "../game/treasureSlotCapacity.js";
 import {
   computeWordScoreDetailedForSubmit,
@@ -1031,6 +1086,7 @@ import {
   resolveLevelTargetScore,
   getRunLevelAtIndex,
   isStandardRunFinalLevelIndex,
+  STANDARD_RUN_FINAL_LEVEL_INDEX,
 } from "../levelDefinitions";
 import RunEndLayer from "./RunEndLayer.vue";
 import EndlessDifficultyLeaderboardHintLayer from "./EndlessDifficultyLeaderboardHintLayer.vue";
@@ -1114,6 +1170,7 @@ import {
   BOSS_CLUB_POS_OPTIONS,
   bossHasWholeWordSoftRule,
   evaluateBossSoftWordViolation,
+  getEndingLetterRarityForResolvedWord,
   getEndingLetterRarityFromTiles,
   nextMouthLockedLengthAfterSubmit,
 } from "../game/bossWordViolation.js";
@@ -1222,12 +1279,14 @@ import {
 import {
   countOwnedRentalTreasures,
   getTreasureAccessoryExpiredSlotIndices,
+  HOURGLASS_EXPIRE_STAGES,
   incrementHourglassOnSlot,
 } from "../game/treasureHourglassRuntime.js";
 import {
   normalizeExclusiveTileAccessoryPair,
   readTreasureAccessoryIds,
 } from "../accessories/accessoryState.js";
+import { ACCESSORY_CROP } from "../accessories/accessoryCatalog.js";
 import { buildOwnedTreasureSlot, computeOwnedTreasureSellRefund } from "../treasures/ownedTreasureSlot.js";
 import DifficultyPill from "./DifficultyPill.vue";
 import {
@@ -1315,7 +1374,16 @@ import TreasureDetailLayer from "./TreasureDetailLayer.vue";
 import SpellTargetLayer from "./SpellTargetLayer.vue";
 import TileDetailLayer from "./TileDetailLayer.vue";
 import TreasureSlot from "./TreasureSlot.vue";
+import TreasureBarRow from "./TreasureBarRow.vue";
+import TreasureCollectionLayer from "./TreasureCollectionLayer.vue";
+import SettingsHelpDialog from "./settings/SettingsHelpDialog.vue";
+import {
+  countFilledTreasureSlots,
+  isTreasureBarStackMode,
+  resolveTreasureSlotsLayoutClass,
+} from "../game/treasureBarLayout.js";
 import ResultArea from "./ResultArea.vue";
+import ScoreCardValue from "./ScoreCardValue.vue";
 import { createFlyBackTileElement, disposeFlyBackTileElement } from "../utils/letterTileFlyBack.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { registerAndroidBackHandler } from "../platform/androidBackButton.js";
@@ -1366,7 +1434,29 @@ import {
   isCeruleanBellDevScenario,
 } from "../dev/ceruleanBellDevScenario.js";
 import { applyPagerOwnedTreasure, isPagerDevScenario } from "../dev/pagerDevScenario.js";
+import {
+  applyPromoGameplayGridMaterials,
+  applyPromoGameplayOwnedTreasures,
+  applyPromoGameplayTileBonuses,
+  buildPromoSuperPackPickSession,
+  logLongestValidWordsOnGrid,
+  normalizeScreenshotPresetId,
+} from "../dev/screenshotPresetScenario.js";
 import { applyRandomMaterialsToGridTilesWithoutMaterial } from "../dev/randomizeGridTileMaterials.js";
+import FirstWordTutorialLayer from "./tutorial/FirstWordTutorialLayer.vue";
+import { useFirstWordTutorial } from "../composables/useFirstWordTutorial.js";
+import {
+  applyTutorialPlayLetters,
+  shouldRunFirstWordTutorialInGame,
+  TUTORIAL_SELECT_ORDER,
+  resolveGuaranteedFirstShopTreasureOffer,
+} from "../tutorial/firstWordTutorial.js";
+import {
+  inflateRectForTutorialHole,
+  measureElementRectInFrame,
+  measureKeyedTutorialHoles,
+} from "../game/tutorialSpotlight.js";
+import { resetFirstWordTutorialCompleted } from "../profile/playerProfile.js";
 
 /** 提交时是否展示词典释义；暂时关闭，后续可改回 true 恢复 */
 const SHOW_SUBMIT_TRANSLATION = false;
@@ -1392,6 +1482,7 @@ const props = defineProps({
   runDifficultyIndex: { type: Number, default: 0 },
   restoredSave: { type: Object, default: null },
   saveSlotIndex: { type: Number, default: 0 },
+  firstWordTutorial: { type: Boolean, default: false },
 });
 
 const runPresetId = ref(
@@ -1509,6 +1600,8 @@ const PLUS_BUBBLE_OUTRO_SCALE = 0.5;
 const LEVEL_COMPLETE_MONEY_FX_OUTRO_WAIT_MS = Math.round(
   (PLUS_BUBBLE_OUTRO_DELAY_S + PLUS_BUBBLE_OUTRO_DURATION_S) * 1000,
 );
+/** 沙漏关底气泡：wobble 弹出后多停一拍再开结算菜单 */
+const HOURGLASS_STAGE_END_BUBBLE_HOLD_MS = Math.round(320 * SCORING_GAP_SCALE);
 
 /** 记分区数字「先瞬间放大再缓落回 1」：峰值倍率 / 回落时长（秒） */
 const VALUE_NUM_PULSE_PEAK_SCALE = 1.42;
@@ -1555,6 +1648,9 @@ const allIceDevScenarioActive = ref(isAllIceDevScenario());
 const ceruleanBellDevScenarioActive = ref(isCeruleanBellDevScenario());
 /** 开发：开局槽位 1 为寻呼机（`?dev=pager` 或控制台命令） */
 const pagerDevScenarioActive = ref(isPagerDevScenario());
+/** 开发：宣传图预设 1 的棋盘材质/加成（`setupScreenshotPreset(1)`） */
+const promoScreenshotDevPresetActive = ref(0);
+let screenshotPresetDevBusy = false;
 
 function ownedSlotTreasureIdListEarly() {
   return ownedTreasures.value.map((s) => s?.treasureId ?? null);
@@ -1629,6 +1725,7 @@ const {
   pillarUsedDeckUidsRef: pillarUsedDeckUids,
   verdantTreasureSoldRef: verdantTreasureSold,
   bossMechanicsSuppressedRef: bossMechanicsSuppressed,
+  getOwnedSlotTreasureIds: ownedSlotTreasureIdListEarly,
   onBossTapeTriggerCue: () => bossTapeTriggerCueDispatch(),
   onBossRestrictionTreasureCue: () => bossRestrictionTreasureCueDispatch(),
 });
@@ -1680,6 +1777,7 @@ const infoModalInitialTab = ref("level");
 
 /** @param {'level' | 'rarity' | 'stage' | 'coupon'} [tab='level'] */
 function openInfoModal(tab = "level") {
+  if (firstWordTutorialActive.value) return;
   if (isRunFlowOverlayOpen()) return;
   infoModalInitialTab.value = tab;
   showInfoLayer.value = true;
@@ -1695,6 +1793,200 @@ const suppressTilePrimaryClick = ref(false);
 const levelIndex = ref(RUN_START_LEVEL_INDEX);
 /** 通关 8-3 后进入 Ante 9+ 无尽流程 */
 const isEndlessRun = ref(false);
+
+function firstWordTutorialEligible() {
+  return (
+    props.firstWordTutorial &&
+    shouldRunFirstWordTutorialInGame(levelIndex.value, props.saveSlotIndex)
+  );
+}
+
+function isFirstWordTutorialBlockingInput() {
+  return firstWordTutorialBlocking.value;
+}
+
+function getPortalFrameEl() {
+  return document.getElementById("game-view-portal-frame");
+}
+
+function updateTutorialSpotlight() {
+  if (!firstWordTutorial.layerOpen.value) return;
+  const frame = getPortalFrameEl();
+  if (!frame) return;
+  const deckRect = measureElementRectInFrame(deckBtnRef.value, frame);
+  tutorialSkipButtonRect.value =
+    deckRect && deckRect.width > 0 && deckRect.height > 0 ? deckRect : null;
+  const phase = firstWordTutorial.phase.value;
+  if (phase === "fading") {
+    tutorialHoles.value = [];
+    tutorialArrowTarget.value = null;
+    return;
+  }
+  if (phase === "select") {
+    const step = firstWordTutorial.selectStep.value;
+    const target = TUTORIAL_SELECT_ORDER[step];
+    if (!target) return;
+    const idx = target.row * COLS + target.col;
+    const el = gridTileRefs.value[idx];
+    const holes = measureKeyedTutorialHoles([{ key: "select-tile", el }], frame);
+    tutorialHoles.value = holes;
+    tutorialArrowTarget.value = holes[0] ?? null;
+    return;
+  }
+  if (phase === "submit") {
+    const holes = measureKeyedTutorialHoles(
+      [
+        { key: "word-slots", el: wordSlotsWrapRef.value },
+        { key: "submit", el: submitBookmarkRef.value },
+      ],
+      frame,
+    );
+    tutorialHoles.value = holes;
+    const submitRect = measureElementRectInFrame(submitBookmarkRef.value, frame);
+    tutorialArrowTarget.value = submitRect
+      ? inflateRectForTutorialHole(submitRect)
+      : holes.find((h) => h.key === "submit") ?? holes[holes.length - 1] ?? null;
+    return;
+  }
+  if (phase === "scoreIntro") {
+    const holes = measureKeyedTutorialHoles([{ key: "score-header", el: scoresHeaderRef.value }], frame);
+    tutorialHoles.value = holes;
+    tutorialArrowTarget.value = holes[0] ?? null;
+    return;
+  }
+  if (phase === "retry") {
+    if (scoringAnimating.value || gridRefillAnimating.value) {
+      tutorialHoles.value = [];
+      tutorialArrowTarget.value = null;
+      return;
+    }
+    const submitReady = firstWordTutorialRetrySubmitReady.value;
+    const submitEl = submitBtnRef.value ?? submitBookmarkRef.value;
+    /** @type {{ key: string, el: Element | null | undefined }[]} */
+    const items = [
+      { key: "letter-grid", el: letterGridWrapRef.value },
+      { key: "word-slots", el: wordSlotsWrapRef.value },
+    ];
+    if (submitReady) {
+      items.push({ key: "submit", el: submitEl });
+    }
+    const holes = measureKeyedTutorialHoles(items, frame);
+    tutorialHoles.value = holes;
+    if (submitReady) {
+      const submitRect = measureElementRectInFrame(submitEl, frame);
+      tutorialArrowTarget.value = submitRect
+        ? inflateRectForTutorialHole(submitRect)
+        : holes.find((h) => h.key === "submit") ?? null;
+    } else {
+      tutorialArrowTarget.value = null;
+    }
+    return;
+  }
+  if (phase === "shopIntro") {
+    const offerEl = shopPanelRef.value?.getFirstGuaranteedTreasureOfferEl?.();
+    const holes = measureKeyedTutorialHoles([{ key: "shop-offer", el: offerEl }], frame);
+    tutorialHoles.value = holes;
+    tutorialArrowTarget.value = holes[0] ?? null;
+    return;
+  }
+  if (phase === "shopComplete") {
+    tutorialHoles.value = [];
+    tutorialArrowTarget.value = null;
+  }
+}
+
+function scheduleTutorialSpotlightUpdate() {
+  cancelAnimationFrame(tutorialSpotlightRaf);
+  tutorialSpotlightRaf = requestAnimationFrame(() => {
+    tutorialSpotlightRaf = requestAnimationFrame(() => {
+      tutorialSpotlightRaf = 0;
+      updateTutorialSpotlight();
+    });
+  });
+}
+
+function clearWordSelectionForTutorial() {
+  cancelAllFlyingIn();
+  if (selectedOrder.value.length > 0) {
+    removeFromSlot(0);
+  }
+}
+
+/**
+ * @param {{ force?: boolean }} [options]
+ */
+async function beginFirstWordTutorialAfterGridSettled(options = {}) {
+  const force = options.force === true;
+  if (!force && !firstWordTutorialEligible()) return;
+  clearWordSelectionForTutorial();
+  applyTutorialPlayLetters(grid.value, touchGrid);
+  await nextTick();
+  updateSlotPositions(true);
+  firstWordTutorial.startTutorial();
+  await nextTick();
+  scheduleTutorialSpotlightUpdate();
+  requestAnimationFrame(() => scheduleTutorialSpotlightUpdate());
+}
+
+async function finishFirstWordTutorialFlow() {
+  firstWordTutorial.onShopTutorialEnd();
+  await firstWordTutorialLayerRef.value?.fadeOutAndWait?.();
+  firstWordTutorial.onFadeComplete();
+  tutorialHoles.value = [];
+  tutorialArrowTarget.value = null;
+  tutorialSkipButtonRect.value = null;
+}
+
+async function abortFirstWordTutorialFlow() {
+  firstWordTutorial.skipTutorial();
+  await firstWordTutorialLayerRef.value?.fadeOutAndWait?.();
+  firstWordTutorial.onFadeComplete();
+  tutorialHoles.value = [];
+  tutorialArrowTarget.value = null;
+  tutorialSkipButtonRect.value = null;
+}
+
+async function onFirstWordTutorialSkip() {
+  await abortFirstWordTutorialFlow();
+}
+
+function onFirstWordTutorialContinue() {
+  if (firstWordTutorialPhase.value === "shopComplete") {
+    void finishFirstWordTutorialFlow();
+    return;
+  }
+  firstWordTutorial.onScoreIntroContinue();
+  scheduleTutorialSpotlightUpdate();
+}
+
+function maybeEndShopTutorialOnOfferOpen(treasure) {
+  if (firstWordTutorialPhase.value !== "shopIntro") return;
+  if (
+    treasure?.offerType === "treasure" &&
+    firstWordTutorial.isShopTutorialTargetOffer(treasure.treasureId)
+  ) {
+    return;
+  }
+  void abortFirstWordTutorialFlow();
+}
+
+function maybeEndShopTutorialOnTreasurePurchase(offer) {
+  if (firstWordTutorialPhase.value !== "shopIntro") return;
+  if (offer?.offerType !== "treasure") return;
+  if (!firstWordTutorial.isShopTutorialTargetOffer(offer.treasureId)) return;
+  firstWordTutorial.onShopTreasurePurchased();
+  scheduleTutorialSpotlightUpdate();
+}
+
+function startFirstWordTutorialDevTest() {
+  resetFirstWordTutorialCompleted(props.saveSlotIndex);
+  void beginFirstWordTutorialAfterGridSettled({ force: true }).then(() => {
+    console.log(
+      "[DEV] 首词新手引导已启动：棋盘已覆写 PLAY，蒙层应已显示（任意关卡均可调试）。",
+    );
+  });
+}
+
 /** 无尽模式已上报 TapTap 排行榜的大关序号（非难度 0 时） */
 const endlessReportedLeaderboardChapter = ref(0);
 /** 卷轴券购买后已写入「下一关」下标；离店时不再 +1 */
@@ -1883,6 +2175,10 @@ function buildLevelResetRunOpts(levelDef) {
         applyIceMaterialToAllGridTiles(g, ROWS, COLS);
         applyIceMaterialToAllDeckCards(initialDeckSnapshot.value);
         applyIceMaterialToAllDeckCards(deck.value);
+      }
+      if (promoScreenshotDevPresetActive.value === 1) {
+        applyPromoGameplayGridMaterials(g, ROWS, COLS, runRandom);
+        applyPromoGameplayTileBonuses(g, ROWS, COLS, runRandom);
       }
     },
   };
@@ -2456,13 +2752,59 @@ function applyRunPresetStartEffects() {
   syncOwnedTreasureSlots();
 }
 
+const ownedTreasureFilledCount = computed(() => countFilledTreasureSlots(ownedTreasures.value));
+const treasureBarStackMode = computed(() => isTreasureBarStackMode(ownedTreasureFilledCount.value));
+
 const treasureSlotsLayoutClass = computed(() => {
   const count = displayOwnedTreasures.value.length;
-  if (count === 4 && presetUsesFiveSlotLayoutAtFour(runPresetId.value)) {
-    return "treasure-slots--layout-five-at-four";
-  }
-  return "";
+  const fiveAtFour =
+    count === 4 && presetUsesFiveSlotLayoutAtFour(runPresetId.value)
+      ? "treasure-slots--layout-five-at-four"
+      : "";
+  return resolveTreasureSlotsLayoutClass(ownedTreasureFilledCount.value, count, fiveAtFour);
 });
+
+const showTreasureCollectionLayer = ref(false);
+const showEmptyTreasureSlotHelp = ref(false);
+const treasureBarCompactAnimating = ref(false);
+const gameTreasureBarRowRef = ref(null);
+
+/** @param {number} i @param {object | null} slot */
+function gameTreasureGemClassResolver(i, slot) {
+  void i;
+  return treasureGemClass(slot?.rarity);
+}
+
+/** @param {number} i */
+function gameTreasureSlotClassResolver(i) {
+  return {
+    "treasure-slot--scoring-highlight": scoringTreasureBarIndex.value === i,
+  };
+}
+
+/** @param {number} i */
+function gameTreasureCrimsonDisabledResolver(i) {
+  return isCrimsonBossMechanicsActive.value && scoringAnimating.value && crimsonTreasureDisabledSlotIndex.value === i;
+}
+
+function onGameEmptyTreasureSlotClick() {
+  if (firstWordTutorialActive.value) return;
+  showEmptyTreasureSlotHelp.value = true;
+}
+
+/** @param {(object | null)[]} preview @param {string[]} keys */
+function onTreasureCollectionReorder(preview, keys) {
+  ownedTreasures.value = [...preview];
+  if (Array.isArray(keys)) gameOwnedKeyOrder.value = keys;
+  scheduleRunAutoSave();
+}
+
+async function triggerTreasureBarCompactAnim() {
+  if (!treasureBarStackMode.value || shouldSkipDecorativeMotion()) return;
+  treasureBarCompactAnimating.value = true;
+  await animSleep(280);
+  treasureBarCompactAnimating.value = false;
+}
 
 /** @param {{ offerType?: string, bundleKind?: string }} t @param {number} basePay */
 function effectiveShopOfferPay(t, basePay) {
@@ -2931,6 +3273,7 @@ function onTilePreviewNav(delta) {
 function onShopSelectOffer(payload) {
   const root = payload.originEl;
   const t = payload.treasure;
+  maybeEndShopTutorialOnOfferOpen(t);
   const deckOffer = t?.offerType === "deckTile" || t?.offerType === "deckLetter";
   presentTreasureDetail({
     kind: "offer",
@@ -2945,6 +3288,7 @@ function onShopSelectOffer(payload) {
 
 function onShopSelectPackOffer(payload) {
   const root = payload.originEl;
+  maybeEndShopTutorialOnOfferOpen(payload.treasure);
   presentTreasureDetail({
     kind: "offer",
     treasure: payload.treasure,
@@ -2958,6 +3302,7 @@ function onShopSelectPackOffer(payload) {
 
 function onShopSelectOwned(payload) {
   if (!payload?.treasure) return;
+  maybeEndShopTutorialOnOfferOpen(payload.treasure);
   const items = buildShopOwnedPreviewNavItems();
   presentTreasureDetail({
     kind: "owned",
@@ -3622,6 +3967,8 @@ const treasureChargeProgressBySlot = computed(() => {
 });
 
 const gameOwnedKeyOrder = ref(ownedTreasures.value.map((_, i) => `g-slot-${i}`));
+/** 子组件 prop 会解包 Ref，用对象包装保留响应式引用 */
+const gameOwnedKeyOrderBag = { ref: gameOwnedKeyOrder };
 
 function syncOwnedTreasureSlots() {
   const arr = ownedTreasures.value;
@@ -3680,7 +4027,9 @@ const {
     scheduleRunAutoSave();
   },
   getSlotElement: (i) => gameTreasureSlotRefs[i] ?? null,
-  getOverlayContainer: () => gameTreasureSlotsCtnRef.value,
+  getOverlayContainer: () =>
+    gameTreasureBarRowRef.value?.getContainerEl?.() ?? gameTreasureSlotsCtnRef.value,
+  stackMode: () => treasureBarStackMode.value,
 });
 
 const gameOwnedDragChargeState = computed(() => {
@@ -4086,7 +4435,7 @@ function findTreasurePlacementIndex(offer) {
   const slots = ownedTreasures.value;
   const ix = slots.findIndex((s) => s == null);
   if (ix >= 0) return ix;
-  if (willCropAccessoryExpandSlots(slots, treasureVoucherExtraSlots(), readTreasureAccessoryIds(offer))) {
+  if (willIncomingTreasureAccessoriesExpandSlots(slots, treasureVoucherExtraSlots(), readTreasureAccessoryIds(offer))) {
     const next = [...slots, null];
     ownedTreasures.value = next;
     const keys = [...gameOwnedKeyOrder.value];
@@ -4177,15 +4526,15 @@ async function grantRandomOwnedTreasuresInRun(maxCount = 1) {
   return grantRandomOwnedTreasuresInRunWithPopAnim(maxCount);
 }
 
-/** @param {number} [maxCount] @returns {Promise<number>} */
-async function grantRandomOwnedTreasuresInRunWithPopAnim(maxCount = 1) {
+/** @param {number} [maxCount] @param {{ expandWithCropWhenFull?: boolean }} [opts] @returns {Promise<number>} */
+async function grantRandomOwnedTreasuresInRunWithPopAnim(maxCount = 1, opts = {}) {
   const cap = Math.max(0, Math.floor(Number(maxCount) || 0));
   let granted = 0;
   shopOverlayLayersSuppressed.value = true;
   await nextTick();
   for (let i = 0; i < cap; i += 1) {
     const slotsLenBefore = ownedTreasures.value.length;
-    const r = grantRandomShopTreasureByRarity(null);
+    const r = grantRandomShopTreasureByRarity(null, opts);
     if (!r.ok) break;
     granted += 1;
     await playTreasureGrantPopAtSlotIndex(r.slotIndex, {
@@ -4338,7 +4687,7 @@ async function runPendingAfterGridTilesSettled() {
   }
 }
 
-async function resetLevelAfterTreasurePrep(levelDef) {
+async function resetLevelAfterTreasurePrep(levelDef, opts = {}) {
   pendingAfterGridTilesSettled.length = 0;
   await notifyOwnedTreasuresPrepareLevelEnter(ownedSlotTreasureIdList(), {
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
@@ -4346,18 +4695,25 @@ async function resetLevelAfterTreasurePrep(levelDef) {
     rng: runRandom,
     appendDeckCardSpecToInitialSnapshot: appendDeckCardSpecToInitialSnapshotAndNotify,
   });
-  const opts = buildLevelResetRunOpts(levelDef);
+  const resetOpts = buildLevelResetRunOpts(levelDef);
   const forced = treasureRunState.value.jokerForcedDrawUid;
-  if (forced != null) opts.forcedJokerDrawUid = forced;
+  if (forced != null) resetOpts.forcedJokerDrawUid = forced;
   treasureRunState.value.jokerForcedDrawUid = null;
-  resetLevel(levelDef, opts);
+  resetLevel(levelDef, resetOpts);
   syncPlayerMarkBatchCounterFromGrid();
   runTreasureLevelEnterHooks(levelDef?.id ?? "1-1");
   beginLevelLegendaryDeckTracking(treasureRunState.value, deck.value);
   const levelId = levelDef?.id ?? "1-1";
   const mechSlug = bossSlugForMechanics();
-  if (parseLevelSubFromId(levelId) === 3 && isBossLevelEnterRestrictionSlug(mechSlug)) {
+  if (
+    !opts.skipBossRestrictionNotify &&
+    parseLevelSubFromId(levelId) === 3 &&
+    isBossLevelEnterRestrictionSlug(mechSlug)
+  ) {
     await notifyBossRestrictionTreasures(mechSlug);
+  }
+  if (opts.discardPendingAfterGridSettled) {
+    pendingAfterGridTilesSettled.length = 0;
   }
   scheduleRunAutoSave();
 }
@@ -4463,15 +4819,132 @@ async function startCeruleanBellDevTest() {
   console.log("[DEV] 青铃测试局：已跳至 1-3，Boss 固定为青铃。");
 }
 
+async function finishScreenshotDevGridVisual() {
+  await nextTick();
+  gridIntroDone.value = true;
+  gridRefillAnimating.value = false;
+  for (let i = 0; i < ROWS * COLS; i++) {
+    const el = gridTileRefs.value[i];
+    if (el) gsap.set(el, { x: 0, y: 0, opacity: 1 });
+  }
+  touchGrid();
+  updateSlotPositions(true);
+  scheduleRunAutoSave();
+}
+
+/** @param {1 | 3} presetId */
+async function startScreenshotPresetDevTest(presetId) {
+  if (presetId === 3) {
+    shopOverlayLayersSuppressed.value = false;
+    packPickOverlaySuppressed.value = false;
+    packPickSession.value = buildPromoSuperPackPickSession(() => nextOfferInstanceId.value++, runRandom);
+    await nextTick();
+    await nextTick();
+    console.log("[DEV] 宣传预设 3 — 已打开定制超级字母包（4 选项）。");
+    return { preset: 3, optionCount: packPickSession.value?.options?.length ?? 0 };
+  }
+
+  if (screenshotPresetDevBusy) {
+    console.warn("[DEV] 宣传预设 1 正在执行，请等待完成后再调用");
+    return null;
+  }
+  screenshotPresetDevBusy = true;
+  shopOverlayLayersSuppressed.value = true;
+  const prevBossOverride = pendingBossSlugOverride.value;
+  try {
+    promoScreenshotDevPresetActive.value = 1;
+    runDifficultyIndex.value = 7;
+    levelIndex.value = STANDARD_RUN_FINAL_LEVEL_INDEX;
+    money.value = 32;
+    pendingBossSlugOverride.value = CERULEAN_BELL_BOSS_SLUG;
+    const treasureSummary = applyPromoGameplayOwnedTreasures(
+      ownedTreasures,
+      buildOwnedTreasureSlot,
+      shopTreasurePool.value,
+      runRandom,
+    );
+    const levelDef = getRunLevelAtIndex(levelIndex.value);
+    await resetLevelAfterTreasurePrep(levelDef, {
+      skipBossRestrictionNotify: true,
+      discardPendingAfterGridSettled: true,
+    });
+    await finishScreenshotDevGridVisual();
+    if (!dictionaryReady.value) {
+      await loadDictionary({ shouldAbort: () => !gamePanelAlive });
+    }
+    const wordSummary = await logLongestValidWordsOnGrid(
+      grid.value,
+      ROWS,
+      COLS,
+      isWildcardMaterialTile,
+      getCandidateWordsByLength,
+      (pattern, wc = "?") =>
+        resolveWordPattern(pattern, wc, rarityLevelsByRarity.value, buildBossWildcardResolveContext()),
+    );
+    console.log(
+      `[DEV] 宣传预设 1 — 8-3 / 难度 7 / $32 / 宝藏 ${treasureSummary.slotCount} 个。`,
+      { treasures: treasureSummary, ...wordSummary },
+    );
+    return { preset: 1, treasures: treasureSummary, words: wordSummary };
+  } finally {
+    promoScreenshotDevPresetActive.value = 0;
+    pendingBossSlugOverride.value = prevBossOverride;
+    shopOverlayLayersSuppressed.value = false;
+    screenshotPresetDevBusy = false;
+  }
+}
+
+function debugSetScoreCardValues(targetScore, roundScore) {
+  const target = Math.round(Number(targetScore) || 0);
+  const round = Math.round(Number(roundScore) || 0);
+  debugScoreCardTargetOverride.value = target;
+  debugScoreCardRoundOverride.value = round;
+  const result = { target, round };
+  console.log(
+    `[DEV] 分数框测试：至少得分=${target.toLocaleString()}，关卡得分=${round.toLocaleString()}`,
+    result,
+  );
+  return result;
+}
+
+function debugClearScoreCardValues() {
+  debugScoreCardTargetOverride.value = null;
+  debugScoreCardRoundOverride.value = null;
+  console.log("[DEV] 分数框测试已清除，恢复真实分数");
+}
+
 function registerMaskBubbleDevConsoleHook() {
   if (!import.meta.env.DEV) return;
   const dev = globalThis.__WM_DEV__;
   if (!dev || typeof dev !== "object") return;
   dev.startMaskBubbleBlueprintTest = () => startMaskBubbleBlueprintDevTest();
+  dev.startFirstWordTutorial = () => startFirstWordTutorialDevTest();
   dev.startAllIceDevTest = () => startAllIceDevTest();
   dev.startCeruleanBellDevTest = () => startCeruleanBellDevTest();
   dev.startPagerDevTest = () => startPagerDevTest();
   dev.randomizeGridTileMaterials = () => randomizeGridTileMaterialsDev();
+  dev.debugSetScoreCardValues = (target, round) => debugSetScoreCardValues(target, round);
+  dev.debugClearScoreCardValues = () => debugClearScoreCardValues();
+  dev.grantRandomOwnedTreasures = async (count = 1) => {
+    const requested = Math.max(0, Math.floor(Number(count) || 0));
+    const granted = await grantRandomOwnedTreasuresInRunWithPopAnim(requested, {
+      expandWithCropWhenFull: true,
+    });
+    if (granted < requested) {
+      console.log(
+        `[DEV] 已授予 ${granted}/${requested} 个不重复随机宝藏（槽位已满且宝藏池无更多可抽）`,
+      );
+    } else {
+      console.log(`[DEV] 已授予 ${granted} 个不重复随机宝藏`);
+    }
+    return granted;
+  };
+  const baseSetupScreenshotPreset = dev.setupScreenshotPreset?.bind(dev);
+  dev.setupScreenshotPreset = async (preset) => {
+    const id = normalizeScreenshotPresetId(preset);
+    if (id === 1 || id === 3) return startScreenshotPresetDevTest(id);
+    return baseSetupScreenshotPreset?.(preset);
+  };
 }
 
 /** @param {string} levelId @returns {import('../treasures/treasureTypes.js').TreasureLevelEnterContext} */
@@ -4548,7 +5021,7 @@ async function runHourglassStageEndFx() {
     changed = true;
     await wobbleGameTreasureSlot(i);
     if (result.kind === "tick") {
-      await playTreasureSlotHourglassBubbleAtPeak(i);
+      await playTreasureSlotHourglassBubbleAtPeak(i, result.count);
     } else if (result.kind === "expired") {
       await playTreasureSlotExpiredBubbleAtPeak(i);
     }
@@ -4559,15 +5032,16 @@ async function runHourglassStageEndFx() {
   }
 }
 
-/** @param {number} slotIndex */
-async function playTreasureSlotHourglassBubbleAtPeak(slotIndex) {
+/** @param {number} slotIndex @param {number} elapsedStages */
+async function playTreasureSlotHourglassBubbleAtPeak(slotIndex, elapsedStages) {
   const el = getOwnedTreasureSlotEl(slotIndex);
   if (!el || slotIndex < 0) return;
   const sp = 1;
+  const count = Math.max(1, Math.floor(Number(elapsedStages) || 0));
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-  const bubble = showScoreBubble(el, "", "hourglass", sp);
+  const bubble = showScoreBubble(el, `${count}/${HOURGLASS_EXPIRE_STAGES}`, "hourglass", sp);
   scheduleSmallPlusBubbleOutro(bubble, sp);
-  await scoringSleep(SCORING_LETTER_GAP_MS, sp);
+  await scoringSleep(HOURGLASS_STAGE_END_BUBBLE_HOLD_MS, sp);
 }
 
 /** @param {number} slotIndex */
@@ -4576,9 +5050,9 @@ async function playTreasureSlotExpiredBubbleAtPeak(slotIndex) {
   if (!el || slotIndex < 0) return;
   const sp = 1;
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-  const bubble = showScoreBubble(el, "失效！", "accessory-expired", sp);
+  const bubble = showScoreBubble(el, "已失效", "accessory-expired", sp);
   scheduleSmallPlusBubbleOutro(bubble, sp);
-  await scoringSleep(SCORING_LETTER_GAP_MS, sp);
+  await scoringSleep(HOURGLASS_STAGE_END_BUBBLE_HOLD_MS, sp);
 }
 
 async function runTreasureLevelCompleteHooks() {
@@ -5165,6 +5639,12 @@ watch(showShop, async (open, prev) => {
   refreshShopVoucherShelfForCurrentVisit();
   applyShopVisitStockRoll();
   runOwnedTreasuresOnShopEnterFx();
+  if (firstWordTutorialPhase.value === "awaitShop") {
+    firstWordTutorial.onShopOpened(resolveGuaranteedFirstShopTreasureOffer(shopOffers.value));
+    await nextTick();
+    scheduleTutorialSpotlightUpdate();
+    requestAnimationFrame(() => scheduleTutorialSpotlightUpdate());
+  }
 });
 
 watch(showShop, async (open) => {
@@ -5190,6 +5670,18 @@ const animScoreSum = ref(0);
 const animMultTotal = ref(0);
 const animResultTotal = ref(0);
 const roundScoreOverride = ref(null);
+/** 开发：顶栏分数框展示覆盖（null 表示用真实分数） */
+const debugScoreCardTargetOverride = ref(null);
+const debugScoreCardRoundOverride = ref(null);
+const headerTargetScoreValue = computed(
+  () => debugScoreCardTargetOverride.value ?? targetScore.value,
+);
+const headerRoundScoreValue = computed(
+  () =>
+    debugScoreCardRoundOverride.value ??
+    roundScoreOverride.value ??
+    currentScore.value,
+);
 const gameResultAreaRef = ref(null);
 const hideResultWordLengthBeforeTotal = ref(false);
 const suppressResultWordLengthUntilScoringEnd = ref(false);
@@ -5333,6 +5825,84 @@ function setGameTreasureSlotRef(index, el) {
   }
 }
 const wordSlotsWrapRef = ref(null);
+const submitBtnRef = ref(null);
+const submitBookmarkRef = ref(null);
+const firstWordTutorialLayerRef = ref(null);
+const firstWordTutorial = useFirstWordTutorial(() => props.saveSlotIndex);
+const firstWordTutorialLayerOpen = firstWordTutorial.layerOpen;
+const firstWordTutorialPhase = firstWordTutorial.phase;
+const firstWordTutorialActive = firstWordTutorial.tutorialActive;
+const firstWordTutorialShowHint = firstWordTutorial.showHint;
+const firstWordTutorialShowContinueButton = firstWordTutorial.showContinueButton;
+const firstWordTutorialHintText = firstWordTutorial.hintText;
+const firstWordTutorialSelectStep = firstWordTutorial.selectStep;
+const firstWordTutorialBaseStackZ = ref(0);
+const scoresHeaderRef = ref(null);
+const firstWordTutorialGridGlow = computed(
+  () =>
+    firstWordTutorialPhase.value === "retry" &&
+    !scoringAnimating.value &&
+    !gridRefillAnimating.value,
+);
+const firstWordTutorialBlocking = firstWordTutorial.tutorialBlocking;
+/** @type {import('vue').Ref<{ key: string, x: number, y: number, width: number, height: number, rx: number }[]>} */
+const tutorialHoles = ref([]);
+/** @type {import('vue').Ref<DOMRect | null>} */
+const tutorialSkipButtonRect = ref(null);
+/** @type {import('vue').Ref<{ x: number, y: number, width: number, height: number, rx: number } | null>} */
+const tutorialArrowTarget = ref(null);
+let tutorialSpotlightRaf = 0;
+
+watch(firstWordTutorialLayerOpen, (open) => {
+  if (open) {
+    if (firstWordTutorialBaseStackZ.value === 0) {
+      firstWordTutorialBaseStackZ.value = bumpOverlayZ();
+    }
+    return;
+  }
+  firstWordTutorialBaseStackZ.value = 0;
+});
+
+const firstWordTutorialStackZ = computed(() => {
+  const phase = firstWordTutorialPhase.value;
+  const layerOpen = firstWordTutorialLayerOpen.value;
+  if (!layerOpen && phase !== "fading") return 0;
+  if (
+    showShop.value &&
+    (phase === "shopIntro" || phase === "shopComplete" || phase === "fading")
+  ) {
+    return shopPortalZ.value + 10;
+  }
+  return firstWordTutorialBaseStackZ.value;
+});
+
+const firstWordTutorialTreasureDetailStackZFloor = computed(() => {
+  if (!showShop.value || !firstWordTutorialLayerOpen.value) return 0;
+  const phase = firstWordTutorialPhase.value;
+  if (phase !== "shopIntro" && phase !== "shopComplete") return 0;
+  return firstWordTutorialStackZ.value + 1;
+});
+
+watch(
+  () => [
+    firstWordTutorialLayerOpen.value,
+    firstWordTutorialPhase.value,
+    firstWordTutorialSelectStep.value,
+    scoringAnimating.value,
+    gridRefillAnimating.value,
+    showShop.value,
+    firstWordTutorialRetrySubmitReady.value,
+    canSubmit.value,
+  ],
+  () => {
+    if (firstWordTutorialPhase.value === "scoring" && !scoringAnimating.value && !gridRefillAnimating.value) {
+      firstWordTutorial.onFirstWordScoringSettled();
+    }
+    if (firstWordTutorialLayerOpen.value) scheduleTutorialSpotlightUpdate();
+  },
+  { flush: "post" },
+);
+
 /** 仅用于 imperative 写 --slot-scale，避免 RAF 每帧改 ref 触发整面板重渲染 */
 const wordSlotsScaleRootRef = ref(null);
 const flyLetterRef = ref(null);
@@ -5350,6 +5920,25 @@ const wordSelectionSwapBusy = ref(false);
 const wordDragReturnAnimSlot = ref(/** @type {number | null} */ (null));
 /** 离开 word 悬停后 placeholder 缩出动画期间暂留的布局（仅 slotIndex） */
 const wordDragPhExit = ref(/** @type {{ slotIndex: number } | null} */ (null));
+/**
+ * 棋盘占位格定格展示：tile 离格入词/飞入时快照，词串解析变化期间不再刷新字母与材质相关 props。
+ * @type {Map<string, {
+ *   letter: string,
+ *   rarity: string,
+ *   materialId: string | null,
+ *   accessoryId: string | null,
+ *   treasureAccessoryId: string | null,
+ *   tileScoreBonus: number,
+ *   tileMultBonus: number,
+ *   bossTileDebuffed: boolean,
+ *   ceruleanBellLocked: boolean,
+ *   playerMarked: boolean,
+ *   bossGridBlocked: boolean,
+ *   vowelGhostPrev: string | null,
+ *   vowelGhostNext: string | null,
+ * }>}
+ */
+const gridPlaceholderFreezeByTileId = new Map();
 /** 上一次拖动预览列表，供 remap 保留像素位置 */
 let lastWordDragPresentations = null;
 /** 正在飞回网格的 batch 列表，支持多个同时飞回；每 batch { id, slotIndex, list } */
@@ -5382,7 +5971,7 @@ function getGridTileElByIndex(index) {
 }
 
 /** 与 css `.letter-grid-cell--placeholder` 一致；离场动画在 cell 外包层 tween，避免盖掉 tile 材质 */
-const GRID_CELL_PLACEHOLDER_OPACITY = 0.42;
+const GRID_CELL_PLACEHOLDER_OPACITY = 0.26;
 
 function getGridCellElByIndex(index) {
   const host = letterGridRef.value;
@@ -5545,16 +6134,24 @@ function animateOneDiscardTileLeave(slotEl, gridEl, duration) {
     }
     if (gridEl) {
       gsap.killTweensOf(gridEl);
-      gsap.set(gridEl, { transformOrigin: "50% 50%", y: 0 });
-      gsap.to(gridEl, {
-        opacity: 0,
-        scale: 0.82,
-        y: 0,
-        duration,
-        ease: EASE_TRANSFORM,
-        onStart: slotEl ? undefined : fireRemoveHaptic,
-        onComplete: finish,
-      });
+      gsap.fromTo(
+        gridEl,
+        {
+          opacity: GRID_CELL_PLACEHOLDER_OPACITY,
+          scale: 1,
+          y: 0,
+          transformOrigin: "50% 50%",
+        },
+        {
+          opacity: 0,
+          scale: 0.82,
+          y: 0,
+          duration,
+          ease: EASE_TRANSFORM,
+          onStart: slotEl ? undefined : fireRemoveHaptic,
+          onComplete: finish,
+        },
+      );
     }
   });
 }
@@ -5564,7 +6161,7 @@ function animateOneDiscardTileLeave(slotEl, gridEl, duration) {
  * @param {HTMLElement[]} slotEls
  * @param {HTMLElement[]} gridEls
  * @param {{ letter?: string }[]} discardedLetters
- * @param {{ duration?: number, stagger?: number, potteryProcIndices?: number[] }} [options]
+ * @param {{ duration?: number, stagger?: number, potteryProcIndices?: number[], pistolProc?: boolean, pistolDeckUid?: number | null, pistolMoneyAmount?: number }} [options]
  * @returns {Promise<boolean>} 逐字弃牌动效已结算（调用方勿在 onDiscardBatch 重复入银行/播 FX）
  */
 async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, options = {}) {
@@ -5573,6 +6170,9 @@ async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, opti
   const rs = treasureRunState.value;
   const potterySlotIx = findOwnedTreasureSlotIndex(TREASURE_65_ID);
   const trashSlotIx = findOwnedTreasureSlotIndex(TREASURE_99_ID);
+  const pistolProc = options.pistolProc === true;
+  const pistolDeckUid = options.pistolDeckUid ?? null;
+  const pistolMoneyAmount = Math.max(0, Math.floor(Number(options.pistolMoneyAmount) || 0));
   /** @type {number[]} */
   const potteryIndices = potterySlotIx >= 0 ? [...(options.potteryProcIndices ?? [])] : [];
   /** @type {number[]} */
@@ -5582,7 +6182,7 @@ async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, opti
       if (String(discardedLetters[i]?.letter ?? "").toLowerCase() === "e") trashIndices.push(i);
     }
   }
-  if (!potteryIndices.length && !trashIndices.length) {
+  if (!potteryIndices.length && !trashIndices.length && !pistolProc) {
     await runSlotAndGridLeaveAnimation(slotEls, gridEls, { duration, stagger });
     return false;
   }
@@ -5598,10 +6198,26 @@ async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, opti
     const gridEl = gridEls[i];
     const triggersPottery = potteryIndices.includes(i);
     const triggersTrash = trashIndices.includes(i);
+    const triggersPistol = pistolProc && i === 0;
     leaveTasks.push(
       (async () => {
         if (i > 0) await sleep(i * staggerMs);
-        await animateOneDiscardTileLeave(slotEl, gridEl, duration);
+        if (triggersPistol) {
+          rs.levelFirstDiscardBatchDone = true;
+          await playSubmitWordLetterRemoveAndRewardLeave({
+            treasureId: TREASURE_120_ID,
+            slotEls: slotEl ? [slotEl] : [],
+            gridEls: gridEl ? [gridEl] : [],
+            moneyAmount: pistolMoneyAmount,
+            onRemoveDeck: () => {
+              if (pistolDeckUid != null) {
+                removeDeckCardByUidAndNotify(pistolDeckUid, { clearGrid: false });
+              }
+            },
+          });
+        } else {
+          await animateOneDiscardTileLeave(slotEl, gridEl, duration);
+        }
         if (triggersPottery) {
           addScoreAddBank(rs, TREASURE_65_ID, scorePerLetter);
           await playTreasureSlotScoreBurstAtPeak(potterySlotIx, scorePerLetter);
@@ -5654,6 +6270,88 @@ function isGridTilePlaceholder(row, col, tile) {
   return tile?.selected === true || isTileFlying(row, col);
 }
 
+/** @param {object} tile */
+function captureGridPlaceholderFreeze(tile) {
+  if (!tile?.id) return;
+  const id = String(tile.id);
+  if (gridPlaceholderFreezeByTileId.has(id)) return;
+  const ghost = vowelGhostForTile(tile);
+  gridPlaceholderFreezeByTileId.set(id, {
+    letter: tile.letter,
+    rarity: tile.rarity,
+    materialId: tile.materialId ?? null,
+    accessoryId: tile.accessoryId ?? null,
+    treasureAccessoryId: tile.treasureAccessoryId ?? null,
+    tileScoreBonus: Number(tile.tileScoreBonus) || 0,
+    tileMultBonus: Number(tile.letterMultBonus) || 0,
+    bossTileDebuffed: tile.bossTileDebuffed === true,
+    ceruleanBellLocked: tile.ceruleanBellLocked === true,
+    playerMarked: tile.playerMarked === true,
+    bossGridBlocked: tile.bossGridBlocked === true,
+    vowelGhostPrev: ghost?.prev ?? null,
+    vowelGhostNext: ghost?.next ?? null,
+  });
+}
+
+/** @param {string | number | null | undefined} tileId */
+function releaseGridPlaceholderFreeze(tileId) {
+  if (tileId == null) return;
+  gridPlaceholderFreezeByTileId.delete(String(tileId));
+}
+
+function syncGridPlaceholderFreezeCaptures() {
+  /** @type {Set<string>} */
+  const activeIds = new Set();
+  const g = grid.value;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const tile = g[r]?.[c];
+      if (!tile) continue;
+      if (isGridTilePlaceholder(r, c, tile)) {
+        activeIds.add(String(tile.id));
+        captureGridPlaceholderFreeze(tile);
+      }
+    }
+  }
+  for (const id of gridPlaceholderFreezeByTileId.keys()) {
+    if (!activeIds.has(id)) releaseGridPlaceholderFreeze(id);
+  }
+}
+
+/** @param {object} tile */
+function gridPlaceholderFrozenPresentation(tile) {
+  if (!tile?.id) return null;
+  return gridPlaceholderFreezeByTileId.get(String(tile.id)) ?? null;
+}
+
+/** @param {object} tile @param {number} index */
+function gridTileRenderLetter(tile, index) {
+  const frozen = gridPlaceholderFrozenPresentation(tile);
+  if (frozen) return frozen.letter;
+  return gridTileLetterForRender.value.get(tile.id) ?? tile.letter;
+}
+
+/** @param {object} tile @param {number} index */
+function gridTileRenderRarity(tile, index) {
+  const frozen = gridPlaceholderFrozenPresentation(tile);
+  if (frozen) return frozen.rarity;
+  return gridTileRarityForRender.value.get(tile.id) ?? tile.rarity;
+}
+
+/** @param {object} tile */
+function gridTileRenderVowelGhostPrev(tile) {
+  const frozen = gridPlaceholderFrozenPresentation(tile);
+  if (frozen) return frozen.vowelGhostPrev;
+  return gridTileVowelGhostForRender.value.get(tile.id)?.prev ?? null;
+}
+
+/** @param {object} tile */
+function gridTileRenderVowelGhostNext(tile) {
+  const frozen = gridPlaceholderFrozenPresentation(tile);
+  if (frozen) return frozen.vowelGhostNext;
+  return gridTileVowelGhostForRender.value.get(tile.id)?.next ?? null;
+}
+
 /**
  * 占位格 v-memo：不含词串解析后的 letter/rarity，避免新字入词时整盘占位材质被重绘。
  * @param {object} tile
@@ -5667,6 +6365,9 @@ function gridTileRenderMemoDeps(tile, index) {
     && tileDragSource.value?.zone === "grid"
     && tileDragSource.value.row === row
     && tileDragSource.value.col === col;
+  if (placeholder) {
+    return [tile.id, placeholder, tileDragActive.value, dragSourceCell];
+  }
   const shared = [
     tile.id,
     tile.materialId,
@@ -5683,7 +6384,6 @@ function gridTileRenderMemoDeps(tile, index) {
     dragSourceCell,
     placeholder,
   ];
-  if (placeholder) return shared;
   const ghost = gridTileVowelGhostForRender.value.get(tile.id);
   return [
     ...shared,
@@ -6188,6 +6888,9 @@ function flushFlyInSelections() {
     }
   }
   syncFlyingInTargets();
+  if (firstWordTutorialPhase.value === "retry") {
+    scheduleTutorialSpotlightUpdate();
+  }
 }
 
 function waitForFlyingBackIdle() {
@@ -6467,19 +7170,59 @@ function buildEffectiveWordPartsForSubmit(opts = {}) {
   return { word: chars.join(""), vowelAltMask };
 }
 
+/** @returns {import("../game/bossWordViolation.js").BossWildcardResolveContext | null} */
+function buildBossWildcardResolveContext() {
+  const slug = bossSlugForMechanics();
+  if (!bossHasWholeWordSoftRule(slug)) return null;
+  if (isBossEffectsSuppressedByTreasures(ownedSlotTreasureIdList())) return null;
+  const tiles = effectiveFormulaTiles.value;
+  return {
+    slug,
+    usedLengthsThisLevel: usedWordLengthsThisBoss.value,
+    mouthLockedLength: mouthLockedLengthBoss.value,
+    clubRequiredKey: clubRequiredKeyBoss.value || "",
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+    getWordDefinition,
+    tiles,
+    getJudgedWordLen(resolvedWord) {
+      return judgedLengthTableLenForRun(getWordLetterCount(tiles, resolvedWord));
+    },
+    getEndingLetterRarity(resolvedWord) {
+      return getEndingLetterRarityForResolvedWord(tiles, resolvedWord);
+    },
+  };
+}
+
+/** 同帧重复解析缓存（选词/释义/ghost 等多处共用） */
+let vowelResolveMemoKey = "";
+/** @type {string | null | undefined} */
+let vowelResolveMemoResult = undefined;
+
 /** @param {{ word: string, vowelAltMask: boolean[] }} parts */
 function resolveWordFromEffectiveParts(parts) {
   const { word, vowelAltMask } = parts;
+  const rl = rarityLevelsByRarity.value;
+  const bossCtx = buildBossWildcardResolveContext();
   const owned = ownedSlotTreasureIdList();
+  const bossKey = bossCtx ? `${bossCtx.slug}|${bossCtx.mouthLockedLength}|${bossCtx.clubRequiredKey}` : "";
+  const maskBits = vowelAltMask.map((b) => (b ? "1" : "0")).join("");
+  const memoKey = `${word}\0${maskBits}\0${hasTestTubeAllVowelsForMouth(owned) ? "1" : "0"}\0${bossKey}`;
+  if (memoKey === vowelResolveMemoKey) return vowelResolveMemoResult ?? null;
+
+  let result;
   if (hasVowelNeighborSubstitute(owned) && vowelAltMask.some(Boolean)) {
-    return resolveWordPatternWithVowelSubstitutions(
+    result = resolveWordPatternWithVowelSubstitutions(
       word,
       vowelAltMask,
-      (p) => resolveWordPattern(p, "?"),
+      (p) => resolveWordPattern(p, "?", rl, bossCtx),
       owned,
     );
+  } else {
+    result = resolveWordPattern(word, "?", rl, bossCtx);
   }
-  return resolveWordPattern(word, "?");
+  vowelResolveMemoKey = memoKey;
+  vowelResolveMemoResult = result;
+  return result;
 }
 
 /** @param {object | null | undefined} extraTile 飞入启程时预追加的格 */
@@ -6672,7 +7415,7 @@ function computeFlyBackTilePresentation(tile) {
   return { letter, rarity, vowelGhostPrev, vowelGhostNext };
 }
 
-/** 若包含 `?`，返回首个可匹配的真实单词（小写）；无匹配则为 null。 */
+/** 若包含 `?`，返回万能位「稀有度分×倍率」总和最大的可匹配真实单词（小写）；无匹配则为 null。 */
 const resolvedWordForSubmit = computed(() =>
   resolveWordFromEffectiveParts(effectiveWordPartsForSubmit.value),
 );
@@ -6688,6 +7431,7 @@ const wordDefinitionDisplayMode = computed(() => {
 
 const wordDefinitionZoneVisible = computed(
   () =>
+    !firstWordTutorialActive.value &&
     wordDefinitionDisplayMode.value !== "off" &&
     dictionaryReady.value &&
     effectiveWordForSubmit.value.length > 0,
@@ -6744,7 +7488,52 @@ function closeWordDefinitionLayer() {
 
 watch(resolvedWordForSubmit, () => {
   wordDefinitionLayerOpen.value = false;
-});
+  if (firstWordTutorialPhase.value === "retry" && firstWordTutorialLayerOpen.value) {
+    scheduleTutorialSpotlightUpdate();
+  }
+}, { flush: "post" });
+
+watch(
+  () => [
+    selectedOrder.value.map((p) => `${p.row},${p.col}`).join("|"),
+    flyingLetters.value.map((f) => `${f.id}:${f.pendingRow},${f.pendingCol}`).join("|"),
+    wordDragReturnAnimSlot.value,
+    tileDragActive.value,
+    tileDragSource.value?.zone,
+    tileDragSource.value?.row,
+    tileDragSource.value?.col,
+    tileDragSource.value?.slotIndex,
+  ],
+  () => syncGridPlaceholderFreezeCaptures(),
+  { flush: "sync" },
+);
+
+watch(
+  () => selectedOrder.value.length,
+  () => {
+    if (firstWordTutorialPhase.value === "retry" && firstWordTutorialLayerOpen.value) {
+      scheduleTutorialSpotlightUpdate();
+    }
+  },
+  { flush: "post" },
+);
+
+watch(
+  () => [
+    firstWordTutorialPhase.value,
+    effectiveWordForSubmit.value,
+    resolvedWordForSubmit.value,
+    selectedOrder.value.length,
+    flyingLetters.value.length,
+    scoringAnimating.value,
+    gridRefillAnimating.value,
+  ],
+  () => {
+    if (firstWordTutorialPhase.value === "retry" && firstWordTutorialLayerOpen.value) {
+      scheduleTutorialSpotlightUpdate();
+    }
+  },
+);
 
 watch(showWordDefinitionTrigger, (visible) => {
   if (!visible) wordDefinitionLayerOpen.value = false;
@@ -6765,31 +7554,39 @@ function isTileInFlyingBackFromWord(tile) {
   return flyingBackBatches.value.some((b) => idx >= b.slotIndex);
 }
 
-/** 拼词中：按当前词典解析结果推算该格的元音展示偏移；无解析则 null */
-function resolveVowelDisplayShiftForTile(tile) {
+/** 已选词各格元音展示偏移（O(词长) 一次，供 ghost 批量查表） */
+const vowelDisplayShiftBySelectedTileId = computed(() => {
   const res = resolvedWordForSubmit.value;
   const eff = effectiveWordForSubmit.value;
-  if (!res || !eff || eff.length !== res.length) return null;
   const owned = ownedSlotTreasureIdList();
-  if (!hasVowelNeighborSubstitute(owned)) return null;
+  /** @type {Map<string, number>} */
+  const m = new Map();
+  if (!res || !eff || eff.length !== res.length || !hasVowelNeighborSubstitute(owned)) return m;
   let pos = 0;
   for (const t of effectiveFormulaTiles.value) {
     const frag = String(t?.letter ?? "").toLowerCase();
-    if (t === tile || (tile?.id != null && t?.id === tile.id)) {
-      const card = tile._deckCard;
-      const natural =
-        card && typeof card === "object"
-          ? deckCardRaw(card)
-          : frag.replace(/^qu/, "q").charAt(0);
-      const naturalCh = natural.charAt(0) === "q" ? "q" : natural.charAt(0);
-      if (!isLetterSubstitutableForMouth(naturalCh, owned)) return null;
+    const card = t._deckCard;
+    const natural =
+      card && typeof card === "object"
+        ? deckCardRaw(card)
+        : frag.replace(/^qu/, "q").charAt(0);
+    const naturalCh = natural.charAt(0) === "q" ? "q" : natural.charAt(0);
+    if (t?.id != null && isLetterSubstitutableForMouth(naturalCh, owned)) {
       const resolvedCh = res[pos];
-      if (!resolvedCh) return null;
-      return vowelDisplayShiftForResolved(naturalCh, resolvedCh, owned);
+      if (resolvedCh) {
+        m.set(t.id, vowelDisplayShiftForResolved(naturalCh, resolvedCh, owned));
+      }
     }
     pos += frag.length;
   }
-  return null;
+  return m;
+});
+
+/** 拼词中：按当前词典解析结果推算该格的元音展示偏移；无解析则 null */
+function resolveVowelDisplayShiftForTile(tile) {
+  if (!tile?.id) return null;
+  const hit = vowelDisplayShiftBySelectedTileId.value.get(tile.id);
+  return hit != null ? hit : null;
 }
 
 /** @param {object | null | undefined} tile */
@@ -6836,7 +7633,7 @@ const bossSoftWordViolationPreview = computed(() => {
     slug,
     wordLen: judgedLen,
     resolvedWord: res,
-    endingLetterRarity: getEndingLetterRarityFromTiles(effectiveFormulaTiles.value),
+    endingLetterRarity: getEndingLetterRarityForResolvedWord(effectiveFormulaTiles.value, res),
     getWordDefinition,
     usedLengthsThisLevel: usedWordLengthsThisBoss.value,
     mouthLockedLength: mouthLockedLengthBoss.value,
@@ -6872,8 +7669,8 @@ const effectiveFormulaTiles = computed(() => {
  * 飞字渲染：随词串解析同步更新万能块变形字母（与词槽/棋盘 selected 展示一致）。
  */
 const flyingLettersForRender = computed(() => {
-  const parts = buildEffectiveWordPartsForSubmit();
-  const res = resolveWordFromEffectiveParts(parts);
+  const parts = effectiveWordPartsForSubmit.value;
+  const res = resolvedWordForSubmit.value;
   const eff = parts.word;
   return flyingLetters.value.map((fly) => {
     const t = grid.value[fly.pendingRow]?.[fly.pendingCol];
@@ -7263,8 +8060,20 @@ const gridTileRarityForRender = computed(() => {
 /** 棋盘格元音 ghost：computed 缓存，避免模板每格重复调用 vowelGhostForTile */
 const gridTileVowelGhostForRender = computed(() => {
   const m = new Map();
+  const owned = ownedSlotTreasureIdList();
+  const limitGridGhosts =
+    hasVowelNeighborSubstitute(owned) && hasTestTubeAllVowelsForMouth(owned);
   for (const tile of flatGrid.value) {
     if (!tile) continue;
+    if (limitGridGhosts) {
+      const inWord = selectedSlotIndexForTile(tile) >= 0;
+      const card = tile._deckCard;
+      const hasShift =
+        card &&
+        typeof card === "object" &&
+        Math.sign(Number(card.vowelDisplayShift) || 0) !== 0;
+      if (!inWord && !hasShift) continue;
+    }
     const g = vowelGhostForTile(tile);
     if (g) m.set(tile.id, g);
   }
@@ -7502,6 +8311,7 @@ function onGridTileContextMenu(e, row, col, tile) {
 }
 
 function onGridTileCombinedPointerDown(e, row, col, tile) {
+  if (isFirstWordTutorialBlockingInput() && !firstWordTutorial.allowsTileClick(row, col)) return;
   onTileDragGridPointerDown(row, col, e);
   onGridTileDetailPointerDown(e, row, col, tile);
 }
@@ -7509,6 +8319,7 @@ function onGridTileCombinedPointerDown(e, row, col, tile) {
 function onGridTileDetailPointerDown(e, row, col, tile) {
   if (e.pointerType === "mouse" && e.button !== 0) return;
   if (!tile || dictFatalError.value) return;
+  if (isFirstWordTutorialBlockingInput()) return;
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value || gridRefillAnimating.value) return;
   if (tile.selected || isTileFlying(row, col)) return;
@@ -7557,6 +8368,7 @@ function onWordSlotCombinedPointerDown(e, displayIndex) {
 
 function onWordSlotDetailPointerDown(e, i) {
   if (e.pointerType === "mouse" && e.button !== 0) return;
+  if (isFirstWordTutorialBlockingInput()) return;
   if (dictFatalError.value) return;
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value) return;
@@ -7849,18 +8661,44 @@ const displayFormulaMult = computed(() => {
 });
 
 const canSubmit = computed(() => {
+  if (
+    firstWordTutorialBlocking.value &&
+    firstWordTutorialPhase.value !== "submit" &&
+    firstWordTutorialPhase.value !== "retry"
+  ) {
+    return false;
+  }
+  const tutorialRetryPhase = firstWordTutorialPhase.value === "retry";
   return (
     !showShop.value &&
     !isRunFlowOverlayOpen() &&
     !transitionBusy.value &&
     dictionaryReady.value &&
     resolvedWordForSubmit.value != null &&
-    remainingWords.value > 0 &&
+    (remainingWords.value > 0 || tutorialRetryPhase) &&
     !scoringAnimating.value &&
     !submitWordBusy.value &&
     !gridRefillAnimating.value
   );
 });
+
+/** retry 阶段：拼出有效词即可点亮提交区（不必等 canSubmit 其它门禁） */
+const firstWordTutorialRetrySubmitReady = computed(
+  () =>
+    firstWordTutorialPhase.value === "retry" &&
+    !scoringAnimating.value &&
+    !gridRefillAnimating.value &&
+    resolvedWordForSubmit.value != null,
+);
+
+const firstWordTutorialSubmitHighlightReady = computed(
+  () =>
+    firstWordTutorialPhase.value === "submit" || firstWordTutorialRetrySubmitReady.value,
+);
+
+watch(canSubmit, () => {
+  if (firstWordTutorialLayerOpen.value) scheduleTutorialSpotlightUpdate();
+}, { flush: "post" });
 
 /** 与提交按钮一致：飞回中的槽位视为已离开拼词槽，即时参与可用态判断 */
 const effectiveSelectedCount = computed(() => {
@@ -7896,6 +8734,7 @@ const canRemove = computed(() => {
 });
 
 function onDiscardBtnClick() {
+  if (isFirstWordTutorialBlockingInput()) return;
   if (dictFatalError.value) return;
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (scoringAnimating.value || gridRefillAnimating.value) return;
@@ -7929,6 +8768,15 @@ const markButtonTitle = computed(() => {
 });
 
 const showSwapWordButton = computed(() => gameSettings.swapButtonMode !== "hidden");
+
+const showMarkButton = computed(() => gameSettings.markButtonEnabled === true);
+
+const showMarkButtonInRun = computed(
+  () => showMarkButton.value && !firstWordTutorialActive.value,
+);
+const showSwapWordButtonInRun = computed(
+  () => showSwapWordButton.value && !firstWordTutorialActive.value,
+);
 
 const swapWordButtonTitle = computed(() => {
   const mode = getSwapButtonMode();
@@ -8171,9 +9019,9 @@ function buildHydrateContext() {
   };
 }
 
-/** @param {number} [slotIndex] */
-function saveCurrentRun(slotIndex = props.saveSlotIndex) {
-  return saveGamePanelToSlot(buildLocalSaveContext(), slotIndex);
+/** @param {number} [slotIndex] @param {{ immediate?: boolean }} [opts] */
+function saveCurrentRun(slotIndex = props.saveSlotIndex, opts = {}) {
+  return saveGamePanelToSlot(buildLocalSaveContext(), slotIndex, opts);
 }
 
 function canSaveCurrentRun() {
@@ -8189,8 +9037,8 @@ function canSaveCurrentRun() {
 
 const runAutoSave = createRunAutoSave({
   canSave: canSaveCurrentRun,
-  save: () => {
-    saveCurrentRun(props.saveSlotIndex);
+  save: (opts) => {
+    saveCurrentRun(props.saveSlotIndex, opts);
   },
   isAlive: () => gamePanelAlive,
 });
@@ -8434,13 +9282,14 @@ function abandonStandardWinRunProgressIfNeeded() {
 }
 
 function onRunEndMainMenu() {
-  runAutoSave.tryFlush();
+  runAutoSave.tryFlush({ force: true });
   requestCloudSync({ priority: "high" });
   abandonStandardWinRunProgressIfNeeded();
   emit("exit-to-menu");
 }
 
 function openPauseOptions() {
+  if (isFirstWordTutorialBlockingInput()) return;
   if (transitionBusy.value || showShop.value || isBlockingPauseOpen()) return;
   revealPauseOptionsLayer();
 }
@@ -8541,7 +9390,7 @@ function onPauseSettings() {
 
 function onPauseMainMenu() {
   closePauseOptions();
-  runAutoSave.tryFlush();
+  runAutoSave.tryFlush({ force: true });
   abandonStandardWinRunProgressIfNeeded();
   emit("exit-to-menu");
 }
@@ -8702,6 +9551,7 @@ async function runGridIntroAfterReset() {
   gridRefillAnimating.value = false;
   await runPendingAfterGridTilesSettled();
   await tryCeruleanBellMarkAfterGridStable();
+  await beginFirstWordTutorialAfterGridSettled();
   nextTick(() => updateSlotPositions(true));
 }
 
@@ -9253,10 +10103,17 @@ function grantRandomShopTreasure() {
 
 /**
  * @param {string | null} rarityFilter `epic` / `legendary`；null 为任意稀有度加权
+ * @param {{ expandWithCropWhenFull?: boolean }} [opts]
  * @returns {{ ok: boolean, slotIndex: number }}
  */
-function grantRandomShopTreasureByRarity(rarityFilter) {
-  const ix = findTreasurePlacementIndex(null);
+function grantRandomShopTreasureByRarity(rarityFilter, opts = {}) {
+  const expandWithCropWhenFull = opts.expandWithCropWhenFull === true;
+  let usedCrop = false;
+  let ix = findTreasurePlacementIndex(null);
+  if (ix < 0 && expandWithCropWhenFull) {
+    ix = findTreasurePlacementIndex({ treasureAccessoryIds: [ACCESSORY_CROP] });
+    if (ix >= 0) usedCrop = true;
+  }
   if (ix < 0) return { ok: false, slotIndex: -1 };
   const owned = ownedTreasureIdSet.value;
   const sourcePool = rarityFilter
@@ -9275,6 +10132,7 @@ function grantRandomShopTreasureByRarity(rarityFilter) {
   slots[ix] = buildOwnedTreasureSlot({
     treasureId: def.treasureId,
     price: def.price,
+    ...(usedCrop ? { treasureAccessoryIds: [ACCESSORY_CROP] } : {}),
   });
   ownedTreasures.value = slots;
   noteCollectionTreasureAcquired(def.treasureId);
@@ -11294,6 +12152,7 @@ async function onTreasurePurchase() {
     grantTreasure();
     await playTreasureGrantPopAtSlotIndex(ix);
   }
+  maybeEndShopTutorialOnTreasurePurchase(t);
   treasureDetail.value = null;
   } finally {
     scheduleRunAutoSave();
@@ -11337,6 +12196,7 @@ async function onTreasureSell() {
     if (ix >= 0 && ix < keys.length) keys.splice(ix, 1);
     gameOwnedKeyOrder.value = keys;
   }
+  void triggerTreasureBarCompactAnim();
   syncShopUpgradesFreeFromOwnedTreasures(ownedSlotTreasureIdList(), treasureRunState.value);
   treasureDetail.value = null;
   if (bossSlugForMechanics() === "verdant_leaf") {
@@ -11814,14 +12674,159 @@ function scheduleMultMultiplyBubbleOutro(el, speed = 1) {
  */
 const TILE_AUGMENT_BADGE_BOUNCE_SCALE = 2;
 
+/** @type {WeakMap<HTMLElement, number>} */
+const treasureSlotWobbleFrontCounts = new WeakMap();
+
+/** @type {WeakMap<HTMLElement, gsap.core.Timeline>} */
+const treasureSlotWobbleTimelines = new WeakMap();
+
+/** @param {Element | null | undefined} el */
+function resolveTreasureSlotRootEl(el) {
+  if (!(el instanceof HTMLElement)) return null;
+  if (el.classList.contains("treasure-slot")) return el;
+  const root = el.closest(".treasure-slot");
+  return root instanceof HTMLElement ? root : null;
+}
+
+/** @param {HTMLElement} root */
+function incrementTreasureSlotWobbleFront(root) {
+  const next = (treasureSlotWobbleFrontCounts.get(root) ?? 0) + 1;
+  treasureSlotWobbleFrontCounts.set(root, next);
+  root.classList.add("treasure-slot--wobble-front");
+}
+
+/** @param {HTMLElement} root */
+function decrementTreasureSlotWobbleFront(root) {
+  const next = (treasureSlotWobbleFrontCounts.get(root) ?? 0) - 1;
+  if (next <= 0) {
+    treasureSlotWobbleFrontCounts.delete(root);
+    root.classList.remove("treasure-slot--wobble-front");
+    return;
+  }
+  treasureSlotWobbleFrontCounts.set(root, next);
+}
+
+/**
+ * 宝藏槽 wobble 期间 z-index 置顶；支持同槽并发 wobble（引用计数）。
+ * @param {gsap.core.Timeline} tl
+ * @param {Element | null | undefined} slotEl
+ */
+function attachTreasureSlotWobbleZFront(tl, slotEl) {
+  const root = resolveTreasureSlotRootEl(slotEl);
+  if (!root) return;
+  const prevTl = treasureSlotWobbleTimelines.get(root);
+  if (prevTl && prevTl !== tl) prevTl.kill();
+  treasureSlotWobbleTimelines.set(root, tl);
+  incrementTreasureSlotWobbleFront(root);
+  const restore = () => {
+    if (treasureSlotWobbleTimelines.get(root) === tl) {
+      treasureSlotWobbleTimelines.delete(root);
+    }
+    decrementTreasureSlotWobbleFront(root);
+  };
+  const prevComplete = tl.eventCallback("onComplete");
+  const prevInterrupt = tl.eventCallback("onInterrupt");
+  tl.eventCallback("onComplete", () => {
+    restore();
+    prevComplete?.();
+  });
+  tl.eventCallback("onInterrupt", () => {
+    restore();
+    prevInterrupt?.();
+  });
+}
+
+/** 叠放 gradient 左缘与卡面衔接位置（同 CSS left:75%） */
+const TREASURE_STACK_SHADOW_ATTACH_X = 0.75;
+
+/**
+ * face 以 50%/55% 均匀缩放时，gradient 左缘应随动之横向偏移（px）。
+ * @param {number} cardWidthPx
+ * @param {number} scale
+ */
+function treasureStackShadowWobbleOffsetPx(cardWidthPx, scale) {
+  return (TREASURE_STACK_SHADOW_ATTACH_X - 0.5) * (scale - 1) * cardWidthPx;
+}
+
+/** @param {gsap.core.Timeline} tl @param {"onComplete" | "onInterrupt"} eventName @param {() => void} fn */
+function chainTimelineCallback(tl, eventName, fn) {
+  const prev = tl.eventCallback(eventName);
+  tl.eventCallback(eventName, () => {
+    fn();
+    if (typeof prev === "function") prev();
+  });
+}
+
+/**
+ * 叠放 wobble：stack-shadow 单独 scaleY + 左移，与 face 缩/放节拍同步（不随父级 scale）。
+ * @param {gsap.core.Timeline} tl
+ * @param {Element | null | undefined} slotEl
+ * @param {{ t0: number, tCompress: number, tExpand: number, scaleDownStart: number }} phase
+ */
+function attachTreasureStackShadowWobble(tl, slotEl, phase) {
+  const root = resolveTreasureSlotRootEl(slotEl);
+  if (!root?.classList.contains("treasure-slot--stack-overlap")) return;
+  const shadowEl = root.querySelector(".treasure-slot-stack-shadow");
+  if (!(shadowEl instanceof HTMLElement)) return;
+
+  const cardW = Math.max(1, root.offsetWidth || 0);
+  const { t0, tCompress, tExpand, scaleDownStart } = phase;
+  const origin = "0% 55%";
+
+  gsap.killTweensOf(shadowEl, "scaleY,x,rotation,scale");
+  gsap.set(shadowEl, { scaleY: 1, x: 0, transformOrigin: origin });
+
+  tl.to(
+    shadowEl,
+    {
+      scaleY: WOBBLE_SCALE_COMPRESS_TO,
+      x: treasureStackShadowWobbleOffsetPx(cardW, WOBBLE_SCALE_COMPRESS_TO),
+      duration: tCompress,
+      ease: "circ.out",
+    },
+    t0,
+  );
+  tl.to(
+    shadowEl,
+    {
+      scaleY: 1.18,
+      x: treasureStackShadowWobbleOffsetPx(cardW, 1.18),
+      duration: tExpand,
+      ease: "circ.inOut",
+    },
+    tCompress,
+  );
+  tl.to(shadowEl, { scaleY: 1, x: 0, duration: 0.3, ease: "circ.in" }, scaleDownStart);
+
+  chainTimelineCallback(tl, "onInterrupt", () => {
+    gsap.killTweensOf(shadowEl, "scaleY,x");
+    gsap.set(shadowEl, { scaleY: 1, x: 0 });
+  });
+}
+
+/** 叠放槽：wobble 只动 face；stack-shadow 由 attachTreasureStackShadowWobble 单独配合 */
+function resolveWobbleTransformEl(slotEl) {
+  if (
+    slotEl instanceof HTMLElement &&
+    slotEl.classList.contains("treasure-slot--stack-overlap")
+  ) {
+    const face = slotEl.querySelector(".treasure-slot-face");
+    if (face instanceof HTMLElement) return face;
+  }
+  return slotEl;
+}
+
 function createWobbleScoreSlotTimeline(slotEl, pillAugment) {
   if (!slotEl) return null;
+  const wobbleEl = resolveWobbleTransformEl(slotEl);
+  /** @type {gsap.core.Timeline | null} */
+  let tl = null;
   if (shouldSkipDecorativeMotion()) {
-    return createWobbleHighlightTimeline(slotEl);
-  }
-  gsap.killTweensOf(slotEl, "rotation,scale,x,y");
+    tl = createWobbleHighlightTimeline(wobbleEl);
+  } else {
+  gsap.killTweensOf(wobbleEl, "rotation,scale,x,y");
   const origin = "50% 55%";
-  gsap.set(slotEl, { x: 0, y: 0, rotation: 0, scale: 1, transformOrigin: origin });
+  gsap.set(wobbleEl, { x: 0, y: 0, rotation: 0, scale: 1, transformOrigin: origin });
 
   const t0 = 0;
   const tCompress = WOBBLE_SCALE_COMPRESS_S;
@@ -11846,24 +12851,35 @@ function createWobbleScoreSlotTimeline(slotEl, pillAugment) {
     gsap.set(pill, { scale: 1, transformOrigin: "50% 50%" });
   }
 
-  const tl = gsap.timeline();
-  tl.to(slotEl, { scale: WOBBLE_SCALE_COMPRESS_TO, duration: tCompress, ease: "circ.out" }, t0);
-  tl.to(slotEl, { scale: 1.18, duration: tExpand, ease: "circ.inOut" }, tCompress);
-  tl.to(slotEl, { scale: 1, duration: 0.3, ease: "circ.in" }, scaleDownStart);
-  tl.call(() => triggerHaptic("wobble"), null, rotStart);
-  tl.to(slotEl, { rotation: 2.6, duration: rotD1, ease: "power2.out" }, rotStart);
-  tl.to(slotEl, { rotation: -1.9, duration: rotD2, ease: "power2.inOut" }, rotStart + rotD1);
-  tl.to(slotEl, { rotation: 0, duration: 0.12, ease: "power2.out" }, rotStart + rotD1 + rotD2);
+  const tlBuilt = gsap.timeline();
+  tlBuilt.to(wobbleEl, { scale: WOBBLE_SCALE_COMPRESS_TO, duration: tCompress, ease: "circ.out" }, t0);
+  tlBuilt.to(wobbleEl, { scale: 1.18, duration: tExpand, ease: "circ.inOut" }, tCompress);
+  tlBuilt.to(wobbleEl, { scale: 1, duration: 0.3, ease: "circ.in" }, scaleDownStart);
+  tlBuilt.call(() => triggerHaptic("wobble"), null, rotStart);
+  tlBuilt.to(wobbleEl, { rotation: 2.6, duration: rotD1, ease: "power2.out" }, rotStart);
+  tlBuilt.to(wobbleEl, { rotation: -1.9, duration: rotD2, ease: "power2.inOut" }, rotStart + rotD1);
+  tlBuilt.to(wobbleEl, { rotation: 0, duration: 0.12, ease: "power2.out" }, rotStart + rotD1 + rotD2);
 
   if (pillEls.length) {
-    tl.to(
+    tlBuilt.to(
       pillEls,
       { scale: TILE_AUGMENT_BADGE_BOUNCE_SCALE, duration: tCompress, ease: "circ.out" },
       t0,
     );
-    tl.to(pillEls, { scale: 1, duration: tExpand + 0.12, ease: "circ.inOut" }, tCompress);
+    tlBuilt.to(pillEls, { scale: 1, duration: tExpand + 0.12, ease: "circ.inOut" }, tCompress);
   }
 
+  attachTreasureStackShadowWobble(tlBuilt, slotEl, {
+    t0,
+    tCompress,
+    tExpand,
+    scaleDownStart,
+  });
+
+  tl = tlBuilt;
+  }
+
+  if (tl) attachTreasureSlotWobbleZFront(tl, slotEl);
   return tl;
 }
 
@@ -12056,7 +13072,10 @@ function showScoreBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
                       ? "score-popup-bubble score-popup-bubble--sponge-erase"
                 : "score-popup-bubble";
   if (kind === "hourglass") {
-    div.innerHTML = '<i class="ri-hourglass-fill score-popup-bubble-hourglass-icon" aria-hidden="true"></i>';
+    const countLabel = displayText
+      ? `<span class="score-popup-bubble-hourglass-count">${displayText}</span>`
+      : "";
+    div.innerHTML = `<span class="score-popup-bubble-hourglass-inner"><i class="ri-hourglass-fill score-popup-bubble-hourglass-icon" aria-hidden="true"></i>${countLabel}</span>`;
   } else {
     div.textContent = displayText;
   }
@@ -12446,9 +13465,42 @@ async function runLetterAccessoryCoinMoneyBurst(tile, slotEl, speed = 1) {
 }
 
 /**
+ * 逐字金币 cue（如摇杆）：该字母计分后 wobble 并弹出 $ 气泡；每次 visit 独立判定。
+ * @param {object} detailed
+ * @param {number} letterIndex
+ * @param {number} luckyVisitIndex
+ */
+async function runPerLetterTreasureMoneyCues(detailed, letterIndex, luckyVisitIndex, slotEl, speed = 1) {
+  const cues = detailed.perLetterMoneyCuesByLetter?.[letterIndex]?.[luckyVisitIndex] ?? [];
+  if (!cues.length || !slotEl) return false;
+  const sp = Math.max(0.01, Number(speed) || 1);
+  let played = false;
+  for (const cue of cues) {
+    const moneyAmt = Math.max(0, Math.round(Number(cue.money) || 0));
+    if (moneyAmt <= 0) continue;
+    if (typeof cue.slotIndex === "number" && cue.slotIndex >= 0) {
+      scoringTreasureBarIndex.value = cue.slotIndex;
+      await nextTick();
+      await new Promise((r) => requestAnimationFrame(r));
+      const tel = gameTreasureSlotRefs[cue.slotIndex];
+      if (tel) wobbleScoreSlot(tel, sp);
+    }
+    wobbleScoreSlot(slotEl, sp);
+    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+    const bubble = showScoreBubble(slotEl, formatMoneyBubbleLabel(moneyAmt), "money", sp);
+    scheduleSmallPlusBubbleOutro(bubble, sp);
+    money.value += moneyAmt;
+    await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+    scoringTreasureBarIndex.value = null;
+    played = true;
+  }
+  return played;
+}
+
+/**
  * 单字母一轮：与 **tile 本体**同拍的只有——稀有度基础分 + tile/材质平面分 + tile 角标分；以及声明了
  * `mergeLetter*IntoIntrinsic*` 的宝藏（当前：海螺平面分、回形针倍率加法）。元音倍率、某字母加分等仍走单独步。
- * 顺序：上述「本体同一拍」→ 水滴 +50 → 其余逐字加分宝藏 → 钱币 →「本体倍率」→ 火焰 +10 → 其余逐字 +倍率宝藏 → 铅笔等 +倍率 → 碎冰 ×2.5 → 扳手 ×1.5 → 阳光等 ×倍率 → 幸运金币。
+ * 顺序：上述「本体同一拍」→ 水滴 +50 → 其余逐字加分宝藏 → 逐字金币宝藏（摇杆等）→ 钱币 →「本体倍率」→ 火焰 +10 → 其余逐字 +倍率宝藏 → 铅笔等 +倍率 → 碎冰 ×2.5 → 扳手 ×1.5 → 阳光等 ×倍率 → 幸运金币。
  * （宝藏槽火焰/水滴/扳手仍在整词字后步，见 postLetterTreasureSteps。）
  */
 async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVisitIndex = 0) {
@@ -12608,6 +13660,9 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
       source,
     );
     if (didTreasureScore) wordSlotIntrinsicWobblePlayed = true;
+  }
+  if (await runPerLetterTreasureMoneyCues(detailed, i, luckyVisitIndex, slotEl, sp)) {
+    wordSlotIntrinsicWobblePlayed = true;
   }
   await runLetterAccessoryCoinMoneyBurst(tile, slotEl, sp);
   if (tile?.accessoryId === TILE_ACCESSORY_COIN) wordSlotIntrinsicWobblePlayed = true;
@@ -13403,10 +14458,9 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   }
   await runClearWinVipDiamondSlotCueBeforeLeave(tiles, willClearLevelThisSubmit, slotTileEls);
 
-  const submitGridLeaveEls = getSelectedGridTileElsInOrder();
+  const submitGridLeaveEls = getSelectedGridCellElsInOrder();
   gsap.killTweensOf(submitGridLeaveEls);
   gsap.set(submitGridLeaveEls, {
-    opacity: 0.1,
     scale: 1,
     y: 0,
     transformOrigin: "50% 50%",
@@ -13594,6 +14648,9 @@ const FLY_DURATION = 0.25;
 
 function onTileClick(row, col, tile) {
     if (!tile) return;
+  if (isFirstWordTutorialBlockingInput()) {
+    if (!firstWordTutorial.allowsTileClick(row, col)) return;
+  }
   if (tileDragMoved.value) {
     tileDragMoved.value = false;
     return;
@@ -13627,6 +14684,7 @@ function cancelAllFlyingIn() {
 }
 
 async function onRemoveClick() {
+  if (isFirstWordTutorialBlockingInput()) return;
   if (dictFatalError.value) return;
   if (transitionBusy.value || showShop.value || isRunFlowOverlayOpen()) return;
   if (!canRemove.value) return;
@@ -13642,6 +14700,7 @@ async function onRemoveClick() {
   const discardedLettersForHooks = selectedTiles.value.map(({ tile }) => ({
     letter: tile?.letter ?? "",
   }));
+  const discardedDeckCardUids = selectedTiles.value.map(({ tile }) => tile?._deckCard?._dcUid ?? null);
 
   /** 与提交一致：先收集槽位 DOM，再播依次消失（此时 selectedOrder 仍在，槽位未卸载） */
   const slotTileEls = [];
@@ -13660,10 +14719,9 @@ async function onRemoveClick() {
     const ph = slotEl.querySelector(".word-slot-placeholder");
     if (ph) ph.classList.add("word-slot-placeholder--shell");
   }
-  const removeGridLeaveEls = getSelectedGridTileElsInOrder();
+  const removeGridLeaveEls = getSelectedGridCellElsInOrder();
   gsap.killTweensOf(removeGridLeaveEls);
   gsap.set(removeGridLeaveEls, {
-    opacity: 0.1,
     scale: 1,
     y: 0,
     transformOrigin: "50% 50%",
@@ -13682,9 +14740,15 @@ async function onRemoveClick() {
     findOwnedTreasureSlotIndex(TREASURE_65_ID) >= 0
       ? rollPotteryDiscardProcIndices(nSel, runRandom, ownedSlotTreasureIdList())
       : [];
+  const pistolDiscardPlan = resolvePistolDiscardBatchPlan({
+    treasureRun: treasureRunState.value,
+    letterCount: nSel,
+    discardedDeckCardUids,
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+  });
 
   wordDefinitionHiddenForWordLeave.value = true;
-  const discardPotteryFxHandled = await runDiscardLeaveAnimation(
+  const discardLeaveFxHandled = await runDiscardLeaveAnimation(
     slotTileEls,
     removeGridLeaveEls,
     discardedLettersForHooks,
@@ -13692,8 +14756,13 @@ async function onRemoveClick() {
       duration: discardLeaveDuration(nSel),
       stagger: discardLeaveStagger(nSel),
       potteryProcIndices,
+      pistolProc: pistolDiscardPlan.proc,
+      pistolDeckUid: pistolDiscardPlan.proc ? pistolDiscardPlan.deckUid : null,
+      pistolMoneyAmount: pistolDiscardPlan.proc ? pistolDiscardPlan.moneyAmount : 0,
     },
   );
+  const discardPotteryFxHandled = discardLeaveFxHandled && potteryProcIndices.length > 0;
+  const discardPistolFxHandled = discardLeaveFxHandled && pistolDiscardPlan.proc;
   const result = removeSelectedLetters({
     prevCells: prevFlip.cells,
     maxRemovalLetters: MAX_LETTERS_PER_REMOVAL,
@@ -13755,13 +14824,16 @@ async function onRemoveClick() {
     notifyOwnedTreasuresOnDiscardBatch(ownedSlotTreasureIdList(), {
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
       discardedLetters: discardedLettersForHooks,
+      discardedDeckCardUids,
       letterCount: nSel,
       treasureRun: treasureRunState.value,
       rng: runRandom,
       discardPotteryFxHandled,
+      discardPistolFxHandled,
       potteryDiscardProcIndices: potteryProcIndices,
       resolveDiscardedWord: (w) => getWordDefinition(w),
       judgedWordLength: judgedWordLengthForDiscard,
+      removeDeckCardByUid: (uid, options) => removeDeckCardByUidAndNotify(uid, options),
       bumpWordLengthLevel: (len) => {
         noteTreasureRunUpgradeUsed(treasureRunState.value);
         noteCollectionUpgradeForWordLen(len);
@@ -13879,9 +14951,19 @@ function startOneMoveIn(row, col, tile, options = {}) {
   ];
   syncFlyingInTargets();
   triggerHaptic("selection");
+  if (
+    firstWordTutorialPhase.value === "select" &&
+    firstWordTutorial.allowsTileClick(row, col)
+  ) {
+    firstWordTutorial.onLetterSelected();
+    scheduleTutorialSpotlightUpdate();
+  } else if (firstWordTutorialPhase.value === "retry") {
+    scheduleTutorialSpotlightUpdate();
+  }
 }
 
 function onSlotClick(i) {
+  if (isFirstWordTutorialBlockingInput()) return;
   if (tileDragMoved.value) {
     tileDragMoved.value = false;
     return;
@@ -14103,6 +15185,12 @@ async function submitWord() {
     showToast("不是有效单词");
     triggerHaptic("reject");
     return;
+  }
+  if (firstWordTutorialPhase.value === "retry") {
+    firstWordTutorial.onSecondWordSubmitted();
+  } else if (firstWordTutorialPhase.value === "submit") {
+    firstWordTutorial.onFirstWordSubmitted();
+    scheduleTutorialSpotlightUpdate();
   }
   triggerHaptic("confirm");
   wordDefinitionHiddenForWordLeave.value = true;
@@ -14597,7 +15685,8 @@ function mountE2eHarnessIfNeeded() {
       selectTile,
       clearCurrentWord,
       submitWord,
-      resolveWordPattern,
+      resolveWordPattern: (pattern, wc = "?") =>
+        resolveWordPattern(pattern, wc, rarityLevelsByRarity.value, buildBossWildcardResolveContext()),
       getDictCandidatesByLength: getCandidateWordsByLength,
       getTileAt(row, col) {
         const t = grid.value[row]?.[col];
@@ -14615,7 +15704,12 @@ function mountE2eHarnessIfNeeded() {
       getPreviewScoreForPick(path) {
         const tiles = path.map(({ row, col }) => grid.value[row][col]);
         const pattern = tiles.map((t) => String(t?.letter ?? "").toLowerCase()).join("");
-        const resolved = resolveWordPattern(pattern, "?");
+        const resolved = resolveWordPattern(
+          pattern,
+          "?",
+          rarityLevelsByRarity.value,
+          buildBossWildcardResolveContext(),
+        );
         const lengthJb = resolveWordLengthJudgmentBonus({
           ownedVoucherIds: ownedVoucherIds.value ?? [],
           ownedSlotTreasureIds: ownedSlotTreasureIdList(),
@@ -14745,6 +15839,7 @@ onMounted(async () => {
     await tryCeruleanBellMarkAfterGridStable();
     updateSlotPositions(true);
     await runPendingAfterGridTilesSettled();
+    await beginFirstWordTutorialAfterGridSettled();
   } else {
     await runGridIntroAfterReset();
   }
@@ -14752,11 +15847,13 @@ onMounted(async () => {
   flushAchievementUnlocks();
 });
 onUnmounted(() => {
+  cancelAnimationFrame(tutorialSpotlightRaf);
   resetGamePause();
   window.removeEventListener("resize", onWordSlotsLayoutResize);
   window.visualViewport?.removeEventListener("resize", onWordSlotsLayoutResize);
   unregisterGameAndroidBack?.();
   unregisterGameAndroidBack = null;
+  runAutoSave.tryFlush({ force: true });
   runAutoSave.cancelPending();
   runEndConfettiController.dispose();
   disposeE2eHarness?.();

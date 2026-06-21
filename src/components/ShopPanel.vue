@@ -57,6 +57,7 @@
                 >
                   <div
                     v-if="slot.kind === 'offer'"
+                    :ref="(el) => setFirstGuaranteedTreasureOfferRef(el, slot)"
                     class="shop-treasure-visual"
                     :class="{ 'shop-treasure-visual--deck-offer': isDeckShopOffer(slot) }"
                     @click.stop="!interactionsDisabled && onSelectOffer(slot, $event)"
@@ -318,50 +319,33 @@
     </div>
 
     <div class="shop-footer-panel">
-      <div ref="shopTreasureSlotsCtnRef" class="treasure-slots-ctn shop-footer-treasure-row" aria-label="已拥有的宝藏">
-        <TransitionGroup
-          name="treasure-slot-reorder"
-          tag="div"
-          :class="['treasure-slots', { 'treasure-slots--dragging': shopOwnedDragActive }, treasureSlotsLayoutClass]"
-        >
-          <TreasureSlot
-            v-for="(slot, i) in displayOwnedTreasures"
-            :key="displayOwnedTreasureKeys[i]"
-            :slot-index="i"
-            :treasure="slot"
-            :gem-class="gemClassForTreasureRarity(slot?.rarity)"
-            :charge-state="displayTreasureChargeBySlot[i]"
-            :charge-progress="displayTreasureChargeProgressBySlot[i] ?? 0"
-            :ref="(el) => setOwnedCellRef(i, el)"
-            @pointerdown="onShopOwnedSlotPointerDown(i, $event)"
-            @click.stop="onSelectOwned(i, slot, $event)"
-          />
-        </TransitionGroup>
-        <div
-          v-if="shopOwnedDragGhostVisible"
-          class="treasure-drag-ghost"
-          :style="shopOwnedDragGhostStyle"
-        >
-          <TreasureSlot
-            :treasure="shopOwnedDragTreasure"
-            :gem-class="gemClassForTreasureRarity(shopOwnedDragTreasure?.rarity)"
-            :charge-state="shopOwnedDragChargeState"
-            :charge-progress="shopOwnedDragChargeProgress"
-          />
-        </div>
-        <div
-          v-if="shopOwnedDragPlaceholderVisible"
-          class="treasure-drag-placeholder"
-          :style="shopOwnedDragPlaceholderStyle"
-        >
-          <TreasureSlot
-            :treasure="shopOwnedDragTreasure"
-            :gem-class="gemClassForTreasureRarity(shopOwnedDragTreasure?.rarity)"
-            :charge-state="shopOwnedDragChargeState"
-            :charge-progress="shopOwnedDragChargeProgress"
-          />
-        </div>
-      </div>
+      <TreasureBarRow
+        ref="shopTreasureBarRowRef"
+        container-class="shop-footer-treasure-row"
+        :display-slots="displayOwnedTreasures"
+        :display-keys="displayOwnedTreasureKeys"
+        :layout-class="treasureSlotsLayoutClass"
+        :stack-mode="shopTreasureBarStackMode"
+        :filled-count="shopOwnedTreasureFilledCount"
+        :compact-animating="treasureBarCompactAnimating"
+        :drag-active="shopOwnedDragActive"
+        :drag-ghost-visible="shopOwnedDragGhostVisible"
+        :drag-placeholder-visible="shopOwnedDragPlaceholderVisible"
+        :drag-treasure="shopOwnedDragTreasure"
+        :drag-ghost-style="shopOwnedDragGhostStyle"
+        :drag-placeholder-style="shopOwnedDragPlaceholderStyle"
+        :drag-gem-class="gemClassForTreasureRarity(shopOwnedDragTreasure?.rarity)"
+        :drag-charge-state="shopOwnedDragChargeState"
+        :drag-charge-progress="shopOwnedDragChargeProgress"
+        :gem-class-resolver="shopTreasureGemClassResolver"
+        :charge-states="displayTreasureChargeBySlot"
+        :charge-progresses="displayTreasureChargeProgressBySlot"
+        :register-slot-ref="setOwnedCellRef"
+        @slot-pointerdown="onShopOwnedSlotPointerDown"
+        @slot-click="onSelectOwned"
+        @empty-slot-click="onShopEmptyTreasureSlotClick"
+        @expand-click="emit('open-treasure-collection')"
+      />
 
       <div class="shop-footer-actions" role="group" aria-label="选项、信息与牌库">
         <button type="button" class="deck-btn shop-footer-action-btn shop-footer-action-btn--options" @click="emit('open-options')">
@@ -391,6 +375,13 @@
       </div>
     </div>
   </div>
+
+  <SettingsHelpDialog
+    :open="showEmptyTreasureSlotHelp"
+    title="空的宝藏栏位"
+    :paragraphs="['空的宝藏栏位，从商店中购买的宝藏会放置在这里']"
+    @close="showEmptyTreasureSlotHelp = false"
+  />
 </template>
 
 <script setup>
@@ -398,7 +389,12 @@ import { computed, ref, nextTick, watch } from "vue";
 import { useTreasureSlotReorder } from "../composables/useTreasureSlotReorder.js";
 import gsap from "gsap";
 import TileLetterShowcase from "./TileLetterShowcase.vue";
-import TreasureSlot from "./TreasureSlot.vue";
+import TreasureBarRow from "./TreasureBarRow.vue";
+import SettingsHelpDialog from "./settings/SettingsHelpDialog.vue";
+import {
+  countFilledTreasureSlots,
+  isTreasureBarStackMode,
+} from "../game/treasureBarLayout.js";
 import ResultArea from "./ResultArea.vue";
 import VoucherStamp from "./VoucherStamp.vue";
 import LetterTile from "./LetterTile.vue";
@@ -453,14 +449,19 @@ const props = defineProps({
   shopRerollCost: { type: Number, default: 5 },
   canShopReroll: { type: Boolean, default: false },
   interactionsDisabled: { type: Boolean, default: false },
-  /** preset 10 等：四栏按五栏宽度居中 */
+  /** preset 10 等：四栏按五栏宽度居中；叠放模式由父级传入 class */
   treasureSlotsLayoutClass: { type: String, default: "" },
+  treasureBarCompactAnimating: { type: Boolean, default: false },
+  /** @type {import('vue').PropType<{ ref: import('vue').Ref<string[]> }>} */
+  ownedTreasureKeyOrderBag: { type: Object, required: true },
   /** 本局预设 id（商店标价） */
   runPresetId: { type: String, default: "preset_01" },
   /** 钱包下限（宝藏等；价签「买不起」着色） */
   walletFloor: { type: Number, default: 0 },
   /** 离店后将进入的小关 id（如 3-1） */
   nextLevelId: { type: String, default: "" },
+  /** 新手教程进行中：屏蔽空宝藏栏说明弹窗 */
+  tutorialActive: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([
@@ -476,6 +477,7 @@ const emit = defineEmits([
   "shop-reroll",
   "reorder-owned",
   "upgrade-interaction-unlock",
+  "open-treasure-collection",
 ]);
 
 /** 货架标价（含预设减价、随机优惠与清仓券） */
@@ -565,6 +567,22 @@ const packOffersLayoutSlots = computed(() =>
 const shopOffersLayoutSlots = computed(() =>
   Array.isArray(props.shopOffers) ? props.shopOffers : [],
 );
+
+const firstGuaranteedTreasureOfferRef = ref(null);
+
+function isFirstGuaranteedTreasureOffer(slot) {
+  if (slot?.kind !== "offer" || slot.offerType !== "treasure") return false;
+  const first = shopOffersLayoutSlots.value.find(
+    (s) => s.kind === "offer" && s.offerType === "treasure",
+  );
+  return !!first && first.offerInstanceId === slot.offerInstanceId;
+}
+
+/** @param {unknown} el @param {object} slot */
+function setFirstGuaranteedTreasureOfferRef(el, slot) {
+  if (!isFirstGuaranteedTreasureOffer(slot)) return;
+  firstGuaranteedTreasureOfferRef.value = el ? toDom(el) : null;
+}
 
 function setOwnedCellRef(i, el) {
   const node = toDom(el);
@@ -948,8 +966,23 @@ function onSelectOwned(index, treasure, e) {
   emit("select-owned", { index, treasure, originEl: e.currentTarget });
 }
 
+const showEmptyTreasureSlotHelp = ref(false);
+const shopTreasureBarRowRef = ref(null);
+const shopOwnedTreasureFilledCount = computed(() => countFilledTreasureSlots(props.ownedTreasures));
+const shopTreasureBarStackMode = computed(() => isTreasureBarStackMode(shopOwnedTreasureFilledCount.value));
+
+function onShopEmptyTreasureSlotClick() {
+  if (props.tutorialActive) return;
+  showEmptyTreasureSlotHelp.value = true;
+}
+
+/** @param {number} i @param {object | null} slot */
+function shopTreasureGemClassResolver(i, slot) {
+  void i;
+  return gemClassForTreasureRarity(slot?.rarity);
+}
+
 const shopTreasureSlotsCtnRef = ref(null);
-const shopOwnedKeyOrder = ref(props.ownedTreasures.map((_, i) => `s-slot-${i}`));
 
 const {
   dragActive: shopOwnedDragActive,
@@ -965,23 +998,21 @@ const {
   onSlotPointerDown: onShopOwnedSlotPointerDown,
 } = useTreasureSlotReorder({
   getSourceSlots: () => props.ownedTreasures,
-  keyOrder: shopOwnedKeyOrder,
+  keyOrder: props.ownedTreasureKeyOrderBag.ref,
   canDrag: () => !props.interactionsDisabled,
   onCommit: (preview) => emit("reorder-owned", [...preview]),
   getSlotElement: (i) => ownedCellEls[i] ?? null,
-  getOverlayContainer: () => shopTreasureSlotsCtnRef.value,
+  getOverlayContainer: () =>
+    shopTreasureBarRowRef.value?.getContainerEl?.() ?? shopTreasureSlotsCtnRef.value,
+  stackMode: () => shopTreasureBarStackMode.value,
 });
 
 watch(
   () => props.ownedTreasures.length,
   (len) => {
-    if (shopOwnedKeyOrder.value.length < len) {
-      while (shopOwnedKeyOrder.value.length < len) {
-        shopOwnedKeyOrder.value.push(`s-slot-${shopOwnedKeyOrder.value.length}`);
-      }
-    } else if (shopOwnedKeyOrder.value.length > len) {
-      shopOwnedKeyOrder.value = shopOwnedKeyOrder.value.slice(0, len);
-    }
+    const keys = props.ownedTreasureKeyOrderBag.ref.value;
+    while (keys.length < len) keys.push(`g-slot-${keys.length}`);
+    while (keys.length > len) keys.pop();
   },
 );
 
@@ -1025,6 +1056,7 @@ defineExpose({
   getWalletEl: () => shopWalletBoxRef.value,
   getOwnedSlotEl: (i) => ownedCellEls[i] ?? null,
   getDeckViewBtnEl: () => deckViewBtnRef.value ?? null,
+  getFirstGuaranteedTreasureOfferEl: () => firstGuaranteedTreasureOfferRef.value,
   playGlyphRoundInfoFx,
   playUpgradeResult,
   playVoucherBonusEnterAnim,

@@ -4,7 +4,7 @@ import {
   getTileMaterialBlockTitle,
   getTreasureAccessoryPanelTitle,
 } from "../game/gameConceptCopy.js";
-import { concept, describe } from "../treasures/treasureDescription.js";
+import { concept, describe, gain, money, rarity, riskBlock, score } from "../treasures/treasureDescription.js";
 import { SPELL_TAG_SPECTRAL } from "./spellTags.js";
 
 /** 商店法术卡单价（与 `src/shop/shopPackEconomy.js` 的 `SHOP_SINGLE_ROW_PRICES.spell` 保持一致） */
@@ -275,7 +275,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-archive-2-fill",
       pickCount: 0,
       tags: SPECTRAL,
-      shopPrice: 5,
+      shopPrice: 4,
       description: "获取一个随机的史诗宝藏",
     },
     {
@@ -285,7 +285,12 @@ function buildSpellDefinitions() {
       pickCount: 0,
       tags: SPECTRAL,
       shopPrice: 7,
-      description: "获取一个随机的传说宝藏，将钱包余额变为$0",
+      description: describe(
+        "获取一个随机的",
+        rarity("传说"),
+        "宝藏",
+        riskBlock("，将钱包余额变为", money("0")),
+      ),
     },
     {
       id: "ouija",
@@ -304,7 +309,11 @@ function buildSpellDefinitions() {
       pickCount: 0,
       tags: SPECTRAL,
       shopPrice: 5,
-      description: `为你的一个随机宝藏添加${getTreasureAccessoryPanelTitle("treasure_acc_crop")}，但你之后拼写的单词都会视为-1长度`,
+      description: describe(
+        "为你的一个随机宝藏添加",
+        gain("裁剪配饰"),
+        riskBlock("，但你之后拼写的单词都会视为", score("-1"), "长度"),
+      ),
     },
     {
       id: "immolate",
@@ -314,7 +323,7 @@ function buildSpellDefinitions() {
       pickMode: "confirm_all",
       tags: SPECTRAL,
       shopPrice: 5,
-      description: "随机移除下方全部字母，获得$15",
+      description: describe(riskBlock("随机移除下方全部字母"), "，获得", money("15")),
     },
     {
       id: "ankh",
@@ -323,7 +332,11 @@ function buildSpellDefinitions() {
       pickCount: 0,
       tags: SPECTRAL,
       shopPrice: 5,
-      description: "从你的宝藏中随机挑选1个，摧毁其他宝藏，然后创建一个挑选的宝藏的复制",
+      description: describe(
+        "从你的宝藏中随机挑选1个，",
+        riskBlock("摧毁其他宝藏"),
+        "，然后创建一个挑选的宝藏的复制",
+      ),
     },
     {
       id: "deja_vu",

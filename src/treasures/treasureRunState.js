@@ -34,6 +34,7 @@
  * @property {boolean} runIceMaterialShattered 本局曾使碎冰块碎裂
  * @property {boolean} everTwoTreasuresWithAccessoryUnlocked 曾同时拥有 2 个装备了配饰的宝藏（卖出不影响）
  * @property {boolean} levelFirstFullWordDiscardDone 本小关是否已因首次弃完整词升级过长度
+ * @property {boolean} levelFirstDiscardBatchDone 本小关是否已发生过第一次丢弃（手枪等仅首弃触发）
  * @property {boolean} everDiscardedFullWord 本局是否弃过完整单词
  * @property {boolean} everDiscardedWordLen7Plus 本局是否弃过 7 字母及以上完整单词
  * @property {boolean} soldBlueprintTreasure98 本局是否卖出过面具（98）
@@ -87,6 +88,7 @@ export function createTreasureRunState() {
     runIceMaterialShattered: false,
     everTwoTreasuresWithAccessoryUnlocked: false,
     levelFirstFullWordDiscardDone: false,
+    levelFirstDiscardBatchDone: false,
     everDiscardedFullWord: false,
     everDiscardedWordLen7Plus: false,
     soldBlueprintTreasure98: false,
@@ -117,6 +119,7 @@ export function resetTreasureLevelScopedState(state) {
   state.levelCoin27PaidContributions = new Set();
   state.levelVowelsUsedThisLevel = new Set();
   state.levelFirstFullWordDiscardDone = false;
+  state.levelFirstDiscardBatchDone = false;
 }
 
 /** @param {TreasureRunState} state @param {() => number} [rng] */
