@@ -4,6 +4,8 @@ import {
   resolveWordPatternWithVowelSubstitutions,
   vowelDisplayShiftForResolved,
   hasTestTubeAllVowelsForMouth,
+  buildMouthSubstituteTriosForPattern,
+  candidateMatchesMouthSubstitutePattern,
 } from "./vowelNeighborSubstitute.js";
 
 const OWNED_MOUTH = ["95"];
@@ -58,4 +60,17 @@ test("vowelDisplayShiftForResolved with alphabet neighbors", () => {
   assert.equal(vowelDisplayShiftForResolved("c", "b", OWNED_MOUTH_TUBE), -1);
   assert.equal(vowelDisplayShiftForResolved("c", "d", OWNED_MOUTH_TUBE), 1);
   assert.equal(vowelDisplayShiftForResolved("c", "c", OWNED_MOUTH_TUBE), 0);
+});
+
+test("candidateMatchesMouthSubstitutePattern: tube single neighbor", () => {
+  const trios = buildMouthSubstituteTriosForPattern("cat", [true, true, true], "?", OWNED_MOUTH_TUBE);
+  assert.equal(candidateMatchesMouthSubstitutePattern("cat", "bat", trios), true);
+  assert.equal(candidateMatchesMouthSubstitutePattern("cat", "dog", trios), false);
+});
+
+test("candidateMatchesMouthSubstitutePattern: wildcard position", () => {
+  const trios = buildMouthSubstituteTriosForPattern("c?t", [true, false, true], "?", OWNED_MOUTH_TUBE);
+  assert.equal(candidateMatchesMouthSubstitutePattern("c?t", "cat", trios), true);
+  assert.equal(candidateMatchesMouthSubstitutePattern("c?t", "cut", trios), true);
+  assert.equal(candidateMatchesMouthSubstitutePattern("c?t", "dog", trios), false);
 });

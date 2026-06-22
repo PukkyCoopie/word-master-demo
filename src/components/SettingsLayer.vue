@@ -53,6 +53,17 @@
           >
             操作
           </button>
+          <button
+            v-if="showDeveloperTab"
+            type="button"
+            class="settings-layer-tab"
+            role="tab"
+            :class="{ 'settings-layer-tab--active': activeTab === 'developer' }"
+            :aria-selected="activeTab === 'developer'"
+            @click="setActiveTab('developer')"
+          >
+            开发者
+          </button>
         </div>
 
         <div class="settings-layer-body">
@@ -334,6 +345,27 @@
                 </label>
               </div>
             </section>
+
+            <section
+              v-if="showDeveloperTab"
+              role="tabpanel"
+              class="settings-layer-panel"
+              :class="{ 'settings-layer-panel--active': activeTab === 'developer' }"
+              :aria-hidden="activeTab !== 'developer'"
+              :inert="activeTab !== 'developer'"
+            >
+              <div class="settings-layer-list">
+                <div class="settings-row settings-row--dev-bench">
+                  <div class="settings-dev-copy">
+                    <span class="settings-row-label">材质性能实验</span>
+                    <p class="settings-dev-hint">10 格材质 draw / blit 耗时剖析</p>
+                  </div>
+                  <button type="button" class="settings-dev-open-btn" @click="onOpenMaterialBench">
+                    打开
+                  </button>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
 
@@ -354,7 +386,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, inject, nextTick, ref, watch } from "vue";
 import { settingsOverlayZ } from "../game/overlayStack.js";
 import SettingsSegmentControl from "./SettingsSegmentControl.vue";
 import SettingsHelpButton from "./settings/SettingsHelpButton.vue";
@@ -391,7 +423,13 @@ const props = defineProps({
   open: { type: Boolean, default: false },
 });
 
-defineEmits(["close"]);
+const emit = defineEmits(["close"]);
+
+/** @type {import('vue').Ref<boolean> | null} */
+const developerModeEnabled = inject("developerModeEnabled", null);
+/** @type {(() => void) | null} */
+const openMaterialBench = inject("openMaterialBench", null);
+const showDeveloperTab = computed(() => developerModeEnabled?.value === true);
 
 const stackZ = ref(0);
 const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
@@ -413,20 +451,27 @@ watch(
 
 const titleId = "settings-layer-title";
 
-const SETTINGS_TAB_IDS = Object.freeze(["ui", "gameplay", "controls"]);
+const SETTINGS_BASE_TAB_IDS = Object.freeze(["ui", "gameplay", "controls"]);
+const SETTINGS_DEVELOPER_TAB_ID = "developer";
 
-/** @typedef {'ui' | 'gameplay' | 'controls'} SettingsTabId */
+/** @typedef {'ui' | 'gameplay' | 'controls' | 'developer'} SettingsTabId */
 
 /** @type {import('vue').Ref<SettingsTabId>} */
 const activeTab = ref("ui");
 
+const settingsTabIds = computed(() =>
+  showDeveloperTab.value
+    ? [...SETTINGS_BASE_TAB_IDS, SETTINGS_DEVELOPER_TAB_ID]
+    : [...SETTINGS_BASE_TAB_IDS],
+);
+
 const activeTabIndex = computed(() => {
-  const idx = SETTINGS_TAB_IDS.indexOf(activeTab.value);
+  const idx = settingsTabIds.value.indexOf(activeTab.value);
   return idx >= 0 ? idx : 0;
 });
 
 const tabSlideStyle = computed(() => ({
-  "--settings-tab-count": String(SETTINGS_TAB_IDS.length),
+  "--settings-tab-count": String(settingsTabIds.value.length),
   "--settings-tab-index": String(activeTabIndex.value),
 }));
 
@@ -435,6 +480,18 @@ function setActiveTab(id) {
   if (activeTab.value === id) return;
   triggerHaptic("tabSwitch");
   activeTab.value = id;
+}
+
+watch(showDeveloperTab, (visible) => {
+  if (!visible && activeTab.value === SETTINGS_DEVELOPER_TAB_ID) {
+    activeTab.value = "ui";
+  }
+});
+
+function onOpenMaterialBench() {
+  settingsChangeTap();
+  emit("close");
+  openMaterialBench?.();
 }
 
 const allowAbbrev = computed(() => gameSettings.allowSpellingAbbreviations === true);
@@ -756,6 +813,37 @@ function onScaleInputEnter(e) {
   display: flex;
   flex-direction: column;
   gap: calc(10 * var(--rpx));
+}
+
+.settings-row--dev-bench {
+  align-items: center;
+  gap: calc(12 * var(--rpx));
+}
+
+.settings-dev-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-dev-hint {
+  margin: calc(4 * var(--rpx)) 0 0;
+  font-size: calc(22 * var(--rpx));
+  line-height: 1.45;
+  color: rgba(60, 58, 50, 0.62);
+}
+
+.settings-dev-open-btn {
+  flex-shrink: 0;
+  border: none;
+  border-radius: calc(10 * var(--rpx));
+  padding: calc(10 * var(--rpx)) calc(18 * var(--rpx));
+  font-family: inherit;
+  font-size: calc(24 * var(--rpx));
+  font-weight: 700;
+  cursor: pointer;
+  color: #f9f6f2;
+  background: #7a6a9e;
+  box-shadow: var(--shadow);
 }
 
 .settings-layer-footer {

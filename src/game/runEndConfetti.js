@@ -27,9 +27,13 @@ export function createRunEndConfettiController({ getCanvasEl }) {
   function clearCanvas() {
     const canvas = getCanvasEl();
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    try {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    } catch {
+      // useWorker: true 时 canvas 已 transfer 到 OffscreenCanvas，主线程无法再 getContext。
+    }
   }
 
   function releaseInstance() {
@@ -43,8 +47,12 @@ export function createRunEndConfettiController({ getCanvasEl }) {
     clearCanvas();
     const canvas = getCanvasEl();
     if (!canvas) return;
-    canvas.width = 0;
-    canvas.height = 0;
+    try {
+      canvas.width = 0;
+      canvas.height = 0;
+    } catch {
+      // 同上：worker 接管后主线程 canvas 可能已不可用。
+    }
   }
 
   function syncCanvasSize() {

@@ -21,7 +21,7 @@ GitHub Actions 的自动部署已关闭；仓库内 workflow 仅保留 `workflow
 npm run android:phone
 ```
 
-无参数时在终端**交互选择**：仅编译、仅安装、或编译+安装；安装类操作还会询问是否启动 App。
+无参数时在终端**交互选择**：操作模式 → release → 是否启动 → 版本号（回车=最新，也可输入旧版）。
 
 | 命令 | 作用 |
 |------|------|
@@ -30,7 +30,10 @@ npm run android:phone
 | `npm run android:phone -- install` | 仅安装（需已有 APK） |
 | `npm run android:phone -- deploy` | 编译 + 安装 |
 | `npm run android:phone -- install --launch` | 安装后启动 App |
+| `npm run android:phone -- build --version 1.1.4` | 按旧版号打包（仅版本号与更新日志） |
 | `npm run android:phone -- --help` | 帮助 |
+
+**指定版本打包**：默认使用 `package.json` 当前版本。交互时直接回车即最新；也可输入旧版号，或命令行 `--version 1.1.4`。**代码仍为当前工程**，仅 APK `versionName` / 关于页更新日志按目标版本。只能选 changelog 中已有、且 ≤ 当前项目版本的号。
 
 **前提**：手机 USB 调试已开并已连接；本机有 adb（Android SDK platform-tools）。
 

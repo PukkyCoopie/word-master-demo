@@ -34,6 +34,11 @@ export function exitGamePause() {
   }
 }
 
+/** 选项/开发者浮层全部关闭时排空 pause 栈并恢复 GSAP（修正历史 enter 累加） */
+export function releaseAllGamePause() {
+  while (pauseDepth > 0) exitGamePause();
+}
+
 /**
  * 局内仍视为暂停（isGamePaused），但解冻 GSAP 供叠层浮层播放入场动画。
  * 与 resumeGamePauseGsapFreeze 成对调用。

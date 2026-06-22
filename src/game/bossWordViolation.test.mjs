@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  bossWildcardComplianceMode,
   dictionaryPosMatchesClubKey,
   evaluateBossSoftWordViolation,
   inferPosFromTranslationHead,
@@ -54,4 +55,19 @@ test("棘梅动词限制：cooperate 不违规", () => {
 test("形容词 token 不因 adj 子串误匹配（如 adjust）", () => {
   assert.equal(dictionaryPosMatchesClubKey("adjust", "adj"), false);
   assert.equal(dictionaryPosMatchesClubKey("adj", "adj"), true);
+});
+
+test("bossWildcardComplianceMode: 独口锁定长度", () => {
+  const ctx = {
+    slug: "the_mouth",
+    mouthLockedLength: 8,
+    getJudgedWordLen: (w) => w.length,
+  };
+  assert.equal(bossWildcardComplianceMode(ctx, 8), "all_pass");
+  assert.equal(bossWildcardComplianceMode(ctx, 5), "all_fail");
+});
+
+test("bossWildcardComplianceMode: 棘梅需逐词判定", () => {
+  const ctx = { slug: "the_club", clubRequiredKey: "n" };
+  assert.equal(bossWildcardComplianceMode(ctx, 5), "per_candidate");
 });

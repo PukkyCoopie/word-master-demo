@@ -5,11 +5,25 @@ const SCROLLBAR_MIN_THUMB = 28;
 
 /**
  * 与关于弹窗一致的自定义滚动条（隐藏原生条 + 右侧 track/thumb）。
- * @param {{ thumbColor?: string, contentRef?: import('vue').Ref<HTMLElement | null | undefined> }} [options]
+ * @param {{ thumbColor?: string, contentRef?: import('vue').Ref<HTMLElement | null | undefined>, minThumbPx?: number | (() => number), trackInset?: number | (() => number) }} [options]
  */
 export function usePanelScrollbar(options = {}) {
   const thumbColor = options.thumbColor ?? "#8a8580";
   const contentRef = options.contentRef;
+  const minThumbPxOption = options.minThumbPx ?? SCROLLBAR_MIN_THUMB;
+  const trackInsetOption = options.trackInset ?? SCROLLBAR_TRACK_INSET;
+
+  function resolveMinThumbPx() {
+    return typeof minThumbPxOption === "function"
+      ? minThumbPxOption()
+      : minThumbPxOption;
+  }
+
+  function resolveTrackInset() {
+    return typeof trackInsetOption === "function"
+      ? trackInsetOption()
+      : trackInsetOption;
+  }
 
   const scrollBodyRef = ref(null);
   const scrollTrackRef = ref(null);
@@ -29,6 +43,13 @@ export function usePanelScrollbar(options = {}) {
     background: thumbColor,
   }));
 
+  function resolveTrackInnerHeight(container) {
+    const track = scrollTrackRef.value;
+    const trackHeight = track instanceof HTMLElement ? track.clientHeight : container.clientHeight;
+    const inset = resolveTrackInset();
+    return Math.max(0, trackHeight - inset * 2);
+  }
+
   function updateScrollbarMetrics() {
     const container = scrollBodyRef.value;
     if (!container) return;
@@ -43,17 +64,18 @@ export function usePanelScrollbar(options = {}) {
       return;
     }
 
-    const trackInner = Math.max(0, clientHeight - SCROLLBAR_TRACK_INSET * 2);
+    const trackInner = resolveTrackInnerHeight(container);
     thumbHeightPx.value = Math.max(
-      SCROLLBAR_MIN_THUMB,
+      resolveMinThumbPx(),
       (clientHeight / scrollHeight) * trackInner,
     );
 
+    const inset = resolveTrackInset();
     const maxThumbTop = Math.max(0, trackInner - thumbHeightPx.value);
     const scrollRange = scrollHeight - clientHeight;
     if (!thumbDragging.value) {
       const ratio = scrollRange > 0 ? scrollTop / scrollRange : 0;
-      thumbTopPx.value = SCROLLBAR_TRACK_INSET + ratio * maxThumbTop;
+      thumbTopPx.value = inset + ratio * maxThumbTop;
     }
   }
 
@@ -67,7 +89,7 @@ export function usePanelScrollbar(options = {}) {
     const track = scrollTrackRef.value;
     if (!container || !track) return;
 
-    const trackInner = Math.max(0, track.clientHeight - SCROLLBAR_TRACK_INSET * 2);
+    const trackInner = resolveTrackInnerHeight(container);
     const maxThumbTop = Math.max(0, trackInner - thumbHeightPx.value);
     const scrollRange = container.scrollHeight - container.clientHeight;
 
@@ -92,8 +114,9 @@ export function usePanelScrollbar(options = {}) {
       );
       container.scrollTop = nextScrollTop;
 
+      const inset = resolveTrackInset();
       const ratio = scrollRange > 0 ? nextScrollTop / scrollRange : 0;
-      thumbTopPx.value = SCROLLBAR_TRACK_INSET + ratio * maxThumbTop;
+      thumbTopPx.value = inset + ratio * maxThumbTop;
     };
 
     const onUp = () => {
@@ -120,9 +143,10 @@ export function usePanelScrollbar(options = {}) {
     if (!container || !track) return;
 
     const rect = track.getBoundingClientRect();
-    const trackInner = Math.max(0, rect.height - SCROLLBAR_TRACK_INSET * 2);
+    const inset = resolveTrackInset();
+    const trackInner = Math.max(0, rect.height - inset * 2);
     const maxThumbTop = Math.max(0, trackInner - thumbHeightPx.value);
-    const y = event.clientY - rect.top - SCROLLBAR_TRACK_INSET;
+    const y = event.clientY - rect.top - inset;
     const targetTop = Math.max(0, Math.min(maxThumbTop, y - thumbHeightPx.value / 2));
     const scrollRange = container.scrollHeight - container.clientHeight;
 

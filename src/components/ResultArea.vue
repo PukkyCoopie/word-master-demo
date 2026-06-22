@@ -1,9 +1,13 @@
 <template>
   <div class="result-area">
-    <div class="result-area-inset">
+    <div ref="resultAreaInsetRef" class="result-area-inset">
       <div class="result-total-anchor">
-        <div v-show="showTotalBar" ref="resultTotalRef" class="result-total">
-          {{ totalText }}
+        <div v-show="showTotalBar" class="result-total-wrap">
+          <ResultFitNum
+            ref="resultTotalFitRef"
+            :value="totalNumeric"
+            text-class="result-total"
+          />
         </div>
       </div>
       <div class="result-wordlen-anchor">
@@ -16,14 +20,30 @@
       </div>
       <div class="result-formula-anchor">
         <div ref="resultFormulaRef" class="result-formula">
-          <div ref="resultScoreBoxRef" class="result-box result-box-score">
+          <div
+            ref="resultScoreBoxRef"
+            class="result-box result-box-score"
+            :style="formulaBoxStyle"
+          >
             <span class="result-label">{{ scoreLabel }}</span>
-            <span ref="resultScoreNumRef" class="result-num">{{ scoreText }}</span>
+            <ResultBoxFitNum
+              ref="resultScoreFitRef"
+              :max-box-width-px="formulaBoxMaxWidthPx"
+              :value="scoreNumeric"
+            />
           </div>
-          <span class="result-times">×</span>
-          <div ref="resultMultBoxRef" class="result-box result-box-mult">
+          <span ref="resultTimesRef" class="result-times">×</span>
+          <div
+            ref="resultMultBoxRef"
+            class="result-box result-box-mult"
+            :style="formulaBoxStyle"
+          >
             <span class="result-label">{{ multLabel }}</span>
-            <span ref="resultMultNumRef" class="result-num">{{ multText }}</span>
+            <ResultBoxFitNum
+              ref="resultMultFitRef"
+              :max-box-width-px="formulaBoxMaxWidthPx"
+              :value="multNumeric"
+            />
           </div>
         </div>
       </div>
@@ -32,7 +52,9 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import ResultFitNum from "./ResultFitNum.vue";
+import ResultBoxFitNum from "./ResultBoxFitNum.vue";
 
 const props = defineProps({
   showTotalBar: { type: Boolean, default: false },
@@ -47,23 +69,102 @@ const props = defineProps({
   levelPrefix: { type: String, default: "等级" },
 });
 
-const resultTotalRef = ref(null);
+const resultAreaInsetRef = ref(null);
 const resultFormulaRef = ref(null);
-const resultScoreNumRef = ref(null);
-const resultMultNumRef = ref(null);
+const resultTimesRef = ref(null);
 const resultWordlenRef = ref(null);
 const resultWordlenMainRef = ref(null);
 const resultWordlenLevelRef = ref(null);
 const resultScoreBoxRef = ref(null);
 const resultMultBoxRef = ref(null);
+const resultTotalFitRef = ref(null);
+const resultScoreFitRef = ref(null);
+const resultMultFitRef = ref(null);
+
+const formulaBoxMaxWidthPx = ref(null);
+
+/** @type {ResizeObserver | null} */
+let layoutObserver = null;
+
+function parseLocaleIntegerText(text) {
+  const n = Number(String(text ?? "").replace(/,/g, ""));
+  return Number.isFinite(n) ? Math.round(n) : 0;
+}
+
+const totalNumeric = computed(() => parseLocaleIntegerText(props.totalText));
+const scoreNumeric = computed(() => parseLocaleIntegerText(props.scoreText));
+const multNumeric = computed(() => parseLocaleIntegerText(props.multText));
+
+const formulaBoxStyle = computed(() => {
+  const w = formulaBoxMaxWidthPx.value;
+  if (w == null || w <= 0) return undefined;
+  return { maxWidth: `${w}px` };
+});
 
 const wordLevelText = computed(() => `${props.levelPrefix}${props.wordLevel}`);
 
+function refitAllFitNums() {
+  resultTotalFitRef.value?.refit?.();
+  resultScoreFitRef.value?.refit?.();
+  resultMultFitRef.value?.refit?.();
+}
+
+function syncFormulaBoxMaxWidth() {
+  const inset = resultAreaInsetRef.value;
+  const formula = resultFormulaRef.value;
+  const times = resultTimesRef.value;
+  if (!inset || !formula) return;
+
+  const insetWidth = inset.clientWidth;
+  if (insetWidth <= 0) return;
+
+  const timesWidth = times?.getBoundingClientRect().width ?? 0;
+  const gap = parseFloat(getComputedStyle(formula).columnGap || getComputedStyle(formula).gap) || 0;
+  const available = insetWidth - timesWidth - gap * 2;
+  const next = Math.max(0, available / 2);
+
+  if (formulaBoxMaxWidthPx.value !== next) {
+    formulaBoxMaxWidthPx.value = next;
+  }
+  nextTick(() => refitAllFitNums());
+}
+
+function scheduleLayoutSync() {
+  nextTick(() => {
+    syncFormulaBoxMaxWidth();
+    refitAllFitNums();
+  });
+}
+
+onMounted(() => {
+  scheduleLayoutSync();
+  const inset = resultAreaInsetRef.value;
+  if (inset && typeof ResizeObserver !== "undefined") {
+    layoutObserver = new ResizeObserver(() => scheduleLayoutSync());
+    layoutObserver.observe(inset);
+  }
+});
+
+watch(
+  () => props.showTotalBar,
+  () => scheduleLayoutSync(),
+);
+
+watch(
+  () => [props.scoreText, props.multText, props.totalText],
+  () => scheduleLayoutSync(),
+);
+
+onUnmounted(() => {
+  layoutObserver?.disconnect();
+  layoutObserver = null;
+});
+
 defineExpose({
-  getTotalEl: () => resultTotalRef.value,
+  getTotalEl: () => resultTotalFitRef.value?.getTextEl?.() ?? null,
   getFormulaEl: () => resultFormulaRef.value,
-  getScoreNumEl: () => resultScoreNumRef.value,
-  getMultNumEl: () => resultMultNumRef.value,
+  getScoreNumEl: () => resultScoreFitRef.value?.getTextEl?.() ?? null,
+  getMultNumEl: () => resultMultFitRef.value?.getTextEl?.() ?? null,
   getWordlenEl: () => resultWordlenRef.value,
   getWordlenMainEl: () => resultWordlenMainRef.value,
   getWordlenLevelEl: () => resultWordlenLevelRef.value,

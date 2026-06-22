@@ -10,6 +10,8 @@
  * @see `tileDetailDescriptions.js` 仅作向后兼容 re-export，新代码请直接 import 本文件。
  */
 
+import { ACCESSORY_NO_SELL } from "../accessories/accessoryCatalog.js";
+
 /** @param {string | null | undefined} raw */
 function normId(raw) {
   return String(raw ?? "").trim();
@@ -176,6 +178,24 @@ export function getTreasureAccessoryPanelTitle(accessoryId) {
 export function getTreasureAccessoryPanelDescription(accessoryId) {
   const id = normId(accessoryId);
   return TREASURE_ACCESSORY_CONCEPT_BY_ID[id]?.effectDescription ?? "";
+}
+
+const NO_SELL_DESTROY_CLAUSE = "或摧毁";
+
+/**
+ * 禁售配饰说明；自毁宝藏预览时「或摧毁」以删除线样式展示（逻辑上不生效）。
+ * @param {boolean} [strikeDestroyClause=false]
+ * @returns {import('../treasures/treasureDescription.js').TreasureDescSegment[] | string}
+ */
+export function buildNoSellAccessoryDescriptionSegments(strikeDestroyClause = false) {
+  const base = getTreasureAccessoryPanelDescription(ACCESSORY_NO_SELL);
+  if (!strikeDestroyClause || !base.endsWith(NO_SELL_DESTROY_CLAUSE)) {
+    return base;
+  }
+  return [
+    { type: "text", v: base.slice(0, -NO_SELL_DESTROY_CLAUSE.length) },
+    { type: "struckText", v: NO_SELL_DESTROY_CLAUSE },
+  ];
 }
 
 /** 星星法术：随机装备四配饰之一（整句主描述用，与配饰展示名一致） */

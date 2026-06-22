@@ -9,6 +9,7 @@
  *   npm run android:phone -- deploy    # 编译 + 安装
  *   npm run android:phone -- install --launch   # 安装后启动 App
  *   npm run android:phone -- deploy --release   # 非交互：编译 release 并安装
+ *   npm run android:phone -- build --version 1.1.4   # 按旧版号打包（仅版本号与更新日志）
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -16,10 +17,23 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
+import {
+  APP_VERSION_PATH,
+  PACKAGE_JSON_PATH,
+  formatVersionString,
+  writeAppVersionFile,
+} from "./lib/app-version-files.mjs";
+import {
+  CHANGELOG_DIR_NAME,
+  compareSemver,
+  listVersionSemversInChangelogDir,
+  parseSemverFromVersionString,
+} from "./lib/changelog-dir.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
-const PACKAGE_JSON = path.join(REPO_ROOT, "package.json");
+const PACKAGE_JSON = PACKAGE_JSON_PATH;
+const CHANGELOG_DIR = path.join(REPO_ROOT, CHANGELOG_DIR_NAME);
 const ANDROID_DIR = path.join(REPO_ROOT, "android");
 const APP_ID = "com.timeshift_games.word_master";
 
@@ -39,11 +53,15 @@ function printUsage() {
 选项：
   --launch   安装完成后启动 App
   --release  编译 / 安装 release 包（非交互时跳过询问）
+  --version  指定打包版本号（须 ≤ 当前项目版本，且 changelog 中存在）
+             仅影响 APK 版本号与关于页更新日志，代码仍为当前工程
+  -V         --version 的简写
   --help     显示此帮助
 
 示例：
   npm run android:phone
   npm run android:phone -- build
+  npm run android:phone -- build --version 1.1.4
   npm run android:phone -- install --launch
   npm run android:phone -- deploy --release
 `);
@@ -58,13 +76,15 @@ const MODE_ALIASES = {
   deploy: "deploy",
 };
 
-/** @param {string[]} argv @returns {{ mode: string | null, launch: boolean | null, release: boolean | null, interactive: boolean }} */
+/** @param {string[]} argv @returns {{ mode: string | null, launch: boolean | null, release: boolean | null, packVersion: string | null, interactive: boolean }} */
 function parseArgs(argv) {
   let mode = null;
   let launch = null;
   let release = null;
+  let packVersion = null;
 
-  for (const arg of argv) {
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
     if (arg === "--help" || arg === "-h") {
       printUsage();
       process.exit(0);
@@ -77,6 +97,21 @@ function parseArgs(argv) {
       release = true;
       continue;
     }
+    if (arg === "--version" || arg === "-V") {
+      const next = argv[i + 1];
+      if (!next || next.startsWith("-")) {
+        console.error("--version 需要版本号，例如：--version 1.1.4\n");
+        printUsage();
+        process.exit(1);
+      }
+      packVersion = next.trim();
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--version=")) {
+      packVersion = arg.slice("--version=".length).trim();
+      continue;
+    }
     if (MODES.has(arg)) {
       mode = arg;
       continue;
@@ -87,95 +122,206 @@ function parseArgs(argv) {
   }
 
   if (argv.length === 0) {
-    return { mode: null, launch: null, release: null, interactive: true };
+    return { mode: null, launch: null, release: null, packVersion: null, interactive: true };
   }
 
   return {
     mode: mode ?? "deploy",
     launch: launch ?? false,
     release: release ?? false,
+    packVersion,
     interactive: false,
   };
 }
 
-async function promptMode() {
+/** @param {import("node:readline/promises").Interface} rl */
+async function promptMode(rl) {
   console.log("\nAndroid 真机");
   console.log("  1) build   — 仅编译 APK");
   console.log("  2) install — 仅安装到手机（需已有 APK）");
   console.log("  3) deploy  — 编译 + 安装\n");
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  try {
-    while (true) {
-      const answer = await rl.question("请选择 [1/2/3 或 build/install/deploy]：");
-      const picked = MODE_ALIASES[answer.trim().toLowerCase()];
-      if (picked) return picked;
-      console.log("无效输入，请输入 1、2、3 或 build / install / deploy。");
-    }
-  } finally {
-    rl.close();
+  while (true) {
+    const answer = await rl.question("请选择 [1/2/3 或 build/install/deploy]：");
+    const picked = MODE_ALIASES[answer.trim().toLowerCase()];
+    if (picked) return picked;
+    console.log("无效输入，请输入 1、2、3 或 build / install / deploy。");
   }
 }
 
-async function promptRelease() {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  try {
-    const answer = await rl.question("是否发布 release 版本？[y/N] ");
-    return /^y(es)?$/i.test(answer.trim());
-  } finally {
-    rl.close();
-  }
+/**
+ * @param {import("node:readline/promises").Interface} rl
+ * @param {string} question
+ * @param {boolean} defaultYes
+ */
+async function promptYesNo(rl, question, defaultYes = false) {
+  const hint = defaultYes ? "[Y/n]" : "[y/N]";
+  const answer = await rl.question(`${question}${hint} `);
+  const trimmed = answer.trim();
+  if (!trimmed) return defaultYes;
+  return /^y(es)?$/i.test(trimmed);
 }
 
-/** @param {string} mode @returns {Promise<boolean>} */
-async function promptLaunch(mode) {
+/** @param {import("node:readline/promises").Interface} rl @param {string} mode */
+async function promptLaunch(rl, mode) {
   if (mode === "build") return false;
+  return promptYesNo(rl, "安装完成后是否启动 App？", false);
+}
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  try {
-    const answer = await rl.question("安装完成后是否启动 App？[y/N] ");
-    return /^y(es)?$/i.test(answer.trim());
-  } finally {
-    rl.close();
+/**
+ * @param {import("node:readline/promises").Interface} rl
+ * @param {string} mode
+ * @param {string} currentVersion
+ * @param {{ major: number, minor: number, patch: number }} currentSemver
+ * @param {{ major: number, minor: number, patch: number }[]} packable
+ */
+async function promptPackVersion(rl, mode, currentVersion, currentSemver, packable) {
+  const action = mode === "install" ? "安装" : "打包";
+  while (true) {
+    const answer = await rl.question(
+      `${action}版本号（回车=最新 v${currentVersion}，也可输入旧版）：`,
+    );
+    const trimmed = answer.trim();
+    if (!trimmed) return currentVersion;
+    const result = validatePackVersion(trimmed, currentSemver, packable);
+    if (result.ok) return /** @type {string} */ (result.version);
+    console.log(result.error);
   }
 }
 
-/** @param {{ mode: string | null, launch: boolean | null, release: boolean | null, interactive: boolean }} parsed */
+/**
+ * @param {string | null | undefined} packVersionArg
+ * @param {{ major: number, minor: number, patch: number }} currentSemver
+ * @param {{ major: number, minor: number, patch: number }[]} packable
+ * @returns {string | null}
+ */
+function resolvePackVersionArg(packVersionArg, currentSemver, packable) {
+  if (packVersionArg == null) return null;
+  const result = validatePackVersion(packVersionArg, currentSemver, packable);
+  if (!result.ok) {
+    console.error(result.error);
+    process.exit(1);
+  }
+  return /** @type {string} */ (result.version);
+}
+
+/** @param {{ mode: string | null, launch: boolean | null, release: boolean | null, packVersion: string | null, interactive: boolean }} parsed */
 async function resolveRunOptions(parsed) {
+  const { version: currentVersion, semver: currentSemver } = readCurrentProjectVersion();
+  const packable = listPackableVersions(currentSemver);
+
   if (!parsed.interactive) {
     return {
       mode: /** @type {string} */ (parsed.mode),
       launch: parsed.launch ?? false,
       release: parsed.release ?? false,
+      packVersion:
+        resolvePackVersionArg(parsed.packVersion, currentSemver, packable) ?? currentVersion,
     };
   }
 
   if (!process.stdin.isTTY) {
     console.log("非交互终端，默认 deploy（debug）。");
-    return { mode: "deploy", launch: false, release: false };
+    return {
+      mode: "deploy",
+      launch: false,
+      release: false,
+      packVersion:
+        resolvePackVersionArg(parsed.packVersion, currentSemver, packable) ?? currentVersion,
+    };
   }
 
-  const mode = await promptMode();
-  const release = parsed.release ?? (await promptRelease());
-  const launch = parsed.launch ?? (await promptLaunch(mode));
-  return { mode, launch, release };
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  try {
+    const mode = await promptMode(rl);
+    const release = parsed.release ?? (await promptYesNo(rl, "是否发布 release 版本？", false));
+    const launch = parsed.launch ?? (await promptLaunch(rl, mode));
+    const packVersion =
+      resolvePackVersionArg(parsed.packVersion, currentSemver, packable) ??
+      (await promptPackVersion(rl, mode, currentVersion, currentSemver, packable));
+    return { mode, launch, release, packVersion };
+  } finally {
+    rl.close();
+  }
+}
+
+function readCurrentProjectVersion() {
+  const pkg = JSON.parse(fs.readFileSync(PACKAGE_JSON, "utf8"));
+  const version = String(pkg.version ?? "0.0.0");
+  return { version, semver: parseSemverFromVersionString(version) };
+}
+
+/** @param {{ major: number, minor: number, patch: number }} currentSemver */
+function listPackableVersions(currentSemver) {
+  const fromChangelog = listVersionSemversInChangelogDir(CHANGELOG_DIR);
+  const hasCurrent = fromChangelog.some((v) => compareSemver(v, currentSemver) === 0);
+  if (!hasCurrent) {
+    fromChangelog.push({ ...currentSemver });
+  }
+  return fromChangelog
+    .filter((v) => compareSemver(v, currentSemver) <= 0)
+    .sort((a, b) => compareSemver(b, a));
+}
+
+/**
+ * @param {string} input
+ * @param {{ major: number, minor: number, patch: number }} currentSemver
+ * @param {{ major: number, minor: number, patch: number }[]} packable
+ */
+function validatePackVersion(input, currentSemver, packable) {
+  const normalized = input.trim().replace(/^v/i, "");
+  if (!/^\d+\.\d+\.\d+$/.test(normalized)) {
+    return { ok: false, error: "版本号格式须为 major.minor.patch，例如 1.1.4" };
+  }
+
+  const semver = parseSemverFromVersionString(normalized);
+  if (compareSemver(semver, currentSemver) > 0) {
+    return {
+      ok: false,
+      error: `不能选择比当前 v${formatVersionString(currentSemver)} 更新的版本`,
+    };
+  }
+
+  const exists = packable.some((v) => compareSemver(v, semver) === 0);
+  if (!exists) {
+    return { ok: false, error: `changelog 中不存在 v${normalized}` };
+  }
+
+  return { ok: true, version: formatVersionString(semver) };
+}
+
+/**
+ * @param {string} targetVersion
+ * @returns {() => void}
+ */
+function applyPackVersionOverride(targetVersion) {
+  const pkgBackup = fs.readFileSync(PACKAGE_JSON, "utf8");
+  const appVerBackup = fs.readFileSync(APP_VERSION_PATH, "utf8");
+  const semver = parseSemverFromVersionString(targetVersion);
+
+  const pkg = JSON.parse(pkgBackup);
+  pkg.version = targetVersion;
+  fs.writeFileSync(PACKAGE_JSON, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
+  writeAppVersionFile(semver);
+
+  return () => {
+    fs.writeFileSync(PACKAGE_JSON, pkgBackup, "utf8");
+    fs.writeFileSync(APP_VERSION_PATH, appVerBackup, "utf8");
+  };
+}
+
+/** @param {string | null} packVersion */
+function buildEnvWithPackVersion(packVersion) {
+  if (!packVersion) return process.env;
+  return { ...process.env, WM_PACK_VERSION: packVersion };
 }
 
 function readAppVersion() {
-  const pkg = JSON.parse(fs.readFileSync(PACKAGE_JSON, "utf8"));
-  const version = String(pkg.version ?? "0.0.0");
+  const { version } = readCurrentProjectVersion();
   return { version, slug: version.replace(/\./g, "_") };
 }
 
@@ -214,13 +360,14 @@ function runAdb(adb, args, label) {
   }
 }
 
-/** @param {string} command @param {string[]} args @param {string} cwd */
-function runNpmScript(command, args, cwd) {
+/** @param {string} command @param {string[]} args @param {string} cwd @param {{ env?: NodeJS.ProcessEnv }} [options] */
+function runNpmScript(command, args, cwd, options = {}) {
   const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
   const result = spawnSync(npmCmd, [command, ...args], {
     cwd,
     stdio: "inherit",
     shell: process.platform === "win32",
+    env: options.env ?? process.env,
   });
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
@@ -252,9 +399,10 @@ function ensureReleaseKeystore() {
   process.exit(1);
 }
 
-/** @param {boolean} release */
-function resolveApkPath(release) {
-  const { version, slug } = readAppVersion();
+/** @param {boolean} release @param {string | null} packVersion */
+function resolveApkPath(release, packVersion = null) {
+  const version = packVersion ?? readAppVersion().version;
+  const slug = version.replace(/\./g, "_");
   const apkDir = path.join(ANDROID_DIR, "app", "build", "outputs", "apk", release ? "release" : "debug");
   const expectedName = release ? "app-release.apk" : `word_master_debug_${slug}.apk`;
   const expected = path.join(apkDir, expectedName);
@@ -325,29 +473,46 @@ function runGradleAssemble(variant) {
   }
 }
 
-/** @param {boolean} release */
-function buildApk(release) {
-  if (release) {
-    ensureReleaseKeystore();
-    console.log("\n▶ 编译 release APK…\n");
-    runNpmScript("run", ["android:icons"], REPO_ROOT);
-    runNpmScript("run", ["cap:sync"], REPO_ROOT);
-    runGradleAssemble("Release");
-  } else {
-    console.log("\n▶ 编译 debug APK（cap:apk）…\n");
-    runNpmScript("run", ["cap:apk"], REPO_ROOT);
+/** @param {boolean} release @param {string} packVersion @param {string} currentVersion */
+function buildApk(release, packVersion, currentVersion) {
+  const needsVersionOverride = packVersion !== currentVersion;
+  /** @type {(() => void) | null} */
+  let restoreVersionFiles = null;
+
+  if (needsVersionOverride) {
+    restoreVersionFiles = applyPackVersionOverride(packVersion);
+    console.log(
+      `\n▶ 打包版本 v${packVersion}（项目当前 v${currentVersion}；仅版本号与更新日志按目标版本）\n`,
+    );
   }
 
-  const { apkPath, version } = resolveApkPath(release);
+  const buildEnv = buildEnvWithPackVersion(needsVersionOverride ? packVersion : null);
+
+  try {
+    if (release) {
+      ensureReleaseKeystore();
+      console.log("\n▶ 编译 release APK…\n");
+      runNpmScript("run", ["android:icons"], REPO_ROOT, { env: buildEnv });
+      runNpmScript("run", ["cap:sync"], REPO_ROOT, { env: buildEnv });
+      runGradleAssemble("Release");
+    } else {
+      console.log("\n▶ 编译 debug APK（cap:apk）…\n");
+      runNpmScript("run", ["cap:apk"], REPO_ROOT, { env: buildEnv });
+    }
+  } finally {
+    restoreVersionFiles?.();
+  }
+
+  const { apkPath, version } = resolveApkPath(release, packVersion);
   console.log(`\n✓ 编译完成：v${version}（${release ? "release" : "debug"}）`);
   console.log(`  ${apkPath}\n`);
 }
 
-/** @param {boolean} launch @param {boolean} release */
-function installApk(launch, release) {
+/** @param {boolean} launch @param {boolean} release @param {string | null} packVersion */
+function installApk(launch, release, packVersion = null) {
   const adb = resolveAdb();
   ensureDeviceConnected(adb);
-  const { apkPath, version } = resolveApkPath(release);
+  const { apkPath, version } = resolveApkPath(release, packVersion);
 
   console.log(`\n▶ 安装 v${version}（${release ? "release" : "debug"}）到真机…\n  ${apkPath}\n`);
   runAdb(adb, ["install", "-r", apkPath], "安装");
@@ -364,15 +529,18 @@ function installApk(launch, release) {
 }
 
 async function main() {
-  const { mode, launch, release } = await resolveRunOptions(parseArgs(process.argv.slice(2)));
+  const { mode, launch, release, packVersion } = await resolveRunOptions(
+    parseArgs(process.argv.slice(2)),
+  );
+  const { version: currentVersion } = readCurrentProjectVersion();
 
   if (mode === "build") {
-    buildApk(release);
+    buildApk(release, packVersion, currentVersion);
   } else if (mode === "install") {
-    installApk(launch, release);
+    installApk(launch, release, packVersion);
   } else {
-    buildApk(release);
-    installApk(launch, release);
+    buildApk(release, packVersion, currentVersion);
+    installApk(launch, release, packVersion);
   }
 }
 

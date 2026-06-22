@@ -91,6 +91,19 @@ export function compactOwnedSlotsAfterCropSell(slots, soldIndex, soldTreasure) {
 }
 
 /**
+ * 移除指定槽位并向前压实（摧毁/静默清空时用，避免栏内与收藏弹窗留下空洞）。
+ * @param {Array<object | null>} slots
+ * @param {number} removedIndex
+ * @returns {boolean}
+ */
+export function compactOwnedTreasureSlotsAtIndex(slots, removedIndex) {
+  const ix = Math.floor(Number(removedIndex));
+  if (!Array.isArray(slots) || !Number.isFinite(ix) || ix < 0 || ix >= slots.length) return false;
+  slots.splice(ix, 1);
+  return true;
+}
+
+/**
  * @param {readonly (null | { accessoryId?: string | null, treasureAccessoryId?: string | null })[]} ownedSlots
  * @param {number} [voucherExtraSlots=0]
  * @param {string | null | undefined} [incomingAccessoryId]

@@ -195,11 +195,16 @@ function paintMaterialSubscribers(materialId, includeStatic = false) {
   }
 }
 
-function freezeBitmapRendererSubscriberFrame(materialId, sub) {
+function paintBitmapRendererSubscriberFrame(materialId, sub) {
   const hub = sharedHub;
-  if (!hub || sub.disposed || sub.frameFrozen) return;
+  if (!hub || sub.disposed) return;
   drawMaterialFrame(materialId);
   void transferFrameToSubscriber(sub);
+}
+
+function freezeBitmapRendererSubscriberFrame(materialId, sub) {
+  if (sub.frameFrozen) return;
+  paintBitmapRendererSubscriberFrame(materialId, sub);
   sub.frameFrozen = true;
 }
 
@@ -308,6 +313,7 @@ export function setBitmapRendererMaterialAnimated(materialId, canvas, animated) 
     sub.animated = animated;
     if (animated) {
       sub.frameFrozen = false;
+      paintBitmapRendererSubscriberFrame(materialId, sub);
       ensureTick();
     } else {
       freezeBitmapRendererSubscriberFrame(materialId, sub);

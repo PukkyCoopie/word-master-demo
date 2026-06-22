@@ -928,7 +928,7 @@ import {
   getTreasureAccessoryPanelTitle,
   getTreasureAccessoryPanelDescription,
 } from "../game/treasureAccessories.js";
-import { ACCESSORY_HOURGLASS } from "../accessories/accessoryCatalog.js";
+import { ACCESSORY_HOURGLASS, ACCESSORY_NO_SELL } from "../accessories/accessoryCatalog.js";
 import { readTreasureAccessoryIds } from "../accessories/accessoryState.js";
 import {
   buildHourglassOwnedAccessoryStatusSegments,
@@ -936,6 +936,8 @@ import {
 } from "../game/treasureHourglassRuntime.js";
 import { normalizeTreasureDescription } from "../treasures/treasureDescription.js";
 import { ownedTreasureHasNoSellAccessory } from "../game/runDifficultyRuntime.js";
+import { buildNoSellAccessoryDescriptionSegments } from "../game/gameConceptCopy.js";
+import { treasureBypassesNoSellForSelfDestruct } from "../treasures/treasureRegistry.js";
 import { getTileAccessoryChipVisual } from "../game/tileAccessories.js";
 import { getTileMaterialEffectDescription, getTileAccessoryEffectDescription } from "../game/tileDetailDescriptions.js";
 import {
@@ -1081,6 +1083,41 @@ const collectionLockedVisualStyle = computed(() => {
   if (!isCollectionLockedPreview.value) return undefined;
   return { opacity: String(collectionEntryOpacityForState(props.collectionEntryState)) };
 });
+
+/** 收藏未解锁预览：GSAP 入场终点须与格子上 CSS 透明度一致，避免飞到 1 再闪回半透明 */
+function collectionLockedEnterOpacity() {
+  if (!isCollectionLockedPreview.value) return 1;
+  return collectionEntryOpacityForState(props.collectionEntryState);
+}
+
+/** @param {HTMLElement | null | undefined} el */
+function staggerEnterOpacityForEl(el) {
+  if (!isCollectionLockedPreview.value) return 1;
+  if (el === titleGroupRef.value) return collectionLockedEnterOpacity();
+  return 1;
+}
+
+/** @param {HTMLElement | null | undefined} iconColumn */
+function revealIconColumnAfterEnter(iconColumn) {
+  if (!(iconColumn instanceof HTMLElement)) return;
+  if (isCollectionLockedPreview.value) {
+    gsap.set(iconColumn, { pointerEvents: "auto", clearProps: "opacity,pointerEvents" });
+  } else {
+    gsap.set(iconColumn, { opacity: 1, pointerEvents: "auto", clearProps: "opacity,pointerEvents" });
+  }
+}
+
+/** @param {HTMLElement[]} staggerEls */
+function revealStaggerTargetsInstant(staggerEls) {
+  for (const el of staggerEls) {
+    if (!(el instanceof HTMLElement)) continue;
+    gsap.set(el, {
+      opacity: staggerEnterOpacityForEl(el),
+      y: 0,
+      clearProps: "opacity,transform",
+    });
+  }
+}
 
 const detailShelfPriceText = computed(() => {
   if (isCollectionLockedPreview.value) return "$?";
@@ -1272,10 +1309,17 @@ const accessoryChipVisuals = computed(() => getTreasureAccessoryChipVisualsFromE
 
 const hourglassAccessoryExpired = computed(() => isHourglassAccessoryExpired(props.treasure));
 
+const detailTreasureId = computed(() => String(props.treasure?.treasureId ?? "").trim());
+
 const treasureAccessoryPanels = computed(() =>
   offerTreasureAccessoryIds.value
     .map((id) => {
-      let body = getTreasureAccessoryPanelDescription(id);
+      let body =
+        id === ACCESSORY_NO_SELL
+          ? buildNoSellAccessoryDescriptionSegments(
+              treasureBypassesNoSellForSelfDestruct(detailTreasureId.value),
+            )
+          : getTreasureAccessoryPanelDescription(id);
       if (isOwnedMode.value && id === ACCESSORY_HOURGLASS) {
         const statusSegments = buildHourglassOwnedAccessoryStatusSegments(props.treasure);
         if (statusSegments?.length) {
@@ -1375,9 +1419,16 @@ const deckOfferTreasureAccessoryTitle = computed(() =>
   getTreasureAccessoryPanelTitle(deckOfferTreasureAccessoryIdNorm.value || null),
 );
 
-const deckOfferTreasureAccessoryDesc = computed(() =>
-  getTreasureAccessoryPanelDescription(deckOfferTreasureAccessoryIdNorm.value || null),
-);
+const deckOfferTreasureAccessoryDesc = computed(() => {
+  const accessoryId = deckOfferTreasureAccessoryIdNorm.value || null;
+  if (!accessoryId) return "";
+  if (accessoryId === ACCESSORY_NO_SELL) {
+    return buildNoSellAccessoryDescriptionSegments(
+      treasureBypassesNoSellForSelfDestruct(detailTreasureId.value),
+    );
+  }
+  return getTreasureAccessoryPanelDescription(accessoryId);
+});
 
 const deckOfferTreasureAccessoryChipVisual = computed(() =>
   getTreasureAccessoryChipVisual(deckOfferTreasureAccessoryIdNorm.value || null),
@@ -1899,13 +1950,16 @@ function runEnterAnimation() {
     }
     bootMask.value = false;
     flyCloneActive.value = false;
+    const staggerEls = staggerTargets();
     instantPortalLayerEnter({
       backdrop,
       backdropFinal: portalScrimGsapVars("rgba(14, 12, 10, 0.78)"),
-      staggerEls: staggerTargets(),
+      staggerEls: [],
       primaryEl: targetVisual,
-      extraEls: [iconColumnRef.value].filter(Boolean),
+      extraEls: [],
     });
+    revealIconColumnAfterEnter(iconColumnRef.value);
+    revealStaggerTargetsInstant(staggerEls);
     void nextTick(() => {
       previewNavRef.value?.resetVisible?.();
     });
@@ -2031,7 +2085,7 @@ function continueEnterAfterMeasure(ctx) {
     gsap.set(cloneLive, { clearProps: "transform" });
     gsap.set(cloneLive, {
       visibility: "visible",
-      opacity: 1,
+      opacity: collectionLockedEnterOpacity(),
       left: flyFrom.left,
       top: flyFrom.top,
       width: flyFrom.width,
@@ -2040,7 +2094,7 @@ function continueEnterAfterMeasure(ctx) {
       pointerEvents: "none",
     });
     if (iconColumnLive) {
-      gsap.set(iconColumnLive, { opacity: 1, pointerEvents: "auto", clearProps: "opacity,pointerEvents" });
+      revealIconColumnAfterEnter(iconColumnLive);
     }
     bootMask.value = false;
 
@@ -2085,7 +2139,7 @@ function continueEnterAfterMeasure(ctx) {
     enterTl.to(
       staggerLive,
       {
-        opacity: 1,
+        opacity: (_index, el) => staggerEnterOpacityForEl(el),
         y: 0,
         duration: 0.18,
         stagger: 0.038,
@@ -2101,9 +2155,7 @@ function continueEnterAfterMeasure(ctx) {
   }
 
   flyCloneActive.value = false;
-  if (iconColumnLive) {
-    gsap.set(iconColumnLive, { opacity: 1, pointerEvents: "auto", clearProps: "opacity,pointerEvents" });
-  }
+  revealIconColumnAfterEnter(iconColumnLive);
   bootMask.value = false;
 
   if (hasFly && flyFrom && !flyTo) {
@@ -2138,7 +2190,7 @@ function continueEnterAfterMeasure(ctx) {
   enterTl.to(
     staggerLive,
     {
-      opacity: 1,
+      opacity: (_index, el) => staggerEnterOpacityForEl(el),
       y: 0,
       duration: 0.18,
       stagger: 0.038,
@@ -2164,14 +2216,11 @@ function runContentEnterAnimation() {
       enterTl.kill();
       enterTl = null;
     }
-    instantRevealGsapTargets(staggerTargets());
+    revealStaggerTargetsInstant(staggerTargets());
     instantRevealGsapTargets([targetVisual]);
     if (iconColumnRef.value) {
-      instantRevealGsapTargets([iconColumnRef.value], {
-        opacity: 1,
-        pointerEvents: "auto",
-        visibility: "visible",
-      });
+      revealIconColumnAfterEnter(iconColumnRef.value);
+      gsap.set(iconColumnRef.value, { visibility: "visible", clearProps: "visibility" });
     }
     return;
   }
@@ -2185,9 +2234,7 @@ function runContentEnterAnimation() {
   const iconColumn = iconColumnRef.value;
   gsap.killTweensOf([targetVisual, iconColumn, ...staggerEls].filter(Boolean));
   applyEnterInitialHide(backdrop, staggerEls, targetVisual, false);
-  if (iconColumn) {
-    gsap.set(iconColumn, { opacity: 1, pointerEvents: "auto", clearProps: "opacity,pointerEvents" });
-  }
+  revealIconColumnAfterEnter(iconColumn);
   gsap.set(targetVisual, {
     visibility: "visible",
     scale: 0.94,
@@ -2210,7 +2257,7 @@ function runContentEnterAnimation() {
   enterTl.to(
     staggerEls,
     {
-      opacity: 1,
+      opacity: (_index, el) => staggerEnterOpacityForEl(el),
       y: 0,
       duration: 0.18,
       stagger: 0.038,

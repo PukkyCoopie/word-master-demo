@@ -73,9 +73,6 @@ export function createDragEdgeAutoScrollLoop(options) {
     if (speed === 0 || maxScroll <= 0) return;
 
     const nextTop = container.scrollTop + speed;
-    if (nextTop <= 0 && speed < 0) return;
-    if (nextTop >= maxScroll && speed > 0) return;
-
     const clampedTop = Math.max(0, Math.min(maxScroll, nextTop));
     if (clampedTop === container.scrollTop) return;
 

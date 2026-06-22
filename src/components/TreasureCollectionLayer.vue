@@ -12,13 +12,14 @@
           ref="innerRef"
           class="treasure-collection-inner"
           :class="{ 'treasure-collection-inner--enter-boot': enterBoot }"
+          :style="panelFrameStyle"
           @click.stop
         >
           <div class="treasure-collection-title treasure-collection-enter-stagger">
             <span class="treasure-collection-title-main">宝藏</span>
             <span class="treasure-collection-title-count"> ({{ filledCount }})</span>
           </div>
-          <div class="treasure-collection-grid-scroll-outer">
+          <div ref="scrollOuterRef" class="treasure-collection-grid-scroll-outer" :style="scrollChromeStyle">
             <div
               ref="scrollBodyRef"
               class="treasure-collection-grid-area"
@@ -26,12 +27,12 @@
                 'treasure-collection-grid-area--scrollable': gridNeedsScroll,
                 'treasure-collection-grid-area--scroll-locked': dragActive,
               }"
-              @scroll.passive="onScrollBody"
+              @scroll.passive="onGridScroll"
             >
               <div
                 ref="gridContentRef"
                 class="treasure-collection-grid-wrap"
-                :class="{ 'treasure-collection-grid-wrap--center': !gridNeedsScroll }"
+                :style="gridWrapStyle"
               >
                 <TransitionGroup
                   name="treasure-collection-grid"
@@ -49,7 +50,6 @@
                     :ref="(el) => setCellRef(i, el)"
                   >
                     <TreasureSlot
-                      v-if="slot"
                       :slot-index="i"
                       :treasure="slot"
                       :gem-class="gemClassForSlot(i, slot)"
@@ -65,7 +65,7 @@
               </div>
             </div>
             <div
-              v-show="scrollbarVisible"
+              v-show="gridNeedsScroll"
               ref="scrollTrackRef"
               class="treasure-collection-scroll-track"
               aria-hidden="true"
@@ -76,7 +76,12 @@
                 :class="{ 'treasure-collection-scroll-thumb--dragging': thumbDragging }"
                 :style="thumbStyle"
                 @pointerdown.stop="onThumbPointerDown"
-              />
+              >
+                <div class="treasure-collection-scroll-thumb-grip" aria-hidden="true">
+                  <span />
+                  <span />
+                </div>
+              </div>
             </div>
           </div>
           <button
@@ -131,6 +136,14 @@ import {
   TREASURE_COLLECTION_CELL_MIN_RPX,
   TREASURE_COLLECTION_CELL_SIZE_RPX,
   TREASURE_COLLECTION_GRID_GAP_RPX,
+  TREASURE_COLLECTION_PANEL_HEIGHT_RPX,
+  TREASURE_COLLECTION_PANEL_WIDTH_RPX,
+  TREASURE_COLLECTION_SCROLLBAR_GAP_RPX,
+  TREASURE_COLLECTION_SCROLLBAR_GUTTER_RPX,
+  TREASURE_COLLECTION_SCROLLBAR_MIN_THUMB_RPX,
+  TREASURE_COLLECTION_SCROLLBAR_THUMB_INSET_RPX,
+  TREASURE_COLLECTION_SCROLLBAR_TRACK_RPX,
+  computeCollectionGridContentHeightPx,
   measureCollectionGridLayout,
 } from "../game/treasureCollectionLayout.js";
 import {
@@ -168,7 +181,21 @@ const portalStackStyle = computed(() =>
   stackZ.value > 0 ? { zIndex: stackZ.value } : undefined,
 );
 
+const panelFrameStyle = computed(() => ({
+  width: `calc(${TREASURE_COLLECTION_PANEL_WIDTH_RPX} * var(--rpx))`,
+  height: `calc(${TREASURE_COLLECTION_PANEL_HEIGHT_RPX} * var(--rpx))`,
+  maxWidth: `calc(${TREASURE_COLLECTION_PANEL_WIDTH_RPX} * var(--rpx))`,
+  maxHeight: `calc(${TREASURE_COLLECTION_PANEL_HEIGHT_RPX} * var(--rpx))`,
+}));
+
+const scrollChromeStyle = computed(() => ({
+  "--tc-scroll-track-w": `calc(${TREASURE_COLLECTION_SCROLLBAR_TRACK_RPX} * var(--rpx))`,
+  "--tc-scroll-track-gap": `calc(${TREASURE_COLLECTION_SCROLLBAR_GAP_RPX} * var(--rpx))`,
+  "--tc-scroll-thumb-inset": `calc(${TREASURE_COLLECTION_SCROLLBAR_THUMB_INSET_RPX} * var(--rpx))`,
+}));
+
 const innerRef = ref(null);
+const scrollOuterRef = ref(null);
 const gridContentRef = ref(null);
 const enterBoot = ref(false);
 const gridCellPx = ref(0);
@@ -184,7 +211,6 @@ function readRpx() {
 const {
   scrollBodyRef,
   scrollTrackRef,
-  scrollbarVisible,
   thumbDragging,
   thumbStyle,
   onScrollBody,
@@ -193,19 +219,32 @@ const {
   updateScrollbarMetrics,
   bindResizeObserver: bindPanelScrollbarObserver,
 } = usePanelScrollbar({
-  thumbColor: "rgba(255, 255, 255, 0.38)",
+  thumbColor: "rgba(255, 255, 255, 0.42)",
   contentRef: gridContentRef,
+  minThumbPx: () => TREASURE_COLLECTION_SCROLLBAR_MIN_THUMB_RPX * readRpx(),
+  trackInset: () => TREASURE_COLLECTION_SCROLLBAR_THUMB_INSET_RPX * readRpx(),
 });
 
+function syncScrollbarMetrics() {
+  if (gridNeedsScroll.value) updateScrollbarMetrics();
+}
+
+function onGridScroll() {
+  if (gridNeedsScroll.value) onScrollBody();
+}
+
 function measureCollectionGrid() {
+  const outer = scrollOuterRef.value;
   const el = scrollBodyRef.value;
   if (!(el instanceof HTMLElement)) return;
   const rpx = readRpx();
   const gapPx = TREASURE_COLLECTION_GRID_GAP_RPX * rpx;
   const maxCellPx = TREASURE_COLLECTION_CELL_SIZE_RPX * rpx;
   const minCellPx = TREASURE_COLLECTION_CELL_MIN_RPX * rpx;
+  const gutterPx = TREASURE_COLLECTION_SCROLLBAR_GUTTER_RPX * rpx;
+  const outerWidthPx = outer instanceof HTMLElement ? outer.clientWidth : el.clientWidth;
   const layout = measureCollectionGridLayout({
-    areaWidthPx: el.clientWidth,
+    areaWidthPx: Math.max(1, outerWidthPx - gutterPx),
     areaHeightPx: el.clientHeight,
     slotCount: props.ownedTreasures.length,
     gapPx,
@@ -214,7 +253,7 @@ function measureCollectionGrid() {
   });
   gridCellPx.value = layout.cellPx;
   gridNeedsScroll.value = layout.needsScroll;
-  updateScrollbarMetrics();
+  syncScrollbarMetrics();
 }
 
 let gridResizeObserver = null;
@@ -222,11 +261,16 @@ let gridResizeObserver = null;
 function bindGridResizeObserver() {
   gridResizeObserver?.disconnect();
   gridResizeObserver = null;
-  const el = scrollBodyRef.value;
-  if (!(el instanceof HTMLElement)) return;
+  const body = scrollBodyRef.value;
+  const outer = scrollOuterRef.value;
+  if (!(body instanceof HTMLElement)) return;
   if (typeof ResizeObserver === "undefined") return;
-  gridResizeObserver = new ResizeObserver(() => measureCollectionGrid());
-  gridResizeObserver.observe(el);
+  gridResizeObserver = new ResizeObserver(() => {
+    if (dragActive.value || dragSettling.value) return;
+    measureCollectionGrid();
+  });
+  gridResizeObserver.observe(body);
+  if (outer instanceof HTMLElement) gridResizeObserver.observe(outer);
   bindPanelScrollbarObserver();
 }
 
@@ -298,14 +342,14 @@ const {
   getSlotElement: (i) => cellRefs.value[i] ?? null,
   getOverlayContainer: () => innerRef.value,
   getScrollContainer: () => (gridNeedsScroll.value ? scrollBodyRef.value : null),
-  onAutoScroll: () => updateScrollbarMetrics(),
+  onAutoScroll: () => syncScrollbarMetrics(),
 });
 
 /** 拖动与 ghost 落位期间禁用 grid FLIP，避免与跟随指针的 ghost 叠出多重外观 */
 const gridReorderDragging = computed(() => dragActive.value || dragSettling.value);
 
 watch(dragActive, (active) => {
-  if (!active) updateScrollbarMetrics();
+  if (!active) syncScrollbarMetrics();
 });
 
 const gridStyle = computed(() => {
@@ -313,6 +357,24 @@ const gridStyle = computed(() => {
   const fallback = TREASURE_COLLECTION_CELL_SIZE_RPX * readRpx();
   const cell = px > 0 ? px : fallback;
   return { "--treasure-collection-cell-size": `${cell}px` };
+});
+
+/** 拖动预览会临时卸载槽内 TreasureSlot，用布局高度锁定 wrap，避免末行单格时容器塌缩 */
+const gridWrapStyle = computed(() => {
+  if (!gridReorderDragging.value || gridCellPx.value <= 0) return undefined;
+  const outer = scrollOuterRef.value;
+  if (!(outer instanceof HTMLElement)) return undefined;
+  const rpx = readRpx();
+  const heightPx = computeCollectionGridContentHeightPx({
+    areaWidthPx: Math.max(
+      1,
+      outer.clientWidth - TREASURE_COLLECTION_SCROLLBAR_GUTTER_RPX * rpx,
+    ),
+    slotCount: props.ownedTreasures.length,
+    cellPx: gridCellPx.value,
+    gapPx: TREASURE_COLLECTION_GRID_GAP_RPX * rpx,
+  });
+  return { minHeight: `${heightPx}px` };
 });
 
 watch(
@@ -361,7 +423,6 @@ function onSlotClick(i, slot, e) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: calc(16 * var(--rpx));
   box-sizing: border-box;
 }
 
@@ -380,10 +441,7 @@ function onSlotClick(i, slot, e) {
   flex-direction: column;
   align-items: center;
   gap: calc(16 * var(--rpx));
-  width: min(calc(100% - 32 * var(--rpx)), min(96vw, calc(620 * var(--rpx))));
-  max-width: min(96vw, calc(620 * var(--rpx)));
-  height: min(72vh, calc(640 * var(--rpx)));
-  max-height: min(88vh, calc(720 * var(--rpx)));
+  flex-shrink: 0;
   padding: calc(24 * var(--rpx)) calc(18 * var(--rpx)) calc(22 * var(--rpx));
   border-radius: calc(14 * var(--rpx));
   background: #7a6f65;
@@ -416,25 +474,26 @@ function onSlotClick(i, slot, e) {
 }
 
 .treasure-collection-grid-scroll-outer {
+  position: relative;
   flex: 1 1 auto;
   align-self: stretch;
   min-height: 0;
   width: 100%;
-  display: flex;
-  align-items: stretch;
-  gap: calc(8 * var(--rpx));
 }
 
 .treasure-collection-grid-area {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
   width: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   box-sizing: border-box;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.treasure-collection-grid-area--scrollable {
+  overflow-y: auto;
+  padding-right: calc(var(--tc-scroll-track-gap, 0px) + var(--tc-scroll-track-w, 0px));
 }
 
 .treasure-collection-grid-area::-webkit-scrollbar {
@@ -449,34 +508,53 @@ function onSlotClick(i, slot, e) {
 .treasure-collection-grid-wrap {
   display: flex;
   justify-content: center;
+  align-items: flex-start;
   box-sizing: border-box;
-  min-height: 100%;
   padding: calc(2 * var(--rpx)) 0;
 }
 
-.treasure-collection-grid-wrap--center {
-  align-items: center;
-}
-
 .treasure-collection-scroll-track {
-  flex-shrink: 0;
-  width: calc(8 * var(--rpx));
-  position: relative;
-  border-radius: calc(5 * var(--rpx));
-  background: rgba(0, 0, 0, 0.14);
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--tc-scroll-track-w, calc(22 * var(--rpx)));
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
   touch-action: none;
   user-select: none;
+  z-index: 2;
 }
 
 .treasure-collection-scroll-thumb {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: var(--tc-scroll-thumb-inset, calc(3 * var(--rpx)));
+  right: var(--tc-scroll-thumb-inset, calc(3 * var(--rpx)));
   top: 0;
-  border-radius: calc(5 * var(--rpx));
-  box-shadow: 0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.42);
+  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.22);
   cursor: grab;
   touch-action: none;
+}
+
+.treasure-collection-scroll-thumb-grip {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: calc(4 * var(--rpx));
+  width: 58%;
+  pointer-events: none;
+}
+
+.treasure-collection-scroll-thumb-grip span {
+  display: block;
+  height: calc(2.5 * var(--rpx));
+  border-radius: calc(2 * var(--rpx));
+  background: rgba(255, 255, 255, 0.78);
 }
 
 .treasure-collection-scroll-thumb--dragging,

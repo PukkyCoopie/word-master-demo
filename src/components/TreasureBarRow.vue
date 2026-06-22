@@ -33,13 +33,24 @@
       </TransitionGroup>
       <button
         v-if="stackMode && showExpandButton"
+        ref="expandBtnRef"
         type="button"
         class="treasure-bar-expand-btn"
-        aria-label="查看全部宝藏"
-        title="查看全部宝藏"
+        :class="{
+          'treasure-bar-expand-btn--has-hidden': hiddenTreasureCount > 0,
+          'treasure-bar-expand-btn--scoring-highlight': expandBtnHighlight,
+        }"
+        :aria-label="expandBtnAriaLabel"
+        :title="expandBtnAriaLabel"
         @click.stop="emit('expand-click')"
       >
-        <i class="ri-arrow-up-double-line" aria-hidden="true" />
+        <span class="treasure-bar-expand-btn__inner">
+          <i class="ri-arrow-up-double-line treasure-bar-expand-btn__icon" aria-hidden="true" />
+          <span
+            v-if="hiddenTreasureCount > 0"
+            class="treasure-bar-expand-btn__pill"
+          >+{{ hiddenTreasureCount }}</span>
+        </span>
       </button>
     </div>
     <div v-if="dragGhostVisible" class="treasure-drag-ghost" :style="dragGhostStyle">
@@ -74,7 +85,6 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import TreasureSlot from "./TreasureSlot.vue";
 import {
   TREASURE_BAR_SLOT_GAP_RPX,
-  TREASURE_STACK_EXPAND_BTN_RPX,
   TREASURE_STACK_ROW_GAP_RPX,
   computeStackAvailWidthPx,
   computeStackCardSizePx,
@@ -89,6 +99,8 @@ const props = defineProps({
   filledCount: { type: Number, default: 0 },
   compactAnimating: { type: Boolean, default: false },
   showExpandButton: { type: Boolean, default: true },
+  hiddenTreasureCount: { type: Number, default: 0 },
+  expandBtnHighlight: { type: Boolean, default: false },
   containerClass: { type: [String, Array, Object], default: null },
   dragActive: { type: Boolean, default: false },
   dragGhostVisible: { type: Boolean, default: false },
@@ -121,6 +133,7 @@ const emit = defineEmits([
 ]);
 
 const containerRef = ref(null);
+const expandBtnRef = ref(null);
 const containerWidthPx = ref(0);
 /** @type {import('vue').Ref<(import('vue').ComponentPublicInstance | null)[]>} */
 const slotRefs = ref([]);
@@ -171,6 +184,12 @@ const treasureSlotsClass = computed(() => [
   props.layoutClass,
 ]);
 
+const expandBtnAriaLabel = computed(() => {
+  const hidden = Math.max(0, Math.floor(Number(props.hiddenTreasureCount) || 0));
+  if (hidden > 0) return `查看隐藏的 ${hidden} 个宝藏`;
+  return "查看全部宝藏";
+});
+
 const stackLayoutPx = computed(() => {
   if (!props.stackMode) {
     return { cardPx: 0, expandPx: 0, gapPx: 0, availPx: 0, stepPx: 0 };
@@ -181,7 +200,7 @@ const stackLayoutPx = computed(() => {
     containerWidthPx: containerWidthPx.value,
     slotGapPx,
   });
-  const expandPx = TREASURE_STACK_EXPAND_BTN_RPX * rpx;
+  const expandPx = cardPx;
   const gapPx = TREASURE_STACK_ROW_GAP_RPX * rpx;
   const availPx = computeStackAvailWidthPx({
     containerWidthPx: containerWidthPx.value,
@@ -273,6 +292,7 @@ function getSlotEl(index) {
 defineExpose({
   getContainerEl: () => containerRef.value,
   getSlotEl,
+  getExpandBtnEl: () => expandBtnRef.value,
 });
 </script>
 

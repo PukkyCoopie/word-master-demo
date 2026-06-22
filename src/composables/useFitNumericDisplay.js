@@ -10,13 +10,20 @@ import {
 const MIN_FONT_SCALE = 0.5;
 
 /**
+ * @typedef {object} FitNumericDisplayOptions
+ * @property {boolean} [singleLine] 为 true 时不折行，缩至最小字号后直接用科学计数法
+ */
+
+/**
  * 在固定宽度容器内自适应数字展示：先 locale 整数 → 缩小/两行 → 仍溢出则科学计数法（默认字号单行）。
  *
  * @param {import('vue').Ref<HTMLElement | null>} wrapRef
  * @param {import('vue').Ref<HTMLElement | null>} textRef
  * @param {import('vue').MaybeRefOrGetter<number | string | null | undefined>} valueSource
+ * @param {FitNumericDisplayOptions} [options]
  */
-export function useFitNumericDisplay(wrapRef, textRef, valueSource) {
+export function useFitNumericDisplay(wrapRef, textRef, valueSource, options = {}) {
+  const singleLine = options.singleLine === true;
   const displayText = ref("0");
   const wrapped = ref(false);
   const scientific = ref(false);
@@ -45,6 +52,12 @@ export function useFitNumericDisplay(wrapRef, textRef, valueSource) {
     textEl.textContent = text;
   }
 
+  /** 清除内联字号后读取 CSS 基准字号，避免上次 refit 留下的 inline fontSize 被当作基准。 */
+  function readBaseFontSize(textEl) {
+    resetTextInline(textEl);
+    return parseFloat(getComputedStyle(textEl).fontSize) || 0;
+  }
+
   /**
    * @param {HTMLElement} textEl
    * @param {number} baseFontSize
@@ -57,7 +70,8 @@ export function useFitNumericDisplay(wrapRef, textRef, valueSource) {
     applyTextForMeasure(textEl, text);
 
     if (textEl.scrollWidth <= containerWidth) {
-      return { mode: "single-base", fontSize: baseFontSize };
+      const actualFontSize = parseFloat(getComputedStyle(textEl).fontSize) || baseFontSize;
+      return { mode: "single-base", fontSize: actualFontSize };
     }
 
     let lo = minFontSize;
@@ -78,6 +92,10 @@ export function useFitNumericDisplay(wrapRef, textRef, valueSource) {
     textEl.style.fontSize = `${best}px`;
     if (textEl.scrollWidth <= containerWidth) {
       return { mode: "single-shrink", fontSize: best };
+    }
+
+    if (singleLine) {
+      return null;
     }
 
     textEl.style.fontSize = `${minFontSize}px`;
@@ -149,7 +167,8 @@ export function useFitNumericDisplay(wrapRef, textRef, valueSource) {
     }
   }
 
-  function refit() {
+  function refit(options = {}) {
+    const force = options.force === true;
     const wrap = wrapRef.value;
     const textEl = textRef.value;
     if (!wrap || !textEl) return;
@@ -159,7 +178,7 @@ export function useFitNumericDisplay(wrapRef, textRef, valueSource) {
     if (containerWidth <= 0) return;
 
     const raw = Math.round(Number(unref(valueSource)) || 0);
-    if (raw === lastValue && containerWidth === lastContainerWidth) return;
+    if (!force && raw === lastValue && containerWidth === lastContainerWidth) return;
     lastValue = raw;
     lastContainerWidth = containerWidth;
 
@@ -173,7 +192,7 @@ export function useFitNumericDisplay(wrapRef, textRef, valueSource) {
       return;
     }
 
-    const baseFontSize = parseFloat(getComputedStyle(textEl).fontSize);
+    const baseFontSize = readBaseFontSize(textEl);
     if (!baseFontSize) return;
 
     const minFontSize = baseFontSize * MIN_FONT_SCALE;
@@ -197,8 +216,12 @@ export function useFitNumericDisplay(wrapRef, textRef, valueSource) {
     applyPresentation(textEl, sci.text, sciMode, sci.fontSize);
   }
 
-  function scheduleRefit() {
-    nextTick(() => refit());
+  function scheduleRefit(options = {}) {
+    nextTick(() => refit(options));
+  }
+
+  function forceRefit() {
+    scheduleRefit({ force: true });
   }
 
   onMounted(() => {
@@ -217,5 +240,5 @@ export function useFitNumericDisplay(wrapRef, textRef, valueSource) {
 
   watch(() => unref(valueSource), scheduleRefit);
 
-  return { displayText, wrapped, scientific, refit: scheduleRefit };
+  return { displayText, wrapped, scientific, refit: forceRefit };
 }

@@ -2,6 +2,7 @@ import { ACCESSORY_CATALOG } from "../accessories/accessoryCatalog.js";
 import { isAchievementUnlocked, unlockAchievementId } from "../achievements/achievementCareer.js";
 import { getAchievementCollectionProgress } from "../achievements/achievementCollectionProgress.js";
 import { evaluateAndUnlockAchievements } from "../achievements/achievementEvaluate.js";
+import { shouldSuppressAchievementsAndLeaderboardsInDevMode } from "./developerMode.js";
 import {
   recordAccessoryDiscovered,
   recordMaterialDiscovered,
@@ -169,6 +170,7 @@ function applyCollectionProgressBump(career, def) {
  * @returns {AchievementDefinition[]}
  */
 export function applyDeveloperAchievementCheat(career, def) {
+  if (shouldSuppressAchievementsAndLeaderboardsInDevMode()) return [];
   if (!def?.id || isAchievementUnlocked(career, def.id)) return [];
 
   const progress = getAchievementCollectionProgress(career, def);

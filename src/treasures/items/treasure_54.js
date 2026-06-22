@@ -11,6 +11,7 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  bypassNoSellForSelfDestruct: true,
   buildPostLetterStep() {
     return { multMul: 3 };
   },

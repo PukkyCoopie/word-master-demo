@@ -147,6 +147,39 @@ export function buildBossWildcardResolveCacheKey(ctx) {
   return `${ctx.slug}|${used}|${ctx.mouthLockedLength ?? ""}|${ctx.clubRequiredKey ?? ""}|${endingFp}|${tiles.length}`;
 }
 
+/** @typedef {'all_pass' | 'all_fail' | 'per_candidate'} BossWildcardComplianceMode */
+
+/**
+ * 长度类 Boss：当前 pattern 判定词长是否可能合规；避免对交集内每个候选重复 evaluate。
+ * @param {BossWildcardResolveContext | null | undefined} ctx
+ * @param {number} patternCharLen pattern 字符数（与 getJudgedWordLen 占位串等长）
+ * @returns {BossWildcardComplianceMode}
+ */
+export function bossWildcardComplianceMode(ctx, patternCharLen) {
+  if (!ctx?.slug || !bossHasWholeWordSoftRule(ctx.slug)) return "all_pass";
+  if (isBossEffectsSuppressedByTreasures(ctx.ownedSlotTreasureIds)) return "all_pass";
+
+  const len = Math.max(0, Math.floor(Number(patternCharLen)) || 0);
+  const judgedLen =
+    typeof ctx.getJudgedWordLen === "function" ? ctx.getJudgedWordLen("a".repeat(len)) : len;
+  const slug = ctx.slug;
+
+  if (slug === "the_psychic") {
+    return judgedLen === 5 ? "all_pass" : "all_fail";
+  }
+  if (slug === "the_mouth") {
+    const locked = ctx.mouthLockedLength;
+    if (locked != null && Number.isFinite(locked) && judgedLen !== locked) return "all_fail";
+    return "all_pass";
+  }
+  if (slug === "the_eye") {
+    const used = ctx.usedLengthsThisLevel;
+    if (used instanceof Set && used.has(judgedLen)) return "all_fail";
+    return "all_pass";
+  }
+  return "per_candidate";
+}
+
 /**
  * 万能块解析：候选词是否满足 Boss 整词软规则（与提交判定一致）。
  * @param {string} candidate

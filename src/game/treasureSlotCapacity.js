@@ -2,6 +2,7 @@ export {
   BASE_TREASURE_SLOT_COUNT,
   canAcquireTreasureOffer,
   compactOwnedSlotsAfterCropSell,
+  compactOwnedTreasureSlotsAtIndex,
   computeOwnedTreasureSlotTargetLength,
   countTreasureCropSlotBonus,
   willCropAccessoryExpandSlots,

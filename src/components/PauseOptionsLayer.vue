@@ -22,6 +22,14 @@
           <button type="button" class="pause-options-btn pause-options-btn--settings" @click="$emit('settings')">
             设置
           </button>
+          <button
+            v-if="showDeveloperEntry"
+            type="button"
+            class="pause-options-btn pause-options-btn--dev"
+            @click="$emit('developer-options')"
+          >
+            开发者选项
+          </button>
           <button type="button" class="pause-options-btn pause-options-btn--secondary" @click="$emit('main-menu')">
             返回主菜单
           </button>
@@ -32,7 +40,7 @@
 </template>
 
 <script setup>
-import { watch } from "vue";
+import { computed, inject, watch } from "vue";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 import { scheduleOverlayDismiss, scheduleOverlayPresent } from "../platform/haptics.js";
 
@@ -41,7 +49,10 @@ const props = defineProps({
   portalStackStyle: { type: Object, default: () => ({}) },
 });
 
-const emit = defineEmits(["continue", "new-run", "settings", "main-menu"]);
+const emit = defineEmits(["continue", "new-run", "settings", "developer-options", "main-menu"]);
+
+const developerModeEnabled = inject("developerModeEnabled", null);
+const showDeveloperEntry = computed(() => developerModeEnabled?.value === true);
 
 const titleId = "pause-options-title";
 const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
@@ -139,6 +150,10 @@ function onBackdropSelfClick() {
 .pause-options-btn--settings:disabled {
   opacity: 0.52;
   cursor: default;
+}
+
+.pause-options-btn--dev {
+  background: #7a6a9e;
 }
 
 .pause-options-btn--secondary {

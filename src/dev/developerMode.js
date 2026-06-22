@@ -11,3 +11,12 @@ export function enableDeveloperMode() {
 export function isDeveloperModeEnabled() {
   return developerModeEnabled.value;
 }
+
+/**
+ * 开发者模式下抑制：本地成就解锁、TapTap 成就同步/解锁、TapTap 排行榜上报。
+ * 生涯其它统计（词数、收藏等）仍照常写入。
+ * @returns {boolean}
+ */
+export function shouldSuppressAchievementsAndLeaderboardsInDevMode() {
+  return developerModeEnabled.value;
+}

@@ -206,6 +206,8 @@ export function applyReglSubscriberAnimated(sub, animated, hub) {
   sub.animated = animated;
   if (animated) {
     sub.frameFrozen = false;
+    // 占位格解冻须立刻用当前 iTime 重绘，避免仍显示入词时定格的旧帧（飞回落位闪一下）
+    hub.paintSubscriberOnce(sub);
     hub.ensureTick();
   } else {
     hub.paintSubscriberOnce(sub);

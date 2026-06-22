@@ -1,4 +1,5 @@
 import { getCollectionTabProgress } from "../collection/collectionProgress.js";
+import { shouldSuppressAchievementsAndLeaderboardsInDevMode } from "../dev/developerMode.js";
 import { getLevelIndexForId, isAchievementUnlocked, unlockAchievementId } from "./achievementCareer.js";
 import { ACHIEVEMENT_DEFINITIONS } from "./achievementDefinitions.js";
 import { checkOneWordPerLevelWin } from "./achievementRunState.js";
@@ -140,6 +141,7 @@ function isConditionMet(career, def, ctx) {
  * @returns {import('./achievementTypes.js').AchievementDefinition[]}
  */
 export function evaluateAndUnlockAchievements(career, ctx) {
+  if (shouldSuppressAchievementsAndLeaderboardsInDevMode()) return [];
   /** @type {import('./achievementTypes.js').AchievementDefinition[]} */
   const newly = [];
   for (const def of ACHIEVEMENT_DEFINITIONS) {

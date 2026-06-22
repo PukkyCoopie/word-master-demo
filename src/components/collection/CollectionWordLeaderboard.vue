@@ -6,7 +6,14 @@
       :key="`${record.word}-${record.recordedAt}-${index}`"
       class="collection-leaderboard-entry"
     >
-      <header class="collection-leaderboard-entry__head">
+      <header
+        v-if="sortKey === 'score'"
+        class="collection-leaderboard-entry__head collection-leaderboard-entry__head--score"
+      >
+        <h3 class="collection-leaderboard-word">{{ record.word }}</h3>
+        <CollectionLeaderboardScoreStat :score="record.score" />
+      </header>
+      <header v-else class="collection-leaderboard-entry__head">
         <span class="collection-leaderboard-stat">{{ entryStatLabel(record) }}</span>
         <h3 class="collection-leaderboard-word">{{ record.word }}</h3>
         <span class="collection-leaderboard-entry__head-spacer" aria-hidden="true">{{
@@ -54,9 +61,12 @@
         <div
           v-if="filledTreasureEntries(record).length"
           class="collection-leaderboard-treasures"
+          :class="{
+            'collection-leaderboard-treasures--expanded': isTreasuresExpanded(record, index),
+          }"
         >
           <button
-            v-for="entry in filledTreasureEntries(record)"
+            v-for="entry in visibleTreasureEntries(record, index)"
             :key="`${index}-treasure-${entry.slotIx}`"
             type="button"
             class="collection-leaderboard-treasure-hit"
@@ -68,6 +78,29 @@
               :gem-class="gemClassForTreasureRarity(String(entry.slot?.rarity ?? 'rare'))"
             />
           </button>
+          <button
+            v-if="showTreasureExpandButton(record, index)"
+            type="button"
+            class="collection-leaderboard-treasure-expand-btn"
+            :class="{
+              'collection-leaderboard-treasure-expand-btn--has-hidden':
+                hiddenTreasureCount(record, index) > 0,
+            }"
+            :aria-label="treasureExpandAriaLabel(record, index)"
+            :title="treasureExpandAriaLabel(record, index)"
+            @click.stop="expandTreasures(record, index)"
+          >
+            <span class="collection-leaderboard-treasure-expand-btn__inner">
+              <span
+                v-if="hiddenTreasureCount(record, index) > 0"
+                class="collection-leaderboard-treasure-expand-btn__pill"
+              >+{{ hiddenTreasureCount(record, index) }}</span>
+              <i
+                class="ri-arrow-down-double-line collection-leaderboard-treasure-expand-btn__icon"
+                aria-hidden="true"
+              />
+            </span>
+          </button>
         </div>
       </div>
     </article>
@@ -78,7 +111,9 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import LetterTile from "../LetterTile.vue";
 import TreasureSlot from "../TreasureSlot.vue";
+import CollectionLeaderboardScoreStat from "./CollectionLeaderboardScoreStat.vue";
 import { gemClassForTreasureRarity } from "../../collection/collectionDisplayUtils.js";
+import { resolveLeaderboardTreasureRowSlice } from "../../collection/collectionLeaderboardLayout.js";
 import { buildOwnedTreasureSlot } from "../../treasures/ownedTreasureSlot.js";
 
 /** 默认字母块尺寸（设计 rpx）；超出单行时按行宽等比缩小 */
@@ -92,6 +127,8 @@ const LEADERBOARD_ROW_SAFETY_RPX = 10;
 const leaderboardRootRef = ref(null);
 /** @type {import('vue').Ref<number>} 实测可用行宽（设计 rpx） */
 const rowMaxDesignW = ref(640);
+/** @type {import('vue').Ref<Set<string>>} */
+const expandedTreasureEntryKeys = ref(new Set());
 
 function readRpx() {
   return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx").trim()) || 1;
@@ -153,6 +190,58 @@ function entryStatLabel(record) {
     return record.score.toLocaleString("zh-CN");
   }
   return `${record.length} 字母`;
+}
+
+/** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record @param {number} index */
+function treasureEntryKey(record, index) {
+  return `${record.word}-${record.recordedAt}-${index}`;
+}
+
+/** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record @param {number} index */
+function isTreasuresExpanded(record, index) {
+  return expandedTreasureEntryKeys.value.has(treasureEntryKey(record, index));
+}
+
+/** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record @param {number} index */
+function treasureRowSlice(record, index) {
+  const entries = filledTreasureEntries(record);
+  if (isTreasuresExpanded(record, index)) {
+    return { visibleCount: entries.length, hiddenCount: 0, needsExpand: false };
+  }
+  return resolveLeaderboardTreasureRowSlice(entries.length, rowMaxDesignW.value);
+}
+
+/** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record @param {number} index */
+function hiddenTreasureCount(record, index) {
+  return treasureRowSlice(record, index).hiddenCount;
+}
+
+/** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record @param {number} index */
+function showTreasureExpandButton(record, index) {
+  const slice = treasureRowSlice(record, index);
+  return slice.needsExpand && slice.hiddenCount > 0;
+}
+
+/** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record @param {number} index */
+function visibleTreasureEntries(record, index) {
+  const entries = filledTreasureEntries(record);
+  const { visibleCount } = treasureRowSlice(record, index);
+  return entries.slice(0, visibleCount);
+}
+
+/** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record @param {number} index */
+function treasureExpandAriaLabel(record, index) {
+  const hidden = hiddenTreasureCount(record, index);
+  return hidden > 0 ? `展开 ${hidden} 个宝藏` : "展开全部宝藏";
+}
+
+/** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record @param {number} index */
+function expandTreasures(record, index) {
+  const key = treasureEntryKey(record, index);
+  if (expandedTreasureEntryKeys.value.has(key)) return;
+  const next = new Set(expandedTreasureEntryKeys.value);
+  next.add(key);
+  expandedTreasureEntryKeys.value = next;
 }
 
 /** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record */
@@ -237,6 +326,31 @@ function onTreasureClick(record, slotIx, event) {
   gap: calc(8 * var(--rpx));
   margin: 0 0 calc(10 * var(--rpx));
   padding: 0 calc(2 * var(--rpx));
+}
+
+.collection-leaderboard-entry__head--score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(4 * var(--rpx));
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.collection-leaderboard-entry__head--score .collection-leaderboard-word {
+  grid-column: unset;
+  width: 100%;
+  max-width: 100%;
+}
+
+.collection-leaderboard-entry__head--score :deep(.collection-leaderboard-score-stat) {
+  text-align: center;
+  font-size: calc(28 * var(--rpx));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted, #776e65);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .collection-leaderboard-entry__head-spacer {
@@ -335,13 +449,74 @@ function onTreasureClick(record, slotIx, event) {
 
 .collection-leaderboard-treasures {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   align-items: center;
   gap: calc(3 * var(--rpx));
   width: 100%;
   min-width: 0;
   overflow: visible;
+}
+
+.collection-leaderboard-treasures--expanded {
+  flex-wrap: wrap;
+}
+
+.collection-leaderboard-treasure-expand-btn {
+  flex: 0 0 auto;
+  width: var(--leaderboard-treasure-size);
+  height: var(--leaderboard-treasure-size);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius, calc(6 * var(--rpx)));
+  background: var(--card-bright, #eee4da);
+  color: var(--text-soft, #776e65);
+  box-shadow: var(--shadow, 0 calc(2 * var(--rpx)) calc(6 * var(--rpx)) rgba(0, 0, 0, 0.12));
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(20 * var(--rpx));
+}
+
+.collection-leaderboard-treasure-expand-btn__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(3 * var(--rpx));
+  min-width: 0;
+}
+
+.collection-leaderboard-treasure-expand-btn__icon {
+  line-height: 1;
+}
+
+.collection-leaderboard-treasure-expand-btn--has-hidden
+  .collection-leaderboard-treasure-expand-btn__icon {
+  font-size: calc(16 * var(--rpx));
+}
+
+.collection-leaderboard-treasure-expand-btn__pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(2 * var(--rpx)) calc(6 * var(--rpx));
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-soft, #776e65);
+  font-size: calc(12 * var(--rpx));
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.collection-leaderboard-treasure-expand-btn:hover {
+  filter: brightness(1.04);
+}
+
+.collection-leaderboard-treasure-expand-btn:active {
+  filter: brightness(0.94);
 }
 
 .collection-leaderboard-treasure-hit {

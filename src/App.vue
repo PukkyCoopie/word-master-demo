@@ -91,7 +91,6 @@
         :open="showAbout"
         @close="closeAbout"
         @enable-developer-mode="enableDeveloperMode"
-        @open-material-bench="openMaterialBench"
         @open-privacy="openPrivacyPolicyView"
       />
       <PrivacyConsentLayer
@@ -744,6 +743,7 @@ watch(
 provide("tryUnlockAchievements", unlockAchievementsWithCtx);
 provide("achievementToastQueue", achievementToastQueue);
 provide("developerModeEnabled", developerModeEnabled);
+provide("openMaterialBench", openMaterialBench);
 provide("applyDeveloperAchievementCheat", applyDeveloperAchievementCheatFromApp);
 
 /** @param {number} slotIndex @param {(career: import('./save/runSaveSchema.js').SlotCareerStats) => void} mutator */

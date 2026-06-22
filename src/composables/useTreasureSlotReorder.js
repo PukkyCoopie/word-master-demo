@@ -341,6 +341,7 @@ export function resolveReadingOrderInsertIndex(clientX, clientY, slotCount, getS
  * @param {(index: number) => HTMLElement | null | undefined} [options.getSlotElement]
  * @param {() => HTMLElement | null | undefined} [options.getOverlayContainer]
  * @param {() => boolean} [options.stackMode]
+ * @param {number | null | undefined} [options.visibleSlotMax] 栏内最多展示槽位数（如 40）
  */
 export function useTreasureSlotReorder(options) {
   const {
@@ -351,7 +352,23 @@ export function useTreasureSlotReorder(options) {
     getSlotElement = () => null,
     getOverlayContainer = () => null,
     stackMode = () => false,
+    visibleSlotMax = null,
   } = options;
+
+  /** @returns {number} */
+  function resolveVisibleSlotCount() {
+    const len = getSourceSlots().length;
+    const max = visibleSlotMax;
+    if (max == null || max <= 0) return len;
+    return Math.min(len, max);
+  }
+
+  /** @template T @param {readonly T[]} list @returns {T[]} */
+  function sliceForBarDisplay(list) {
+    const max = visibleSlotMax;
+    if (max == null || max <= 0) return [...list];
+    return list.slice(0, max);
+  }
 
   const dragActive = ref(false);
   const dragSourceIndex = ref(-1);
@@ -368,14 +385,18 @@ export function useTreasureSlotReorder(options) {
   const dragPlaceholderVisible = computed(() => dragActive.value && dragTreasure.value != null);
 
   const displaySlots = computed(() => {
-    if (!dragActive.value) return getSourceSlots();
-    return buildDragPreviewSlots(getSourceSlots(), dragSourceIndex.value, dragHoverIndex.value);
+    const raw = !dragActive.value
+      ? getSourceSlots()
+      : buildDragPreviewSlots(getSourceSlots(), dragSourceIndex.value, dragHoverIndex.value);
+    return sliceForBarDisplay(raw);
   });
 
   const displayKeys = computed(() => {
     const keys = Array.isArray(keyOrder?.value) ? keyOrder.value : [];
-    if (!dragActive.value) return keys;
-    return buildDragPreviewKeys(keys, dragSourceIndex.value, dragHoverIndex.value);
+    const raw = !dragActive.value
+      ? keys
+      : buildDragPreviewKeys(keys, dragSourceIndex.value, dragHoverIndex.value);
+    return sliceForBarDisplay(raw);
   });
 
   /** @type {{ cleanup: (() => void) | null, pointerId: number | null, slotEl: HTMLElement | null }} */
@@ -532,17 +553,18 @@ export function useTreasureSlotReorder(options) {
       }
       ev.preventDefault();
       updateGhostPosition(ev.clientX, ev.clientY);
+      const visibleCount = resolveVisibleSlotCount();
       const targetIndex = stackMode()
         ? resolveReadingOrderInsertIndex(
             ev.clientX,
             ev.clientY,
-            getSourceSlots().length,
+            visibleCount,
             getSlotElement,
           )
         : resolveSlotIndexFromPoint(
             ev.clientX,
             ev.clientY,
-            getSourceSlots().length,
+            visibleCount,
             getSlotElement,
           );
       setHoverIndex(targetIndex);
@@ -557,17 +579,18 @@ export function useTreasureSlotReorder(options) {
       ev.preventDefault();
       dragging = false;
 
+      const visibleCount = resolveVisibleSlotCount();
       const targetIndex = stackMode()
         ? resolveReadingOrderInsertIndex(
             ev.clientX,
             ev.clientY,
-            getSourceSlots().length,
+            visibleCount,
             getSlotElement,
           )
         : resolveSlotIndexFromPoint(
             ev.clientX,
             ev.clientY,
-            getSourceSlots().length,
+            visibleCount,
             getSlotElement,
           );
       if (targetIndex >= 0) {

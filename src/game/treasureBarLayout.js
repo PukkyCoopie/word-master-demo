@@ -1,3 +1,6 @@
+/** 宝藏栏最多展示的槽位数（超出槽位的宝藏仍保留，由展开按钮代播动效） */
+export const TREASURE_BAR_VISIBLE_MAX = 40;
+
 /** 已拥有宝藏数超过此阈值时启用叠放模式（>9 即 10 个起叠放） */
 export const TREASURE_BAR_STACK_FILL_THRESHOLD = 9;
 
@@ -10,7 +13,7 @@ export const TREASURE_BAR_SLOT_GAP_RPX = 8;
 /** 叠放模式 CSS 回退格宽（rpx）；运行时由 `--treasure-stack-card-size` 覆盖 */
 export const TREASURE_STACK_CARD_SIZE_RPX = 108;
 
-/** 展开按钮占位宽度（rpx） */
+/** 展开按钮占位宽度（rpx）；叠放运行时以 `--treasure-stack-card-size` 方形边长为准 */
 export const TREASURE_STACK_EXPAND_BTN_RPX = 52;
 
 /** 叠放行内槽位与展开按钮间距（rpx） */
@@ -115,4 +118,33 @@ export function resolveTreasureSlotsLayoutClass(filledCount, slotCount, fiveAtFo
   if (isTreasureBarStackMode(filledCount)) return "treasure-slots--stack";
   if (slotCount === 4 && fiveAtFourClass) return fiveAtFourClass;
   return "";
+}
+
+/**
+ * @param {number} slotIndex
+ */
+export function isTreasureBarSlotVisible(slotIndex) {
+  const ix = Math.floor(Number(slotIndex));
+  return Number.isFinite(ix) && ix >= 0 && ix < TREASURE_BAR_VISIBLE_MAX;
+}
+
+/**
+ * @param {readonly unknown[]} slots
+ */
+export function sliceTreasureBarDisplaySlots(slots) {
+  if (!Array.isArray(slots)) return [];
+  return slots.slice(0, TREASURE_BAR_VISIBLE_MAX);
+}
+
+/**
+ * 槽位索引 ≥ {@link TREASURE_BAR_VISIBLE_MAX} 且已填充的宝藏数量。
+ * @param {readonly (object | null | undefined)[]} slots
+ */
+export function countHiddenBarTreasures(slots) {
+  if (!Array.isArray(slots)) return 0;
+  let n = 0;
+  for (let i = TREASURE_BAR_VISIBLE_MAX; i < slots.length; i += 1) {
+    if (slots[i]) n += 1;
+  }
+  return n;
 }

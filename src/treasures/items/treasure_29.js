@@ -10,6 +10,7 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  bypassNoSellForSelfDestruct: true,
   resolveSelfDestructBubble() {
     return { text: "爆炸！", kind: "bomb-blast" };
   },

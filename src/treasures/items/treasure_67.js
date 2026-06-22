@@ -11,6 +11,7 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  bypassNoSellForSelfDestruct: true,
   async onSuccessfulWordSubmit(ctx) {
     const remainingAfter = Math.max(0, Math.floor(Number(ctx.remainingWordsAfterSubmit) ?? -1));
     if (remainingAfter > 0) return;

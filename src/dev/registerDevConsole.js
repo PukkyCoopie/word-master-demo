@@ -118,6 +118,9 @@ export function registerDevConsole(deps) {
         "  或 URL ?dev=maskBubble 新开一局自动启用",
         "  __WM_DEV__.startAllIceDevTest() — 进关后：棋盘与牌库全部为碎冰块",
         "  或 URL ?dev=allIce 新开一局自动启用",
+        "  __WM_DEV__.jumpToLevel('3-2') — 局内跳转关卡（亦可用 levelIndex 数字）",
+        "  __WM_DEV__.jumpToLevel('8-3', { bossSlug: 'cerulean_bell' }) — 可选 Boss",
+        "  __WM_DEV__.jumpToLevel('5-1', { skipIntro: true }) — 跳过棋盘入场动画",
         "  __WM_DEV__.startCeruleanBellDevTest() — 跳至 1-3，Boss 固定青铃",
         "  或 URL ?dev=ceruleanBell 新开一局自动启用",
         "  __WM_DEV__.startPagerDevTest() — 进关后：槽位 1 为寻呼机",
@@ -165,6 +168,12 @@ export function registerDevConsole(deps) {
       console.warn(
         "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startFirstWordTutorial()。",
       );
+    },
+    jumpToLevel: (levelIdOrIndex, opts) => {
+      console.warn(
+        `[DEV] 请先进入局内（GamePanel 已挂载）后再调用 jumpToLevel(${JSON.stringify(levelIdOrIndex)})。`,
+      );
+      return null;
     },
     setupScreenshotPreset,
     help,

@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
+import { shouldSuppressAchievementsAndLeaderboardsInDevMode } from "../dev/developerMode.js";
 import { TapTap, ensureTapTapSdkInitialized } from "./tapTapPlugin.js";
 import {
   TAPTAP_LB_AVG_WORD_LENGTH,
@@ -44,6 +45,7 @@ export function encodeAverageWordLengthScore(avg) {
  * @param {readonly { leaderboardId: string, score: number }[]} scores
  */
 async function submitLeaderboardScores(scores) {
+  if (shouldSuppressAchievementsAndLeaderboardsInDevMode()) return;
   if (!Capacitor.isNativePlatform() || !scores?.length) return;
   const batch = scores
     .map((s) => ({
@@ -127,6 +129,7 @@ export function reportDifficultyAchievedLeaderboard(difficultyIndex) {
  * @returns {boolean} 是否已触发上报
  */
 export function reportBestSingleWordScoreIfImproved(score, previouslyReportedBest) {
+  if (shouldSuppressAchievementsAndLeaderboardsInDevMode()) return false;
   const sc = Math.max(0, Math.round(Number(score) || 0));
   const prev = Math.max(0, Math.round(Number(previouslyReportedBest) || 0));
   if (sc <= prev) return false;

@@ -296,11 +296,17 @@ export function ensureChangelogFileFromTemplate(dir, semver, todayIso) {
 
 /**
  * @param {string} dir
+ * @param {{ maxVersion?: string | null }} [options] 若指定，仅保留 ≤ 该版本的 show 条目，且 maxVersion 为该值
  */
-export function readChangelogBundleFromDir(dir) {
+export function readChangelogBundleFromDir(dir, options = {}) {
+  const capSemver = options.maxVersion
+    ? parseSemverFromVersionString(options.maxVersion)
+    : null;
+
   const maxSemver = getMaxVersionSemverInChangelogDir(dir);
-  const maxVersion =
-    listVersionSemversInChangelogDir(dir).length > 0
+  const maxVersion = capSemver
+    ? formatVersionString(capSemver)
+    : listVersionSemversInChangelogDir(dir).length > 0
       ? formatVersionString(maxSemver)
       : null;
 
@@ -318,6 +324,10 @@ export function readChangelogBundleFromDir(dir) {
     const version = versionFromChangelogFilename(name);
     if (!version) {
       console.warn(`[changelog] 跳过无法解析版本的文件: ${name}（期望形如 0_0_8.md）`);
+      continue;
+    }
+
+    if (capSemver && compareSemver(parseSemverFromVersionString(version), capSemver) > 0) {
       continue;
     }
 

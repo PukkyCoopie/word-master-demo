@@ -2,6 +2,7 @@ import { Capacitor } from "@capacitor/core";
 import { ACHIEVEMENT_DEFINITIONS } from "./achievementDefinitions.js";
 import { isAchievementUnlocked } from "./achievementCareer.js";
 import { getAchievementCollectionProgress } from "./achievementCollectionProgress.js";
+import { shouldSuppressAchievementsAndLeaderboardsInDevMode } from "../dev/developerMode.js";
 import { TapTap } from "../taptap/tapTapPlugin.js";
 
 /** @typedef {import('./achievementTypes.js').AchievementDefinition} AchievementDefinition */
@@ -51,6 +52,7 @@ function ensureTapTapReportedStepsMap(career) {
  * @param {import('../save/runSaveSchema.js').SlotCareerStats} career
  */
 export function syncTapTapIncrementProgressInCareer(career) {
+  if (shouldSuppressAchievementsAndLeaderboardsInDevMode()) return;
   if (!Capacitor.isNativePlatform()) return;
 
   ensureTapTapReportedStepsMap(career);
@@ -73,6 +75,7 @@ export function syncTapTapIncrementProgressInCareer(career) {
  * @param {readonly AchievementDefinition[]} defs
  */
 export async function reportTapTapAchievementUnlocks(defs) {
+  if (shouldSuppressAchievementsAndLeaderboardsInDevMode()) return;
   if (!Capacitor.isNativePlatform() || !defs?.length) return;
 
   await ensureTapTapAchievementToastDisabled();
@@ -104,6 +107,7 @@ async function ensureTapTapAchievementToastDisabled() {
  * @param {Iterable<string>} [unlockedAchievementIds] 各存档槽位已解锁成就 id 合集
  */
 export async function bootstrapTapTapAchievements(unionId, activeCareer, unlockedAchievementIds = []) {
+  if (shouldSuppressAchievementsAndLeaderboardsInDevMode()) return;
   if (!Capacitor.isNativePlatform()) return;
   const uid = String(unionId ?? "").trim();
   if (!uid) return;

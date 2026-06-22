@@ -55,6 +55,15 @@ export function handleGameAndroidBack(ctx) {
     return true;
   }
 
+  if (ctx.showDeveloperOptions?.value) {
+    if (ctx.developerOptionsLayerRef?.value?.isTreasurePickerOpen?.()) {
+      ctx.developerOptionsLayerRef.value.closeTreasurePicker?.();
+      return true;
+    }
+    ctx.closeDeveloperOptions?.();
+    return true;
+  }
+
   if (ctx.showPauseOptions.value) {
     ctx.closePauseOptions();
     return true;

@@ -261,6 +261,7 @@
  * @property {(ctx: TreasureDeckCardsAddedContext) => void | Promise<void>} [onDeckCardsAdded]
  * @property {() => number} [getWalletFloor] 本局钱包可降至的最低余额（默认 0；如信用卡为 -20）
  * @property {() => { text?: string, kind?: string } | null | undefined} [resolveSelfDestructBubble] 自毁移除时气泡文案与样式 kind（默认「摧毁！」/`destroy`）
+ * @property {true} [bypassNoSellForSelfDestruct] 自毁时不受禁售配饰的「禁止摧毁」限制（卖出仍禁）
  */
 
 /**

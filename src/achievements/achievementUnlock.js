@@ -1,4 +1,5 @@
 import { syncAchievementCareerFromContext, unlockAchievementId } from "./achievementCareer.js";
+import { shouldSuppressAchievementsAndLeaderboardsInDevMode } from "../dev/developerMode.js";
 import { evaluateAndUnlockAchievements } from "./achievementEvaluate.js";
 
 export { unlockAchievementId };
@@ -11,5 +12,6 @@ export { unlockAchievementId };
  */
 export function tryUnlockAchievementsInCareer(career, ctx) {
   syncAchievementCareerFromContext(career, ctx);
+  if (shouldSuppressAchievementsAndLeaderboardsInDevMode()) return [];
   return evaluateAndUnlockAchievements(career, ctx);
 }

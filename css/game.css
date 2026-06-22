@@ -867,9 +867,18 @@ textarea::-moz-placeholder {
 .result-total-anchor {
 	position: absolute;
 	top: calc(12 * var(--rpx));
-	left: 50%;
-	transform: translate(-50%, 0);
+	left: 0;
+	right: 0;
+	width: 100%;
+	transform: none;
 	transform-origin: center top;
+}
+
+.result-total-wrap {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 0 calc(8 * var(--rpx));
+	overflow: visible;
 }
 
 .result-total {
@@ -879,7 +888,7 @@ textarea::-moz-placeholder {
 	text-align: center;
 	line-height: 1.1;
 	margin: 0;
-	transform-origin: center top;
+	transform-origin: center center;
 }
 
 .result-wordlen-anchor {
@@ -930,6 +939,7 @@ textarea::-moz-placeholder {
 	transform-origin: center bottom;
 	width: max-content;
 	max-width: 100%;
+	box-sizing: border-box;
 }
 
 .result-formula {
@@ -944,10 +954,13 @@ textarea::-moz-placeholder {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
+	width: max-content;
 	min-width: calc(120 * var(--rpx));
 	padding: calc(14 * var(--rpx)) calc(18 * var(--rpx));
 	background: rgba(255, 255, 255, 0.6);
 	border-radius: var(--radius);
+	box-sizing: border-box;
+	overflow: visible;
 }
 
 .result-box-score {
@@ -978,11 +991,58 @@ textarea::-moz-placeholder {
 	font-size: calc(42 * var(--rpx));
 	font-weight: 700;
 	vertical-align: baseline;
-	min-width: 0.6em;
 	text-align: center;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+.result-box .result-num {
+	min-width: 0;
+	max-width: none;
+}
+
+.result-fit-num-pulse {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	max-width: 100%;
+	overflow: visible;
+	transform-origin: center center;
+}
+
+.result-fit-num-wrap {
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	overflow: visible;
+}
+
+.result-box-fit-num-wrap {
+	width: max-content;
+	max-width: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	overflow: visible;
+}
+
+.result-fit-num {
+	display: inline-block;
+	min-width: 0;
+	max-width: 100%;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+.result-fit-num--scientific {
+	letter-spacing: calc(-0.02 * 1em);
 }
 
 .result-times {
+	flex: 0 0 auto;
 	font-size: calc(42 * var(--rpx));
 	font-weight: 700;
 	color: var(--text-soft);
@@ -2889,8 +2949,8 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 }
 
 .treasure-bar-expand-btn {
-	flex: 0 0 calc(52 * var(--rpx));
-	width: calc(52 * var(--rpx));
+	flex: 0 0 var(--treasure-stack-card-size, calc(108 * var(--rpx)));
+	width: var(--treasure-stack-card-size, calc(108 * var(--rpx)));
 	height: var(--treasure-stack-card-size, calc(108 * var(--rpx)));
 	align-self: auto;
 	min-height: 0;
@@ -2905,6 +2965,42 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 	align-items: center;
 	justify-content: center;
 	font-size: calc(28 * var(--rpx));
+}
+
+.treasure-bar-expand-btn__inner {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: calc(4 * var(--rpx));
+	min-width: 0;
+}
+
+.treasure-bar-expand-btn__icon {
+	line-height: 1;
+}
+
+.treasure-bar-expand-btn--has-hidden .treasure-bar-expand-btn__icon {
+	font-size: calc(20 * var(--rpx));
+}
+
+.treasure-bar-expand-btn__pill {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: calc(2 * var(--rpx)) calc(8 * var(--rpx));
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.08);
+	color: var(--text-soft);
+	font-size: calc(16 * var(--rpx));
+	font-weight: 700;
+	line-height: 1.2;
+	white-space: nowrap;
+}
+
+.treasure-bar-expand-btn.treasure-bar-expand-btn--scoring-highlight {
+	box-shadow: var(--shadow), var(--tile-scoring-highlight-shadow);
+	z-index: 5;
 }
 
 .treasure-bar-expand-btn:hover {
@@ -4719,6 +4815,12 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 .treasure-detail-desc-body-text .td-desc-risk-text,
 .treasure-detail-desc-panel-body .td-desc-risk-text {
 	color: #e86a42;
+}
+
+.treasure-detail-desc-body-text .td-desc-struck-text,
+.treasure-detail-desc-panel-body .td-desc-struck-text {
+	opacity: 0.45;
+	text-decoration: line-through;
 }
 
 .treasure-detail-desc-body-text .td-desc-risk-block .td-desc-gain-block,

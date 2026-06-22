@@ -341,6 +341,8 @@
         :charge-states="displayTreasureChargeBySlot"
         :charge-progresses="displayTreasureChargeProgressBySlot"
         :register-slot-ref="setOwnedCellRef"
+        :hidden-treasure-count="shopHiddenTreasureBarCount"
+        :expand-btn-highlight="treasureBarExpandBtnHighlight"
         @slot-pointerdown="onShopOwnedSlotPointerDown"
         @slot-click="onSelectOwned"
         @empty-slot-click="onShopEmptyTreasureSlotClick"
@@ -379,7 +381,7 @@
   <SettingsHelpDialog
     :open="showEmptyTreasureSlotHelp"
     title="空的宝藏栏位"
-    :paragraphs="['空的宝藏栏位，从商店中购买的宝藏会放置在这里']"
+    :paragraphs="['从商店中购买的宝藏会放置在这里']"
     @close="showEmptyTreasureSlotHelp = false"
   />
 </template>
@@ -393,7 +395,10 @@ import TreasureBarRow from "./TreasureBarRow.vue";
 import SettingsHelpDialog from "./settings/SettingsHelpDialog.vue";
 import {
   countFilledTreasureSlots,
+  countHiddenBarTreasures,
+  isTreasureBarSlotVisible,
   isTreasureBarStackMode,
+  TREASURE_BAR_VISIBLE_MAX,
 } from "../game/treasureBarLayout.js";
 import ResultArea from "./ResultArea.vue";
 import VoucherStamp from "./VoucherStamp.vue";
@@ -452,6 +457,8 @@ const props = defineProps({
   /** preset 10 等：四栏按五栏宽度居中；叠放模式由父级传入 class */
   treasureSlotsLayoutClass: { type: String, default: "" },
   treasureBarCompactAnimating: { type: Boolean, default: false },
+  /** 隐藏槽位宝藏生效时：展开按钮记分高光（由 GamePanel 传入） */
+  treasureBarExpandBtnHighlight: { type: Boolean, default: false },
   /** @type {import('vue').PropType<{ ref: import('vue').Ref<string[]> }>} */
   ownedTreasureKeyOrderBag: { type: Object, required: true },
   /** 本局预设 id（商店标价） */
@@ -973,6 +980,7 @@ const showEmptyTreasureSlotHelp = ref(false);
 const shopTreasureBarRowRef = ref(null);
 const shopOwnedTreasureFilledCount = computed(() => countFilledTreasureSlots(props.ownedTreasures));
 const shopTreasureBarStackMode = computed(() => isTreasureBarStackMode(shopOwnedTreasureFilledCount.value));
+const shopHiddenTreasureBarCount = computed(() => countHiddenBarTreasures(props.ownedTreasures));
 
 function onShopEmptyTreasureSlotClick() {
   if (props.tutorialActive) return;
@@ -1008,6 +1016,7 @@ const {
   getOverlayContainer: () =>
     shopTreasureBarRowRef.value?.getContainerEl?.() ?? shopTreasureSlotsCtnRef.value,
   stackMode: () => shopTreasureBarStackMode.value,
+  visibleSlotMax: TREASURE_BAR_VISIBLE_MAX,
 });
 
 watch(
@@ -1019,8 +1028,12 @@ watch(
   },
 );
 
-const displayTreasureChargeBySlot = computed(() => props.treasureChargeBySlot);
-const displayTreasureChargeProgressBySlot = computed(() => props.treasureChargeProgressBySlot);
+const displayTreasureChargeBySlot = computed(() =>
+  props.treasureChargeBySlot.slice(0, TREASURE_BAR_VISIBLE_MAX),
+);
+const displayTreasureChargeProgressBySlot = computed(() =>
+  props.treasureChargeProgressBySlot.slice(0, TREASURE_BAR_VISIBLE_MAX),
+);
 
 const shopOwnedDragChargeState = computed(() => {
   const treasure = shopOwnedDragTreasure.value;
@@ -1057,7 +1070,12 @@ async function playVoucherBonusEnterAnim() {
 
 defineExpose({
   getWalletEl: () => shopWalletBoxRef.value,
-  getOwnedSlotEl: (i) => ownedCellEls[i] ?? null,
+  getOwnedSlotEl: (i) => {
+    const ix = Math.floor(Number(i));
+    if (!Number.isFinite(ix) || ix < 0 || !isTreasureBarSlotVisible(ix)) return null;
+    return ownedCellEls[ix] ?? null;
+  },
+  getTreasureBarExpandBtnEl: () => shopTreasureBarRowRef.value?.getExpandBtnEl?.() ?? null,
   getDeckViewBtnEl: () => deckViewBtnRef.value ?? null,
   getFirstGuaranteedTreasureOfferEl: () => firstGuaranteedTreasureOfferRef.value,
   playGlyphRoundInfoFx,

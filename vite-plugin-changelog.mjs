@@ -14,7 +14,8 @@ const CHANGELOG_DIR = path.join(__dirname, "changelog");
  */
 export function changelogFromMarkdownPlugin() {
   function loadBundle() {
-    return readChangelogBundleFromDir(CHANGELOG_DIR);
+    const maxVersion = process.env.WM_PACK_VERSION?.trim() || null;
+    return readChangelogBundleFromDir(CHANGELOG_DIR, { maxVersion });
   }
 
   function moduleSource() {

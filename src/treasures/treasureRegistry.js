@@ -395,3 +395,14 @@ export function resolveTreasureDetailGainPanel(treasureId) {
   if (Array.isArray(desc) && desc.length === 0) return null;
   return { title: String(out.title).trim(), description: desc };
 }
+
+/**
+ * 自毁宝藏：禁售配饰仅阻止卖出，不阻止自身机制触发的摧毁。
+ * @param {string | null | undefined} treasureId
+ * @returns {boolean}
+ */
+export function treasureBypassesNoSellForSelfDestruct(treasureId) {
+  const id = String(treasureId ?? "").trim();
+  if (!id) return false;
+  return TREASURE_HOOKS_BY_ID.get(id)?.bypassNoSellForSelfDestruct === true;
+}

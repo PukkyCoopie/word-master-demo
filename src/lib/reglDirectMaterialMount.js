@@ -164,8 +164,12 @@ export function setDirectMaterialReglAnimated(materialId, canvas, animated) {
     if (sub.materialId !== materialId || sub.canvas !== canvas) continue;
     if (sub.animated === animated) return true;
     sub.animated = animated;
-    if (animated) ensureDirectTick();
-    else drawDirectSubscriber(sub);
+    if (animated) {
+      drawDirectSubscriber(sub);
+      ensureDirectTick();
+    } else {
+      drawDirectSubscriber(sub);
+    }
     stopDirectTickIfIdle();
     return true;
   }

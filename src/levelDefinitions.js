@@ -79,6 +79,33 @@ export function getLevelByIndex(index) {
   return LEVELS[index];
 }
 
+/**
+ * 关卡 id → `levelIndex`（与 `getRunLevelAtIndex` 对称；无尽章如 9-1 亦可解析）。
+ * @param {string} id 如 "1-1"、"8-3"
+ * @returns {number | null}
+ */
+export function getRunLevelIndexForId(id) {
+  const normalized = String(id ?? "").trim();
+  if (!normalized) return null;
+  const idx = LEVELS.findIndex((l) => l.id === normalized);
+  if (idx >= 0) return idx;
+  const m = /^(\d+)-(\d+)$/.exec(normalized);
+  if (!m) return null;
+  const chapter = Number(m[1]);
+  const sub = Number(m[2]);
+  if (
+    !Number.isFinite(chapter) ||
+    !Number.isFinite(sub) ||
+    chapter < 1 ||
+    sub < 1 ||
+    sub > 3
+  ) {
+    return null;
+  }
+  const effective = (chapter - 1) * 3 + (sub - 1);
+  return RUN_START_LEVEL_INDEX + effective;
+}
+
 /** 标准流程最后一关下标（8-3） */
 export const STANDARD_RUN_FINAL_LEVEL_INDEX = LEVEL_COUNT - 1;
 

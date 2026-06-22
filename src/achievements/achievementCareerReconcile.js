@@ -1,4 +1,5 @@
 import { getHighestDifficultyBeaten } from "../game/runDifficultyProgress.js";
+import { shouldSuppressAchievementsAndLeaderboardsInDevMode } from "../dev/developerMode.js";
 import { evaluateAndUnlockAchievements } from "./achievementEvaluate.js";
 
 /**
@@ -59,6 +60,7 @@ export function buildCareerReconcileEvalContexts(career) {
  * @returns {import('./achievementTypes.js').AchievementDefinition[]}
  */
 export function reconcileAchievementsFromPersistedCareer(career) {
+  if (shouldSuppressAchievementsAndLeaderboardsInDevMode()) return [];
   const seen = new Set();
   /** @type {import('./achievementTypes.js').AchievementDefinition[]} */
   const newly = [];

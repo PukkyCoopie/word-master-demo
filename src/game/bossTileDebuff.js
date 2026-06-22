@@ -1,3 +1,4 @@
+import { isUndeformedWildcardLetter, isWildcardMaterialTile } from "../composables/useScoring.js";
 import { isBossEffectsSuppressedByTreasures } from "./treasureBossSuppress.js";
 import {
   isConsonantLetterWithMask,
@@ -12,6 +13,25 @@ import {
 /** @param {{ bossTileDebuffed?: boolean } | null | undefined} tile */
 export function isBossTileDebuffed(tile) {
   return tile?.bossTileDebuffed === true;
+}
+
+/** @param {Record<string, unknown> | null | undefined} tile */
+export function isUndeformedWildcardGridTile(tile) {
+  if (!tile || !isWildcardMaterialTile(tile)) return false;
+  return isUndeformedWildcardLetter(tile.letter);
+}
+
+/** 棋盘上仍为 `?` 的万能块不受此类 Boss 削弱；变形入词后再按字母/牌张身份判定。 */
+const UNDEF_WILDCARD_EXEMPT_DEBUFF_SLUGS = new Set([
+  "the_plant",
+  "the_vowel",
+  "the_consonant",
+  "the_pillar",
+]);
+
+/** @param {string} slug */
+function isUndeformedWildcardExemptBossSlug(slug) {
+  return UNDEF_WILDCARD_EXEMPT_DEBUFF_SLUGS.has(String(slug ?? ""));
 }
 
 /** @param {Record<string, unknown> | null | undefined} tile */
@@ -36,6 +56,10 @@ export function applyBossTileDebuffState(tile, slug, ctx = {}) {
   const s = String(slug ?? "");
   if (!s || s === "the_hook") return;
   if (!tile.letter || String(tile.letter).trim() === "") return;
+  if (isUndeformedWildcardGridTile(tile) && isUndeformedWildcardExemptBossSlug(s)) {
+    tile.bossTileDebuffed = false;
+    return;
+  }
 
   if (s === "the_plant") {
     tile.bossTileDebuffed = String(tile.rarity ?? "") === "rare";
@@ -67,6 +91,22 @@ export function applyBossTileDebuffState(tile, slug, ctx = {}) {
   if (s === "verdant_leaf") {
     tile.bossTileDebuffed = ctx.verdantTreasureSold !== true;
   }
+}
+
+/**
+ * 词槽/飞字/详情等展示层：按当前展示字母与稀有度判定 Boss 削弱；
+ * 保留格上已有削弱（如倒钩随机标记），并与变形后字母类判定合并。
+ * @param {Record<string, unknown>} tile
+ * @param {string} slug
+ * @param {BossTileDebuffContext} [ctx]
+ * @returns {boolean}
+ */
+export function resolvePresentationBossTileDebuffed(tile, slug, ctx = {}) {
+  if (!tile || typeof tile !== "object") return false;
+  /** @type {Record<string, unknown>} */
+  const probe = { ...tile, bossTileDebuffed: false };
+  applyBossTileDebuffState(probe, slug, ctx);
+  return probe.bossTileDebuffed === true || tile.bossTileDebuffed === true;
 }
 
 /**

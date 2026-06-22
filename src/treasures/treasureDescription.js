@@ -79,6 +79,12 @@ import { parseProbabilityFraction } from "./treasureProbability.js";
  */
 
 /**
+ * @typedef {Object} TreasureDescStruckText
+ * @property {'struckText'} type
+ * @property {string} v  半透明 + 删除线（如自毁宝藏预览中的失效条款）
+ */
+
+/**
  * @typedef {Object} TreasureDescHandDelta
  * @property {'handDelta'} type
  * @property {string} v  如 "+1"
@@ -98,7 +104,7 @@ import { parseProbabilityFraction } from "./treasureProbability.js";
  */
 
 /**
- * @typedef {TreasureDescText | TreasureDescRarity | TreasureDescMult | TreasureDescScore | TreasureDescMoney | TreasureDescProb | TreasureDescBreak | TreasureDescGain | TreasureDescConcept | TreasureDescGainBlock | TreasureDescRiskBlock | TreasureDescRiskText | TreasureDescHandDelta | TreasureDescDiscardDelta | TreasureDescEntityInline} TreasureDescSegment
+ * @typedef {TreasureDescText | TreasureDescRarity | TreasureDescMult | TreasureDescScore | TreasureDescMoney | TreasureDescProb | TreasureDescBreak | TreasureDescGain | TreasureDescConcept | TreasureDescGainBlock | TreasureDescRiskBlock | TreasureDescRiskText | TreasureDescStruckText | TreasureDescHandDelta | TreasureDescDiscardDelta | TreasureDescEntityInline} TreasureDescSegment
  * 导出类型供 JSDoc 引用（treasureTypes.js）
  */
 

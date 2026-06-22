@@ -124,6 +124,66 @@ export function vowelGhostSlotsForDisplay(naturalRaw, displayShift = 0, ownedSlo
 }
 
 /**
+ * @typedef {{ prev: string | null, self: string, next: string | null }} LetterSubstituteTrio
+ */
+
+/**
+ * 预计算 pattern 各位的嘴邻位 trio（通配位为 null）。
+ * @param {string} pattern
+ * @param {boolean[]} vowelAltMask
+ * @param {string} wildcardChar
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @returns {(LetterSubstituteTrio | null)[]}
+ */
+export function buildMouthSubstituteTriosForPattern(
+  pattern,
+  vowelAltMask,
+  wildcardChar = "?",
+  ownedSlotTreasureIds = [],
+) {
+  const len = pattern.length;
+  /** @type {(LetterSubstituteTrio | null)[]} */
+  const trios = [];
+  for (let i = 0; i < len; i += 1) {
+    if (!vowelAltMask[i] || pattern[i] === wildcardChar) {
+      trios.push(null);
+      continue;
+    }
+    trios.push(letterSubstituteNeighborTrio(pattern[i], ownedSlotTreasureIds));
+  }
+  return trios;
+}
+
+/**
+ * 候选词是否满足：通配符 + 嘴邻位（mask 位须在 trio 内，固定位须与 pattern 一致）。
+ * @param {string} pattern
+ * @param {string} candidate
+ * @param {(LetterSubstituteTrio | null)[]} mouthTrios
+ * @param {string} [wildcardChar]
+ */
+export function candidateMatchesMouthSubstitutePattern(
+  pattern,
+  candidate,
+  mouthTrios,
+  wildcardChar = "?",
+) {
+  const len = pattern.length;
+  if (candidate.length !== len) return false;
+  for (let i = 0; i < len; i += 1) {
+    const p = pattern[i];
+    const c = candidate[i];
+    if (p === wildcardChar) continue;
+    const trio = mouthTrios[i];
+    if (trio) {
+      if (c !== trio.self && c !== trio.prev && c !== trio.next) return false;
+    } else if (c !== p) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * @typedef {{ letterIdx: number, trio: { prev: string | null, self: string, next: string | null } }} VowelAltMeta
  */
 
