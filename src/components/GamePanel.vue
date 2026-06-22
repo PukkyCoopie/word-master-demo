@@ -1126,7 +1126,7 @@ import {
 } from "../save/gamePanelSaveApi.js";
 import { createRunAutoSave } from "../save/runAutoSave.js";
 import { requestCloudSync } from "../save/cloudSave/cloudSaveSync.js";
-import { clearSlotRunProgress, loadSaveEnvelope } from "../save/runSaveStorage.js";
+import { clearSlotRunProgress, getSlotCareer } from "../save/runSaveStorage.js";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import { normalizeRunSavePhase } from "../save/runSaveSchema.js";
 import {
@@ -2708,8 +2708,7 @@ function shopPriceForOffer(basePrice, offer = {}) {
 }
 
 function readNormalizedSlotCareer() {
-  const slot = loadSaveEnvelope().slots[props.saveSlotIndex];
-  return normalizeSlotCareerStats(slot?.career);
+  return normalizeSlotCareerStats(getSlotCareer(props.saveSlotIndex));
 }
 
 function buildShopRandomCardPrerequisiteRollOpts() {
@@ -10284,18 +10283,25 @@ async function playOwnedTreasureBubbleFx(treasureId, text, kind = "score") {
 /** 仅弹气泡（不含 wobble、不等待字间节拍），用于需要自行编排时序的宝藏 */
 async function playOwnedTreasureBubbleOnlyFx(treasureId, text, kind = "score") {
   for (const ix of findAllOwnedTreasureSlotIndices(treasureId)) {
-    const el = getOwnedTreasureSlotEl(ix);
-    if (!el) continue;
-    const label = String(text ?? "").trim();
-    if (!label) continue;
-    scoringTreasureBarIndex.value = ix;
-    await nextTick();
-    await new Promise((r) => requestAnimationFrame(r));
-    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, 1);
-    const bubble = showScoreBubble(el, label, kind, 1);
-    scheduleSmallPlusBubbleOutro(bubble, 1);
-    scoringTreasureBarIndex.value = null;
+    await playOwnedTreasureBubbleOnlyFxAtSlot(ix, text, kind);
   }
+}
+
+/** 单槽：仅弹气泡（不含 wobble），与 `wobbleOwnedTreasureAtSlot` 并发编排 */
+async function playOwnedTreasureBubbleOnlyFxAtSlot(slotIndex, text, kind = "score") {
+  const ix = Math.floor(Number(slotIndex));
+  if (!Number.isFinite(ix) || ix < 0) return;
+  const el = getOwnedTreasureSlotEl(ix);
+  if (!el) return;
+  const label = String(text ?? "").trim();
+  if (!label) return;
+  scoringTreasureBarIndex.value = ix;
+  await nextTick();
+  await new Promise((r) => requestAnimationFrame(r));
+  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, 1);
+  const bubble = showScoreBubble(el, label, kind, 1);
+  scheduleSmallPlusBubbleOutro(bubble, 1);
+  scoringTreasureBarIndex.value = null;
 }
 
 /** 仅播放宝藏槽 wobble（不改遮罩层），用于与其他特效并发 */
@@ -10369,6 +10375,7 @@ function ownedTreasureHookFxBridge() {
     playOwnedTreasureBubbleFx,
     playOwnedTreasureBubbleFxAtSlot,
     playOwnedTreasureBubbleOnlyFx,
+    playOwnedTreasureBubbleOnlyFxAtSlot,
     wobbleOwnedTreasureById,
     wobbleOwnedTreasureAtSlot,
     playOwnedTreasureMultDeltaFx,

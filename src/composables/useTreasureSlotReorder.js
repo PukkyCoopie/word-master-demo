@@ -493,6 +493,7 @@ export function useTreasureSlotReorder(options) {
   function onSlotPointerDown(slotIndex, e) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     if (!canDrag()) return;
+    if (dragActive.value) endDrag();
 
     const slots = getSourceSlots();
     if (!slots[slotIndex]) return;

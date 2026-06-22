@@ -30,7 +30,13 @@ export const TUTORIAL_SELECT_ORDER = Object.freeze([...TUTORIAL_LETTER_PLACEMENT
 let pendingTutorialAutoStart = false;
 let tutorialAutoStartAttempted = false;
 
+/** 仅原生 App 在加载完成后自动开新局并进入首词教程；Web 留在主菜单。 */
+export function isFirstWordTutorialAutoStartEnabled() {
+  return Capacitor.isNativePlatform();
+}
+
 export function markPendingTutorialAutoStart() {
+  if (!isFirstWordTutorialAutoStartEnabled()) return;
   pendingTutorialAutoStart = true;
 }
 
@@ -117,6 +123,7 @@ export async function isFreshSaveForTutorial() {
 
 /** @returns {boolean} */
 export function shouldAutoStartFirstWordTutorial(slotIndex = getActiveSaveSlotIndex()) {
+  if (!isFirstWordTutorialAutoStartEnabled()) return false;
   if (!isSlotFreshForFirstWordTutorial(slotIndex)) return false;
   if (!hasPendingTutorialAutoStart()) return false;
   if (isLocalSaveFreshForTutorial()) return true;

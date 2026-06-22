@@ -1,5 +1,6 @@
 import { describe } from "../treasureDescription.js";
 import { addScoreAddBank, canMutateTreasureBankFromCtx, getScoreAddBank } from "../treasureBankHelpers.js";
+import { ensureTreasureBank } from "../treasureRunState.js";
 
 const ID = "104";
 const LEVELS_NEEDED = 2;
@@ -40,7 +41,9 @@ export const treasureHooks = {
   },
   async onTreasureSold(ctx) {
     if (ctx.soldTreasureId !== ID) return;
-    if (getScoreAddBank(ctx.treasureRun, ID) < LEVELS_NEEDED) return;
-    ctx.grantRandomTreasureCopy?.(ctx.soldSlotIndex);
+    if (getScoreAddBank(ctx.treasureRun, ID) >= LEVELS_NEEDED) {
+      ctx.grantRandomTreasureCopy?.(ctx.soldSlotIndex);
+    }
+    if (ctx.treasureRun) ensureTreasureBank(ctx.treasureRun, ID).scoreAdd = 0;
   },
 };

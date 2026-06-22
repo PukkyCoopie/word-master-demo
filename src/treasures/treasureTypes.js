@@ -77,7 +77,8 @@
  * @property {string} [resolvedWord]
  * @property {number} [judgedWordLength]
  * @property {number} [targetScore]
- * @property {number} [currentScore]
+ * @property {number} [currentScore] 提交前累计分
+ * @property {number} [handFinalScore] 本词最终得分（与 `currentScore` 相加即提交后累计分）
  * @property {number} [remainingWordsAfterSubmit]
  * @property {{ letter?: string, rarity?: string, materialId?: string | null }[]} [submittedLetters]
  * @property {(n: number) => void} [addRemainingWords]
@@ -105,6 +106,7 @@
  * @property {number} [judgedWordLength] 计分用词长
  * @property {number} [targetScore] 本关目标分
  * @property {number} [currentScore] 提交前累计分
+ * @property {number} [handFinalScore] 本词最终得分（与 `currentScore` 相加即提交后累计分）
  * @property {(n: number) => void} [addRemainingWords] 增加拼写次数
  * @property {(raws: string[]) => void} [removeDeckLettersByRaws]
  * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（工具箱等） 从牌库移除字母

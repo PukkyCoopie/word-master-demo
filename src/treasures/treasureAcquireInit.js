@@ -14,6 +14,10 @@ export function initTreasureBankOnAcquire(treasureId, runState) {
     case "64":
       runState.extraLetterScoreWordsRemaining = 10;
       break;
+    case "104":
+      // 镜子：再次购入须从 0/2 重新累计（卖出后 banks 仍保留旧进度）
+      ensureTreasureBank(runState, id).scoreAdd = 0;
+      break;
     default:
       break;
   }

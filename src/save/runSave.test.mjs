@@ -43,6 +43,8 @@ import {
   shouldReportTapTapIncrement,
 } from "../achievements/achievementTapTapSync.js";
 import { evaluateAndUnlockAchievements } from "../achievements/achievementEvaluate.js";
+import { reconcileAchievementsFromPersistedCareer } from "../achievements/achievementCareerReconcile.js";
+import { getLevelIndexForId } from "../achievements/achievementCareer.js";
 import { applyFullCollectionUnlockToCareer } from "../dev/unlockFullCollection.js";
 import {
   getCollectionTabProgress,
@@ -369,4 +371,34 @@ test("dev unlockFullCollection fills career to 100%", () => {
   assert.equal(progress.percent, 100);
   assert.equal(progress.unlocked, progress.total);
   assert.ok(progress.total > 0);
+});
+
+test("career reconcile unlocks counter achievements without run context", () => {
+  const career = normalizeSlotCareerStats({
+    totalWordsSubmitted: 50,
+    maxLevelIndexReached: getLevelIndexForId("4-1"),
+    peakWalletAmount: 400,
+  });
+  const unlocked = reconcileAchievementsFromPersistedCareer(career);
+  const ids = unlocked.map((d) => d.id);
+  assert.ok(ids.includes("words_50"));
+  assert.ok(ids.includes("reach_4_1"));
+  assert.ok(ids.includes("wallet_400"));
+});
+
+test("career reconcile restores win and difficulty wins from runsWon / highestDifficultyBeaten", () => {
+  const career = normalizeSlotCareerStats({
+    runsWon: 2,
+    highestDifficultyBeaten: 8,
+    bestWordScore: 1500000,
+    lengthLeaderboard: [{ word: "abcdefghijk", score: 1, length: 11, recordedAt: 1, tiles: [], ownedTreasures: [] }],
+  });
+  const ids = reconcileAchievementsFromPersistedCareer(career).map((d) => d.id);
+  assert.ok(ids.includes("win_run"));
+  assert.ok(ids.includes("diff_3_win"));
+  assert.ok(ids.includes("diff_6_win"));
+  assert.ok(ids.includes("diff_8_win"));
+  assert.ok(ids.includes("score_10k"));
+  assert.ok(ids.includes("score_1m"));
+  assert.ok(ids.includes("word_len_11"));
 });

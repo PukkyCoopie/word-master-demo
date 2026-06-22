@@ -18,15 +18,20 @@ export const treasureHooks = {
     if (!rollProbabilitySuccess(1, 4, rng, ctx.ownedSlotTreasureIds)) return;
     const len = Math.max(0, Math.round(Number(ctx.judgedWordLength) || 0));
     if (len < 3 || len > 16) return;
+    const slotIx = Math.max(0, Math.floor(Number(ctx.hookSlotIndex) || 0));
     const runFx = async () => {
       const wobbleTask =
-        typeof ctx.playOwnedTreasureWobbleOnlyFx === "function"
-          ? ctx.playOwnedTreasureWobbleOnlyFx(ID)
-          : Promise.resolve(ctx.wobbleOwnedTreasureById?.(ID));
+        typeof ctx.wobbleOwnedTreasureAtSlot === "function"
+          ? ctx.wobbleOwnedTreasureAtSlot(slotIx)
+          : typeof ctx.playOwnedTreasureWobbleOnlyFx === "function"
+            ? ctx.playOwnedTreasureWobbleOnlyFx(ID)
+            : Promise.resolve(ctx.wobbleOwnedTreasureById?.(ID));
       const bubbleTask =
-        typeof ctx.playOwnedTreasureBubbleOnlyFx === "function"
-          ? ctx.playOwnedTreasureBubbleOnlyFx(ID, "升级", "upgrade")
-          : Promise.resolve(ctx.playOwnedTreasureBubbleFx?.(ID, "升级", "upgrade"));
+        typeof ctx.playOwnedTreasureBubbleOnlyFxAtSlot === "function"
+          ? ctx.playOwnedTreasureBubbleOnlyFxAtSlot(slotIx, "升级", "upgrade")
+          : typeof ctx.playOwnedTreasureBubbleOnlyFx === "function"
+            ? ctx.playOwnedTreasureBubbleOnlyFx(ID, "升级", "upgrade")
+            : Promise.resolve(ctx.playOwnedTreasureBubbleFx?.(ID, "升级", "upgrade"));
       await Promise.all([bubbleTask, wobbleTask]);
       await new Promise((resolve) => setTimeout(resolve, UPGRADE_FX_DELAY_MS));
       if (typeof ctx.runSingleInRunLengthUpgradeFx === "function") {

@@ -227,6 +227,8 @@ import {
 import {
   clearSlot,
   clearSlotRunProgress,
+  flushSaveStorageSync,
+  getSaveEnvelope,
   getSlotCareer,
   getSlotMeta,
   getSlotPayload,
@@ -236,6 +238,7 @@ import {
   loadSaveEnvelope,
   mutateSlotCareer,
   pruneAbandonedFreshRun,
+  updateSlotCareer,
 } from "./save/runSaveStorage.js";
 import {
   recordAccessoryDiscovered,
@@ -274,6 +277,7 @@ import {
 import { createEmptySlotCareerStats, SAVE_SLOT_COUNT } from "./save/runSaveSchema.js";
 import { ACHIEVEMENT_DEFINITIONS, getAchievementDef } from "./achievements/achievementDefinitions.js";
 import { createAchievementToastQueue } from "./achievements/achievementToastQueue.js";
+import { reconcileAchievementsFromPersistedCareer } from "./achievements/achievementCareerReconcile.js";
 import { tryUnlockAchievementsInCareer } from "./achievements/achievementUnlock.js";
 import {
   bootstrapTapTapAchievements,
@@ -289,6 +293,7 @@ import { handleAppAndroidBack } from "./platform/handleAppAndroidBack.js";
 import { useBootImages } from "./composables/useBootImages.js";
 import {
   consumePendingTutorialAutoStart,
+  isFirstWordTutorialAutoStartEnabled,
   isFreshSaveForTutorial,
   isLocalSaveFreshForTutorial,
   markPendingTutorialAutoStart,
@@ -462,43 +467,45 @@ provide("patchActiveSlotCareer", (mutator) => {
 
 provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyIndex }) => {
   const ix = sessionSaveSlotIndex.value;
-  const slot = loadSaveEnvelope().slots[ix];
-  if (!slot) return;
-  const career = normalizeSlotCareerStats(slot.career);
-  const careerBefore = normalizeSlotCareerStats(JSON.parse(JSON.stringify(career)));
-  mergeRunMatchStatsIntoCareer(career, stats, outcome);
-  if (shouldMarkTapTapEngagementAutoPending(career, outcome, runDifficultyIndex)) {
-    markTapTapEngagementAutoPending(career);
-  }
-  if (outcome === "win") {
-    const presetWinNew = recordPresetWin(career, normalizeRunPresetId(runPresetId));
-    recordDifficultyWin(
-      career,
-      normalizeRunDifficultyIndex(runDifficultyIndex),
-      normalizeRunPresetId(runPresetId),
-    );
-    const fresh = collectFreshUnlocksFromWin(careerBefore, career, presetWinNew);
-    if (fresh.presetIds.length || fresh.difficultyIndices.length) {
-      applyFreshUnlockCareerDefaults(career, fresh);
-      runStartFreshUnlocks.value = {
-        presetIds: [...new Set([...runStartFreshUnlocks.value.presetIds, ...fresh.presetIds])],
-        difficultyIndices: [
-          ...new Set([...runStartFreshUnlocks.value.difficultyIndices, ...fresh.difficultyIndices]),
-        ],
-      };
+  if (!getSaveEnvelope().slots[ix]) return;
+
+  const careerBefore = normalizeSlotCareerStats(getSlotCareer(ix));
+  /** @type {ReturnType<typeof collectFreshUnlocksFromWin> | null} */
+  let freshUnlocks = null;
+
+  mutateSlotCareer(ix, (career) => {
+    mergeRunMatchStatsIntoCareer(career, stats, outcome);
+    if (shouldMarkTapTapEngagementAutoPending(career, outcome, runDifficultyIndex)) {
+      markTapTapEngagementAutoPending(career);
     }
-  }
-  const envelope = structuredClone(loadSaveEnvelope());
-  if (envelope.slots[ix]) {
-    envelope.slots[ix].career = career;
-    try {
-      localStorage.setItem("word_master_run_saves_v1", JSON.stringify(envelope));
-      loadSaveEnvelope();
-      bumpSaveUi();
-    } catch {
-      /* ignore */
+    if (outcome === "win") {
+      const presetWinNew = recordPresetWin(career, normalizeRunPresetId(runPresetId));
+      recordDifficultyWin(
+        career,
+        normalizeRunDifficultyIndex(runDifficultyIndex),
+        normalizeRunPresetId(runPresetId),
+      );
+      const fresh = collectFreshUnlocksFromWin(careerBefore, career, presetWinNew);
+      if (fresh.presetIds.length || fresh.difficultyIndices.length) {
+        applyFreshUnlockCareerDefaults(career, fresh);
+        freshUnlocks = fresh;
+      }
     }
+  });
+
+  if (freshUnlocks) {
+    runStartFreshUnlocks.value = {
+      presetIds: [...new Set([...runStartFreshUnlocks.value.presetIds, ...freshUnlocks.presetIds])],
+      difficultyIndices: [
+        ...new Set([
+          ...runStartFreshUnlocks.value.difficultyIndices,
+          ...freshUnlocks.difficultyIndices,
+        ]),
+      ],
+    };
   }
+  flushSaveStorageSync();
+  bumpSaveUi();
 });
 
 function openSettings() {
@@ -564,6 +571,7 @@ async function openCollection() {
   irisTransitionColor.value = COLLECTION_IRIS_COLOR;
   await irisFxRef.value?.play({
     onCovered: () => {
+      reconcileCareerAchievementsForCollection(getActiveSaveSlotIndex());
       screen.value = "collection";
     },
   });
@@ -667,12 +675,28 @@ function unlockAchievementsWithCtx(ctx) {
     newly = tryUnlockAchievementsInCareer(career, ctx);
     syncTapTapIncrementProgressInCareer(career);
   });
+  flushSaveStorageSync();
   if (newly.length) {
     bumpCollectionUi();
     achievementToastQueue.enqueue(newly);
   }
   void reportTapTapAchievementUnlocks(newly);
   return newly;
+}
+
+/** 收藏入口：按生涯数据补判漏记的解锁（不重复弹 Toast）。 */
+function reconcileCareerAchievementsForCollection(slotIndex) {
+  /** @type {import('./achievements/achievementTypes.js').AchievementDefinition[]} */
+  let repaired = [];
+  mutateSlotCareer(slotIndex, (career) => {
+    repaired = reconcileAchievementsFromPersistedCareer(career);
+    if (repaired.length) syncTapTapIncrementProgressInCareer(career);
+  });
+  if (repaired.length) {
+    flushSaveStorageSync();
+    bumpCollectionUi();
+    void reportTapTapAchievementUnlocks(repaired);
+  }
 }
 
 /** @param {string} achievementId */
@@ -842,6 +866,7 @@ function disableSessionFirstWordTutorial() {
 }
 
 async function maybeScheduleTutorialAutoStartOnBoot() {
+  if (!isFirstWordTutorialAutoStartEnabled()) return;
   if (hasTutorialAutoStartAttempted() || !shouldStartNewRunAtSlot(getActiveSaveSlotIndex())) return;
   if (!isLocalSaveFreshForTutorial()) return;
   const fresh = await isFreshSaveForTutorial();
@@ -1051,17 +1076,9 @@ function openRunStartQuickConfirm(payload) {
 }
 
 function persistSlotCareerSelection(slotIx, careerForSlot) {
-  try {
-    const envelope = structuredClone(loadSaveEnvelope());
-    if (envelope.slots[slotIx]) {
-      envelope.slots[slotIx].career = careerForSlot;
-      localStorage.setItem("word_master_run_saves_v1", JSON.stringify(envelope));
-      loadSaveEnvelope();
-      bumpSaveUi();
-    }
-  } catch {
-    /* ignore */
-  }
+  updateSlotCareer(slotIx, careerForSlot);
+  flushSaveStorageSync();
+  bumpSaveUi();
 }
 
 /** 确认开新局时计入生涯「开局次数」（继续存档不计） */
@@ -1228,22 +1245,12 @@ async function onRunStartConfirm(payload) {
   const presetId = normalizeRunPresetId(payload.presetId);
   const difficultyIndex = normalizeRunDifficultyIndex(payload.difficultyIndex);
 
-  const careerForSlot = normalizeSlotCareerStats(
-    getSlotCareer(slotIx) ?? createEmptySlotCareerStats(),
-  );
-  setLastSelectedPresetId(careerForSlot, presetId);
-  setLastSelectedDifficultyIndex(careerForSlot, difficultyIndex);
-  try {
-    const envelope = structuredClone(loadSaveEnvelope());
-    if (envelope.slots[slotIx]) {
-      envelope.slots[slotIx].career = careerForSlot;
-      localStorage.setItem("word_master_run_saves_v1", JSON.stringify(envelope));
-      loadSaveEnvelope();
-      bumpSaveUi();
-    }
-  } catch {
-    /* ignore */
-  }
+  mutateSlotCareer(slotIx, (career) => {
+    setLastSelectedPresetId(career, presetId);
+    setLastSelectedDifficultyIndex(career, difficultyIndex);
+  });
+  flushSaveStorageSync();
+  bumpSaveUi();
 
   sessionRunPresetId.value = presetId;
   sessionRunDifficultyIndex.value = difficultyIndex;

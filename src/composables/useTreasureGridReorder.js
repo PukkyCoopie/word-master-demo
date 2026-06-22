@@ -11,6 +11,7 @@ import {
   TREASURE_SLOT_DRAG_THRESHOLD_PX,
 } from "./useTreasureSlotReorder.js";
 import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
+import { createDragEdgeAutoScrollLoop } from "../game/dragEdgeAutoScroll.js";
 
 const SETTLE_GHOST_DURATION = 0.22;
 const INSERT_HYSTERESIS_PX = 10;
@@ -25,6 +26,8 @@ const INSERT_HYSTERESIS_PX = 10;
  * @param {(preview: (object | null)[]) => void} options.onCommit
  * @param {(index: number) => HTMLElement | null | undefined} [options.getSlotElement]
  * @param {() => HTMLElement | null | undefined} [options.getOverlayContainer]
+ * @param {() => HTMLElement | null | undefined} [options.getScrollContainer]
+ * @param {() => void} [options.onAutoScroll]
  */
 export function useTreasureGridReorder(options) {
   const {
@@ -34,6 +37,8 @@ export function useTreasureGridReorder(options) {
     onCommit,
     getSlotElement = () => null,
     getOverlayContainer = () => null,
+    getScrollContainer = () => null,
+    onAutoScroll = () => {},
   } = options;
 
   const dragActive = ref(false);
@@ -46,9 +51,19 @@ export function useTreasureGridReorder(options) {
 
   /** @type {import("vue").Ref<Record<string, string>>} */
   const dragGhostStyle = ref({});
+  /** @type {import("vue").Ref<Record<string, string>>} */
+  const dragPlaceholderStyle = ref({});
 
   const dragGhostVisible = computed(
     () => (dragActive.value || dragSettling.value) && dragTreasure.value != null,
+  );
+  const dragPlaceholderVisible = computed(
+    () =>
+      dragActive.value
+      && dragTreasure.value != null
+      && dragSourceIndex.value >= 0
+      && dragInsertIndex.value >= 0
+      && dragInsertIndex.value !== dragSourceIndex.value,
   );
 
   const displaySlots = computed(() => {
@@ -84,6 +99,38 @@ export function useTreasureGridReorder(options) {
   /** @type {Map<number, DOMRect> | null} */
   let layoutRectCache = null;
   const insertHysteresis = { insert: -1 };
+  /** @type {{ x: number, y: number }} */
+  let lastDragPointer = { x: 0, y: 0 };
+  const edgeAutoScroll = createDragEdgeAutoScrollLoop({
+    getContainer: getScrollContainer,
+    onStep: () => {
+      refreshDragLayoutFromPointer();
+      onAutoScroll();
+    },
+  });
+
+  function refreshLayoutRectCache() {
+    layoutRectCache = captureGridLayoutRects(getSourceSlots().length, getSlotElement);
+  }
+
+  function refreshDragLayoutFromPointer() {
+    if (!dragActive.value || dragSettling.value) return;
+    refreshLayoutRectCache();
+    updateGhostPosition(lastDragPointer.x, lastDragPointer.y);
+    const targetIndex = resolveInsertIndex(
+      lastDragPointer.x,
+      lastDragPointer.y,
+      getSourceSlots().length,
+    );
+    if (targetIndex < 0) return;
+    if (targetIndex !== dragInsertIndex.value) {
+      setInsertIndex(targetIndex);
+      return;
+    }
+    if (targetIndex !== dragSourceIndex.value) {
+      updatePlaceholderPosition(targetIndex);
+    }
+  }
 
   function clearPointerSession() {
     if (pointerSession.slotEl && pointerSession.pointerId != null) {
@@ -122,6 +169,24 @@ export function useTreasureGridReorder(options) {
     );
   }
 
+  function updatePlaceholderPosition(index) {
+    const measured = measureSlotInContainer(index);
+    if (!measured) return;
+    dragPlaceholderStyle.value = {
+      position: "absolute",
+      ...rectStyleInContainer(measured.slotRect, measured.containerRect),
+      transition: "none",
+    };
+  }
+
+  async function syncPlaceholderAfterLayout(index) {
+    await nextTick();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    if (dragActive.value && !dragSettling.value) {
+      updatePlaceholderPosition(index);
+    }
+  }
+
   /**
    * @param {number} clientX
    * @param {number} clientY
@@ -146,6 +211,11 @@ export function useTreasureGridReorder(options) {
     if (index > max) return;
     if (index === dragInsertIndex.value) return;
     dragInsertIndex.value = index;
+    if (index === dragSourceIndex.value) {
+      dragPlaceholderStyle.value = {};
+      return;
+    }
+    void syncPlaceholderAfterLayout(index);
   }
 
   function beginDrag(slotIndex, clientX, clientY, slotEl) {
@@ -155,6 +225,7 @@ export function useTreasureGridReorder(options) {
 
     layoutRectCache = captureGridLayoutRects(slots.length, getSlotElement);
     insertHysteresis.insert = slotIndex;
+    lastDragPointer = { x: clientX, y: clientY };
 
     const rect = slotEl.getBoundingClientRect();
     ghostOffset = {
@@ -171,6 +242,7 @@ export function useTreasureGridReorder(options) {
     settleTargetIndex.value = -1;
     dragTreasure.value = treasure;
     updateGhostPosition(clientX, clientY);
+    dragPlaceholderStyle.value = {};
   }
 
   /**
@@ -219,9 +291,11 @@ export function useTreasureGridReorder(options) {
     settleTargetIndex.value = -1;
     dragTreasure.value = null;
     dragGhostStyle.value = {};
+    dragPlaceholderStyle.value = {};
     ghostOffset = null;
     layoutRectCache = null;
     insertHysteresis.insert = -1;
+    edgeAutoScroll.stop();
     gsap.killTweensOf(dragGhostStyle.value);
     setTimeout(() => {
       dragMoved.value = false;
@@ -232,6 +306,7 @@ export function useTreasureGridReorder(options) {
   function onSlotPointerDown(slotIndex, e) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     if (!canDrag()) return;
+    if (dragActive.value || dragSettling.value) resetDragState();
 
     const slots = getSourceSlots();
     if (!slots[slotIndex]) return;
@@ -269,7 +344,9 @@ export function useTreasureGridReorder(options) {
         beginDrag(slotIndex, ev.clientX, ev.clientY, cellEl);
       }
       ev.preventDefault();
+      lastDragPointer = { x: ev.clientX, y: ev.clientY };
       updateGhostPosition(ev.clientX, ev.clientY);
+      edgeAutoScroll.notifyPointerMove(ev.clientY);
       const targetIndex = resolveInsertIndex(
         ev.clientX,
         ev.clientY,
@@ -286,6 +363,7 @@ export function useTreasureGridReorder(options) {
 
       ev.preventDefault();
       dragging = false;
+      edgeAutoScroll.stop();
 
       const targetIndex = resolveInsertIndex(
         ev.clientX,
@@ -332,17 +410,21 @@ export function useTreasureGridReorder(options) {
 
   onUnmounted(() => {
     clearPointerSession();
+    edgeAutoScroll.stop();
     resetDragState();
   });
 
   return {
     dragActive,
+    dragSettling,
     dragInsertIndex,
     dragGhostVisible,
+    dragPlaceholderVisible,
     dragSourceIndex,
     dragMoved,
     dragTreasure,
     dragGhostStyle,
+    dragPlaceholderStyle,
     displaySlots,
     displayKeys,
     onSlotPointerDown,

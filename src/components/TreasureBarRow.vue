@@ -10,12 +10,7 @@
       <TransitionGroup
         name="treasure-slot-reorder"
         tag="div"
-        :class="[
-          'treasure-slots',
-          { 'treasure-slots--dragging': dragActive, 'treasure-slots--stack': stackMode },
-          { 'treasure-slots--compact-animating': compactAnimating },
-          layoutClass,
-        ]"
+        :class="treasureSlotsClass"
         :style="stackMode ? stackSlotsStyle : undefined"
       >
         <TreasureSlot
@@ -168,6 +163,13 @@ watch(
     requestAnimationFrame(measureContainer);
   },
 );
+
+const treasureSlotsClass = computed(() => [
+  "treasure-slots",
+  { "treasure-slots--dragging": props.dragActive, "treasure-slots--stack": props.stackMode },
+  { "treasure-slots--compact-animating": props.compactAnimating },
+  props.layoutClass,
+]);
 
 const stackLayoutPx = computed(() => {
   if (!props.stackMode) {

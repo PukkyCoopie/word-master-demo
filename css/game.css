@@ -2780,6 +2780,11 @@ textarea::-moz-placeholder {
 	transition: none;
 }
 
+/* 拖动预览已改数组顺序；禁用 FLIP transform，避免与 ghost 叠出「越来越多」的假象 */
+.treasure-slots--dragging .treasure-slot-reorder-move {
+	transform: none !important;
+}
+
 .treasure-slots--compact-animating .treasure-slot-reorder-move {
 	transition: transform calc(0.24s / var(--anim-speed-scale, 1)) ease;
 }
@@ -2937,6 +2942,7 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 
 .treasure-slots--dragging .treasure-slot {
 	touch-action: none;
+	transform: none !important;
 }
 
 .treasure-drag-ghost {

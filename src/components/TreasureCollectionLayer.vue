@@ -18,56 +18,66 @@
             <span class="treasure-collection-title-main">宝藏</span>
             <span class="treasure-collection-title-count"> ({{ filledCount }})</span>
           </div>
-          <div
-            ref="gridAreaRef"
-            class="treasure-collection-grid-area"
-          >
-            <TransitionGroup
-              name="treasure-collection-grid"
-              tag="div"
-              :class="[
-                'treasure-collection-grid',
-                { 'treasure-collection-grid--dragging': dragActive },
-              ]"
-              :style="gridStyle"
+          <div class="treasure-collection-grid-scroll-outer">
+            <div
+              ref="scrollBodyRef"
+              class="treasure-collection-grid-area"
+              :class="{
+                'treasure-collection-grid-area--scrollable': gridNeedsScroll,
+                'treasure-collection-grid-area--scroll-locked': dragActive,
+              }"
+              @scroll.passive="onScrollBody"
             >
               <div
-                v-for="(slot, i) in displaySlots"
-                :key="displayKeys[i] ?? `tc-slot-${i}`"
-                class="treasure-collection-cell treasure-collection-enter-stagger"
-                :ref="(el) => setCellRef(i, el)"
+                ref="gridContentRef"
+                class="treasure-collection-grid-wrap"
+                :class="{ 'treasure-collection-grid-wrap--center': !gridNeedsScroll }"
               >
-                <TreasureSlot
-                  v-if="slot"
-                  :slot-index="i"
-                  :treasure="slot"
-                  :gem-class="gemClassForSlot(i, slot)"
-                  :charge-state="chargeStateForSlot(i)"
-                  :charge-progress="chargeProgressForSlot(i) ?? 0"
-                  :amber-boss-mask="amberBossMask"
-                  :crimson-hand-disabled="crimsonHandDisabledForSlot(i)"
-                  @pointerdown="onSlotPointerDown(i, $event)"
-                  @click="onSlotClick(i, slot, $event)"
-                />
-                <div
-                  v-else-if="
-                    dragActive
-                    && dragInsertIndex === i
-                    && dragSourceIndex !== dragInsertIndex
-                    && dragTreasure
-                  "
-                  class="treasure-collection-drop-preview"
+                <TransitionGroup
+                  name="treasure-collection-grid"
+                  tag="div"
+                  :class="[
+                    'treasure-collection-grid',
+                    { 'treasure-collection-grid--dragging': gridReorderDragging },
+                  ]"
+                  :style="gridStyle"
                 >
-                  <TreasureSlot
-                    :treasure="dragTreasure"
-                    :gem-class="dragGemClass"
-                    :charge-state="dragChargeState"
-                    :charge-progress="dragChargeProgress ?? 0"
-                    :amber-boss-mask="amberBossMask"
-                  />
-                </div>
+                  <div
+                    v-for="(slot, i) in displaySlots"
+                    :key="displayKeys[i] ?? `tc-slot-${i}`"
+                    class="treasure-collection-cell treasure-collection-enter-stagger"
+                    :ref="(el) => setCellRef(i, el)"
+                  >
+                    <TreasureSlot
+                      v-if="slot"
+                      :slot-index="i"
+                      :treasure="slot"
+                      :gem-class="gemClassForSlot(i, slot)"
+                      :charge-state="chargeStateForSlot(i)"
+                      :charge-progress="chargeProgressForSlot(i) ?? 0"
+                      :amber-boss-mask="amberBossMask"
+                      :crimson-hand-disabled="crimsonHandDisabledForSlot(i)"
+                      @pointerdown="onSlotPointerDown(i, $event)"
+                      @click="onSlotClick(i, slot, $event)"
+                    />
+                  </div>
+                </TransitionGroup>
               </div>
-            </TransitionGroup>
+            </div>
+            <div
+              v-show="scrollbarVisible"
+              ref="scrollTrackRef"
+              class="treasure-collection-scroll-track"
+              aria-hidden="true"
+              @pointerdown="onTrackPointerDown"
+            >
+              <div
+                class="treasure-collection-scroll-thumb"
+                :class="{ 'treasure-collection-scroll-thumb--dragging': thumbDragging }"
+                :style="thumbStyle"
+                @pointerdown.stop="onThumbPointerDown"
+              />
+            </div>
           </div>
           <button
             type="button"
@@ -77,6 +87,19 @@
             确定
           </button>
           <div class="treasure-collection-drag-layer">
+            <div
+              v-if="dragPlaceholderVisible"
+              class="treasure-drag-placeholder"
+              :style="dragPlaceholderStyle"
+            >
+              <TreasureSlot
+                :treasure="dragTreasure"
+                :gem-class="dragGemClass"
+                :charge-state="dragChargeState"
+                :charge-progress="dragChargeProgress ?? 0"
+                :amber-boss-mask="amberBossMask"
+              />
+            </div>
             <div
               v-if="dragGhostVisible"
               class="treasure-drag-ghost"
@@ -102,12 +125,13 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import TreasureSlot from "./TreasureSlot.vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { useTreasureGridReorder } from "../composables/useTreasureGridReorder.js";
+import { usePanelScrollbar } from "../composables/usePanelScrollbar.js";
 import { countFilledTreasureSlots } from "../game/treasureBarLayout.js";
 import {
   TREASURE_COLLECTION_CELL_MIN_RPX,
   TREASURE_COLLECTION_CELL_SIZE_RPX,
   TREASURE_COLLECTION_GRID_GAP_RPX,
-  computeCollectionGridCellPx,
+  measureCollectionGridLayout,
 } from "../game/treasureCollectionLayout.js";
 import {
   killTreasureCollectionLayerEnter,
@@ -145,9 +169,10 @@ const portalStackStyle = computed(() =>
 );
 
 const innerRef = ref(null);
-const gridAreaRef = ref(null);
+const gridContentRef = ref(null);
 const enterBoot = ref(false);
 const gridCellPx = ref(0);
+const gridNeedsScroll = ref(false);
 /** @type {import('vue').Ref<(HTMLElement | null)[]>} */
 const cellRefs = ref([]);
 
@@ -156,14 +181,30 @@ function readRpx() {
   return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rpx")) || 1;
 }
 
+const {
+  scrollBodyRef,
+  scrollTrackRef,
+  scrollbarVisible,
+  thumbDragging,
+  thumbStyle,
+  onScrollBody,
+  onThumbPointerDown,
+  onTrackPointerDown,
+  updateScrollbarMetrics,
+  bindResizeObserver: bindPanelScrollbarObserver,
+} = usePanelScrollbar({
+  thumbColor: "rgba(255, 255, 255, 0.38)",
+  contentRef: gridContentRef,
+});
+
 function measureCollectionGrid() {
-  const el = gridAreaRef.value;
+  const el = scrollBodyRef.value;
   if (!(el instanceof HTMLElement)) return;
   const rpx = readRpx();
   const gapPx = TREASURE_COLLECTION_GRID_GAP_RPX * rpx;
   const maxCellPx = TREASURE_COLLECTION_CELL_SIZE_RPX * rpx;
   const minCellPx = TREASURE_COLLECTION_CELL_MIN_RPX * rpx;
-  gridCellPx.value = computeCollectionGridCellPx({
+  const layout = measureCollectionGridLayout({
     areaWidthPx: el.clientWidth,
     areaHeightPx: el.clientHeight,
     slotCount: props.ownedTreasures.length,
@@ -171,6 +212,9 @@ function measureCollectionGrid() {
     maxCellPx,
     minCellPx,
   });
+  gridCellPx.value = layout.cellPx;
+  gridNeedsScroll.value = layout.needsScroll;
+  updateScrollbarMetrics();
 }
 
 let gridResizeObserver = null;
@@ -178,11 +222,12 @@ let gridResizeObserver = null;
 function bindGridResizeObserver() {
   gridResizeObserver?.disconnect();
   gridResizeObserver = null;
-  const el = gridAreaRef.value;
+  const el = scrollBodyRef.value;
   if (!(el instanceof HTMLElement)) return;
   if (typeof ResizeObserver === "undefined") return;
   gridResizeObserver = new ResizeObserver(() => measureCollectionGrid());
   gridResizeObserver.observe(el);
+  bindPanelScrollbarObserver();
 }
 
 watch(
@@ -233,11 +278,12 @@ const filledCount = computed(() => countFilledTreasureSlots(props.ownedTreasures
 
 const {
   dragActive,
-  dragInsertIndex,
-  dragSourceIndex,
+  dragSettling,
   dragGhostVisible,
+  dragPlaceholderVisible,
   dragTreasure,
   dragGhostStyle,
+  dragPlaceholderStyle,
   displaySlots,
   displayKeys,
   onSlotPointerDown,
@@ -251,6 +297,15 @@ const {
   },
   getSlotElement: (i) => cellRefs.value[i] ?? null,
   getOverlayContainer: () => innerRef.value,
+  getScrollContainer: () => (gridNeedsScroll.value ? scrollBodyRef.value : null),
+  onAutoScroll: () => updateScrollbarMetrics(),
+});
+
+/** 拖动与 ghost 落位期间禁用 grid FLIP，避免与跟随指针的 ghost 叠出多重外观 */
+const gridReorderDragging = computed(() => dragActive.value || dragSettling.value);
+
+watch(dragActive, (active) => {
+  if (!active) updateScrollbarMetrics();
 });
 
 const gridStyle = computed(() => {
@@ -360,15 +415,74 @@ function onSlotClick(i, slot, e) {
   font-weight: 600;
 }
 
-.treasure-collection-grid-area {
+.treasure-collection-grid-scroll-outer {
   flex: 1 1 auto;
   align-self: stretch;
   min-height: 0;
   width: 100%;
-  overflow: hidden;
   display: flex;
-  align-items: center;
+  align-items: stretch;
+  gap: calc(8 * var(--rpx));
+}
+
+.treasure-collection-grid-area {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.treasure-collection-grid-area::-webkit-scrollbar {
+  display: none;
+}
+
+.treasure-collection-grid-area--scroll-locked {
+  overflow: hidden;
+  touch-action: none;
+}
+
+.treasure-collection-grid-wrap {
+  display: flex;
   justify-content: center;
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: calc(2 * var(--rpx)) 0;
+}
+
+.treasure-collection-grid-wrap--center {
+  align-items: center;
+}
+
+.treasure-collection-scroll-track {
+  flex-shrink: 0;
+  width: calc(8 * var(--rpx));
+  position: relative;
+  border-radius: calc(5 * var(--rpx));
+  background: rgba(0, 0, 0, 0.14);
+  touch-action: none;
+  user-select: none;
+}
+
+.treasure-collection-scroll-thumb {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-radius: calc(5 * var(--rpx));
+  box-shadow: 0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.18);
+  cursor: grab;
+  touch-action: none;
+}
+
+.treasure-collection-scroll-thumb--dragging,
+.treasure-collection-scroll-thumb:active {
+  cursor: grabbing;
+  filter: brightness(1.08);
 }
 
 .treasure-collection-grid {
@@ -377,9 +491,8 @@ function onSlotClick(i, slot, e) {
   grid-template-columns: repeat(auto-fill, var(--treasure-collection-cell-size));
   gap: var(--treasure-collection-grid-gap);
   justify-content: center;
-  align-content: center;
+  align-content: start;
   max-width: 100%;
-  max-height: 100%;
 }
 
 .treasure-collection-cell {
@@ -414,19 +527,12 @@ function onSlotClick(i, slot, e) {
 }
 
 .treasure-collection-grid--dragging .treasure-collection-grid-move {
-  transition: transform calc(0.22s / var(--anim-speed-scale, 1)) ease;
+  transition: none;
+  transform: none !important;
 }
 
-.treasure-collection-drop-preview {
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.treasure-collection-drop-preview :deep(.treasure-slot.filled) {
-  opacity: 0.42;
-  box-shadow: none;
-  cursor: default;
+.treasure-collection-grid--dragging .treasure-collection-cell {
+  transform: none !important;
 }
 
 :global(html.reduce-motion) .treasure-collection-grid--dragging .treasure-collection-grid-move {

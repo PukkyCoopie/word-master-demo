@@ -73,3 +73,25 @@ export function computeCollectionGridCellPx({
   }
   return minCell;
 }
+
+/**
+ * 全览 grid 布局结果：格边长 + 在最小格下是否仍需纵向滚动。
+ *
+ * @param {Parameters<typeof computeCollectionGridCellPx>[0]} params
+ */
+export function measureCollectionGridLayout(params) {
+  const cellPx = computeCollectionGridCellPx(params);
+  const areaW = Math.max(1, Number(params.areaWidthPx) || 0);
+  const areaH = Math.max(1, Number(params.areaHeightPx) || 0);
+  const gapPx = Math.max(0, Number(params.gapPx) || 0);
+  const slotCount = Math.max(0, Math.floor(Number(params.slotCount) || 0));
+  const cols = computeCollectionGridColumns(areaW, cellPx, gapPx);
+  const { heightPx, widthPx } = computeCollectionGridExtents(slotCount, cols, cellPx, gapPx);
+  return {
+    cellPx,
+    cols,
+    contentHeightPx: heightPx,
+    contentWidthPx: widthPx,
+    needsScroll: heightPx > areaH + 0.5 || widthPx > areaW + 0.5,
+  };
+}
