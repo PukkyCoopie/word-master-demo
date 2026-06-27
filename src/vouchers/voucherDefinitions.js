@@ -62,7 +62,7 @@ const V = [
   },
   { id: "v_seed_1", pairId: "seed", tier: 1, emoji: "🌱", nameStem: "发芽", price: 10, description: "结算利息上限提高至$10", effectKey: "seed_money", inShopPool: true },
   { id: "v_seed_2", pairId: "seed", tier: 2, emoji: "🌱", nameStem: "发芽", price: 10, description: "结算利息上限提高至$20", effectKey: "money_tree", inShopPool: true },
-  { id: "v_blank_1", pairId: "blank", tier: 1, emoji: "⬜", nameStem: "白方块", price: 10, description: "无效果", effectKey: "blank", inShopPool: true },
+  { id: "v_blank_1", pairId: "blank", tier: 1, emoji: "⬜", nameStem: "白方块", price: 10, description: "似乎没有什么效果", effectKey: "blank", inShopPool: true },
   { id: "v_blank_2", pairId: "blank", tier: 2, emoji: "⬜", nameStem: "白方块", price: 10, description: "宝藏栏位 +1", effectKey: "antimatter", inShopPool: true },
   { id: "v_magic_1", pairId: "magic", tier: 1, emoji: "🖨️", nameStem: "打字机", price: 10, description: "商店会刷新字母块以供选购", effectKey: "magic_trick", inShopPool: true },
   { id: "v_magic_2", pairId: "magic", tier: 2, emoji: "🖨️", nameStem: "打字机", price: 10, description: "商店刷新的字母块可能带有额外增益", effectKey: "illusion", inShopPool: true },

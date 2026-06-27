@@ -26,10 +26,11 @@ import {
 } from "../treasures/ownedTreasureSlot.js";
 import { ownedTreasureHasNoSellAccessory } from "../game/runDifficultyRuntime.js";
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
+import { allConsonantRaws, allLetterRaws, allVowelRaws } from "../game/initialDeckLetterCounts.js";
+import { pickWeightedLetterRaw } from "../shop/tilePackLetterRoll.js";
 
 const WATER_MATERIAL_SCORE_BONUS = 30;
 const FIRE_MATERIAL_MULT_BONUS = 5;
-const VOWEL_SET = new Set(["a", "e", "i", "o", "u"]);
 
 function rngU(rng) {
   const f = typeof rng === "function" ? rng : Math.random;
@@ -287,33 +288,6 @@ function remapSpellTargetTileToRaw(tile, raw, rarityLevelsByRarity) {
   tile.materialMultBonus = 0;
   tile.accessoryId = acc ?? null;
   applyIntrinsicGainsToTileAndLinkedCard(tile, gains);
-}
-
-function allConsonantRaws() {
-  const out = [];
-  for (const letters of Object.values(RARITY_BY_LETTER)) {
-    for (const x of letters) {
-      if (!VOWEL_SET.has(x)) out.push(x);
-    }
-  }
-  return out;
-}
-
-function allVowelRaws() {
-  return [...VOWEL_SET];
-}
-
-function allLetterRaws() {
-  const out = [];
-  for (const letters of Object.values(RARITY_BY_LETTER)) {
-    for (const x of letters) out.push(x);
-  }
-  return out;
-}
-
-function pickRandomRaw(pool, rng) {
-  if (!pool.length) return "e";
-  return pool[Math.floor(rngU(rng) * pool.length)];
 }
 
 /** @param {() => number} rng */
@@ -756,7 +730,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of ordered) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        remapSpellTargetTileToRaw(t, pickRandomRaw(pool, rng), rl);
+        remapSpellTargetTileToRaw(t, pickWeightedLetterRaw(rng, pool), rl);
       }
       break;
     }
@@ -766,7 +740,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of ordered) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        remapSpellTargetTileToRaw(t, pickRandomRaw(pool, rng), rl);
+        remapSpellTargetTileToRaw(t, pickWeightedLetterRaw(rng, pool), rl);
       }
       break;
     }
@@ -776,7 +750,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       for (const p of ordered) {
         const t = tileAt(p);
         if (!t?.letter) continue;
-        remapSpellTargetTileToRaw(t, pickRandomRaw(pool, rng), rl);
+        remapSpellTargetTileToRaw(t, pickWeightedLetterRaw(rng, pool), rl);
       }
       break;
     }
@@ -850,7 +824,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
           : pickRandomOrderedDeckUid(ordered, rng);
       if (remUid != null) ctx.removeDeckCardByUid?.(remUid);
       const vowels = [];
-      for (let i = 0; i < 3; i++) vowels.push(pickRandomRaw(allVowelRaws(), rng));
+      for (let i = 0; i < 3; i++) vowels.push(pickWeightedLetterRaw(rng, allVowelRaws()));
       const entries = buildEnhancedDeckEntries(vowels, rng);
       const addedDeckCards = ctx.appendShopDeckEntries?.(entries) ?? [];
       spellFx = {
@@ -886,7 +860,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
           : pickRandomOrderedDeckUid(ordered, rng);
       if (remUid != null) ctx.removeDeckCardByUid?.(remUid);
       const raws = [];
-      for (let i = 0; i < 4; i++) raws.push(pickRandomRaw(allConsonantRaws(), rng));
+      for (let i = 0; i < 4; i++) raws.push(pickWeightedLetterRaw(rng, allConsonantRaws()));
       const entries = buildEnhancedDeckEntries(raws, rng);
       const addedDeckCards = ctx.appendShopDeckEntries?.(entries) ?? [];
       spellFx = {

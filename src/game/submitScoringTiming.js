@@ -1,5 +1,6 @@
 import { getEffectiveAnimSpeed } from "../settings/animationSpeed.js";
 import { isIceMaterialPostLetterStep } from "./iceMaterialScoring.js";
+import { isLuckyMaterialPostLetterStep } from "./luckyMaterialScoring.js";
 import { pauseAwareDelay } from "./gamePause.js";
 
 const SUBMIT_SCORING_LENGTH_BASE_MAX = 2;
@@ -14,7 +15,7 @@ const SUBMIT_SCORING_SPEEDUP_MIN_TOTAL_BEATS = 6;
 function countActivePostLetterTreasureSteps(postSteps) {
   let c = 0;
   for (const step of postSteps ?? []) {
-    if (isIceMaterialPostLetterStep(step)) continue;
+    if (isIceMaterialPostLetterStep(step) || isLuckyMaterialPostLetterStep(step)) continue;
     const multAdd = Number(step.multAdd) || 0;
     const scoreAdd = Number(step.scoreAdd) || 0;
     const multMul = Number(step.multMul) || 0;

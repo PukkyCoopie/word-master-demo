@@ -121,14 +121,18 @@ export function registerDevConsole(deps) {
         "  __WM_DEV__.jumpToLevel('3-2') — 局内跳转关卡（亦可用 levelIndex 数字）",
         "  __WM_DEV__.jumpToLevel('8-3', { bossSlug: 'cerulean_bell' }) — 可选 Boss",
         "  __WM_DEV__.jumpToLevel('5-1', { skipIntro: true }) — 跳过棋盘入场动画",
+        "  __WM_DEV__.jumpToBossShop('cerulean_bell', '1') — 跳转 Boss 前商店（Boss slug, 章号）",
         "  __WM_DEV__.startCeruleanBellDevTest() — 跳至 1-3，Boss 固定青铃",
         "  或 URL ?dev=ceruleanBell 新开一局自动启用",
         "  __WM_DEV__.startPagerDevTest() — 进关后：槽位 1 为寻呼机",
         "  或 URL ?dev=pager 新开一局自动启用",
+        "  __WM_DEV__.startVolcanoKiteDevTest() — 进关后：[风筝×2][火山][风筝×2]",
+        "  或 URL ?dev=volcanoKite 新开一局自动启用",
         "  __WM_DEV__.randomizeGridTileMaterials() — 局内：为棋盘无材质格各随机加一种材质",
         "  __WM_DEV__.grantRandomOwnedTreasures(10) — 局内授予 N 个不重复随机宝藏（槽位满时自动加裁剪配饰扩栏）",
         "  __WM_DEV__.debugSetScoreCardValues(123, 456) — 顶栏两分数框测试展示（至少得分, 关卡得分）",
         "  __WM_DEV__.debugClearScoreCardValues() — 清除分数框测试，恢复真实分数",
+        "  __WM_DEV__.setWalletBalance(100) — 局内设置钱包余额（受信用卡等下限约束）",
         "  __WM_DEV__.setupScreenshotPreset(1) — 宣传图：8-3 棋盘 + 宝藏/材质/加成（需局内）",
         "  __WM_DEV__.setupScreenshotPreset(2) — 宣传图：收藏全解锁并标新 + 跳转收藏页",
         "  __WM_DEV__.setupScreenshotPreset(3) — 宣传图：打开定制超级字母包（需局内）",
@@ -169,9 +173,34 @@ export function registerDevConsole(deps) {
         "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startFirstWordTutorial()。",
       );
     },
+    startMaskBubbleBlueprintTest: () => {
+      console.warn(
+        "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startMaskBubbleBlueprintTest()。",
+      );
+    },
+    startAllIceDevTest: () => {
+      console.warn("[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startAllIceDevTest()。");
+    },
+    startCeruleanBellDevTest: () => {
+      console.warn("[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startCeruleanBellDevTest()。");
+    },
+    startPagerDevTest: () => {
+      console.warn("[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startPagerDevTest()。");
+    },
+    startVolcanoKiteDevTest: () => {
+      console.warn(
+        "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startVolcanoKiteDevTest()。",
+      );
+    },
     jumpToLevel: (levelIdOrIndex, opts) => {
       console.warn(
         `[DEV] 请先进入局内（GamePanel 已挂载）后再调用 jumpToLevel(${JSON.stringify(levelIdOrIndex)})。`,
+      );
+      return null;
+    },
+    jumpToBossShop: (bossSlug, chapterOrLevelId) => {
+      console.warn(
+        `[DEV] 请先进入局内（GamePanel 已挂载）后再调用 jumpToBossShop(${JSON.stringify(bossSlug)}, ${JSON.stringify(chapterOrLevelId)})。`,
       );
       return null;
     },

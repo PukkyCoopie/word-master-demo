@@ -1,5 +1,5 @@
 import createREGL from "regl";
-import { isGamePaused } from "../game/gamePause.js";
+import { shouldFreezeMaterialHubTicks } from "../game/gamePause.js";
 import { isMaterialBenchEnabled } from "../dev/materialBenchGate.js";
 import { materialHubSubscribeTick, materialHubUnsubscribeTick } from "./reglMaterialTicker.js";
 import { forceLoseWebglContext } from "./reglDebugLog.js";
@@ -172,6 +172,7 @@ async function transferFrameToSubscriber(sub) {
       return;
     }
     sub.ctx.transferFromImageBitmap(bmp);
+    sub._displayFrameReady = true;
   } catch (e) {
     console.warn("[reglMaterialBitmapRenderer] transfer failed", e);
   } finally {
@@ -210,7 +211,7 @@ function freezeBitmapRendererSubscriberFrame(materialId, sub) {
 
 function bitmapRendererTick() {
   if (document.hidden || !sharedHub || !anySubscriberNeedsTick()) return;
-  if (isGamePaused() && !isMaterialBenchEnabled()) return;
+  if (shouldFreezeMaterialHubTicks() && !isMaterialBenchEnabled()) return;
   for (const mod of MATERIAL_SHADER_MODULES) {
     paintMaterialSubscribers(mod.MATERIAL_ID);
   }
@@ -243,8 +244,13 @@ function bindBitmapVisibility(sub) {
   }
   if (typeof ResizeObserver !== "undefined") {
     const ro = new ResizeObserver(() => {
-      if (sub.disposed || sub.frameFrozen) return;
-      if (sub.animated) paintMaterialSubscribers(sub.materialId, false);
+      if (sub.disposed) return;
+      if (!sub._displayFrameReady) {
+        paintBitmapRendererSubscriberFrame(sub.materialId, sub);
+        return;
+      }
+      if (sub.frameFrozen || !sub.animated) return;
+      paintMaterialSubscribers(sub.materialId, false);
     });
     ro.observe(sub.canvas);
     cleanups.push(() => ro.disconnect());
@@ -252,6 +258,16 @@ function bindBitmapVisibility(sub) {
   sub.disposeBindings = () => {
     for (const fn of cleanups) fn();
   };
+}
+
+export function repaintUnpaintedBitmapRendererCanvasesIn(root) {
+  if (!(root instanceof HTMLElement)) return;
+  for (const [materialId, subs] of subscribersByMaterial) {
+    for (const sub of subs) {
+      if (sub._displayFrameReady || sub.disposed || !root.contains(sub.canvas)) continue;
+      paintBitmapRendererSubscriberFrame(materialId, sub);
+    }
+  }
 }
 
 /**
@@ -272,6 +288,7 @@ export function attachBitmapRendererMaterial(materialId, canvas, options = {}) {
     ctx,
     animated: options.animated !== false,
     frameFrozen: false,
+    _displayFrameReady: false,
     viewportVisible: true,
     pending: false,
     disposed: false,
@@ -323,6 +340,36 @@ export function setBitmapRendererMaterialAnimated(materialId, canvas, animated) 
     return true;
   }
   return false;
+}
+
+/** 预创建共享 WebGL、编译 shader，并预热 createImageBitmap → bitmaprenderer 路径。 */
+export function warmupBitmapRendererMaterialHub() {
+  ensureSharedHub();
+  const hub = sharedHub;
+  if (!hub) return;
+  for (const mod of MATERIAL_SHADER_MODULES) {
+    drawMaterialFrame(mod.MATERIAL_ID);
+  }
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = hub.texPx;
+    canvas.height = hub.texPx;
+    const ctx = canvas.getContext("bitmaprenderer");
+    if (!ctx || typeof createImageBitmap !== "function") return;
+    const bmp = createImageBitmap(hub.offscreen, 0, 0, hub.texPx, hub.texPx, {
+      resizeWidth: hub.texPx,
+      resizeHeight: hub.texPx,
+      resizeQuality: reglBlitImageSmoothingQuality(),
+    });
+    if (bmp && typeof bmp.then === "function") {
+      void bmp.then((bitmap) => {
+        ctx.transferFromImageBitmap(bitmap);
+        bitmap.close?.();
+      });
+    }
+  } catch (e) {
+    console.warn("[reglMaterialBitmapRenderer] warmup transfer failed", e);
+  }
 }
 
 if (import.meta.hot) {

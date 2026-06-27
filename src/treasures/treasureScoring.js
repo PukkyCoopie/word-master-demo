@@ -23,6 +23,7 @@ import {
   sumWordScoreIntrinsicPersistScoreDeltaPerVisit,
 } from "../game/tileIntrinsicGains.js";
 import { collectPerLetterMoneyCuesByLetter } from "./collectPerLetterMoneyCues.js";
+import { bumpRunLuckyTriggerCount } from "./treasureRunState.js";
 
 /** 新宝藏接入后请同步 `treasureCatalog.js` 的 implemented 字段；具体效果写在对应 `items/treasure_*.js`（本文件不出现具体 treasureId）。 */
 /** 拼词中公式区预览用 `useScoring` 的 `computeWordScore`（无宝藏）；提交结算用 `computeWordScoreDetailedForSubmit`（棋盘光环类材质倍率由 `gridOnlyMaterialScoring.js` 的 `buildGridPresencePostLetterSteps` 提供字后乘法步；冰为入词格逐字 ×2.5，见 `iceMaterialScoring.js`）。 */
@@ -55,6 +56,20 @@ function applyPrepareSubmitScoringBanks(tiles, slots, treasureRun) {
   for (const { treasureId: tid, source } of iterTreasureHookContributions(slots)) {
     if (source === "blueprint") continue;
     TREASURE_HOOKS_BY_ID.get(tid)?.prepareSubmitScoringBank?.(hookCtx);
+  }
+}
+
+/** @param {Array} tiles @param {(string | null | undefined)[]} slots @param {import('./treasureRunState.js').TreasureRunState | null | undefined} treasureRun @param {() => number} rng */
+function applyPreprocessSubmitScoringTiles(tiles, slots, treasureRun, rng) {
+  const hookCtx = {
+    tiles,
+    ownedSlotTreasureIds: slots,
+    treasureRun: treasureRun ?? undefined,
+    rng,
+  };
+  for (const { treasureId: tid, source } of iterTreasureHookContributions(slots)) {
+    if (source === "blueprint") continue;
+    TREASURE_HOOKS_BY_ID.get(tid)?.preprocessSubmitScoringTiles?.(hookCtx);
   }
 }
 
@@ -359,6 +374,9 @@ export function computeWordScoreDetailedForSubmit(
   const rnd = typeof submitOptions?.rng === "function" ? submitOptions.rng : Math.random;
 
   const lengthUpgradeExtra = submitOptions?.lengthUpgradeObservatoryExtra ?? null;
+  if (submitOptions?.skipPrepareSubmitScoringBank !== true) {
+    applyPreprocessSubmitScoringTiles(tiles, slots, submitOptions?.treasureRun ?? null, rnd);
+  }
   const base = computeWordScoreDetailed(
     tiles,
     1,
@@ -370,6 +388,7 @@ export function computeWordScoreDetailedForSubmit(
       bossFlintQuarter,
       lengthUpgradeObservatoryExtra: lengthUpgradeExtra,
       resolvedWord: submitOptions?.resolvedWord ?? null,
+      ownedSlotTreasureIds: slots,
     },
   );
   const conditions = buildTreasureLogicConditions(tiles, base.letterParts, slots);
@@ -523,6 +542,9 @@ export function computeWordScoreDetailedForSubmit(
       if (rnd() < LUCKY_MATERIAL_MONEY_CHANCE) moneyAdd = LUCKY_MATERIAL_MONEY_ADD;
       luckyMaterialRollsByLetter[i].push({ multAdd, moneyAdd });
       luckyMaterialMultAddTotal += multAdd;
+      if ((multAdd > 0 || moneyAdd > 0) && submitOptions?.treasureRun) {
+        bumpRunLuckyTriggerCount(submitOptions.treasureRun);
+      }
     }
   }
 
@@ -535,6 +557,7 @@ export function computeWordScoreDetailedForSubmit(
             slotIndex: -1,
             multAdd: r.multAdd,
             scoreFxWordSlotIndex: i,
+            materialLucky: true,
           });
         }
       }

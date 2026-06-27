@@ -68,9 +68,9 @@ function applyLegacyWordAuxDefaults() {
   gameSettings.markOnSwap = true;
 }
 
-/** 拼词辅助三项：新玩家默认关闭标记、不显示对调、对调时不标记 */
+/** 拼词辅助三项：新玩家默认开启标记、不显示对调、对调时不标记 */
 function applyNewPlayerWordAuxDefaults() {
-  gameSettings.markButtonEnabled = false;
+  gameSettings.markButtonEnabled = true;
   gameSettings.swapButtonMode = "hidden";
   gameSettings.markOnSwap = false;
 }
@@ -151,11 +151,11 @@ function applyNewPlayerWordDefinitionDefault() {
   gameSettings.wordDefinitionMode = "off";
 }
 
-/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; reduceMotion: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean }} */
+/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; reduceMotion: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean }} */
 export const gameSettings = reactive({
   allowSpellingAbbreviations: false,
   uiScalePercent: UI_SCALE_DEFAULT,
-  markButtonEnabled: false,
+  markButtonEnabled: true,
   swapButtonMode: "hidden",
   markOnSwap: false,
   animationSpeedTier: "normal",
@@ -166,6 +166,7 @@ export const gameSettings = reactive({
   letterCase: "uppercase",
   letterQMode: "qu",
   highRiskSpellConfirm: true,
+  swapConfirmButtonSide: false,
 });
 
 /**
@@ -235,6 +236,9 @@ export function loadGameSettings() {
     if (typeof parsed.highRiskSpellConfirm === "boolean") {
       gameSettings.highRiskSpellConfirm = parsed.highRiskSpellConfirm;
     }
+    if (typeof parsed.swapConfirmButtonSide === "boolean") {
+      gameSettings.swapConfirmButtonSide = parsed.swapConfirmButtonSide;
+    }
     if (needsWordAuxMigration) {
       if (hasExistingPlayerSaveData()) {
         gameSettings.markButtonEnabled = true;
@@ -281,6 +285,7 @@ export function persistGameSettings() {
         letterCase: gameSettings.letterCase,
         letterQMode: gameSettings.letterQMode,
         highRiskSpellConfirm: gameSettings.highRiskSpellConfirm,
+        swapConfirmButtonSide: gameSettings.swapConfirmButtonSide,
       }),
     );
     void import("../save/cloudSave/cloudSaveSync.js").then(({ markCloudSyncDirty }) => {
@@ -450,6 +455,17 @@ export function getHighRiskSpellConfirmEnabled() {
 /** @param {boolean} enabled */
 export function setHighRiskSpellConfirm(enabled) {
   gameSettings.highRiskSpellConfirm = Boolean(enabled);
+  persistGameSettings();
+}
+
+/** @returns {boolean} */
+export function getSwapConfirmButtonSideEnabled() {
+  return gameSettings.swapConfirmButtonSide === true;
+}
+
+/** @param {boolean} enabled */
+export function setSwapConfirmButtonSide(enabled) {
+  gameSettings.swapConfirmButtonSide = Boolean(enabled);
   persistGameSettings();
 }
 

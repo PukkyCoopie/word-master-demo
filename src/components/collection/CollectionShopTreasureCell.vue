@@ -18,36 +18,46 @@
           'shop-treasure-frame--length-offer':
             upgradeOffer && upgradeKind !== 'rarity' && (lengthBadgeLabel || lengthLabel),
           'shop-treasure-frame--pack-rarity': upgradeOffer && upgradeKind === 'rarity',
-          'collection-shop-cell__frame--unknown': showUnknownVisual,
         }"
       >
-        <template v-if="showUnknownVisual">
-          <span class="collection-shop-cell__unknown" aria-hidden="true">?</span>
-        </template>
-        <template v-else-if="spellOffer || upgradeOffer">
-          <i
-            v-if="iconClass"
-            class="shop-treasure-emoji shop-treasure-emoji--icon"
-            :class="iconClass"
+        <template v-if="spellOffer || upgradeOffer">
+          <span
+            v-if="showUnknownVisual"
+            class="collection-shop-cell__unknown shop-treasure-emoji"
             aria-hidden="true"
-          ></i>
-          <span
-            v-if="upgradeOffer && upgradeKind === 'rarity' && (lengthBadgeLabel || lengthLabel)"
-            class="shop-pack-rarity-caption"
-            >{{ lengthBadgeLabel || lengthLabel }}</span
+            >?</span
           >
-          <span
-            v-else-if="upgradeOffer && (lengthBadgeLabel || lengthLabel)"
-            class="shop-upgrade-length"
-            :class="{
-              'shop-upgrade-length--single-digit': isSingleDigitLabel(lengthBadgeLabel || lengthLabel),
-            }"
-            >{{ lengthBadgeLabel || lengthLabel }}</span
-          >
+          <template v-else>
+            <i
+              v-if="iconClass"
+              class="shop-treasure-emoji shop-treasure-emoji--icon"
+              :class="iconClass"
+              aria-hidden="true"
+            ></i>
+            <span
+              v-if="upgradeOffer && upgradeKind === 'rarity' && (lengthBadgeLabel || lengthLabel)"
+              class="shop-pack-rarity-caption"
+              >{{ lengthBadgeLabel || lengthLabel }}</span
+            >
+            <span
+              v-else-if="upgradeOffer && (lengthBadgeLabel || lengthLabel)"
+              class="shop-upgrade-length"
+              :class="{
+                'shop-upgrade-length--single-digit': isSingleDigitLabel(lengthBadgeLabel || lengthLabel),
+              }"
+              >{{ lengthBadgeLabel || lengthLabel }}</span
+            >
+          </template>
         </template>
         <template v-else>
           <span class="letter-gem" :class="gemClass" aria-hidden="true" />
-          <span class="shop-treasure-emoji" role="img" :aria-label="name">{{ emoji }}</span>
+          <span
+            v-if="showUnknownVisual"
+            class="collection-shop-cell__unknown shop-treasure-emoji"
+            aria-hidden="true"
+            >?</span
+          >
+          <span v-else class="shop-treasure-emoji" role="img" :aria-label="name">{{ emoji }}</span>
         </template>
       </div>
       <div class="shop-treasure-price">
@@ -61,7 +71,11 @@
         'collection-shop-cell__name--prerequisite': prerequisiteLocked,
       }"
     >
-      <CollectionPrerequisiteBadge v-if="showPrerequisiteBadge" class="collection-shop-cell__prerequisite-badge" />
+      <i
+        v-if="showPrerequisiteBadge"
+        class="ri-error-warning-fill collection-prerequisite-badge collection-shop-cell__prerequisite-badge"
+        aria-hidden="true"
+      ></i>
       {{ displayName }}
     </p>
   </button>
@@ -71,7 +85,6 @@
 import { computed } from "vue";
 import { COLLECTION_UNKNOWN_LABEL, gemClassForTreasureRarity } from "../../collection/collectionDisplayUtils.js";
 import { isSingleDigitLabel } from "../detailLayerFormatters.js";
-import CollectionPrerequisiteBadge from "./CollectionPrerequisiteBadge.vue";
 import CollectionNewMark from "./CollectionNewMark.vue";
 
 const props = defineProps({
@@ -99,7 +112,7 @@ const emit = defineEmits(["select"]);
 
 const gemClass = computed(() => gemClassForTreasureRarity(props.rarity));
 
-const showUnknownVisual = computed(() => props.unknown || props.prerequisiteLocked);
+const showUnknownVisual = computed(() => props.unknown);
 
 const displayName = computed(() =>
   showUnknownVisual.value ? COLLECTION_UNKNOWN_LABEL : String(props.name ?? "").trim(),
@@ -158,13 +171,9 @@ function onClick(event) {
   opacity: 0.78;
 }
 
-.collection-shop-cell__frame--unknown {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .collection-shop-cell__unknown {
+  position: relative;
+  z-index: 1;
   font-size: calc(100cqmin * 40 / 108);
   font-weight: 700;
   color: var(--text-muted, #776e65);

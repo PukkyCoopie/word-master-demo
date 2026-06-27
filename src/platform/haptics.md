@@ -10,7 +10,7 @@
 |------|------|
 | **Capacitor 原生 App**（`Capacitor.isNativePlatform()`） | 完整触感；设置里显示「震动反馈」开关 |
 | **浏览器 / Vite 预览** | 无触感、无设置项、`triggerHaptic` 等直接返回 |
-| **E2E 测试**（`isE2eMode()`） | 静默，不震 |
+| **减少动画** | 静默，不震 |
 | **用户关闭震动**（`gameSettings.hapticsEnabled`） | 静默 |
 
 启动时仅在原生端调用 `initUIButtonHaptics()`（见 `src/main.js`）。

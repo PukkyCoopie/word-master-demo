@@ -11,7 +11,7 @@
         </button>
 
         <div ref="contentEl" class="run-start-preset-content">
-          <UnlockFreshPill v-if="showFreshBadge" />
+          <span v-if="showFreshBadge" class="unlock-fresh-pill" aria-label="新解锁">新！</span>
           <button
             v-if="isCurrentLocked"
             type="button"
@@ -88,6 +88,7 @@
     v-if="voucherDetail"
     :treasure="voucherDetail"
     mode="offer"
+    :show-shelf-price="false"
     :wallet-amount="0"
     @close="voucherDetail = null"
   />
@@ -95,7 +96,8 @@
   <TileDetailLayer
     v-if="wildcardDetailOpen"
     :payload="wildcardDetailPayload"
-    @close="wildcardDetailOpen = false"
+    :origin-rect="wildcardDetailOriginRect"
+    @close="closeWildcardDetail"
   />
 
   <Teleport defer to="#game-view-portal-frame">
@@ -141,11 +143,14 @@ import {
   playRunStartContentJellySwap,
   resetRunStartContentJellyTransform,
 } from "../utils/runStartContentJellyFx.js";
-import UnlockFreshPill from "./UnlockFreshPill.vue";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import PresetDescRichText from "./PresetDescRichText.vue";
 import TreasureDetailLayer from "./TreasureDetailLayer.vue";
 import TileDetailLayer from "./TileDetailLayer.vue";
+import {
+  WILDCARD_PRESET_TILE_DETAIL_PAYLOAD,
+  wildcardPresetPreviewOriginRectFromEvent,
+} from "../game/wildcardPresetPreview.js";
 
 const props = defineProps({
   modelValue: { type: String, default: "preset_01" },
@@ -217,7 +222,7 @@ const statusHint = ref(null);
 const hintStackZ = ref(0);
 const hintBackdropStackStyle = computed(() => (hintStackZ.value > 0 ? { zIndex: hintStackZ.value } : undefined));
 const statusHintText = computed(() => {
-  if (statusHint.value === "lock") return "使用其他未取得过胜利的预设通关以解锁";
+  if (statusHint.value === "lock") return "使用其他未取得过胜利的预设通关，可依次解锁";
   if (statusHint.value === "won") return "你已用本预设通关过游戏";
   return "";
 });
@@ -243,16 +248,9 @@ const descLayoutTier = computed(() => {
 /** @type {import('vue').Ref<object | null>} */
 const voucherDetail = ref(null);
 const wildcardDetailOpen = ref(false);
-const wildcardDetailPayload = {
-  letter: "?",
-  rarity: "common",
-  materialId: "wildcard",
-  accessoryId: null,
-  treasureAccessoryId: null,
-  tileScoreBonus: 0,
-  tileMultBonus: 0,
-  hideRarityGem: true,
-};
+/** @type {import('vue').Ref<{ left: number, top: number, width: number, height: number } | null>} */
+const wildcardDetailOriginRect = ref(null);
+const wildcardDetailPayload = WILDCARD_PRESET_TILE_DETAIL_PAYLOAD;
 
 /** @param {number} index */
 function isPresetIndexUnlocked(index) {
@@ -313,8 +311,15 @@ function onPreviewVoucher(payload) {
   voucherDetail.value = payload.detail;
 }
 
-function onPreviewWildcard() {
+/** @param {{ event?: MouseEvent }} [payload] */
+function onPreviewWildcard(payload) {
+  wildcardDetailOriginRect.value = wildcardPresetPreviewOriginRectFromEvent(payload?.event);
   wildcardDetailOpen.value = true;
+}
+
+function closeWildcardDetail() {
+  wildcardDetailOpen.value = false;
+  wildcardDetailOriginRect.value = null;
 }
 
 defineExpose({
@@ -377,6 +382,25 @@ defineExpose({
   text-align: center;
   overflow: hidden;
   transform-origin: 50% 50%;
+}
+
+.unlock-fresh-pill {
+  position: absolute;
+  top: calc(8 * var(--rpx));
+  right: calc(8 * var(--rpx));
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(2 * var(--rpx)) calc(4 * var(--rpx)) calc(2 * var(--rpx)) calc(10 * var(--rpx));
+  border-radius: calc(999 * var(--rpx));
+  background: #7ec89a;
+  color: #fff;
+  font-size: calc(18 * var(--rpx));
+  font-weight: 700;
+  line-height: 1.2;
+  box-shadow: var(--shadow, 0 calc(2 * var(--rpx)) calc(4 * var(--rpx)) rgba(0, 0, 0, 0.12));
+  pointer-events: none;
 }
 
 .run-start-preset-inner--locked {

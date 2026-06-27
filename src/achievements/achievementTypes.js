@@ -25,7 +25,12 @@
  *   | 'run_difficulty_win'
  *   | 'submit_letter_score_triggers'
  *   | 'run_interest_total'
- *   | 'run_money_spent'} AchievementConditionKind
+ *   | 'run_money_spent'
+ *   | 'event_safe_bomb_blast'
+ *   | 'event_volcano_eruption'
+ *   | 'run_lucky_triggers'
+ *   | 'submit_steel_enhancements'
+ *   | 'acquire_legendary_treasure'} AchievementConditionKind
  */
 
 /**

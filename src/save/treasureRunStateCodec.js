@@ -44,6 +44,10 @@ export function serializeTreasureRunState(state) {
     runLettersDiscardedTotal: Math.max(0, Math.floor(Number(state.runLettersDiscardedTotal) || 0)),
     shopUpgradesFree: !!state.shopUpgradesFree,
     lastSpellIdBeforeShopLeave: state.lastSpellIdBeforeShopLeave ?? null,
+    runLuckyTriggerCount: Math.max(0, Math.floor(Number(state.runLuckyTriggerCount) || 0)),
+    levelBossRestrictionSuppressed: !!state.levelBossRestrictionSuppressed,
+    level137BonusApplied: !!state.level137BonusApplied,
+    level139FaxCopyDone: !!state.level139FaxCopyDone,
   };
 }
 
@@ -104,5 +108,9 @@ export function deserializeTreasureRunState(raw) {
   base.runLettersDiscardedTotal = Math.max(0, Math.floor(Number(o.runLettersDiscardedTotal) || 0));
   base.shopUpgradesFree = !!o.shopUpgradesFree;
   base.lastSpellIdBeforeShopLeave = o.lastSpellIdBeforeShopLeave != null ? String(o.lastSpellIdBeforeShopLeave) : null;
+  base.runLuckyTriggerCount = Math.max(0, Math.floor(Number(o.runLuckyTriggerCount) || 0));
+  base.levelBossRestrictionSuppressed = !!o.levelBossRestrictionSuppressed;
+  base.level137BonusApplied = !!o.level137BonusApplied;
+  base.level139FaxCopyDone = !!o.level139FaxCopyDone;
   return base;
 }

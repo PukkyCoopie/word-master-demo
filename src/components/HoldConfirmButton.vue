@@ -3,7 +3,13 @@
     ref="btnRef"
     type="button"
     class="shop-btn hold-confirm-btn"
-    :class="[variantClass, { 'hold-confirm-btn--holding': holding }]"
+    :class="[
+      variantClass,
+      {
+        'hold-confirm-btn--holding': holding,
+        'hold-confirm-btn--vertical-fill': fillDirection === 'vertical',
+      },
+    ]"
     :disabled="disabled"
     @click="onClick"
     @pointerdown="onPointerDown"
@@ -16,16 +22,16 @@
     <span
       v-if="holdMode"
       class="hold-confirm-btn-fill"
-      :style="{ transform: `scaleX(${fillRatio})` }"
+      :class="{ 'hold-confirm-btn-fill--vertical': fillDirection === 'vertical' }"
+      :style="fillStyle"
       aria-hidden="true"
     />
   </button>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from "vue";
-
-const HOLD_DURATION_MS = 600;
+import { computed, watch } from "vue";
+import { useHoldConfirmInteraction } from "../composables/useHoldConfirmInteraction.js";
 
 const props = defineProps({
   /** 常规点击文案 */
@@ -37,21 +43,32 @@ const props = defineProps({
   disabled: { type: Boolean, default: false },
   /** 为 true 时需按住 0.6s 才触发 confirm */
   holdMode: { type: Boolean, default: false },
+  /** 长按进度方向：confirm 为 vertical，其它被动按钮覆层用 HoldPeerProgress */
+  fillDirection: {
+    type: String,
+    default: "vertical",
+    validator: (v) => v === "horizontal" || v === "vertical",
+  },
 });
 
-const emit = defineEmits(["confirm"]);
+const emit = defineEmits(["confirm", "hold-change"]);
 
-const btnRef = ref(null);
-const holding = ref(false);
-const fillRatio = ref(0);
-
-/** @type {number | null} */
-let rafId = null;
-/** @type {number} */
-let holdStartMs = 0;
-/** @type {number | null} */
-let activePointerId = null;
-let completed = false;
+const {
+  btnRef,
+  holding,
+  fillRatio,
+  onPointerDown,
+  onPointerUp,
+  onPointerCancel,
+  onPointerLeave,
+  onLostPointerCapture,
+  onClick,
+  resetHold,
+} = useHoldConfirmInteraction({
+  enabled: () => props.holdMode && !props.disabled,
+  onConfirm: () => emit("confirm"),
+  onHoldChange: (state) => emit("hold-change", state),
+});
 
 const variantClass = computed(() => {
   const v = String(props.variant ?? "buy");
@@ -61,107 +78,20 @@ const variantClass = computed(() => {
 
 const displayLabel = computed(() => (props.holdMode ? props.holdLabel : props.label));
 
-function clearRaf() {
-  if (rafId != null) {
-    cancelAnimationFrame(rafId);
-    rafId = null;
+const fillStyle = computed(() => {
+  const ratio = fillRatio.value;
+  if (props.fillDirection === "vertical") {
+    return { transform: `scaleY(${ratio})` };
   }
-}
-
-function resetHold() {
-  clearRaf();
-  holding.value = false;
-  fillRatio.value = 0;
-  holdStartMs = 0;
-  activePointerId = null;
-  completed = false;
-}
-
-function finishHold() {
-  if (completed) return;
-  completed = true;
-  clearRaf();
-  holding.value = false;
-  fillRatio.value = 1;
-  emit("confirm");
-  resetHold();
-}
-
-function tickHold() {
-  if (!holding.value || completed) return;
-  const elapsed = performance.now() - holdStartMs;
-  const ratio = Math.min(1, elapsed / HOLD_DURATION_MS);
-  fillRatio.value = ratio;
-  if (ratio >= 1) {
-    finishHold();
-    return;
-  }
-  rafId = requestAnimationFrame(tickHold);
-}
-
-/** @param {PointerEvent} e */
-function onPointerDown(e) {
-  if (!props.holdMode || props.disabled || completed) return;
-  if (e.pointerType === "mouse" && e.button !== 0) return;
-  e.preventDefault();
-  const el = btnRef.value;
-  if (el instanceof HTMLElement) {
-    try {
-      el.setPointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
-  }
-  activePointerId = e.pointerId;
-  holding.value = true;
-  holdStartMs = performance.now();
-  fillRatio.value = 0;
-  clearRaf();
-  rafId = requestAnimationFrame(tickHold);
-}
-
-function cancelHold() {
-  if (!holding.value || completed) return;
-  resetHold();
-}
-
-/** @param {PointerEvent} e */
-function onPointerUp(e) {
-  if (activePointerId != null && e.pointerId !== activePointerId) return;
-  cancelHold();
-}
-
-/** @param {PointerEvent} e */
-function onPointerCancel(e) {
-  if (activePointerId != null && e.pointerId !== activePointerId) return;
-  cancelHold();
-}
-
-/** @param {PointerEvent} e */
-function onPointerLeave(e) {
-  if (activePointerId != null && e.pointerId !== activePointerId) return;
-  cancelHold();
-}
-
-/** @param {PointerEvent} e */
-function onLostPointerCapture(e) {
-  if (activePointerId != null && e.pointerId !== activePointerId) return;
-  cancelHold();
-}
-
-/** @param {MouseEvent} e */
-function onClick(e) {
-  if (props.holdMode) {
-    e.preventDefault();
-    return;
-  }
-  if (props.disabled) return;
-  emit("confirm");
-}
-
-onBeforeUnmount(() => {
-  resetHold();
+  return { transform: `scaleX(${ratio})` };
 });
+
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) resetHold();
+  },
+);
 </script>
 
 <style scoped>
@@ -189,6 +119,17 @@ onBeforeUnmount(() => {
   pointer-events: none;
   border-radius: inherit;
   will-change: transform;
+}
+
+.hold-confirm-btn-fill--vertical {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 100%;
+  width: 100%;
+  transform-origin: top center;
+  transform: scaleY(0);
 }
 
 .hold-confirm-btn--holding:active {

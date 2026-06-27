@@ -1,6 +1,5 @@
 import { describe, mult } from "../treasureDescription.js";
 import { addMultMulBank, getMultMulBank } from "../treasureBankHelpers.js";
-import { ensureTreasureBank } from "../treasureRunState.js";
 
 const ID = "62";
 const START_MULT_MUL = 2;
@@ -55,5 +54,8 @@ export const treasureHooks = {
     const n = Math.max(0, Math.floor(Number(ctx.letterCount) || 0));
     if (n <= 0 || !ctx.treasureRun) return;
     addMultMulBank(ctx.treasureRun, ID, -0.01 * n);
+  },
+  isTreasureEffectDepleted(ctx) {
+    return getMultMulBank(ctx.treasureRun, ID) <= 1;
   },
 };

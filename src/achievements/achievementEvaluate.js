@@ -11,6 +11,7 @@ import { checkOneWordPerLevelWin } from "./achievementRunState.js";
  * @property {boolean} [allWildcard]
  * @property {number} [iceShatterCount]
  * @property {number} [maxLetterScoreTriggers]
+ * @property {number} [steelEnhancementCount]
  */
 
 /**
@@ -27,6 +28,7 @@ import { checkOneWordPerLevelWin } from "./achievementRunState.js";
  * @property {import('./achievementRunState.js').AchievementRunState} [achievementRun]
  * @property {readonly string[]} [completedLevelIds]
  * @property {AchievementSubmitSnapshot} [submit]
+ * @property {boolean} [treasureAcquiredLegendary]
  */
 
 /**
@@ -130,6 +132,16 @@ function isConditionMet(career, def, ctx) {
       return (ctx.achievementRun?.interestEarnedTotal ?? 0) >= (c.threshold ?? 0);
     case "run_money_spent":
       return (ctx.achievementRun?.moneySpentTotal ?? 0) >= (c.threshold ?? 0);
+    case "event_safe_bomb_blast":
+      return ctx.achievementRun?.safeBombBlastOccurred === true;
+    case "event_volcano_eruption":
+      return ctx.achievementRun?.volcanoEruptionOccurred === true;
+    case "run_lucky_triggers":
+      return (ctx.achievementRun?.luckyTriggersTotal ?? 0) >= (c.threshold ?? 0);
+    case "submit_steel_enhancements":
+      return (ctx.submit?.steelEnhancementCount ?? 0) >= (c.threshold ?? 0);
+    case "acquire_legendary_treasure":
+      return ctx.treasureAcquiredLegendary === true;
     default:
       return false;
   }

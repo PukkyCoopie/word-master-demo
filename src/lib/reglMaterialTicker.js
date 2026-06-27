@@ -1,4 +1,4 @@
-import { isGamePaused } from "../game/gamePause.js";
+import { shouldFreezeMaterialHubTicks } from "../game/gamePause.js";
 import { isMaterialBenchEnabled } from "../dev/materialBenchGate.js";
 import {
   getMaterialHubMaxHz,
@@ -80,7 +80,7 @@ export function getMaterialTickerStats() {
 
 function shouldExecuteHubWork() {
   if (document.hidden || tickFns.size === 0) return false;
-  if (isGamePaused() && !isMaterialBenchEnabled()) return false;
+  if (shouldFreezeMaterialHubTicks() && !isMaterialBenchEnabled()) return false;
   return true;
 }
 

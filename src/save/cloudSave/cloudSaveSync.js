@@ -1,5 +1,4 @@
 import { Capacitor } from "@capacitor/core";
-import { isE2eMode } from "../../e2e/isE2eMode.js";
 import { ensureTapTapSdkInitialized, isTapTapAccount } from "../../taptap/tapTapPlugin.js";
 import {
   bundlesHaveEquivalentSaveData,
@@ -10,6 +9,7 @@ import {
   localHasSaveData,
   localSaveBelongsToAccount,
   normalizeCloudSaveBundle,
+  shouldPromptForeignLocalSave,
 } from "./cloudSaveBundle.js";
 import { CLOUD_ARCHIVE_NAME } from "./cloudSaveConstants.js";
 import { markPendingTutorialAutoStart, prepareFirstWordTutorialAfterFreshLocalSaveChoice } from "../../tutorial/firstWordTutorial.js";
@@ -60,7 +60,7 @@ function notifyCloudSaveApplied() {
 
 /** @returns {boolean} */
 export function isCloudSaveEnabled() {
-  return isCloudSaveNativeAvailable() && !isE2eMode() && isTapTapAccount(activeAccount);
+  return isCloudSaveNativeAvailable() && isTapTapAccount(activeAccount);
 }
 
 export function markCloudSyncDirty() {
@@ -204,7 +204,7 @@ function clearStaleCloudArchiveMetaForAccountSwitch(account) {
  * @param {import('../../taptap/tapTapPlugin.js').TapTapAccount} account
  */
 export async function syncOnLogin(account) {
-  if (!Capacitor.isNativePlatform() || isE2eMode()) return;
+  if (!Capacitor.isNativePlatform()) return;
   if (!isTapTapAccount(account)) return;
 
   activeAccount = account;
@@ -252,12 +252,20 @@ export async function syncOnLogin(account) {
   }
 
   if (localHas && !cloudHas) {
-    if (!localSaveBelongsToAccount(account.unionId)) {
+    if (shouldPromptForeignLocalSave(account.unionId)) {
       conflictBlockingUpload = true;
       openCloudSaveForeignLocal({
         localBundle: exportCloudSaveBundle(loadCloudSaveMeta().lastSyncedUnionId ?? ""),
       });
       return;
+    }
+    if (!localSaveBelongsToAccount(account.unionId)) {
+      persistCloudSaveMeta({
+        lastSyncedUnionId: account.unionId,
+        syncState: "idle",
+        conflictDeferred: false,
+        lastConflictCloudExportedAt: null,
+      });
     }
     dirty = true;
     await flushCloudUpload({ force: true });

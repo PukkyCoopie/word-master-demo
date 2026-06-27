@@ -13,3 +13,29 @@ export function computeMaxLetterScoreTriggers(detailed) {
   }
   return max;
 }
+
+/**
+ * 单次 submit 内幸运块效果触发次数（`luckyMaterialRollsByLetter` 各字母掷骰次数之和）。
+ * @param {{ luckyMaterialRollsByLetter?: unknown[][] }} detailed
+ */
+export function countLuckyMaterialTriggers(detailed) {
+  const rolls = detailed?.luckyMaterialRollsByLetter;
+  if (!Array.isArray(rolls)) return 0;
+  let total = 0;
+  for (const letterRolls of rolls) {
+    if (Array.isArray(letterRolls)) total += letterRolls.length;
+  }
+  return total;
+}
+
+/**
+ * 单次 submit 内钢铁块棋盘光环增强次数（字后倍率步中来自棋盘格的步数）。
+ * @param {{ postLetterTreasureSteps?: { treasureId?: string | null, scoreFxGridTileIndex?: number }[] }} detailed
+ */
+export function countSteelGridPresenceEnhancements(detailed) {
+  const steps = detailed?.postLetterTreasureSteps;
+  if (!Array.isArray(steps)) return 0;
+  return steps.filter(
+    (step) => step?.treasureId == null && Math.floor(Number(step?.scoreFxGridTileIndex) || -1) >= 0,
+  ).length;
+}

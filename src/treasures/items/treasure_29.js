@@ -1,11 +1,21 @@
-import { describe, mult, prob } from "../treasureDescription.js";
+import { describe, mult, prob, riskText } from "../treasureDescription.js";
 import { rollProbabilityFailsSkip } from "../treasureProbability.js";
+
+const ID = "29";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 5,
   rarity: "common",
-  description: describe(mult("+50"), "倍率", "；在关卡完成时", prob("1/6"), "的概率爆炸"),
+  description: describe(
+    mult("+50"),
+    "倍率",
+    "；在关卡完成时",
+    prob("1/5"),
+    "的概率爆炸",
+    { type: "br" },
+    riskText("（放得离其他宝藏远一点…）"),
+  ),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -19,12 +29,20 @@ export const treasureHooks = {
   },
   async onLevelComplete(ctx) {
     const rng = ctx.rng ?? Math.random;
-    if (rollProbabilityFailsSkip(1, 6, rng, ctx.ownedSlotTreasureIds)) return;
+    if (rollProbabilityFailsSkip(1, 5, rng, ctx.ownedSlotTreasureIds)) return;
     if (ctx.treasureRun) {
       ctx.treasureRun.treasure29SelfDestructed = true;
       ctx.treasureRun.probabilityEffectTriggered = true;
     }
-    if (ctx.destroyTreasureSlotById) await ctx.destroyTreasureSlotById("29");
-    else ctx.clearTreasureSlotById?.("29");
+    const bombSlotIndex =
+      typeof ctx.hookSlotIndex === "number" && ctx.hookSlotIndex >= 0
+        ? ctx.hookSlotIndex
+        : (ctx.findOwnedTreasureSlotIndex?.(ID) ?? -1);
+    if (ctx.destroyBombBlastAtSlot && bombSlotIndex >= 0) {
+      await ctx.destroyBombBlastAtSlot(bombSlotIndex);
+      return;
+    }
+    if (ctx.destroyTreasureSlotById) await ctx.destroyTreasureSlotById(ID, bombSlotIndex >= 0 ? bombSlotIndex : null);
+    else ctx.clearTreasureSlotById?.(ID);
   },
 };

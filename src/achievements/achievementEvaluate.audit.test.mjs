@@ -145,6 +145,21 @@ function buildUnlockFixture(def) {
     case "run_money_spent":
       ctx.achievementRun.moneySpentTotal = c.threshold ?? 0;
       break;
+    case "event_safe_bomb_blast":
+      ctx.achievementRun.safeBombBlastOccurred = true;
+      break;
+    case "event_volcano_eruption":
+      ctx.achievementRun.volcanoEruptionOccurred = true;
+      break;
+    case "run_lucky_triggers":
+      ctx.achievementRun.luckyTriggersTotal = c.threshold ?? 0;
+      break;
+    case "submit_steel_enhancements":
+      ctx.submit = { steelEnhancementCount: c.threshold ?? 0 };
+      break;
+    case "acquire_legendary_treasure":
+      ctx.treasureAcquiredLegendary = true;
+      break;
     default:
       assert.fail(`missing audit fixture for ${def.id} (${c.kind})`);
   }

@@ -42,12 +42,3 @@ __WM_DEV__.help()
 | `src/dev/registerDevConsole.js` | 挂载 `globalThis.__WM_DEV__` |
 | `src/dev/unlockFullCollection.js` | 写入生涯 `career` 字段的逻辑 |
 | `src/App.vue` | `onMounted` 时注册，`onBeforeUnmount` 时卸载 |
-
-## 相关自动化桥接
-
-E2E 自动化使用独立全局对象（需 URL `?e2e=1`）：
-
-- `__WM_APP_E2E__` — 主菜单 / 开局
-- `__WM_E2E__` — 局内自动游玩
-
-与 `__WM_DEV__` 无关。

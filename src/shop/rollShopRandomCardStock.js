@@ -7,7 +7,6 @@
  * 商店「刷新」仅重掷本区；牌包区与优惠券进店生成后不变。
  */
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
-import { RARITY_BY_LETTER } from "../composables/useScoring.js";
 import { pickWeightedTreasureFromPool } from "../treasures/shopTreasureRoll.js";
 import {
   PREREQUISITE_PHASE1_SLOT_PRIORITY_CHANCE,
@@ -38,18 +37,11 @@ import {
   hasMagicTrick,
 } from "../vouchers/voucherRuntime.js";
 import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
+import { allLetterRaws } from "../game/initialDeckLetterCounts.js";
 import { pickDifficulty0FirstShopTreasureId } from "../game/runDifficultyRuntime.js";
+import { pickWeightedLetterRaw } from "./tilePackLetterRoll.js";
 
 export { SHOP_RANDOM_CARD_SLOT_COUNT, getShopRandomCardSlotCount } from "./shopRandomCardEconomy.js";
-
-function allLetterRaws() {
-  /** @type {string[]} */
-  const out = [];
-  for (const letters of Object.values(RARITY_BY_LETTER)) {
-    for (const x of letters) out.push(x);
-  }
-  return out;
-}
 
 /**
  * @param {string[]} keys
@@ -133,8 +125,12 @@ function createShopRandomCardRoller(ctx) {
   }
 
   function availableTreasurePool() {
+    const allowOwned = ctx.allowOwnedTreasuresInShop === true;
     return pool.filter(
-      (t) => t && !owned.has(t.treasureId) && !sessionExcluded?.has(t.treasureId),
+      (t) =>
+        t &&
+        (allowOwned || !owned.has(t.treasureId)) &&
+        !sessionExcluded?.has(t.treasureId),
     );
   }
 
@@ -170,6 +166,7 @@ function createShopRandomCardRoller(ctx) {
     /** @type {import('../treasures/shopTreasureRoll.js').ShopTreasurePickOpts} */
     const treasurePickOpts = {
       onPrerequisiteTreasureShopAppeared: ctx.onPrerequisiteTreasureShopAppeared,
+      allowOwnedTreasuresInShop: ctx.allowOwnedTreasuresInShop === true,
     };
     if (prerequisiteRollContext && pickPool === avail) {
       treasurePickOpts.getPrerequisiteWeightMultiplier = buildPrerequisiteWeightMultiplierGetter(
@@ -190,7 +187,8 @@ function createShopRandomCardRoller(ctx) {
    */
   function tryTreasureById(treasureId, opts = {}) {
     const tid = String(treasureId ?? "").trim();
-    if (!tid || owned.has(tid) || sessionExcluded?.has(tid)) return null;
+    const allowOwned = ctx.allowOwnedTreasuresInShop === true;
+    if (!tid || (!allowOwned && owned.has(tid)) || sessionExcluded?.has(tid)) return null;
     const def = pool.find((t) => String(t?.treasureId) === tid);
     if (!def) return null;
     sessionExcluded?.add(tid);
@@ -245,7 +243,7 @@ function createShopRandomCardRoller(ctx) {
   /** 打字机券：单卡区 tile；二级前无材质/配饰掷骰，二级后可带增益 */
   function tryPlayingCard() {
     if (!letterRaws.length) return null;
-    const raw = letterRaws[Math.floor(rng() * letterRaws.length)] || "e";
+    const raw = pickWeightedLetterRaw(rng, letterRaws);
     return buildDeckTileShopRow(ctx.nextOfferInstanceId, raw, rng, {
       honeAccessoryMult: honeMult,
       materialIds: tileMaterialIds,

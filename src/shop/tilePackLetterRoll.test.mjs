@@ -6,6 +6,7 @@ import {
 import {
   getTilePackLetterWeight,
   pickDistinctWeightedLetterRaws,
+  pickWeightedLetterRaw,
 } from "./tilePackLetterRoll.js";
 
 assert.equal(getInitialDeckLetterCount("e"), 9);
@@ -35,5 +36,8 @@ assert.deepEqual(picked, ["e", "z", "t"]);
 
 const picked2 = pickDistinctWeightedLetterRaws(seqRng([0.99, 0]), 2, ["e", "z"]);
 assert.deepEqual(picked2, ["z", "e"]);
+
+assert.equal(pickWeightedLetterRaw(seqRng([0]), ["e", "z"]), "e");
+assert.equal(pickWeightedLetterRaw(seqRng([0.99]), ["e", "z"]), "z");
 
 console.log("tilePackLetterRoll.test.mjs ok");

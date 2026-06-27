@@ -42,6 +42,7 @@
  * @property {number[]} deckUids
  * @property {(SerializedGridCell | null)[]} grid
  * @property {string[]} depletedDeckStackRaws
+ * @property {string[]} [runSeenDeckStackRaws]
  * @property {boolean} deckPreviewAllInDrawPile
  * @property {number} deckCardUidSeq
  * @property {number} currentScore

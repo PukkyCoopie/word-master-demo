@@ -5,12 +5,24 @@
         :suppressed="profileLayerOpen"
         @open-profile="$emit('open-profile', $event)"
       />
-      <TapTapLeaderboardButton @open="openTapTapLeaderboard" />
+      <button
+        type="button"
+        class="taptap-leaderboard-btn"
+        aria-label="排行榜"
+        @click="openTapTapLeaderboard"
+      >
+        <i class="ri-trophy-line taptap-leaderboard-btn__icon" aria-hidden="true"></i>
+      </button>
     </div>
-    <TapTapEngagementButton
+    <button
       v-if="showMenuActions"
-      @open="openEngagementManual"
-    />
+      type="button"
+      class="taptap-engagement-btn"
+      aria-label="评价和反馈"
+      @click="openEngagementManual"
+    >
+      <i class="ri-edit-line taptap-engagement-btn__icon" aria-hidden="true"></i>
+    </button>
     <Teleport defer to="#game-view-portal-frame">
       <TapTapEngagementLayer
         :open="tapTapEngagementLayerOpen"
@@ -117,10 +129,8 @@ import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import TileLetterShowcase from "./TileLetterShowcase.vue";
 import TapTapLoginButton from "./TapTapLoginButton.vue";
 import TapTapPromoIcon from "./TapTapPromoIcon.vue";
-import TapTapEngagementButton from "./TapTapEngagementButton.vue";
 import TapTapEngagementLayer from "./TapTapEngagementLayer.vue";
 import PlayerProfileChip from "./PlayerProfileChip.vue";
-import TapTapLeaderboardButton from "./TapTapLeaderboardButton.vue";
 import TapTapLeaderboardWebHintLayer from "./TapTapLeaderboardWebHintLayer.vue";
 import { useTapTapAuth } from "../composables/useTapTapAuth.js";
 import { useWebLayoutMode } from "../composables/useWebLayoutMode.js";
@@ -526,5 +536,68 @@ const showcaseRows = [
   to {
     transform: rotate(360deg);
   }
+}
+
+.taptap-engagement-btn {
+  position: absolute;
+  top: var(--menu-padding, calc(56 * var(--rpx)));
+  right: var(--menu-padding, calc(56 * var(--rpx)));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(68 * var(--rpx));
+  height: calc(68 * var(--rpx));
+  padding: 0;
+  border: none;
+  border-radius: var(--radius);
+  background: #00d9c5;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  font-family: inherit;
+  transition: filter 0.12s ease;
+}
+
+.taptap-engagement-btn:hover {
+  filter: brightness(1.05);
+}
+
+.taptap-engagement-btn:active {
+  filter: brightness(0.94);
+}
+
+.taptap-engagement-btn__icon {
+  font-size: calc(32 * var(--rpx));
+  color: #f9f6f2;
+}
+
+.taptap-leaderboard-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(68 * var(--rpx));
+  height: calc(68 * var(--rpx));
+  padding: 0;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--card-bright);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  font-family: inherit;
+  transition: filter 0.12s ease;
+}
+
+.taptap-leaderboard-btn:hover {
+  filter: brightness(1.04);
+}
+
+.taptap-leaderboard-btn:active {
+  filter: brightness(0.96);
+}
+
+.taptap-leaderboard-btn__icon {
+  font-size: calc(32 * var(--rpx));
+  color: #c9a227;
 }
 </style>

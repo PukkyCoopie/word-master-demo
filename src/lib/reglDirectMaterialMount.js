@@ -1,5 +1,5 @@
 import createREGL from "regl";
-import { isGamePaused } from "../game/gamePause.js";
+import { shouldFreezeMaterialHubTicks } from "../game/gamePause.js";
 import { isMaterialBenchEnabled } from "../dev/materialBenchGate.js";
 import { materialHubSubscribeTick, materialHubUnsubscribeTick } from "./reglMaterialTicker.js";
 import { MATERIAL_SHADER_MODULES } from "./reglMaterials/index.js";
@@ -56,11 +56,12 @@ function drawDirectSubscriber(sub) {
   const viewport = { x: 0, y: 0, width: pw, height: ph };
   sub.regl.poll();
   sub.draw({ viewport });
+  sub._displayFrameReady = true;
 }
 
 function directMaterialTick() {
   if (document.hidden || directSubscribers.size === 0) return;
-  if (isGamePaused() && !isMaterialBenchEnabled()) return;
+  if (shouldFreezeMaterialHubTicks() && !isMaterialBenchEnabled()) return;
   for (const sub of directSubscribers) {
     if (!shouldDrawDirectSubscriber(sub)) continue;
     drawDirectSubscriber(sub);
@@ -93,7 +94,7 @@ function bindDirectViewport(sub) {
 
   if (typeof ResizeObserver !== "undefined") {
     const ro = new ResizeObserver(() => {
-      if (sub.animated !== false) drawDirectSubscriber(sub);
+      if (!sub._displayFrameReady || sub.animated !== false) drawDirectSubscriber(sub);
     });
     ro.observe(sub.canvas);
     cleanups.push(() => ro.disconnect());
@@ -102,6 +103,14 @@ function bindDirectViewport(sub) {
   sub.disposeBindings = () => {
     for (const fn of cleanups) fn();
   };
+}
+
+export function repaintUnpaintedDirectMaterialCanvasesIn(root) {
+  if (!(root instanceof HTMLElement)) return;
+  for (const sub of directSubscribers) {
+    if (sub._displayFrameReady || !root.contains(sub.canvas)) continue;
+    drawDirectSubscriber(sub);
+  }
 }
 
 /**
@@ -132,6 +141,7 @@ export function attachDirectMaterialRegl(materialId, canvas, options = {}) {
     fixedCssHeight: options.fixedCssHeight,
     animated: options.animated !== false,
     viewportVisible: true,
+    _displayFrameReady: false,
     disposeBindings: () => {},
   };
 
@@ -174,6 +184,34 @@ export function setDirectMaterialReglAnimated(materialId, canvas, animated) {
     return true;
   }
   return false;
+}
+
+/** 离屏单上下文预编译全部材质 shader 并各绘 1 帧。 */
+export function warmupDirectMaterialShaders() {
+  const texPx = reglOffscreenTexPx();
+  const canvas = document.createElement("canvas");
+  canvas.width = texPx;
+  canvas.height = texPx;
+  const regl = createREGL({
+    canvas,
+    attributes: {
+      alpha: false,
+      antialias: false,
+      preserveDrawingBuffer: false,
+    },
+  });
+  const viewport = { x: 0, y: 0, width: texPx, height: texPx };
+  for (const mod of MATERIAL_SHADER_MODULES) {
+    const draw = mod.createDraw(regl);
+    regl.poll();
+    draw({ viewport });
+  }
+  forceLoseWebglContext(regl, canvas);
+  try {
+    regl.destroy();
+  } catch {
+    // no-op
+  }
 }
 
 if (import.meta.hot) {

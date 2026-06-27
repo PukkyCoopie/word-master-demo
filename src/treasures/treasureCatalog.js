@@ -3,7 +3,11 @@
  *
  * `collectionOrder`（可选）：收藏页同稀有度、同解锁条件组内的排序；数值越小越靠前。
  * 未指定时按 `treasureId` 排在所有已指定项之后。建议用 0、10、20… 留空隙便于日后插入。
+ *
+ * `introducedVersion`（可选）：宝藏首次加入游戏的版本；未指定时视为 {@link DEFAULT_TREASURE_INTRODUCED_VERSION}。
  */
+export const DEFAULT_TREASURE_INTRODUCED_VERSION = "1.0.0";
+
 export const TREASURE_CATALOG = [
   { treasureId: "1", name: "火花", emoji: "✨", scriptPath: "./items/treasure_1.js", implemented: true },
   { treasureId: "2", name: "铅笔", emoji: "✏️", scriptPath: "./items/treasure_2.js", implemented: true },
@@ -49,7 +53,7 @@ export const TREASURE_CATALOG = [
   { treasureId: "42", name: "红绿灯", emoji: "🚦", scriptPath: "./items/treasure_42.js", implemented: true },
   { treasureId: "43", name: "灯泡", emoji: "💡", scriptPath: "./items/treasure_43.js", implemented: true },
   { treasureId: "44", name: "笔记本", emoji: "📔", scriptPath: "./items/treasure_44.js", implemented: true },
-  { treasureId: "45", name: "打字机", emoji: "🖨️", scriptPath: "./items/treasure_45.js", implemented: true },
+  { treasureId: "45", name: "彗星", emoji: "☄️", scriptPath: "./items/treasure_45.js", implemented: true },
   { treasureId: "46", name: "证件", emoji: "🪪", scriptPath: "./items/treasure_46.js", implemented: true },
   { treasureId: "47", name: "鱼竿", emoji: "🎣", scriptPath: "./items/treasure_47.js", implemented: true },
   { treasureId: "48", name: "匕首", emoji: "🗡️", scriptPath: "./items/treasure_48.js", implemented: true },
@@ -58,7 +62,7 @@ export const TREASURE_CATALOG = [
   { treasureId: "51", name: "卷轴", emoji: "📜", scriptPath: "./items/treasure_51.js", implemented: true },
   { treasureId: "52", name: "盆栽", emoji: "🪴", scriptPath: "./items/treasure_52.js", implemented: true },
   { treasureId: "53", name: "自行车", emoji: "🚲", scriptPath: "./items/treasure_53.js", implemented: true },
-  { treasureId: "54", name: "电池", emoji: "🔋", scriptPath: "./items/treasure_54.js", implemented: true },
+  { treasureId: "54", name: "火山", emoji: "🌋", scriptPath: "./items/treasure_54.js", implemented: true, introducedVersion: "1.2.0" },
   { treasureId: "55", name: "四叶草", emoji: "🍀", scriptPath: "./items/treasure_55.js", implemented: true },
   { treasureId: "56", name: "闪电", emoji: "⚡", scriptPath: "./items/treasure_56.js", implemented: true },
   { treasureId: "57", name: "钱袋", emoji: "💰", scriptPath: "./items/treasure_57.js", implemented: true },
@@ -130,11 +134,47 @@ export const TREASURE_CATALOG = [
     scriptPath: "./items/treasure_119.js",
     implemented: true,
     collectionOrder: 0,
+    introducedVersion: "1.0.1",
   },
-  { treasureId: "120", name: "手枪", emoji: "🔫", scriptPath: "./items/treasure_120.js", implemented: true },
+  {
+    treasureId: "120",
+    name: "手枪",
+    emoji: "🔫",
+    scriptPath: "./items/treasure_120.js",
+    implemented: true,
+    introducedVersion: "1.1.0",
+  },
+  { treasureId: "121", name: "红包", emoji: "🧧", scriptPath: "./items/treasure_121.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "122", name: "梯子", emoji: "🪜", scriptPath: "./items/treasure_122.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "123", name: "水桶", emoji: "🪣", scriptPath: "./items/treasure_123.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "124", name: "账本", emoji: "📒", scriptPath: "./items/treasure_124.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "125", name: "茶壶", emoji: "🫖", scriptPath: "./items/treasure_125.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "126", name: "灯笼", emoji: "🏮", scriptPath: "./items/treasure_126.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "127", name: "螺栓", emoji: "🔩", scriptPath: "./items/treasure_127.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "128", name: "老虎机", emoji: "🎰", scriptPath: "./items/treasure_128.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "129", name: "烟花", emoji: "🎆", scriptPath: "./items/treasure_129.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "130", name: "奖牌", emoji: "🏅", scriptPath: "./items/treasure_130.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "131", name: "橙子", emoji: "🍊", scriptPath: "./items/treasure_131.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "132", name: "猪", emoji: "🐷", scriptPath: "./items/treasure_132.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "133", name: "购物车", emoji: "🛒", scriptPath: "./items/treasure_133.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "134", name: "电视机", emoji: "📺", scriptPath: "./items/treasure_134.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "135", name: "行李箱", emoji: "🧳", scriptPath: "./items/treasure_135.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "136", name: "钥匙", emoji: "🗝️", scriptPath: "./items/treasure_136.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "137", name: "电池", emoji: "🔋", scriptPath: "./items/treasure_137.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "138", name: "奖杯", emoji: "🏆", scriptPath: "./items/treasure_138.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "139", name: "传真机", emoji: "📠", scriptPath: "./items/treasure_139.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "140", name: "报纸", emoji: "🗞️", scriptPath: "./items/treasure_140.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "141", name: "购物袋", emoji: "🛍️", scriptPath: "./items/treasure_141.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "142", name: "流星", emoji: "🌠", scriptPath: "./items/treasure_142.js", implemented: true, introducedVersion: "1.2.0" },
 ];
 
 export const TREASURE_CATALOG_BY_ID = new Map(TREASURE_CATALOG.map((t) => [t.treasureId, t]));
+
+/** @param {string | null | undefined} treasureId */
+export function resolveTreasureIntroducedVersion(treasureId) {
+  const entry = TREASURE_CATALOG_BY_ID.get(String(treasureId ?? "").trim());
+  return entry?.introducedVersion ?? DEFAULT_TREASURE_INTRODUCED_VERSION;
+}
 export const IMPLEMENTED_TREASURE_ID_SET = new Set(
   TREASURE_CATALOG.filter((t) => t.implemented).map((t) => t.treasureId),
 );

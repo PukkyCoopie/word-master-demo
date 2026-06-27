@@ -191,6 +191,8 @@ import {
 } from "./privacy/privacyConsent.js";
 import IrisTransition from "./components/IrisTransition.vue";
 import {
+  enterOverlayMaterialTick,
+  exitOverlayMaterialTick,
   resumeGamePauseGsapFreeze,
   suspendGamePauseGsapFreeze,
 } from "./game/gamePause.js";
@@ -199,8 +201,6 @@ import { resetTapTapAchievementBootstrap } from "./achievements/achievementTapTa
 import { isMaterialBenchEnabled } from "./dev/materialBenchGate.js";
 import { registerDevConsole } from "./dev/registerDevConsole.js";
 import MaterialPerfBench from "./dev/MaterialPerfBench.vue";
-import { isE2eMode } from "./e2e/isE2eMode.js";
-import { registerAppTestHarness } from "./e2e/registerAppTestHarness.js";
 import TapTapPromoIcon from "./components/TapTapPromoIcon.vue";
 import TapTapPosterLayer from "./components/TapTapPosterLayer.vue";
 import { isTapTapWebPromoEnabled } from "./taptap/tapTapWebPromo.js";
@@ -273,6 +273,7 @@ import {
   applyFreshUnlockCareerDefaults,
   collectFreshUnlocksFromWin,
 } from "./game/runStartFreshUnlock.js";
+import { applyRunDiscoveryLogToCareer, reconcileCollectionDiscoveriesToCareer } from "./game/runCollectionDiscoveries.js";
 import { createEmptySlotCareerStats, SAVE_SLOT_COUNT } from "./save/runSaveSchema.js";
 import { ACHIEVEMENT_DEFINITIONS, getAchievementDef } from "./achievements/achievementDefinitions.js";
 import { createAchievementToastQueue } from "./achievements/achievementToastQueue.js";
@@ -330,8 +331,13 @@ const gameSessionKey = ref(0);
 const showRunStartDialog = ref(false);
 
 watch(showRunStartDialog, (open) => {
-  if (open) suspendGamePauseGsapFreeze();
-  else resumeGamePauseGsapFreeze();
+  if (open) {
+    suspendGamePauseGsapFreeze();
+    enterOverlayMaterialTick();
+  } else {
+    exitOverlayMaterialTick();
+    resumeGamePauseGsapFreeze();
+  }
 });
 const showSettings = ref(false);
 const showAbout = ref(false);
@@ -464,15 +470,15 @@ provide("patchActiveSlotCareer", (mutator) => {
   persistCollectionCareer(sessionSaveSlotIndex.value, mutator);
 });
 
-provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyIndex }) => {
+provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyIndex, runDiscoveryLog }) => {
   const ix = sessionSaveSlotIndex.value;
-  if (!getSaveEnvelope().slots[ix]) return;
-
-  const careerBefore = normalizeSlotCareerStats(getSlotCareer(ix));
+  const careerBefore = normalizeSlotCareerStats(getSlotCareer(ix) ?? createEmptySlotCareerStats());
+  const hadDiscoveryLog = Array.isArray(runDiscoveryLog?.entries) && runDiscoveryLog.entries.length > 0;
   /** @type {ReturnType<typeof collectFreshUnlocksFromWin> | null} */
   let freshUnlocks = null;
 
   mutateSlotCareer(ix, (career) => {
+    if (hadDiscoveryLog) applyRunDiscoveryLogToCareer(career, runDiscoveryLog);
     mergeRunMatchStatsIntoCareer(career, stats, outcome);
     if (shouldMarkTapTapEngagementAutoPending(career, outcome, runDifficultyIndex)) {
       markTapTapEngagementAutoPending(career);
@@ -505,6 +511,7 @@ provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyInde
   }
   flushSaveStorageSync();
   bumpSaveUi();
+  if (hadDiscoveryLog) bumpCollectionUi();
 });
 
 function openSettings() {
@@ -570,7 +577,10 @@ async function openCollection() {
   irisTransitionColor.value = COLLECTION_IRIS_COLOR;
   await irisFxRef.value?.play({
     onCovered: () => {
-      reconcileCareerAchievementsForCollection(getActiveSaveSlotIndex());
+      const slotIndex = getActiveSaveSlotIndex();
+      reconcileCollectionDiscoveriesForSlot(slotIndex);
+      reconcileCareerAchievementsForCollection(slotIndex);
+      collectionRefreshKey.value += 1;
       screen.value = "collection";
     },
   });
@@ -698,6 +708,19 @@ function reconcileCareerAchievementsForCollection(slotIndex) {
   }
 }
 
+/** 打开收藏 / 退菜单：把 payload 内本局发现 log 补写入生涯（幂等）。 */
+function reconcileCollectionDiscoveriesForSlot(slotIndex) {
+  const payload = getSlotPayload(slotIndex);
+  let changed = false;
+  mutateSlotCareer(slotIndex, (career) => {
+    if (reconcileCollectionDiscoveriesToCareer(career, payload)) changed = true;
+  });
+  if (changed) {
+    flushSaveStorageSync();
+    bumpCollectionUi();
+  }
+}
+
 /** @param {string} achievementId */
 function applyDeveloperAchievementCheatFromApp(achievementId) {
   if (!developerModeEnabled.value) return;
@@ -756,6 +779,7 @@ function persistCollectionCareer(slotIndex, mutator) {
     normalizeSlotCareerStats(getSlotCareer(slotIndex) ?? createEmptySlotCareerStats()),
   );
   if (before !== after) {
+    flushSaveStorageSync();
     bumpCollectionUi();
   }
 }
@@ -811,6 +835,7 @@ async function startLoadSlot(index) {
 
 async function startNewRunAtSlot(index, seedNumeric, seedDisplay, resetProfile = false) {
   recordRunStartedForSlot(index);
+  clearInProgressRunProgressIfAny(index);
   enableSessionFirstWordTutorialForSlot(index);
   sessionRestoredSave.value = null;
   sessionSaveSlotIndex.value = index;
@@ -854,6 +879,7 @@ const showGame = computed(() => appShellUnlocked.value && screen.value === "game
 
 const gamePanelFirstWordTutorial = computed(() => {
   if (sessionFirstWordTutorialSuppressed.value) return false;
+  if (sessionRunDifficultyIndex.value !== 0) return false;
   return shouldStartNewRunAtSlot(sessionSaveSlotIndex.value);
 });
 
@@ -921,7 +947,6 @@ const dictBarPct = computed(() => {
 });
 
 let appAlive = true;
-let disposeAppE2eHarness = null;
 let disposeDevConsole = null;
 let disposeMaterialBenchShortcut = null;
 let profileInitDone = false;
@@ -932,7 +957,7 @@ function openMaterialBench() {
 
 async function maybeInitProfile() {
   if (profileInitDone || !appBootReady.value) return;
-  if (tapTapPhase.value !== "ready" && !isE2eMode()) return;
+  if (tapTapPhase.value !== "ready") return;
   profileInitDone = true;
   if (!playerProfile.initialized) {
     await initializeProfileFromTapTap(account.value);
@@ -944,7 +969,7 @@ watch([appBootReady, tapTapPhase], () => {
 });
 
 watch(tapTapPhase, (phase) => {
-  if (isE2eMode() || !Capacitor.isNativePlatform()) return;
+  if (!Capacitor.isNativePlatform()) return;
   if (!TAP_TAP_AUTH_MENU_ONLY_PHASES.has(phase)) return;
   if (screen.value !== "game" && screen.value !== "collection") return;
   showRunStartDialog.value = false;
@@ -1006,20 +1031,6 @@ onMounted(() => {
       }
     };
   }
-  if (isE2eMode()) {
-    disposeAppE2eHarness = registerAppTestHarness({
-      screen,
-      gameSessionKey,
-      sessionRunSeed,
-      sessionRunSeedDisplay,
-      dictionaryReady,
-      remixIconReady,
-      bootImagesReady,
-      loadDictionary: () => loadDictionary({ shouldAbort: () => !appAlive }),
-      loadRemixIconFont: () => loadRemixIconFont({ shouldAbort: () => !appAlive }),
-      loadBootImages: () => loadBootImages({ shouldAbort: () => !appAlive }),
-    });
-  }
 });
 
 onBeforeUnmount(() => {
@@ -1027,8 +1038,6 @@ onBeforeUnmount(() => {
   disposeDevConsole = null;
   disposeMaterialBenchShortcut?.();
   disposeMaterialBenchShortcut = null;
-  disposeAppE2eHarness?.();
-  disposeAppE2eHarness = null;
   setCloudSaveAppliedCallback(() => {});
   void disposeAppLifecycle();
   delete globalThis.__WM_previewAchievementToast;
@@ -1113,7 +1122,10 @@ async function startDirectNewRun(slotIx, mode = "menu") {
   sessionRunPresetId.value = presetId;
   sessionRunDifficultyIndex.value = difficultyIndex;
 
-  if (mode === "menu" && shouldStartNewRunAtSlot(slotIx)) {
+  const tutorialFreshRun =
+    mode === "menu" && difficultyIndex === 0 && shouldStartNewRunAtSlot(slotIx);
+
+  if (tutorialFreshRun) {
     const resetProfile = !isSlotProfileActivated(slotIx);
     await startNewRunAtSlot(slotIx, seedNumeric, seedDisplay, resetProfile);
     return;
@@ -1255,7 +1267,15 @@ async function onRunStartConfirm(payload) {
   sessionRunPresetId.value = presetId;
   sessionRunDifficultyIndex.value = difficultyIndex;
 
-  if (runStartMode.value === "menu" && shouldStartNewRunAtSlot(slotIx)) {
+  clearInProgressRunProgressIfAny(slotIx);
+  sessionRestoredSave.value = null;
+
+  const tutorialFreshRun =
+    runStartMode.value === "menu"
+    && difficultyIndex === 0
+    && shouldStartNewRunAtSlot(slotIx);
+
+  if (tutorialFreshRun) {
     const resetProfile = !isSlotProfileActivated(slotIx);
     await startNewRunAtSlot(slotIx, seedNumeric, seedDisplay, resetProfile);
     runStartMode.value = "menu";
@@ -1263,10 +1283,8 @@ async function onRunStartConfirm(payload) {
   }
 
   recordRunStartedForSlot(slotIx);
-  clearInProgressRunProgressIfAny(slotIx);
   disableSessionFirstWordTutorial();
 
-  sessionRestoredSave.value = null;
   sessionRunSeed.value = seedNumeric;
   sessionRunSeedDisplay.value = seedDisplay;
   sessionSaveSlotIndex.value = slotIx;
@@ -1293,6 +1311,7 @@ async function onGameExitToMenu() {
   sessionRestoredSave.value = null;
   transitionBusy.value = true;
   const slotIx = sessionSaveSlotIndex.value;
+  reconcileCollectionDiscoveriesForSlot(slotIx);
   await irisFxRef.value?.play({
     onCovered: () => {
       screen.value = "menu";

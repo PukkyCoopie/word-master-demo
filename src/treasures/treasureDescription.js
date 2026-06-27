@@ -40,7 +40,7 @@ import { parseProbabilityFraction } from "./treasureProbability.js";
 /**
  * @typedef {Object} TreasureDescProb
  * @property {'prob'} type
- * @property {string} v  如 "1/6"；展示时可按打字机翻倍
+ * @property {string} v  如 "1/6"；展示时可按彗星翻倍
  */
 
 /**
@@ -159,7 +159,7 @@ export function prob(v) {
 }
 
 /**
- * 简介展示：数据里 `prob("1/3")` 始终为基础概率；已拥有打字机（45）时 chip 显示翻倍（如 2/3）。
+ * 简介展示：数据里 `prob("1/3")` 始终为基础概率；已拥有彗星（45）时 chip 显示翻倍（如 2/3）。
  * @param {TreasureDescSegment[]} segments
  * @param {{ probabilityDisplayDoubled?: boolean }} [opts]
  */
@@ -478,6 +478,69 @@ export function expandEffectTokensInDescription(segments) {
     }
   }
   return out;
+}
+
+/** 纯文案中须着色的稀有度标签（勿匹配「稀有度」等抽象用语） */
+const RARITY_LABEL_IN_PLAIN_TEXT_RE = /(普通|稀有|史诗|传说)(?=和|或|视为|字母|级|宝藏|稀有度)/g;
+
+/**
+ * 将 text 段内的稀有度中文拆为 `rarity` 片段（与手写 `rarity()` 渲染一致）。
+ * @param {string} str
+ * @returns {TreasureDescSegment[]}
+ */
+export function expandRarityLabelsInPlainText(str) {
+  const s = String(str ?? "");
+  if (!s.length) return [];
+  /** @type {TreasureDescSegment[]} */
+  const out = [];
+  let last = 0;
+  const re = new RegExp(RARITY_LABEL_IN_PLAIN_TEXT_RE.source, "g");
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    const before = s.slice(last, m.index);
+    if (before.length) out.push({ type: "text", v: before });
+    out.push({ type: "rarity", v: /** @type {TreasureRarityLabel} */ (m[1]) });
+    last = m.index + m[1].length;
+  }
+  if (last < s.length) out.push({ type: "text", v: s.slice(last) });
+  return out.length ? out : [{ type: "text", v: s }];
+}
+
+/**
+ * @param {TreasureDescSegment[]} segments
+ * @returns {TreasureDescSegment[]}
+ */
+function mergeAdjacentTextSegments(segments) {
+  /** @type {TreasureDescSegment[]} */
+  const merged = [];
+  for (const seg of segments) {
+    const last = merged[merged.length - 1];
+    if (seg.type === "text" && last?.type === "text") last.v += seg.v;
+    else merged.push(seg);
+  }
+  return merged;
+}
+
+/**
+ * 宝藏/详情简介：将 text 内嵌的稀有度用语着色（补全未写 `rarity()` 的文案）。
+ * @param {TreasureDescSegment[]} segments
+ * @returns {TreasureDescSegment[]}
+ */
+export function expandRarityLabelsInDescription(segments) {
+  /** @type {TreasureDescSegment[]} */
+  const out = [];
+  for (const seg of segments) {
+    if (seg.type === "text") {
+      out.push(...expandRarityLabelsInPlainText(seg.v));
+    } else if (seg.type === "gainBlock") {
+      out.push({ type: "gainBlock", parts: expandRarityLabelsInDescription(seg.parts) });
+    } else if (seg.type === "riskBlock") {
+      out.push({ type: "riskBlock", parts: expandRarityLabelsInDescription(seg.parts) });
+    } else {
+      out.push(seg);
+    }
+  }
+  return mergeAdjacentTextSegments(out);
 }
 
 /**

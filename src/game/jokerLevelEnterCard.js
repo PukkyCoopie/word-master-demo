@@ -1,4 +1,5 @@
 import { RARITY_BY_LETTER } from "../composables/useScoring.js";
+import { pickWeightedLetterRaw } from "../shop/tilePackLetterRoll.js";
 import { TILE_ACCESSORY_COIN, TILE_ACCESSORY_LEVEL_UPGRADE, TILE_ACCESSORY_REWIND } from "./tileAccessories.js";
 
 const ENHANCEMENT_POOL = Object.freeze([
@@ -17,7 +18,7 @@ const ENHANCEMENT_POOL = Object.freeze([
 export function rollJokerLevelEnterDeckCardSpec(rng = Math.random) {
   const rnd = typeof rng === "function" ? rng : Math.random;
   const pool = [...RARITY_BY_LETTER.common, ...RARITY_BY_LETTER.rare];
-  const raw = pool[Math.floor(rnd() * pool.length)] ?? "e";
+  const raw = pickWeightedLetterRaw(rnd, pool);
   const pick = ENHANCEMENT_POOL[Math.floor(rnd() * ENHANCEMENT_POOL.length)];
   if (pick.kind === "accessory") {
     return { raw, accessoryId: pick.id };

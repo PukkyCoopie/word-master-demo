@@ -4,6 +4,9 @@
  * @property {number} interestEarnedTotal
  * @property {number} moneySpentTotal
  * @property {number} discardUsesCount
+ * @property {boolean} safeBombBlastOccurred
+ * @property {boolean} volcanoEruptionOccurred
+ * @property {number} luckyTriggersTotal
  */
 
 /** @returns {AchievementRunState} */
@@ -13,6 +16,9 @@ export function createAchievementRunState() {
     interestEarnedTotal: 0,
     moneySpentTotal: 0,
     discardUsesCount: 0,
+    safeBombBlastOccurred: false,
+    volcanoEruptionOccurred: false,
+    luckyTriggersTotal: 0,
   };
 }
 
@@ -57,6 +63,22 @@ export function recordAchievementRunDiscardUse(state) {
   state.discardUsesCount += 1;
 }
 
+/** @param {AchievementRunState} state */
+export function recordAchievementRunSafeBombBlast(state) {
+  state.safeBombBlastOccurred = true;
+}
+
+/** @param {AchievementRunState} state */
+export function recordAchievementRunVolcanoEruption(state) {
+  state.volcanoEruptionOccurred = true;
+}
+
+/** @param {AchievementRunState} state @param {number} count */
+export function recordAchievementRunLuckyTriggers(state, count) {
+  const n = Math.max(0, Math.floor(Number(count) || 0));
+  if (n > 0) state.luckyTriggersTotal += n;
+}
+
 /**
  * @param {unknown} raw
  * @returns {AchievementRunState}
@@ -73,6 +95,9 @@ export function deserializeAchievementRunState(raw) {
   base.interestEarnedTotal = Math.max(0, Math.floor(Number(o.interestEarnedTotal) || 0));
   base.moneySpentTotal = Math.max(0, Math.floor(Number(o.moneySpentTotal) || 0));
   base.discardUsesCount = Math.max(0, Math.floor(Number(o.discardUsesCount) || 0));
+  base.safeBombBlastOccurred = o.safeBombBlastOccurred === true;
+  base.volcanoEruptionOccurred = o.volcanoEruptionOccurred === true;
+  base.luckyTriggersTotal = Math.max(0, Math.floor(Number(o.luckyTriggersTotal) || 0));
   return base;
 }
 
@@ -83,5 +108,8 @@ export function serializeAchievementRunState(state) {
     interestEarnedTotal: state.interestEarnedTotal,
     moneySpentTotal: state.moneySpentTotal,
     discardUsesCount: state.discardUsesCount,
+    safeBombBlastOccurred: state.safeBombBlastOccurred,
+    volcanoEruptionOccurred: state.volcanoEruptionOccurred,
+    luckyTriggersTotal: state.luckyTriggersTotal,
   };
 }

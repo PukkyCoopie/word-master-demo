@@ -17,6 +17,18 @@ import {
   PLAYER_PROFILE_STORAGE_KEY,
 } from "./cloudSaveConstants.js";
 import { loadCloudSaveMeta } from "./cloudSaveMeta.js";
+import { localSaveHasNoRunProgress } from "../localSaveRunProgress.js";
+
+/**
+ * 是否应对当前 unionId 展示「本地存档不属于当前账号」提示。
+ * 无实质局内进度的新档/空壳档（含教程自动开局写入的空白局）视为可认领，不弹窗。
+ * @param {string} unionId
+ * @returns {boolean}
+ */
+export function shouldPromptForeignLocalSave(unionId) {
+  if (localSaveBelongsToAccount(unionId)) return false;
+  return !localSaveHasNoRunProgress();
+}
 
 /** @param {string} key */
 function readLocalStorageJson(key) {

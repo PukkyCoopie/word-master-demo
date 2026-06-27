@@ -50,53 +50,59 @@ const titleId = "settings-help-dialog-title";
 const textId = "settings-help-dialog-text";
 
 /** 与 SettingsControlDemo 单段循环时长大致对齐 */
-const MARK_ON_SWAP_PHASE_MS = 5200;
+const DUAL_PHASE_MS = 5200;
 
 /** @type {import('vue').Ref<number>} */
-const markOnSwapPhase = ref(0);
+const helpPhase = ref(0);
 /** @type {ReturnType<typeof setInterval> | null} */
-let markOnSwapTimer = null;
+let helpPhaseTimer = null;
 
-const isMarkOnSwap = computed(() => props.demoVariant === "markOnSwap");
+/** 标记按钮说明：角标 / 快速选入拼词 两段动画交替 */
+const isMarkDualPhase = computed(() => props.demoVariant === "mark");
 
 const activeDemoVariant = computed(() => {
   if (!props.demoVariant) return "";
-  if (!isMarkOnSwap.value) return props.demoVariant;
-  return markOnSwapPhase.value === 0 ? "markOnSwapSwap" : "markOnSwapMark";
+  if (isMarkDualPhase.value) {
+    return helpPhase.value === 0 ? "mark" : "markOnSwapMark";
+  }
+  if (props.demoVariant === "markOnSwap") {
+    return "markOnSwapSwap";
+  }
+  return props.demoVariant;
 });
 
 /** @param {number} idx */
 function isParagraphDimmed(idx) {
-  if (!isMarkOnSwap.value || props.paragraphs.length < 2) return false;
-  return idx !== markOnSwapPhase.value;
+  if (!isMarkDualPhase.value || props.paragraphs.length < 2) return false;
+  return idx !== helpPhase.value;
 }
 
-function stopMarkOnSwapCycle() {
-  if (markOnSwapTimer != null) {
-    clearInterval(markOnSwapTimer);
-    markOnSwapTimer = null;
+function stopHelpPhaseCycle() {
+  if (helpPhaseTimer != null) {
+    clearInterval(helpPhaseTimer);
+    helpPhaseTimer = null;
   }
 }
 
-function startMarkOnSwapCycle() {
-  stopMarkOnSwapCycle();
-  markOnSwapPhase.value = 0;
-  markOnSwapTimer = setInterval(() => {
-    markOnSwapPhase.value = (markOnSwapPhase.value + 1) % 2;
-  }, MARK_ON_SWAP_PHASE_MS);
+function startHelpPhaseCycle() {
+  stopHelpPhaseCycle();
+  helpPhase.value = 0;
+  helpPhaseTimer = setInterval(() => {
+    helpPhase.value = (helpPhase.value + 1) % 2;
+  }, DUAL_PHASE_MS);
 }
 
 watch(
-  () => props.open && isMarkOnSwap.value,
+  () => props.open && isMarkDualPhase.value,
   (active) => {
-    if (active) startMarkOnSwapCycle();
-    else stopMarkOnSwapCycle();
+    if (active) startHelpPhaseCycle();
+    else stopHelpPhaseCycle();
   },
   { immediate: true },
 );
 
 onUnmounted(() => {
-  stopMarkOnSwapCycle();
+  stopHelpPhaseCycle();
 });
 </script>
 

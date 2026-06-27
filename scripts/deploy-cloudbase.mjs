@@ -52,7 +52,8 @@ function tcbArgs(subcommandArgs) {
   if (existsSync(localBin)) {
     return { cmd: localBin, args: subcommandArgs };
   }
-  return { cmd: "npx", args: ["@cloudbase/cli", ...subcommandArgs] };
+  // @cloudbase/cli 含 tcb / cloudbase 等多个 bin，须显式指定 tcb
+  return { cmd: "npx", args: ["-p", "@cloudbase/cli", "tcb", ...subcommandArgs] };
 }
 
 function main() {

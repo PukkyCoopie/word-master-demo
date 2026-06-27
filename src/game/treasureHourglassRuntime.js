@@ -1,5 +1,10 @@
 import { ACCESSORY_HOURGLASS, ACCESSORY_RENTAL } from "../accessories/accessoryCatalog.js";
 import { readTreasureAccessoryIds, treasureHasAccessory } from "../accessories/accessoryState.js";
+import {
+  HOURGLASS_STAGE_END_BUBBLE_HOLD_MS,
+  SCORING_BUBBLE_POP_DELAY_MS,
+} from "./scoreBubbleFx.js";
+import { scoringSleep } from "./submitScoringTiming.js";
 
 export const HOURGLASS_EXPIRE_STAGES = 5;
 
@@ -67,4 +72,69 @@ export function getTreasureAccessoryExpiredSlotIndices(ownedSlots) {
     if (ownedSlots[i]?.treasureAccessoryExpired === true) out.push(i);
   }
   return out;
+}
+
+/**
+ * 小关结束：沙漏配饰 tick / 失效气泡 FX。
+ * @param {{
+ *   getOwnedTreasures: () => (Record<string, unknown> | null)[],
+ *   setOwnedTreasures: (slots: (Record<string, unknown> | null)[]) => void,
+ *   wobbleGameTreasureSlot: (slotIndex: number) => Promise<void>,
+ *   getOwnedTreasureBarFxEl: (slotIndex: number) => HTMLElement | null | undefined,
+ *   showScoreBubble: (el: HTMLElement, label: string, kind: string, speed?: number) => HTMLElement | null,
+ *   scheduleSmallPlusBubbleOutro: (bubble: HTMLElement | null | undefined, speed?: number) => void,
+ *   scheduleRunAutoSave: () => void,
+ * }} deps
+ */
+export function createTreasureHourglassStageFx(deps) {
+  /** @param {number} slotIndex @param {number} elapsedStages */
+  async function playTreasureSlotHourglassBubbleAtPeak(slotIndex, elapsedStages) {
+    const el = deps.getOwnedTreasureBarFxEl(slotIndex);
+    if (!el || slotIndex < 0) return;
+    const sp = 1;
+    const count = Math.max(1, Math.floor(Number(elapsedStages) || 0));
+    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+    const bubble = deps.showScoreBubble(el, `${count}/${HOURGLASS_EXPIRE_STAGES}`, "hourglass", sp);
+    deps.scheduleSmallPlusBubbleOutro(bubble, sp);
+    await scoringSleep(HOURGLASS_STAGE_END_BUBBLE_HOLD_MS, sp);
+  }
+
+  /** @param {number} slotIndex */
+  async function playTreasureSlotExpiredBubbleAtPeak(slotIndex) {
+    const el = deps.getOwnedTreasureBarFxEl(slotIndex);
+    if (!el || slotIndex < 0) return;
+    const sp = 1;
+    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+    const bubble = deps.showScoreBubble(el, "已失效", "accessory-expired", sp);
+    deps.scheduleSmallPlusBubbleOutro(bubble, sp);
+    await scoringSleep(HOURGLASS_STAGE_END_BUBBLE_HOLD_MS, sp);
+  }
+
+  async function runHourglassStageEndFx() {
+    const slots = deps.getOwnedTreasures();
+    let changed = false;
+    for (let i = 0; i < slots.length; i += 1) {
+      const slot = slots[i];
+      if (!slot || typeof slot !== "object") continue;
+      const result = incrementHourglassOnSlot(/** @type {Record<string, unknown>} */ (slot));
+      if (result.kind === "none") continue;
+      changed = true;
+      await deps.wobbleGameTreasureSlot(i);
+      if (result.kind === "tick") {
+        await playTreasureSlotHourglassBubbleAtPeak(i, result.count);
+      } else if (result.kind === "expired") {
+        await playTreasureSlotExpiredBubbleAtPeak(i);
+      }
+    }
+    if (changed) {
+      deps.setOwnedTreasures([...slots]);
+      deps.scheduleRunAutoSave();
+    }
+  }
+
+  return {
+    runHourglassStageEndFx,
+    playTreasureSlotHourglassBubbleAtPeak,
+    playTreasureSlotExpiredBubbleAtPeak,
+  };
 }

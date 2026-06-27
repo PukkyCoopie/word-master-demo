@@ -2,21 +2,49 @@
   <button
     type="button"
     class="settings-help-btn"
-    :class="{ 'settings-help-btn--active': active }"
+    :class="{ 'settings-help-btn--active': dialogOpen }"
     :aria-label="ariaLabel"
-    @click.stop="$emit('click')"
+    @click.stop="openDialog"
   >
     <i class="ri-question-line" aria-hidden="true" />
   </button>
+  <Teleport to="body">
+    <SettingsHelpDialog
+      :open="dialogOpen"
+      :title="helpContent.title"
+      :paragraphs="helpContent.paragraphs"
+      :demo-variant="helpContent.demoVariant"
+      @close="closeDialog"
+    />
+  </Teleport>
 </template>
 
 <script setup>
-defineProps({
+import { computed, ref } from "vue";
+import { getSettingsHelpContent } from "../../settings/settingsHelpCopy.js";
+import SettingsHelpDialog from "./SettingsHelpDialog.vue";
+
+const props = defineProps({
+  /** @type {import('vue').PropType<import('../../settings/settingsHelpCopy.js').SettingsHelpId>} */
+  helpId: {
+    type: String,
+    required: true,
+    validator: (v) => ["mark", "swap", "markOnSwap", "highRisk", "confirmButtonSide"].includes(String(v)),
+  },
   ariaLabel: { type: String, default: "查看说明" },
-  active: { type: Boolean, default: false },
 });
 
-defineEmits(["click"]);
+const dialogOpen = ref(false);
+
+const helpContent = computed(() => getSettingsHelpContent(props.helpId));
+
+function openDialog() {
+  dialogOpen.value = true;
+}
+
+function closeDialog() {
+  dialogOpen.value = false;
+}
 </script>
 
 <style scoped>

@@ -154,7 +154,7 @@ const showMarkBtn = computed(
   () => props.variant === "mark" || props.variant === "markOnSwapMark",
 );
 
-/** 对调时标记：送入拼词阶段与实机一致，标记键右下角显示上箭头 */
+/** 标记键「快速选入拼词」演示：标记键右下角显示上箭头 */
 const showMarkSendArrow = computed(() => props.variant === "markOnSwapMark");
 const showSwapBtn = computed(
   () => props.variant === "swap" || props.variant === "markOnSwapSwap",

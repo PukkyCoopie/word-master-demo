@@ -207,9 +207,13 @@ function dictionaryFromDataDir() {
         stream.pipe(res);
       });
     },
-    closeBundle() {
+    writeBundle() {
       writeDictionaryToDist();
-      const shipMode = process.env.WM_DICT_SHIP === "web" ? "web" : "native";
+      const requestedShipMode = String(process.env.WM_DICT_SHIP || "both").toLowerCase();
+      const shipMode =
+        requestedShipMode === "web" || requestedShipMode === "native" || requestedShipMode === "both"
+          ? requestedShipMode
+          : "both";
       pruneDictionaryByShipTarget(shipMode);
       pruneDistShipArtifacts();
     },

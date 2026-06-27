@@ -1,3 +1,4 @@
+import { deckCardRaw } from "../game/deckCardSync.js";
 import { getLetterQMode } from "./gameSettings.js";
 
 /** @typedef {import('./gameSettings.js').LetterQMode} LetterQMode */
@@ -21,8 +22,51 @@ export function resolveLetterFromRaw(raw, mode = getLetterQMode()) {
   return r ? r.toUpperCase() : "";
 }
 
+/** @param {unknown} letter */
+export function isQFamilyDisplayLetter(letter) {
+  const lower = String(letter ?? "").toLowerCase();
+  return lower === "q" || lower === "qu";
+}
+
 /**
- * 已存储的 tile.letter → 当前设置下的展示字母（不影响拼词 raw）。
+ * Q/Qu 块：按当前设置解析 `tile.letter`（仅当格面为 Q/Qu 且牌张 raw 为 `q`）。
+ * @param {Record<string, unknown> | null | undefined} tile
+ * @param {LetterQMode} [mode]
+ * @returns {string | null}
+ */
+export function resolveQFamilyTileLetterForMode(tile, mode = getLetterQMode()) {
+  if (!tile?.letter || tile.isWildcard === true || String(tile.letter) === "?") return null;
+  if (!isQFamilyDisplayLetter(tile.letter)) return null;
+  const card = tile._deckCard;
+  if (card && typeof card === "object" && deckCardRaw(card) !== "q") return null;
+  return resolveLetterFromRaw("q", mode);
+}
+
+/**
+ * 局内切换 Q/Qu 时，将棋盘上所有 Q 族格子的 `tile.letter` 同步为当前模式。
+ * @param {Record<string, unknown>[][]} grid
+ * @param {number} rows
+ * @param {number} cols
+ * @param {LetterQMode} [mode]
+ * @returns {number} 更新的格子数
+ */
+export function applyLetterQModeToGrid(grid, rows, cols, mode = getLetterQMode()) {
+  let updated = 0;
+  for (let r = 0; r < rows; r += 1) {
+    for (let c = 0; c < cols; c += 1) {
+      const tile = grid[r]?.[c];
+      if (!tile?.letter) continue;
+      const next = resolveQFamilyTileLetterForMode(tile, mode);
+      if (next == null || tile.letter === next) continue;
+      tile.letter = next;
+      updated += 1;
+    }
+  }
+  return updated;
+}
+
+/**
+ * 已存储的 tile.letter → 当前设置下的展示字母（与 {@link applyLetterQModeToGrid} 同步后一致）。
  * @param {unknown} letter
  * @param {LetterQMode} [mode]
  * @returns {string}

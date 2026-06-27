@@ -1,6 +1,5 @@
 import { Capacitor } from "@capacitor/core";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { isE2eMode } from "../e2e/isE2eMode.js";
 import { hasPrivacyConsent } from "../privacy/privacyConsent.js";
 import { resetTapTapAchievementBootstrap } from "../achievements/achievementTapTapSync.js";
 import {
@@ -32,7 +31,7 @@ const BLOCK_MESSAGES = {
 };
 
 const isNative = Capacitor.isNativePlatform();
-const bypassAuth = !isNative || isE2eMode();
+const bypassAuth = !isNative;
 
 /** @returns {TapTapAuthPhase} */
 function resolveInitialAuthPhase() {

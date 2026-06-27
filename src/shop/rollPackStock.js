@@ -377,6 +377,7 @@ export function rollBundleOptionsForOffer(bundleOffer, ctx) {
   const honeMult = Math.max(0, Number(ctx.honeAccessoryMult) || 1);
   const treasurePickOpts = {
     onPrerequisiteTreasureShopAppeared: ctx.onPrerequisiteTreasureShopAppeared,
+    allowOwnedTreasuresInShop: ctx.allowOwnedTreasuresInShop === true,
   };
   const telescopeMost = hasTelescopeVoucher(ownedV)
     ? getMostPlayedWordLength(ctx.spellCountsByLength ?? null)

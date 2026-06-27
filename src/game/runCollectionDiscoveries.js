@@ -1,4 +1,12 @@
 import { ACCESSORY_CATALOG } from "../accessories/accessoryCatalog.js";
+import {
+  recordAccessoryDiscovered,
+  recordMaterialDiscovered,
+  recordSpellDiscovered,
+  recordTreasureDiscovered,
+  recordUpgradeDiscovered,
+  recordVoucherDiscovered,
+} from "../collection/collectionCareer.js";
 import { COLLECTION_UPGRADE_CATALOG } from "../collection/collectionUpgradeCatalog.js";
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
 import { getTreasureDef } from "../treasures/treasureRegistry.js";
@@ -70,9 +78,10 @@ export function sortRunDiscoveryEntries(entries) {
 /**
  * @param {RunDiscoveryLog} log
  * @param {{ treasureId?: string, spellId?: string, upgradeId?: string, voucherId?: string, materialId?: string, accessoryId?: string }} payload
+ * @returns {boolean} 是否新增或升级了本局待结算条目
  */
 export function appendRunDiscovery(log, payload) {
-  if (!log || typeof log !== "object") return;
+  if (!log || typeof log !== "object") return false;
   if (!Array.isArray(log.entries)) log.entries = [];
   if (!Number.isFinite(log.nextOrder)) log.nextOrder = 0;
 
@@ -85,8 +94,9 @@ export function appendRunDiscovery(log, payload) {
         kind: "treasure",
         treasureId,
       });
+      return true;
     }
-    return;
+    return false;
   }
 
   const spellId = String(payload.spellId ?? "").trim();
@@ -98,8 +108,9 @@ export function appendRunDiscovery(log, payload) {
         kind: "spell",
         spellId,
       });
+      return true;
     }
-    return;
+    return false;
   }
 
   const upgradeId = String(payload.upgradeId ?? "").trim();
@@ -111,20 +122,24 @@ export function appendRunDiscovery(log, payload) {
         kind: "upgrade",
         upgradeId,
       });
+      return true;
     }
-    return;
+    return false;
   }
 
   const voucherId = String(payload.voucherId ?? "").trim();
   if (voucherId) {
     const def = VOUCHERS_BY_ID.get(voucherId);
-    if (!def) return;
+    if (!def) return false;
     const pairId = def.pairId;
     const tier = /** @type {1 | 2} */ (def.tier === 2 ? 2 : 1);
     const existing = log.entries.find((e) => e.kind === "voucher" && e.pairId === pairId);
     if (existing && existing.kind === "voucher") {
-      if (tier > existing.tier) existing.tier = tier;
-      return;
+      if (tier > existing.tier) {
+        existing.tier = tier;
+        return true;
+      }
+      return false;
     }
     log.entries.push({
       tabId: "vouchers",
@@ -133,7 +148,7 @@ export function appendRunDiscovery(log, payload) {
       pairId,
       tier,
     });
-    return;
+    return true;
   }
 
   const materialId = String(payload.materialId ?? "").trim();
@@ -145,8 +160,9 @@ export function appendRunDiscovery(log, payload) {
         kind: "material",
         materialId,
       });
+      return true;
     }
-    return;
+    return false;
   }
 
   const accessoryId = String(payload.accessoryId ?? "").trim();
@@ -158,6 +174,45 @@ export function appendRunDiscovery(log, payload) {
         kind: "accessory",
         accessoryId,
       });
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 对局结算：将本局 runDiscoveryLog 写入生涯收藏（此前对局内仅记 log，不提前解锁图鉴）。
+ *
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats} career
+ * @param {RunDiscoveryLog | null | undefined} log
+ */
+export function applyRunDiscoveryLogToCareer(career, log) {
+  for (const entry of sortRunDiscoveryEntries(log?.entries ?? [])) {
+    switch (entry.kind) {
+      case "treasure":
+        recordTreasureDiscovered(career, entry.treasureId);
+        break;
+      case "spell":
+        recordSpellDiscovered(career, entry.spellId);
+        break;
+      case "upgrade":
+        recordUpgradeDiscovered(career, entry.upgradeId);
+        break;
+      case "voucher": {
+        const tier1 = getTier1DefForPair(entry.pairId);
+        const tier2 = entry.tier >= 2 ? getTier2DefForPair(entry.pairId) : null;
+        if (tier2) recordVoucherDiscovered(career, tier2.id);
+        else if (tier1) recordVoucherDiscovered(career, tier1.id);
+        break;
+      }
+      case "material":
+        recordMaterialDiscovered(career, entry.materialId);
+        break;
+      case "accessory":
+        recordAccessoryDiscovered(career, entry.accessoryId);
+        break;
+      default:
+        break;
     }
   }
 }
@@ -326,4 +381,45 @@ export function deserializeRunDiscoveryLog(raw) {
   }
   log.nextOrder = maxOrder + 1;
   return log;
+}
+
+/**
+ * 将槽位 payload 中的本局发现 log 与「新发现」标记补写入生涯收藏（幂等）。
+ *
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats} career
+ * @param {import('../save/runSavePayload.js').RunSavePayload | null | undefined} payload
+ * @returns {boolean} 是否改动了生涯
+ */
+export function reconcileCollectionDiscoveriesToCareer(career, payload) {
+  let changed = false;
+  if (payload?.runDiscoveryLog != null) {
+    const log = deserializeRunDiscoveryLog(payload.runDiscoveryLog);
+    if (log.entries.length > 0) {
+      const before = JSON.stringify({
+        treasures: career.discoveredTreasureIds ?? [],
+        spells: career.discoveredSpellIds ?? [],
+        upgrades: career.discoveredUpgradeIds ?? [],
+        vouchers: career.discoveredVoucherTiers ?? {},
+        materials: career.discoveredMaterialIds ?? [],
+        accessories: career.discoveredAccessoryIds ?? [],
+      });
+      applyRunDiscoveryLogToCareer(career, log);
+      const after = JSON.stringify({
+        treasures: career.discoveredTreasureIds ?? [],
+        spells: career.discoveredSpellIds ?? [],
+        upgrades: career.discoveredUpgradeIds ?? [],
+        vouchers: career.discoveredVoucherTiers ?? {},
+        materials: career.discoveredMaterialIds ?? [],
+        accessories: career.discoveredAccessoryIds ?? [],
+      });
+      if (before !== after) changed = true;
+    }
+  }
+  for (const key of career.collectionNewDiscoveryKeys ?? []) {
+    const k = String(key ?? "").trim();
+    if (!k.startsWith("treasure:")) continue;
+    const id = k.slice("treasure:".length).trim();
+    if (id && recordTreasureDiscovered(career, id)) changed = true;
+  }
+  return changed;
 }

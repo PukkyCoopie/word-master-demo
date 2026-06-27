@@ -96,7 +96,7 @@
               aria-labelledby="save-slot-delete-title"
             >
               <p id="save-slot-delete-title" class="save-slot-confirm-text">确定删除？此操作不可恢复</p>
-              <div class="save-slot-confirm-actions">
+              <div class="save-slot-confirm-actions confirm-actions-row">
                 <button type="button" class="save-slot-btn save-slot-btn--danger" @click="confirmDelete(index)">
                   确认删除
                 </button>
@@ -116,7 +116,7 @@
               <p id="save-slot-overwrite-title" class="save-slot-confirm-text save-slot-confirm-text--overwrite">
                 将覆盖栏位 {{ index + 1 }} 的进度
               </p>
-              <div class="save-slot-confirm-actions">
+              <div class="save-slot-confirm-actions confirm-actions-row">
                 <button type="button" class="save-slot-btn save-slot-btn--primary" @click="confirmSelect(index)">
                   确认覆盖
                 </button>
@@ -521,6 +521,11 @@ function onBackdropClick() {
 
 .save-slot-confirm-text--overwrite {
   color: #3a5a78;
+}
+
+.save-slot-confirm-actions.confirm-actions-row .save-slot-btn {
+	flex: 1 1 0;
+	min-width: 0;
 }
 
 .save-slot-btn {

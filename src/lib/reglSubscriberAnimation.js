@@ -10,7 +10,7 @@ import { isMaterialProfilerEnabled, recordMaterialHubProfile } from "./reglMater
  * 未展开牌库 stack 等场景只需绘制一帧并保留，避免大量 canvas 共用 RAF。
  */
 
-/** @typedef {{ animated?: boolean, viewportVisible?: boolean, frameFrozen?: boolean, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number, _disposeReglBindings?: (() => void) | null }} ReglDisplaySubscriber */
+/** @typedef {{ animated?: boolean, viewportVisible?: boolean, frameFrozen?: boolean, _displayFrameReady?: boolean, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number, _disposeReglBindings?: (() => void) | null }} ReglDisplaySubscriber */
 
 /**
  * @param {ReglDisplaySubscriber} sub
@@ -93,10 +93,12 @@ export function blitReglOffscreenToSubscriber(sub, offscreen, texPx, opts = {}) 
     sub.ctx.filter = blurPx > 0.0 ? `blur(${blurPx.toFixed(3)}px)` : "none";
     sub.ctx.drawImage(offscreen, 0, 0, texPx, texPx, 0, 0, pw, ph);
     sub.ctx.filter = "none";
+    sub._displayFrameReady = true;
     return;
   }
 
   sub.ctx.drawImage(offscreen, 0, 0, texPx, texPx, 0, 0, pw, ph);
+  sub._displayFrameReady = true;
 }
 
 /**
@@ -144,28 +146,38 @@ export function runProfiledMaterialHubTick(materialId, subscribers, hub, drawFra
  * 视口可见性 + 首帧布局：避免 WebGL 已绘制但 canvas 尺寸为 0 导致永久空白。
  * @param {ReglDisplaySubscriber} sub
  * @param {(sub: ReglDisplaySubscriber) => void} [repaintOnce]
+ * @param {() => void} [onBecomeVisible] 从不可见恢复时重启 hub tick（如详情飞入克隆）
  */
-export function bindReglSubscriberViewport(sub, repaintOnce) {
+export function bindReglSubscriberViewport(sub, repaintOnce, onBecomeVisible) {
   sub.viewportVisible = true;
   /** @type {(() => void)[]} */
   const cleanups = [];
 
   if (typeof IntersectionObserver !== "undefined") {
     const io = new IntersectionObserver((entries) => {
-      sub.viewportVisible = entries.some((e) => e.isIntersecting);
+      const visible = entries.some((e) => e.isIntersecting);
+      const wasVisible = sub.viewportVisible !== false;
+      sub.viewportVisible = visible;
+      if (visible && !wasVisible) {
+        onBecomeVisible?.();
+        if (typeof repaintOnce === "function" && !sub._displayFrameReady) {
+          repaintOnce(sub);
+        } else if (typeof repaintOnce === "function" && sub.animated !== false && !sub.frameFrozen) {
+          repaintOnce(sub);
+        }
+      }
     }, { threshold: 0 });
     io.observe(sub.canvas);
     cleanups.push(() => io.disconnect());
   }
 
   if (typeof ResizeObserver !== "undefined" && typeof repaintOnce === "function") {
-    let paintedAtSize = false;
     const ro = new ResizeObserver(() => {
       const w = sub.canvas.clientWidth;
       const h = sub.canvas.clientHeight;
-      if (w > 0 && h > 0 && !paintedAtSize) {
-        paintedAtSize = true;
-        if (!sub.frameFrozen) repaintOnce(sub);
+      if (w <= 0 || h <= 0) return;
+      if (!sub._displayFrameReady) {
+        repaintOnce(sub);
       }
     });
     ro.observe(sub.canvas);

@@ -158,7 +158,7 @@ export function reglBlitImageSmoothingQuality() {
   return useMobileMaterialLowPower() ? "low" : "high";
 }
 
-/** @returns {boolean} 启动时不预建全部 WebGL hub（首枚材质格再懒编译） */
+/** @returns {boolean} 启动时不阻塞主线程同步预热；改在 idle 回调中执行 */
 export function deferReglMaterialWarmupAtBoot() {
   return useMobileMaterialLowPower();
 }

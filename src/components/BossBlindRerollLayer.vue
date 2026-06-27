@@ -50,6 +50,9 @@
           </div>
 
           <div class="treasure-detail-actions boss-blind-reroll-stagger">
+            <button type="button" class="shop-btn shop-btn--next" @click="emit('continue', $event)">
+              继续
+            </button>
             <button
               type="button"
               class="shop-btn shop-btn--reroll boss-blind-reroll-btn"
@@ -60,9 +63,6 @@
                 <span class="shop-btn-reroll-dollar">$</span>{{ rerollCost }}
               </span>
               <span class="shop-btn-reroll-lead">重掷</span>
-            </button>
-            <button type="button" class="shop-btn shop-btn--next" @click="emit('continue', $event)">
-              继续
             </button>
           </div>
         </div>

@@ -34,12 +34,16 @@
       </div>
 
       <div class="treasure-detail-body" @click.self="onBackdropSelfClick">
-        <div class="treasure-detail-stack" @click.self="onBackdropSelfClick">
+        <div
+          class="treasure-detail-stack"
+          :class="{ 'treasure-detail-stack--collection-locked': isCollectionLockedPreview }"
+          :style="collectionLockedStackStyle"
+          @click.self="onBackdropSelfClick"
+        >
           <div
             v-if="!isDeckOffer"
             ref="titleGroupRef"
             class="treasure-detail-title-group treasure-detail-stagger-el"
-            :style="collectionLockedVisualStyle"
           >
             <p class="treasure-detail-kind-caption">{{ detailKindCaption }}</p>
             <h2 :id="titleId" ref="nameRef" class="treasure-detail-name">
@@ -47,7 +51,7 @@
             </h2>
           </div>
 
-          <div ref="iconColumnRef" class="treasure-detail-icon-column" :style="collectionLockedVisualStyle">
+          <div ref="iconColumnRef" class="treasure-detail-icon-column">
             <div
               ref="targetVisualRef"
               class="shop-treasure-visual shop-treasure-visual--detail"
@@ -62,6 +66,7 @@
                     v-bind="deckOfferLetterTileBind"
                   />
                   <div
+                    v-if="showDetailShelfPrice"
                     class="shop-treasure-price"
                     :aria-label="mode === 'pack-inner' ? '参考售价' : mode === 'offer' ? '售价' : '回收价'"
                   >
@@ -113,15 +118,29 @@
                     treasure?.offerType === 'upgrade' && treasure?.upgradeKind === 'rarity',
                   'shop-treasure-frame--spell-offer': isSpellOffer,
                   'shop-treasure-frame--voucher-stamp': isVoucherOffer,
-                  'shop-treasure-frame--collection-unknown': isCollectionLockedPreview,
-                  'treasure-detail-frame--charge-inactive': chargeVisualState === 'inactive',
-                  'treasure-detail-frame--charge-active': chargeVisualState === 'active',
+                  'shop-treasure-frame--collection-unknown':
+                    isCollectionLockedPreview && !isCollectionLockedTreasurePreview,
+                  'treasure-detail-frame--charge-inactive':
+                    chargeVisualState === 'inactive' && !isCollectionLockedPreview,
+                  'treasure-detail-frame--charge-active':
+                    chargeVisualState === 'active' && !isCollectionLockedPreview,
+                  'treasure-detail-frame--effect-depleted':
+                    isEffectDepleted && !isCollectionLockedPreview,
                   'shop-treasure-frame--accessory-expired': hourglassAccessoryExpired,
                 }"
                 :style="{ '--charge-progress': String(chargeProgress ?? 0) }"
               >
                 <span v-if="hourglassAccessoryExpired" class="letter-tile-boss-x" aria-hidden="true">×</span>
-                <template v-if="isCollectionLockedPreview">
+                <template v-if="isCollectionLockedTreasurePreview">
+                  <span class="letter-gem" :class="`gem-${gemRarityKey}`" aria-hidden="true" />
+                  <span
+                    ref="emojiRef"
+                    class="collection-detail-unknown-mark shop-treasure-emoji shop-treasure-emoji--detail"
+                    aria-hidden="true"
+                    >?</span
+                  >
+                </template>
+                <template v-else-if="isCollectionLockedPreview">
                   <span ref="emojiRef" class="collection-detail-unknown-mark" aria-hidden="true">?</span>
                 </template>
                 <template v-else-if="isUpgradeOffer">
@@ -213,7 +232,7 @@
                   </span>
                 </div>
                 <i
-                  v-if="chargeVisualState != null"
+                  v-if="chargeVisualState != null && !isCollectionLockedPreview"
                   class="treasure-charge-corner-icon treasure-detail-disabled-mark ri-flashlight-fill"
                   aria-hidden="true"
                 ></i>
@@ -235,6 +254,15 @@
               </div>
             </div>
           </div>
+
+          <p
+            v-if="collectionIntroducedVersion"
+            ref="introducedVersionRef"
+            class="treasure-detail-introduced-version treasure-detail-stagger-el"
+          >
+            <span class="treasure-detail-introduced-version__label">引入版本：</span>
+            <span class="app-version-badge">v{{ collectionIntroducedVersion }}</span>
+          </p>
 
           <div
             v-if="showTreasureMainDescCard"
@@ -357,12 +385,30 @@
           </div>
 
           <div
+            v-if="showLegendaryRarityNoticePanel"
+            ref="collectionLegendaryRarityPanelRef"
+            class="treasure-detail-desc-card treasure-detail-stagger-el"
+          >
+            <div class="treasure-detail-desc-panel-title-row">
+              <span class="treasure-detail-desc-panel-title-text">
+                <span class="td-desc-rarity td-desc-rarity--legendary">传说</span>稀有度
+              </span>
+            </div>
+            <TreasureDescRichText
+              class="treasure-detail-desc-panel-rich"
+              :class="{ 'treasure-detail-desc-panel-rich--struck': legendaryRarityNoticePanelStruck }"
+              :description="collectionLegendaryRarityPanel.description"
+              :panel-body="true"
+            />
+          </div>
+
+          <div
             v-if="showCollectionUnlockPrerequisitePanel"
             ref="collectionUnlockPrerequisitePanelRef"
             class="treasure-detail-desc-card treasure-detail-stagger-el"
           >
             <div class="treasure-detail-desc-panel-title-row">
-              <CollectionPrerequisiteBadge />
+              <i class="ri-error-warning-fill collection-prerequisite-badge" aria-hidden="true"></i>
               <span class="treasure-detail-desc-panel-title-text">{{
                 collectionUnlockPrerequisitePanel?.title
               }}</span>
@@ -685,7 +731,7 @@
 
           <div
             ref="actionsRef"
-            class="treasure-detail-actions treasure-detail-stagger-el"
+            class="treasure-detail-actions confirm-actions-row treasure-detail-stagger-el"
             :class="{ 'treasure-detail-actions--spell-grant': mode === 'offer' && spellGrantFlow }"
           >
             <HoldConfirmButton
@@ -696,6 +742,7 @@
               :hold-mode="spellOfferHoldConfirm"
               :disabled="!canBuyOffer"
               @confirm="emit('purchase')"
+              @hold-change="onOfferHoldChange"
             />
             <HoldConfirmButton
               v-else-if="mode === 'offer' && !isCollectionPreviewMode"
@@ -705,33 +752,42 @@
               :hold-mode="spellOfferHoldConfirm"
               :disabled="!canBuyOffer"
               @confirm="emit('purchase')"
+              @hold-change="onOfferHoldChange"
             />
             <button
               v-if="mode === 'pack-inner'"
               type="button"
               class="shop-btn shop-btn--buy"
+              :class="{ 'hold-peer-btn--holding': offerPeerHoldActive }"
               :disabled="!canBuyOffer"
               @click="emit('purchase')"
             >
-              {{ packInnerPrimaryLabel }}
+              <span class="hold-peer-btn-label">{{ packInnerPrimaryLabel }}</span>
+              <HoldPeerProgress :active="offerPeerHoldActive" :progress="offerPeerHoldProgress" />
             </button>
             <button
               v-if="isOwnedMode"
               type="button"
               class="shop-btn shop-btn--reroll"
-              :class="{ 'shop-btn--sell-blocked': sellBlockedByNoSell }"
+              :class="{
+                'shop-btn--sell-blocked': sellBlockedByNoSell,
+                'hold-peer-btn--holding': offerPeerHoldActive,
+              }"
               :disabled="!sellEnabled"
               @click="emit('sell')"
             >
-              卖出 ${{ sellRefund }}
+              <span class="hold-peer-btn-label">卖出 ${{ sellRefund }}</span>
+              <HoldPeerProgress :active="offerPeerHoldActive" :progress="offerPeerHoldProgress" />
             </button>
             <button
               v-if="!(mode === 'offer' && !isCollectionPreviewMode && spellGrantFlow)"
               type="button"
               class="shop-btn shop-btn--next"
+              :class="{ 'hold-peer-btn--holding': offerPeerHoldActive }"
               @click="requestClose"
             >
-              返回
+              <span class="hold-peer-btn-label">返回</span>
+              <HoldPeerProgress :active="offerPeerHoldActive" :progress="offerPeerHoldProgress" />
             </button>
           </div>
         </div>
@@ -762,7 +818,7 @@
             class="shop-shelf-letter-tile"
             v-bind="deckOfferLetterTileBind"
           />
-          <div class="shop-treasure-price" aria-hidden="true">
+          <div v-if="showDetailShelfPrice" class="shop-treasure-price" aria-hidden="true">
             <div
               class="shop-treasure-price-inner"
               :class="[
@@ -806,15 +862,28 @@
               treasure?.offerType === 'upgrade' && treasure?.upgradeKind === 'rarity',
             'shop-treasure-frame--spell-offer': isSpellOffer,
             'shop-treasure-frame--voucher-stamp': isVoucherOffer,
-            'shop-treasure-frame--collection-unknown': isCollectionLockedPreview,
-            'treasure-detail-frame--charge-inactive': chargeVisualState === 'inactive',
-            'treasure-detail-frame--charge-active': chargeVisualState === 'active',
+            'shop-treasure-frame--collection-unknown':
+              isCollectionLockedPreview && !isCollectionLockedTreasurePreview,
+            'treasure-detail-frame--charge-inactive':
+              chargeVisualState === 'inactive' && !isCollectionLockedPreview,
+            'treasure-detail-frame--charge-active':
+              chargeVisualState === 'active' && !isCollectionLockedPreview,
+            'treasure-detail-frame--effect-depleted':
+              isEffectDepleted && !isCollectionLockedPreview,
             'shop-treasure-frame--accessory-expired': hourglassAccessoryExpired,
           }"
           :style="{ '--charge-progress': String(chargeProgress ?? 0) }"
         >
           <span v-if="hourglassAccessoryExpired" class="letter-tile-boss-x" aria-hidden="true">×</span>
-          <template v-if="isCollectionLockedPreview">
+          <template v-if="isCollectionLockedTreasurePreview">
+            <span class="letter-gem" :class="`gem-${gemRarityKey}`" aria-hidden="true" />
+            <span
+              class="collection-detail-unknown-mark shop-treasure-emoji shop-treasure-emoji--detail"
+              aria-hidden="true"
+              >?</span
+            >
+          </template>
+          <template v-else-if="isCollectionLockedPreview">
             <span class="collection-detail-unknown-mark" aria-hidden="true">?</span>
           </template>
           <template v-else-if="isUpgradeOffer">
@@ -879,27 +948,27 @@
               >{{
               treasure.lengthBadgeLabel || treasure.lengthLabel
             }}</span>
-          </template>
-          <div
-            v-if="accessoryChipVisuals.length"
-            class="treasure-accessory-chip-stack treasure-accessory-chip-stack--detail"
-            aria-hidden="true"
-          >
-            <span
-              v-for="(chip, chipIx) in accessoryChipVisuals"
-              :key="`${chip.chipClass}-${chipIx}`"
-              class="treasure-accessory-chip"
-              :class="chip.chipClass"
+            <div
+              v-if="accessoryChipVisuals.length"
+              class="treasure-accessory-chip-stack treasure-accessory-chip-stack--detail"
+              aria-hidden="true"
             >
-              <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
-              <i class="treasure-accessory-chip-icon" :class="chip.iconClass" aria-hidden="true" />
-            </span>
-          </div>
-          <i
-            v-if="chargeVisualState != null"
-            class="treasure-charge-corner-icon treasure-detail-disabled-mark ri-flashlight-fill"
-            aria-hidden="true"
-          ></i>
+              <span
+                v-for="(chip, chipIx) in accessoryChipVisuals"
+                :key="`${chip.chipClass}-${chipIx}`"
+                class="treasure-accessory-chip"
+                :class="chip.chipClass"
+              >
+                <span class="treasure-accessory-chip-ripple" aria-hidden="true" />
+                <i class="treasure-accessory-chip-icon" :class="chip.iconClass" aria-hidden="true" />
+              </span>
+            </div>
+            <i
+              v-if="chargeVisualState != null && !isCollectionLockedPreview"
+              class="treasure-charge-corner-icon treasure-detail-disabled-mark ri-flashlight-fill"
+              aria-hidden="true"
+            ></i>
+          </template>
         </div>
         <div v-if="!isDeckOffer && showDetailShelfPrice" class="shop-treasure-price">
           <div
@@ -938,6 +1007,7 @@ import { normalizeTreasureDescription } from "../treasures/treasureDescription.j
 import { ownedTreasureHasNoSellAccessory } from "../game/runDifficultyRuntime.js";
 import { buildNoSellAccessoryDescriptionSegments } from "../game/gameConceptCopy.js";
 import { treasureBypassesNoSellForSelfDestruct } from "../treasures/treasureRegistry.js";
+import { resolveTreasureIntroducedVersion } from "../treasures/treasureCatalog.js";
 import { getTileAccessoryChipVisual } from "../game/tileAccessories.js";
 import { getTileMaterialEffectDescription, getTileAccessoryEffectDescription } from "../game/tileDetailDescriptions.js";
 import {
@@ -1011,14 +1081,25 @@ import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.j
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import PreviewGroupNav from "./PreviewGroupNav.vue";
 import HoldConfirmButton from "./HoldConfirmButton.vue";
+import HoldPeerProgress from "./HoldPeerProgress.vue";
 import { isHighRiskSpellId } from "../spells/highRiskSpells.js";
 import { getHighRiskSpellConfirmEnabled } from "../settings/gameSettings.js";
-import CollectionPrerequisiteBadge from "./collection/CollectionPrerequisiteBadge.vue";
-import { COLLECTION_UNKNOWN_LABEL } from "../collection/collectionDisplayUtils.js";
-import { resolveCollectionUnlockHintPanel } from "../collection/collectionUnlockHintCopy.js";
 import {
-  collectionEntryOpacityForState,
+  COLLECTION_LOCKED_PREVIEW_OPACITY,
+  COLLECTION_UNKNOWN_LABEL,
+} from "../collection/collectionDisplayUtils.js";
+import {
+  resolveCollectionUnlockHintPanel,
+  resolveCollectionLegendaryRarityPanel,
+  isCollectionLegendaryTreasure,
+} from "../collection/collectionUnlockHintCopy.js";
+import { hasRarityTierMerge } from "../game/treasureRarityTierMerge.js";
+import {
   isCollectionEntryLocked,
+  resolveCollectionSpellEntryState,
+  resolveCollectionTreasureEntryState,
+  resolveCollectionUpgradeEntryState,
+  resolveCollectionVoucherEntryState,
 } from "../collection/collectionEntryState.js";
 
 const props = defineProps({
@@ -1030,6 +1111,8 @@ const props = defineProps({
   chargeVisualState: { type: String, default: null },
   /** 0~1 充能进度（由拥有槽位状态透传） */
   chargeProgress: { type: Number, default: 0 },
+  /** 效果已永久耗尽：仅压暗，无充能角标 */
+  effectDepleted: { type: Boolean, default: false },
   walletAmount: { type: Number, default: 0 },
   sellRefund: { type: Number, default: 0 },
   canBuyOffer: { type: Boolean, default: false },
@@ -1049,7 +1132,7 @@ const props = defineProps({
   overlaySuppressed: { type: Boolean, default: false },
   /** 字母块预览：分数×倍率与 TileDetailLayer 一致 */
   rarityLevelsByRarity: { type: Object, default: null },
-  /** 已拥有打字机时宝藏简介概率显示翻倍 */
+  /** 已拥有彗星时宝藏简介概率显示翻倍 */
   probabilityDisplayDoubled: { type: Boolean, default: false },
   /** 骰子/重播释法：主按钮为「使用」（绿），非商店购买 */
   spellGrantFlow: { type: Boolean, default: false },
@@ -1059,6 +1142,8 @@ const props = defineProps({
     default: null,
     validator: (v) => v == null || v === "offer" || v === "sell",
   },
+  /** false=纯预览不展示右上角价签（开局说明、收藏等）；undefined=按 mode 推断 */
+  showShelfPrice: { type: Boolean, default: undefined },
   /** 同组预览翻页：0-based 下标 */
   previewNavIndex: { type: Number, default: 0 },
   /** 同组项总数；≤1 时不显示翻页 */
@@ -1071,29 +1156,108 @@ const props = defineProps({
     default: "discovered",
     validator: (v) => v === "discovered" || v === "unknown" || v === "prerequisite-locked",
   },
+  /** 收藏宝藏 tab：用于在详情层内重新解析解锁状态（左右切换时与列表一致） */
+  discoveredTreasureIds: { type: Array, default: () => [] },
+  discoveredSpellIds: { type: Array, default: () => [] },
+  discoveredUpgradeIds: { type: Array, default: () => [] },
+  /** 局内已装备宝藏槽 id 列表（滑块 97 等效果用） */
+  ownedSlotTreasureIds: { type: Array, default: () => [] },
+  /** @type {Record<string, number> | null} */
+  discoveredVoucherTiers: { type: Object, default: () => ({}) },
+  /** collection-treasure | collection-spell | collection-owned-treasure 等 */
+  collectionPreviewNavKind: { type: String, default: null },
 });
 
 const isCollectionPreviewMode = computed(() => props.mode === "collection-preview");
+const isEffectDepleted = computed(() => props.effectDepleted === true);
+
+const isCollectionTreasurePreview = computed(
+  () =>
+    isCollectionPreviewMode.value &&
+    !isDeckOffer.value &&
+    !isSpellOffer.value &&
+    !isUpgradeOffer.value &&
+    !isVoucherOffer.value &&
+    !isBundlePack.value,
+);
+
+const effectiveCollectionEntryState = computed(() => {
+  if (!isCollectionPreviewMode.value) return props.collectionEntryState;
+  const navKind = String(props.collectionPreviewNavKind ?? "").trim();
+  if (navKind === "collection-owned-treasure") return props.collectionEntryState;
+  if (isSpellOffer.value) {
+    const sid = String(props.treasure?.spellId ?? "").trim();
+    if (sid) return resolveCollectionSpellEntryState(sid, props.discoveredSpellIds);
+    return props.collectionEntryState;
+  }
+  if (isUpgradeOffer.value) {
+    const tid = String(props.treasure?.treasureId ?? "").trim();
+    if (tid) return resolveCollectionUpgradeEntryState(tid, props.discoveredUpgradeIds);
+    return props.collectionEntryState;
+  }
+  if (isVoucherOffer.value) {
+    const pairId = String(props.treasure?.pairId ?? "").trim();
+    if (pairId) {
+      const tier = Math.max(
+        0,
+        Math.min(2, Math.floor(Number(props.discoveredVoucherTiers?.[pairId]) || 0)),
+      );
+      return resolveCollectionVoucherEntryState(pairId, tier);
+    }
+    return props.collectionEntryState;
+  }
+  if (isCollectionTreasurePreview.value) {
+    const tid = String(props.treasure?.treasureId ?? "").trim();
+    if (tid) {
+      const resolved = resolveCollectionTreasureEntryState(tid, props.discoveredTreasureIds);
+      if (resolved === "discovered") return resolved;
+      if (props.collectionEntryState === "discovered") return "discovered";
+      return resolved;
+    }
+  }
+  return props.collectionEntryState;
+});
 
 const isCollectionLockedPreview = computed(
-  () => isCollectionPreviewMode.value && isCollectionEntryLocked(props.collectionEntryState),
+  () => isCollectionPreviewMode.value && isCollectionEntryLocked(effectiveCollectionEntryState.value),
 );
+
+/** 收藏图鉴：未解锁的宝藏（非法术/升级等）仍展示稀有度宝石 */
+const isCollectionLockedTreasurePreview = computed(
+  () =>
+    isCollectionLockedPreview.value &&
+    !isSpellOffer.value &&
+    !isUpgradeOffer.value &&
+    !isVoucherOffer.value &&
+    !isBundlePack.value &&
+    !isDeckOffer.value,
+);
+
+const collectionIntroducedVersion = computed(() => {
+  if (!isCollectionPreviewMode.value || isDeckOffer.value) return null;
+  const tid = String(props.treasure?.treasureId ?? "").trim();
+  if (!tid) return null;
+  return resolveTreasureIntroducedVersion(tid);
+});
+
+const collectionLockedStackStyle = computed(() => {
+  if (!isCollectionLockedPreview.value) return undefined;
+  return { "--collection-locked-opacity": String(COLLECTION_LOCKED_PREVIEW_OPACITY) };
+});
 
 const collectionLockedVisualStyle = computed(() => {
   if (!isCollectionLockedPreview.value) return undefined;
-  return { opacity: String(collectionEntryOpacityForState(props.collectionEntryState)) };
+  return { opacity: String(COLLECTION_LOCKED_PREVIEW_OPACITY) };
 });
 
-/** 收藏未解锁预览：GSAP 入场终点须与格子上 CSS 透明度一致，避免飞到 1 再闪回半透明 */
+/** 收藏未解锁预览：GSAP 入场/飞入终点与详情层 CSS 透明度一致 */
 function collectionLockedEnterOpacity() {
   if (!isCollectionLockedPreview.value) return 1;
-  return collectionEntryOpacityForState(props.collectionEntryState);
+  return COLLECTION_LOCKED_PREVIEW_OPACITY;
 }
 
 /** @param {HTMLElement | null | undefined} el */
-function staggerEnterOpacityForEl(el) {
-  if (!isCollectionLockedPreview.value) return 1;
-  if (el === titleGroupRef.value) return collectionLockedEnterOpacity();
+function staggerEnterOpacityForEl(_el) {
   return 1;
 }
 
@@ -1101,10 +1265,20 @@ function staggerEnterOpacityForEl(el) {
 function revealIconColumnAfterEnter(iconColumn) {
   if (!(iconColumn instanceof HTMLElement)) return;
   if (isCollectionLockedPreview.value) {
-    gsap.set(iconColumn, { pointerEvents: "auto", clearProps: "opacity,pointerEvents" });
+    gsap.set(iconColumn, {
+      opacity: 1,
+      pointerEvents: "auto",
+      clearProps: "visibility,pointerEvents",
+    });
   } else {
     gsap.set(iconColumn, { opacity: 1, pointerEvents: "auto", clearProps: "opacity,pointerEvents" });
   }
+}
+
+/** @returns {string | undefined} */
+function previewFlyTargetClearProps() {
+  if (isCollectionLockedPreview.value) return "visibility,pointerEvents";
+  return "opacity,visibility,pointerEvents";
 }
 
 /** @param {HTMLElement[]} staggerEls */
@@ -1112,9 +1286,9 @@ function revealStaggerTargetsInstant(staggerEls) {
   for (const el of staggerEls) {
     if (!(el instanceof HTMLElement)) continue;
     gsap.set(el, {
-      opacity: staggerEnterOpacityForEl(el),
+      opacity: 1,
       y: 0,
-      clearProps: "opacity,transform",
+      clearProps: isCollectionLockedPreview.value ? "transform" : "opacity,transform",
     });
   }
 }
@@ -1128,8 +1302,9 @@ const detailShelfPriceText = computed(() => {
 });
 
 const showDetailShelfPrice = computed(() => {
-  if (props.shelfPriceKind === "offer" || props.shelfPriceKind === "sell") return true;
+  if (props.showShelfPrice === false) return false;
   if (isCollectionPreviewMode.value) return false;
+  if (props.shelfPriceKind === "sell") return true;
   return props.mode !== "voucher-owned";
 });
 
@@ -1479,7 +1654,9 @@ const gemRarityKey = computed(() => {
 const isUpgradeOffer = computed(() => props.treasure?.offerType === "upgrade");
 
 const upgradePreviewGainRows = computed(() =>
-  isUpgradeOffer.value ? buildUpgradeOfferPreviewGainRows(props.treasure) : [],
+  isUpgradeOffer.value
+    ? buildUpgradeOfferPreviewGainRows(props.treasure, props.ownedSlotTreasureIds)
+    : [],
 );
 
 const showUpgradePreviewGainRows = computed(
@@ -1510,6 +1687,15 @@ const spellOfferId = computed(() =>
 const spellOfferHoldConfirm = computed(
   () => isSpellOffer.value && isHighRiskSpellId(spellOfferId.value) && getHighRiskSpellConfirmEnabled(),
 );
+
+const offerPeerHoldActive = ref(false);
+const offerPeerHoldProgress = ref(0);
+
+/** @param {{ holding: boolean, progress: number }} state */
+function onOfferHoldChange(state) {
+  offerPeerHoldActive.value = Boolean(state?.holding);
+  offerPeerHoldProgress.value = Math.max(0, Math.min(1, Number(state?.progress) || 0));
+}
 
 const isRestartSpellOffer = computed(
   () => isSpellOffer.value && String(props.treasure?.spellId ?? "") === "restart",
@@ -1643,6 +1829,30 @@ const showCollectionUnlockHintPanel = computed(
     treasureGainDescriptionNonEmpty(collectionUnlockHintPanel.value?.description),
 );
 
+const collectionLegendaryRarityPanel = computed(() => {
+  if (!isCollectionLegendaryTreasure(props.treasure)) return null;
+  return resolveCollectionLegendaryRarityPanel();
+});
+
+const showLegendaryRarityNoticePanel = computed(() => {
+  if (!treasureGainDescriptionNonEmpty(collectionLegendaryRarityPanel.value?.description)) return false;
+  if (
+    isSpellOffer.value ||
+    isUpgradeOffer.value ||
+    isVoucherOffer.value ||
+    isDeckOffer.value ||
+    isBundlePack.value
+  ) {
+    return false;
+  }
+  if (isCollectionPreviewMode.value) return true;
+  return props.mode === "offer" || props.mode === "owned";
+});
+
+const legendaryRarityNoticePanelStruck = computed(
+  () => showLegendaryRarityNoticePanel.value && hasRarityTierMerge(props.ownedSlotTreasureIds),
+);
+
 const collectionUnlockPrerequisitePanel = computed(() => {
   if (!isCollectionPreviewMode.value) return null;
   if (
@@ -1673,7 +1883,7 @@ const showCollectionUnlockPrerequisitePanel = computed(() => {
   const panel = collectionUnlockPrerequisitePanel.value;
   if (!treasureGainDescriptionNonEmpty(panel?.description)) return false;
   if (isCollectionLockedPreview.value) {
-    return props.collectionEntryState === "prerequisite-locked";
+    return effectiveCollectionEntryState.value === "prerequisite-locked";
   }
   return true;
 });
@@ -1769,7 +1979,9 @@ const randomSalePanelRef = ref(null);
 const presetSalePanelRef = ref(null);
 const spellGrantedVoucherPanelRef = ref(null);
 const collectionUnlockHintPanelRef = ref(null);
+const collectionLegendaryRarityPanelRef = ref(null);
 const collectionUnlockPrerequisitePanelRef = ref(null);
+const introducedVersionRef = ref(null);
 const accessoryPanelRef = ref(null);
 const actionsRef = ref(null);
 const titleGroupRef = ref(null);
@@ -1808,6 +2020,7 @@ function staggerTargets() {
   const nonDeckDiscountTail = isDeckOffer.value ? [] : shopDiscountPanels;
   return [
     titleGroupRef.value,
+    introducedVersionRef.value,
     descRef.value,
     upgradeRoundingRulesPanelRef.value,
     ...voucherTierPanelRefs.filter((el) => el instanceof HTMLElement),
@@ -1818,6 +2031,7 @@ function staggerTargets() {
     treasureGainPanelRef.value,
     spellGrantedVoucherPanelRef.value,
     collectionUnlockHintPanelRef.value,
+    collectionLegendaryRarityPanelRef.value,
     collectionUnlockPrerequisitePanelRef.value,
     spellGainPanelRef.value,
     ...descriptionConceptPanelRefs.filter((el) => el instanceof HTMLElement),
@@ -2093,9 +2307,6 @@ function continueEnterAfterMeasure(ctx) {
       margin: "0",
       pointerEvents: "none",
     });
-    if (iconColumnLive) {
-      revealIconColumnAfterEnter(iconColumnLive);
-    }
     bootMask.value = false;
 
     enterTl = gsap.timeline();
@@ -2120,19 +2331,24 @@ function continueEnterAfterMeasure(ctx) {
     }
 
     enterTl.add(
-      () => preRevealPreviewFlyTargetUnderClone(targetVisualLive),
+      () => preRevealPreviewFlyTargetUnderClone(targetVisualLive, 1),
       Math.max(0, flyDuration - PREVIEW_FLY_COMMIT_LEAD_SEC),
     );
     enterTl.add(
-      () =>
+      () => {
         commitPreviewFlyCloneSwap({
           targetEl: targetVisualLive,
           flyCloneEl: flyCloneRef.value,
           onDeactivateClone: () => {
-            flyCloneActive.value = false;
+            requestAnimationFrame(() => {
+              flyCloneActive.value = false;
+            });
           },
-          targetClearProps: "opacity,visibility,pointerEvents",
-        }),
+          targetClearProps: previewFlyTargetClearProps(),
+          targetOpacity: 1,
+        });
+        revealIconColumnAfterEnter(iconColumnLive);
+      },
       flyDuration,
     );
 
@@ -2144,7 +2360,7 @@ function continueEnterAfterMeasure(ctx) {
         duration: 0.18,
         stagger: 0.038,
         ease: EASE_TRANSFORM,
-        clearProps: "opacity,transform",
+        clearProps: isCollectionLockedPreview.value ? "transform" : "opacity,transform",
       },
       0.12,
     );
@@ -2179,7 +2395,9 @@ function continueEnterAfterMeasure(ctx) {
       pointerEvents: "auto",
       duration: 0.22,
       ease: EASE_TRANSFORM,
-      clearProps: "opacity,visibility,scale,pointerEvents",
+      clearProps: isCollectionLockedPreview.value
+        ? "visibility,scale,pointerEvents"
+        : "opacity,visibility,scale,pointerEvents",
     },
     0.06,
   );
@@ -2195,7 +2413,7 @@ function continueEnterAfterMeasure(ctx) {
       duration: 0.18,
       stagger: 0.038,
       ease: EASE_TRANSFORM,
-      clearProps: "opacity,transform",
+      clearProps: isCollectionLockedPreview.value ? "transform" : "opacity,transform",
     },
     0.05,
   );
@@ -2250,7 +2468,9 @@ function runContentEnterAnimation() {
       scale: 1,
       duration: 0.22,
       ease: EASE_TRANSFORM,
-      clearProps: "opacity,visibility,scale,pointerEvents",
+      clearProps: isCollectionLockedPreview.value
+        ? "visibility,scale,pointerEvents"
+        : "opacity,visibility,scale,pointerEvents",
     },
     0,
   );
@@ -2262,7 +2482,7 @@ function runContentEnterAnimation() {
       duration: 0.18,
       stagger: 0.038,
       ease: EASE_TRANSFORM,
-      clearProps: "opacity,transform",
+      clearProps: isCollectionLockedPreview.value ? "transform" : "opacity,transform",
     },
     0.05,
   );

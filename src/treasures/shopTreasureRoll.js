@@ -7,6 +7,7 @@ import {
  * @typedef {Object} ShopTreasurePickOpts
  * @property {(treasureId: string) => number} [getPrerequisiteWeightMultiplier] 阶段二：档内权重乘数
  * @property {(treasureId: string) => void} [onPrerequisiteTreasureShopAppeared]
+ * @property {boolean} [allowOwnedTreasuresInShop] 持有购物袋时：已拥有 id 仍可抽中
  */
 
 /**
@@ -67,7 +68,11 @@ export function rollDistinctShopTreasures(
   rng = Math.random,
   opts,
 ) {
-  const used = new Set([...ownedTreasureIds, ...excludeTreasureIds]);
+  const allowOwned = opts?.allowOwnedTreasuresInShop === true;
+  const used = new Set([...excludeTreasureIds]);
+  if (!allowOwned) {
+    for (const id of ownedTreasureIds) used.add(id);
+  }
   /** @type {import('./treasureTypes.js').TreasureDef[]} */
   const picks = [];
   for (let i = 0; i < count; i += 1) {

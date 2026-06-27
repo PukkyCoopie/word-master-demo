@@ -7,6 +7,7 @@
  */
 
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
+import { resolveScoringLetterRarity } from "../game/treasureRarityTierMerge.js";
 
 export const RARITY_BY_LETTER = {
 
@@ -429,11 +430,13 @@ export function computeWordScoreDetailed(
       };
     }
 
-    const rarity = c.rarity ?? "common";
+    const actualRarity = c.rarity ?? "common";
+    const owned = opts?.ownedSlotTreasureIds ?? null;
+    const scoringRarity = resolveScoringLetterRarity(actualRarity, owned);
 
-    const rarityBonus = getRarityBonusForRarity(rarity, rarityLevelsByRarity);
+    const rarityBonus = getRarityBonusForRarity(scoringRarity, rarityLevelsByRarity);
 
-    const rarityMultBonus = getRarityMultBonusForRarity(rarity, rarityLevelsByRarity);
+    const rarityMultBonus = getRarityMultBonusForRarity(scoringRarity, rarityLevelsByRarity);
 
     const tileScoreBonus = Math.max(0, Math.floor(Number(c.tileScoreBonus) || 0));
 
@@ -455,8 +458,7 @@ export function computeWordScoreDetailed(
 
       materialScoreBonus,
 
-      rarity,
-
+      rarity: actualRarity,
       rarityMultBonus,
 
       tileLetterMultBonus,
@@ -590,7 +592,12 @@ export function shouldShowTileDetailRarityScoreMult(payload) {
  * 按 `resolveWordPattern` 得到的小写整词，把各槽位 pattern 片段为单个 `?` 的格写回真实 `letter`/`rarity`/`baseScore`（与棋盘普通字母一致）。
  * `resolvedLower` 须与 `tiles` 拼出的 pattern 等长（`qu` 等双字符格占 pattern 中两格）。
  */
-export function withWildcardsResolvedForScoring(tiles, resolvedLower, rarityLevelsByRarity = null) {
+export function withWildcardsResolvedForScoring(
+  tiles,
+  resolvedLower,
+  rarityLevelsByRarity = null,
+  ownedSlotTreasureIds = null,
+) {
   const res = String(resolvedLower ?? "").toLowerCase();
   if (!Array.isArray(tiles) || tiles.length === 0 || !res) return (tiles ?? []).map((t) => ({ ...t }));
   let pos = 0;
@@ -606,7 +613,8 @@ export function withWildcardsResolvedForScoring(tiles, resolvedLower, rarityLeve
     const rarity = getRarityForLetter(ch);
     out.letter = letter;
     out.rarity = rarity;
-    out.baseScore = getBaseScoreForRarity(rarity, rarityLevelsByRarity);
+    const scoringRarity = resolveScoringLetterRarity(rarity, ownedSlotTreasureIds);
+    out.baseScore = getBaseScoreForRarity(scoringRarity, rarityLevelsByRarity);
     return out;
   });
 }

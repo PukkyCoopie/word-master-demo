@@ -18,6 +18,12 @@ export function initTreasureBankOnAcquire(treasureId, runState) {
       // 镜子：再次购入须从 0/2 重新累计（卖出后 banks 仍保留旧进度）
       ensureTreasureBank(runState, id).scoreAdd = 0;
       break;
+    case "122":
+      ensureTreasureBank(runState, id).posPackProgress = 3;
+      break;
+    case "132":
+      ensureTreasureBank(runState, id).scoreAdd = 1;
+      break;
     default:
       break;
   }

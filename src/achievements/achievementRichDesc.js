@@ -1,4 +1,4 @@
-import { describe, gain, money } from "../treasures/treasureDescription.js";
+import { describe, gain, money, rarity } from "../treasures/treasureDescription.js";
 
 /** @type {Readonly<Record<string, import('../treasures/treasureDescription.js').TreasureDescSegment[]>>} */
 export const ACHIEVEMENT_RICH_DESCRIPTIONS = Object.freeze({
@@ -43,6 +43,11 @@ export const ACHIEVEMENT_RICH_DESCRIPTIONS = Object.freeze({
   diff_3_win: describe("在开启难度", "3", "的情况下赢得一轮游戏"),
   diff_6_win: describe("在开启难度", "6", "的情况下赢得一轮游戏"),
   diff_8_win: describe("在开启难度", "8", "的情况下赢得一轮游戏"),
+  safe_bomb_blast: describe("将一个炸弹安放在安全的位置，使其在爆炸时没有摧毁其他宝藏"),
+  volcano_eruption: describe("经历一次火山喷发"),
+  lucky_five_run: describe("在一轮游戏中触发", "5", "次", gain("幸运块"), "的效果"),
+  steel_four_submit: describe("在一次计分中获得", "4", "次来自", gain("钢铁块"), "的增强"),
+  legendary_treasure: describe("获得一个", rarity("传说"), "级宝藏"),
 });
 
 /** @param {import('./achievementTypes.js').AchievementDefinition} def */

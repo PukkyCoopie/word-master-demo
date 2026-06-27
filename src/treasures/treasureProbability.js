@@ -1,4 +1,4 @@
-/** 打字机：列出的概率翻倍 */
+/** 彗星：列出的概率翻倍 */
 export const PROBABILITY_DOUBLER_TREASURE_ID = "45";
 
 /**

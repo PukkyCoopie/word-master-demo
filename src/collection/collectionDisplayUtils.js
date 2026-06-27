@@ -7,6 +7,9 @@ export const COLLECTION_UNKNOWN_OPACITY = 0.55;
 /** 有出现前提、尚未发现的宝藏：介于未解锁与已解锁之间 */
 export const COLLECTION_PREREQUISITE_OPACITY = 0.78;
 
+/** 收藏图鉴未解锁详情预览层（不论有无前置，统一透明度） */
+export const COLLECTION_LOCKED_PREVIEW_OPACITY = 0.75;
+
 const COLLECTION_UPGRADE_LIST_NAME_PREFIX = "升级 · ";
 
 /** 收藏升级 tab 格子上方名称（去掉「升级 · 」，详情层仍用商店全名） */

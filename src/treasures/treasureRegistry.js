@@ -1,10 +1,16 @@
 /** 全量宝藏定义（效果逻辑由各宝藏 js 预留，尚未接入游戏） */
 import {
   forEachTreasureHookContribution,
+  isTreasureHookContributionActive,
   iterTreasureHookContributions,
 } from "../game/treasureBlueprintMirror.js";
-import { TREASURE_CATALOG_BY_ID } from "./treasureCatalog.js";
+import {
+  DEFAULT_TREASURE_INTRODUCED_VERSION,
+  TREASURE_CATALOG,
+  TREASURE_CATALOG_BY_ID,
+} from "./treasureCatalog.js";
 
+// 须顶层无条件调用，Vite 才能在构建期静态展开 glob；运行时 typeof import.meta.glob 恒为 false。
 const modules = import.meta.glob("./items/*.js", { eager: true });
 
 const moduleEntries = Object.entries(modules)
@@ -19,23 +25,34 @@ const moduleEntries = Object.entries(modules)
   .filter(Boolean);
 
 /** @type {import('./treasureTypes.js').TreasureDef[]} */
-export const TREASURE_DEFINITIONS = moduleEntries
-  .map(({ treasureId, modulePath, def }) => {
-    const catalog = TREASURE_CATALOG_BY_ID.get(treasureId);
-    if (import.meta.env.DEV && (!catalog || !catalog.name || !catalog.emoji)) {
-      console.warn(
-        `[treasureRegistry] Missing catalog data for treasureId=${treasureId}${modulePath ? ` path=${modulePath}` : ""}`,
-      );
-    }
-    return {
-      ...def,
-      treasureId,
-      name: catalog?.name ?? def.name,
-      emoji: catalog?.emoji ?? def.emoji,
-    };
-  })
-  .filter(Boolean)
-  .sort((a, b) => Number(a.treasureId) - Number(b.treasureId));
+export const TREASURE_DEFINITIONS =
+  moduleEntries.length > 0
+    ? moduleEntries
+        .map(({ treasureId, modulePath, def }) => {
+          const catalog = TREASURE_CATALOG_BY_ID.get(treasureId);
+          if (import.meta.env?.DEV && (!catalog || !catalog.name || !catalog.emoji)) {
+            console.warn(
+              `[treasureRegistry] Missing catalog data for treasureId=${treasureId}${modulePath ? ` path=${modulePath}` : ""}`,
+            );
+          }
+          return {
+            ...def,
+            treasureId,
+            name: catalog?.name ?? def.name,
+            emoji: catalog?.emoji ?? def.emoji,
+            introducedVersion: catalog?.introducedVersion ?? DEFAULT_TREASURE_INTRODUCED_VERSION,
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => Number(a.treasureId) - Number(b.treasureId))
+    : TREASURE_CATALOG.map((catalog) => ({
+        treasureId: catalog.treasureId,
+        name: catalog.name,
+        emoji: catalog.emoji,
+        introducedVersion: catalog.introducedVersion ?? DEFAULT_TREASURE_INTRODUCED_VERSION,
+        implemented: catalog.implemented === true,
+        scriptPath: catalog.scriptPath,
+      }));
 
 /** @type {ReadonlyMap<string, import('./treasureTypes.js').TreasureHooks>} */
 export const TREASURE_HOOKS_BY_ID = new Map(
@@ -75,6 +92,23 @@ export function resolveTreasureChargeProgress(treasureId, chargeWordsSubmitted, 
   return hooks.getChargeProgress({ chargeWordsSubmitted, treasureRun: treasureRun ?? undefined });
 }
 
+/**
+ * @param {string | null | undefined} treasureId
+ * @param {number} chargeWordsSubmitted
+ * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} [treasureRun]
+ * @returns {boolean}
+ */
+export function resolveTreasureEffectDepleted(treasureId, chargeWordsSubmitted, treasureRun) {
+  if (!treasureId) return false;
+  const fn = TREASURE_HOOKS_BY_ID.get(treasureId)?.isTreasureEffectDepleted;
+  if (!fn) return false;
+  try {
+    return fn({ chargeWordsSubmitted, treasureRun: treasureRun ?? undefined }) === true;
+  } catch {
+    return false;
+  }
+}
+
 /** @param {object} ctx @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {{ slotIndex: number, source: 'self' | 'blueprint' }} entry */
 function withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source }) {
   return {
@@ -83,6 +117,14 @@ function withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex,
     hookSlotIndex: slotIndex,
     hookSource: source,
   };
+}
+
+/** @param {object} ctx @param {(string | null | undefined)[]} snapshot */
+function resolveLiveOwnedSlotTreasureIds(ctx, snapshot) {
+  const fromGetter = ctx.getOwnedSlotTreasureIds?.();
+  if (Array.isArray(fromGetter)) return fromGetter;
+  if (Array.isArray(ctx.ownedSlotTreasureIds)) return ctx.ownedSlotTreasureIds;
+  return snapshot ?? [];
 }
 
 /**
@@ -174,20 +216,38 @@ export async function notifyOwnedTreasuresPrepareLevelEnter(ownedSlotTreasureIds
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureLevelEnterContext} ctx */
 export async function notifyOwnedTreasuresOnLevelEnter(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
-    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onLevelEnter;
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, (entry) => {
+    const live = resolveLiveOwnedSlotTreasureIds(ctx, ownedSlotTreasureIds);
+    if (!isTreasureHookContributionActive(live, entry)) return;
+    const fn = TREASURE_HOOKS_BY_ID.get(entry.treasureId)?.onLevelEnter;
     return fn
-      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      ? Promise.resolve(
+          fn(
+            withTreasureHookContributionCtx(ctx, live, {
+              slotIndex: entry.slotIndex,
+              source: entry.source,
+            }),
+          ),
+        )
       : undefined;
   });
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureLevelCompleteContext} ctx */
 export async function notifyOwnedTreasuresOnLevelComplete(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
-    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onLevelComplete;
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, (entry) => {
+    const live = resolveLiveOwnedSlotTreasureIds(ctx, ownedSlotTreasureIds);
+    if (!isTreasureHookContributionActive(live, entry)) return;
+    const fn = TREASURE_HOOKS_BY_ID.get(entry.treasureId)?.onLevelComplete;
     return fn
-      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      ? Promise.resolve(
+          fn(
+            withTreasureHookContributionCtx(ctx, live, {
+              slotIndex: entry.slotIndex,
+              source: entry.source,
+            }),
+          ),
+        )
       : undefined;
   });
 }
@@ -289,14 +349,15 @@ export async function notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIds,
   });
 }
 
-/** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
-export function sumTreasureSubmitLengthBonus(ownedSlotTreasureIds) {
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureRunState.js').TreasureRunState} [treasureRun] */
+export function sumTreasureSubmitLengthBonus(ownedSlotTreasureIds, treasureRun) {
   const slots = ownedSlotTreasureIds ?? [];
+  const ctx = { ownedSlotTreasureIds: slots, treasureRun };
   let sum = 0;
   for (const { treasureId: tid } of iterTreasureHookContributions(slots)) {
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.getSubmitLengthBonus;
     if (!fn) continue;
-    sum += Math.max(0, Math.floor(Number(fn({ ownedSlotTreasureIds: slots })) || 0));
+    sum += Math.max(0, Math.floor(Number(fn(ctx)) || 0));
   }
   return sum;
 }
@@ -405,4 +466,55 @@ export function treasureBypassesNoSellForSelfDestruct(treasureId) {
   const id = String(treasureId ?? "").trim();
   if (!id) return false;
   return TREASURE_HOOKS_BY_ID.get(id)?.bypassNoSellForSelfDestruct === true;
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
+export function sumTreasureGridEffectTriggerBonus(ownedSlotTreasureIds) {
+  let sum = 0;
+  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.getGridEffectTriggerBonus;
+    if (!fn) continue;
+    sum += Math.max(0, Math.floor(Number(fn()) || 0));
+  }
+  return sum;
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
+export function sumTreasureShopAccessoryChanceMult(ownedSlotTreasureIds) {
+  let mult = 1;
+  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.getShopAccessoryChanceMult;
+    if (!fn) continue;
+    mult *= Math.max(0, Number(fn()) || 0) || 1;
+  }
+  return mult;
+}
+
+/**
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {{ hands: number, removals: number, treasureRun?: import('./treasureRunState.js').TreasureRunState }} ctx
+ */
+export function applyTreasureLevelStartActionAdjustments(ownedSlotTreasureIds, ctx) {
+  let hands = Math.max(0, Math.floor(Number(ctx.hands) || 0));
+  let removals = Math.max(0, Math.floor(Number(ctx.removals) || 0));
+  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.adjustLevelStartActionCounts;
+    if (!fn) continue;
+    const out = fn({ ...ctx, hands, removals, ownedSlotTreasureIds: ownedSlotTreasureIds ?? [] });
+    if (out && typeof out === "object") {
+      if (out.hands != null) hands = Math.max(0, Math.floor(Number(out.hands) || 0));
+      if (out.removals != null) removals = Math.max(0, Math.floor(Number(out.removals) || 0));
+    }
+  }
+  return { hands, removals };
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasurePackClaimedContext} ctx */
+export async function notifyOwnedTreasuresOnPackClaimed(ownedSlotTreasureIds, ctx) {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onPackClaimed;
+    return fn
+      ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
+      : undefined;
+  });
 }

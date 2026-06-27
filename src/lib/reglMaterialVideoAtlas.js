@@ -1,5 +1,5 @@
 import createREGL from "regl";
-import { isGamePaused } from "../game/gamePause.js";
+import { shouldFreezeMaterialHubTicks } from "../game/gamePause.js";
 import { isMaterialBenchEnabled } from "../dev/materialBenchGate.js";
 import { materialHubSubscribeTick, materialHubUnsubscribeTick } from "./reglMaterialTicker.js";
 import { forceLoseWebglContext } from "./reglDebugLog.js";
@@ -106,7 +106,7 @@ function anySubscriberNeedsTick() {
 
 function videoAtlasTick() {
   if (document.hidden || !atlasHub || !anySubscriberNeedsTick()) return;
-  if (isGamePaused() && !isMaterialBenchEnabled()) return;
+  if (shouldFreezeMaterialHubTicks() && !isMaterialBenchEnabled()) return;
   drawAtlasFrame();
   requestAtlasFrame();
 }
@@ -286,6 +286,11 @@ export function setVideoAtlasMaterialAnimated(materialId, canvas, animated) {
     return true;
   }
   return false;
+}
+
+/** 预创建 atlas WebGL、编译 shader，并绘制整帧 atlas。 */
+export function warmupVideoAtlasMaterialHub() {
+  ensureAtlasHub();
 }
 
 if (import.meta.hot) {

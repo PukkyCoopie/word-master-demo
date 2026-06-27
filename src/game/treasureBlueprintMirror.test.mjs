@@ -4,6 +4,7 @@ import {
   countTreasureHookContributionPaths,
   getBlueprintMirroredTreasureId,
   isPhysicalTreasureHookContribution,
+  isTreasureHookContributionActive,
   iterTreasureHookContributions,
   resolvePhysicalTreasureSlotIndex,
   resolvePostLetterAnimSlotIndex,
@@ -49,4 +50,30 @@ test("iterTreasureHookContributions [面具][泡泡] 产出 blueprint + self", (
   );
   assert.equal(getBlueprintMirroredTreasureId(slots, 0), "80");
   assert.equal(countTreasureHookContributionPaths(slots, "80"), 2);
+});
+
+test("isTreasureHookContributionActive 槽位清空后 self / blueprint 均无效", () => {
+  const before = ["29", "54", null];
+  assert.equal(
+    isTreasureHookContributionActive(before, { slotIndex: 1, treasureId: "54", source: "self" }),
+    true,
+  );
+
+  const afterBomb = ["29", null, null];
+  assert.equal(
+    isTreasureHookContributionActive(afterBomb, { slotIndex: 1, treasureId: "54", source: "self" }),
+    false,
+  );
+
+  const maskBefore = ["98", "54", null];
+  assert.equal(
+    isTreasureHookContributionActive(maskBefore, { slotIndex: 0, treasureId: "54", source: "blueprint" }),
+    true,
+  );
+
+  const maskAfter = ["98", null, null];
+  assert.equal(
+    isTreasureHookContributionActive(maskAfter, { slotIndex: 0, treasureId: "54", source: "blueprint" }),
+    false,
+  );
 });

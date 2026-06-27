@@ -35,3 +35,25 @@ export function resolveCollectionUnlockHintPanel(treasure) {
     description: describe(`在游戏中${verb}该${noun}以解锁`),
   };
 }
+
+/**
+ * @param {object | null | undefined} treasure
+ * @returns {boolean}
+ */
+export function isCollectionLegendaryTreasure(treasure) {
+  if (resolveCollectionUnlockHintKind(treasure) !== "treasure") return false;
+  const r = String(treasure?.rarity ?? "").trim();
+  if (r === "legendary") return true;
+  return String(treasure?.letterRarity ?? "").trim() === "legendary";
+}
+
+/**
+ * 收藏图鉴：传说宝藏详情下的商店刷新说明。
+ * @returns {{ title: string; description: import('../treasures/treasureDescription.js').TreasureDescSegment[] }}
+ */
+export function resolveCollectionLegendaryRarityPanel() {
+  return {
+    title: "传说稀有度",
+    description: describe("通常不会刷新在商店中"),
+  };
+}

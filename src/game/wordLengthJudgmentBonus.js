@@ -14,6 +14,7 @@ import { getWordLengthJudgmentBonus } from "../vouchers/voucherRuntime.js";
  *   ownedSlotTreasureIds?: (string | null | undefined)[],
  *   presetId?: string,
  *   runWordLengthJudgmentPenalty?: number,
+ *   treasureRun?: import('../treasures/treasureRunState.js').TreasureRunState,
  * }} opts
  */
 export function resolveWordLengthJudgmentBonus({
@@ -21,12 +22,13 @@ export function resolveWordLengthJudgmentBonus({
   ownedSlotTreasureIds = [],
   presetId = "",
   runWordLengthJudgmentPenalty = 0,
+  treasureRun,
 } = {}) {
   return (
     getWordLengthJudgmentBonus(ownedVoucherIds) +
     getPresetWordLengthJudgmentBonus(presetId) -
     Math.max(0, Math.floor(Number(runWordLengthJudgmentPenalty) || 0)) -
     sumTreasureLengthJudgmentPenalty(ownedSlotTreasureIds) +
-    sumTreasureSubmitLengthBonus(ownedSlotTreasureIds)
+    sumTreasureSubmitLengthBonus(ownedSlotTreasureIds, treasureRun)
   );
 }

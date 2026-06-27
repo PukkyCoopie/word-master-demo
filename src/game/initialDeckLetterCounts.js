@@ -49,3 +49,13 @@ export function allLetterRaws() {
   }
   return out;
 }
+
+/** @returns {string[]} */
+export function allVowelRaws() {
+  return Object.keys(VOWEL_DECK_COUNT);
+}
+
+/** @returns {string[]} */
+export function allConsonantRaws() {
+  return allLetterRaws().filter((raw) => !VOWEL_LETTERS.has(raw));
+}

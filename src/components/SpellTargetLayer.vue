@@ -160,24 +160,27 @@
             </div>
           </div>
 
-          <div class="spell-target-actions">
-            <button
-              v-if="!session.skipDisabled"
-              type="button"
-              class="shop-btn shop-btn--reroll"
-              :disabled="tileAnimActive"
-              title="关闭弹窗，不施放本次法术"
-              @click="onSkipDismiss"
-            >
-              跳过
-            </button>
+          <div class="spell-target-actions confirm-actions-row">
             <HoldConfirmButton
               label="确定"
               hold-label="按住以确认"
               :hold-mode="confirmHoldMode"
               :disabled="tileAnimActive || !canConfirmSpell"
               @confirm="onConfirm"
+              @hold-change="onConfirmHoldChange"
             />
+            <button
+              v-if="!session.skipDisabled"
+              type="button"
+              class="shop-btn shop-btn--reroll"
+              :class="{ 'hold-peer-btn--holding': confirmPeerHoldActive }"
+              :disabled="tileAnimActive"
+              title="关闭弹窗，不施放本次法术"
+              @click="onSkipDismiss"
+            >
+              <span class="hold-peer-btn-label">跳过</span>
+              <HoldPeerProgress :active="confirmPeerHoldActive" :progress="confirmPeerHoldProgress" />
+            </button>
           </div>
         </div>
       </div>
@@ -204,6 +207,7 @@ import { collectExplicitDescriptionConceptPanels } from "../game/gameConceptCopy
 import LetterTile from "./LetterTile.vue";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
 import HoldConfirmButton from "./HoldConfirmButton.vue";
+import HoldPeerProgress from "./HoldPeerProgress.vue";
 import { isHighRiskSpellId } from "../spells/highRiskSpells.js";
 import { getHighRiskSpellConfirmEnabled } from "../settings/gameSettings.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
@@ -217,7 +221,7 @@ import {
 const props = defineProps({
   session: { type: Object, default: null },
   overlaySuppressed: { type: Boolean, default: false },
-  /** 已拥有打字机（45）时：法术描述中的概率 chip 显示翻倍 */
+  /** 已拥有彗星（45）时：法术描述中的概率 chip 显示翻倍 */
   probabilityDisplayDoubled: { type: Boolean, default: false },
 });
 
@@ -283,6 +287,8 @@ watch(
     tileAnimActive.value = false;
     surfaceOverrides.value = null;
     clearOfferTileElList();
+    confirmPeerHoldActive.value = false;
+    confirmPeerHoldProgress.value = 0;
   },
 );
 
@@ -354,6 +360,15 @@ const confirmHoldMode = computed(() => {
   const sid = String(props.session?.effectiveSpellId ?? props.session?.purchasedSpellId ?? "");
   return isHighRiskSpellId(sid) && getHighRiskSpellConfirmEnabled();
 });
+
+const confirmPeerHoldActive = ref(false);
+const confirmPeerHoldProgress = ref(0);
+
+/** @param {{ holding: boolean, progress: number }} state */
+function onConfirmHoldChange(state) {
+  confirmPeerHoldActive.value = Boolean(state?.holding);
+  confirmPeerHoldProgress.value = Math.max(0, Math.min(1, Number(state?.progress) || 0));
+}
 
 function staggerTargets() {
   return [

@@ -10,6 +10,7 @@
         'treasure-slot--stack-overlap': stackOverlapShadow,
         'treasure-slot--effect-charge': chargeState != null,
         'treasure-slot--effect-charge-active': chargeState === 'active',
+        'treasure-slot--effect-depleted': effectDepleted,
         'treasure-slot--boss-hand-disabled': crimsonHandDisabled,
         'treasure-slot--accessory-expired': accessoryExpired,
         'treasure-slot--amber-mask': amberBossMask,
@@ -57,6 +58,8 @@ const props = defineProps({
   gemClass: { type: String, default: "gem-rare" },
   chargeState: { type: String, default: null },
   chargeProgress: { type: Number, default: 0 },
+  /** 效果已永久耗尽：仅压暗，无充能角标 */
+  effectDepleted: { type: Boolean, default: false },
   slotClass: { type: [String, Array, Object], default: null },
   /** 叠放模式：左侧压住右侧时，在本体背后向右延伸遮挡渐变 */
   stackOverlapShadow: { type: Boolean, default: false },

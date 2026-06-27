@@ -44,6 +44,10 @@
  * @property {number} runLettersDiscardedTotal 本局累计弃掉字母块数
  * @property {boolean} shopUpgradesFree 商店升级/升级包免费（宝藏 110）
  * @property {string | null} lastSpellIdBeforeShopLeave 离店前最后一次释放的法术 id（宝藏 117）
+ * @property {number} runLuckyTriggerCount 本局幸运块效果成功触发次数（宝藏 128）
+ * @property {boolean} levelBossRestrictionSuppressed 本小关 Boss 限制已消除（宝藏 136 卖出）
+ * @property {boolean} level137BonusApplied 本小关已消耗电池储存分（宝藏 137）
+ * @property {boolean} level139FaxCopyDone 本小关传真机已复制（宝藏 139）
  */
 
 /** @type {readonly string[]} */
@@ -98,7 +102,17 @@ export function createTreasureRunState() {
     runLettersDiscardedTotal: 0,
     shopUpgradesFree: false,
     lastSpellIdBeforeShopLeave: null,
+    runLuckyTriggerCount: 0,
+    levelBossRestrictionSuppressed: false,
+    level137BonusApplied: false,
+    level139FaxCopyDone: false,
   };
+}
+
+/** @param {TreasureRunState} state */
+export function bumpRunLuckyTriggerCount(state) {
+  if (!state) return;
+  state.runLuckyTriggerCount = Math.max(0, Math.floor(Number(state.runLuckyTriggerCount) || 0)) + 1;
 }
 
 /** @param {TreasureRunState} state @param {string} treasureId */
@@ -120,6 +134,9 @@ export function resetTreasureLevelScopedState(state) {
   state.levelVowelsUsedThisLevel = new Set();
   state.levelFirstFullWordDiscardDone = false;
   state.levelFirstDiscardBatchDone = false;
+  state.levelBossRestrictionSuppressed = false;
+  state.level137BonusApplied = false;
+  state.level139FaxCopyDone = false;
 }
 
 /** @param {TreasureRunState} state @param {() => number} [rng] */

@@ -1,25 +1,42 @@
-import { describe, mult, prob } from "../treasureDescription.js";
+import { describe, mult, prob, riskBlock, riskText } from "../treasureDescription.js";
 import { rollProbabilityFailsSkip } from "../treasureProbability.js";
+
+const ID = "54";
+const ERUPTION_PROB_DENOMINATOR = 25;
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 6,
-  rarity: "common",
-  description: describe(mult("x3"), "倍率", "；在关卡完成时", prob("1/1000"), "的概率摧毁自身"),
+  price: 10,
+  rarity: "epic",
+  description: describe(
+    mult("x5"),
+    "倍率",
+    "；",
+    prob("1/25"),
+    "的概率在关卡完成时喷发",
+    { type: "br" },
+    riskBlock("…火焰会吞没", riskText("一切"), "！"),
+  ),
   poolPrerequisite: { type: "treasure29SelfDestructed" },
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  bypassNoSellForSelfDestruct: true,
+  resolveVolcanoEruptionBubble() {
+    return { text: "火山喷发！", kind: "volcano-eruption" };
+  },
   buildPostLetterStep() {
-    return { multMul: 3 };
+    return { multMul: 5 };
   },
   async onLevelComplete(ctx) {
     const rng = ctx.rng ?? Math.random;
-    if (rollProbabilityFailsSkip(1, 1000, rng, ctx.ownedSlotTreasureIds)) return;
+    if (rollProbabilityFailsSkip(1, ERUPTION_PROB_DENOMINATOR, rng, ctx.ownedSlotTreasureIds)) return;
     if (ctx.treasureRun) ctx.treasureRun.probabilityEffectTriggered = true;
-    if (ctx.destroyTreasureSlotById) await ctx.destroyTreasureSlotById("54");
-    else ctx.clearTreasureSlotById?.("54");
+    const volcanoSlotIndex =
+      typeof ctx.hookSlotIndex === "number" && ctx.hookSlotIndex >= 0
+        ? ctx.hookSlotIndex
+        : (ctx.findOwnedTreasureSlotIndex?.(ID) ?? -1);
+    if (volcanoSlotIndex < 0) return;
+    await ctx.playVolcanoEruptionAtSlot?.(volcanoSlotIndex);
   },
 };

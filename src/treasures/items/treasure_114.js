@@ -13,18 +13,18 @@ export default {
   price: 10,
   rarity: "legendary",
   shopEligible: false,
-  description: describe("每个 J、Qu、K 提供", mult("x2"), "倍率"),
+  description: describe("每个 J、Qu、K 提供", mult("x2.5"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   getLetterRarityMultMulForLetterPart(part) {
-    return isJkqLetterPart(part) ? 2 : 1;
+    return isJkqLetterPart(part) ? 2.5 : 1;
   },
   getLetterRarityMultAnimConfig() {
     return {
-      multMul: 2,
-      bubbleLabel: "x2",
+      multMul: 2.5,
+      bubbleLabel: "x2.5",
       matchesPart: isJkqLetterPart,
     };
   },

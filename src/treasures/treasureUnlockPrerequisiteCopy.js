@@ -41,6 +41,10 @@ function buildUnlockPrerequisitePlainText(pre) {
       return "牌库中所有字母都是普通字母";
     case "deckIceMin":
       return `在牌库中拥有${min || 5}个碎冰块`;
+    case "deckLuckyMin":
+      return `在牌库中拥有${min || 2}个幸运块`;
+    case "deckFireMin":
+      return `在牌库中拥有${min || 2}个火焰块`;
     case "deckRarityKindsMin":
       return `向牌库中添加至少${min || 3}种不同稀有度的字母块`;
     case "deckGoldCoinAccessory":
@@ -69,6 +73,14 @@ function buildUnlockPrerequisitePlainText(pre) {
       return "本轮游戏曾弃掉 7 字母及以上的完整单词，或曾卖出面具";
     case "allOwnedTreasuresHaveAccessory":
       return "已拥有的每个宝藏都装备了配饰";
+    case "ownedEpicMinOrLegendaryMin": {
+      const epicMin = Math.max(0, Math.floor(Number(/** @type {{ epicMin?: number }} */ (pre).epicMin) || 0));
+      const legendaryMin = Math.max(
+        0,
+        Math.floor(Number(/** @type {{ legendaryMin?: number }} */ (pre).legendaryMin) || 0),
+      );
+      return `至少拥有${epicMin || 3}个史诗级宝藏或${legendaryMin || 1}个传说级宝藏`;
+    }
     case "probabilityEffectTriggered":
       return "成功触发一个概率效果";
     default:

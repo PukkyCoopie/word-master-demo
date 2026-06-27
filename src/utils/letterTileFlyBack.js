@@ -1,17 +1,11 @@
 /**
  * 飞回动画用 DOM（append 到 body，无法挂载 Vue）。
  * 内部结构与 LetterTile（宝石 + 字母）一致，样式依赖全局 game.css 中的 .fly-letter-back。
- * 黄金 / 不锈钢等：attach*Regl（全局单 regl 离屏 + 本节点 2D canvas 贴图）；飞回用 fixedCssWidth/Height 指定 CSS 尺寸，材质与棋盘共用 iTime 逐帧动画以保持落位衔接。
+ * 黄金 / 不锈钢等：reglMaterialHub 离屏 + 本节点 2D canvas 贴图；飞回用 fixedCssWidth/Height 指定 CSS 尺寸，材质与棋盘共用 iTime 逐帧动画以保持落位衔接。
  * 配饰等与 Vue 一致的 imperative 子树见 `appendImperativeTileChrome`（`tileImperativeChrome.js`）。
  * 动画结束须调用 disposeFlyBackTileElement。
  */
-import { attachFireRegl } from "../lib/fireReglMount.js";
-import { attachGoldRegl } from "../lib/goldReglMount.js";
-import { attachIceRegl } from "../lib/iceReglMount.js";
-import { attachLuckyRegl } from "../lib/luckyReglMount.js";
-import { attachSteelRegl } from "../lib/steelReglMount.js";
-import { attachWildcardRegl } from "../lib/wildcardReglMount.js";
-import { attachWaterRegl } from "../lib/waterReglMount.js";
+import { attachMaterialRegl } from "../lib/reglMaterialHub.js";
 import { shouldHideRarityGemForTile } from "../composables/useScoring.js";
 import { resolveTileMaterialAnimate } from "../lib/reglMaterialPerf.js";
 import { appendImperativeAugmentBadges, appendImperativeTileChrome } from "./tileImperativeChrome.js";
@@ -80,23 +74,9 @@ export function createFlyBackTileElement(item) {
     canvas.className = `tile-material-${item.materialId}-canvas`;
     canvas.setAttribute("aria-hidden", "true");
     el.appendChild(canvas);
-    const attach =
-      item.materialId === "gold"
-        ? attachGoldRegl
-        : item.materialId === "steel"
-          ? attachSteelRegl
-          : item.materialId === "ice"
-            ? attachIceRegl
-            : item.materialId === "water"
-              ? attachWaterRegl
-              : item.materialId === "fire"
-                ? attachFireRegl
-                : item.materialId === "wildcard"
-                  ? attachWildcardRegl
-                  : attachLuckyRegl;
     pushDispose(
       el,
-      attach(canvas, {
+      attachMaterialRegl(item.materialId, canvas, {
         ...reglOpts,
         animated: resolveTileMaterialAnimate("fly", true),
       }),

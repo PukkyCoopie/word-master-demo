@@ -19,64 +19,18 @@
       @transitionend="onLayerInnerTransitionEnd"
     >
       <div class="info-tabs-outer">
-        <div ref="infoTabsRef" class="info-tabs" role="tablist">
-          <div class="info-tabs-thumb" aria-hidden="true" :style="infoTabThumbStyle" />
-          <button
-            type="button"
-            role="tab"
-            class="info-tab"
-            :class="{ 'info-tab--active': activeTab === 'level' }"
-            :aria-selected="activeTab === 'level'"
-            :ref="(el) => setInfoTabEl('level', el)"
-            @click="switchInfoTab('level')"
-          >
-            等级
-          </button>
-          <button
-            type="button"
-            role="tab"
-            class="info-tab"
-            :class="{ 'info-tab--active': activeTab === 'rarity' }"
-            :aria-selected="activeTab === 'rarity'"
-            :ref="(el) => setInfoTabEl('rarity', el)"
-            @click="switchInfoTab('rarity')"
-          >
-            字母块
-          </button>
-          <button
-            type="button"
-            role="tab"
-            class="info-tab"
-            :class="{ 'info-tab--active': activeTab === 'stage' }"
-            :aria-selected="activeTab === 'stage'"
-            :ref="(el) => setInfoTabEl('stage', el)"
-            @click="switchInfoTab('stage')"
-          >
-            关卡
-          </button>
-          <button
-            type="button"
-            role="tab"
-            class="info-tab"
-            :class="{ 'info-tab--active': activeTab === 'coupon' }"
-            :aria-selected="activeTab === 'coupon'"
-            :ref="(el) => setInfoTabEl('coupon', el)"
-            @click="switchInfoTab('coupon')"
-          >
-            优惠券
-          </button>
-          <button
-            type="button"
-            role="tab"
-            class="info-tab info-tab--wide"
-            :class="{ 'info-tab--active': activeTab === 'preset' }"
-            :aria-selected="activeTab === 'preset'"
-            :ref="(el) => setInfoTabEl('preset', el)"
-            @click="switchInfoTab('preset')"
-          >
-            预设和难度
-          </button>
-        </div>
+        <SegmentTabControl
+          ref="infoTabsControlRef"
+          class="info-tabs-control"
+          :model-value="activeTab"
+          :options="INFO_TAB_OPTIONS"
+          variant="info"
+          aria-label="对局信息"
+          fill
+          :reposition-instant="skipTabSwitchAnim"
+          :haptic="false"
+          @update:model-value="switchInfoTab"
+        />
       </div>
 
       <div class="info-panel" :style="panelMinStyle">
@@ -367,7 +321,8 @@
     <TileDetailLayer
       v-if="presetWildcardDetailOpen"
       :payload="presetWildcardDetailPayload"
-      @close="presetWildcardDetailOpen = false"
+      :origin-rect="presetWildcardDetailOriginRect"
+      @close="closePresetWildcardDetail"
     />
   </div>
 </template>
@@ -399,6 +354,7 @@ import VoucherStampStack from "./VoucherStampStack.vue";
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
 import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
+import SegmentTabControl from "./SegmentTabControl.vue";
 import {
   playInfoCouponTabEnter,
   playInfoCouponTabLeave,
@@ -420,6 +376,10 @@ import { copyTextToClipboard } from "../utils/copyTextToClipboard.js";
 import PresetDescRichText from "./PresetDescRichText.vue";
 import TreasureDetailLayer from "./TreasureDetailLayer.vue";
 import TileDetailLayer from "./TileDetailLayer.vue";
+import {
+  WILDCARD_PRESET_TILE_DETAIL_PAYLOAD,
+  wildcardPresetPreviewOriginRectFromEvent,
+} from "../game/wildcardPresetPreview.js";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 
 const props = defineProps({
@@ -483,40 +443,15 @@ watch(
 );
 
 const activeTab = ref("level");
+const infoTabsControlRef = ref(/** @type {InstanceType<typeof SegmentTabControl> | null} */ (null));
 
-const infoTabsRef = ref(/** @type {HTMLElement | null} */ (null));
-/** @type {Record<string, HTMLElement | undefined>} */
-const infoTabElById = {};
-const infoTabThumbStyle = ref({ width: "0px", transform: "translateX(0)" });
-
-/**
- * @param {string} id
- * @param {import('vue').ComponentPublicInstance | Element | null} el
- */
-function setInfoTabEl(id, el) {
-  const node = el instanceof HTMLElement ? el : null;
-  if (node) {
-    infoTabElById[id] = node;
-  } else {
-    delete infoTabElById[id];
-  }
-}
-
-function updateInfoTabThumb() {
-  const btn = infoTabElById[activeTab.value];
-  if (!btn) return;
-  infoTabThumbStyle.value = {
-    width: `${btn.offsetWidth}px`,
-    transform: `translateX(${btn.offsetLeft}px)`,
-  };
-}
-
-function scheduleUpdateInfoTabThumb() {
-  nextTick(() => {
-    updateInfoTabThumb();
-    requestAnimationFrame(() => updateInfoTabThumb());
-  });
-}
+const INFO_TAB_OPTIONS = Object.freeze([
+  { id: "level", label: "等级" },
+  { id: "rarity", label: "字母块" },
+  { id: "stage", label: "关卡" },
+  { id: "coupon", label: "优惠券" },
+  { id: "preset", label: "预设和难度", wide: true },
+]);
 
 const levelTabRef = ref(null);
 const rarityTabRef = ref(null);
@@ -549,24 +484,24 @@ const runPresetDescTier = computed(() => {
 /** @type {import('vue').Ref<object | null>} */
 const presetVoucherDetail = ref(null);
 const presetWildcardDetailOpen = ref(false);
-const presetWildcardDetailPayload = {
-  letter: "?",
-  rarity: "common",
-  materialId: "wildcard",
-  accessoryId: null,
-  treasureAccessoryId: null,
-  tileScoreBonus: 0,
-  tileMultBonus: 0,
-  hideRarityGem: true,
-};
+/** @type {import('vue').Ref<{ left: number, top: number, width: number, height: number } | null>} */
+const presetWildcardDetailOriginRect = ref(null);
+const presetWildcardDetailPayload = WILDCARD_PRESET_TILE_DETAIL_PAYLOAD;
 
 /** @param {{ detail: object }} payload */
 function onPresetPreviewVoucher(payload) {
   presetVoucherDetail.value = payload.detail;
 }
 
-function onPresetPreviewWildcard() {
+/** @param {{ event?: MouseEvent }} [payload] */
+function onPresetPreviewWildcard(payload) {
+  presetWildcardDetailOriginRect.value = wildcardPresetPreviewOriginRectFromEvent(payload?.event);
   presetWildcardDetailOpen.value = true;
+}
+
+function closePresetWildcardDetail() {
+  presetWildcardDetailOpen.value = false;
+  presetWildcardDetailOriginRect.value = null;
 }
 
 
@@ -656,16 +591,15 @@ function onLayerInnerTransitionEnd(ev) {
   if (ev.propertyName !== "transform") return;
   if (!props.modelValue) return;
   measureLevelTabHeight();
-  updateInfoTabThumb();
+  releaseInfoTabSwitchAnim();
+  scheduleRepositionInfoTabs({ instant: true });
 }
 
 let levelTableResizeObserver = null;
-/** @type {ResizeObserver | null} */
-let infoTabsResizeObserver = null;
 
 function onWindowResizeForInfoModal() {
   scheduleMeasureLevelTabHeight();
-  updateInfoTabThumb();
+  scheduleRepositionInfoTabs({ instant: true });
 }
 
 onMounted(() => {
@@ -677,20 +611,9 @@ onMounted(() => {
     });
     levelTableResizeObserver.observe(el);
   }
-  nextTick(() => {
-    if (infoTabsRef.value && typeof ResizeObserver !== "undefined") {
-      infoTabsResizeObserver = new ResizeObserver(() => {
-        updateInfoTabThumb();
-      });
-      infoTabsResizeObserver.observe(infoTabsRef.value);
-    }
-    updateInfoTabThumb();
-  });
   window.addEventListener("resize", onWindowResizeForInfoModal);
   if (props.modelValue) {
     applyInfoModalOpenState();
-  } else {
-    scheduleUpdateInfoTabThumb();
   }
 });
 
@@ -737,7 +660,7 @@ function prepareActiveTabEnterHidden() {
 function switchInfoTab(tabId) {
   if (!VALID_INFO_TABS.has(tabId) || activeTab.value === tabId) return;
   triggerHaptic("tabSwitch");
-  if (!props.modelValue || skipTabSwitchAnim) {
+  if (!props.modelValue || skipTabSwitchAnim.value) {
     activeTab.value = tabId;
     return;
   }
@@ -766,8 +689,37 @@ function runActiveTabEnterAnim() {
 
 /** @type {ReturnType<typeof setTimeout> | null} */
 let tabEnterAnimTimer = null;
-let skipTabSwitchAnim = false;
+const skipTabSwitchAnim = ref(false);
 const openingStaggerGuard = ref(true);
+
+/** @param {{ instant?: boolean, delay?: number }} [opts] */
+function scheduleRepositionInfoTabs(opts = {}) {
+  const { instant = false, delay = 0 } = opts;
+  /** @param {number} [retryCount] */
+  const run = (retryCount = 0) => {
+    if (!props.modelValue) return;
+    const control = infoTabsControlRef.value;
+    if (!control) {
+      if (retryCount < 8) requestAnimationFrame(() => run(retryCount + 1));
+      return;
+    }
+    control.reposition({ instant: instant || skipTabSwitchAnim.value });
+  };
+  if (delay > 0) {
+    setTimeout(() => run(), delay);
+  } else {
+    nextTick(() => {
+      run();
+      requestAnimationFrame(() => run());
+    });
+  }
+}
+
+function releaseInfoTabSwitchAnim() {
+  if (!skipTabSwitchAnim.value) return;
+  skipTabSwitchAnim.value = false;
+  scheduleRepositionInfoTabs({ instant: true });
+}
 
 /** @param {{ delay?: number }} [opts] */
 function scheduleActiveTabEnterAnim(opts = {}) {
@@ -793,8 +745,6 @@ onBeforeUnmount(() => {
   killAllInfoStaggerTweens();
   levelTableResizeObserver?.disconnect();
   levelTableResizeObserver = null;
-  infoTabsResizeObserver?.disconnect();
-  infoTabsResizeObserver = null;
   window.removeEventListener("resize", onWindowResizeForInfoModal);
   if (seedCopyResetTimer) clearTimeout(seedCopyResetTimer);
 });
@@ -804,18 +754,20 @@ const VALID_INFO_TABS = new Set(["level", "rarity", "stage", "coupon", "preset"]
 /** 打开弹窗：设 Tab、量高、与外壳同时播当前 Tab 入场（v-if 挂载时 watch 不会触发，onMounted 也需调用） */
 function applyInfoModalOpenState() {
   backdropSelfCloseGuard.arm();
-  skipTabSwitchAnim = true;
+  skipTabSwitchAnim.value = true;
   openingStaggerGuard.value = true;
   const tab = String(props.initialTab ?? "level");
   activeTab.value = VALID_INFO_TABS.has(tab) ? tab : "level";
   scheduleMeasureLevelTabHeight();
   scheduleMeasureLevelTabHeight({ delay: 340 });
+  scheduleRepositionInfoTabs({ instant: true });
+  scheduleRepositionInfoTabs({ instant: true, delay: 340 });
   nextTick(() => {
     prepareActiveTabEnterHidden();
     openingStaggerGuard.value = false;
     runActiveTabEnterAnim();
-    skipTabSwitchAnim = false;
-    scheduleUpdateInfoTabThumb();
+    scheduleRepositionInfoTabs({ instant: true });
+    setTimeout(releaseInfoTabSwitchAnim, 360);
   });
 }
 
@@ -831,7 +783,7 @@ watch(
 );
 
 watch(activeTab, () => {
-  scheduleUpdateInfoTabThumb();
+  scheduleRepositionInfoTabs({ instant: skipTabSwitchAnim.value });
 });
 
 watch(
@@ -954,7 +906,7 @@ function runCloseAnimation() {
   if (closing.value || !props.modelValue) return Promise.resolve();
   closing.value = true;
   presetVoucherDetail.value = null;
-  presetWildcardDetailOpen.value = false;
+  closePresetWildcardDetail();
   killAllInfoStaggerTweens();
 
   if (shouldSkipDecorativeMotion()) {
@@ -1026,7 +978,7 @@ function onBackdropSelfClick() {
     return;
   }
   if (presetWildcardDetailOpen.value) {
-    presetWildcardDetailOpen.value = false;
+    closePresetWildcardDetail();
     return;
   }
   backdropSelfCloseGuard.onBackdropSelfClick(close);
@@ -1095,7 +1047,6 @@ function onBackdropSelfClick() {
   box-sizing: border-box;
 }
 
-/* Tab 分段选择器：中性底 + 对局信息橙滑块；末项「预设和难度」加宽 */
 .info-tabs-outer {
   grid-row: 1;
   position: relative;
@@ -1103,81 +1054,9 @@ function onBackdropSelfClick() {
   z-index: 1;
 }
 
-.info-tabs {
-  --info-tab-pad: calc(6 * var(--rpx));
-  --info-orange: #ed8c5c;
-  --info-orange-fg: #faf8ef;
-  display: flex;
-  gap: 0;
-  align-items: stretch;
-  padding: var(--info-tab-pad);
-  position: relative;
-  overflow: visible;
-  border-radius: calc(8 * var(--rpx));
-  background: var(--info-orange);
-  box-sizing: border-box;
-}
-
-.info-tabs-thumb {
-  position: absolute;
-  top: var(--info-tab-pad);
-  bottom: var(--info-tab-pad);
-  left: 0;
-  border-radius: calc(6 * var(--rpx));
-  background: #fff;
-  pointer-events: none;
-  transition:
-    transform calc(0.22s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out),
-    width calc(0.22s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out);
-  z-index: 0;
-}
-
-.info-tab {
-  flex: 1 1 0;
-  min-width: 0;
-  position: relative;
-  z-index: 1;
-  border: none;
-  padding: calc(14 * var(--rpx)) calc(6 * var(--rpx));
-  font-family: inherit;
-  font-size: calc(24 * var(--rpx));
-  font-weight: 700;
-  line-height: 1.25;
-  color: var(--info-orange-fg);
-  background: transparent;
-  cursor: pointer;
-  border-radius: calc(6 * var(--rpx));
-  opacity: 0.82;
-  white-space: nowrap;
-  transition:
-    color 0.12s ease,
-    opacity 0.12s ease;
-}
-
-.info-tab--wide {
-  flex: 1.42 1 0;
-}
-
-.info-tab:hover:not(.info-tab--active) {
-  opacity: 0.88;
-}
-
-.info-tab:active:not(.info-tab--active) {
-  opacity: 0.62;
-}
-
-.info-tab--active {
-  color: var(--text-dark, #3c3a32);
-  opacity: 1;
-}
-
-.info-tab:focus-visible {
-  outline: calc(2 * var(--rpx)) solid var(--info-orange);
-  outline-offset: calc(1 * var(--rpx));
-}
-
-:global(html.reduce-motion) .info-tabs-thumb {
-  transition: none;
+.info-tabs-control {
+  width: 100%;
+  max-width: none;
 }
 
 .info-panel {

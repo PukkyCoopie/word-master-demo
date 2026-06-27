@@ -3,6 +3,8 @@ import gsap from "gsap";
 let pauseDepth = 0;
 /** 局内暂停时临时允许浮层 GSAP 入场（如开始游戏弹窗叠在选项层上） */
 let gsapFreezeSuspendDepth = 0;
+/** 开始游戏弹窗等 UI 浮层打开时仍允许 regl 材质 canvas 逐帧动画 */
+let overlayMaterialTickDepth = 0;
 /** @type {Set<() => void>} */
 const unpauseWaiters = new Set();
 
@@ -13,6 +15,21 @@ function shouldFreezeGsapTimeline() {
 /** @returns {boolean} */
 export function isGamePaused() {
   return pauseDepth > 0;
+}
+
+/** @returns {boolean} 局内 pause 栈非空且未豁免 UI 浮层材质 tick */
+export function shouldFreezeMaterialHubTicks() {
+  if (overlayMaterialTickDepth > 0) return false;
+  return pauseDepth > 0;
+}
+
+/** 开始游戏弹窗等 UI 浮层：局内仍 pause，但万能块等材质预览须继续动画 */
+export function enterOverlayMaterialTick() {
+  overlayMaterialTickDepth += 1;
+}
+
+export function exitOverlayMaterialTick() {
+  overlayMaterialTickDepth = Math.max(0, overlayMaterialTickDepth - 1);
 }
 
 /** 局内选项层等打开时冻结背景动效与计分时序 */
@@ -62,6 +79,7 @@ export function resumeGamePauseGsapFreeze() {
 export function resetGamePause() {
   pauseDepth = 0;
   gsapFreezeSuspendDepth = 0;
+  overlayMaterialTickDepth = 0;
   unpauseWaiters.clear();
   gsap.globalTimeline.resume();
 }

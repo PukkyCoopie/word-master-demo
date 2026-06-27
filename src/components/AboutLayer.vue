@@ -16,25 +16,15 @@
         <h2 :id="titleId" class="about-layer-title">关于</h2>
 
         <nav class="about-tabs-outer" aria-label="关于分类">
-          <div
-            class="about-tabs"
-            role="tablist"
-            :style="aboutTabSlideStyle"
-          >
-            <div class="about-tabs-thumb" aria-hidden="true" />
-            <button
-              v-for="section in ABOUT_SECTIONS"
-              :key="section.id"
-              type="button"
-              role="tab"
-              class="about-tab"
-              :class="{ 'about-tab--active': activeTab === section.id }"
-              :aria-selected="activeTab === section.id"
-              @click="scrollToSection(section.id)"
-            >
-              {{ section.label }}
-            </button>
-          </div>
+          <SegmentTabControl
+            :model-value="activeTab"
+            :options="ABOUT_SECTIONS"
+            variant="about"
+            aria-label="关于分类"
+            fill
+            :haptic="false"
+            @update:model-value="scrollToSection"
+          />
         </nav>
 
         <div class="about-scroll-outer">
@@ -58,7 +48,7 @@
                     <p class="about-game-name">单词大师</p>
                     <button
                       type="button"
-                      class="about-game-version"
+                      class="about-game-version app-version-badge"
                       aria-label="版本号"
                       @click="onVersionClick"
                     >
@@ -213,6 +203,7 @@ import { APP_CHANGELOG, APP_VERSION } from "../appVersion.js";
 import TapTapPromoIcon from "./TapTapPromoIcon.vue";
 import { isTapTapWebPromoEnabled } from "../taptap/tapTapWebPromo.js";
 import { scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
+import SegmentTabControl from "./SegmentTabControl.vue";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -243,16 +234,6 @@ const ABOUT_SECTIONS = [
 const titleId = "about-layer-title";
 /** @type {import('vue').Ref<'game' | 'thirdParty' | 'changelog'>} */
 const activeTab = ref("game");
-
-const activeTabIndex = computed(() => {
-  const idx = ABOUT_SECTIONS.findIndex((s) => s.id === activeTab.value);
-  return idx >= 0 ? idx : 0;
-});
-
-const aboutTabSlideStyle = computed(() => ({
-  "--about-tab-count": String(ABOUT_SECTIONS.length),
-  "--about-tab-index": String(activeTabIndex.value),
-}));
 
 const scrollBodyRef = ref(null);
 const scrollTrackRef = ref(null);
@@ -686,66 +667,9 @@ function splitSummary(summary) {
   margin: calc(-6 * var(--rpx)) 0 calc(18 * var(--rpx));
 }
 
-.about-tabs {
-  --about-tab-pad: calc(4 * var(--rpx));
-  --about-green: var(--btn-green, #7cb342);
-  --about-green-fg: #f9f6f2;
-  position: relative;
-  display: flex;
-  gap: 0;
-  padding: var(--about-tab-pad);
-  border-radius: calc(8 * var(--rpx));
-  background: rgba(0, 0, 0, 0.08);
-  box-sizing: border-box;
-}
-
-.about-tabs-thumb {
-  position: absolute;
-  top: var(--about-tab-pad);
-  bottom: var(--about-tab-pad);
-  left: var(--about-tab-pad);
-  width: calc((100% - 2 * var(--about-tab-pad)) / var(--about-tab-count));
-  border-radius: calc(6 * var(--rpx));
-  background: var(--about-green);
-  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.14);
-  pointer-events: none;
-  transition: transform calc(0.22s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out);
-  transform: translateX(calc(var(--about-tab-index) * 100%));
-  z-index: 0;
-}
-
-.about-tab {
-  flex: 1;
-  min-width: 0;
-  position: relative;
-  z-index: 1;
-  border: none;
-  border-radius: calc(6 * var(--rpx));
-  padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
-  font-family: inherit;
-  font-size: calc(24 * var(--rpx));
-  font-weight: 700;
-  cursor: pointer;
-  color: var(--text-dark, #3c3a32);
-  background: transparent;
-  opacity: 0.72;
-  transition:
-    color 0.12s ease,
-    opacity 0.12s ease;
-}
-
-.about-tab:hover:not(.about-tab--active) {
-  opacity: 0.88;
-}
-
-.about-tab--active {
-  color: var(--about-green-fg);
-  opacity: 1;
-}
-
-.about-tab:focus-visible {
-  outline: calc(2 * var(--rpx)) solid var(--about-green);
-  outline-offset: calc(1 * var(--rpx));
+.about-tabs-outer :deep(.segment-tab) {
+  width: 100%;
+  max-width: none;
 }
 
 .about-scroll-outer {
@@ -894,17 +818,6 @@ function splitSummary(summary) {
 .about-game-version {
   border: none;
   font-family: inherit;
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  padding: calc(6 * var(--rpx)) calc(14 * var(--rpx));
-  font-size: calc(20 * var(--rpx));
-  font-weight: 800;
-  line-height: 1.25;
-  color: #f9f6f2;
-  background: var(--btn-green, #7cb342);
-  border-radius: calc(8 * var(--rpx));
-  box-shadow: 0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.08);
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -1176,9 +1089,5 @@ function splitSummary(summary) {
 .about-layer-leave-to .about-layer-card {
   opacity: 0;
   transform: scale(0.94) translateY(calc(12 * var(--rpx)));
-}
-
-:global(html.reduce-motion) .about-tabs-thumb {
-  transition: none;
 }
 </style>

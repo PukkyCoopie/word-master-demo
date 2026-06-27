@@ -344,14 +344,7 @@ html.viewport-narrower-than-design .save-slot-layer-scrim {
 	pointer-events: none;
 }
 
-/* 与 .game-container 同内边距：商店 Teleport 到 .game-view-portal，不在带 padding 的容器内 */
-.shop-portal-root {
-	display: flex;
-	flex-direction: column;
-	min-height: 0;
-	box-sizing: border-box;
-	padding: calc(14 * var(--rpx));
-}
+/* 与 .game-container 同内边距：商店 Teleport 到 .game-view-portal，不在带 padding 的容器内 — 见 css/game.shop-phase.css */
 
 /*
  * 成就完成 Toast（手机 / 原生）：

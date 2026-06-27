@@ -238,6 +238,11 @@ import {
   preRevealPreviewFlyTargetUnderClone,
 } from "../game/previewFlyCloneCommit.js";
 import {
+  appendPreviewFlyTileBorderRadiusTween,
+  clearPreviewFlyTileBorderRadius,
+  queryPreviewFlyTileEl,
+} from "../game/previewFlyBorderRadius.js";
+import {
   instantPortalLayerClose,
   instantPortalLayerEnter,
   instantRevealGsapTargets,
@@ -338,6 +343,12 @@ function validOrigin(r) {
   );
 }
 
+/** @param {HTMLElement | null | undefined} cloneRoot */
+function previewFlyCloneAnimTargets(cloneRoot) {
+  const tile = queryPreviewFlyTileEl(cloneRoot);
+  return /** @type {HTMLElement[]} */ ([cloneRoot, tile].filter((el) => el instanceof HTMLElement));
+}
+
 function staggerTargets() {
   const regionCards = regionsRef.value?.querySelectorAll?.(".tile-detail-stagger-el") ?? [];
   return [...regionCards, actionsRef.value].filter(Boolean);
@@ -389,7 +400,7 @@ function runEnterAnimation() {
   gsap.killTweensOf([
     backdrop,
     targetFade,
-    clone,
+    ...previewFlyCloneAnimTargets(clone),
     ...staggerEls,
     ...(previewNavRef.value?.getAnimTargets?.() ?? []),
   ].filter(Boolean));
@@ -454,7 +465,7 @@ function runEnterAnimation() {
         const w1 = Math.max(2, flyTo.width);
         const scaleEnd = Math.min(32, Math.max(0.06, w1 / w0));
 
-        gsap.killTweensOf(cloneLive);
+        gsap.killTweensOf(previewFlyCloneAnimTargets(cloneLive));
         gsap.set(cloneLive, {
           visibility: "visible",
           opacity: 1,
@@ -477,6 +488,14 @@ function runEnterAnimation() {
           },
           0,
         );
+        appendPreviewFlyTileBorderRadiusTween(tl, {
+          cloneRoot: cloneLive,
+          targetRoot: fadeEl,
+          gsapScaleEnd: scaleEnd,
+          direction: "enter",
+          duration: FLY_DURATION,
+          position: 0,
+        });
 
         tl.add(
           () => preRevealPreviewFlyTargetUnderClone(fadeEl),
@@ -488,6 +507,7 @@ function runEnterAnimation() {
               targetEl: fadeEl,
               flyCloneEl: flyCloneRef.value,
               onDeactivateClone: () => {
+                clearPreviewFlyTileBorderRadius(flyCloneRef.value);
                 flyCloneActive.value = false;
                 flyCloneAnchorRect.value = null;
               },
@@ -621,7 +641,7 @@ function runCloseAnimation(shouldEmit = true) {
   gsap.killTweensOf([
     backdrop,
     targetFade,
-    clone,
+    ...previewFlyCloneAnimTargets(clone),
     ...staggerEls,
     ...(previewNavRef.value?.getAnimTargets?.() ?? []),
   ].filter(Boolean));
@@ -682,6 +702,7 @@ function runCloseAnimation(shouldEmit = true) {
           const tl = gsap.timeline({
             defaults: { ease: EASE_TRANSFORM, overwrite: "auto" },
             onComplete: () => {
+              clearPreviewFlyTileBorderRadius(c);
               flyCloneActive.value = false;
               flyCloneAnchorRect.value = null;
               gsap.set(c, { clearProps: "transform" });
@@ -728,6 +749,14 @@ function runCloseAnimation(shouldEmit = true) {
             },
             0.02,
           );
+          appendPreviewFlyTileBorderRadiusTween(tl, {
+            cloneRoot: c,
+            targetRoot: targetFade,
+            gsapScaleEnd: scaleEnd,
+            direction: "close",
+            duration: FLY_DURATION_CLOSE,
+            position: 0.02,
+          });
         });
       return;
     }

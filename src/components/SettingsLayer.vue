@@ -16,55 +16,18 @@
       >
         <h2 :id="titleId" class="settings-layer-title">设置</h2>
 
-        <div
-          class="settings-layer-tabs"
-          role="tablist"
+        <SegmentTabControl
+          ref="settingsTabsRef"
+          class="settings-layer-tabs-host"
+          :model-value="activeTab"
+          :options="settingsTabOptions"
+          variant="settings-layer"
           aria-label="设置分组"
-          :style="tabSlideStyle"
-        >
-          <div class="settings-layer-tabs-thumb" aria-hidden="true" />
-          <button
-            type="button"
-            class="settings-layer-tab"
-            role="tab"
-            :class="{ 'settings-layer-tab--active': activeTab === 'ui' }"
-            :aria-selected="activeTab === 'ui'"
-            @click="setActiveTab('ui')"
-          >
-            界面
-          </button>
-          <button
-            type="button"
-            class="settings-layer-tab"
-            role="tab"
-            :class="{ 'settings-layer-tab--active': activeTab === 'gameplay' }"
-            :aria-selected="activeTab === 'gameplay'"
-            @click="setActiveTab('gameplay')"
-          >
-            游戏性
-          </button>
-          <button
-            type="button"
-            class="settings-layer-tab"
-            role="tab"
-            :class="{ 'settings-layer-tab--active': activeTab === 'controls' }"
-            :aria-selected="activeTab === 'controls'"
-            @click="setActiveTab('controls')"
-          >
-            操作
-          </button>
-          <button
-            v-if="showDeveloperTab"
-            type="button"
-            class="settings-layer-tab"
-            role="tab"
-            :class="{ 'settings-layer-tab--active': activeTab === 'developer' }"
-            :aria-selected="activeTab === 'developer'"
-            @click="setActiveTab('developer')"
-          >
-            开发者
-          </button>
-        </div>
+          fill
+          :haptic="false"
+          reposition-instant
+          @update:model-value="setActiveTab"
+        />
 
         <div class="settings-layer-body">
           <div class="settings-layer-panels">
@@ -76,7 +39,7 @@
               :inert="activeTab !== 'ui'"
             >
               <div class="settings-layer-list">
-                <div class="settings-row settings-row--segment">
+                <div v-if="showDisplayLayoutModeSetting" class="settings-row settings-row--segment">
                   <span class="settings-row-label">显示模式</span>
                   <SettingsSegmentControl
                     :options="DISPLAY_LAYOUT_MODE_OPTIONS"
@@ -84,40 +47,6 @@
                     aria-label="显示模式"
                     @update:model-value="onDisplayLayoutModeChange"
                   />
-                </div>
-
-                <div class="settings-row settings-row--scale">
-                  <span class="settings-row-label">界面缩放</span>
-                  <div class="settings-scale-controls">
-                    <input
-                      type="range"
-                      class="settings-scale-slider"
-                      :min="UI_SCALE_MIN"
-                      :max="UI_SCALE_MAX"
-                      step="1"
-                      :value="uiScalePercent"
-                      :aria-valuemin="UI_SCALE_MIN"
-                      :aria-valuemax="UI_SCALE_MAX"
-                      :aria-valuenow="uiScalePercent"
-                      aria-label="界面缩放百分比"
-                      :style="scaleSliderStyle"
-                      @input="onScaleSliderInput"
-                    />
-                    <div class="settings-scale-input-wrap">
-                      <input
-                        type="text"
-                        inputmode="numeric"
-                        pattern="[0-9]*"
-                        class="settings-scale-input"
-                        :value="scaleInputText"
-                        aria-label="界面缩放百分比数值"
-                        @input="onScaleTextInput"
-                        @blur="commitScaleInput"
-                        @keydown.enter.prevent="onScaleInputEnter"
-                      />
-                      <span class="settings-scale-suffix" aria-hidden="true">%</span>
-                    </div>
-                  </div>
                 </div>
 
                 <div class="settings-row settings-row--segment">
@@ -130,24 +59,6 @@
                   />
                 </div>
 
-                <label class="settings-row">
-                  <span class="settings-row-label">减少动画</span>
-                  <button
-                    type="button"
-                    class="settings-toggle"
-                    role="switch"
-                    :aria-checked="reduceMotionEnabled"
-                    @click="onToggleReduceMotion"
-                  >
-                    <span
-                      class="settings-toggle-track"
-                      :class="{ 'settings-toggle-track--on': reduceMotionEnabled }"
-                    >
-                      <span class="settings-toggle-thumb" />
-                    </span>
-                  </button>
-                </label>
-
                 <div class="settings-row settings-row--segment">
                   <span class="settings-row-label">字母样式</span>
                   <SettingsSegmentControl
@@ -157,6 +68,27 @@
                     @update:model-value="onLetterCaseChange"
                   />
                 </div>
+
+                <label class="settings-row">
+                  <span class="settings-row-label-group">
+                    <span class="settings-row-label">对调确认按钮位置</span>
+                    <SettingsHelpButton help-id="confirmButtonSide" aria-label="对调确认按钮位置说明" />
+                  </span>
+                  <button
+                    type="button"
+                    class="settings-toggle"
+                    role="switch"
+                    :aria-checked="swapConfirmButtonSideEnabled"
+                    @click="onToggleSwapConfirmButtonSide"
+                  >
+                    <span
+                      class="settings-toggle-track"
+                      :class="{ 'settings-toggle-track--on': swapConfirmButtonSideEnabled }"
+                    >
+                      <span class="settings-toggle-thumb" />
+                    </span>
+                  </button>
+                </label>
               </div>
             </section>
             <section
@@ -183,7 +115,12 @@
                 </label>
 
                 <div class="settings-row settings-row--segment">
-                  <span class="settings-row-label">释义</span>
+                  <span class="settings-row-label-group">
+                    <span class="settings-row-label">释义</span>
+                    <span class="settings-row-label-icon-chip" aria-hidden="true">
+                      <i class="ri-translate-2" />
+                    </span>
+                  </span>
                   <SettingsSegmentControl
                     :options="WORD_DEFINITION_MODE_OPTIONS"
                     :model-value="wordDefinitionMode"
@@ -215,11 +152,7 @@
                 <label class="settings-row">
                   <span class="settings-row-label-group">
                     <span class="settings-row-label">标记按钮</span>
-                    <SettingsHelpButton
-                      aria-label="标记按钮说明"
-                      :active="activeHelpId === 'mark'"
-                      @click="openHelp('mark')"
-                    />
+                    <SettingsHelpButton help-id="mark" aria-label="标记按钮说明" />
                   </span>
                   <button
                     type="button"
@@ -243,11 +176,7 @@
                 >
                   <span class="settings-row-label-group">
                     <span class="settings-row-label">对调按钮</span>
-                    <SettingsHelpButton
-                      aria-label="对调按钮说明"
-                      :active="activeHelpId === 'swap'"
-                      @click="openHelp('swap')"
-                    />
+                    <SettingsHelpButton help-id="swap" aria-label="对调按钮说明" />
                   </span>
                   <div class="settings-cycle" role="group" aria-label="对调按钮范围">
                     <button
@@ -281,11 +210,7 @@
                 >
                   <span class="settings-row-label-group">
                     <span class="settings-row-label">对调时标记</span>
-                    <SettingsHelpButton
-                      aria-label="对调时标记说明"
-                      :active="activeHelpId === 'markOnSwap'"
-                      @click="openHelp('markOnSwap')"
-                    />
+                    <SettingsHelpButton help-id="markOnSwap" aria-label="对调时标记说明" />
                   </span>
                   <button
                     type="button"
@@ -321,12 +246,8 @@
 
                 <label class="settings-row">
                   <span class="settings-row-label-group">
-                    <span class="settings-row-label">高风险确认</span>
-                    <SettingsHelpButton
-                      aria-label="高风险确认说明"
-                      :active="activeHelpId === 'highRisk'"
-                      @click="openHelp('highRisk')"
-                    />
+                    <span class="settings-row-label">危险操作确认</span>
+                    <SettingsHelpButton help-id="highRisk" aria-label="危险操作确认说明" />
                   </span>
                   <button
                     type="button"
@@ -375,31 +296,20 @@
       </div>
     </div>
   </Transition>
-
-  <SettingsHelpDialog
-    :open="activeHelpId != null"
-    :title="activeHelpContent.title"
-    :paragraphs="activeHelpContent.paragraphs"
-    :demo-variant="activeHelpContent.demoVariant"
-    @close="closeHelp"
-  />
 </template>
 
 <script setup>
 import { computed, inject, nextTick, ref, watch } from "vue";
+import { Capacitor } from "@capacitor/core";
 import { settingsOverlayZ } from "../game/overlayStack.js";
 import SettingsSegmentControl from "./SettingsSegmentControl.vue";
 import SettingsHelpButton from "./settings/SettingsHelpButton.vue";
-import SettingsHelpDialog from "./settings/SettingsHelpDialog.vue";
 import { ANIMATION_SPEED_OPTIONS } from "../settings/animationSpeed.js";
 import { LETTER_CASE_OPTIONS } from "../settings/letterCase.js";
 import { LETTER_Q_MODE_OPTIONS } from "../settings/letterQ.js";
 import {
-  UI_SCALE_MAX,
-  UI_SCALE_MIN,
   SWAP_BUTTON_MODE_OPTIONS,
   DISPLAY_LAYOUT_MODE_OPTIONS,
-  clampUiScalePercent,
   gameSettings,
   setAllowSpellingAbbreviations,
   setAnimationSpeedTier,
@@ -409,15 +319,16 @@ import {
   setLetterQMode,
   setMarkButtonEnabled,
   setMarkOnSwap,
-  setReduceMotion,
-  setUiScalePercent,
   setWordDefinitionMode,
   stepSwapButtonMode,
   WORD_DEFINITION_MODE_OPTIONS,
   setHighRiskSpellConfirm,
   getHighRiskSpellConfirmEnabled,
+  setSwapConfirmButtonSide,
+  getSwapConfirmButtonSideEnabled,
 } from "../settings/gameSettings.js";
 import { isHapticsAvailable, previewHaptic, scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
+import SegmentTabControl from "./SegmentTabControl.vue";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -430,8 +341,11 @@ const developerModeEnabled = inject("developerModeEnabled", null);
 /** @type {(() => void) | null} */
 const openMaterialBench = inject("openMaterialBench", null);
 const showDeveloperTab = computed(() => developerModeEnabled?.value === true);
+/** Web 端才展示「显示模式」（有边框 / 无边框） */
+const showDisplayLayoutModeSetting = !Capacitor.isNativePlatform();
 
 const stackZ = ref(0);
+const settingsTabsRef = ref(/** @type {import('vue').ComponentPublicInstance | null} */ (null));
 const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
 
 watch(
@@ -440,6 +354,7 @@ watch(
     if (v) {
       nextTick(() => {
         stackZ.value = settingsOverlayZ();
+        settingsTabsRef.value?.reposition?.({ instant: true });
       });
       scheduleOverlayPresent(280);
     } else if (prev) {
@@ -465,15 +380,19 @@ const settingsTabIds = computed(() =>
     : [...SETTINGS_BASE_TAB_IDS],
 );
 
-const activeTabIndex = computed(() => {
-  const idx = settingsTabIds.value.indexOf(activeTab.value);
-  return idx >= 0 ? idx : 0;
+const SETTINGS_TAB_LABELS = Object.freeze({
+  ui: "界面",
+  gameplay: "游戏性",
+  controls: "操作",
+  developer: "开发者",
 });
 
-const tabSlideStyle = computed(() => ({
-  "--settings-tab-count": String(settingsTabIds.value.length),
-  "--settings-tab-index": String(activeTabIndex.value),
-}));
+const settingsTabOptions = computed(() =>
+  settingsTabIds.value.map((id) => ({
+    id,
+    label: SETTINGS_TAB_LABELS[id] ?? id,
+  })),
+);
 
 /** @param {SettingsTabId} id */
 function setActiveTab(id) {
@@ -485,6 +404,9 @@ function setActiveTab(id) {
 watch(showDeveloperTab, (visible) => {
   if (!visible && activeTab.value === SETTINGS_DEVELOPER_TAB_ID) {
     activeTab.value = "ui";
+  }
+  if (visible) {
+    nextTick(() => settingsTabsRef.value?.reposition?.({ instant: true }));
   }
 });
 
@@ -501,15 +423,14 @@ const markOnSwap = computed(() => gameSettings.markOnSwap === true);
 const markOnSwapSettingEnabled = computed(
   () => markButtonEnabled.value && gameSettings.swapButtonMode !== "hidden",
 );
-const uiScalePercent = computed(() => gameSettings.uiScalePercent);
 const displayLayoutMode = computed(() => gameSettings.displayLayoutMode);
 const animationSpeedTier = computed(() => gameSettings.animationSpeedTier);
 const letterCase = computed(() => gameSettings.letterCase);
 const letterQMode = computed(() => gameSettings.letterQMode);
-const reduceMotionEnabled = computed(() => gameSettings.reduceMotion === true);
 const hapticsAvailable = isHapticsAvailable();
 const hapticsEnabled = computed(() => gameSettings.hapticsEnabled !== false);
 const highRiskSpellConfirmEnabled = computed(() => getHighRiskSpellConfirmEnabled());
+const swapConfirmButtonSideEnabled = computed(() => getSwapConfirmButtonSideEnabled());
 
 function onToggleHaptics() {
   const next = !hapticsEnabled.value;
@@ -531,11 +452,6 @@ function onDisplayLayoutModeChange(mode) {
 /** @param {string} tier */
 function onAnimationSpeedChange(tier) {
   setAnimationSpeedTier(/** @type {import('../settings/gameSettings.js').AnimationSpeedTier} */ (tier));
-}
-
-function onToggleReduceMotion() {
-  setReduceMotion(!reduceMotionEnabled.value);
-  settingsChangeTap();
 }
 
 /** @param {string} caseMode */
@@ -586,66 +502,10 @@ function onToggleHighRiskSpellConfirm() {
   settingsChangeTap();
 }
 
-/** @typedef {'mark' | 'swap' | 'markOnSwap' | 'highRisk'} SettingsHelpId */
-
-/** @type {import('vue').Ref<SettingsHelpId | null>} */
-const activeHelpId = ref(null);
-
-/** @type {Record<SettingsHelpId, { title: string; paragraphs: string[]; demoVariant: SettingsHelpId }>} */
-const SETTINGS_HELP_COPY = {
-  mark: {
-    title: "",
-    paragraphs: ["通过该按钮为字母块添加角标"],
-    demoVariant: "mark",
-  },
-  swap: {
-    title: "",
-    paragraphs: ["收回选中的字母，然后选中一些其他字母，方便后续进行丢弃操作"],
-    demoVariant: "swap",
-  },
-  markOnSwap: {
-    title: "",
-    paragraphs: [
-      "将选中的字母送回棋盘时，自动为它们打上标记",
-      "被标记的字母可以通过点击标记键快速选中",
-    ],
-    demoVariant: "markOnSwap",
-  },
-  highRisk: {
-    title: "",
-    paragraphs: ["在使用高风险的法术时，启用此项以防止误操作"],
-    demoVariant: "",
-  },
-};
-
-const activeHelpContent = computed(() => {
-  const id = activeHelpId.value;
-  if (!id) {
-    return { title: "", paragraphs: [], demoVariant: "" };
-  }
-  return SETTINGS_HELP_COPY[id];
-});
-
-/** @param {SettingsHelpId} id */
-function openHelp(id) {
-  activeHelpId.value = id;
+function onToggleSwapConfirmButtonSide() {
+  setSwapConfirmButtonSide(!swapConfirmButtonSideEnabled.value);
+  settingsChangeTap();
 }
-
-function closeHelp() {
-  activeHelpId.value = null;
-}
-
-const scaleSliderStyle = computed(() => {
-  const t = (uiScalePercent.value - UI_SCALE_MIN) / (UI_SCALE_MAX - UI_SCALE_MIN);
-  return { "--scale-pct": `${Math.round(Math.min(1, Math.max(0, t)) * 100)}%` };
-});
-
-/** @type {import('vue').Ref<string>} */
-const scaleInputText = ref(String(gameSettings.uiScalePercent));
-
-watch(uiScalePercent, (v) => {
-  scaleInputText.value = String(v);
-});
 
 function onToggleAbbrev() {
   setAllowSpellingAbbreviations(!allowAbbrev.value);
@@ -656,33 +516,6 @@ function onToggleAbbrev() {
 function onWordDefinitionModeChange(mode) {
   setWordDefinitionMode(/** @type {import('../settings/gameSettings.js').WordDefinitionMode} */ (mode));
   settingsChangeTap();
-}
-
-/** @param {Event} e */
-function onScaleSliderInput(e) {
-  const raw = /** @type {HTMLInputElement} */ (e.target).value;
-  setUiScalePercent(Number(raw));
-  scaleInputText.value = String(gameSettings.uiScalePercent);
-  if (hapticsAvailable) triggerHaptic("land");
-}
-
-/** @param {Event} e */
-function onScaleTextInput(e) {
-  scaleInputText.value = /** @type {HTMLInputElement} */ (e.target).value.replace(/\D/g, "").slice(0, 3);
-}
-
-function commitScaleInput() {
-  const prev = gameSettings.uiScalePercent;
-  const digits = scaleInputText.value.replace(/\D/g, "");
-  const next = digits === "" ? prev : clampUiScalePercent(digits);
-  setUiScalePercent(next);
-  scaleInputText.value = String(gameSettings.uiScalePercent);
-  if (gameSettings.uiScalePercent !== prev) settingsChangeTap();
-}
-
-/** @param {KeyboardEvent} e */
-function onScaleInputEnter(e) {
-  /** @type {HTMLInputElement} */ (e.target).blur();
 }
 </script>
 
@@ -723,6 +556,18 @@ function onScaleInputEnter(e) {
   overflow-y: auto;
 }
 
+.settings-layer-tabs-host :deep(.segment-tab--settings-layer) {
+  --segment-pad: calc(5 * var(--rpx));
+  --segment-btn-pad-y: calc(12 * var(--rpx));
+  --segment-btn-pad-x: calc(12 * var(--rpx));
+  --segment-font-size: calc(26 * var(--rpx));
+  min-height: calc(52 * var(--rpx));
+}
+
+.settings-layer-tabs-host :deep(.segment-tab--settings-layer .segment-tab-btn) {
+  line-height: 1.2;
+}
+
 .settings-layer-title {
   margin: 0 0 calc(22 * var(--rpx));
   font-size: calc(40 * var(--rpx));
@@ -731,71 +576,18 @@ function onScaleInputEnter(e) {
   text-align: center;
 }
 
-.settings-layer-tabs {
-  --settings-tab-pad: calc(4 * var(--rpx));
-  --settings-orange: #d4954a;
-  --settings-orange-fg: #f9f6f2;
-  position: relative;
-  display: flex;
-  gap: 0;
+.settings-layer-tabs-host {
   margin: calc(-6 * var(--rpx)) 0 calc(18 * var(--rpx));
-  padding: var(--settings-tab-pad);
-  border-radius: calc(8 * var(--rpx));
-  background: rgba(0, 0, 0, 0.08);
-  box-sizing: border-box;
-}
-
-.settings-layer-tabs-thumb {
-  position: absolute;
-  top: var(--settings-tab-pad);
-  bottom: var(--settings-tab-pad);
-  left: var(--settings-tab-pad);
-  width: calc((100% - 2 * var(--settings-tab-pad)) / var(--settings-tab-count));
-  border-radius: calc(6 * var(--rpx));
-  background: var(--settings-orange);
-  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.14);
-  pointer-events: none;
-  transition: transform calc(0.22s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out);
-  transform: translateX(calc(var(--settings-tab-index) * 100%));
-  z-index: 0;
-}
-
-.settings-layer-tab {
-  flex: 1;
-  min-width: 0;
-  position: relative;
-  z-index: 1;
-  border: none;
-  border-radius: calc(6 * var(--rpx));
-  padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
-  font-family: inherit;
-  font-size: calc(24 * var(--rpx));
-  font-weight: 700;
-  color: var(--text-dark, #3c3a32);
-  background: transparent;
-  cursor: pointer;
-  opacity: 0.72;
-  transition:
-    color 0.12s ease,
-    opacity 0.12s ease;
-}
-
-.settings-layer-tab--active {
-  color: var(--settings-orange-fg);
-  opacity: 1;
-}
-
-.settings-layer-tab:hover:not(.settings-layer-tab--active) {
-  opacity: 0.88;
-}
-
-.settings-layer-tab:focus-visible {
-  outline: calc(2 * var(--rpx)) solid var(--settings-orange);
-  outline-offset: calc(1 * var(--rpx));
+  width: 100%;
+  max-width: none;
+  overflow: visible;
+  z-index: 2;
 }
 
 .settings-layer-panels {
   display: grid;
+  /* 操作 tab 最多 5 项 × 80 + 4 间距 × 10，避免切 tab 时内容区高度抖动 */
+  min-height: calc(440 * var(--rpx));
 }
 
 .settings-layer-panel {
@@ -818,6 +610,8 @@ function onScaleInputEnter(e) {
 .settings-row--dev-bench {
   align-items: center;
   gap: calc(12 * var(--rpx));
+  height: calc(96 * var(--rpx));
+  min-height: calc(96 * var(--rpx));
 }
 
 .settings-dev-copy {
@@ -862,6 +656,12 @@ function onScaleInputEnter(e) {
   background: var(--card, #eee4da);
   border-radius: var(--radius);
   cursor: pointer;
+  box-sizing: border-box;
+}
+
+.settings-row:not(.settings-row--scale):not(.settings-row--dev-bench) {
+  height: calc(80 * var(--rpx));
+  min-height: calc(80 * var(--rpx));
 }
 
 .settings-row-label {
@@ -874,6 +674,24 @@ function onScaleInputEnter(e) {
   display: inline-flex;
   align-items: center;
   min-width: 0;
+}
+
+.settings-row-label-icon-chip {
+  flex-shrink: 0;
+  margin-left: calc(8 * var(--rpx));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(36 * var(--rpx));
+  height: calc(36 * var(--rpx));
+  border-radius: calc(8 * var(--rpx));
+  background: var(--text-dark, #3c3a32);
+  color: var(--card-bright, #eee4da);
+}
+
+.settings-row-label-icon-chip i {
+  font-size: calc(22 * var(--rpx));
+  line-height: 1;
 }
 
 .settings-row--disabled {
@@ -926,6 +744,10 @@ function onScaleInputEnter(e) {
 
 .settings-row--segment {
   cursor: default;
+}
+
+.settings-row--segment :deep(.segment-tab) {
+  overflow: hidden;
 }
 
 .settings-row--segment .settings-row-label {
@@ -1006,6 +828,8 @@ function onScaleInputEnter(e) {
 
 .settings-row--scale {
   cursor: default;
+  height: calc(92 * var(--rpx));
+  min-height: calc(92 * var(--rpx));
 }
 
 .settings-row--scale .settings-row-label {
@@ -1166,9 +990,5 @@ function onScaleInputEnter(e) {
 .settings-layer-leave-to .settings-layer-card {
   opacity: 0;
   transform: scale(0.94) translateY(calc(12 * var(--rpx)));
-}
-
-:global(html.reduce-motion) .settings-layer-tabs-thumb {
-  transition: none;
 }
 </style>

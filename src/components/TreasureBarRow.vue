@@ -22,6 +22,7 @@
           :gem-class="gemClassForSlot(i, slot)"
           :charge-state="chargeStateForSlot(i)"
           :charge-progress="chargeProgressForSlot(i) ?? 0"
+          :effect-depleted="effectDepletedForSlot(i)"
           :amber-boss-mask="amberBossMask"
           :crimson-hand-disabled="crimsonHandDisabledForSlot(i)"
           :slot-class="slotClassForIndex(i)"
@@ -59,6 +60,7 @@
         :gem-class="dragGemClass"
         :charge-state="dragChargeState"
         :charge-progress="dragChargeProgress ?? 0"
+        :effect-depleted="dragEffectDepleted"
         :amber-boss-mask="amberBossMask"
         :crimson-hand-disabled="dragCrimsonHandDisabled"
       />
@@ -73,6 +75,7 @@
         :gem-class="dragGemClass"
         :charge-state="dragChargeState"
         :charge-progress="dragChargeProgress ?? 0"
+        :effect-depleted="dragEffectDepleted"
         :amber-boss-mask="amberBossMask"
         :crimson-hand-disabled="dragCrimsonHandDisabled"
       />
@@ -111,12 +114,14 @@ const props = defineProps({
   dragGemClass: { type: String, default: "gem-rare" },
   dragChargeState: { type: String, default: null },
   dragChargeProgress: { type: Number, default: 0 },
+  dragEffectDepleted: { type: Boolean, default: false },
   dragCrimsonHandDisabled: { type: Boolean, default: false },
   amberBossMask: { type: Boolean, default: false },
   /** @type {import('vue').PropType<(index: number, slot: object | null) => string>} */
   gemClassResolver: { type: Function, default: null },
   chargeStates: { type: Array, default: () => [] },
   chargeProgresses: { type: Array, default: () => [] },
+  effectDepletedStates: { type: Array, default: () => [] },
   /** @type {import('vue').PropType<(index: number) => object | string | null>} */
   slotClassResolver: { type: Function, default: null },
   /** @type {import('vue').PropType<(index: number) => boolean>} */
@@ -258,6 +263,11 @@ function chargeStateForSlot(i) {
 /** @param {number} i */
 function chargeProgressForSlot(i) {
   return props.chargeProgresses[i] ?? 0;
+}
+
+/** @param {number} i */
+function effectDepletedForSlot(i) {
+  return props.effectDepletedStates[i] === true;
 }
 
 /** @param {number} i */

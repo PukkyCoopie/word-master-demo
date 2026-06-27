@@ -10,8 +10,9 @@ import {
   assignCellsToWord,
   pickedLetterMultiset,
   wordMatchesMultiset,
-} from "../e2e/gridWordFinder.js";
+} from "../game/gridWordFinder.js";
 import { allLetterRaws } from "../game/initialDeckLetterCounts.js";
+import { pickDistinctWeightedLetterRaws } from "../shop/tilePackLetterRoll.js";
 import { syncTileStateToDeckCard } from "../game/deckCardSync.js";
 import { getRarityForLetter } from "../composables/useScoring.js";
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
@@ -221,7 +222,7 @@ function accessoryFieldsForDeckTileOffer(accessoryId) {
  */
 export function buildPromoSuperPackPickSession(nextOfferInstanceId, rng = Math.random) {
   const letterPool = allLetterRaws();
-  const letters = shufflePick(letterPool, 4, rng);
+  const letters = pickDistinctWeightedLetterRaws(rng, 5, letterPool);
   const materialPlan = [
     "wildcard",
     ...shufflePick(PROMO_SUPER_PACK_MATERIAL_IDS, 3, rng),
@@ -293,7 +294,7 @@ const MAX_WORD_LEN = 12;
 const LONGEST_WORD_MAX_CHECKS_PER_LENGTH = 12000;
 
 /**
- * @param {import('../e2e/gridWordFinder.js').GridCell[]} cells
+ * @param {import('../game/gridWordFinder.js').GridCell[]} cells
  * @param {(len: number) => readonly string[]} getCandidatesByLength
  * @param {(pattern: string, wildcardChar?: string) => string | null} resolveWordPattern
  * @param {{ maxChecksPerLength?: number, yieldBetweenLengths?: boolean }} [opts]
@@ -313,7 +314,7 @@ export async function findLongestValidWordsOnGrid(
 
   const gridMs = pickedLetterMultiset(available);
   const maxLen = Math.min(MAX_WORD_LEN, available.length);
-  /** @type {import('../e2e/gridWordFinder.js').WordPick[]} */
+  /** @type {import('../game/gridWordFinder.js').WordPick[]} */
   let longest = [];
   let truncated = false;
 
@@ -324,7 +325,7 @@ export async function findLongestValidWordsOnGrid(
     const candidates = getCandidatesByLength(L);
     if (!Array.isArray(candidates) || !candidates.length) continue;
 
-    /** @type {import('../e2e/gridWordFinder.js').WordPick[]} */
+    /** @type {import('../game/gridWordFinder.js').WordPick[]} */
     const matches = [];
     const seen = new Set();
     let checks = 0;
@@ -372,7 +373,7 @@ export async function logLongestValidWordsOnGrid(
   getCandidatesByLength,
   resolveWordPattern,
 ) {
-  /** @type {import('../e2e/gridWordFinder.js').GridCell[]} */
+  /** @type {import('../game/gridWordFinder.js').GridCell[]} */
   const cells = [];
   for (let r = 0; r < rows; r += 1) {
     for (let c = 0; c < cols; c += 1) {

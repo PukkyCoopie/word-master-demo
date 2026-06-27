@@ -43,6 +43,41 @@ export const ACHIEVEMENT_DEFINITIONS = Object.freeze([
   { id: "diff_3_win", name: "单词高手", description: "在开启难度3的情况下赢得一轮游戏", condition: { kind: "run_difficulty_win", difficultyIndex: 3 } },
   { id: "diff_6_win", name: "单词专家", description: "在开启难度6的情况下赢得一轮游戏", condition: { kind: "run_difficulty_win", difficultyIndex: 6 } },
   { id: "diff_8_win", name: "单词大师", description: "在开启难度8的情况下赢得一轮游戏", condition: { kind: "run_difficulty_win", difficultyIndex: 8 } },
+  {
+    id: "safe_bomb_blast",
+    name: "安全距离",
+    description: "将一个炸弹安放在安全的位置，使其在爆炸时没有摧毁其他宝藏",
+    iconUrl: ACHIEVEMENT_ICON_URL,
+    condition: { kind: "event_safe_bomb_blast" },
+  },
+  {
+    id: "volcano_eruption",
+    name: "世界末日",
+    description: "经历一次火山喷发",
+    iconUrl: ACHIEVEMENT_ICON_URL,
+    condition: { kind: "event_volcano_eruption" },
+  },
+  {
+    id: "lucky_five_run",
+    name: "幸运100%",
+    description: "在一轮游戏中触发5次幸运块的效果",
+    iconUrl: ACHIEVEMENT_ICON_URL,
+    condition: { kind: "run_lucky_triggers", threshold: 5 },
+  },
+  {
+    id: "steel_four_submit",
+    name: "千锤百炼",
+    description: "在一次计分中获得4次来自钢铁块的增强",
+    iconUrl: ACHIEVEMENT_ICON_URL,
+    condition: { kind: "submit_steel_enhancements", threshold: 4 },
+  },
+  {
+    id: "legendary_treasure",
+    name: "非卖品？",
+    description: "获得一个传说级宝藏",
+    iconUrl: ACHIEVEMENT_ICON_URL,
+    condition: { kind: "acquire_legendary_treasure" },
+  },
 ]);
 
 export const ACHIEVEMENT_TOTAL = ACHIEVEMENT_DEFINITIONS.length;

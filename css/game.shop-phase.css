@@ -1,0 +1,8 @@
+/* 商店阶段 portal 根（InRunShopPhase Teleport，与 .game-container 同内边距） */
+.shop-portal-root {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	box-sizing: border-box;
+	padding: calc(14 * var(--rpx));
+}

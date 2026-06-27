@@ -1,7 +1,9 @@
 /**
  * 对局内授予流程（释法 / 开包 / 升级等）的共享类型与纯函数。
- * 具体 UI 与状态由 GamePanel 注入并驱动。
+ * 具体 UI 与状态由 GamePanel / controller 注入并驱动。
  */
+
+import { rollBundleOptionsForOffer } from "../shop/rollPackStock.js";
 
 /**
  * @typedef {'shop' | 'inRun'} InRunGrantSpellContext
@@ -54,3 +56,48 @@ export function resolveSpellFlowEffectiveId(purchasedSpellId, lastReplayableSpel
 /**
  * @typedef {'shop' | 'inRun'} PackPickGrantContext
  */
+
+/**
+ * @param {object | null | undefined} opt
+ * @returns {string}
+ */
+export function packPickOptionKeyOf(opt) {
+  return String(opt?.optionKey ?? opt?.offerInstanceId ?? "");
+}
+
+/**
+ * @param {object | null | undefined} sess
+ * @returns {number}
+ */
+export function packPickRequiredPicks(sess) {
+  const pc = Math.max(1, Math.floor(Number(sess?.pickCount) || 1));
+  const n = Array.isArray(sess?.options) ? sess.options.length : 0;
+  return Math.min(pc, Math.max(1, n));
+}
+
+/**
+ * @param {object} bundle
+ * @param {PackPickGrantContext} [grantContext]
+ * @param {(kind: PackPickGrantContext) => object} getRollCtx
+ */
+export function buildPackPickSessionFromBundle(bundle, grantContext = "shop", getRollCtx) {
+  let opts = Array.isArray(bundle.bundleOptions) ? bundle.bundleOptions : [];
+  if (!opts.length && bundle?.offerType === "bundlePack") {
+    const rollCtx = getRollCtx(grantContext === "inRun" ? "inRun" : "shop");
+    opts = rollBundleOptionsForOffer(bundle, rollCtx);
+  }
+  const pickCount = Math.max(1, Math.floor(Number(bundle.pickCount) || 1));
+  const withKeys = opts.map((o, i) => ({
+    ...o,
+    optionKey: o.optionKey ?? `opt-${o.offerInstanceId ?? i}-${i}`,
+  }));
+  return {
+    bundleRow: bundle,
+    bundleKind: bundle.bundleKind,
+    title: bundle.name,
+    pickCount,
+    options: withKeys,
+    claimedKeys: /** @type {string[]} */ ([]),
+    grantContext,
+  };
+}

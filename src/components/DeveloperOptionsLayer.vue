@@ -47,6 +47,76 @@
               />
               <button type="button" class="developer-options-btn" @click="onJumpClick">跳转</button>
             </div>
+            <div class="developer-options-row developer-options-row--boss-shop">
+              <div ref="bossSelectRootRef" class="developer-options-boss-select">
+                <button
+                  type="button"
+                  class="developer-options-boss-select-trigger"
+                  aria-haspopup="listbox"
+                  :aria-expanded="bossSelectOpen"
+                  aria-label="Boss"
+                  @click="bossSelectOpen = !bossSelectOpen"
+                >
+                  <span class="developer-options-boss-select-copy">
+                    <span class="developer-options-boss-select-name">{{ selectedBossOption?.label }}</span>
+                    <span v-if="selectedBossOption?.description" class="developer-options-boss-select-desc">
+                      {{ selectedBossOption.description }}
+                    </span>
+                  </span>
+                  <i
+                    class="ri-arrow-down-s-line developer-options-boss-select-chevron"
+                    :class="{ 'developer-options-boss-select-chevron--open': bossSelectOpen }"
+                    aria-hidden="true"
+                  />
+                </button>
+                <ul
+                  v-if="bossSelectOpen"
+                  class="developer-options-boss-select-menu"
+                  role="listbox"
+                  aria-label="Boss 列表"
+                >
+                  <li
+                    v-for="opt in bossJumpOptions"
+                    :key="opt.value"
+                    role="option"
+                    :aria-selected="opt.value === bossJumpSlug"
+                    class="developer-options-boss-select-option"
+                    :class="{ 'developer-options-boss-select-option--active': opt.value === bossJumpSlug }"
+                    @click="onBossOptionPick(opt.value)"
+                  >
+                    <span class="developer-options-boss-select-name">{{ opt.label }}</span>
+                    <span v-if="opt.description" class="developer-options-boss-select-desc">{{ opt.description }}</span>
+                  </li>
+                </ul>
+              </div>
+              <button type="button" class="developer-options-btn" @click="onBossShopJumpClick">
+                Boss 前商店
+              </button>
+            </div>
+            <p class="developer-options-hint developer-options-hint--compact">
+              Boss 前商店：上方输入框填章号（如 2、8）或关卡 id，留空为第 1 章；离店后进入对应 Boss 关。
+            </p>
+            <p v-if="bossShopJumpResultText" class="developer-options-result">{{ bossShopJumpResultText }}</p>
+          </section>
+
+          <section class="developer-options-section">
+            <h3 class="developer-options-section-title">设置余额</h3>
+            <p class="developer-options-hint developer-options-hint--compact">
+              当前 {{ formatBalanceLabel(currentBalance) }}
+            </p>
+            <div class="developer-options-row">
+              <input
+                v-model.trim="balanceInput"
+                class="developer-options-input"
+                type="text"
+                inputmode="numeric"
+                placeholder="如 100 或 -5"
+                aria-label="目标余额"
+                @keydown.enter.prevent="onSetBalanceClick"
+              />
+              <button type="button" class="developer-options-btn" @click="onSetBalanceClick">应用</button>
+            </div>
+            <p v-if="balanceResultText" class="developer-options-result">{{ balanceResultText }}</p>
           </section>
 
           <section class="developer-options-section">
@@ -130,7 +200,15 @@
               下一页
             </button>
           </nav>
-          <div class="developer-treasure-picker-actions">
+          <div class="developer-treasure-picker-actions confirm-actions-row">
+            <button
+              type="button"
+              class="developer-options-btn developer-options-btn--confirm"
+              :disabled="totalSelectedCount === 0"
+              @click="onGrantTreasuresConfirm"
+            >
+              确定加入（{{ totalSelectedCount }}）
+            </button>
             <button
               type="button"
               class="developer-options-btn developer-options-btn--secondary"
@@ -142,14 +220,6 @@
             <button type="button" class="developer-options-btn developer-options-btn--secondary" @click="closeTreasurePicker">
               取消
             </button>
-            <button
-              type="button"
-              class="developer-options-btn developer-options-btn--confirm"
-              :disabled="totalSelectedCount === 0"
-              @click="onGrantTreasuresConfirm"
-            >
-              确定加入（{{ totalSelectedCount }}）
-            </button>
           </div>
         </div>
       </div>
@@ -158,7 +228,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, onUnmounted, ref, watch } from "vue";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 import { scheduleOverlayDismiss, scheduleOverlayPresent } from "../platform/haptics.js";
 import {
@@ -166,16 +236,25 @@ import {
   buildDevDeckConvertTargetOptions,
   DEV_DECK_CONVERT_TARGET_PLAIN,
 } from "../dev/devDeckTileConvert.js";
+import { buildDevBossJumpSelectOptions } from "../dev/devBossShopJump.js";
 import TreasureSlot from "./TreasureSlot.vue";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
   portalStackStyle: { type: Object, default: () => ({}) },
+  currentBalance: { type: Number, default: 0 },
   /** @type {{ treasureId: string, name: string, emoji: string, rarity?: string }[]} */
   treasureItems: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["close", "convert-deck", "jump-level", "grant-treasures"]);
+const emit = defineEmits([
+  "close",
+  "convert-deck",
+  "jump-level",
+  "jump-boss-shop",
+  "grant-treasures",
+  "set-balance",
+]);
 
 /** 6×5 翻页，避免手机端在弹窗内纵向滚动 */
 const TREASURE_PICKER_COLS = 6;
@@ -193,6 +272,45 @@ const convertTarget = ref("wildcard");
 const convertResultText = ref("");
 const levelInput = ref("");
 const grantResultText = ref("");
+const bossJumpOptions = buildDevBossJumpSelectOptions();
+const bossJumpSlug = ref(bossJumpOptions[0]?.value ?? "");
+const bossShopJumpResultText = ref("");
+const bossSelectRootRef = ref(null);
+const bossSelectOpen = ref(false);
+
+const selectedBossOption = computed(
+  () => bossJumpOptions.find((o) => o.value === bossJumpSlug.value) ?? bossJumpOptions[0] ?? null,
+);
+
+/** @param {string} value */
+function onBossOptionPick(value) {
+  bossJumpSlug.value = value;
+  bossSelectOpen.value = false;
+}
+
+/** @param {Event} e */
+function onBossSelectOutsideClick(e) {
+  if (!bossSelectOpen.value) return;
+  const root = bossSelectRootRef.value;
+  const target = e.target;
+  if (root instanceof HTMLElement && target instanceof Node && !root.contains(target)) {
+    bossSelectOpen.value = false;
+  }
+}
+
+watch(bossSelectOpen, (open) => {
+  if (open) {
+    document.addEventListener("pointerdown", onBossSelectOutsideClick, true);
+  } else {
+    document.removeEventListener("pointerdown", onBossSelectOutsideClick, true);
+  }
+});
+
+onUnmounted(() => {
+  document.removeEventListener("pointerdown", onBossSelectOutsideClick, true);
+});
+const balanceInput = ref("");
+const balanceResultText = ref("");
 
 const showTreasurePicker = ref(false);
 const treasurePickerPage = ref(0);
@@ -248,11 +366,15 @@ watch(
       scheduleOverlayPresent(280);
       convertResultText.value = "";
       grantResultText.value = "";
+      bossShopJumpResultText.value = "";
+      balanceResultText.value = "";
+      balanceInput.value = String(Math.floor(Number(props.currentBalance) || 0));
       levelInput.value = "";
     } else if (wasOpen) {
       scheduleOverlayDismiss(240);
       showTreasurePicker.value = false;
       selectedTreasureCounts.value = {};
+      bossSelectOpen.value = false;
     }
   },
 );
@@ -290,6 +412,37 @@ function onJumpClick() {
   const raw = levelInput.value.trim();
   if (!raw) return;
   emit("jump-level", { levelId: raw });
+}
+
+function onBossShopJumpClick() {
+  const slug = String(bossJumpSlug.value ?? "").trim();
+  if (!slug) return;
+  bossShopJumpResultText.value = "";
+  emit("jump-boss-shop", { bossSlug: slug, levelId: levelInput.value.trim() });
+}
+
+/** @param {number} amount */
+function formatBalanceLabel(amount) {
+  const x = Math.floor(Number(amount) || 0);
+  return x < 0 ? `-$${Math.abs(x)}` : `$${x}`;
+}
+
+function onSetBalanceClick() {
+  balanceResultText.value = "";
+  emit("set-balance", { amountRaw: balanceInput.value.trim() });
+}
+
+/** @param {{ ok: boolean, message: string, amount?: number }} result */
+function reportBalanceResult(result) {
+  balanceResultText.value = result?.message ?? "";
+  if (result?.ok && Number.isFinite(result.amount)) {
+    balanceInput.value = String(Math.floor(Number(result.amount) || 0));
+  }
+}
+
+/** @param {{ ok: boolean, message: string }} result */
+function reportBossShopJumpResult(result) {
+  bossShopJumpResultText.value = result?.message ?? "";
 }
 
 function openTreasurePicker() {
@@ -360,6 +513,8 @@ function reportGrantResult(summary) {
 defineExpose({
   reportConvertResult,
   reportGrantResult,
+  reportBalanceResult,
+  reportBossShopJumpResult,
   closeTreasurePicker,
   isTreasurePickerOpen: () => showTreasurePicker.value,
 });
@@ -440,6 +595,105 @@ defineExpose({
   display: flex;
   gap: calc(8 * var(--rpx));
   align-items: center;
+}
+
+.developer-options-row--boss-shop {
+  margin-top: calc(10 * var(--rpx));
+  align-items: stretch;
+}
+
+.developer-options-boss-select {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.developer-options-boss-select-trigger {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: calc(8 * var(--rpx));
+  width: 100%;
+  min-height: calc(72 * var(--rpx));
+  padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
+  border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.12);
+  border-radius: calc(8 * var(--rpx));
+  background: #fff;
+  color: var(--text-dark, #3c3a32);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.developer-options-boss-select-copy {
+  display: flex;
+  flex-direction: column;
+  gap: calc(4 * var(--rpx));
+  min-width: 0;
+  flex: 1;
+}
+
+.developer-options-boss-select-name {
+  font-size: calc(24 * var(--rpx));
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.developer-options-boss-select-desc {
+  font-size: calc(20 * var(--rpx));
+  line-height: 1.45;
+  color: rgba(60, 58, 50, 0.72);
+}
+
+.developer-options-boss-select-chevron {
+  flex-shrink: 0;
+  font-size: calc(28 * var(--rpx));
+  line-height: 1;
+  color: rgba(60, 58, 50, 0.55);
+  transition: transform 0.15s ease;
+}
+
+.developer-options-boss-select-chevron--open {
+  transform: rotate(180deg);
+}
+
+.developer-options-boss-select-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4 * var(--rpx));
+  z-index: 4;
+  max-height: calc(360 * var(--rpx));
+  margin: 0;
+  padding: calc(6 * var(--rpx));
+  list-style: none;
+  overflow: auto;
+  border: calc(2 * var(--rpx)) solid rgba(0, 0, 0, 0.12);
+  border-radius: calc(8 * var(--rpx));
+  background: #fff;
+  box-shadow: var(--shadow);
+  box-sizing: border-box;
+}
+
+.developer-options-boss-select-option {
+  display: flex;
+  flex-direction: column;
+  gap: calc(4 * var(--rpx));
+  padding: calc(10 * var(--rpx)) calc(10 * var(--rpx));
+  border-radius: calc(6 * var(--rpx));
+  cursor: pointer;
+}
+
+.developer-options-boss-select-option:hover,
+.developer-options-boss-select-option--active {
+  background: rgba(106, 127, 184, 0.12);
+}
+
+.developer-options-hint--compact {
+  margin: calc(8 * var(--rpx)) 0 0;
+  font-size: calc(20 * var(--rpx));
+  color: rgba(60, 58, 50, 0.68);
 }
 
 .developer-options-input {
@@ -651,6 +905,11 @@ defineExpose({
   text-align: center;
   box-shadow: 0 calc(2 * var(--rpx)) calc(6 * var(--rpx)) rgba(0, 0, 0, 0.28);
   pointer-events: none;
+}
+
+.developer-treasure-picker-actions.confirm-actions-row .developer-options-btn {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .developer-treasure-picker-actions {

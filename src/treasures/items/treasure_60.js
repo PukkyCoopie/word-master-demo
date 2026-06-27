@@ -20,4 +20,7 @@ export const treasureHooks = {
   async onSuccessfulWordSubmit(ctx) {
     await bankMultAddGain(ctx, ID, -5);
   },
+  isTreasureEffectDepleted(ctx) {
+    return getMultAddBank(ctx.treasureRun, ID) <= 0;
+  },
 };

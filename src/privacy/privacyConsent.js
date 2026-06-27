@@ -1,6 +1,5 @@
 import { Capacitor } from "@capacitor/core";
 import { ref } from "vue";
-import { isE2eMode } from "../e2e/isE2eMode.js";
 
 const STORAGE_KEY = "word_master_privacy_consent_v1";
 
@@ -19,9 +18,9 @@ function readConsentFromStorage() {
 /** @type {import('vue').Ref<boolean>} */
 export const privacyConsentGranted = ref(readConsentFromStorage());
 
-/** Capacitor 原生壳内且非 E2E 时需要隐私同意。 */
+/** Capacitor 原生壳内需要隐私同意。 */
 export function isPrivacyConsentRequired() {
-  return Capacitor.isNativePlatform() && !isE2eMode();
+  return Capacitor.isNativePlatform();
 }
 
 /** @returns {boolean} */

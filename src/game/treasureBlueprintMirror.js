@@ -94,6 +94,21 @@ export function isPhysicalTreasureHookContribution(ownedSlotTreasureIds, slotInd
 }
 
 /**
+ * 顺序 hook 批次中：该贡献是否仍有效（槽位未被清空、蓝图镜像目标仍在）。
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {{ slotIndex: number, treasureId: string, source: "self" | "blueprint" }} entry
+ */
+export function isTreasureHookContributionActive(ownedSlotTreasureIds, { slotIndex, treasureId, source }) {
+  const slots = ownedSlotTreasureIds ?? [];
+  const tid = String(treasureId ?? "");
+  if (!tid) return false;
+  if (source === "self") {
+    return String(slots[slotIndex] ?? "") === tid;
+  }
+  return getBlueprintMirroredTreasureId(slots, slotIndex) === tid;
+}
+
+/**
  * run 银行 / 充能等「累加」是否应在本 hook 写入（仅实体槽位上的宝藏本身；蓝图复制只复现效果，不累加进被复制 id）。
  */
 export function shouldTreasureRunAccumulationMutate(ownedSlotTreasureIds, slotIndex, treasureId, source) {

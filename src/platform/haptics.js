@@ -1,7 +1,6 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { getAnimationSpeedScale, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
-import { isE2eMode } from "../e2e/isE2eMode.js";
 import { getHapticsEnabled } from "../settings/gameSettings.js";
 
 /** 触感分层、预设与挂接约定见同目录 `haptics.md`。 */
@@ -130,7 +129,7 @@ export function isHapticsAvailable() {
 
 /** @returns {boolean} */
 function isHapticsGateOpen() {
-  return isHapticsAvailable() && !isE2eMode() && getHapticsEnabled();
+  return isHapticsAvailable() && getHapticsEnabled();
 }
 
 /**

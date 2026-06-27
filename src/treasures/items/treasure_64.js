@@ -49,4 +49,7 @@ export const treasureHooks = {
     if (!rs || rs.extraLetterScoreWordsRemaining <= 0) return;
     rs.extraLetterScoreWordsRemaining -= 1;
   },
+  isTreasureEffectDepleted(ctx) {
+    return Math.max(0, Math.floor(Number(ctx.treasureRun?.extraLetterScoreWordsRemaining) || 0)) <= 0;
+  },
 };

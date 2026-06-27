@@ -503,3 +503,54 @@ export async function runDetachedSpellTileAppearanceAnim(opts) {
     ),
   );
 }
+
+/**
+ * 单格缩小至谷底 → `onMidApply` → 回弹（用于火山喷发等棋盘材质切换）。
+ * @param {{
+ *   row: number,
+ *   col: number,
+ *   getTileEl: (row: number, col: number) => HTMLElement | undefined,
+ *   touchGrid: () => void,
+ *   delay?: number,
+ *   onMidApply?: () => void,
+ *   onPopStart?: () => void,
+ * }} opts
+ */
+export async function animateGridTileMaterialChangeAtCell(opts) {
+  const { row, col, getTileEl, touchGrid, delay = 0, onMidApply, onPopStart } = opts;
+  if (shouldSkipDecorativeMotion()) {
+    onMidApply?.();
+    touchGrid();
+    onPopStart?.();
+    return;
+  }
+  const el = getTileEl(row, col);
+  if (!(el instanceof HTMLElement)) {
+    onMidApply?.();
+    touchGrid();
+    onPopStart?.();
+    return;
+  }
+
+  return new Promise((resolve) => {
+    gsap.set(el, { transformOrigin: "50% 50%", rotation: 0, x: 0, y: 0 });
+    const tl = gsap.timeline({
+      delay,
+      onComplete: () => {
+        gsap.set(el, { clearProps: "scale,rotation,x,y" });
+        resolve();
+      },
+    });
+    tl.to(el, { scale: SHRINK_SCALE, duration: SHRINK, ease: "power3.in" });
+    tl.add(() => {
+      onMidApply?.();
+      touchGrid();
+    });
+    tl.to({}, { duration: FRAME_YIELD });
+    tl.add(() => {
+      onPopStart?.();
+    });
+    tl.to(el, { scale: POP_PEAK, duration: POP_IN, ease: "back.out(1.42)" });
+    tl.to(el, { scale: 1, duration: POP_SETTLE, ease: "power3.out" });
+  });
+}

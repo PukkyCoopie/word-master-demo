@@ -1,0 +1,67 @@
+/** @typedef {ReturnType<typeof createTreasurePorts>} TreasuresPort */
+
+/** @typedef {import('./treasurePortTypes.js').TreasuresPortBinding} TreasuresPortBinding */
+
+/**
+ * 宝藏 inventory 域 assembly 端口（R4.3）。
+ * @param {TreasuresPortBinding} binding
+ */
+export function createTreasurePorts(binding) {
+  return Object.freeze({
+    ownedTreasures: binding.ownedTreasures,
+    ownedTreasureFilledCount: binding.ownedTreasureFilledCount,
+    ownedUpgrades: binding.ownedUpgrades,
+    ownedVoucherIds: binding.ownedVoucherIds,
+    ownedSlotTreasureIdList: binding.ownedSlotTreasureIdList,
+    treasureDetail: binding.treasureDetail,
+    treasureRunState: binding.treasureRunState,
+    treasureSession: binding.treasureSession,
+    treasureBarStackMode: binding.treasureBarStackMode,
+    treasureBarCompactAnimating: binding.treasureBarCompactAnimating,
+    treasureBarExpandBtnHighlight: binding.treasureBarExpandBtnHighlight,
+    treasureSlotsLayoutClass: binding.treasureSlotsLayoutClass,
+    treasureGemClass: binding.treasureGemClass,
+    treasureChargeProgressBySlot: binding.treasureChargeProgressBySlot,
+    treasureChargeVisualBySlot: binding.treasureChargeVisualBySlot,
+    displayOwnedTreasures: binding.displayOwnedTreasures,
+    displayOwnedTreasureKeys: binding.displayOwnedTreasureKeys,
+    displayTreasureChargeProgressBySlot: binding.displayTreasureChargeProgressBySlot,
+    displayTreasureChargeVisualBySlot: binding.displayTreasureChargeVisualBySlot,
+    gameOwnedDragActive: binding.gameOwnedDragActive,
+    gameOwnedDragChargeProgress: binding.gameOwnedDragChargeProgress,
+    gameOwnedDragChargeState: binding.gameOwnedDragChargeState,
+    gameOwnedDragGhostStyle: binding.gameOwnedDragGhostStyle,
+    gameOwnedDragGhostVisible: binding.gameOwnedDragGhostVisible,
+    gameOwnedDragPlaceholderStyle: binding.gameOwnedDragPlaceholderStyle,
+    gameOwnedDragPlaceholderVisible: binding.gameOwnedDragPlaceholderVisible,
+    gameOwnedDragSourceIndex: binding.gameOwnedDragSourceIndex,
+    gameOwnedKeyOrderBag: binding.gameOwnedKeyOrderBag,
+    gameTreasureCrimsonDisabledResolver: binding.gameTreasureCrimsonDisabledResolver,
+    gameTreasureGemClassResolver: binding.gameTreasureGemClassResolver,
+    gameTreasureSlotClassResolver: binding.gameTreasureSlotClassResolver,
+    hiddenTreasureBarCount: binding.hiddenTreasureBarCount,
+    findTreasurePlacementIndex: binding.findTreasurePlacementIndex,
+    findOwnedTreasureSlotIndex: binding.findOwnedTreasureSlotIndex,
+    findFirstOwnedTreasureSlotIndex: binding.findFirstOwnedTreasureSlotIndex,
+    grantOwnedTreasureAt: binding.grantOwnedTreasureAt,
+    grantRandomShopTreasure: binding.grantRandomShopTreasure,
+    grantRandomShopTreasureByRarity: binding.grantRandomShopTreasureByRarity,
+    grantSpellBonusShopVoucher: binding.grantSpellBonusShopVoucher,
+    applyTreasureAcquireImmediateEffectsForRun: binding.applyTreasureAcquireImmediateEffectsForRun,
+    runTreasureLevelCompleteHooks: binding.runTreasureLevelCompleteHooks,
+    runTreasurePackOpenPrecursor: binding.runTreasurePackOpenPrecursor,
+    runHourglassStageEndFx: binding.runHourglassStageEndFx,
+    pickCrimsonDisabledTreasureSlotIndex: binding.pickCrimsonDisabledTreasureSlotIndex,
+    crimsonTreasureDisabledSlotIndex: binding.crimsonTreasureDisabledSlotIndex,
+    verdantTreasureSold: binding.verdantTreasureSold,
+    pillarUsedDeckUids: binding.pillarUsedDeckUids,
+    presentTreasureDetail: binding.presentTreasureDetail,
+    onGameEmptyTreasureSlotClick: binding.onGameEmptyTreasureSlotClick,
+    onGameOwnedSlotPointerDown: binding.onGameOwnedSlotPointerDown,
+    waitForOwnedTreasureSlotEl: binding.waitForOwnedTreasureSlotEl,
+    playTreasureGrantPopAtSlotIndex: binding.playTreasureGrantPopAtSlotIndex,
+    runDetachedTileShrinkReplacePop: binding.runDetachedTileShrinkReplacePop,
+    treasureOriginRectFromEl: binding.treasureOriginRectFromEl,
+    wordSlotPresentation: binding.wordSlotPresentation,
+  });
+}

@@ -55,6 +55,7 @@
                       :gem-class="gemClassForSlot(i, slot)"
                       :charge-state="chargeStateForSlot(i)"
                       :charge-progress="chargeProgressForSlot(i) ?? 0"
+                      :effect-depleted="effectDepletedForSlot(i)"
                       :amber-boss-mask="amberBossMask"
                       :crimson-hand-disabled="crimsonHandDisabledForSlot(i)"
                       @pointerdown="onSlotPointerDown(i, $event)"
@@ -102,6 +103,7 @@
                 :gem-class="dragGemClass"
                 :charge-state="dragChargeState"
                 :charge-progress="dragChargeProgress ?? 0"
+                :effect-depleted="dragEffectDepleted"
                 :amber-boss-mask="amberBossMask"
               />
             </div>
@@ -115,6 +117,7 @@
                 :gem-class="dragGemClass"
                 :charge-state="dragChargeState"
                 :charge-progress="dragChargeProgress ?? 0"
+                :effect-depleted="dragEffectDepleted"
                 :amber-boss-mask="amberBossMask"
               />
             </div>
@@ -163,6 +166,7 @@ const props = defineProps({
   gemClassResolver: { type: Function, default: null },
   chargeStates: { type: Array, default: () => [] },
   chargeProgresses: { type: Array, default: () => [] },
+  effectDepletedStates: { type: Array, default: () => [] },
   /** @type {import('vue').PropType<(index: number) => object | string | null>} */
   slotClassResolver: { type: Function, default: null },
   /** @type {import('vue').PropType<(index: number) => boolean>} */
@@ -172,6 +176,7 @@ const props = defineProps({
   dragGemClass: { type: String, default: "gem-rare" },
   dragChargeState: { type: String, default: null },
   dragChargeProgress: { type: Number, default: 0 },
+  dragEffectDepleted: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["close", "slot-click", "empty-slot-click"]);
@@ -398,6 +403,11 @@ function chargeStateForSlot(i) {
 /** @param {number} i */
 function chargeProgressForSlot(i) {
   return props.chargeProgresses[i] ?? 0;
+}
+
+/** @param {number} i */
+function effectDepletedForSlot(i) {
+  return props.effectDepletedStates[i] === true;
 }
 
 /** @param {number} i */

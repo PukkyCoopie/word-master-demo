@@ -1,0 +1,411 @@
+/* 牌库堆叠格：展开列表中单块包一层以接右键/长按 */
+.deck-expand-tile-hit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ----- 牌库浮层 ----- */
+.deck-layer {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.52);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(12 * var(--rpx));
+  border-radius: calc(12 * var(--rpx));
+  transition: background 0.18s var(--ease-expo-out);
+}
+.deck-layer--stack-expanded {
+  background: rgba(0, 0, 0, 0.72);
+}
+.deck-layer-inner--enter-boot .deck-layer-enter-stagger {
+  opacity: 0;
+}
+
+.deck-layer-inner {
+  --deck-layer-tile-size: calc(72 * var(--rpx));
+  /* 牌库 tile 小于棋盘格：配饰角标随 --slot-scale 与局内同比例（见 game.css .grid-tile .tile-accessory-chip） */
+  --slot-scale: calc(var(--deck-layer-tile-size) / var(--letter-grid-cell-size));
+  /* 底部：padding-bottom + gap + 确定/返回按钮占位，供 stack 展开层对齐 */
+  --deck-layer-confirm-slot: calc(122 * var(--rpx));
+  position: relative;
+  overflow: hidden;
+  background: #7a6f65;
+  border-radius: calc(14 * var(--rpx));
+  box-shadow: 0 calc(12 * var(--rpx)) calc(40 * var(--rpx)) rgba(0, 0, 0, 0.35);
+  padding: calc(30 * var(--rpx)) calc(20 * var(--rpx)) calc(36 * var(--rpx));
+  box-sizing: border-box;
+  /* 与宝藏全览弹窗一致：game-container 去掉左右 padding（750 - 14×2 = 722） */
+  width: calc(722 * var(--rpx));
+  max-width: calc(722 * var(--rpx));
+  max-height: calc(960 * var(--rpx));
+  height: auto;
+  min-height: min(52vh, calc(440 * var(--rpx)));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(30 * var(--rpx));
+  border: calc(2 * var(--rpx)) solid rgba(255, 255, 255, 0.12);
+}
+.deck-layer-title {
+  position: relative;
+  z-index: 3;
+  flex-shrink: 0;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-shadow: 0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.2);
+}
+.deck-layer-title-main {
+  font-size: calc(33 * var(--rpx));
+  color: rgba(255, 255, 255, 0.95);
+}
+.deck-layer-title-count {
+  font-size: calc(26 * var(--rpx));
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.68);
+  letter-spacing: 0.02em;
+}
+.deck-layer-inner--stack-expanded > .deck-layer-title,
+.deck-layer-inner--stack-expanded > .deck-layer-grid-scroll-outer {
+  opacity: 0;
+  pointer-events: none;
+}
+.deck-layer-grid-scroll-outer {
+  position: relative;
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  width: 100%;
+}
+.deck-layer-grid-area {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.deck-layer-grid-area--scrollable {
+  overflow-y: auto;
+  padding-right: calc(var(--dl-scroll-track-gap, 0px) + var(--dl-scroll-track-w, 0px));
+}
+.deck-layer-grid-area::-webkit-scrollbar {
+  display: none;
+}
+.deck-layer-scroll-track {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--dl-scroll-track-w, calc(8 * var(--rpx)));
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.14);
+  touch-action: none;
+  user-select: none;
+  z-index: 2;
+}
+.deck-layer-scroll-thumb {
+  position: absolute;
+  left: var(--dl-scroll-thumb-inset, calc(1 * var(--rpx)));
+  right: var(--dl-scroll-thumb-inset, calc(1 * var(--rpx)));
+  top: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.42);
+  box-shadow: 0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.18);
+  cursor: grab;
+  touch-action: none;
+}
+.deck-layer-scroll-thumb-grip {
+  display: none;
+}
+.deck-layer-scroll-thumb--dragging,
+.deck-layer-scroll-thumb:active {
+  cursor: grabbing;
+  filter: brightness(1.08);
+}
+.deck-layer-grid-slot {
+  flex: 0 1 auto;
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0;
+}
+/* 牌库：按字母分堆；同中心旋转叠放；与展开区共用 --deck-layer-tile-size */
+.deck-layer-stacks {
+  --deck-stack-size: var(--deck-layer-tile-size);
+  --deck-tile-size: var(--deck-layer-tile-size);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
+  align-items: flex-start;
+  gap: calc(22 * var(--rpx)) calc(26 * var(--rpx));
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
+  padding: calc(8 * var(--rpx)) calc(12 * var(--rpx)) calc(14 * var(--rpx)) calc(8 * var(--rpx));
+}
+.deck-stack {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--deck-stack-size);
+  height: var(--deck-stack-size);
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: calc(var(--deck-stack-size) * 0.08);
+  box-sizing: border-box;
+  overflow: visible;
+}
+.deck-stack:disabled,
+.deck-stack--ghost {
+  cursor: default;
+  pointer-events: none;
+}
+.deck-stack:not(:disabled):hover .deck-stack-pile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.06);
+}
+.deck-stack:not(:disabled):active .deck-stack-pile {
+  transform: scale(0.97);
+}
+.deck-stack-count {
+  position: absolute;
+  /* 约 1/3～1/2 角标向右下伸出 stack 外框 */
+  right: calc(-8 * var(--rpx));
+  bottom: calc(-8 * var(--rpx));
+  z-index: 12;
+  min-width: calc(22 * var(--rpx));
+  height: calc(22 * var(--rpx));
+  padding: 0 calc(6 * var(--rpx));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(13 * var(--rpx));
+  font-weight: 800;
+  color: #fff;
+  background: rgba(40, 36, 32, 0.88);
+  border-radius: calc(10 * var(--rpx));
+  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+.deck-stack--ghost .deck-stack-count {
+  background: rgba(40, 36, 32, 0.52);
+  color: rgba(255, 255, 255, 0.82);
+}
+.deck-stack-pile {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transition: transform 0.12s var(--ease-expo-out);
+  transform-origin: 50% 50%;
+}
+.deck-stack-pile-cell {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+}
+.deck-stack-pile-cell--dimmed {
+  opacity: 0.42;
+}
+.deck-expand-tile-hit--dimmed {
+  opacity: 0.42;
+}
+.deck-layer-stacks .deck-stack-pile-tile.grid-tile {
+  position: relative;
+  width: var(--deck-layer-tile-size);
+  height: var(--deck-layer-tile-size);
+  border-radius: calc(var(--deck-layer-tile-size) * 0.06);
+  font-size: calc(var(--deck-layer-tile-size) * 0.42);
+  cursor: inherit;
+  pointer-events: none;
+  box-sizing: border-box;
+  overflow: visible;
+}
+.deck-layer-stacks .deck-stack-pile-tile .tile-accessory-chip {
+  right: calc(3 * var(--rpx) * var(--slot-scale, 1));
+  bottom: calc(3 * var(--rpx) * var(--slot-scale, 1));
+  width: calc(28 * var(--rpx) * var(--slot-scale, 1));
+  height: calc(28 * var(--rpx) * var(--slot-scale, 1));
+  border-radius: calc(6 * var(--rpx) * var(--slot-scale, 1));
+}
+.deck-layer-stacks .deck-stack-pile-tile .tile-accessory-chip-icon {
+  font-size: calc(14 * var(--rpx) * var(--slot-scale, 1));
+}
+.deck-layer-stacks .deck-stack-pile-tile .tile-treasure-accessory-chip {
+  right: calc(3 * var(--rpx) * var(--slot-scale, 1));
+  bottom: calc(3 * var(--rpx) * var(--slot-scale, 1));
+  width: calc(28 * var(--rpx) * var(--slot-scale, 1));
+  height: calc(28 * var(--rpx) * var(--slot-scale, 1));
+  border-radius: calc(6 * var(--rpx) * var(--slot-scale, 1));
+}
+.deck-layer-stacks .deck-stack-pile-tile .tile-treasure-accessory-chip .treasure-accessory-chip-icon {
+  font-size: calc(14 * var(--rpx) * var(--slot-scale, 1));
+}
+/* 牌库视图统一字号：覆盖材质块在 game.css 里的固定 42*rpx */
+.deck-layer-stacks .deck-stack-pile-tile.tile-material-gold .letter-tile-char,
+.deck-layer-stacks .deck-stack-pile-tile.tile-material-steel .letter-tile-char,
+.deck-layer-stacks .deck-stack-pile-tile.tile-material-ice .letter-tile-char,
+.deck-layer-stacks .deck-stack-pile-tile.tile-material-water .letter-tile-char,
+.deck-layer-stacks .deck-stack-pile-tile.tile-material-fire .letter-tile-char,
+.deck-layer-stacks .deck-stack-pile-tile.tile-material-wildcard .letter-tile-char,
+.deck-layer-stacks .deck-stack-pile-tile.tile-material-lucky .letter-tile-char {
+  font-size: 1em;
+}
+.deck-layer-stacks .deck-stack-pile-tile .letter-gem {
+  display: none;
+}
+.deck-stack-ghost-face {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--deck-stack-size) * 0.06);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: calc(2 * var(--rpx)) dashed rgba(255, 255, 255, 0.42);
+  box-shadow: inset 0 0 0 calc(1 * var(--rpx)) rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+}
+.deck-stack-ghost-char {
+  font-size: calc(var(--deck-stack-size) * 0.38);
+  font-weight: var(--tile-letter-weight);
+  color: rgba(255, 255, 255, 0.58);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  user-select: none;
+}
+
+.deck-stack-expand-enter-active,
+.deck-stack-expand-leave-active {
+  transition: opacity 0.18s var(--ease-expo-out);
+}
+.deck-stack-expand-enter-from,
+.deck-stack-expand-leave-to {
+  opacity: 0;
+}
+.deck-stack-expand-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: var(--deck-layer-confirm-slot);
+  z-index: 10;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(30 * var(--rpx));
+  padding: calc(30 * var(--rpx)) calc(20 * var(--rpx)) 0;
+  overflow: hidden;
+  background: #7a6f65;
+  border-radius: inherit;
+}
+.deck-stack-expand-tiles {
+  --deck-expand-tile-size: var(--deck-layer-tile-size);
+  --deck-tile-size: var(--deck-expand-tile-size);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
+  align-items: flex-start;
+  gap: calc(18 * var(--rpx)) calc(20 * var(--rpx));
+  width: 100%;
+  box-sizing: border-box;
+  padding: calc(8 * var(--rpx)) calc(12 * var(--rpx)) calc(14 * var(--rpx)) calc(8 * var(--rpx));
+}
+.deck-stack-expand-tiles .deck-expand-face-tile.grid-tile {
+  position: relative;
+  width: var(--deck-expand-tile-size);
+  height: var(--deck-expand-tile-size);
+  border-radius: calc(var(--deck-expand-tile-size) * 0.06);
+  font-size: calc(var(--deck-expand-tile-size) * 0.42);
+  cursor: pointer;
+  box-sizing: border-box;
+  overflow: visible;
+}
+.deck-stack-expand-tiles .deck-expand-face-tile .tile-accessory-chip {
+  right: calc(3 * var(--rpx) * var(--slot-scale, 1));
+  bottom: calc(3 * var(--rpx) * var(--slot-scale, 1));
+  width: calc(28 * var(--rpx) * var(--slot-scale, 1));
+  height: calc(28 * var(--rpx) * var(--slot-scale, 1));
+  border-radius: calc(6 * var(--rpx) * var(--slot-scale, 1));
+}
+.deck-stack-expand-tiles .deck-expand-face-tile .tile-accessory-chip-icon {
+  font-size: calc(14 * var(--rpx) * var(--slot-scale, 1));
+}
+.deck-stack-expand-tiles .deck-expand-face-tile .tile-treasure-accessory-chip {
+  right: calc(3 * var(--rpx) * var(--slot-scale, 1));
+  bottom: calc(3 * var(--rpx) * var(--slot-scale, 1));
+  width: calc(28 * var(--rpx) * var(--slot-scale, 1));
+  height: calc(28 * var(--rpx) * var(--slot-scale, 1));
+  border-radius: calc(6 * var(--rpx) * var(--slot-scale, 1));
+}
+.deck-stack-expand-tiles .deck-expand-face-tile .tile-treasure-accessory-chip .treasure-accessory-chip-icon {
+  font-size: calc(14 * var(--rpx) * var(--slot-scale, 1));
+}
+.deck-stack-expand-tiles .deck-expand-face-tile.tile-material-gold .letter-tile-char,
+.deck-stack-expand-tiles .deck-expand-face-tile.tile-material-steel .letter-tile-char,
+.deck-stack-expand-tiles .deck-expand-face-tile.tile-material-ice .letter-tile-char,
+.deck-stack-expand-tiles .deck-expand-face-tile.tile-material-water .letter-tile-char,
+.deck-stack-expand-tiles .deck-expand-face-tile.tile-material-fire .letter-tile-char,
+.deck-stack-expand-tiles .deck-expand-face-tile.tile-material-wildcard .letter-tile-char,
+.deck-stack-expand-tiles .deck-expand-face-tile.tile-material-lucky .letter-tile-char {
+  font-size: 1em;
+}
+.deck-stack-expand-tiles .deck-expand-face-tile .letter-gem {
+  left: calc(var(--deck-expand-tile-size) * 0.045);
+  bottom: calc(var(--deck-expand-tile-size) * 0.045);
+  width: calc(var(--deck-expand-tile-size) * 0.106);
+  height: calc(var(--deck-expand-tile-size) * 0.106);
+}
+.deck-stack-expand-tiles .deck-expand-face-tile .letter-gem.gem-common {
+  background: #e8e4dc;
+  border: 1px solid #9c8b7a;
+}
+.deck-stack-expand-tiles .deck-expand-face-tile .letter-gem.gem-rare {
+  background: #5b9bd5;
+}
+.deck-stack-expand-tiles .deck-expand-face-tile .letter-gem.gem-epic {
+  background: #9b59b6;
+}
+.deck-stack-expand-tiles .deck-expand-face-tile .letter-gem.gem-legendary {
+  background: #e67e22;
+}
+.deck-layer-inner > .shop-btn.deck-layer-confirm {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 11;
+  width: 100%;
+  max-width: calc(280 * var(--rpx));
+  padding: calc(16 * var(--rpx)) calc(20 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
+}
+.deck-layer-enter-active,
+.deck-layer-leave-active {
+  transition: opacity 0.22s var(--ease-expo-out);
+}
+.deck-layer-enter-from,
+.deck-layer-leave-to {
+  opacity: 0;
+}

@@ -5,13 +5,14 @@ const SCROLLBAR_MIN_THUMB = 28;
 
 /**
  * 与关于弹窗一致的自定义滚动条（隐藏原生条 + 右侧 track/thumb）。
- * @param {{ thumbColor?: string, contentRef?: import('vue').Ref<HTMLElement | null | undefined>, minThumbPx?: number | (() => number), trackInset?: number | (() => number) }} [options]
+ * @param {{ thumbColor?: string, contentRef?: import('vue').Ref<HTMLElement | null | undefined>, minThumbPx?: number | (() => number), trackInset?: number | (() => number), overflowThreshold?: number }} [options]
  */
 export function usePanelScrollbar(options = {}) {
   const thumbColor = options.thumbColor ?? "#8a8580";
   const contentRef = options.contentRef;
   const minThumbPxOption = options.minThumbPx ?? SCROLLBAR_MIN_THUMB;
   const trackInsetOption = options.trackInset ?? SCROLLBAR_TRACK_INSET;
+  const overflowThreshold = options.overflowThreshold ?? 1;
 
   function resolveMinThumbPx() {
     return typeof minThumbPxOption === "function"
@@ -50,15 +51,30 @@ export function usePanelScrollbar(options = {}) {
     return Math.max(0, trackHeight - inset * 2);
   }
 
+  function resolveScrollContentHeight(container) {
+    const content = contentRef?.value;
+    if (content instanceof HTMLElement) {
+      return content.scrollHeight;
+    }
+    return container.scrollHeight;
+  }
+
+  function containerNeedsScroll(container) {
+    const clientHeight = container.clientHeight;
+    if (clientHeight <= 0) return false;
+    return resolveScrollContentHeight(container) > clientHeight + overflowThreshold;
+  }
+
   function updateScrollbarMetrics() {
     const container = scrollBodyRef.value;
     if (!container) return;
 
     const { scrollTop, scrollHeight, clientHeight } = container;
-    const canScroll = scrollHeight > clientHeight + 1;
+    const canScroll = containerNeedsScroll(container);
     scrollbarVisible.value = canScroll;
 
     if (!canScroll) {
+      if (container.scrollTop !== 0) container.scrollTop = 0;
       thumbHeightPx.value = 0;
       thumbTopPx.value = 0;
       return;

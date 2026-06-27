@@ -1,4 +1,4 @@
-import { ref, computed, shallowRef, triggerRef } from "vue";
+import { ref, computed, shallowRef, triggerRef, watch } from "vue";
 
 import { LEVELS, RUN_START_LEVEL_INDEX, resolveLevelTargetScore } from "../levelDefinitions";
 
@@ -35,9 +35,9 @@ import { vowelDisplayLetter } from "../game/vowelNeighborSubstitute.js";
 import { resolvedWordToRemovalLetterRaws } from "../treasures/treasureLogicShared.js";
 import { normalizeExclusiveTileAccessoryPair } from "../accessories/accessoryState.js";
 import { VOWEL_DECK_COUNT } from "../game/initialDeckLetterCounts.js";
-import { gameSettings } from "../settings/gameSettings.js";
+import { gameSettings, getLetterQMode } from "../settings/gameSettings.js";
 import { formatTileLetterDisplay } from "../settings/letterCase.js";
-import { resolveLetterFromRaw } from "../settings/letterQ.js";
+import { applyLetterQModeToGrid, resolveLetterFromRaw } from "../settings/letterQ.js";
 
 const VOWEL_LETTERS = new Set(["a", "e", "i", "o", "u"]);
 
@@ -428,6 +428,8 @@ export function useGameState(gameOpts = {}) {
   shuffleArrayInPlace(deck.value, getRng);
   /** 本局已从 multiset 抽空、牌库 UI 仍保留 ghost 堆的字母 raw（如 `q` 表示 Qu） */
   const depletedDeckStackRaws = ref(/** @type {Set<string>} */ (new Set()));
+  /** 本局曾出现过的字母堆 raw；抽空后仍占位展示 ghost */
+  const runSeenDeckStackRaws = ref(/** @type {Set<string>} */ (new Set()));
   /** 小关结束进商店后：牌库预览将全部牌张视为在抽牌堆（忽略棋盘占位与半透明） */
   const deckPreviewAllInDrawPile = ref(false);
 
@@ -456,11 +458,11 @@ export function useGameState(gameOpts = {}) {
 
   /**
    * @param {ReturnType<typeof createDeckCard> | null | undefined} card
+   * @returns {ReturnType<typeof createTileFromDeckCard> | null}
    */
   function createGridTileFromDeckCard(card) {
-    const tile = card
-      ? createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value)
-      : emptyTile(nextId);
+    if (!card) return null;
+    const tile = createTileFromDeckCard(card, nextId, rarityLevelsByRarity.value);
     stampBossTileDebuffIfNeeded(tile);
     return tile;
   }
@@ -493,6 +495,40 @@ export function useGameState(gameOpts = {}) {
     return raw;
   }
 
+  /** @param {unknown} entry */
+  function deckStackRawFromEntry(entry) {
+    if (!entry || typeof entry !== "object") return null;
+    const e = /** @type {{ isWildcard?: boolean }} */ (entry);
+    if (e.isWildcard === true) return WILDCARD_STACK_RAW;
+    return normalizeDeckStackRawKey(deckCardRaw(entry)) || null;
+  }
+
+  /** @param {string} raw0 */
+  function noteRunSeenDeckStackRaw(raw0) {
+    const key = normalizeDeckStackRawKey(raw0);
+    if (!key) return;
+    if (runSeenDeckStackRaws.value.has(key)) return;
+    const next = new Set(runSeenDeckStackRaws.value);
+    next.add(key);
+    runSeenDeckStackRaws.value = next;
+  }
+
+  /** @param {unknown[]} cards */
+  function seedRunSeenDeckStackRawsFromCards(cards) {
+    const next = new Set(runSeenDeckStackRaws.value);
+    for (const entry of cards) {
+      const key = deckStackRawFromEntry(entry);
+      if (key) next.add(key);
+    }
+    for (const raw of depletedDeckStackRaws.value) {
+      const key = normalizeDeckStackRawKey(raw);
+      if (key) next.add(key);
+    }
+    runSeenDeckStackRaws.value = next;
+  }
+
+  seedRunSeenDeckStackRawsFromCards(initialCards);
+
   function snapshotHasDeckStackRaw(rawKey) {
     const key = normalizeDeckStackRawKey(rawKey);
     if (!key || key === WILDCARD_STACK_RAW) return false;
@@ -505,6 +541,7 @@ export function useGameState(gameOpts = {}) {
   function noteDeckStackDepletedIfEmpty(raw0) {
     const key = normalizeDeckStackRawKey(raw0);
     if (!key || key === WILDCARD_STACK_RAW) return;
+    noteRunSeenDeckStackRaw(key);
     if (snapshotHasDeckStackRaw(key)) return;
     const next = new Set(depletedDeckStackRaws.value);
     next.add(key);
@@ -542,14 +579,18 @@ export function useGameState(gameOpts = {}) {
       cardsByRaw.get(key).push(entry);
     }
 
-    for (const raw of depletedDeckStackRaws.value) {
+    for (const raw of runSeenDeckStackRaws.value) {
       if (!cardsByRaw.has(raw)) cardsByRaw.set(raw, []);
     }
 
     const sortedRaws = [...cardsByRaw.keys()].sort((a, b) => a.localeCompare(b, "en"));
-    const stackRaws = sortedRaws.includes(WILDCARD_STACK_RAW)
-      ? sortedRaws
-      : [...sortedRaws, WILDCARD_STACK_RAW];
+    let stackRaws = sortedRaws;
+    if (
+      !stackRaws.includes(WILDCARD_STACK_RAW) &&
+      runSeenDeckStackRaws.value.has(WILDCARD_STACK_RAW)
+    ) {
+      stackRaws = [...stackRaws, WILDCARD_STACK_RAW];
+    }
 
     /** @type {object[]} */
     const out = [];
@@ -651,6 +692,21 @@ export function useGameState(gameOpts = {}) {
   }
 
   const grid = shallowRef(buildGrid());
+
+  function syncGridLettersForLetterQMode(mode = getLetterQMode()) {
+    const g = grid.value;
+    if (!Array.isArray(g) || g.length === 0) return 0;
+    const updated = applyLetterQModeToGrid(g, ROWS, COLS, mode);
+    if (updated > 0) triggerRef(grid);
+    return updated;
+  }
+
+  watch(
+    () => gameSettings.letterQMode,
+    () => {
+      syncGridLettersForLetterQMode();
+    },
+  );
 
   const remainingWords = ref(3);
 
@@ -834,6 +890,7 @@ export function useGameState(gameOpts = {}) {
       ownedVoucherIdsRef != null ? getWordLengthJudgmentBonus(ownedVoucherIdsRef.value ?? []) : 0;
     const flintOpts = bossSlugForMechanics() === "the_flint" ? { bossFlintQuarter: true } : {};
     flintOpts.lengthUpgradeObservatoryExtra = lengthUpgradeObservatoryExtra.value;
+    flintOpts.ownedSlotTreasureIds = getOwnedSlotTreasureIds?.() ?? [];
     const base = computeWordScore(tiles, 1, lengthLevelsByLength.value, rarityLevelsByRarity.value, lengthJb, flintOpts);
     const g = grid.value;
     const excludedKeys = gridSelectedPositionKeySet(selectedTiles.value);
@@ -1470,7 +1527,13 @@ export function useGameState(gameOpts = {}) {
     if (targetRow < 0 || targetCol < 0) return false;
 
     const d = deck.value;
-    finalizeConsumedGridTileDeckCard(g[targetRow][targetCol]);
+    const shatteredTile = g[targetRow][targetCol];
+    const shatteredUid = shatteredTile?._deckCard?._dcUid;
+    if (shatteredUid != null) {
+      removeDeckCardByUid(shatteredUid, { clearGrid: false });
+    } else {
+      finalizeConsumedGridTileDeckCard(shatteredTile);
+    }
     const manacleIce = bossSlugForMechanics() === "the_manacle";
     if (manacleIce) {
       const blocked = g[0][targetCol];
@@ -1555,7 +1618,14 @@ export function useGameState(gameOpts = {}) {
     if (spec.letterMultBonus) card.letterMultBonus = Math.max(0, Math.floor(Number(spec.letterMultBonus) || 0));
     if (spec.materialId) applyRolledMaterialIdToDeckCard(card, spec.materialId);
     initialDeckSnapshot.value = [...initialDeckSnapshot.value, card];
+    noteRunSeenDeckStackRaw(raw);
     noteDeckStackReplenished(raw);
+    return card;
+  }
+
+  function appendDeckCardSpecToRunDeck(spec) {
+    const card = appendDeckCardSpecToInitialSnapshot(spec);
+    if (card) deck.value = [...deck.value, card];
     return card;
   }
 
@@ -1682,7 +1752,7 @@ export function useGameState(gameOpts = {}) {
         for (let c = 0; c < COLS; c++) {
           const t = g[r]?.[c];
           if (t?._deckCard?._dcUid === uid) {
-            g[r][c] = emptyTile(nextId);
+            g[r][c] = null;
           }
         }
       }
@@ -1771,6 +1841,8 @@ export function useGameState(gameOpts = {}) {
       snap.push(card);
       d.push(card);
       created.push(card);
+      noteRunSeenDeckStackRaw(raw);
+      if (card.isWildcard === true) noteRunSeenDeckStackRaw(WILDCARD_STACK_RAW);
       noteDeckStackReplenished(raw);
     }
     initialDeckSnapshot.value = snap;
@@ -1872,6 +1944,7 @@ export function useGameState(gameOpts = {}) {
         .filter((uid) => uid > 0),
       grid: flatGrid,
       depletedDeckStackRaws: [...depletedDeckStackRaws.value],
+      runSeenDeckStackRaws: [...runSeenDeckStackRaws.value],
       deckPreviewAllInDrawPile: deckPreviewAllInDrawPile.value === true,
       deckCardUidSeq: getDeckCardUidSeq(),
       currentScore: currentScore.value,
@@ -1922,6 +1995,10 @@ export function useGameState(gameOpts = {}) {
     depletedDeckStackRaws.value = new Set(
       Array.isArray(state.depletedDeckStackRaws) ? state.depletedDeckStackRaws.map(String) : [],
     );
+    runSeenDeckStackRaws.value = new Set(
+      Array.isArray(state.runSeenDeckStackRaws) ? state.runSeenDeckStackRaws.map(String) : [],
+    );
+    seedRunSeenDeckStackRawsFromCards(cards);
     deckPreviewAllInDrawPile.value = state.deckPreviewAllInDrawPile === true;
     currentScore.value = Math.max(0, Math.floor(Number(state.currentScore) || 0));
     targetScore.value = Math.max(0, Math.floor(Number(state.targetScore) || 0));
@@ -1948,7 +2025,7 @@ export function useGameState(gameOpts = {}) {
       for (let c = 0; c < COLS; c++) {
         const cell = flat[r * COLS + c];
         if (!cell || typeof cell !== "object") {
-          row.push(emptyTile(nextId));
+          row.push(null);
           continue;
         }
         const ser = /** @type {import('../save/runSavePayload.js').SerializedGridCell} */ (cell);
@@ -1984,7 +2061,7 @@ export function useGameState(gameOpts = {}) {
           tile._deckCard = card;
           row.push(tile);
         } else {
-          row.push(emptyTile(nextId));
+          row.push(null);
         }
       }
       nextGrid.push(row);
@@ -2116,10 +2193,13 @@ export function useGameState(gameOpts = {}) {
     appendShopDeckEntries,
 
     appendDeckCardSpecToInitialSnapshot,
+    appendDeckCardSpecToRunDeck,
 
     exportDeckState,
 
     hydrateDeckState,
+
+    syncGridLettersForLetterQMode,
 
   };
 

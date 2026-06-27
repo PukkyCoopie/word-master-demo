@@ -41,7 +41,9 @@
         <div ref="tabPanelRef" class="collection-tab-panel">
           <CollectionTreasureGrid
             v-if="activeTab === 'treasures'"
-            :discovered-treasure-ids="career.discoveredTreasureIds"
+            v-model:group-view="treasureGroupView"
+            v-model:group-by="treasureGroupBy"
+            :discovered-treasure-ids="effectiveDiscoveredTreasureIds"
             :collection-new-keys="collectionNewKeys"
             @select-treasure="onCollectionTreasureSelect"
           />
@@ -113,6 +115,11 @@
       :wallet-amount="0"
       :preview-nav-index="collectionTreasurePreviewNavIndex"
       :preview-nav-total="collectionTreasurePreviewNavTotal"
+      :discovered-treasure-ids="effectiveDiscoveredTreasureIds"
+      :discovered-spell-ids="career.discoveredSpellIds"
+      :discovered-upgrade-ids="career.discoveredUpgradeIds"
+      :discovered-voucher-tiers="career.discoveredVoucherTiers"
+      :collection-preview-nav-kind="collectionTreasureDetail.previewNavKind"
       :collection-entry-state="collectionTreasureDetail.collectionEntryState ?? 'discovered'"
       @close="collectionTreasureDetail = null"
       @preview-nav="onCollectionTreasurePreviewNav"
@@ -162,7 +169,7 @@ import {
 import { formatCollectionTabProgressLine } from "../collection/collectionProgress.js";
 import { TREASURE_CATALOG } from "../treasures/treasureCatalog.js";
 import { getTreasureDef } from "../treasures/treasureRegistry.js";
-import { sortTreasureCatalogRows } from "../collection/collectionTreasureSort.js";
+import { getCollectionTreasureNavIds, TREASURE_COLLECTION_GROUP_BY } from "../collection/collectionTreasureSort.js";
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
 import {
   COLLECTION_LENGTH_UPGRADE_CATALOG,
@@ -183,6 +190,7 @@ import {
   resolveCollectionUpgradeEntryState,
   resolveCollectionVoucherEntryState,
 } from "../collection/collectionEntryState.js";
+import { getEffectiveDiscoveredTreasureIds } from "../collection/collectionEffectiveDiscoveries.js";
 import {
   clearCollectionNewDiscoveriesOnTabReenter,
   clearCollectionNewDiscovery,
@@ -227,8 +235,14 @@ const mutateCollectionCareer = inject("mutateCollectionCareer", null);
 
 const collectionNewKeys = computed(() => getCollectionNewDiscoveryKeySet(props.career));
 
+const effectiveDiscoveredTreasureIds = computed(() =>
+  getEffectiveDiscoveredTreasureIds(props.career),
+);
+
 /** @type {import('vue').Ref<{ treasure: object, originRect: object | null, shelfPriceKind: 'offer' | null, previewNav: import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> | null, previewNavKind: string | null, collectionEntryState: import('../collection/collectionEntryState.js').CollectionEntryState } | null>} */
 const collectionTreasureDetail = ref(null);
+const treasureGroupView = ref(false);
+const treasureGroupBy = ref(TREASURE_COLLECTION_GROUP_BY.rarity);
 /** @type {import('vue').Ref<Record<string, unknown> | null>} */
 const collectionTileDetailPayload = ref(null);
 /** @type {import('vue').Ref<{ left: number, top: number, width: number, height: number } | null>} */
@@ -373,7 +387,7 @@ function resolveCollectionPreviewEntryState(previewNavKind, key) {
         : 0;
     return resolveCollectionVoucherEntryState(pairId, tier);
   }
-  return resolveCollectionTreasureEntryState(String(key), props.career.discoveredTreasureIds);
+  return resolveCollectionTreasureEntryState(String(key), effectiveDiscoveredTreasureIds.value);
 }
 
 /**
@@ -485,7 +499,11 @@ function onCollectionTilePreviewNav(delta) {
 function onCollectionTreasureSelect(payload) {
   const tid = String(payload?.treasureId ?? "").trim();
   if (!tid) return;
-  const ids = sortTreasureCatalogRows(TREASURE_CATALOG, getTreasureDef).map((row) => row.treasureId);
+  const entryState = resolveCollectionTreasureEntryState(tid, effectiveDiscoveredTreasureIds.value);
+  const ids = getCollectionTreasureNavIds(TREASURE_CATALOG, getTreasureDef, {
+    groupView: treasureGroupView.value,
+    groupBy: treasureGroupBy.value,
+  });
   const treasure = buildCollectionTreasurePreview(tid);
   openCollectionTreasurePreview(
     treasure,
@@ -493,7 +511,7 @@ function onCollectionTreasureSelect(payload) {
     "offer",
     createPreviewNavGroup(ids, ids.indexOf(tid)),
     "collection-treasure",
-    resolveCollectionTreasureEntryState(tid, props.career.discoveredTreasureIds),
+    entryState,
   );
 }
 
@@ -860,6 +878,10 @@ onBeforeUnmount(() => {
   align-content: flex-start;
   row-gap: calc(18 * var(--rpx));
   column-gap: calc(16 * var(--rpx));
+}
+
+.collection-page .collection-grid--shop-cells.collection-grid--grouped {
+  justify-content: center;
 }
 
 .collection-page .collection-grid--upgrades {

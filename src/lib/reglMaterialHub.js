@@ -32,6 +32,7 @@ import {
 import {
   attachDirectMaterialRegl,
   setDirectMaterialReglAnimated,
+  repaintUnpaintedDirectMaterialCanvasesIn,
 } from "./reglDirectMaterialMount.js";
 import {
   attachVideoAtlasMaterial,
@@ -40,6 +41,7 @@ import {
 import {
   attachBitmapRendererMaterial,
   setBitmapRendererMaterialAnimated,
+  repaintUnpaintedBitmapRendererCanvasesIn,
 } from "./reglMaterialBitmapRenderer.js";
 
 /** @typedef {import("./reglSubscriberAnimation.js").ReglDisplaySubscriber} ReglDisplaySubscriber */
@@ -269,13 +271,20 @@ export function attachMaterialRegl(materialId, canvas, options = {}) {
     fixedCssWidth: useFixedLayout ? fixedW : undefined,
     fixedCssHeight: useFixedLayout ? fixedH : undefined,
     animated,
+    _displayFrameReady: false,
   };
 
   const subs = ensureSubscribersSet(materialId);
-  bindReglSubscriberViewport(sub, (s) => {
-    if (s.frameFrozen) return;
-    paintMaterialSubscriberOnce(materialId, s);
-  });
+  bindReglSubscriberViewport(
+    sub,
+    (s) => {
+      if (s.frameFrozen) return;
+      paintMaterialSubscriberOnce(materialId, s);
+    },
+    () => {
+      if (animated) ensureUnifiedMaterialTick();
+    },
+  );
   ensureSharedHub();
   subs.add(sub);
 
@@ -305,10 +314,44 @@ export function setMaterialReglAnimated(materialId, canvas, animated) {
   applyReglSubscriberAnimated(sub, animated, materialHubControlsFor(materialId));
 }
 
-/** 预创建共享 WebGL 并编译全部材质 shader */
+/** 补绘容器内尚未成功贴图的材质 canvas（如牌库大量静态万能块）。 */
+export function repaintUnpaintedMaterialCanvasesIn(root) {
+  if (!(root instanceof HTMLElement)) return;
+  for (const [materialId, subs] of subscribersByMaterial) {
+    for (const sub of subs) {
+      if (sub._displayFrameReady || !root.contains(sub.canvas)) continue;
+      paintMaterialSubscriberOnce(materialId, sub);
+    }
+  }
+  repaintUnpaintedBitmapRendererCanvasesIn(root);
+  repaintUnpaintedDirectMaterialCanvasesIn(root);
+}
+
+/** 预创建共享 WebGL、编译全部材质 shader，并各绘 1 帧（含 blit 读回路径）。 */
 export function warmupSharedReglMaterialHub() {
   ensureSharedHub();
+  const hub = sharedHub;
+  if (!hub) return;
   for (const mod of MATERIAL_SHADER_MODULES) {
     drawMaterialFrame(mod.MATERIAL_ID);
+  }
+  try {
+    const mode = getMaterialBlitExperimentMode();
+    if (mode === "skip") return;
+    if (mode === "2d_source") {
+      refreshPlain2dBlitSource(hub.texPx);
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = hub.texPx;
+    canvas.height = hub.texPx;
+    const ctx = canvas.getContext("2d", reglDisplayCanvas2dAttributes());
+    if (!ctx) return;
+    for (const mod of MATERIAL_SHADER_MODULES) {
+      const source = resolveMaterialFrameSource(mod.MATERIAL_ID, mode, hub);
+      if (!source) continue;
+      ctx.drawImage(source, 0, 0, hub.texPx, hub.texPx, 0, 0, hub.texPx, hub.texPx);
+    }
+  } catch (e) {
+    console.warn("[reglMaterialHub] blit warmup failed", e);
   }
 }

@@ -7,6 +7,7 @@ import { warmupAllReglMaterialHubs } from "./lib/reglMaterialWarmup.js";
 import { deferReglMaterialWarmupAtBoot } from "./lib/reglMaterialPerf.js";
 import { startRemixIconFontLoad } from "./composables/useRemixIconFont.js";
 import { initAnimationSpeedSettings } from "./settings/animationSpeed.js";
+import { initConfirmButtonSideSettings } from "./settings/confirmButtonSide.js";
 import { initAndroidBackButton } from "./platform/androidBackButton.js";
 import { initUIButtonHaptics } from "./platform/haptics.js";
 import { applyBorderlessLayoutHtmlClass } from "./settings/displayLayoutMode.js";
@@ -52,6 +53,13 @@ if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
 }
 if (!deferReglMaterialWarmupAtBoot()) {
   warmupAllReglMaterialHubs();
+} else if (typeof window !== "undefined") {
+  const runWarmup = () => warmupAllReglMaterialHubs();
+  if (typeof requestIdleCallback === "function") {
+    requestIdleCallback(runWarmup, { timeout: 2500 });
+  } else {
+    setTimeout(runWarmup, 100);
+  }
 }
 
 document.addEventListener("contextmenu", (e) => e.preventDefault(), { capture: true });
@@ -61,5 +69,6 @@ if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
 
 const app = createApp(App);
 initAnimationSpeedSettings();
+initConfirmButtonSideSettings();
 void initAndroidBackButton();
 app.mount("#app");

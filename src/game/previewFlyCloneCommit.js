@@ -21,12 +21,13 @@ export function preparePreviewFlyTargetHidden(targetEl) {
 /**
  * 飞入克隆仍不透明时，提前让真目标处于可见绘制态（pointerEvents 仍关闭）。
  * @param {HTMLElement | null | undefined} targetEl
+ * @param {number} [targetOpacity=1]
  */
-export function preRevealPreviewFlyTargetUnderClone(targetEl) {
+export function preRevealPreviewFlyTargetUnderClone(targetEl, targetOpacity = 1) {
   if (!(targetEl instanceof HTMLElement)) return;
   void targetEl.offsetHeight;
   gsap.set(targetEl, {
-    opacity: 1,
+    opacity: targetOpacity,
     visibility: "visible",
     pointerEvents: "none",
   });
@@ -39,14 +40,15 @@ export function preRevealPreviewFlyTargetUnderClone(targetEl) {
  *   flyCloneEl?: HTMLElement | null | undefined,
  *   onDeactivateClone?: () => void,
  *   targetClearProps?: string,
+ *   targetOpacity?: number,
  * }} opts
  */
 export function commitPreviewFlyCloneSwap(opts) {
-  const { targetEl, flyCloneEl, onDeactivateClone, targetClearProps } = opts;
+  const { targetEl, flyCloneEl, onDeactivateClone, targetClearProps, targetOpacity = 1 } = opts;
   if (targetEl instanceof HTMLElement) {
     /** @type {gsap.TweenVars} */
     const vars = {
-      opacity: 1,
+      opacity: targetOpacity,
       visibility: "visible",
       pointerEvents: "auto",
     };

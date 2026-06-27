@@ -19,6 +19,7 @@
  * @property {string} name
  * @property {string} emoji
  * @property {import('./treasureDescription.js').TreasureDescSegment[] | string} description
+ * @property {string} [introducedVersion] 首次加入游戏的版本（默认 1.0.0）
  * @property {boolean} [shopEligible] 为 false 时不出现在商店池（传说法术授予等）
  */
 
@@ -50,6 +51,7 @@
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun] 整局运行时状态（银行、关卡计数等）
  * @property {number} [money] 提交计分时钱包余额
  * @property {string} [resolvedWord] 本词（小写）
+ * @property {(word: string) => boolean} [isValidWord] 词典校验（报纸等）
  * @property {readonly { rarity?: string }[]} [gridTiles] 提交时棋盘上全部有字格（含本手拼词格）
  * @property {readonly { rarity?: string }[]} [remainingGridTiles] 提交后仍将留在棋盘上的有字格（不含本手拼词格）
  * @property {unknown[][]} [grid] 提交时棋盘二维数组（行优先索引用 `r * gridCols + c`）
@@ -224,7 +226,7 @@
  * @property {(ctx: TreasureLogicContext, part: { letter?: string, rarity?: string }, letterIndex: number) => number} [getLetterReplayCountForLetter]
  * @property {(ctx: TreasureLogicContext) => TreasurePostStep | null | undefined} [buildPostLetterReplayStep]
  * @property {(ctx: TreasureReplaySubmitAdjustmentsContext) => { scoreAdd?: number, multAdd?: number } | null | undefined} [accumulateReplaySubmitAdjustments]
- * @property {(ctx: { realTile: object | null, band: 'score' | 'mult', delta: number }) => boolean} [persistTileAfterPerLetterTreasureCue] 逐字「宝藏 +Δ」与词槽 wobble 同节拍前写回 tile/_deckCard；返回 true 表示已改角标（调用方 `nextTick` 后再建含角标的 wobble timeline）
+ * @property {(ctx: { realTile: object | null, scoringTile?: object | null, scoringLetter?: string, band: 'score' | 'mult', delta: number }) => boolean} [persistTileAfterPerLetterTreasureCue] 逐字「宝藏 +Δ」与词槽 wobble 同节拍前写回 tile/_deckCard；`scoringTile`/`scoringLetter` 为本词解析后的计分字母（万能块变形前须由调用方 `commitWildcardMorphBeforeEnhancementStrip` 或 `persistTileIntrinsicTreasureCue` 写回）；返回 true 表示已改角标（调用方 `nextTick` 后再建含角标的 wobble timeline）
  * @property {(ctx: { ownedSlotTreasureIds: (string | null | undefined)[] }, part: { letter?: string, rarity?: string }, letterIndex: number) => { delta: number, label?: string } | null | undefined} [getPerLetterScoreCue]
  * @property {boolean} [perLetterScoreCueDepositsTreasureBank] 为 true 时：逐字 cue 仅累加宝藏分数银行并在宝藏槽弹出 +Δ，不入词槽公式；入账在字后 `buildPostLetterStep` 的 `scoreAdd`（如泡泡 80）
  * @property {boolean} [showPerLetterScoreCueBubble] 与 `perLetterScoreCueDepositsTreasureBank` 配套：设为 false 时，逐字仅 wobble 宝藏槽并入账，不显示 +Δ 气泡（如泡泡 80）
@@ -239,6 +241,7 @@
  * @property {(ctx: TreasureWordDefinitionPresentationContext) => { triggerMode?: 'button' | 'definition' } | void} [resolveWordDefinitionTriggerMode] 设置「释义」时：返回 `{ triggerMode: 'button' }` 则退化为仅 icon 按钮（不展示行内预览条）
  * @property {(ctx: TreasureChargeVisualContext) => 'inactive' | 'active'} [getChargeVisualState] 若实现则 footer 显示充能态；未实现则无充能条
  * @property {(ctx: TreasureChargeVisualContext) => number} [getChargeProgress] 0~1，与 `getChargeVisualState` 成对实现
+ * @property {(ctx: TreasureChargeVisualContext) => boolean} [isTreasureEffectDepleted] 效果已永久耗尽：槽位/详情仅压暗 emoji 与 gem，**不**显示充能角标与进度条（区别于篮球充能与配饰失效）
  * @property {(ctx: import('./treasureTypes.js').TreasurePatchDescriptionContext) => import('./treasureDescription.js').TreasureDescSegment[] | null | undefined} [patchDescription] 替换简介中「（当前…）」动态段；若 `replaceDescriptionWithPatch` 为 true 则整段简介由 patch 提供
  * @property {boolean} [replaceDescriptionWithPatch]
  * @property {(ctx: TreasureDiscardContext) => void | Promise<void>} [onDiscardBatch] 单次丢弃成功之后
@@ -261,6 +264,7 @@
  * @property {(ctx: TreasureDeckCardsAddedContext) => void | Promise<void>} [onDeckCardsAdded]
  * @property {() => number} [getWalletFloor] 本局钱包可降至的最低余额（默认 0；如信用卡为 -20）
  * @property {() => { text?: string, kind?: string } | null | undefined} [resolveSelfDestructBubble] 自毁移除时气泡文案与样式 kind（默认「摧毁！」/`destroy`）
+ * @property {() => { text?: string, kind?: string } | null | undefined} [resolveVolcanoEruptionBubble] 火山喷发时气泡文案与样式
  * @property {true} [bypassNoSellForSelfDestruct] 自毁时不受禁售配饰的「禁止摧毁」限制（卖出仍禁）
  */
 
@@ -333,15 +337,22 @@
  * @property {() => number} [rng]
  * @property {(treasureId: string) => void} [clearTreasureSlotById]
  * @property {(treasureId: string) => Promise<void>} [destroyTreasureSlotById] wobble +「摧毁！」气泡 + 缩至 0 后清空槽位
+ * @property {(bombSlotIndex: number) => Promise<void>} [destroyBombBlastAtSlot] 炸弹槽与左右邻槽（非空、非禁售）同时 wobble+气泡后一并移除
+ * @property {(slotIndex: number) => boolean} [isOwnedTreasureSlotNoSell] 槽位是否带禁售配饰
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(amount: number) => void} [addMoney]
  * @property {(treasureId: string, amount: number, opts?: { slotIndex?: number }) => Promise<void>} [playOwnedTreasureMoneyFx] 宝藏槽 wobble + +$n 气泡并入账
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx] 宝藏槽 wobble + 自定义气泡（不入账）
  * @property {number} [remainingRemovals] 小关结束时剩余丢弃次数
+ * @property {number} [currentScore] 小关结束时累计分
+ * @property {number} [targetScore] 小关目标分
+ * @property {readonly unknown[]} [fullDeck] 完整牌库 multiset
+ * @property {object[]} [ownedTreasureInstances] 已拥有宝藏实例
  * @property {number} [hookSlotIndex] 本次 hook 对应的栏位下标（面具镜像时为面具槽）
  * @property {'self' | 'blueprint'} [hookSource] 本次贡献来自实体宝藏或面具镜像
  * @property {(treasureId: string, amount: number) => void} [bumpOwnedTreasureSellRefundBonusById] 提高已拥有实例的额外售出额（叠在 floor(购入价/2) 之上，不参与 /2）
+ * @property {(volcanoSlotIndex: number) => Promise<void>} [playVolcanoEruptionAtSlot] 火山喷发：剧烈 wobble + 按距离摧毁其他宝藏 + 棋盘字母格转火焰
  */
 
 /**

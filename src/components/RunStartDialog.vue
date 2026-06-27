@@ -19,40 +19,17 @@
     >
       <h2 id="run-start-dialog-title" class="run-start-dialog-title run-start-stagger-el">开始游戏</h2>
 
-      <div
+      <SegmentTabControl
         v-if="hasContinueTab"
         class="run-start-dialog-tabs run-start-stagger-el"
-        role="tablist"
+        :model-value="activeTab"
+        :options="runStartTabOptions"
+        variant="run-start"
         aria-label="开始方式"
-        :style="runStartTabStyle"
-      >
-        <div class="run-start-dialog-tab-thumb" aria-hidden="true" />
-        <button
-          type="button"
-          role="tab"
-          class="run-start-dialog-tab"
-          :class="{ 'run-start-dialog-tab--active': activeTab === 'new' }"
-          :aria-selected="activeTab === 'new'"
-          @click="setRunStartTab('new')"
-        >
-          新游戏
-        </button>
-        <button
-          type="button"
-          role="tab"
-          class="run-start-dialog-tab"
-          :class="{
-            'run-start-dialog-tab--active': activeTab === 'continue',
-            'run-start-dialog-tab--disabled': !continueEnabled,
-          }"
-          :aria-selected="activeTab === 'continue'"
-          :aria-disabled="!continueEnabled"
-          :disabled="!continueEnabled"
-          @click="onContinueTabClick"
-        >
-          继续
-        </button>
-      </div>
+        fill
+        :haptic="false"
+        @update:model-value="setRunStartTab"
+      />
 
       <div class="run-start-dialog-body">
         <template v-if="!hasContinueTab">
@@ -157,12 +134,9 @@
             role="tabpanel"
             aria-label="继续"
             class="run-start-dialog-panel"
-            :class="{
-              'run-start-dialog-panel--active': activeTab === 'continue',
-              'run-start-dialog-panel--disabled': !continueEnabled,
-            }"
+            :class="{ 'run-start-dialog-panel--active': activeTab === 'continue' }"
             :aria-hidden="activeTab !== 'continue'"
-            :inert="activeTab !== 'continue' || !continueEnabled"
+            :inert="activeTab !== 'continue'"
           >
             <div class="run-start-dialog-seed-row run-start-stagger-el">
               <span class="run-start-dialog-seed-label">种子</span>
@@ -223,7 +197,7 @@
         </div>
       </div>
 
-      <div class="run-start-dialog-footer">
+      <div class="run-start-dialog-footer confirm-actions-row">
         <button
           type="button"
           class="run-start-dialog-btn run-start-dialog-btn--primary run-start-stagger-el"
@@ -244,6 +218,7 @@
     v-if="continueVoucherDetail"
     :treasure="continueVoucherDetail"
     mode="offer"
+    :show-shelf-price="false"
     :wallet-amount="0"
     @close="continueVoucherDetail = null"
   />
@@ -251,7 +226,8 @@
   <TileDetailLayer
     v-if="continueWildcardDetailOpen"
     :payload="continueWildcardDetailPayload"
-    @close="continueWildcardDetailOpen = false"
+    :origin-rect="continueWildcardDetailOriginRect"
+    @close="closeContinueWildcardDetail"
   />
 </template>
 
@@ -285,7 +261,12 @@ import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import PresetDescRichText from "./PresetDescRichText.vue";
 import RunStartPresetPicker from "./RunStartPresetPicker.vue";
 import TileDetailLayer from "./TileDetailLayer.vue";
+import {
+  WILDCARD_PRESET_TILE_DETAIL_PAYLOAD,
+  wildcardPresetPreviewOriginRectFromEvent,
+} from "../game/wildcardPresetPreview.js";
 import TreasureDetailLayer from "./TreasureDetailLayer.vue";
+import SegmentTabControl from "./SegmentTabControl.vue";
 
 /** @typedef {{ seedDisplay: string, levelId: string, money: number, isEndlessRun?: boolean, presetId?: string, difficultyIndex?: number, continueEnabled?: boolean }} RunContinueSnapshot */
 
@@ -407,11 +388,13 @@ const difficultyDraft = ref(0);
 
 const normalizedCareer = computed(() => normalizeSlotCareerStats(props.slotCareer));
 
-const hasContinueTab = computed(() => props.continueSnapshot != null);
-const continueEnabled = computed(() => props.continueSnapshot?.continueEnabled !== false);
-const runStartTabStyle = computed(() => ({
-  "--run-start-tab-index": activeTab.value === "continue" ? "1" : "0",
-}));
+const hasContinueTab = computed(
+  () => props.continueSnapshot != null && props.continueSnapshot.continueEnabled !== false,
+);
+const runStartTabOptions = computed(() => [
+  { id: "new", label: "新游戏" },
+  { id: "continue", label: "继续" },
+]);
 const continueSeedDisplay = computed(() => String(props.continueSnapshot?.seedDisplay ?? "").trim());
 const continuePresetDef = computed(() =>
   getRunPresetDef(String(props.continueSnapshot?.presetId ?? "preset_01")),
@@ -426,24 +409,24 @@ const continuePresetDescLayoutTier = computed(() => {
 /** @type {import('vue').Ref<object | null>} */
 const continueVoucherDetail = ref(null);
 const continueWildcardDetailOpen = ref(false);
-const continueWildcardDetailPayload = {
-  letter: "?",
-  rarity: "common",
-  materialId: "wildcard",
-  accessoryId: null,
-  treasureAccessoryId: null,
-  tileScoreBonus: 0,
-  tileMultBonus: 0,
-  hideRarityGem: true,
-};
+/** @type {import('vue').Ref<{ left: number, top: number, width: number, height: number } | null>} */
+const continueWildcardDetailOriginRect = ref(null);
+const continueWildcardDetailPayload = WILDCARD_PRESET_TILE_DETAIL_PAYLOAD;
 
 /** @param {{ detail: object }} payload */
 function onContinuePreviewVoucher(payload) {
   continueVoucherDetail.value = payload.detail;
 }
 
-function onContinuePreviewWildcard() {
+/** @param {{ event?: MouseEvent }} [payload] */
+function onContinuePreviewWildcard(payload) {
+  continueWildcardDetailOriginRect.value = wildcardPresetPreviewOriginRectFromEvent(payload?.event);
   continueWildcardDetailOpen.value = true;
+}
+
+function closeContinueWildcardDetail() {
+  continueWildcardDetailOpen.value = false;
+  continueWildcardDetailOriginRect.value = null;
 }
 const continueLevelLabel = computed(() => {
   const id = String(props.continueSnapshot?.levelId ?? "1-1");
@@ -460,17 +443,14 @@ const difficultyLockedForNew = computed(
   () => !isRunStartDifficultySelectable(difficultyDraft.value, normalizedCareer.value),
 );
 const primaryButtonLabel = computed(() => {
-  if (activeTab.value === "continue") {
-    return continueEnabled.value ? "继续游戏" : "本局已结束";
-  }
+  if (activeTab.value === "continue") return "继续游戏";
   if (presetLockedForNew.value) return "预设未解锁";
   if (difficultyLockedForNew.value) return "难度未解锁";
   return "开始游戏";
 });
 const primaryButtonDisabled = computed(
   () =>
-    (activeTab.value === "continue" && !continueEnabled.value) ||
-    (activeTab.value === "new" && (presetLockedForNew.value || difficultyLockedForNew.value)),
+    activeTab.value === "new" && (presetLockedForNew.value || difficultyLockedForNew.value),
 );
 
 watch(
@@ -494,10 +474,7 @@ watch(
       return;
     }
     seedDraft.value = props.initialSeed ? normalizeRunSeedInput(String(props.initialSeed)) : "";
-    activeTab.value =
-      props.continueSnapshot != null && props.continueSnapshot.continueEnabled !== false
-        ? "continue"
-        : "new";
+    activeTab.value = hasContinueTab.value ? "continue" : "new";
     const career = normalizedCareer.value;
     presetDraft.value = resolveRunStartPresetDraft(
       getLastSelectedPresetId(career),
@@ -538,17 +515,10 @@ function setRunStartTab(tab) {
   activeTab.value = tab;
 }
 
-function onContinueTabClick() {
-  if (!continueEnabled.value) return;
-  if (activeTab.value === "continue") return;
-  triggerHaptic("tabSwitch");
-  activeTab.value = "continue";
-}
-
 /** @param {MouseEvent} event */
 function onConfirm(event) {
   recordPointerClientFromEvent(event);
-  if (activeTab.value === "continue" && hasContinueTab.value && continueEnabled.value) {
+  if (activeTab.value === "continue" && hasContinueTab.value) {
     emit("confirm", { mode: "continue" });
     return;
   }
@@ -693,84 +663,9 @@ function onCancel() {
 }
 
 .run-start-dialog-tabs {
-  --run-start-tab-pad: calc(4 * var(--rpx));
-  --run-start-blue: #5a8fb8;
-  --run-start-blue-fg: #f9f6f2;
-  position: relative;
-  display: flex;
-  gap: 0;
   margin: calc(-6 * var(--rpx)) 0 calc(18 * var(--rpx));
-  padding: var(--run-start-tab-pad);
-  border-radius: calc(8 * var(--rpx));
-  background: rgba(0, 0, 0, 0.08);
-  box-sizing: border-box;
-}
-
-.run-start-dialog-tab-thumb {
-  position: absolute;
-  top: var(--run-start-tab-pad);
-  bottom: var(--run-start-tab-pad);
-  left: var(--run-start-tab-pad);
-  width: calc((100% - 2 * var(--run-start-tab-pad)) / 2);
-  border-radius: calc(6 * var(--rpx));
-  background: var(--run-start-blue);
-  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.14);
-  pointer-events: none;
-  transition: transform 0.22s var(--ease-expo-out, ease-out);
-  transform: translateX(calc(var(--run-start-tab-index, 0) * 100%));
-  z-index: 0;
-}
-
-.run-start-dialog-tab {
-  flex: 1;
-  min-width: 0;
-  position: relative;
-  z-index: 1;
-  border: none;
-  border-radius: calc(6 * var(--rpx));
-  padding: calc(10 * var(--rpx)) calc(12 * var(--rpx));
-  font-family: inherit;
-  font-size: calc(24 * var(--rpx));
-  font-weight: 700;
-  color: var(--text-dark, #3c3a32);
-  background: transparent;
-  cursor: pointer;
-  opacity: 0.72;
-  transition:
-    color 0.12s ease,
-    opacity 0.12s ease;
-}
-
-.run-start-dialog-tab--active {
-  color: var(--run-start-blue-fg);
-  opacity: 1;
-}
-
-.run-start-dialog-tab:hover:not(.run-start-dialog-tab--active):not(:disabled) {
-  opacity: 0.88;
-}
-
-.run-start-dialog-tab--disabled,
-.run-start-dialog-tab:disabled {
-  opacity: 0.38;
-  cursor: not-allowed;
-}
-
-.run-start-dialog-tab--disabled.run-start-dialog-tab--active {
-  opacity: 0.38;
-}
-
-.run-start-dialog-tab:focus-visible {
-  outline: calc(2 * var(--rpx)) solid var(--run-start-blue);
-  outline-offset: calc(1 * var(--rpx));
-}
-
-:global(html.reduce-motion) .run-start-dialog-tab-thumb {
-  transition: none;
-}
-
-.run-start-dialog-panel--disabled {
-  opacity: 0.45;
+  width: 100%;
+  max-width: none;
 }
 
 .run-start-dialog-body {

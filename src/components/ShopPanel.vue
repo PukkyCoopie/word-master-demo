@@ -21,7 +21,8 @@
           tabindex="0"
           title="查看关卡进度"
           :aria-label="nextLevelPreviewAriaLabel"
-          :aria-disabled="interactionsDisabled || !nextLevelId ? true : undefined"
+          :aria-disabled="interactionsDisabled || shopTutorialIntroActive || !nextLevelId ? true : undefined"
+          :class="{ 'header-box-next-level--tutorial-blocked': shopTutorialIntroActive }"
           @click="onNextLevelPreviewClick"
           @keydown.enter.prevent="onNextLevelPreviewClick"
           @keydown.space.prevent="onNextLevelPreviewClick"
@@ -59,8 +60,12 @@
                     v-if="slot.kind === 'offer'"
                     :ref="(el) => setFirstGuaranteedTreasureOfferRef(el, slot)"
                     class="shop-treasure-visual"
-                    :class="{ 'shop-treasure-visual--deck-offer': isDeckShopOffer(slot) }"
-                    @click.stop="!interactionsDisabled && onSelectOffer(slot, $event)"
+                    :class="{
+                      'shop-treasure-visual--deck-offer': isDeckShopOffer(slot),
+                      'shop-treasure-visual--tutorial-blocked':
+                        shopTutorialIntroActive && !isShopTutorialTargetTreasureOffer(slot),
+                    }"
+                    @click.stop="canSelectShopSingleOffer(slot) && onSelectOffer(slot, $event)"
                   >
                     <LetterTile
                       v-if="isDeckShopOffer(slot)"
@@ -163,7 +168,7 @@
             <button
               type="button"
               class="shop-btn shop-btn--reroll shop-btn--action-reroll"
-              :disabled="interactionsDisabled || !canShopReroll"
+              :disabled="interactionsDisabled || shopTutorialIntroActive || !canShopReroll"
               @click.prevent="emit('shop-reroll')"
             >
               <span class="shop-btn-reroll-price" aria-label="刷新费用">
@@ -177,7 +182,7 @@
             <button
               type="button"
               class="shop-btn shop-btn--next shop-btn--action-next"
-              :disabled="interactionsDisabled"
+              :disabled="interactionsDisabled || shopTutorialIntroActive"
               @click="emit('next-level', $event)"
             >
               <i class="ri-corner-down-right-line shop-actions-btn-icon" aria-hidden="true"></i>
@@ -200,7 +205,8 @@
                   <div
                     v-if="voucherSlot.kind === 'offer'"
                     class="shop-treasure-visual"
-                    @click.stop="!interactionsDisabled && onSelectVoucher(voucherSlot, $event)"
+                    :class="{ 'shop-treasure-visual--tutorial-blocked': shopTutorialIntroActive }"
+                    @click.stop="canSelectShopVoucherOffer() && onSelectVoucher(voucherSlot, $event)"
                   >
                     <VoucherStamp
                       :emoji="voucherSlot.emoji"
@@ -221,7 +227,8 @@
                 >
                   <div
                     class="shop-treasure-visual"
-                    @click.stop="!interactionsDisabled && onSelectVoucher(voucherBonusSlot, $event)"
+                    :class="{ 'shop-treasure-visual--tutorial-blocked': shopTutorialIntroActive }"
+                    @click.stop="canSelectShopVoucherOffer() && onSelectVoucher(voucherBonusSlot, $event)"
                   >
                     <VoucherStamp
                       :emoji="voucherBonusSlot.emoji"
@@ -246,7 +253,8 @@
                   <div
                     v-if="slot.kind === 'offer'"
                     class="shop-treasure-visual"
-                    @click.stop="!interactionsDisabled && onSelectPackOffer(slot, $event)"
+                    :class="{ 'shop-treasure-visual--tutorial-blocked': shopTutorialIntroActive }"
+                    @click.stop="canSelectShopPackOffer() && onSelectPackOffer(slot, $event)"
                   >
                     <div
                       class="shop-treasure-frame"
@@ -337,20 +345,27 @@
         :drag-gem-class="gemClassForTreasureRarity(shopOwnedDragTreasure?.rarity)"
         :drag-charge-state="shopOwnedDragChargeState"
         :drag-charge-progress="shopOwnedDragChargeProgress"
+        :drag-effect-depleted="shopOwnedDragEffectDepleted"
         :gem-class-resolver="shopTreasureGemClassResolver"
         :charge-states="displayTreasureChargeBySlot"
         :charge-progresses="displayTreasureChargeProgressBySlot"
+        :effect-depleted-states="displayTreasureEffectDepletedBySlot"
         :register-slot-ref="setOwnedCellRef"
         :hidden-treasure-count="shopHiddenTreasureBarCount"
         :expand-btn-highlight="treasureBarExpandBtnHighlight"
         @slot-pointerdown="onShopOwnedSlotPointerDown"
         @slot-click="onSelectOwned"
         @empty-slot-click="onShopEmptyTreasureSlotClick"
-        @expand-click="emit('open-treasure-collection')"
+        @expand-click="onShopTreasureBarExpandClick"
       />
 
       <div class="shop-footer-actions" role="group" aria-label="选项、信息与牌库">
-        <button type="button" class="deck-btn shop-footer-action-btn shop-footer-action-btn--options" @click="emit('open-options')">
+        <button
+          type="button"
+          class="deck-btn shop-footer-action-btn shop-footer-action-btn--options"
+          :disabled="interactionsDisabled || shopTutorialIntroActive"
+          @click="emit('open-options')"
+        >
           <i class="ri-settings-3-line deck-btn-icon" aria-hidden="true"></i>
           <span>选项</span>
         </button>
@@ -358,7 +373,7 @@
           ref="roundInfoBtnRef"
           type="button"
           class="deck-btn shop-footer-action-btn"
-          :disabled="interactionsDisabled"
+          :disabled="interactionsDisabled || shopTutorialIntroActive"
           @click="emit('view-round-info')"
         >
           <i class="ri-information-line deck-btn-icon" aria-hidden="true"></i>
@@ -368,7 +383,7 @@
           ref="deckViewBtnRef"
           type="button"
           class="deck-btn shop-footer-action-btn"
-          :disabled="interactionsDisabled"
+          :disabled="interactionsDisabled || shopTutorialIntroActive"
           @click="emit('view-deck')"
         >
           <i class="ri-stack-line deck-btn-icon" aria-hidden="true"></i>
@@ -451,6 +466,11 @@ const props = defineProps({
     type: Array,
     default: () => [0, 0, 0, 0, 0],
   },
+  /** 与 ownedTreasures 同索引：效果已永久耗尽（仅压暗，无充能角标） */
+  treasureEffectDepletedBySlot: {
+    type: Array,
+    default: () => [false, false, false, false, false],
+  },
   shopRerollCost: { type: Number, default: 5 },
   canShopReroll: { type: Boolean, default: false },
   interactionsDisabled: { type: Boolean, default: false },
@@ -471,6 +491,9 @@ const props = defineProps({
   shopUpgradesFree: { type: Boolean, default: false },
   /** 新手教程进行中：屏蔽空宝藏栏说明弹窗 */
   tutorialActive: { type: Boolean, default: false },
+  /** 商店引导：仅允许点击目标宝藏 */
+  shopTutorialIntroActive: { type: Boolean, default: false },
+  shopTutorialTargetTreasureId: { type: String, default: "" },
 });
 
 const emit = defineEmits([
@@ -549,8 +572,48 @@ const nextLevelPreviewAriaLabel = computed(() => {
 });
 
 function onNextLevelPreviewClick() {
-  if (props.interactionsDisabled || !String(props.nextLevelId ?? "").trim()) return;
+  if (props.interactionsDisabled || props.shopTutorialIntroActive) return;
+  if (!String(props.nextLevelId ?? "").trim()) return;
   emit("view-stage-info");
+}
+
+/** @param {object} slot */
+function isShopTutorialTargetTreasureOffer(slot) {
+  if (!props.shopTutorialIntroActive) return false;
+  if (slot?.kind !== "offer" || slot.offerType !== "treasure") return false;
+  const target = String(props.shopTutorialTargetTreasureId ?? "").trim();
+  if (!target) return false;
+  return String(slot.treasureId ?? "") === target;
+}
+
+/** @param {object} slot */
+function canSelectShopSingleOffer(slot) {
+  if (props.interactionsDisabled) return false;
+  if (props.shopTutorialIntroActive) return isShopTutorialTargetTreasureOffer(slot);
+  return true;
+}
+
+function canSelectShopVoucherOffer() {
+  if (props.interactionsDisabled) return false;
+  if (props.shopTutorialIntroActive) return false;
+  return true;
+}
+
+function canSelectShopPackOffer() {
+  if (props.interactionsDisabled) return false;
+  if (props.shopTutorialIntroActive) return false;
+  return true;
+}
+
+function canSelectShopOwned() {
+  if (props.interactionsDisabled) return false;
+  if (props.shopTutorialIntroActive) return false;
+  return true;
+}
+
+function onShopTreasureBarExpandClick() {
+  if (props.shopTutorialIntroActive) return;
+  emit("open-treasure-collection");
 }
 
 const shopWalletBoxRef = ref(null);
@@ -951,26 +1014,26 @@ function shopOfferFlyOriginEl(root) {
 }
 
 function onSelectOffer(slot, e) {
-  if (props.interactionsDisabled) return;
+  if (!canSelectShopSingleOffer(slot)) return;
   const root = e.currentTarget;
   const originEl = isDeckShopOffer(slot) ? root : shopOfferFlyOriginEl(root);
   emit("select-offer", { treasure: slot, originEl });
 }
 
 function onSelectPackOffer(slot, e) {
-  if (props.interactionsDisabled) return;
+  if (!canSelectShopPackOffer()) return;
   const root = e.currentTarget;
   emit("select-pack-offer", { treasure: slot, originEl: shopOfferFlyOriginEl(root) });
 }
 
 function onSelectVoucher(slot, e) {
-  if (props.interactionsDisabled) return;
+  if (!canSelectShopVoucherOffer()) return;
   const root = e.currentTarget;
   emit("select-voucher", { treasure: slot, originEl: shopOfferFlyOriginEl(root) });
 }
 
 function onSelectOwned(index, treasure, e) {
-  if (props.interactionsDisabled) return;
+  if (!canSelectShopOwned()) return;
   if (shopOwnedDragMoved.value) return;
   if (!treasure) return;
   emit("select-owned", { index, treasure, originEl: e.currentTarget });
@@ -1010,7 +1073,7 @@ const {
 } = useTreasureSlotReorder({
   getSourceSlots: () => props.ownedTreasures,
   keyOrder: props.ownedTreasureKeyOrderBag.ref,
-  canDrag: () => !props.interactionsDisabled,
+  canDrag: () => !props.interactionsDisabled && !props.shopTutorialIntroActive,
   onCommit: (preview) => emit("reorder-owned", [...preview]),
   getSlotElement: (i) => ownedCellEls[i] ?? null,
   getOverlayContainer: () =>
@@ -1019,20 +1082,14 @@ const {
   visibleSlotMax: TREASURE_BAR_VISIBLE_MAX,
 });
 
-watch(
-  () => props.ownedTreasures.length,
-  (len) => {
-    const keys = props.ownedTreasureKeyOrderBag.ref.value;
-    while (keys.length < len) keys.push(`g-slot-${keys.length}`);
-    while (keys.length > len) keys.pop();
-  },
-);
-
 const displayTreasureChargeBySlot = computed(() =>
   props.treasureChargeBySlot.slice(0, TREASURE_BAR_VISIBLE_MAX),
 );
 const displayTreasureChargeProgressBySlot = computed(() =>
   props.treasureChargeProgressBySlot.slice(0, TREASURE_BAR_VISIBLE_MAX),
+);
+const displayTreasureEffectDepletedBySlot = computed(() =>
+  props.treasureEffectDepletedBySlot.slice(0, TREASURE_BAR_VISIBLE_MAX),
 );
 
 const shopOwnedDragChargeState = computed(() => {
@@ -1048,6 +1105,13 @@ const shopOwnedDragChargeProgress = computed(() => {
   const idx = props.ownedTreasures.findIndex((s) => s?.treasureId === treasure.treasureId);
   if (idx < 0) return 0;
   return displayTreasureChargeProgressBySlot.value[idx] ?? 0;
+});
+const shopOwnedDragEffectDepleted = computed(() => {
+  const treasure = shopOwnedDragTreasure.value;
+  if (!treasure?.treasureId) return false;
+  const idx = props.ownedTreasures.findIndex((s) => s?.treasureId === treasure.treasureId);
+  if (idx < 0) return false;
+  return displayTreasureEffectDepletedBySlot.value[idx] === true;
 });
 
 /** 卷轴券生效：本轮信息按钮 wobble + 白色「-N大关」气泡 */
@@ -1160,10 +1224,17 @@ defineExpose({
   outline-offset: calc(2 * var(--rpx));
 }
 
-.header-box-next-level--clickable[aria-disabled="true"] {
+.header-box-next-level--clickable[aria-disabled="true"],
+.header-box-next-level--clickable.header-box-next-level--tutorial-blocked {
   cursor: not-allowed;
   opacity: 0.48;
   pointer-events: none;
+}
+
+.shop-treasure-visual--tutorial-blocked {
+  opacity: 0.48;
+  pointer-events: none;
+  cursor: not-allowed;
 }
 
 .header-next-level-id {

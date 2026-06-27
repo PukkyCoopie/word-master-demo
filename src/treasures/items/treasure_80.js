@@ -84,7 +84,9 @@ export const treasureHooks = {
   mergeLetterScoreCueIntoIntrinsicLetterScoreStep: true,
   persistTileAfterPerLetterTreasureCue(ctx) {
     if (ctx.band !== "score" || !ctx.realTile || typeof ctx.realTile !== "object") return false;
-    const letter = normalizeLetterChar(ctx.realTile?.letter);
+    const letter = normalizeLetterChar(
+      ctx.scoringLetter ?? ctx.scoringTile?.letter ?? ctx.realTile?.letter,
+    );
     if (letter !== "b") return false;
     const d = Math.max(0, Math.floor(Number(ctx.delta) || 0));
     if (d <= 0) return false;

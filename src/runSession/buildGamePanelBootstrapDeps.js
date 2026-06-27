@@ -1,0 +1,45 @@
+/**
+ * GamePanel bootstrap 依赖（读档 / 新局启动）。
+ * @param {Record<string, unknown>} d
+ */
+export function buildGamePanelBootstrapDeps(d) {
+  return {
+    setSuppressShopEnterVisitInit: d.setSuppressShopEnterVisitInit,
+    hydrateFromPayload: d.hydrateFromPayload,
+    syncShopUpgradesFreeFromOwnedTreasures: d.syncShopUpgradesFreeFromOwnedTreasures,
+    syncPlayerMarkBatchCounterFromGrid: d.syncPlayerMarkBatchCounterFromGrid,
+    getTreasureRunState: d.getTreasureRunState,
+    rollRandomBigramForTreasure: d.rollRandomBigramForTreasure,
+    registerMaskBubbleDevConsoleHook: d.registerMaskBubbleDevConsoleHook,
+    setSlotRafLastTime: d.setSlotRafLastTime,
+    ensureSlotRafRunning: d.ensureSlotRafRunning,
+    nextTick: d.nextTick,
+    setGridIntroDone: d.setGridIntroDone,
+    setGridRefillAnimating: d.setGridRefillAnimating,
+    getGridCellCount: d.getGridCellCount,
+    getGridTileEl: d.getGridTileEl,
+    updateSlotPositions: d.updateSlotPositions,
+    getShowShop: d.getShowShop,
+    shopVisitStockMissingFromSave: d.shopVisitStockMissingFromSave,
+    refreshShopVoucherShelfForCurrentVisit: d.refreshShopVoucherShelfForCurrentVisit,
+    applyShopVisitStockRoll: d.applyShopVisitStockRoll,
+    scheduleRunAutoSave: d.scheduleRunAutoSave,
+    flushAchievementUnlocks: d.flushAchievementUnlocks,
+    setRunPresetId: d.setRunPresetId,
+    getRunPresetIdProp: d.getRunPresetIdProp,
+    setRunDifficultyIndex: d.setRunDifficultyIndex,
+    getRunDifficultyIndexForNewRun: d.getRunDifficultyIndexForNewRun,
+    getRunDifficultyIndexProp: d.getRunDifficultyIndexProp,
+    applyRunPresetStartEffects: d.applyRunPresetStartEffects,
+    isMaskBubbleDevScenarioActive: d.isMaskBubbleDevScenarioActive,
+    applyMaskBubbleOwnedTreasures: d.applyMaskBubbleOwnedTreasures,
+    isPagerDevScenarioActive: d.isPagerDevScenarioActive,
+    applyPagerOwnedTreasure: d.applyPagerOwnedTreasure,
+    isCeruleanBellDevScenarioActive: d.isCeruleanBellDevScenarioActive,
+    applyCeruleanBellDevRunStart: d.applyCeruleanBellDevRunStart,
+    getGamePanelAlive: d.getGamePanelAlive,
+    getLevelIndex: d.getLevelIndex,
+    resetLevelAfterTreasurePrep: d.resetLevelAfterTreasurePrep,
+    runNewRunGridIntro: d.runNewRunGridIntro,
+  };
+}

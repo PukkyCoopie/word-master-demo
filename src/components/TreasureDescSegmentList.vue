@@ -29,6 +29,13 @@
       ><span class="td-desc-money-dollar">$</span>{{ seg.v }}</span
     >
     <span v-else-if="seg.type === 'prob'" class="td-desc-chip td-desc-prob">{{ seg.v }}</span>
+    <span
+      v-else-if="seg.type === 'handDelta'"
+      class="td-desc-chip td-desc-hand-delta"
+      :class="{ 'td-desc-hand-delta--negative': isNegativeDelta(seg.v) }"
+      >{{ seg.v }}</span
+    >
+    <span v-else-if="seg.type === 'discardDelta'" class="td-desc-chip td-desc-discard-delta">{{ seg.v }}</span>
   </template>
 </template>
 
@@ -60,5 +67,10 @@ function formatMultLabel(v) {
   const s = String(v).trim();
   if (/^x/i.test(s)) return "×" + s.slice(1);
   return s;
+}
+
+/** @param {string} v */
+function isNegativeDelta(v) {
+  return String(v ?? "").trim().startsWith("-");
 }
 </script>

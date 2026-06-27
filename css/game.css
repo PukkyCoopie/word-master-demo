@@ -172,6 +172,11 @@
 	--letter-grid-cell-size: calc((var(--letter-grid-inner) - 3 * var(--letter-grid-gap)) / 4);
 	/* 与 GSAP ease: "expo.out" 对齐；凡涉及 transform/尺寸的 transition 优先用此变量 */
 	--ease-expo-out: cubic-bezier(0.16, 1, 0.3, 1);
+	/* Tab/分段滑块位移：无过冲，顺滑到位 */
+	--ease-tab-thumb-slide: var(--ease-expo-out);
+	--duration-tab-thumb-slide: 0.48s;
+	--duration-tab-thumb-pulse: 0.95s;
+	--ease-tab-thumb-pulse: cubic-bezier(0.22, 1.12, 0.34, 1);
 	/* 与 GSAP circ.out / circ.in 对齐；短促过冲回弹（记分晃、弹窗等） */
 	--ease-circ-out: cubic-bezier(0.075, 0.82, 0.165, 1);
 	--ease-circ-in: cubic-bezier(0.6, 0.04, 0.98, 0.335);
@@ -673,11 +678,63 @@ textarea::-moz-placeholder {
 	width: 100%;
 	flex: 0 0 auto;
 	box-sizing: border-box;
+	display: flex;
+	align-items: stretch;
+	gap: calc(8 * var(--rpx));
 	background: var(--boss-tape-bg);
 	border-radius: var(--radius);
 	padding: calc(10 * var(--rpx)) calc(14 * var(--rpx));
 	box-shadow: var(--shadow);
 	border: calc(2 * var(--rpx)) solid var(--boss-tape-border);
+}
+
+.boss-tape-body {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.boss-tape-wrap--suppressed .boss-tape,
+.boss-tape--suppressed {
+	border-color: rgba(120, 112, 108, 0.38);
+	background: #ebe4df;
+}
+
+.boss-tape-wrap--suppressed .boss-tape::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: var(--overlay-debuff);
+	pointer-events: none;
+	z-index: 0;
+}
+
+.boss-tape-wrap--suppressed .boss-tape-title {
+	color: rgba(100, 88, 84, 0.88);
+}
+
+.boss-tape-wrap--suppressed .boss-tape-desc {
+	color: rgba(120, 108, 104, 0.82);
+	text-decoration: line-through;
+	text-decoration-thickness: calc(2 * var(--rpx));
+}
+
+.boss-tape .boss-tape-suppressed-x {
+	position: relative;
+	flex: 0 0 auto;
+	align-self: center;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: calc(44 * var(--rpx));
+	height: calc(44 * var(--rpx));
+	margin-right: calc(-2 * var(--rpx));
+	font-size: calc(44 * var(--rpx));
+	line-height: 1;
+	z-index: 2;
+	inset: auto;
+	transform: none;
+	opacity: 0.35;
 }
 
 .boss-tape-title {
@@ -1123,6 +1180,18 @@ textarea::-moz-placeholder {
 /* 炸弹爆炸自毁 */
 .score-popup-bubble--bomb-blast {
 	background: #c03636;
+}
+/* 火山喷发 */
+.score-popup-bubble--volcano-eruption {
+	background: #d44a28;
+	color: #fff;
+	font-weight: 700;
+}
+/* 火山点燃字母块 */
+.score-popup-bubble--ignite {
+	background: #e07828;
+	color: #fff;
+	font-weight: 700;
 }
 /* 碎冰块自毁：碎裂！（与暂停菜单「继续游戏」主按钮同色） */
 .score-popup-bubble--ice-shatter {
@@ -2755,11 +2824,72 @@ textarea::-moz-placeholder {
 	background: var(--btn-green);
 	color: #fff;
 }
+.action-btn--boss-violation-preview {
+	background: linear-gradient(to right, var(--btn-green), var(--btn-red));
+	color: #fff;
+}
+.action-btn--boss-violation-preview:hover::after {
+	background: var(--overlay-hover-bright);
+}
+.action-btn--boss-violation-preview:active::after {
+	background: var(--overlay-active-dim);
+}
 .action-btn-green:hover::after {
 	background: var(--overlay-hover-bright);
 }
 .action-btn-green:active::after {
 	background: var(--overlay-active-dim);
+}
+
+.action-btn.hold-action-btn--holding,
+.deck-btn.hold-peer-btn--holding,
+.action-aux-btn.hold-peer-btn--holding,
+.shop-btn.hold-peer-btn--holding {
+	overflow: hidden;
+	touch-action: none;
+}
+
+.hold-action-btn-fill {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	transform-origin: top center;
+	transform: scaleY(0);
+	background: rgba(255, 236, 200, 0.72);
+	mix-blend-mode: screen;
+	pointer-events: none;
+	border-radius: inherit;
+	will-change: transform;
+	z-index: 0;
+}
+
+.hold-peer-progress {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 100%;
+	transform-origin: left center;
+	transform: scaleX(0);
+	background: rgba(255, 236, 200, 0.72);
+	mix-blend-mode: screen;
+	pointer-events: none;
+	border-radius: inherit;
+	will-change: transform;
+	z-index: 0;
+}
+
+.deck-btn .deck-btn-icon,
+.deck-btn .deck-btn-label,
+.deck-btn .deck-btn-count,
+.action-aux-btn > i,
+.action-aux-btn .action-aux-btn__icon-stack,
+.action-btn .action-icon,
+.hold-peer-btn-label {
+	position: relative;
+	z-index: 1;
 }
 
 .action-btn-disabled {
@@ -3168,7 +3298,7 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 	font-size: calc(var(--shop-shelf-emoji-size, calc(42 * var(--rpx))) * 1.08);
 }
 
-/* 宝藏配饰（与字母块 tile-accessory 分离；角标置顶右，避免与右下角充能角标重叠；尺寸见 @container treasure-cell） */
+/* 宝藏配饰（与字母块 tile-accessory 分离；位置由 .treasure-accessory-chip-stack 控制；尺寸见 @container treasure-cell） */
 .treasure-slot.filled .treasure-accessory-chip,
 .shop-treasure-frame .treasure-accessory-chip {
 	--treasure-acc-ripple-color: rgba(56, 159, 241, 0.72);
@@ -3184,8 +3314,6 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 	pointer-events: none;
 	overflow: hidden;
 	/* 无 @container 回退（货架 108 格基准；@container 同选择器在后覆盖） */
-	top: var(--shop-shelf-acc-chip-inset);
-	right: var(--shop-shelf-acc-chip-inset);
 	width: var(--shop-shelf-acc-chip-size);
 	height: var(--shop-shelf-acc-chip-size);
 	border-radius: var(--shop-shelf-acc-chip-radius);
@@ -3368,6 +3496,14 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 }
 
 /* 充能类宝藏（如篮球）：仅已拥有槽；货架商品格不加此类 */
+.treasure-slot.filled.treasure-slot--effect-depleted .treasure-slot-emoji {
+	opacity: 0.52;
+}
+
+.treasure-slot.filled.treasure-slot--effect-depleted .letter-gem {
+	opacity: 0.48;
+}
+
 .treasure-slot.filled.treasure-slot--effect-charge {
 	overflow: hidden;
 }
@@ -3413,10 +3549,10 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 	z-index: 2;
 }
 
-/* 充能角标（flashlight）：右下角，inactive 为纵向充能，active 为绿光满电；位移与字号见 @container treasure-cell */
+/* 充能角标（flashlight）：右下角，inactive 为纵向充能，active 为绿光满电；层级高于配饰角标；位移与字号见 @container treasure-cell */
 .treasure-charge-corner-icon {
 	position: absolute;
-	z-index: 3;
+	z-index: 5;
 	line-height: 1;
 	color: transparent;
 	pointer-events: none;
@@ -3675,6 +3811,27 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 	background: #e67e22;
 }
 
+/* 宝藏 97（滑块）：低/高档宝石对角双色；InfoModal 字母块 tab 使用 info-rarity-gem，不受影响 */
+html.has-rarity-tier-merge .letter-gem.gem-common,
+html.has-rarity-tier-merge .letter-gem.gem-rare {
+	background: linear-gradient(135deg, #e8e4dc 0%, #e8e4dc 49.5%, #5b9bd5 50.5%, #5b9bd5 100%);
+}
+
+html.has-rarity-tier-merge .letter-gem.gem-epic,
+html.has-rarity-tier-merge .letter-gem.gem-legendary {
+	background: linear-gradient(135deg, #9b59b6 0%, #9b59b6 49.5%, #e67e22 50.5%, #e67e22 100%);
+}
+
+html.has-rarity-tier-merge .shop-treasure-frame .letter-gem.gem-common:not(.shop-pack-rarity-gem),
+html.has-rarity-tier-merge .treasure-slot.filled .letter-gem.gem-common {
+	border-color: rgba(156, 139, 122, 0.55);
+}
+
+.treasure-detail-desc-panel-rich--struck {
+	opacity: 0.45;
+	text-decoration: line-through;
+}
+
 .shop-treasure-frame .shop-treasure-emoji,
 .shop-treasure-frame .shop-treasure-emoji--detail {
 	position: relative;
@@ -3756,8 +3913,6 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 
 	.treasure-slot.filled .treasure-accessory-chip,
 	.shop-treasure-frame .treasure-accessory-chip {
-		top: calc(100cqmin * 4 / 108);
-		right: calc(100cqmin * 4 / 108);
 		width: calc(100cqmin * 22 / 108);
 		height: calc(100cqmin * 22 / 108);
 		border-radius: calc(100cqmin * 5 / 108);
@@ -4327,11 +4482,49 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 	visibility: hidden;
 }
 
+.treasure-detail-stack--collection-locked {
+	opacity: var(--collection-locked-opacity, 0.75);
+}
+
 .treasure-detail-icon-column {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	width: 100%;
+}
+
+.treasure-detail-introduced-version {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: calc(10 * var(--rpx));
+	margin: calc(-2 * var(--rpx)) 0 calc(8 * var(--rpx));
+	padding: 0;
+	line-height: 1.25;
+	text-align: center;
+}
+
+.treasure-detail-introduced-version__label {
+	font-size: calc(26 * var(--rpx));
+	font-weight: 500;
+	letter-spacing: 0.04em;
+	color: rgba(250, 247, 242, 0.72);
+	text-shadow: 0 calc(1 * var(--rpx)) calc(6 * var(--rpx)) rgba(0, 0, 0, 0.22);
+}
+
+/* 关于页标题旁版本号、收藏宝藏「引入版本」等 */
+.app-version-badge {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	padding: calc(6 * var(--rpx)) calc(14 * var(--rpx));
+	font-size: calc(20 * var(--rpx));
+	font-weight: 800;
+	line-height: 1.25;
+	color: #f9f6f2;
+	background: var(--btn-green, #7cb342);
+	border-radius: calc(8 * var(--rpx));
+	box-shadow: 0 calc(1 * var(--rpx)) calc(2 * var(--rpx)) rgba(0, 0, 0, 0.08);
 }
 
 /* ----- 宝藏详情浮层（与原先 ShopPanel 内一致） ----- */
@@ -4495,6 +4688,14 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 }
 
 .shop-treasure-frame.treasure-detail-frame--charge-inactive .letter-gem {
+	opacity: 0.48;
+}
+
+.shop-treasure-frame.treasure-detail-frame--effect-depleted .shop-treasure-emoji--detail {
+	opacity: 0.52;
+}
+
+.shop-treasure-frame.treasure-detail-frame--effect-depleted .letter-gem {
 	opacity: 0.48;
 }
 
@@ -4830,23 +5031,48 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 }
 
 .treasure-detail-desc-body-text .td-desc-rarity--common,
-.treasure-detail-desc-panel-body .td-desc-rarity--common {
+.treasure-detail-desc-panel-body .td-desc-rarity--common,
+.td-desc-rarity--common {
 	color: #e8e4dc;
 	text-shadow: 0 calc(1 * var(--rpx)) 0 rgba(0, 0, 0, 0.35);
 }
 
 .treasure-detail-desc-body-text .td-desc-rarity--rare,
-.treasure-detail-desc-panel-body .td-desc-rarity--rare {
+.treasure-detail-desc-panel-body .td-desc-rarity--rare,
+.td-desc-rarity--rare {
 	color: #7eb8ea;
 }
 
 .treasure-detail-desc-body-text .td-desc-rarity--epic,
-.treasure-detail-desc-panel-body .td-desc-rarity--epic {
+.treasure-detail-desc-panel-body .td-desc-rarity--epic,
+.td-desc-rarity--epic {
 	color: #c39bd9;
 }
 
 .treasure-detail-desc-body-text .td-desc-rarity--legendary,
-.treasure-detail-desc-panel-body .td-desc-rarity--legendary {
+.treasure-detail-desc-panel-body .td-desc-rarity--legendary,
+.treasure-detail-desc-panel-title-text .td-desc-rarity--legendary,
+.td-desc-rarity--legendary {
+	color: #f0a04f;
+}
+
+.treasure-detail-desc-body-text .td-desc-risk-block .td-desc-rarity--common,
+.treasure-detail-desc-panel-body .td-desc-risk-block .td-desc-rarity--common {
+	color: #e8e4dc;
+}
+
+.treasure-detail-desc-body-text .td-desc-risk-block .td-desc-rarity--rare,
+.treasure-detail-desc-panel-body .td-desc-risk-block .td-desc-rarity--rare {
+	color: #7eb8ea;
+}
+
+.treasure-detail-desc-body-text .td-desc-risk-block .td-desc-rarity--epic,
+.treasure-detail-desc-panel-body .td-desc-risk-block .td-desc-rarity--epic {
+	color: #c39bd9;
+}
+
+.treasure-detail-desc-body-text .td-desc-risk-block .td-desc-rarity--legendary,
+.treasure-detail-desc-panel-body .td-desc-risk-block .td-desc-rarity--legendary {
 	color: #f0a04f;
 }
 
@@ -4879,6 +5105,26 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 .treasure-detail-desc-body-text .td-desc-money-dollar,
 .treasure-detail-desc-panel-body .td-desc-money-dollar {
 	font-weight: 400;
+}
+
+.treasure-detail-desc-body-text .td-desc-hand-delta,
+.treasure-detail-desc-panel-body .td-desc-hand-delta {
+	display: inline-block;
+	padding: calc(2 * var(--rpx)) calc(8 * var(--rpx));
+	border-radius: calc(6 * var(--rpx));
+	font-weight: 700;
+	font-size: calc(24 * var(--rpx));
+	color: #fff;
+	background: #639234;
+	vertical-align: baseline;
+	margin: 0 calc(2 * var(--rpx));
+}
+
+.treasure-detail-desc-body-text .td-desc-hand-delta--negative,
+.treasure-detail-desc-panel-body .td-desc-hand-delta--negative,
+.treasure-detail-desc-body-text .td-desc-discard-delta,
+.treasure-detail-desc-panel-body .td-desc-discard-delta {
+	background: #a84642;
 }
 
 .treasure-detail-desc-body-text .td-desc-prob,
@@ -5014,6 +5260,42 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 	width: 100%;
 }
 
+/* 横向确认/取消：默认定左、取消右；html.swap-confirm-button-side 时对调 */
+.confirm-actions-row {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-items: stretch;
+	justify-content: center;
+	gap: calc(12 * var(--rpx));
+	width: 100%;
+}
+
+html.swap-confirm-button-side .confirm-actions-row {
+	flex-direction: row-reverse;
+}
+
+.confirm-actions-row > .shop-btn,
+.confirm-actions-row > .hold-confirm-btn,
+.confirm-actions-row > .developer-options-btn,
+.confirm-actions-row > .save-slot-btn,
+.confirm-actions-row > .run-start-dialog-btn {
+	flex: 1 1 0;
+	min-width: 0;
+	max-width: none;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* 仅一颗按钮时勿拉满行宽（与改 confirm-actions-row 前一致） */
+.confirm-actions-row > .shop-btn:only-child,
+.confirm-actions-row > .hold-confirm-btn:only-child {
+	flex: 0 1 auto;
+	width: auto;
+	min-width: calc(200 * var(--rpx));
+	max-width: calc(260 * var(--rpx));
+}
+
 .treasure-detail-actions .shop-btn {
 	flex: 1 1 0;
 	min-width: 0;
@@ -5027,10 +5309,11 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 	justify-content: center;
 }
 
-.treasure-detail-actions--spell-grant .shop-btn {
+.treasure-detail-actions--spell-grant.confirm-actions-row > .hold-confirm-btn {
 	flex: 0 1 auto;
 	min-width: calc(200 * var(--rpx));
 	max-width: calc(320 * var(--rpx));
+	width: auto;
 }
 
 .preview-group-nav {
@@ -5128,6 +5411,11 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 	font-weight: 700;
 	color: var(--text-muted, #776e65);
 	line-height: 1;
+}
+
+.shop-treasure-frame .collection-detail-unknown-mark.shop-treasure-emoji {
+	position: relative;
+	z-index: 1;
 }
 
 /* ----- 商店组合包：多选确认层（Teleport → #game-view-portal） ----- */
@@ -5872,14 +6160,11 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 }
 
 .spell-target-actions {
-	display: flex;
-	flex-direction: row;
 	gap: calc(14 * var(--rpx));
-	justify-content: center;
-	align-items: stretch;
 }
 
-.spell-target-actions .shop-btn {
+.spell-target-actions .shop-btn,
+.spell-target-actions .hold-confirm-btn {
 	flex: 1 1 0;
 	min-width: 0;
 	max-width: none;
@@ -5937,11 +6222,80 @@ html.reduce-motion .treasure-accessory-chip-ripple {
 	animation: none;
 }
 
+/* Tab / 分段滑块：外层平移 + 内层 CSS scale 按压 */
+.settings-segment,
+.collection-icon-segment,
+.segment-tab,
+.settings-layer-tabs,
+.run-start-dialog-tabs,
+.about-tabs,
+.info-tabs {
+	overflow: visible;
+}
+
+.settings-segment-thumb,
+.collection-icon-segment-thumb,
+.segment-tab-thumb,
+.settings-layer-tabs-thumb,
+.run-start-dialog-tab-thumb,
+.about-tabs-thumb,
+.info-tabs-thumb {
+	overflow: visible;
+}
+
+.info-tab-pulse-surface,
+.tab-thumb-pulse {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	transform-origin: center center;
+}
+
+@keyframes tab-thumb-pulse-keyframes {
+	0% {
+		transform: scale(1);
+		filter: brightness(1);
+	}
+	10% {
+		transform: scale(0.9);
+		filter: brightness(0.9);
+	}
+	28% {
+		transform: scale(1.13);
+		filter: brightness(1.14);
+	}
+	42% {
+		transform: scale(0.99);
+		filter: brightness(1.02);
+	}
+	100% {
+		transform: scale(1);
+		filter: brightness(1);
+	}
+}
+
+.tab-thumb-pulse.tab-thumb-pulse-active,
+.info-tab-pulse-surface.tab-thumb-pulse-active {
+	animation: tab-thumb-pulse-keyframes
+		calc(var(--duration-tab-thumb-pulse, 0.95s) / var(--anim-speed-scale, 1))
+		var(--ease-tab-thumb-pulse, cubic-bezier(0.22, 1.12, 0.34, 1));
+	will-change: transform, filter;
+}
+
+html.reduce-motion .tab-thumb-pulse.tab-thumb-pulse-active,
+html.reduce-motion .info-tab-pulse-surface.tab-thumb-pulse-active {
+	animation: none !important;
+}
+
 /* 减少动画：分段/tab 背景块切换时不滑动 */
 html.reduce-motion .settings-segment-thumb,
 html.reduce-motion .collection-icon-segment-thumb,
+html.reduce-motion .segment-tab-thumb,
 html.reduce-motion .settings-layer-tabs-thumb,
-html.reduce-motion .run-start-dialog-tab-thumb {
+html.reduce-motion .run-start-dialog-tab-thumb,
+html.reduce-motion .about-tabs-thumb,
+html.reduce-motion .info-tabs-thumb {
 	transition: none !important;
 }
 

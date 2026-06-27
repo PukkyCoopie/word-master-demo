@@ -14,6 +14,7 @@ import { applyLetterQCopyToDescSegments } from "../settings/letterQ.js";
 import { gameSettings } from "../settings/gameSettings.js";
 import {
   expandEffectTokensInDescription,
+  expandRarityLabelsInDescription,
   injectLineBreaksBeforeParentheses,
   normalizeTreasureDescription,
   polishTreasureDescriptionSegments,
@@ -27,7 +28,7 @@ const props = defineProps({
   panelBody: { type: Boolean, default: false },
   /** 宝藏主简介：英文字母大写、文案内 xN → ×N chip */
   polishTreasureCopy: { type: Boolean, default: false },
-  /** 已拥有打字机（45）时：简介 prob chip 由基础分数改为翻倍（如 1/3→2/3） */
+  /** 已拥有彗星（45）时：简介 prob chip 由基础分数改为翻倍（如 1/3→2/3） */
   probabilityDisplayDoubled: { type: Boolean, default: false },
 });
 
@@ -37,7 +38,8 @@ const segments = computed(() => {
   const withLetterQ = applyLetterQCopyToDescSegments(norm);
   const polished = props.polishTreasureCopy ? polishTreasureDescriptionSegments(withLetterQ) : withLetterQ;
   const expanded = expandEffectTokensInDescription(polished);
-  const withProb = resolveDescriptionProbabilityDisplay(expanded, {
+  const withRarity = expandRarityLabelsInDescription(expanded);
+  const withProb = resolveDescriptionProbabilityDisplay(withRarity, {
     probabilityDisplayDoubled: props.probabilityDisplayDoubled,
   });
   return injectLineBreaksBeforeParentheses(withProb);

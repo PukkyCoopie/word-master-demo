@@ -11,7 +11,7 @@
       </button>
 
       <div ref="contentEl" class="run-start-difficulty-content">
-        <UnlockFreshPill v-if="showFreshBadge" />
+        <span v-if="showFreshBadge" class="unlock-fresh-pill" aria-label="新解锁">新！</span>
         <button
           v-if="isCurrentLocked"
           type="button"
@@ -109,7 +109,6 @@ import {
 } from "../utils/runStartContentJellyFx.js";
 import DifficultyPill from "./DifficultyPill.vue";
 import DifficultyDescText from "./DifficultyDescText.vue";
-import UnlockFreshPill from "./UnlockFreshPill.vue";
 
 const props = defineProps({
   modelValue: { type: Number, default: 0 },
@@ -295,6 +294,25 @@ defineExpose({
   text-align: center;
   overflow: hidden;
   transform-origin: 50% 50%;
+}
+
+.unlock-fresh-pill {
+  position: absolute;
+  top: calc(8 * var(--rpx));
+  right: calc(8 * var(--rpx));
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(2 * var(--rpx)) calc(4 * var(--rpx)) calc(2 * var(--rpx)) calc(10 * var(--rpx));
+  border-radius: calc(999 * var(--rpx));
+  background: #7ec89a;
+  color: #fff;
+  font-size: calc(18 * var(--rpx));
+  font-weight: 700;
+  line-height: 1.2;
+  box-shadow: var(--shadow, 0 calc(2 * var(--rpx)) calc(4 * var(--rpx)) rgba(0, 0, 0, 0.12));
+  pointer-events: none;
 }
 
 .run-start-difficulty-inner {

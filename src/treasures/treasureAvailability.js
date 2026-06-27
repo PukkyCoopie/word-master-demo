@@ -2,6 +2,8 @@
  * 宝藏解锁与商店池过滤（`unlockPrerequisite` / `poolPrerequisite` 写在各 treasure_*.js 的 default 上）
  */
 
+import { getTreasureDef } from "./treasureRegistry.js";
+
 /** @typedef {Object} TreasurePoolSnapshot
  * @property {unknown[]} [deck]
  * @property {boolean} [isEndlessRun]
@@ -61,6 +63,27 @@ function deckHalfOrMoreRare(deck) {
   return rare * 2 >= list.length;
 }
 
+/** @param {readonly (null | { treasureId?: string | null })[]} [ownedTreasureSlots] */
+function countOwnedTreasuresByRarity(ownedTreasureSlots, rarity) {
+  let n = 0;
+  for (const s of ownedTreasureSlots ?? []) {
+    if (!s?.treasureId) continue;
+    const def = getTreasureDef(String(s.treasureId));
+    if (def?.rarity === rarity) n += 1;
+  }
+  return n;
+}
+
+/** @param {readonly (null | { treasureId?: string | null })[]} [ownedTreasureSlots] */
+function countOwnedLegendaryTreasures(ownedTreasureSlots) {
+  return countOwnedTreasuresByRarity(ownedTreasureSlots, "legendary");
+}
+
+/** @param {readonly (null | { treasureId?: string | null })[]} [ownedTreasureSlots] */
+function countOwnedEpicTreasures(ownedTreasureSlots) {
+  return countOwnedTreasuresByRarity(ownedTreasureSlots, "epic");
+}
+
 /**
  * @param {import('./treasureTypes.js').TreasureDef & { unlockPrerequisite?: object }} def
  * @param {TreasurePoolSnapshot} snap
@@ -82,6 +105,21 @@ export function isTreasureUnlocked(def, snap) {
       return deckAllCommon(deck);
     case "deckIceMin":
       return countDeckMaterial(deck, "ice") >= Math.max(0, Number(pre.min) || 0);
+    case "deckLuckyMin":
+      return countDeckMaterial(deck, "lucky") >= Math.max(0, Number(pre.min) || 0);
+    case "deckFireMin":
+      return countDeckMaterial(deck, "fire") >= Math.max(0, Number(pre.min) || 0);
+    case "ownedLegendaryMin":
+      return countOwnedLegendaryTreasures(snap.ownedTreasureSlots) >= Math.max(0, Number(pre.min) || 0);
+    case "ownedEpicMinOrLegendaryMin": {
+      const epicMin = Math.max(0, Math.floor(Number(pre.epicMin) || 0));
+      const legendaryMin = Math.max(0, Math.floor(Number(pre.legendaryMin) || 0));
+      const owned = snap.ownedTreasureSlots;
+      return (
+        countOwnedEpicTreasures(owned) >= epicMin ||
+        countOwnedLegendaryTreasures(owned) >= legendaryMin
+      );
+    }
     case "deckRarityKindsMin": {
       const added = rs?.runDeckAddedRarities;
       const kinds = added instanceof Set ? added.size : 0;

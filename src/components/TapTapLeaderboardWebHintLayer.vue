@@ -24,7 +24,7 @@
         </button>
         <h2 id="taptap-lb-web-hint-title" class="taptap-lb-web-hint-layer-title">排行榜</h2>
         <p class="taptap-lb-web-hint-layer-message">
-          <span>Web 端目前暂时无法接入排行榜，您可以前往</span>
+          <span>Web 端暂时无法接入排行榜，您可以前往</span>
           <button
             type="button"
             class="taptap-lb-web-hint-inline-icon"
