@@ -353,7 +353,6 @@ import {
 import VoucherStampStack from "./VoucherStampStack.vue";
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import SegmentTabControl from "./SegmentTabControl.vue";
 import {
   playInfoCouponTabEnter,
@@ -908,11 +907,6 @@ function runCloseAnimation() {
   presetVoucherDetail.value = null;
   closePresetWildcardDetail();
   killAllInfoStaggerTweens();
-
-  if (shouldSkipDecorativeMotion()) {
-    finishInfoModalClose();
-    return Promise.resolve();
-  }
 
   const tab = activeTab.value;
   const targets = collectActiveTabStaggerTargets();

@@ -1,7 +1,6 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import { animSleep, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
-import { createWobbleHighlightTimeline } from "./wobbleHighlightFx.js";
+import { animSleep } from "../settings/animationSpeed.js";
 import { animateGridTileMaterialChangeAtCell } from "./spellTileAppearanceAnim.js";
 import { applyFireMaterialToTile } from "./tileMaterialApply.js";
 import {
@@ -69,14 +68,6 @@ function appendChaoticJitter(tl, el, startTime, endTime, max = {}) {
 function runVolcanoSlotEruptionWobble(slotEl) {
   const wobbleEl = resolveVolcanoWobbleEl(slotEl);
   if (!wobbleEl) return Promise.resolve();
-  if (shouldSkipDecorativeMotion()) {
-    const hl = createWobbleHighlightTimeline(wobbleEl);
-    if (!hl) return Promise.resolve();
-    return new Promise((resolve) => {
-      hl.eventCallback("onComplete", resolve);
-      hl.play(0);
-    });
-  }
 
   gsap.killTweensOf(wobbleEl, "rotation,scale,x,y");
   gsap.set(wobbleEl, { x: 0, y: 0, rotation: 0, scale: 1, transformOrigin: "50% 55%" });
@@ -108,10 +99,6 @@ function runVolcanoSlotEruptionWobble(slotEl) {
 function runVolcanoEruptionBubbleFx(bubble, speed = 1) {
   if (!(bubble instanceof HTMLElement)) return Promise.resolve();
   const s = Math.max(0.01, Number(speed) || 1);
-
-  if (shouldSkipDecorativeMotion()) {
-    return animSleep(Math.round(VOLCANO_BUBBLE_HOLD_S * 1000 / s));
-  }
 
   gsap.killTweensOf(bubble, "x,y,rotation,scale,opacity");
   gsap.set(bubble, { opacity: 1, scale: 1, x: 0, y: 0, rotation: 0, transformOrigin: "50% 100%" });
@@ -199,14 +186,6 @@ async function runVolcanoIgniteGridCell(deps, row, col, sp) {
   const g = deps.grid.value;
   const cell = g[row]?.[col];
   if (!cell || typeof cell !== "object") return;
-
-  if (shouldSkipDecorativeMotion()) {
-    applyFireMaterialToTile(/** @type {Record<string, unknown>} */ (cell));
-    deps.touchGrid();
-    await deps.nextTick();
-    showIgniteBubbleAtGridCell(deps, row, col, sp);
-    return;
-  }
 
   await animateGridTileMaterialChangeAtCell({
     row,

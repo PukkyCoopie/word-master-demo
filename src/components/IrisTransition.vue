@@ -13,7 +13,6 @@ import { attachLastPointerClientTracking, getLastPointerClientPoint } from "../g
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import {
   getAnimationSpeedScale,
-  shouldSkipDecorativeMotion,
 } from "../settings/animationSpeed.js";
 import { notifyOverlayOpened, triggerHaptic } from "../platform/haptics.js";
 
@@ -175,21 +174,18 @@ async function play(_ignored, opts) {
 
   overlayEl.style.zIndex = String(bumpOverlayZ());
 
-  const skipMotion = shouldSkipDecorativeMotion();
-  const coverDur = skipMotion ? 0 : effectiveIrisDurationMs(props.coverMs);
-  const revealDur = skipMotion ? 0 : effectiveIrisDurationMs(props.revealMs);
+  const coverDur = effectiveIrisDurationMs(props.coverMs);
+  const revealDur = effectiveIrisDurationMs(props.revealMs);
 
   await nextTick();
   await animateIrisR(0, iris.maxR, coverDur);
-  if (!skipMotion) {
-    notifyOverlayOpened();
-    triggerHaptic("overlayPresent");
-  }
+  notifyOverlayOpened();
+  triggerHaptic("overlayPresent");
 
   await resolvedOpts?.onCovered?.();
 
   await nextTick();
-  if (!skipMotion) await waitRaf(2);
+  await waitRaf(2);
 
   // 第二阶段：镂空圆从同一圆心扩大（onCovered 后布局可能变化，用百分比还原圆心）
   const rect2 = overlayEl.getBoundingClientRect();
@@ -202,7 +198,7 @@ async function play(_ignored, opts) {
   iris.phase = "reveal";
   iris.r = 0;
   await animateIrisR(0, iris.maxR, revealDur);
-  if (!skipMotion) triggerHaptic("overlayDismiss");
+  triggerHaptic("overlayDismiss");
 
   iris.active = false;
   overlayEl.style.zIndex = "";

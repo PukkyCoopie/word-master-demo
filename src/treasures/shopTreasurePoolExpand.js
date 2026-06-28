@@ -1,7 +1,10 @@
-import { RARITY_TIER_MERGE_TREASURE_ID } from "../game/treasureRarityTierMerge.js";
+import {
+  ownedTreasureGuaranteesShopGainAccessory,
+  TREASURE_DEFINITIONS,
+} from "./treasureRegistry.js";
 import { filterTreasureDefsForPool } from "./treasureAvailability.js";
 import { IMPLEMENTED_TREASURE_ID_SET } from "./treasureCatalog.js";
-import { TREASURE_DEFINITIONS } from "./treasureRegistry.js";
+import { RARITY_TIER_MERGE_TREASURE_ID } from "../game/treasureRarityTierMerge.js";
 
 /** @param {(string | null | undefined)[]} owned */
 function shouldExpandLegendaryShopDrops(owned) {
@@ -36,4 +39,9 @@ export function expandShopTreasurePoolForRun(basePool, ownedSlotTreasureIds, sna
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
 export function shopAllowsOwnedTreasureDuplicates(ownedSlotTreasureIds) {
   return (ownedSlotTreasureIds ?? []).some((id) => String(id ?? "") === "141");
+}
+
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
+export function shopGuaranteesTreasureGainAccessory(ownedSlotTreasureIds) {
+  return ownedTreasureGuaranteesShopGainAccessory(ownedSlotTreasureIds);
 }

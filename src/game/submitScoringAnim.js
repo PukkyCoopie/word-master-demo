@@ -1062,7 +1062,7 @@ async function runArmBossLengthDowngradePostScoreFx(len) {
     await callbacks.runLengthDowngradeShopLikeFx({
       areaRef: getDom.getGameResultAreaRef(),
       model: refs.armBossDowngradeFxModel,
-      fxActive: armBossLengthDowngradeFxActive,
+      fxActive: refs.armBossLengthDowngradeFxActive,
       waitNextTick: () => nextTick(),
       len,
       beforeLevel,
@@ -1146,7 +1146,7 @@ async function runClearWinVipDiamondRarityPostScoreFx(rk, beforeLevel) {
     await callbacks.runInGameRarityUpgradeShopLikeFx({
       areaRef: getDom.getGameResultAreaRef(),
       model: refs.lastSubmitRarityFxModel,
-      fxActive: lastSubmitRarityFxActive,
+      fxActive: refs.lastSubmitRarityFxActive,
       waitNextTick: () => nextTick(),
       rarityKey: rk,
       beforeLevel,
@@ -1191,7 +1191,7 @@ async function runClearWinLengthUpgradeAccessoryTileFx(r, c, len) {
   await callbacks.runClearWinLengthUpgradeShopLikeFx({
     areaRef: getDom.getGameResultAreaRef(),
     model: refs.clearWinFxModel,
-    fxActive: clearWinLengthUpgradeFxActive,
+    fxActive: refs.clearWinLengthUpgradeFxActive,
     waitNextTick: () => nextTick(),
     len,
     beforeLevel,
@@ -1583,26 +1583,30 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   })();
 
   const scorePromise = (async () => {
-    await new Promise((resolve) => {
-      const p = { t: 0 };
-      refs.roundScoreOverride.value = startRound;
-      gsapLib.to(p, {
-        t: 1,
-        duration: 0.52,
-        ease: EASE_TRANSFORM,
-        onUpdate: () => {
-          refs.animResultTotal.value = Math.round(detailed.finalScore * (1 - p.t));
-          refs.roundScoreOverride.value = Math.round(startRound + (endRound - startRound) * p.t);
-        },
-        onComplete: () => {
-          refs.currentScore.value = endRound;
-          refs.roundScoreOverride.value = null;
-          refs.animResultTotal.value = 0;
-          callbacks.setLastWordFromSubmit(callbacks.getWordDefinition, tiles, detailed, { resolvedWord: wordStr });
-          resolve();
-        },
+    const handScore = Math.round(Number(detailed.finalScore) || 0);
+    const scoreRollSteps = 26;
+    const scoreRollStepMs = Math.round(520 / scoreRollSteps);
+    const easeFn = gsapLib.parseEase(EASE_TRANSFORM);
+
+    // 先入库再播顶栏滚分：原先依赖 GSAP onComplete，局内 pause 冻结 globalTimeline 时 onComplete 永不触发，会出现「计分播完但关卡分不变」。
+    if (detailed.bossSoftViolation !== true) {
+      refs.currentScore.value = endRound;
+      callbacks.setLastWordFromSubmit(callbacks.getWordDefinition, tiles, detailed, {
+        resolvedWord: wordStr,
       });
-    });
+    }
+
+    refs.roundScoreOverride.value = startRound;
+    for (let step = 0; step <= scoreRollSteps; step++) {
+      const t = easeFn(step / scoreRollSteps);
+      refs.animResultTotal.value = Math.round(handScore * (1 - t));
+      refs.roundScoreOverride.value = Math.round(startRound + (endRound - startRound) * t);
+      if (step < scoreRollSteps) {
+        await scoringSleep(scoreRollStepMs, 1);
+      }
+    }
+    refs.roundScoreOverride.value = null;
+    refs.animResultTotal.value = 0;
   })();
 
   await leavePromise;

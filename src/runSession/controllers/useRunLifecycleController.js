@@ -37,7 +37,6 @@ import {
   getChapterFromLevelId,
   reportEndlessChapterLeaderboard,
 } from "../../taptap/tapTapLeaderboardSync.js";
-import { shouldSkipDecorativeMotion } from "../../settings/animationSpeed.js";
 import { TREASURE_118_ID } from "../../treasures/items/treasure_118.js";
 import { requestCloudSync } from "../../save/cloudSave/cloudSaveSync.js";
 
@@ -266,6 +265,9 @@ export function useRunLifecycleController(options) {
     });
     hands = actionAdjusted.hands;
     rem = actionAdjusted.removals;
+    if (parseLevelSubFromId(id) === 1) {
+      pillarUsedDeckUids.value = new Set();
+    }
     if (parseLevelSubFromId(id) === 3) {
       usedWordLengthsThisBoss.value = new Set();
       mouthLockedLengthBoss.value = null;
@@ -401,10 +403,6 @@ export function useRunLifecycleController(options) {
     return new Promise((resolve) => {
       const el = runHeaderBarRefComputed?.value?.levelTitleBoxRef ?? null;
       if (!el) {
-        resolve();
-        return;
-      }
-      if (shouldSkipDecorativeMotion()) {
         resolve();
         return;
       }

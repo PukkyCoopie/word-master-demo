@@ -84,7 +84,7 @@ export function wireGamePanelFxFromDeps(d) {
       submitTileLeaveFxRef: d.submitTileLeaveFxRef,
       treasureRunState: d.treasureRunState,
       getSelectedGridTileElsInOrder: d.getSelectedGridTileElsInOrder,
-      wordSlotRefs: d.wordSlotRefs,
+      getWordSlotRefs: d.getWordSlotRefs,
       findOwnedTreasureSlotIndex: d.findOwnedTreasureSlotIndex,
       runRandom: d.runRandom,
       isBossTileDebuffed: d.isBossTileDebuffed,

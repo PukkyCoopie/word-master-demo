@@ -1,9 +1,5 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import {
-  instantRevealGsapTargets,
-  shouldSkipDecorativeMotion,
-} from "../settings/animationSpeed.js";
 import { sortElementsTopLeftToBottomRight } from "./deckLayerEnterAnim.js";
 
 const STAGGER_SPREAD = 0.34;
@@ -26,10 +22,6 @@ export function collectTreasureCollectionEnterTargets(root) {
 export function prepareTreasureCollectionLayerEnter(root) {
   const targets = collectTreasureCollectionEnterTargets(root);
   if (!targets.length) return;
-  if (shouldSkipDecorativeMotion()) {
-    instantRevealGsapTargets(targets);
-    return;
-  }
   gsap.killTweensOf(targets);
   gsap.set(targets, { opacity: 0, y: ENTER_Y, scale: 1 });
 }
@@ -40,10 +32,6 @@ export function prepareTreasureCollectionLayerEnter(root) {
 export function playTreasureCollectionLayerEnter(root) {
   const targets = collectTreasureCollectionEnterTargets(root);
   if (!targets.length) return;
-  if (shouldSkipDecorativeMotion()) {
-    instantRevealGsapTargets(targets);
-    return;
-  }
   prepareTreasureCollectionLayerEnter(root);
   gsap.to(targets, {
     opacity: 1,

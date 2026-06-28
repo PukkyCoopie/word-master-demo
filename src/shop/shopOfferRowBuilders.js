@@ -5,7 +5,7 @@ import { resolveRestartEffectiveSpellId } from "../game/inRunGrantFlow.js";
 import { getSpellDefinition, getSpellShopPrice } from "../spells/spellDefinitions.js";
 import { isSpellEligibleForPools } from "../spells/spellPoolEligibility.js";
 import { LETTER_RARITY_ORDER, getRarityForLetter } from "../composables/useScoring.js";
-import { getShopTreasureAccessoryPriceAddFromIds, rollShopTreasureAccessoryId } from "../accessories/accessoryResolve.js";
+import { getShopTreasureAccessoryPriceAddFromIds, isTreasureShopGainAccessoryId, rollShopTreasureAccessoryId, rollShopTreasureGainAccessoryId } from "../accessories/accessoryResolve.js";
 import { rollDifficultyNegativeTreasureAccessoryIds, treasureOfferHasRentalAccessory } from "../game/runDifficultyRuntime.js";
 import {
   SHOP_SINGLE_ROW_PRICES,
@@ -153,6 +153,7 @@ export function buildRarityUpgradeShopRow(nextOfferInstanceId, rk) {
  * @param {number} [accessoryChanceMult=1]
  * @param {number | null | undefined} [runDifficultyIndex=null] 非 null 时启用难度负面配饰掷骰
  * @param {boolean} [includeAccessories=true] false 时不掷配饰（对局内生成/直接授予宝藏）
+ * @param {boolean} [guaranteeGainAccessory=false] 为 true 时确保至少一枚增益配饰（负面配饰不计）
  */
 export function buildTreasureShopRowFromDef(
   nextOfferInstanceId,
@@ -161,6 +162,7 @@ export function buildTreasureShopRowFromDef(
   accessoryChanceMult = 1,
   runDifficultyIndex = null,
   includeAccessories = true,
+  guaranteeGainAccessory = false,
 ) {
   /** @type {string[]} */
   const ids = [];
@@ -171,7 +173,10 @@ export function buildTreasureShopRowFromDef(
     const positive = rollShopTreasureAccessoryId(rng, accessoryChanceMult);
     if (positive) ids.push(positive);
   }
-  const uniqueIds = [...new Set(ids)];
+  let uniqueIds = [...new Set(ids)];
+  if (includeAccessories && guaranteeGainAccessory && !uniqueIds.some(isTreasureShopGainAccessoryId)) {
+    uniqueIds = [...new Set([...uniqueIds, rollShopTreasureGainAccessoryId(rng)])];
+  }
   let price = def.price + getShopTreasureAccessoryPriceAddFromIds(uniqueIds);
   if (treasureOfferHasRentalAccessory(uniqueIds)) price = RENTAL_TREASURE_LIST_PRICE;
   const legacyId = uniqueIds[0] ?? null;

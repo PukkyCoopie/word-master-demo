@@ -3,7 +3,7 @@
  * Git post-commit：根据 changelog 已有文件的最大版本，创建「下一版」.md，
  * 并将 appVersion.json / package.json 同步到该新文件对应的版本号。
  *
- * 跳过：SKIP_VERSION_BUMP=1、CI=true、或本次仅提交了版本/changelog 维护文件。
+ * 跳过：SKIP_VERSION_BUMP=1、CI=true、commit 含 no-bump、或本次仅提交了版本/changelog 维护文件。
  */
 import { execSync } from "node:child_process";
 import path from "node:path";
@@ -22,6 +22,7 @@ import {
   getMaxVersionSemverInChangelogDir,
 } from "./lib/changelog-dir.mjs";
 import { isReleasePrepOnlyStaged } from "./lib/changelog-summary.mjs";
+import { commitMessageRequestsNoBump } from "./lib/parse-commit-message.mjs";
 
 function listStagedFilesInHead() {
   return execSync("git diff-tree --no-commit-id --name-only -r HEAD", {
@@ -31,6 +32,13 @@ function listStagedFilesInHead() {
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function readHeadCommitMessage() {
+  return execSync("git log -1 --format=%B", {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+  });
 }
 
 function gitAdd(paths) {
@@ -48,6 +56,11 @@ function main() {
   const headFiles = listStagedFilesInHead();
   if (isReleasePrepOnlyStaged(headFiles)) {
     console.log("[version] 仅版本/changelog 维护文件，跳过自动准备下一版。");
+    return;
+  }
+
+  if (commitMessageRequestsNoBump(readHeadCommitMessage())) {
+    console.log("[version] commit 含 no-bump，跳过自动准备下一版。");
     return;
   }
 

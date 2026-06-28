@@ -212,11 +212,6 @@ import { isHighRiskSpellId } from "../spells/highRiskSpells.js";
 import { getHighRiskSpellConfirmEnabled } from "../settings/gameSettings.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
-import {
-  instantPortalLayerClose,
-  instantPortalLayerEnter,
-  shouldSkipDecorativeMotion,
-} from "../settings/animationSpeed.js";
 
 const props = defineProps({
   session: { type: Object, default: null },
@@ -681,16 +676,6 @@ function playClose() {
     return Promise.resolve();
   }
 
-  if (shouldSkipDecorativeMotion()) {
-    return instantPortalLayerClose({
-      backdrop,
-      staggerEls,
-      extraEls: [iconColumnRef.value].filter(Boolean),
-    }).then(() => {
-      closing.value = false;
-    });
-  }
-
   return new Promise((resolve) => {
     closeTl = gsap.timeline({
       onComplete: () => {
@@ -768,22 +753,6 @@ function applyStaggerEnterInitialHide(staggerEls) {
 function runEnterAnimation() {
   const backdrop = backdropRef.value;
   if (!backdrop || props.overlaySuppressed) return;
-
-  if (shouldSkipDecorativeMotion()) {
-    if (enterTl) {
-      enterTl.kill();
-      enterTl = null;
-    }
-    bootMask.value = false;
-    const staggerEls = staggerTargets();
-    instantPortalLayerEnter({
-      backdrop,
-      backdropFinal: portalScrimGsapVars(SPELL_TARGET_SCRIM_OPAQUE),
-      staggerEls,
-      extraEls: [iconColumnRef.value].filter(Boolean),
-    });
-    return;
-  }
 
   if (enterTl) {
     enterTl.kill();

@@ -1,9 +1,5 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import {
-  instantRevealGsapTargets,
-  shouldSkipDecorativeMotion,
-} from "../settings/animationSpeed.js";
 
 /** 与对局信息表格 Tab 同节奏：stagger 总窗较短，单元素时长另计 */
 const STAGGER_SPREAD = 0.34;
@@ -40,10 +36,6 @@ export function collectDeckLayerEnterTargets(root) {
 export function prepareDeckLayerEnter(root) {
   const targets = collectDeckLayerEnterTargets(root);
   if (!targets.length) return;
-  if (shouldSkipDecorativeMotion()) {
-    instantRevealGsapTargets(targets);
-    return;
-  }
   gsap.killTweensOf(targets);
   gsap.set(targets, { opacity: 0, y: ENTER_Y, scale: 1 });
 }
@@ -54,10 +46,6 @@ export function prepareDeckLayerEnter(root) {
 export function playDeckLayerEnter(root) {
   const targets = collectDeckLayerEnterTargets(root);
   if (!targets.length) return;
-  if (shouldSkipDecorativeMotion()) {
-    instantRevealGsapTargets(targets);
-    return;
-  }
   prepareDeckLayerEnter(root);
   gsap.to(targets, {
     opacity: 1,

@@ -24,6 +24,7 @@ import { getEconomyInterestCap } from "../vouchers/voucherRuntime.js";
  * @property {string} label
  * @property {string} countKey
  * @property {boolean} [isTotal]
+ * @property {boolean} [isDeduction] 扣费行：展示为负 $ 与负债色
  */
 
 /**
@@ -101,7 +102,7 @@ export function buildSettlementDisplayRows(snapshot) {
       { key: "interest", label: "利息", countKey: "interest" },
     ];
     if ((snapshot.rentalDeduction ?? 0) > 0) {
-      rows.push({ key: "rental", label: "租赁扣费", countKey: "rentalDeduction" });
+      rows.push({ key: "rental", label: "租赁扣费", countKey: "rentalDeduction", isDeduction: true });
     }
     rows.push({ key: "total", label: "本关共计", countKey: "total", isTotal: true });
     return rows;
@@ -115,7 +116,7 @@ export function buildSettlementDisplayRows(snapshot) {
     rows.push({ key: "extraInterest", label: "额外利息", countKey: "extraInterest" });
   }
   if ((snapshot.rentalDeduction ?? 0) > 0) {
-    rows.push({ key: "rental", label: "租赁扣费", countKey: "rentalDeduction" });
+    rows.push({ key: "rental", label: "租赁扣费", countKey: "rentalDeduction", isDeduction: true });
   }
   rows.push({ key: "total", label: "本关共计", countKey: "total", isTotal: true });
   return rows;
@@ -127,7 +128,9 @@ export function buildSettlementDisplayRows(snapshot) {
  */
 export function settlementCountForRow(snapshot, row) {
   if (!snapshot) return 0;
-  return Math.round(Number(snapshot[row.countKey]) || 0);
+  const raw = Math.round(Number(snapshot[row.countKey]) || 0);
+  if (row.isDeduction && raw > 0) return -raw;
+  return raw;
 }
 
 export const SETTLEMENT_TOTAL_SHRINK_START = 15;

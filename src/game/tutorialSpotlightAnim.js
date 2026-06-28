@@ -1,6 +1,4 @@
 import gsap from "gsap";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
-
 /** @typedef {{ key: string, x: number, y: number, width: number, height: number, rx: number }} TutorialHole */
 
 const HOLE_TWEEN_DURATION = 0.35;
@@ -178,11 +176,6 @@ export function createTutorialHoleAnimator(displayHolesRef) {
    * @param {TutorialHole[]} targets
    */
   function syncHoles(targets) {
-    if (shouldSkipDecorativeMotion()) {
-      snapHoles(targets);
-      return;
-    }
-
     const current = displayHolesRef.value;
     const nextTargets = targets.map(cloneHole);
 

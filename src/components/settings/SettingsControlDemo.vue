@@ -2,7 +2,7 @@
   <div
     ref="stageRef"
     class="settings-control-demo"
-    :class="[`settings-control-demo--${variant}`, { 'settings-control-demo--reduced': reducedMotion }]"
+    :class="[`settings-control-demo--${variant}`]"
     aria-hidden="true"
   >
     <div class="settings-control-demo__stage">
@@ -102,7 +102,7 @@ import gsap from "gsap";
 import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import { EASE_TRANSFORM } from "../../constants.js";
 import { suspendGamePauseGsapFreeze, resumeGamePauseGsapFreeze } from "../../game/gamePause.js";
-import { getAnimationSpeedScale, shouldSkipDecorativeMotion } from "../../settings/animationSpeed.js";
+import { getAnimationSpeedScale } from "../../settings/animationSpeed.js";
 import { gameSettings } from "../../settings/gameSettings.js";
 
 const props = defineProps({
@@ -147,8 +147,6 @@ function setWordSlotRef(el, ix) {
 function setGridCellRef(el, ix) {
   gridCellEls[ix] = el instanceof HTMLElement ? el : null;
 }
-
-const reducedMotion = computed(() => shouldSkipDecorativeMotion());
 
 const showMarkBtn = computed(
   () => props.variant === "mark" || props.variant === "markOnSwapMark",
@@ -503,40 +501,10 @@ function buildMarkOnSwapMarkTimeline() {
   return applyDemoTimeScale(tl);
 }
 
-function applyReducedStatic() {
-  resetVisualState();
-  if (props.variant === "mark") {
-    wordMarked.value = [true, true, true];
-    return;
-  }
-  if (props.variant === "swap") {
-    wordVisible.value = [true, true, true];
-    return;
-  }
-  if (props.variant === "markOnSwapSwap") {
-    for (const ix of HOLE_INDICES) {
-      gridVisible.value[ix] = true;
-      gridMarked.value[ix] = true;
-    }
-    wordVisible.value = [true, true, true];
-    return;
-  }
-  if (props.variant === "markOnSwapMark") {
-    resetMarkOnSwapMarkState();
-    wordVisible.value = [true, true, true];
-    wordMarked.value = [true, true, true];
-  }
-}
-
 function rebuildTimeline() {
   mainTl?.kill();
   mainTl = null;
   if (!stageRef.value) return;
-
-  if (reducedMotion.value) {
-    applyReducedStatic();
-    return;
-  }
 
   if (props.variant === "mark") mainTl = buildMarkTimeline();
   else if (props.variant === "swap") mainTl = buildSwapTimeline();
@@ -547,7 +515,7 @@ function rebuildTimeline() {
 }
 
 function syncDemoTimeScale() {
-  if (!mainTl || reducedMotion.value) return;
+  if (!mainTl) return;
   applyDemoTimeScale(mainTl);
 }
 
@@ -582,7 +550,7 @@ onUnmounted(() => {
 });
 
 watch(
-  () => [props.variant, reducedMotion.value],
+  () => props.variant,
   () => {
     scheduleRebuild();
   },

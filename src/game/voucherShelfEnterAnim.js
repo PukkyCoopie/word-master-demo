@@ -1,5 +1,4 @@
 import gsap from "gsap";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 /** 优惠券货架格：0 → 略过冲 → 1 */
 const OVERSHOOT = 1.12;
@@ -17,11 +16,6 @@ export function runVoucherShelfEnterPopAnim(visualEl) {
       return;
     }
     gsap.killTweensOf(visualEl);
-    if (shouldSkipDecorativeMotion()) {
-      gsap.set(visualEl, { transformOrigin: "50% 50%", scale: 1, opacity: 1 });
-      resolve();
-      return;
-    }
     gsap.set(visualEl, { transformOrigin: "50% 50%", scale: 0, opacity: 1 });
     const tl = gsap.timeline({ onComplete: resolve });
     tl.to(visualEl, { scale: OVERSHOOT, duration: IN_S, ease: "back.out(2.35)" });

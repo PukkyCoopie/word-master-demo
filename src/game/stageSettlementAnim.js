@@ -1,7 +1,6 @@
 import gsap from "gsap";
 import { watch } from "vue";
 import { EASE_TRANSFORM } from "../constants.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 /** @param {unknown} el */
 function refToDom(el) {
@@ -30,6 +29,7 @@ export function settlementTotalDollarCount(s) {
       settlementAbsDollarCount(s.spareWordsReward) +
       settlementAbsDollarCount(s.spareDiscardsReward) +
       settlementAbsDollarCount(s.interest) +
+      settlementAbsDollarCount(s.rentalDeduction) +
       settlementAbsDollarCount(s.total)
     );
   }
@@ -38,6 +38,7 @@ export function settlementTotalDollarCount(s) {
     settlementAbsDollarCount(s.spareMoves) +
     settlementAbsDollarCount(s.interest) +
     settlementAbsDollarCount(s.extraInterest) +
+    settlementAbsDollarCount(s.rentalDeduction) +
     settlementAbsDollarCount(s.total)
   );
 }
@@ -249,11 +250,6 @@ export function createStageSettlementAnimController(deps) {
       const s = deps.getSnapshot();
       if (!card || !s) {
         settlementIntroResolve = null;
-        resolve();
-        return;
-      }
-      if (shouldSkipDecorativeMotion()) {
-        finishIntroInstant();
         resolve();
         return;
       }

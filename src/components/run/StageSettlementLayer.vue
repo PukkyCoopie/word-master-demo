@@ -142,6 +142,7 @@ onUnmounted(() => {
               :class="{
                 'settle-row-total': row.isTotal,
                 'settle-row--empty': countForRow(row) === 0,
+                'settle-row--deduction': row.isDeduction,
               }"
               :ref="(el) => setSettlementRowRef(i, el)"
             >
@@ -151,7 +152,8 @@ onUnmounted(() => {
                 :class="{
                   'settle-total': row.isTotal,
                   'settle-total--wrapped': row.isTotal && settlementTotalNeedsWrapComputed,
-                  'settle-dollars--debt': (animSettleRows[i] ?? 0) < 0,
+                  'settle-dollars--debt': row.isDeduction || (animSettleRows[i] ?? 0) < 0,
+                  'settle-dollars--deduction': row.isDeduction,
                 }"
                 :style="row.isTotal ? settlementTotalValueStyle : undefined"
                 >{{ settlementDollarMarks(animSettleRows[i] ?? 0) }}</span
@@ -277,6 +279,11 @@ onUnmounted(() => {
 .settle-total.settle-dollars--debt {
   color: var(--money-debt) !important;
   text-shadow: 0 calc(1 * var(--rpx)) 0 rgba(255, 255, 255, 0.2);
+}
+
+.settle-dollars--deduction {
+  color: var(--settlement-deduction) !important;
+  text-shadow: 0 calc(1 * var(--rpx)) 0 rgba(255, 255, 255, 0.16);
 }
 
 .settle-total {

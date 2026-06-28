@@ -21,8 +21,8 @@ import {
   stripChangelogComments,
 } from "./lib/changelog-dir.mjs";
 import {
-  parseCommitMessageFile,
-  parseCommitMessageText,
+  parseCommitMessageFileForChangelog,
+  parseCommitMessageForChangelog,
 } from "./lib/parse-commit-message.mjs";
 
 /**
@@ -31,11 +31,11 @@ import {
 function resolveCommitMessageText() {
   const argPath = process.argv[2];
   if (argPath && fs.existsSync(argPath)) {
-    return parseCommitMessageFile(argPath);
+    return parseCommitMessageFileForChangelog(argPath);
   }
   const editMsg = path.join(REPO_ROOT, ".git", "COMMIT_EDITMSG");
   if (fs.existsSync(editMsg)) {
-    return parseCommitMessageText(fs.readFileSync(editMsg, "utf8"));
+    return parseCommitMessageForChangelog(fs.readFileSync(editMsg, "utf8"));
   }
   return "";
 }

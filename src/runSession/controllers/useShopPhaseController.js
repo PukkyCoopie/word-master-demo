@@ -16,6 +16,7 @@ import {
 import {
   expandShopTreasurePoolForRun,
   shopAllowsOwnedTreasureDuplicates,
+  shopGuaranteesTreasureGainAccessory,
 } from "../../treasures/shopTreasurePoolExpand.js";
 import {
   getShopTreasureAccessoryPriceAdd,
@@ -524,6 +525,7 @@ export function useShopPhaseController(options) {
       ownedVoucherIds: ownedVoucherIds.value,
       honeAccessoryMult: honeMult,
       allowOwnedTreasuresInShop: shopAllowsOwnedTreasureDuplicates(ownedIds),
+      guaranteeShopTreasureGainAccessory: shopGuaranteesTreasureGainAccessory(ownedIds),
       runDifficultyIndex: runDifficultyIndex.value,
       excludeSpellIds: spellPoolExcludeIdsWhenBonusVoucherActive(),
       spellPoolEligibilityCounts: buildSpellPoolEligibilityCountsForRun(),
@@ -566,6 +568,9 @@ export function useShopPhaseController(options) {
       spellCountsByLength: spellCountsByLength.value,
       honeAccessoryMult: buildPackRollHoneMult(),
       allowOwnedTreasuresInShop: shopAllowsOwnedTreasureDuplicates(ownedSlotTreasureIdList()),
+      guaranteeShopTreasureGainAccessory: shopGuaranteesTreasureGainAccessory(
+        ownedSlotTreasureIdList(),
+      ),
       runDifficultyIndex: runDifficultyIndex.value,
       ...buildPackPrerequisiteRollOpts(),
     });

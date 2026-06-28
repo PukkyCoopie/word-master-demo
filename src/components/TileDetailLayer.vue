@@ -242,12 +242,6 @@ import {
   clearPreviewFlyTileBorderRadius,
   queryPreviewFlyTileEl,
 } from "../game/previewFlyBorderRadius.js";
-import {
-  instantPortalLayerClose,
-  instantPortalLayerEnter,
-  instantRevealGsapTargets,
-  shouldSkipDecorativeMotion,
-} from "../settings/animationSpeed.js";
 import PreviewGroupNav from "./PreviewGroupNav.vue";
 
 const props = defineProps({
@@ -368,27 +362,6 @@ function runEnterAnimation() {
   const targetFade = targetVisualRef.value;
   const clone = flyCloneRef.value;
   if (!backdrop || !measureEl || !targetFade) return;
-
-  if (shouldSkipDecorativeMotion()) {
-    if (enterTl) {
-      enterTl.kill();
-      enterTl = null;
-    }
-    bootMask.value = false;
-    flyCloneActive.value = false;
-    flyCloneAnchorRect.value = null;
-    instantPortalLayerEnter({
-      backdrop,
-      backdropFinal: portalScrimGsapVars("rgba(14, 12, 10, 0.78)"),
-      staggerEls: staggerTargets(),
-      primaryEl: targetFade,
-    });
-    void nextTick(() => {
-      previewNavRef.value?.resetVisible?.();
-    });
-    initialEnterDone.value = true;
-    return;
-  }
 
   if (enterTl) {
     enterTl.kill();
@@ -563,16 +536,6 @@ function runContentEnterAnimation() {
   flyCloneActive.value = false;
   flyCloneAnchorRect.value = null;
 
-  if (shouldSkipDecorativeMotion()) {
-    if (enterTl) {
-      enterTl.kill();
-      enterTl = null;
-    }
-    instantRevealGsapTargets(staggerTargets());
-    instantRevealGsapTargets([targetFade]);
-    return;
-  }
-
   if (enterTl) {
     enterTl.kill();
     enterTl = null;
@@ -650,15 +613,6 @@ function runCloseAnimation(shouldEmit = true) {
   const hasReturnFly = validOrigin(origin) && measureEl && targetFade;
 
   return new Promise((resolve) => {
-    if (shouldSkipDecorativeMotion()) {
-      flyCloneActive.value = false;
-      flyCloneAnchorRect.value = null;
-      previewNavRef.value?.instantCloseHide?.();
-      instantPortalLayerClose({ backdrop, staggerEls, primaryEl: targetFade });
-      finish(resolve);
-      return;
-    }
-
     if (hasReturnFly) {
       const fromR = measureEl.getBoundingClientRect();
       const fc = rectCenter(fromR);

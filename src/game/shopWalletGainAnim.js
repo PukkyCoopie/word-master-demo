@@ -1,6 +1,5 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 /**
  * 结算后进商店：顶栏钱包数字从 start 滚到 end（仅展示）；入账在 end>start 时于动画开始前即写入 money。
@@ -28,14 +27,6 @@ export function createShopWalletGainAnim(deps) {
       }
       const el = elOverride ?? getDefaultWalletEl?.() ?? null;
       if (end <= start) {
-        money.value = end;
-        walletHeaderDisplayOverride.value = null;
-        if (el) gsap.set(el, { scale: 1 });
-        resolve(undefined);
-        return;
-      }
-
-      if (shouldSkipDecorativeMotion()) {
         money.value = end;
         walletHeaderDisplayOverride.value = null;
         if (el) gsap.set(el, { scale: 1 });

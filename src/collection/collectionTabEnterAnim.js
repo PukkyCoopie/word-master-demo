@@ -1,6 +1,5 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { collectionEnterOpacityForTarget } from "./collectionDisplayUtils.js";
 
 const PANEL_Y = 10;
@@ -98,10 +97,6 @@ function clearCollectionEnterOpacityProps(targets) {
 export function prepareCollectionTabEnter(root) {
   const { all, animate, skipAnim } = partitionEnterTargets(root);
   if (!all.length) return;
-  if (shouldSkipDecorativeMotion()) {
-    instantRevealCollectionEnter(all);
-    return;
-  }
   gsap.killTweensOf(all);
   if (all.length === 1 && all[0] === root) {
     gsap.set(root, { opacity: 0, y: PANEL_Y });
@@ -124,10 +119,6 @@ export function playCollectionTabEnter(root, options = {}) {
   const delaySec = Math.max(0, Number(options.delayMs) || 0) / 1000;
   const { all, animate, skipAnim } = partitionEnterTargets(root);
   if (!all.length) return null;
-  if (shouldSkipDecorativeMotion()) {
-    instantRevealCollectionEnter(all);
-    return null;
-  }
   prepareCollectionTabEnter(root);
   if (all.length === 1 && all[0] === root) {
     return gsap.to(root, {

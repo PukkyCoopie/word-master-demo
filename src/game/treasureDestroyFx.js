@@ -3,7 +3,6 @@ import { EASE_TRANSFORM } from "../constants.js";
 import { TREASURE_HOOKS_BY_ID } from "../treasures/treasureRegistry.js";
 import { SCORING_BUBBLE_POP_DELAY_MS } from "./scoreBubbleFx.js";
 import { scoringSleep } from "./submitScoringTiming.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { resolveBombAdjacentVictimSlotIndices, resolveBombBlastDestroySlotIndices } from "./treasureBombBlast.js";
 
 /**
@@ -69,20 +68,16 @@ export function createTreasureDestroyFx(deps) {
   /** @param {HTMLElement} el @param {ReturnType<typeof deps.showScoreBubble>} bubble @param {number} sp */
   async function shrinkTreasureSlotElOnly(el, bubble, sp) {
     gsap.killTweensOf(el);
-    if (!shouldSkipDecorativeMotion()) {
-      await new Promise((resolve) => {
-        gsap.to(el, {
-          scale: 0,
-          opacity: 0,
-          duration: 0.35,
-          ease: EASE_TRANSFORM,
-          transformOrigin: "50% 50%",
-          onComplete: resolve,
-        });
+    await new Promise((resolve) => {
+      gsap.to(el, {
+        scale: 0,
+        opacity: 0,
+        duration: 0.35,
+        ease: EASE_TRANSFORM,
+        transformOrigin: "50% 50%",
+        onComplete: resolve,
       });
-    } else {
-      gsap.set(el, { scale: 0, opacity: 0 });
-    }
+    });
     deps.scheduleSmallPlusBubbleOutro(bubble, sp);
     gsap.set(el, { clearProps: "scale,opacity,transform" });
   }

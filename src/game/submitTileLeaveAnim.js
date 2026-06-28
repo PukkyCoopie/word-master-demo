@@ -22,11 +22,18 @@ const TOOLBOX_REMOVE_BUBBLE_OUTRO_DELAY_S = 0.2;
 const TOOLBOX_REMOVE_BUBBLE_OUTRO_DURATION_S = 0.24;
 const ICE_MATERIAL_SELF_DESTRUCT_CHANCE = 0.25;
 
+/** @param {HTMLElement | null | undefined} slotWrapper */
+function resolveWordSlotLeaveAnimEl(slotWrapper) {
+  if (!(slotWrapper instanceof HTMLElement)) return null;
+  const inner = slotWrapper.querySelector(".word-slot-content");
+  return inner instanceof HTMLElement ? inner : slotWrapper;
+}
+
 /**
  * @typedef {Object} SubmitTileLeaveAnimDeps
  * @property {{ treasureRunState: import('vue').Ref<object> }} refs
  * @property {() => HTMLElement[]} getSelectedGridTileElsInOrder
- * @property {HTMLElement[]} wordSlotRefs
+ * @property {() => (HTMLElement | undefined)[]} getWordSlotRefs
  * @property {(treasureId: string) => number} findOwnedTreasureSlotIndex
  * @property {() => number} runRandom
  * @property {(tile: object) => boolean} isBossTileDebuffed
@@ -57,7 +64,7 @@ export function createSubmitTileLeaveAnim(deps) {
   const {
     refs,
     getSelectedGridTileElsInOrder,
-    wordSlotRefs,
+    getWordSlotRefs,
     findOwnedTreasureSlotIndex,
     runRandom,
     isBossTileDebuffed,
@@ -195,7 +202,7 @@ export function createSubmitTileLeaveAnim(deps) {
       if (deckUid != null) {
         removeDeckCardByUidAndNotify(deckUid, { clearGrid: false });
       }
-      const slotEl = wordSlotRefs[i];
+      const slotEl = getWordSlotRefs()[i];
       const gridEl = gridEls[i];
       await playIceTileShatterWobbleAndBubble(slotEl, gridEl);
       if (iceShatterTreasureFxHandled) {
@@ -255,15 +262,16 @@ export function createSubmitTileLeaveAnim(deps) {
       const i = indices[ki];
       const slotEl = slotEls[i];
       const gridEl = gridEls[i];
-      const anchor = slotEl || gridEl;
-      if (!anchor) {
+      const wordAnimEl = resolveWordSlotLeaveAnimEl(slotEl);
+      if (!wordAnimEl && !gridEl) {
         stripAt?.(i);
         continue;
       }
 
       const delay = ki * 0.1;
       await new Promise((r) => requestAnimationFrame(r));
-      const bubble = showScoreBubble(anchor, "擦除", "sponge-erase", sp);
+      const bubbleAnchor = wordAnimEl ?? slotEl ?? gridEl;
+      const bubble = showScoreBubble(bubbleAnchor, "擦除", "sponge-erase", sp);
       let stripped = false;
       const onMidStrip = () => {
         if (stripped) return;
@@ -273,7 +281,7 @@ export function createSubmitTileLeaveAnim(deps) {
       };
 
       await Promise.all([
-        runDetachedTileShrinkReplacePop({ el: slotEl, delay, onMidReplace: onMidStrip }),
+        runDetachedTileShrinkReplacePop({ el: wordAnimEl, delay, onMidReplace: onMidStrip }),
         runDetachedTileShrinkReplacePop({ el: gridEl, delay: delay + 0.02 }),
       ]);
       await nextTick();

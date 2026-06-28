@@ -60,7 +60,8 @@ export function buildHourglassOwnedAccessoryStatusSegments(slot) {
   }
   const elapsed = Math.max(0, Math.floor(Number(slot.hourglassStagesElapsed) || 0));
   const remaining = Math.max(0, HOURGLASS_EXPIRE_STAGES - elapsed);
-  return [{ type: "br" }, { type: "text", v: `（还剩${remaining}个关卡）` }];
+  // 括号起首行由 TreasureDescRichText.injectLineBreaksBeforeParentheses 换行，勿再前置 br
+  return [{ type: "text", v: `（还剩${remaining}个关卡）` }];
 }
 
 /** @param {readonly (Record<string, unknown> | null)[]} ownedSlots */

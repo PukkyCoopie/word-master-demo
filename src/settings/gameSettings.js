@@ -151,7 +151,7 @@ function applyNewPlayerWordDefinitionDefault() {
   gameSettings.wordDefinitionMode = "off";
 }
 
-/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; reduceMotion: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean }} */
+/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; materialAnimationEnabled: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean }} */
 export const gameSettings = reactive({
   allowSpellingAbbreviations: false,
   uiScalePercent: UI_SCALE_DEFAULT,
@@ -159,7 +159,7 @@ export const gameSettings = reactive({
   swapButtonMode: "hidden",
   markOnSwap: false,
   animationSpeedTier: "normal",
-  reduceMotion: false,
+  materialAnimationEnabled: true,
   hapticsEnabled: true,
   displayLayoutMode: inferDefaultDisplayLayoutMode(),
   wordDefinitionMode: "off",
@@ -213,8 +213,8 @@ export function loadGameSettings() {
     if (parsed.animationSpeedTier != null) {
       gameSettings.animationSpeedTier = normalizeAnimationSpeedTier(parsed.animationSpeedTier);
     }
-    if (typeof parsed.reduceMotion === "boolean") {
-      gameSettings.reduceMotion = parsed.reduceMotion;
+    if (typeof parsed.materialAnimationEnabled === "boolean") {
+      gameSettings.materialAnimationEnabled = parsed.materialAnimationEnabled;
     }
     if (typeof parsed.hapticsEnabled === "boolean") {
       gameSettings.hapticsEnabled = parsed.hapticsEnabled;
@@ -278,7 +278,7 @@ export function persistGameSettings() {
         swapButtonMode: gameSettings.swapButtonMode,
         markOnSwap: gameSettings.markOnSwap,
         animationSpeedTier: gameSettings.animationSpeedTier,
-        reduceMotion: gameSettings.reduceMotion,
+        materialAnimationEnabled: gameSettings.materialAnimationEnabled,
         hapticsEnabled: gameSettings.hapticsEnabled,
         displayLayoutMode: gameSettings.displayLayoutMode,
         wordDefinitionMode: gameSettings.wordDefinitionMode,
@@ -382,13 +382,13 @@ export function setAnimationSpeedTier(tier) {
 }
 
 /** @returns {boolean} */
-export function getReduceMotion() {
-  return gameSettings.reduceMotion === true;
+export function getMaterialAnimationEnabled() {
+  return gameSettings.materialAnimationEnabled !== false;
 }
 
 /** @param {boolean} enabled */
-export function setReduceMotion(enabled) {
-  gameSettings.reduceMotion = Boolean(enabled);
+export function setMaterialAnimationEnabled(enabled) {
+  gameSettings.materialAnimationEnabled = Boolean(enabled);
   persistGameSettings();
 }
 

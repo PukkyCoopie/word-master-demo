@@ -161,7 +161,7 @@ export function wireSubmitTileLeaveAnim(deps) {
     submitTileLeaveFxRef,
     treasureRunState,
     getSelectedGridTileElsInOrder,
-    wordSlotRefs,
+    getWordSlotRefs,
     findOwnedTreasureSlotIndex,
     runRandom,
     isBossTileDebuffed,
@@ -186,7 +186,7 @@ export function wireSubmitTileLeaveAnim(deps) {
   submitTileLeaveFxRef.current = createSubmitTileLeaveAnim({
     refs: { treasureRunState },
     getSelectedGridTileElsInOrder,
-    wordSlotRefs,
+    getWordSlotRefs,
     findOwnedTreasureSlotIndex,
     runRandom,
     isBossTileDebuffed,

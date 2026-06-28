@@ -73,11 +73,6 @@ import { EASE_TRANSFORM } from "../constants.js";
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { getRarityForLetter } from "../composables/useScoring.js";
 import { animSleep } from "../settings/animationSpeed.js";
-import {
-  instantPortalLayerClose,
-  instantPortalLayerEnter,
-  shouldSkipDecorativeMotion,
-} from "../settings/animationSpeed.js";
 import LetterTile from "./LetterTile.vue";
 
 const props = defineProps({
@@ -201,17 +196,6 @@ function runEnterAnimation() {
   const backdrop = backdropRef.value;
   if (!backdrop) return;
 
-  if (shouldSkipDecorativeMotion()) {
-    killEnterTweens();
-    enterBoot.value = false;
-    instantPortalLayerEnter({
-      backdrop,
-      backdropFinal: portalScrimGsapVars(PAGER_SCRIM_FINAL),
-      staggerEls: collectStaggerEls(),
-    });
-    return;
-  }
-
   killEnterTweens();
   enterBoot.value = true;
   const staggerEls = collectStaggerEls();
@@ -281,10 +265,6 @@ async function playContinueEnter() {
   const el = continueDockRef.value;
   if (!el) return;
   gsap.killTweensOf(el);
-  if (shouldSkipDecorativeMotion()) {
-    gsap.set(el, { opacity: 1, y: 0, pointerEvents: "auto" });
-    return;
-  }
   gsap.fromTo(
     el,
     { opacity: 0, y: 14 },
@@ -334,14 +314,6 @@ function playClose(correct) {
     emit("resolved", { correct, atHalfClose: true });
     emit("closed");
     return Promise.resolve();
-  }
-
-  if (shouldSkipDecorativeMotion()) {
-    return instantPortalLayerClose({ backdrop, staggerEls }).then(() => {
-      closing.value = false;
-      emit("resolved", { correct, atHalfClose: true });
-      emit("closed");
-    });
   }
 
   const closeDuration = 0.28;

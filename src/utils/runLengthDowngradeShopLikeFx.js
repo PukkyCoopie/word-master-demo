@@ -8,9 +8,7 @@ import {
   getLengthMultiplier,
   getLengthUpgradeStepAdds,
 } from "../composables/useScoring.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { bubbleAtShopPanel } from "../game/popupBubbleFx.js";
-import { createWobbleHighlightTimeline } from "../game/wobbleHighlightFx.js";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -23,11 +21,6 @@ function bubbleAt(targetEl, text, kind) {
 function wobblePanelLikeScoreSlot(el, delayS = 0, speed = 1) {
   if (!el) return;
   const s = Math.max(0.01, Number(speed) || 1);
-  if (shouldSkipDecorativeMotion()) {
-    const tl = createWobbleHighlightTimeline(el, { delayS });
-    if (tl) tl.timeScale(s);
-    return;
-  }
   gsap.killTweensOf(el, "rotation,scale,x,y");
   const tCompress = 0.11;
   const tExpand = 0.15;

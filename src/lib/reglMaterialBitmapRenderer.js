@@ -11,6 +11,7 @@ import {
   reglOffscreenTexPx,
   useBitmapRendererDisplayResize,
 } from "./reglMaterialPerf.js";
+import { markMaterialCssFallbackRequired } from "../platform/webViewCapabilities.js";
 import { executeReglHubDraw } from "./reglSubscriberAnimation.js";
 
 /** @type {Map<string, Set<{ materialId: string, canvas: HTMLCanvasElement, ctx: ImageBitmapRenderingContext, animated: boolean, viewportVisible: boolean, pending: boolean, disposed: boolean, fixedCssWidth?: number, fixedCssHeight?: number, disposeBindings: () => void }>>} */
@@ -34,22 +35,29 @@ function ensureSubscribersSet(materialId) {
 function ensureSharedHub() {
   if (sharedHub) return sharedHub;
   if (typeof createImageBitmap !== "function") {
-    throw new Error("createImageBitmap is unavailable");
+    markMaterialCssFallbackRequired();
+    return null;
   }
-  const texPx = reglOffscreenTexPx();
-  const offscreen = document.createElement("canvas");
-  offscreen.width = texPx;
-  offscreen.height = texPx;
-  const regl = createREGL({
-    canvas: offscreen,
-    attributes: reglHubWebglAttributes(),
-  });
-  for (const mod of MATERIAL_SHADER_MODULES) {
-    drawByMaterial.set(mod.MATERIAL_ID, mod.createDraw(regl));
+  try {
+    const texPx = reglOffscreenTexPx();
+    const offscreen = document.createElement("canvas");
+    offscreen.width = texPx;
+    offscreen.height = texPx;
+    const regl = createREGL({
+      canvas: offscreen,
+      attributes: reglHubWebglAttributes(),
+    });
+    for (const mod of MATERIAL_SHADER_MODULES) {
+      drawByMaterial.set(mod.MATERIAL_ID, mod.createDraw(regl));
+    }
+    sharedHub = { offscreen, regl, texPx };
+    publishBitmapRendererStats();
+    return sharedHub;
+  } catch (e) {
+    markMaterialCssFallbackRequired();
+    console.warn("[reglMaterialBitmapRenderer] shared hub init failed", e);
+    return null;
   }
-  sharedHub = { offscreen, regl, texPx };
-  publishBitmapRendererStats();
-  return sharedHub;
 }
 
 function destroySharedHubIfIdle() {

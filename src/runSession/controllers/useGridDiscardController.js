@@ -2,7 +2,6 @@ import { computed, nextTick, ref } from "vue";
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../../constants.js";
 import { MAX_LETTERS_PER_REMOVAL } from "../../composables/useGameState.js";
-import { runStaggeredInstantLeave, shouldSkipDecorativeMotion } from "../../settings/animationSpeed.js";
 import { SCORING_GAP_SCALE } from "../../game/submitScoringAnim.js";
 import { addMultMulBank, addScoreAddBank } from "../../treasures/treasureBankHelpers.js";
 import {
@@ -159,10 +158,6 @@ export function useGridDiscardController(options) {
   function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
     const duration = Number.isFinite(options.duration) ? options.duration : 0.28;
     const stagger = Number.isFinite(options.stagger) ? options.stagger : 0.12;
-    if (shouldSkipDecorativeMotion()) {
-      ui.scheduleStaggeredTileRemoveHaptics(Math.max(slotEls.length, gridEls.length), stagger);
-      return runStaggeredInstantLeave(slotEls, gridEls, { stagger });
-    }
     return new Promise((resolve) => {
       let done = 0;
       const need = (slotEls.length > 0 ? 1 : 0) + (gridEls.length > 0 ? 1 : 0);
@@ -219,10 +214,6 @@ export function useGridDiscardController(options) {
    * @param {number} duration
    */
   function animateOneDiscardTileLeave(slotEl, gridEl, duration) {
-    if (shouldSkipDecorativeMotion()) {
-      ui.scheduleStaggeredTileRemoveHaptics((slotEl ? 1 : 0) + (gridEl ? 1 : 0), 0);
-      return runStaggeredInstantLeave(slotEl ? [slotEl] : [], gridEl ? [gridEl] : [], { stagger: 0 });
-    }
     return new Promise((resolve) => {
       let done = 0;
       const need = (slotEl ? 1 : 0) + (gridEl ? 1 : 0);

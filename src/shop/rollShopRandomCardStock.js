@@ -178,7 +178,15 @@ function createShopRandomCardRoller(ctx) {
     const def = pickWeightedTreasureFromPool(pickPool, rng, treasurePickOpts);
     if (!def) return null;
     sessionExcluded?.add(def.treasureId);
-    return buildTreasureShopRowFromDef(ctx.nextOfferInstanceId, def, rng, honeMult, ctx.runDifficultyIndex ?? null);
+    return buildTreasureShopRowFromDef(
+      ctx.nextOfferInstanceId,
+      def,
+      rng,
+      honeMult,
+      ctx.runDifficultyIndex ?? null,
+      true,
+      ctx.guaranteeShopTreasureGainAccessory === true,
+    );
   }
 
   /**
@@ -200,6 +208,7 @@ function createShopRandomCardRoller(ctx) {
       honeMult,
       includeAccessories ? (ctx.runDifficultyIndex ?? null) : null,
       includeAccessories,
+      includeAccessories && ctx.guaranteeShopTreasureGainAccessory === true,
     );
   }
 

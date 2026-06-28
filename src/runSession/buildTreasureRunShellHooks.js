@@ -147,7 +147,10 @@ export function buildTreasureRunShellHooks(d) {
           materialId: t?.materialId ?? null,
         })),
         addRemainingWords: (n) => {
-          d.setRemainingWords(d.getRemainingWords() + Math.max(0, Math.floor(Number(n) || 0)));
+          const next = d.getRemainingWords() + Math.max(0, Math.floor(Number(n) || 0));
+          d.setRemainingWords(
+            clampRemainingWordsForBossMechanics(next, d.getBossSlugForMechanics()),
+          );
         },
         addMoney: (n) => {
           d.addMoney(Math.max(0, Math.floor(Number(n) || 0)));

@@ -1,6 +1,5 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 /** 从候选中随机移除牌库字母的 confirm_all 法术 */
 export const SPELL_RANDOM_DECK_REMOVE_IDS = Object.freeze(["familiar", "grim", "incantation"]);
@@ -68,10 +67,6 @@ async function playWinnerReveal(slotIx, getOfferWrapEl) {
   if (!(wrap instanceof HTMLElement) || !(cell instanceof HTMLElement)) return;
 
   wrap.classList.add("spell-target-offer-wrap--random-winner");
-  if (shouldSkipDecorativeMotion()) {
-    cell.classList.remove("spell-target-offer-cell--random-hot");
-    return;
-  }
 
   await new Promise((resolve) => {
     gsap.fromTo(
@@ -121,11 +116,6 @@ export async function runSpellOfferRandomPickAnim(opts) {
   const winIx = indices.includes(winner) ? winner : indices[0];
   const winPos = indices.indexOf(winIx);
   if (winPos < 0) return;
-
-  if (shouldSkipDecorativeMotion()) {
-    await playWinnerReveal(winIx, opts.getOfferWrapEl);
-    return;
-  }
 
   const ring = document.createElement("div");
   ring.className = "spell-offer-pick-ring";

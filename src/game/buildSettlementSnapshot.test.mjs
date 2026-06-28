@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildSettlementSnapshot } from "./buildSettlementSnapshot.js";
+import {
+  buildSettlementSnapshot,
+  buildSettlementDisplayRows,
+  settlementCountForRow,
+} from "./buildSettlementSnapshot.js";
+import { settlementDollarMarks } from "./moneyDisplay.js";
 
 test("buildSettlementSnapshot: default mode with interest and spare moves", () => {
   const snap = buildSettlementSnapshot({
@@ -32,6 +37,10 @@ test("buildSettlementSnapshot: rental deduction subtracts from total", () => {
   });
   assert.equal(snap.rentalDeduction, 6);
   assert.equal(snap.total, -1);
+  const rentalRow = buildSettlementDisplayRows(snap).find((r) => r.key === "rental");
+  assert.ok(rentalRow?.isDeduction);
+  assert.equal(settlementCountForRow(snap, rentalRow), -6);
+  assert.equal(settlementDollarMarks(-6), "-$$$$$$");
 });
 
 test("buildSettlementSnapshot: convertRemainsNoInterest mode", () => {

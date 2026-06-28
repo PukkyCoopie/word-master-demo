@@ -6,7 +6,7 @@ import {
 } from "../treasures/treasureLetterClassify.js";
 
 /**
- * @typedef {{ pillarUsedDeckUids?: Set<number>, verdantTreasureSold?: boolean, ownedSlotTreasureIds?: (string | null | undefined)[] }} BossTileDebuffContext
+ * @typedef {{ pillarUsedDeckUids?: Set<number>, verdantTreasureSold?: boolean, ownedSlotTreasureIds?: (string | null | undefined)[], treasureRun?: import('../treasures/treasureRunState.js').TreasureRunState | null }} BossTileDebuffContext
  */
 
 /** Boss 削弱格：拼词槽内与棋盘上的一切块能力（材质、配饰、棋盘光环等）均不生效。 */
@@ -49,7 +49,7 @@ export function gridTileRawLowerForBoss(tile) {
  */
 export function applyBossTileDebuffState(tile, slug, ctx = {}) {
   if (!tile || tile.bossGridBlocked) return;
-  if (isBossEffectsSuppressedByTreasures(ctx.ownedSlotTreasureIds)) {
+  if (isBossEffectsSuppressedByTreasures(ctx.ownedSlotTreasureIds, ctx.treasureRun)) {
     tile.bossTileDebuffed = false;
     return;
   }

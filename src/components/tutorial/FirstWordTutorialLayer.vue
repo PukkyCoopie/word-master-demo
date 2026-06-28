@@ -91,7 +91,6 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import gsap from "gsap";
 import { resolveBorderlessLayout } from "../../settings/displayLayoutMode.js";
-import { shouldSkipDecorativeMotion } from "../../settings/animationSpeed.js";
 import { createTutorialHoleAnimator } from "../../game/tutorialSpotlightAnim.js";
 
 const props = defineProps({
@@ -235,10 +234,6 @@ watch(
 
 function playHintEnter(el) {
   if (!el) return;
-  if (shouldSkipDecorativeMotion()) {
-    gsap.set(el, { opacity: 1, scale: 1 });
-    return;
-  }
   gsap.fromTo(
     el,
     { opacity: 0, scale: 0.94 },
@@ -269,10 +264,6 @@ watch(
   () => {
     const el = arrowRef.value;
     if (!el || !props.open) return;
-    if (shouldSkipDecorativeMotion()) {
-      gsap.set(el, { y: 0, opacity: 1 });
-      return;
-    }
     gsap.fromTo(
       el,
       { y: -6, opacity: 0.85 },

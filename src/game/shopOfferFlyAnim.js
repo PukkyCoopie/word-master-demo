@@ -1,6 +1,5 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { beginFlySourceHide, ensureFlyCloneVisible } from "./flySourceHide.js";
 import {
   buildPackDeckOfferFlySnapshot,
@@ -36,7 +35,6 @@ function refToDom(el) {
  */
 export async function animateTreasureFrameFly(fromFrameEl, toTarget, opts = {}) {
   if (!fromFrameEl || !toTarget) return;
-  if (shouldSkipDecorativeMotion()) return;
   const from = fromFrameEl.getBoundingClientRect();
   const clone = fromFrameEl.cloneNode(true);
   ensureFlyCloneVisible(clone);
@@ -137,7 +135,6 @@ export async function animatePackTileFlyToDeck(fromEl, toTarget, options = {}) {
   const fromNode = refToDom(fromEl) ?? (fromEl instanceof HTMLElement ? fromEl : null);
   const toNode = refToDom(toTarget) ?? (toTarget instanceof HTMLElement ? toTarget : null);
   if (!fromNode || typeof fromNode.getBoundingClientRect !== "function") return;
-  if (shouldSkipDecorativeMotion()) return;
   const fromRaw = fromNode.getBoundingClientRect();
   const from =
     options.fromRect && options.fromRect.width >= 2

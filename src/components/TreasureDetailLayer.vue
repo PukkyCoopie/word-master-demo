@@ -1031,12 +1031,6 @@ import {
   preRevealPreviewFlyTargetUnderClone,
 } from "../game/previewFlyCloneCommit.js";
 import {
-  instantPortalLayerClose,
-  instantPortalLayerEnter,
-  instantRevealGsapTargets,
-  shouldSkipDecorativeMotion,
-} from "../settings/animationSpeed.js";
-import {
   buildPackInnerOfferPriceView,
   buildShopOfferPriceView,
   resolveShopOfferEffectivePrice,
@@ -2157,30 +2151,6 @@ function runEnterAnimation() {
   const targetVisual = targetVisualRef.value;
   if (!backdrop || !targetVisual) return;
 
-  if (shouldSkipDecorativeMotion()) {
-    if (enterTl) {
-      enterTl.kill();
-      enterTl = null;
-    }
-    bootMask.value = false;
-    flyCloneActive.value = false;
-    const staggerEls = staggerTargets();
-    instantPortalLayerEnter({
-      backdrop,
-      backdropFinal: portalScrimGsapVars("rgba(14, 12, 10, 0.78)"),
-      staggerEls: [],
-      primaryEl: targetVisual,
-      extraEls: [],
-    });
-    revealIconColumnAfterEnter(iconColumnRef.value);
-    revealStaggerTargetsInstant(staggerEls);
-    void nextTick(() => {
-      previewNavRef.value?.resetVisible?.();
-    });
-    initialEnterDone.value = true;
-    return;
-  }
-
   if (enterTl) {
     enterTl.kill();
     enterTl = null;
@@ -2429,20 +2399,6 @@ function runContentEnterAnimation() {
 
   flyCloneActive.value = false;
 
-  if (shouldSkipDecorativeMotion()) {
-    if (enterTl) {
-      enterTl.kill();
-      enterTl = null;
-    }
-    revealStaggerTargetsInstant(staggerTargets());
-    instantRevealGsapTargets([targetVisual]);
-    if (iconColumnRef.value) {
-      revealIconColumnAfterEnter(iconColumnRef.value);
-      gsap.set(iconColumnRef.value, { visibility: "visible", clearProps: "visibility" });
-    }
-    return;
-  }
-
   if (enterTl) {
     enterTl.kill();
     enterTl = null;
@@ -2536,12 +2492,6 @@ function runCloseAnimation(shouldEmit, options = {}) {
       }
       resolve(undefined);
     };
-
-    if (shouldSkipDecorativeMotion()) {
-      previewNavRef.value?.instantCloseHide?.();
-      instantPortalLayerClose({ backdrop, staggerEls, primaryEl: targetVisual }).then(finishClose);
-      return;
-    }
 
     const tl = gsap.timeline({
       onComplete: finishClose,

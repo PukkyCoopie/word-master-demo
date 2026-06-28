@@ -1,9 +1,15 @@
 import { deckCardRaw } from "../game/deckCardSync.js";
-import { getTileMaterialBlockTitle } from "../game/gameConceptCopy.js";
+import {
+  getTileBoardAccessoryTitle,
+  getTileMaterialBlockTitle,
+  getTreasureAccessoryPanelTitle,
+} from "../game/gameConceptCopy.js";
 import { getBaseScoreForRarity, getRarityForLetter, RARITY_BY_LETTER } from "../composables/useScoring.js";
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { SHOP_TILE_PACK_MATERIAL_IDS } from "../shop/shopPackEconomy.js";
-import { normalizeExclusiveTileAccessoryPair } from "../accessories/accessoryState.js";
+import { ALL_ACCESSORY_IDS } from "../accessories/accessoryCatalog.js";
+import { accessoryCanEquip } from "../accessories/accessoryResolve.js";
+import { normalizeExclusiveTileAccessoryPair, writeEntityAccessory } from "../accessories/accessoryState.js";
 
 const WILDCARD_MATERIAL_ID = "wildcard";
 const WILDCARD_TILE_LETTER = "?";
@@ -12,6 +18,12 @@ const FIRE_MATERIAL_MULT_BONUS = 5;
 
 /** 清除材质，恢复为普通字母块 */
 export const DEV_DECK_CONVERT_TARGET_PLAIN = "__plain__";
+
+/** 配饰目标 value 前缀（与材质 id 区分） */
+export const DEV_DECK_CONVERT_TARGET_ACCESSORY_PREFIX = "accessory:";
+
+/** 清除牌张配饰 */
+export const DEV_DECK_CONVERT_TARGET_NO_ACCESSORY = `${DEV_DECK_CONVERT_TARGET_ACCESSORY_PREFIX}__none__`;
 
 /** @type {readonly { value: string, label: string }[]} */
 export const DEV_DECK_CONVERT_BASE_SCOPE_OPTIONS = Object.freeze([
@@ -42,9 +54,38 @@ export function buildDevDeckConvertScopeOptions() {
 }
 
 /**
+ * @param {string | null | undefined} target
+ * @returns {boolean}
+ */
+export function isDevDeckConvertAccessoryTarget(target) {
+  return String(target ?? "").startsWith(DEV_DECK_CONVERT_TARGET_ACCESSORY_PREFIX);
+}
+
+/**
+ * @param {string | null | undefined} target
+ * @returns {string | null} null 表示清除配饰
+ */
+export function parseDevDeckConvertAccessoryTarget(target) {
+  if (!isDevDeckConvertAccessoryTarget(target)) return null;
+  const raw = String(target).slice(DEV_DECK_CONVERT_TARGET_ACCESSORY_PREFIX.length).trim();
+  if (!raw || raw === "__none__") return null;
+  return raw;
+}
+
+/**
+ * @param {string | null | undefined} accessoryId
+ * @returns {string}
+ */
+export function getDevDeckConvertAccessoryTargetLabel(accessoryId) {
+  if (accessoryId == null || String(accessoryId).trim() === "") return "无配饰";
+  const id = String(accessoryId).trim();
+  return getTileBoardAccessoryTitle(id) || getTreasureAccessoryPanelTitle(id) || id;
+}
+
+/**
  * @returns {readonly { value: string, label: string }[]}
  */
-export function buildDevDeckConvertTargetOptions() {
+export function buildDevDeckConvertMaterialTargetOptions() {
   /** @type {{ value: string, label: string }[]} */
   const options = [{ value: DEV_DECK_CONVERT_TARGET_PLAIN, label: "普通字母块" }];
   for (const id of SHOP_TILE_PACK_MATERIAL_IDS) {
@@ -52,6 +93,38 @@ export function buildDevDeckConvertTargetOptions() {
     options.push({ value: id, label: title || id });
   }
   return Object.freeze(options);
+}
+
+/**
+ * @returns {readonly { value: string, label: string }[]}
+ */
+export function buildDevDeckConvertAccessoryTargetOptions() {
+  /** @type {{ value: string, label: string }[]} */
+  const options = [{ value: DEV_DECK_CONVERT_TARGET_NO_ACCESSORY, label: "无配饰" }];
+  for (const id of ALL_ACCESSORY_IDS) {
+    if (!accessoryCanEquip(id, "tile")) continue;
+    const label = getDevDeckConvertAccessoryTargetLabel(id);
+    options.push({ value: `${DEV_DECK_CONVERT_TARGET_ACCESSORY_PREFIX}${id}`, label });
+  }
+  return Object.freeze(options);
+}
+
+/**
+ * @returns {Readonly<{ materials: readonly { value: string, label: string }[], accessories: readonly { value: string, label: string }[] }>}
+ */
+export function buildDevDeckConvertTargetOptionGroups() {
+  return Object.freeze({
+    materials: buildDevDeckConvertMaterialTargetOptions(),
+    accessories: buildDevDeckConvertAccessoryTargetOptions(),
+  });
+}
+
+/** @deprecated 使用 {@link buildDevDeckConvertTargetOptionGroups} */
+export function buildDevDeckConvertTargetOptions() {
+  return Object.freeze([
+    ...buildDevDeckConvertMaterialTargetOptions(),
+    ...buildDevDeckConvertAccessoryTargetOptions(),
+  ]);
 }
 
 /**
@@ -138,6 +211,14 @@ export function applyDevMaterialToDeckCard(card, targetMaterialId) {
 
 /**
  * @param {Record<string, unknown>} card
+ * @param {string | null} accessoryId null 表示清除配饰
+ */
+export function applyDevAccessoryToDeckCard(card, accessoryId) {
+  writeEntityAccessory(card, accessoryId, "tile");
+}
+
+/**
+ * @param {Record<string, unknown>} card
  * @param {Record<string, number> | null | undefined} rarityLevelsByRarity
  */
 function buildTileSurfaceFromDeckCard(card, rarityLevelsByRarity) {
@@ -198,7 +279,8 @@ export function refreshGridTilesLinkedToDeckCard(grid, rows, cols, card, rarityL
  *   rows: number,
  *   cols: number,
  *   scope: string,
- *   targetMaterialId: string,
+ *   target?: string,
+ *   targetMaterialId?: string,
  *   rng?: () => number,
  *   rarityLevelsByRarity?: Record<string, number> | null,
  * }} params
@@ -210,25 +292,41 @@ export function devConvertDeckTiles(params) {
     rows,
     cols,
     scope,
+    target,
     targetMaterialId,
     rng = Math.random,
     rarityLevelsByRarity = null,
   } = params;
+  const targetValue = target ?? targetMaterialId ?? DEV_DECK_CONVERT_TARGET_PLAIN;
+  const accessoryMode = isDevDeckConvertAccessoryTarget(targetValue);
+  const accessoryId = accessoryMode ? parseDevDeckConvertAccessoryTarget(targetValue) : null;
   const eligible = listEligibleDeckCards(deck, scope);
   const picked = pickDeckCardsForScope(eligible, scope, rng);
   let converted = 0;
   let gridUpdated = 0;
   for (const card of picked) {
     if (!card || typeof card !== "object") continue;
-    applyDevMaterialToDeckCard(/** @type {Record<string, unknown>} */ (card), targetMaterialId);
+    const record = /** @type {Record<string, unknown>} */ (card);
+    if (accessoryMode) {
+      applyDevAccessoryToDeckCard(record, accessoryId);
+    } else {
+      applyDevMaterialToDeckCard(record, targetValue);
+    }
     converted += 1;
     gridUpdated += refreshGridTilesLinkedToDeckCard(
       grid,
       rows,
       cols,
-      /** @type {Record<string, unknown>} */ (card),
+      record,
       rarityLevelsByRarity,
     );
   }
-  return { converted, gridUpdated, eligible: eligible.length };
+  return {
+    converted,
+    gridUpdated,
+    eligible: eligible.length,
+    accessoryMode,
+    accessoryId,
+    target: targetValue,
+  };
 }

@@ -22,14 +22,23 @@
                   {{ opt.label }}
                 </option>
               </select>
-              字母块转换成
-              <select v-model="convertTarget" class="developer-options-select" aria-label="转换目标">
-                <option v-for="opt in targetOptions" :key="opt.value" :value="opt.value">
-                  {{ opt.label }}
-                </option>
+              字母块{{ convertTargetActionLabel }}
+              <select v-model="convertTarget" class="developer-options-select" aria-label="转换或佩戴目标">
+                <optgroup label="材质">
+                  <option v-for="opt in materialTargetOptions" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </optgroup>
+                <optgroup label="配饰">
+                  <option v-for="opt in accessoryTargetOptions" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </optgroup>
               </select>
             </p>
-            <button type="button" class="developer-options-btn" @click="onConvertClick">执行转换</button>
+            <button type="button" class="developer-options-btn" @click="onConvertClick">
+              {{ convertActionButtonLabel }}
+            </button>
             <p v-if="convertResultText" class="developer-options-result">{{ convertResultText }}</p>
           </section>
 
@@ -233,8 +242,10 @@ import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js"
 import { scheduleOverlayDismiss, scheduleOverlayPresent } from "../platform/haptics.js";
 import {
   buildDevDeckConvertScopeOptions,
-  buildDevDeckConvertTargetOptions,
+  buildDevDeckConvertTargetOptionGroups,
   DEV_DECK_CONVERT_TARGET_PLAIN,
+  getDevDeckConvertAccessoryTargetLabel,
+  isDevDeckConvertAccessoryTarget,
 } from "../dev/devDeckTileConvert.js";
 import { buildDevBossJumpSelectOptions } from "../dev/devBossShopJump.js";
 import TreasureSlot from "./TreasureSlot.vue";
@@ -265,10 +276,20 @@ const titleId = "developer-options-title";
 const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
 
 const scopeOptions = buildDevDeckConvertScopeOptions();
-const targetOptions = buildDevDeckConvertTargetOptions();
+const convertTargetGroups = buildDevDeckConvertTargetOptionGroups();
+const materialTargetOptions = convertTargetGroups.materials;
+const accessoryTargetOptions = convertTargetGroups.accessories;
 
 const convertScope = ref("all");
 const convertTarget = ref("wildcard");
+
+const convertTargetActionLabel = computed(() =>
+  isDevDeckConvertAccessoryTarget(convertTarget.value) ? "佩戴" : "转换成",
+);
+
+const convertActionButtonLabel = computed(() =>
+  isDevDeckConvertAccessoryTarget(convertTarget.value) ? "执行佩戴" : "执行转换",
+);
 const convertResultText = ref("");
 const levelInput = ref("");
 const grantResultText = ref("");
@@ -391,19 +412,29 @@ function onConvertClick() {
   convertResultText.value = "";
   emit("convert-deck", {
     scope: convertScope.value,
-    targetMaterialId: convertTarget.value,
+    target: convertTarget.value,
   });
 }
 
-/** @param {{ converted: number, eligible: number, gridUpdated: number }} result */
+/** @param {{ converted: number, eligible: number, accessoryMode?: boolean, accessoryId?: string | null, target?: string }} result */
 function reportConvertResult(result) {
   if (!result?.converted) {
     convertResultText.value =
       result?.eligible > 0 ? "未选中任何牌张。" : "牌库中没有符合条件的字母块。";
     return;
   }
+  if (result.accessoryMode) {
+    const isClear = result.accessoryId == null;
+    const targetLabel = isClear
+      ? "无配饰"
+      : getDevDeckConvertAccessoryTargetLabel(result.accessoryId);
+    convertResultText.value = isClear
+      ? `已为 ${result.converted} 张移除配饰。`
+      : `已为 ${result.converted} 张佩戴「${targetLabel}」。`;
+    return;
+  }
   const targetLabel =
-    targetOptions.find((o) => o.value === convertTarget.value)?.label ??
+    materialTargetOptions.find((o) => o.value === convertTarget.value)?.label ??
     (convertTarget.value === DEV_DECK_CONVERT_TARGET_PLAIN ? "普通字母块" : convertTarget.value);
   convertResultText.value = `已转换 ${result.converted} 张为「${targetLabel}」。`;
 }

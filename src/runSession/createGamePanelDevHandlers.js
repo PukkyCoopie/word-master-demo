@@ -38,7 +38,7 @@ export function createGamePanelDevHandlers(d) {
       rows: d.ROWS,
       cols: d.COLS,
       scope: payload?.scope,
-      targetMaterialId: payload?.targetMaterialId,
+      target: payload?.target ?? payload?.targetMaterialId,
       rng: d.runRandom,
       rarityLevelsByRarity: d.rarityLevelsByRarity.value,
     });

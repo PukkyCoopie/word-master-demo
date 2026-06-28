@@ -15,8 +15,11 @@ import { normalizeExclusiveTileAccessoryPair } from "../accessories/accessorySta
 import { getTileAccessoryChipVisual } from "../game/tileAccessories";
 import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories";
 import { shouldHideRarityGemForTile } from "../composables/useScoring.js";
-import { resolveTileMaterialAnimate } from "../lib/reglMaterialPerf.js";
-import { reducedMotionSignal } from "../settings/animationSpeed.js";
+import { resolveTileMaterialAnimate, materialAnimationSignal } from "../lib/reglMaterialPerf.js";
+import {
+  getRequiresMaterialCssFallback,
+  materialCssFallbackSignal,
+} from "../platform/webViewCapabilities.js";
 import { gameSettings } from "../settings/gameSettings.js";
 import { formatTileLetterDisplay } from "../settings/letterCase.js";
 import { isQuStyleTileLetter, normalizeStoredTileLetter } from "../settings/letterQ.js";
@@ -125,6 +128,11 @@ const showVowelGhost = computed(() =>
   ["grid", "wordSlotContent", "fly"].includes(props.variant),
 );
 
+const useMaterialCssFallback = computed(() => {
+  void materialCssFallbackSignal.value;
+  return getRequiresMaterialCssFallback();
+});
+
 const mergedClass = computed(() => {
   const matClass = showGoldMaterial.value
     ? "tile-material-gold"
@@ -149,7 +157,9 @@ const mergedClass = computed(() => {
         : showCeruleanLockVisual.value
           ? "letter-tile-cerulean-lock"
           : "";
-  return [variantClass.value, isQuStyleTileLetter(props.letter) ? "letter-qu" : "", matClass, bossClass, attrs.class].filter(
+  const cssFallbackClass =
+    useMaterialCssFallback.value && matClass ? "tile-material--css-fallback" : "";
+  return [variantClass.value, isQuStyleTileLetter(props.letter) ? "letter-qu" : "", matClass, cssFallbackClass, bossClass, attrs.class].filter(
     Boolean,
   );
 });
@@ -200,7 +210,7 @@ const treasureAccessoryChipVisual = computed(() => {
 });
 
 const effectiveMaterialAnimate = computed(() => {
-  void reducedMotionSignal.value;
+  void materialAnimationSignal.value;
   return resolveTileMaterialAnimate(props.variant, props.materialAnimate);
 });
 
@@ -227,17 +237,41 @@ const displayVowelGhostNext = computed(() => {
 
 <template>
   <component :is="rootTag" :class="mergedClass" :style="mergedStyle" v-bind="restAttrs">
-    <TileGoldRegl v-if="showGoldMaterial" class="tile-material-gold-canvas" :animated="effectiveMaterialAnimate" />
-    <TileSteelRegl v-if="showSteelMaterial" class="tile-material-steel-canvas" :animated="effectiveMaterialAnimate" />
-    <TileIceRegl v-if="showIceMaterial" class="tile-material-ice-canvas" :animated="effectiveMaterialAnimate" />
-    <TileWaterRegl v-if="showWaterMaterial" class="tile-material-water-canvas" :animated="effectiveMaterialAnimate" />
-    <TileFireRegl v-if="showFireMaterial" class="tile-material-fire-canvas" :animated="effectiveMaterialAnimate" />
+    <TileGoldRegl
+      v-if="showGoldMaterial && !useMaterialCssFallback"
+      class="tile-material-gold-canvas"
+      :animated="effectiveMaterialAnimate"
+    />
+    <TileSteelRegl
+      v-if="showSteelMaterial && !useMaterialCssFallback"
+      class="tile-material-steel-canvas"
+      :animated="effectiveMaterialAnimate"
+    />
+    <TileIceRegl
+      v-if="showIceMaterial && !useMaterialCssFallback"
+      class="tile-material-ice-canvas"
+      :animated="effectiveMaterialAnimate"
+    />
+    <TileWaterRegl
+      v-if="showWaterMaterial && !useMaterialCssFallback"
+      class="tile-material-water-canvas"
+      :animated="effectiveMaterialAnimate"
+    />
+    <TileFireRegl
+      v-if="showFireMaterial && !useMaterialCssFallback"
+      class="tile-material-fire-canvas"
+      :animated="effectiveMaterialAnimate"
+    />
     <TileWildcardRegl
-      v-if="showWildcardMaterial"
+      v-if="showWildcardMaterial && !useMaterialCssFallback"
       class="tile-material-wildcard-canvas"
       :animated="effectiveMaterialAnimate"
     />
-    <TileLuckyRegl v-if="showLuckyMaterial" class="tile-material-lucky-canvas" :animated="effectiveMaterialAnimate" />
+    <TileLuckyRegl
+      v-if="showLuckyMaterial && !useMaterialCssFallback"
+      class="tile-material-lucky-canvas"
+      :animated="effectiveMaterialAnimate"
+    />
     <template v-if="showAugmentBadges">
       <span v-if="scoreBadge > 0" class="tile-bonus-pill tile-bonus-pill--score" aria-hidden="true"
         >+{{ scoreBadge }}</span

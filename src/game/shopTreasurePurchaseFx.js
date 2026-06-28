@@ -1,6 +1,6 @@
 import { nextTick } from "vue";
 import gsap from "gsap";
-import { animSleep, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
+import { animSleep } from "../settings/animationSpeed.js";
 import { runTreasureGrantPopAnim } from "./treasureGrantPopAnim.js";
 
 /**
@@ -21,7 +21,7 @@ export function createShopTreasurePurchaseFx(deps) {
    */
   async function waitForOwnedTreasureSlotEl(slotIndex, { slotsExpanded = false } = {}) {
     await nextTick();
-    if (slotsExpanded && !shouldSkipDecorativeMotion()) {
+    if (slotsExpanded) {
       await animSleep(260);
     } else {
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));

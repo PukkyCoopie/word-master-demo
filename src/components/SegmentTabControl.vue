@@ -356,7 +356,4 @@ defineExpose({
   outline-offset: calc(1 * var(--rpx));
 }
 
-:global(html.reduce-motion) .segment-tab-thumb {
-  transition: none !important;
-}
 </style>

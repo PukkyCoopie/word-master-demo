@@ -223,7 +223,7 @@ export const GAME_TERM_CONCEPT_BY_LABEL = Object.freeze({
   }),
   配饰: Object.freeze({
     title: "配饰",
-    effectDescription: "可以镶嵌在宝藏或字母块上，提供一些增益",
+    effectDescription: "可以镶嵌在宝藏或字母块上，提供一些额外效果",
   }),
   削弱: Object.freeze({
     title: "削弱",

@@ -3,8 +3,38 @@
  * 离屏 WebGL/shader 纹理（`reglOffscreenTexPx` = 192）固定像素，不按 DPR 放大；
  * 2D 展示 canvas 缓冲可按设备 DPR 放大以保持清晰。
  */
-import { prefersReducedMotion } from "../settings/animationSpeed.js";
+import { ref, watch } from "vue";
+import { gameSettings } from "../settings/gameSettings.js";
 import { isMaterialBenchEnabled } from "../dev/materialBenchGate.js";
+import { getSupportsBitmapRendererPipeline } from "../platform/webViewCapabilities.js";
+import { resolveEffectiveMaterialAnimate } from "../settings/materialAnimationAvailability.js";
+
+/** 材质动画设置变更时 bump，供 LetterTile 等重算 effectiveMaterialAnimate */
+export const materialAnimationSignal = ref(0);
+
+/** 设备材质能力降级后 bump（如 WebGL 不可用） */
+export function notifyMaterialRenderingCapabilityChanged() {
+  materialAnimationSignal.value += 1;
+}
+
+/** @returns {boolean} 用户是否开启材质逐帧动画 */
+export function isMaterialAnimationEnabled() {
+  return gameSettings.materialAnimationEnabled !== false;
+}
+
+let materialAnimationWatchInitialized = false;
+
+/** 启动时调用一次；监听材质动画设置变化 */
+export function initMaterialAnimationSettings() {
+  if (materialAnimationWatchInitialized) return;
+  materialAnimationWatchInitialized = true;
+  watch(
+    () => gameSettings.materialAnimationEnabled,
+    () => {
+      materialAnimationSignal.value += 1;
+    },
+  );
+}
 
 /** @returns {boolean} */
 export function isNativeGamePlatform() {
@@ -37,9 +67,9 @@ export function useMobileMaterialLowPower() {
   return isNativeGamePlatform() || isCoarsePointerDevice();
 }
 
-/** @returns {boolean} 仅「减少动画」时完全静态 */
+/** @returns {boolean} 用户关闭材质动画时完全静态 */
 export function preferStaticTileMaterialAnimation() {
-  return prefersReducedMotion();
+  return !isMaterialAnimationEnabled();
 }
 
 /** @returns {boolean} bench 默认看真实策略；显式 stress 才放开材质 tick 上限。 */
@@ -59,14 +89,12 @@ function useMaterialBenchStressMode() {
  * @returns {boolean}
  */
 export function resolveTileMaterialAnimate(_variant, propAnimate) {
-  if (propAnimate === false) return false;
-  if (prefersReducedMotion()) return false;
-  return true;
+  return resolveEffectiveMaterialAnimate(propAnimate);
 }
 
 /** @returns {number} 材质 hub 全局 tick 上限（Hz）；Infinity 表示不节流 */
 export function getMaterialHubMaxHz() {
-  if (prefersReducedMotion()) return 0;
+  if (!isMaterialAnimationEnabled()) return 0;
   return Number.POSITIVE_INFINITY;
 }
 
@@ -100,7 +128,10 @@ export function getMaterialRenderPipeline() {
     built === "video_atlas" ||
     built === "bitmaprenderer"
   ) return built;
-  return useMobileMaterialLowPower() ? "bitmaprenderer" : "blit";
+  if (useMobileMaterialLowPower()) {
+    return getSupportsBitmapRendererPipeline() ? "bitmaprenderer" : "blit";
+  }
+  return "blit";
 }
 
 /** @returns {boolean} */

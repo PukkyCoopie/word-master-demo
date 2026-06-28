@@ -1,6 +1,5 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM, EASE_GRID_GRAVITY_Y, EASE_GRID_LINEAR } from "../constants.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { gridTileEntranceDelayKey } from "./gridOnlyMaterialScoring.js";
 
 /** 下落时长略长，便于看出加速过程 */
@@ -121,13 +120,6 @@ export function createGridDropAnim(deps) {
         resolve();
       };
       const run = () => {
-        if (shouldSkipDecorativeMotion()) {
-          for (let j = 0; j < ROWS * COLS; j++) {
-            clearGridTileGsapAfterDrop(getGridTileElByIndex(j));
-          }
-          settleOnce();
-          return;
-        }
         const stepY = measureGridTileStepY();
         const stepX = measureGridTileStepX();
         let pending = 0;

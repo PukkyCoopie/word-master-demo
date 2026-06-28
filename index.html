@@ -32,6 +32,34 @@
 		<div id="game-view-portal-frame" class="game-view-portal-frame"></div>
 	</div>
 	<div id="app"></div>
-	<script type="module" src="/src/main.js"></script>
+	<script type="module">
+		const MIN_CHROME = 70;
+
+		function parseChromeMajor(userAgent) {
+			const match = String(userAgent || "").match(/Chrom(?:e|ium)\/(\d+)/);
+			if (!match) return null;
+			const major = Number.parseInt(match[1], 10);
+			return Number.isFinite(major) ? major : null;
+		}
+
+		function showBootBlockedMessage() {
+			const app = document.getElementById("app");
+			if (!app) return;
+			app.innerHTML =
+				'<div style="box-sizing:border-box;min-height:100vh;padding:24px;display:flex;align-items:center;justify-content:center;background:#c4b7a6;color:#3d3429;font:16px/1.6 sans-serif;text-align:center;">' +
+				'<div style="max-width:320px;">' +
+				'<p style="margin:0 0 12px;font-size:18px;font-weight:700;">系统组件过旧</p>' +
+				'<p style="margin:0;">当前 WebView 版本过低，无法运行游戏。请在应用商店更新「Android System WebView」或 Google Chrome 后重试。</p>' +
+				"</div></div>";
+		}
+
+		const major = parseChromeMajor(navigator.userAgent || "");
+		if (major != null && major < MIN_CHROME) {
+			showBootBlockedMessage();
+			window.__WM_BOOT_BLOCKED__ = true;
+		} else {
+			import("__WM_MAIN_IMPORT__");
+		}
+	</script>
 </body>
 </html>

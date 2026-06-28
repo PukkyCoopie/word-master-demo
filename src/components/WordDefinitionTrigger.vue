@@ -3,7 +3,6 @@
     name="word-definition-trigger"
     mode="out-in"
     appear
-    :css="!skipMotion"
   >
     <div
       v-if="visible && showIconOnlyButton"
@@ -38,7 +37,6 @@
         <span class="word-definition-preview-text">{{ previewLine }}</span>
         <Transition
           name="word-definition-pill"
-          :css="!skipMotion"
           @after-enter="syncPreviewBarWidth"
           @after-leave="syncPreviewBarWidth"
         >
@@ -51,7 +49,6 @@
 
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 const props = defineProps({
   visible: { type: Boolean, default: true },
@@ -63,8 +60,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["open"]);
-
-const skipMotion = computed(() => shouldSkipDecorativeMotion());
 
 const hasPreviewLine = computed(() => String(props.previewLine ?? "").length > 0);
 
@@ -95,7 +90,7 @@ const previewBarWidthPx = ref(0);
 
 const previewBarStyle = computed(() => {
   if (!showPreviewBar.value || previewBarWidthPx.value <= 0) {
-    return skipMotion.value ? {} : { width: "0px" };
+    return { width: "0px" };
   }
   return { width: `${previewBarWidthPx.value}px` };
 });
@@ -120,10 +115,6 @@ function measureNaturalBarWidth(el) {
 /** @param {number} measured */
 function applyPreviewBarWidth(measured) {
   if (measured === previewBarWidthPx.value) return;
-  if (skipMotion.value) {
-    previewBarWidthPx.value = measured;
-    return;
-  }
   requestAnimationFrame(() => {
     previewBarWidthPx.value = measured;
   });

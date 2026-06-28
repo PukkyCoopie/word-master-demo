@@ -40,7 +40,4 @@ defineProps({
   }
 }
 
-html.reduce-motion .collection-new-mark {
-  animation: none;
-}
 </style>

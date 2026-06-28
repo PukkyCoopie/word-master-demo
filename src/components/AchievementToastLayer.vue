@@ -7,7 +7,7 @@ import {
   resumeGamePauseGsapFreeze,
   suspendGamePauseGsapFreeze,
 } from "../game/gamePause.js";
-import { animSleep, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
+import { animSleep } from "../settings/animationSpeed.js";
 
 const props = defineProps({
   queue: { type: Object, required: true },
@@ -51,23 +51,18 @@ const activeDef = computed(() => props.queue.active.value);
 
 const iconUrl = computed(() => (activeDef.value ? getAchievementIconUrl(activeDef.value) : ""));
 
-const glowClass = computed(() =>
-  shouldSkipDecorativeMotion()
-    ? "achievement-toast__icon-glow achievement-toast__icon-glow--static"
-    : "achievement-toast__icon-glow",
-);
+const glowClass = computed(() => "achievement-toast__icon-glow");
 
-/** @param {boolean} skip */
-function setAchievementToastRest(skip) {
+function setAchievementToastRest() {
   const backdrop = backdropRef.value;
   const content = contentRef.value;
   if (backdrop) {
     gsap.killTweensOf(backdrop);
-    gsap.set(backdrop, skip ? { y: 0, opacity: 1 } : { y: "-100%", opacity: 0 });
+    gsap.set(backdrop, { y: "-100%", opacity: 0 });
   }
   if (content) {
     gsap.killTweensOf(content);
-    gsap.set(content, skip ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -20, scale: 0.96 });
+    gsap.set(content, { opacity: 0, y: -20, scale: 0.96 });
   }
 }
 
@@ -79,10 +74,9 @@ watch(
     await nextTick();
     const backdrop = backdropRef.value;
     const content = contentRef.value;
-    const skip = shouldSkipDecorativeMotion();
-    setAchievementToastRest(skip);
+    setAchievementToastRest();
 
-    if (!skip) {
+    {
       const tl = gsap.timeline();
       if (backdrop) {
         tl.to(
@@ -103,7 +97,7 @@ watch(
 
     await animSleep(4000);
 
-    if (!skip) {
+    {
       const tl = gsap.timeline();
       if (content) {
         tl.to(content, { opacity: 0, y: -16, scale: 0.98, duration: 0.28, ease: "power2.in" }, 0);

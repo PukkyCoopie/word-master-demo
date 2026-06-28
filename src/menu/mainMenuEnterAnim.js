@@ -1,8 +1,5 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import {
-  shouldSkipDecorativeMotion,
-} from "../settings/animationSpeed.js";
 
 const BUTTON_DURATION = 0.42;
 const BUTTON_STAGGER_SPREAD = 0.28;
@@ -69,7 +66,6 @@ export function measureMainMenuEnterLayout(nav, showcase) {
  * @param {HTMLElement[]} buttons
  */
 export function prepareMainMenuEnterHidden(showcase, actionsWrap, buttons) {
-  if (shouldSkipDecorativeMotion()) return;
   if (actionsWrap) {
     gsap.killTweensOf(actionsWrap);
     gsap.set(actionsWrap, { height: 0, overflow: "visible" });
@@ -126,11 +122,6 @@ export function playMainMenuEnter(opts) {
     settleMainMenuEnterLayout(showcase, actionsWrap, buttons);
     onComplete?.();
   };
-
-  if (shouldSkipDecorativeMotion()) {
-    finish();
-    return null;
-  }
 
   prepareMainMenuEnterHidden(showcase, actionsWrap, buttons);
 

@@ -217,10 +217,4 @@ onUnmounted(() => {
   transform: translateY(calc(10 * var(--rpx)));
 }
 
-:global(html.reduce-motion) .settings-help-dialog-enter-active,
-:global(html.reduce-motion) .settings-help-dialog-leave-active,
-:global(html.reduce-motion) .settings-help-dialog-enter-active .settings-help-dialog-card,
-:global(html.reduce-motion) .settings-help-dialog-leave-active .settings-help-dialog-card {
-  transition: none;
-}
 </style>

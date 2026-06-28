@@ -2,7 +2,9 @@
  * 应用启动时按当前材质管线预建 WebGL、编译 shader 并各绘 1 帧，
  * 避免首次附着字母块 canvas 时卡顿。
  */
-import { getMaterialRenderPipeline } from "./reglMaterialPerf.js";
+import { getMaterialRenderPipeline, notifyMaterialRenderingCapabilityChanged } from "./reglMaterialPerf.js";
+import { markMaterialCssFallbackRequired } from "../platform/webViewCapabilities.js";
+import { applyMaterialAnimationCapabilityConstraints } from "../settings/materialAnimationAvailability.js";
 import { warmupSharedReglMaterialHub } from "./reglMaterialHub.js";
 import { warmupBitmapRendererMaterialHub } from "./reglMaterialBitmapRenderer.js";
 import { warmupVideoAtlasMaterialHub } from "./reglMaterialVideoAtlas.js";
@@ -26,6 +28,9 @@ export function warmupAllReglMaterialHubs() {
         break;
     }
   } catch (e) {
+    markMaterialCssFallbackRequired();
+    applyMaterialAnimationCapabilityConstraints();
+    notifyMaterialRenderingCapabilityChanged();
     console.error("[reglMaterialWarmup]", e);
   }
 }

@@ -1,15 +1,9 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import {
-  instantRevealGsapTargets,
-  shouldSkipDecorativeMotion,
-} from "../settings/animationSpeed.js";
 
 const ROW_STAGGER_SPREAD = 0.28;
 const ROW_DURATION = 0.45;
 const ROW_Y = 10;
-/** 勿写 visibility:visible — 非激活 tab 面板靠父级 visibility:hidden，子级 visible 会穿透叠层 */
-const INSTANT_REVEAL_VARS = { opacity: 1, y: 0, scale: 1, clearProps: "opacity,transform" };
 
 /**
  * @param {number} count
@@ -24,7 +18,7 @@ function evenStagger(count, totalSpread) {
  * @param {HTMLElement[]} targets
  */
 export function prepareRunStartDialogEnterHidden(targets) {
-  if (!targets.length || shouldSkipDecorativeMotion()) return;
+  if (!targets.length) return;
   gsap.killTweensOf(targets);
   gsap.set(targets, { opacity: 0, y: ROW_Y, scale: 1 });
 }
@@ -34,10 +28,6 @@ export function prepareRunStartDialogEnterHidden(targets) {
  */
 export function playRunStartDialogEnter(targets) {
   if (!targets.length) return;
-  if (shouldSkipDecorativeMotion()) {
-    instantRevealGsapTargets(targets, INSTANT_REVEAL_VARS);
-    return;
-  }
   gsap.to(targets, {
     opacity: 1,
     y: 0,

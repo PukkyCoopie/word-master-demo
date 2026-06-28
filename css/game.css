@@ -1,6 +1,6 @@
 /* Word Master - 逻辑画布 750×1500，所有尺寸用 --rpx，contain 适配由 .game-scaler 宽高 + 居中实现 */
 /* 动画约定：位移/尺寸/缩放/旋转 → expo.out（--ease-expo-out）；见 src/constants.js、.cursor/rules/animation-easing.mdc */
-/* 动画速度 / 减少动画：见 src/settings/animationSpeed.js、.cursor/rules/animation-speed.mdc */
+/* 动画速度：见 src/settings/animationSpeed.js、.cursor/rules/animation-speed.mdc */
 /* --rpx 由 JS 根据视口设置，1 逻辑单位 = var(--rpx)，如 750 * var(--rpx) = 画布宽 */
 
 @font-face {
@@ -72,6 +72,8 @@
 	--money-gold: #b8860b;
 	/* 负债 / 扣款：暗红，与金黄区分 */
 	--money-debt: #8b3a3a;
+	/* 关卡结算租赁扣费：更深红，强调支出 */
+	--settlement-deduction: #6f2222;
 	/* 倍率强调：与 .result-box-mult / .mult-popup-bubble 洋红一致 */
 	--mult-accent: #d86b94;
 	--tutorial-scrim: rgba(0, 0, 0, 0.55);
@@ -2431,6 +2433,50 @@ textarea::-moz-placeholder {
 	z-index: 4;
 }
 
+/* WebGL 不可用时的材质纯色回退（tile-material--css-fallback） */
+.grid-tile.tile-material--css-fallback.tile-material-gold,
+.word-slots .word-slot-content.tile-material--css-fallback.tile-material-gold,
+.fly-letter.tile-material--css-fallback.tile-material-gold,
+.deck-layer-tile.tile-material--css-fallback.tile-material-gold {
+	background: linear-gradient(145deg, #f0c14a 0%, #c8861a 55%, #9a6310 100%);
+}
+.grid-tile.tile-material--css-fallback.tile-material-steel,
+.word-slots .word-slot-content.tile-material--css-fallback.tile-material-steel,
+.fly-letter.tile-material--css-fallback.tile-material-steel,
+.deck-layer-tile.tile-material--css-fallback.tile-material-steel {
+	background: linear-gradient(160deg, #d8dde3 0%, #9aa3ad 52%, #6f7882 100%);
+}
+.grid-tile.tile-material--css-fallback.tile-material-ice,
+.word-slots .word-slot-content.tile-material--css-fallback.tile-material-ice,
+.fly-letter.tile-material--css-fallback.tile-material-ice,
+.deck-layer-tile.tile-material--css-fallback.tile-material-ice {
+	background: linear-gradient(155deg, #dff3ff 0%, #9ec9e8 50%, #6a9fbf 100%);
+}
+.grid-tile.tile-material--css-fallback.tile-material-water,
+.word-slots .word-slot-content.tile-material--css-fallback.tile-material-water,
+.fly-letter.tile-material--css-fallback.tile-material-water,
+.deck-layer-tile.tile-material--css-fallback.tile-material-water {
+	background: linear-gradient(150deg, #7ec8f0 0%, #3a8ec4 55%, #256a96 100%);
+}
+.grid-tile.tile-material--css-fallback.tile-material-fire,
+.word-slots .word-slot-content.tile-material--css-fallback.tile-material-fire,
+.fly-letter.tile-material--css-fallback.tile-material-fire,
+.deck-layer-tile.tile-material--css-fallback.tile-material-fire {
+	background: linear-gradient(150deg, #ffb347 0%, #e85d04 52%, #b83a00 100%);
+}
+.grid-tile.tile-material--css-fallback.tile-material-wildcard,
+.word-slots .word-slot-content.tile-material--css-fallback.tile-material-wildcard,
+.fly-letter.tile-material--css-fallback.tile-material-wildcard,
+.deck-layer-tile.tile-material--css-fallback.tile-material-wildcard {
+	background: linear-gradient(135deg, #c084fc 0%, #818cf8 45%, #38bdf8 100%);
+}
+.grid-tile.tile-material--css-fallback.tile-material-lucky,
+.word-slots .word-slot-content.tile-material--css-fallback.tile-material-lucky,
+.fly-letter.tile-material--css-fallback.tile-material-lucky,
+.deck-layer-tile.tile-material--css-fallback.tile-material-lucky {
+	background: linear-gradient(145deg, #f5e6a8 0%, #d4af37 50%, #9a7b1a 100%);
+}
+
 /* 主菜单 / 商店招牌（TileLetterShowcase · LetterTile variant=menu）与棋盘字母同字重 */
 .menu-logo-tile {
 	font-weight: var(--tile-letter-weight);
@@ -2979,10 +3025,6 @@ textarea::-moz-placeholder {
 	transition: transform calc(0.24s / var(--anim-speed-scale, 1)) ease;
 }
 
-html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-move {
-	transition: none;
-}
-
 .treasure-slots--stack {
 	display: flex;
 	flex-wrap: nowrap;
@@ -3437,31 +3479,23 @@ html.reduce-motion .treasure-slots--compact-animating .treasure-slot-reorder-mov
 .score-popup-bubble--hourglass {
 	background: #fff;
 	color: #4b5563;
-	min-width: calc(34 * var(--rpx));
-	min-height: calc(34 * var(--rpx));
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: calc(4 * var(--rpx)) calc(8 * var(--rpx));
 }
 
 .score-popup-bubble-hourglass-inner {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
-	gap: calc(4 * var(--rpx));
+	gap: calc(6 * var(--rpx));
 }
 
 .score-popup-bubble-hourglass-icon {
-	font-size: calc(22 * var(--rpx));
+	font-size: 1em;
 	line-height: 1;
-	color: #4b5563;
+	color: inherit;
 }
 
 .score-popup-bubble-hourglass-count {
-	font-size: calc(18 * var(--rpx));
-	font-weight: 700;
 	line-height: 1;
-	color: #4b5563;
+	color: inherit;
 }
 
 .score-popup-bubble--accessory-expired {
@@ -6174,54 +6208,6 @@ html.swap-confirm-button-side .confirm-actions-row {
 	font-weight: 700;
 }
 
-/* 减少动画：跳过 Vue 浮层 enter/leave；计分气泡 / result-area 仍保留完整动效 */
-html.reduce-motion [class*="-enter-active"]:not([class*="result-wordlen-fade-scale"]),
-html.reduce-motion [class*="-leave-active"]:not([class*="result-wordlen-fade-scale"]) {
-	transition-duration: 0.001ms !important;
-	transition-delay: 0ms !important;
-	animation-duration: 0.001ms !important;
-	animation-delay: 0ms !important;
-}
-
-html.reduce-motion [class*="-enter-from"]:not([class*="result-wordlen-fade-scale"]),
-html.reduce-motion [class*="-leave-to"]:not([class*="result-wordlen-fade-scale"]) {
-	opacity: 1 !important;
-	transform: none !important;
-}
-
-html.reduce-motion .boss-tape-ripple {
-	animation: none;
-	opacity: 0.45;
-	inset: calc(-4 * var(--rpx));
-}
-
-html.reduce-motion .boss-tape-wrap--trigger-impact .boss-tape-ripple {
-	animation: none;
-	opacity: 0.5;
-	inset: calc(-18 * var(--rpx));
-}
-
-html.reduce-motion .boss-tape-wrap--violate .boss-tape {
-	box-shadow: 0 0 0 calc(3 * var(--rpx)) var(--boss-tape-glow);
-}
-
-html.reduce-motion .boss-tape--wobble {
-	animation: none;
-}
-
-html.reduce-motion .spell-offer-winner-glow {
-	animation: none;
-}
-
-html.reduce-motion .treasure-charge-icon-nudge {
-	animation: none;
-}
-
-html.reduce-motion .tile-accessory-chip-ripple,
-html.reduce-motion .treasure-accessory-chip-ripple {
-	animation: none;
-}
-
 /* Tab / 分段滑块：外层平移 + 内层 CSS scale 按压 */
 .settings-segment,
 .collection-icon-segment,
@@ -6281,22 +6267,6 @@ html.reduce-motion .treasure-accessory-chip-ripple {
 		calc(var(--duration-tab-thumb-pulse, 0.95s) / var(--anim-speed-scale, 1))
 		var(--ease-tab-thumb-pulse, cubic-bezier(0.22, 1.12, 0.34, 1));
 	will-change: transform, filter;
-}
-
-html.reduce-motion .tab-thumb-pulse.tab-thumb-pulse-active,
-html.reduce-motion .info-tab-pulse-surface.tab-thumb-pulse-active {
-	animation: none !important;
-}
-
-/* 减少动画：分段/tab 背景块切换时不滑动 */
-html.reduce-motion .settings-segment-thumb,
-html.reduce-motion .collection-icon-segment-thumb,
-html.reduce-motion .segment-tab-thumb,
-html.reduce-motion .settings-layer-tabs-thumb,
-html.reduce-motion .run-start-dialog-tab-thumb,
-html.reduce-motion .about-tabs-thumb,
-html.reduce-motion .info-tabs-thumb {
-	transition: none !important;
 }
 
 /* —— 寻呼机测验层 —— */
@@ -6422,8 +6392,4 @@ html.reduce-motion .info-tabs-thumb {
 
 .pager-quiz-continue-dock .pager-quiz-continue-btn {
 	pointer-events: auto;
-}
-
-html.reduce-motion .pager-quiz-option {
-	transition: none;
 }

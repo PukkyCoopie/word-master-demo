@@ -1,7 +1,9 @@
 package com.timeshift_games.word_master;
 
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -9,6 +11,7 @@ import android.view.WindowManager;
 import android.webkit.PermissionRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -19,7 +22,10 @@ import com.getcapacitor.Bridge;
 
 public class MainActivity extends BridgeActivity {
 
+    private static final int MIN_WEBVIEW_CHROME_MAJOR = 70;
+
     private boolean webViewConfigured = false;
+    private boolean webViewBlockedDialogShown = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,11 +41,18 @@ public class MainActivity extends BridgeActivity {
         getWindow().setStatusBarColor(Color.TRANSPARENT);
         getWindow().setNavigationBarColor(Color.TRANSPARENT);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        if (isWebViewTooOld()) {
+            showWebViewBlockedDialog();
+        }
     }
 
     @Override
     public void onStart() {
         super.onStart();
+        if (webViewBlockedDialogShown) {
+            return;
+        }
         applyEdgeToEdgeSystemUi();
         configureWebViewForGame();
     }
@@ -47,6 +60,9 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
+        if (webViewBlockedDialogShown) {
+            return;
+        }
         if (hasFocus) {
             applyEdgeToEdgeSystemUi();
             configureWebViewForGame();
@@ -56,8 +72,159 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        if (webViewBlockedDialogShown) {
+            return;
+        }
         applyEdgeToEdgeSystemUi();
         configureWebViewForGame();
+    }
+
+    private boolean isWebViewTooOld() {
+        int major = resolveWebViewChromeMajor();
+        return major > 0 && major < MIN_WEBVIEW_CHROME_MAJOR;
+    }
+
+    private int resolveWebViewChromeMajor() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            android.content.pm.PackageInfo pkg = WebView.getCurrentWebViewPackage();
+            if (pkg != null && pkg.versionName != null) {
+                int major = parseMajorVersion(pkg.versionName);
+                if (major > 0) {
+                    return major;
+                }
+            }
+        }
+
+        WebView probe = null;
+        try {
+            probe = new WebView(this);
+            String ua = probe.getSettings().getUserAgentString();
+            return parseChromeMajorFromUserAgent(ua);
+        } catch (Exception ignored) {
+            return 0;
+        } finally {
+            if (probe != null) {
+                probe.destroy();
+            }
+        }
+    }
+
+    private int parseMajorVersion(String versionName) {
+        if (versionName == null || versionName.isEmpty()) {
+            return 0;
+        }
+        StringBuilder digits = new StringBuilder();
+        for (int i = 0; i < versionName.length(); i++) {
+            char c = versionName.charAt(i);
+            if (Character.isDigit(c)) {
+                digits.append(c);
+            } else if (digits.length() > 0) {
+                break;
+            }
+        }
+        if (digits.length() == 0) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(digits.toString());
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private int parseChromeMajorFromUserAgent(String userAgent) {
+        if (userAgent == null || userAgent.isEmpty()) {
+            return 0;
+        }
+        int marker = userAgent.indexOf("Chrome/");
+        if (marker < 0) {
+            marker = userAgent.indexOf("Chromium/");
+            if (marker < 0) {
+                return 0;
+            }
+            marker += "Chromium/".length();
+        } else {
+            marker += "Chrome/".length();
+        }
+        StringBuilder digits = new StringBuilder();
+        for (int i = marker; i < userAgent.length(); i++) {
+            char c = userAgent.charAt(i);
+            if (Character.isDigit(c)) {
+                digits.append(c);
+            } else if (digits.length() > 0) {
+                break;
+            }
+        }
+        if (digits.length() == 0) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(digits.toString());
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private void showWebViewBlockedDialog() {
+        if (webViewBlockedDialogShown || isFinishing()) {
+            return;
+        }
+        webViewBlockedDialogShown = true;
+
+        Bridge bridge = getBridge();
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().loadUrl("about:blank");
+        }
+
+        new AlertDialog.Builder(this)
+            .setTitle("系统组件过旧")
+            .setMessage(
+                "当前 Android System WebView 版本过低，无法运行游戏。"
+                    + "请在应用商店更新「Android System WebView」或 Google Chrome 后重试。"
+            )
+            .setCancelable(false)
+            .setPositiveButton(
+                "去更新",
+                (dialog, which) -> {
+                    openWebViewUpdatePage();
+                    finish();
+                }
+            )
+            .setNegativeButton(
+                "退出",
+                (dialog, which) -> finish()
+            )
+            .show();
+    }
+
+    private void openWebViewUpdatePage() {
+        String[] packageNames = new String[] {
+            "com.google.android.webview",
+            "com.android.chrome",
+        };
+        for (String packageName : packageNames) {
+            try {
+                Intent marketIntent = new Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("market://details?id=" + packageName)
+                );
+                marketIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(marketIntent);
+                return;
+            } catch (Exception ignored) {
+                try {
+                    Intent webIntent = new Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://play.google.com/store/apps/details?id=" + packageName)
+                    );
+                    webIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(webIntent);
+                    return;
+                } catch (Exception ignoredWeb) {
+                    // try next package
+                }
+            }
+        }
     }
 
     /**

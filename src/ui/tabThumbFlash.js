@@ -1,6 +1,5 @@
 import gsap from "gsap";
 import { nextTick, unref, watch } from "vue";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 /** @param {HTMLElement} pulse */
 function triggerPulseClass(pulse) {
@@ -46,13 +45,6 @@ export function useTabThumbFlash(indexSource, trackRef, options = {}) {
     if (!track || !pulse) return;
 
     const index = resolveIndex(unref(indexSource));
-
-    if (shouldSkipDecorativeMotion()) {
-      gsap.killTweensOf(track);
-      if (slide) gsap.set(track, { xPercent: index * 100 });
-      pulse.classList.remove("tab-thumb-pulse-active");
-      return;
-    }
 
     if (slide) {
       gsap.killTweensOf(track);
@@ -102,6 +94,6 @@ export function useTabThumbFlash(indexSource, trackRef, options = {}) {
 
 /** InfoModal 等：仅 CSS 按压脉冲 */
 export function runTabThumbPulse(el) {
-  if (!el || shouldSkipDecorativeMotion()) return;
+  if (!el) return;
   triggerPulseClass(el);
 }

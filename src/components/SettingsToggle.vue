@@ -71,8 +71,4 @@ function onToggle() {
   transform: translateX(calc(24 * var(--rpx)));
 }
 
-:global(html.reduce-motion) .settings-toggle-track,
-:global(html.reduce-motion) .settings-toggle-thumb {
-  transition: none;
-}
 </style>

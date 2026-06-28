@@ -48,6 +48,7 @@ export function createBossMechanicsEarlyState(getOwnedSlotTreasureIds, getTreasu
  * @param {import('vue').Ref<string>} options.activeBossSlug
  * @param {() => readonly (object | null)[]} options.getOwnedTreasures
  * @param {() => readonly string[]} options.getOwnedSlotTreasureIds
+ * @param {() => import('../../treasures/treasureRunState.js').TreasureRunState | null | undefined} [options.getTreasureRunState]
  * @param {import('vue').Ref<object[][]>} options.grid
  * @param {number} options.ROWS
  * @param {number} options.COLS
@@ -77,7 +78,11 @@ export function useBossMechanicsController(options) {
   let notifyBossRestrictionTreasuresImpl = null;
 
   function slug() {
-    return resolveBossSlugForMechanics(options.activeBossSlug.value, options.getOwnedSlotTreasureIds());
+    return resolveBossSlugForMechanics(
+      options.activeBossSlug.value,
+      options.getOwnedSlotTreasureIds(),
+      options.getTreasureRunState?.(),
+    );
   }
 
   const isManacleBossGridFlag = computed(() => isManacleBossGrid(slug()));
@@ -90,6 +95,7 @@ export function useBossMechanicsController(options) {
       pillarUsedDeckUids: options.pillarUsedDeckUids.value,
       verdantTreasureSold: options.verdantTreasureSold.value,
       ownedSlotTreasureIds: options.getOwnedSlotTreasureIds(),
+      treasureRun: options.getTreasureRunState?.() ?? null,
     };
   }
 

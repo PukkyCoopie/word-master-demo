@@ -13,6 +13,7 @@ import { getRunLevelAtIndex } from "../levelDefinitions.js";
 export async function startGamePanelFromRestoredSave(deps, restored) {
   deps.setSuppressShopEnterVisitInit(normalizeRunSavePhase(restored.phase) === "shop");
   await deps.hydrateFromPayload(restored);
+  deps.syncOwnedTreasureSlots?.();
   deps.syncShopUpgradesFreeFromOwnedTreasures();
   deps.syncPlayerMarkBatchCounterFromGrid();
   ensureBigramTargetPair(deps.getTreasureRunState(), deps.rollRandomBigramForTreasure);

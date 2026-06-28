@@ -1,6 +1,6 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
-import { getAnimationSpeedScale, shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
+import { getAnimationSpeedScale } from "../settings/animationSpeed.js";
 import { getHapticsEnabled } from "../settings/gameSettings.js";
 
 /** 触感分层、预设与挂接约定见同目录 `haptics.md`。 */
@@ -361,7 +361,7 @@ export function triggerHaptic(preset, opts = {}) {
  * @param {number} delayMs
  */
 export function scheduleHapticAt(preset, delayMs) {
-  if (!isHapticsAvailable() || !isHapticsGateOpen() || shouldSkipDecorativeMotion()) return;
+  if (!isHapticsAvailable() || !isHapticsGateOpen()) return;
   const ms = Math.max(0, Math.round(delayMs / getAnimationSpeedScale()));
   window.setTimeout(() => triggerHaptic(preset, { bypassThrottle: true }), ms);
 }

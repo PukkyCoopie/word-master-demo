@@ -623,10 +623,6 @@ function onSlotClick(i, slot, e) {
   transform: none !important;
 }
 
-:global(html.reduce-motion) .treasure-collection-grid--dragging .treasure-collection-grid-move {
-  transition: none;
-}
-
 .treasure-collection-layer-enter-active .treasure-collection-scrim,
 .treasure-collection-layer-leave-active .treasure-collection-scrim {
   transition: opacity calc(0.22s / var(--anim-speed-scale, 1)) var(--ease-expo-out, ease-out);

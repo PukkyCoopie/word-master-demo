@@ -10,7 +10,6 @@ import {
   resolveStableGridInsertIndex,
   TREASURE_SLOT_DRAG_THRESHOLD_PX,
 } from "./useTreasureSlotReorder.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { createDragEdgeAutoScrollLoop } from "../game/dragEdgeAutoScroll.js";
 
 const SETTLE_GHOST_DURATION = 0.22;
@@ -267,11 +266,6 @@ export function useTreasureGridReorder(options) {
       pointerEvents: "none",
       transition: "none",
     };
-
-    if (shouldSkipDecorativeMotion()) {
-      dragGhostStyle.value = targetStyle;
-      return;
-    }
 
     gsap.killTweensOf(dragGhostStyle.value);
     await gsap.to(dragGhostStyle.value, {

@@ -24,11 +24,14 @@ import {
 import {
   reglDisplayCanvas2dAttributes,
   getMaterialRenderPipeline,
+  notifyMaterialRenderingCapabilityChanged,
   reglHubWebglAttributes,
   reglMaterialDisplayDpr,
   reglOffscreenTexPx,
   useDirectVisibleWebglMaterial,
 } from "./reglMaterialPerf.js";
+import { markMaterialCssFallbackRequired } from "../platform/webViewCapabilities.js";
+import { applyMaterialAnimationCapabilityConstraints } from "../settings/materialAnimationAvailability.js";
 import {
   attachDirectMaterialRegl,
   setDirectMaterialReglAnimated,
@@ -75,21 +78,29 @@ function ensureSubscribersSet(materialId) {
 function ensureSharedHub() {
   if (sharedHub) return sharedHub;
 
-  const texPx = reglOffscreenTexPx();
-  const offscreen = document.createElement("canvas");
-  offscreen.width = texPx;
-  offscreen.height = texPx;
-  const regl = createREGL({
-    canvas: offscreen,
-    attributes: reglHubWebglAttributes(),
-  });
+  try {
+    const texPx = reglOffscreenTexPx();
+    const offscreen = document.createElement("canvas");
+    offscreen.width = texPx;
+    offscreen.height = texPx;
+    const regl = createREGL({
+      canvas: offscreen,
+      attributes: reglHubWebglAttributes(),
+    });
 
-  for (const mod of MATERIAL_SHADER_MODULES) {
-    drawByMaterial.set(mod.MATERIAL_ID, mod.createDraw(regl));
+    for (const mod of MATERIAL_SHADER_MODULES) {
+      drawByMaterial.set(mod.MATERIAL_ID, mod.createDraw(regl));
+    }
+
+    sharedHub = { offscreen, regl, texPx };
+    return sharedHub;
+  } catch (e) {
+    markMaterialCssFallbackRequired();
+    applyMaterialAnimationCapabilityConstraints();
+    notifyMaterialRenderingCapabilityChanged();
+    console.warn("[reglMaterialHub] shared hub init failed", e);
+    return null;
   }
-
-  sharedHub = { offscreen, regl, texPx };
-  return sharedHub;
 }
 
 function destroySharedHub() {

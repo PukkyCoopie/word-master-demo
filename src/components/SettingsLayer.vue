@@ -59,6 +59,34 @@
                   />
                 </div>
 
+                <label
+                  class="settings-row"
+                  :class="{ 'settings-row--disabled': !materialAnimationSettingSupported }"
+                >
+                  <span class="settings-row-label-group">
+                    <span class="settings-row-label">材质动画</span>
+                    <span
+                      v-if="!materialAnimationSettingSupported"
+                      class="settings-row-hint"
+                    >当前设备不支持</span>
+                  </span>
+                  <button
+                    type="button"
+                    class="settings-toggle"
+                    role="switch"
+                    :aria-checked="materialAnimationToggleChecked"
+                    :disabled="!materialAnimationSettingSupported"
+                    @click="onToggleMaterialAnimation"
+                  >
+                    <span
+                      class="settings-toggle-track"
+                      :class="{ 'settings-toggle-track--on': materialAnimationToggleChecked }"
+                    >
+                      <span class="settings-toggle-thumb" />
+                    </span>
+                  </button>
+                </label>
+
                 <div class="settings-row settings-row--segment">
                   <span class="settings-row-label">字母样式</span>
                   <SettingsSegmentControl
@@ -305,6 +333,7 @@ import { settingsOverlayZ } from "../game/overlayStack.js";
 import SettingsSegmentControl from "./SettingsSegmentControl.vue";
 import SettingsHelpButton from "./settings/SettingsHelpButton.vue";
 import { ANIMATION_SPEED_OPTIONS } from "../settings/animationSpeed.js";
+import { isMaterialAnimationSettingSupported } from "../settings/materialAnimationAvailability.js";
 import { LETTER_CASE_OPTIONS } from "../settings/letterCase.js";
 import { LETTER_Q_MODE_OPTIONS } from "../settings/letterQ.js";
 import {
@@ -319,6 +348,7 @@ import {
   setLetterQMode,
   setMarkButtonEnabled,
   setMarkOnSwap,
+  setMaterialAnimationEnabled,
   setWordDefinitionMode,
   stepSwapButtonMode,
   WORD_DEFINITION_MODE_OPTIONS,
@@ -425,6 +455,11 @@ const markOnSwapSettingEnabled = computed(
 );
 const displayLayoutMode = computed(() => gameSettings.displayLayoutMode);
 const animationSpeedTier = computed(() => gameSettings.animationSpeedTier);
+const materialAnimationEnabled = computed(() => gameSettings.materialAnimationEnabled !== false);
+const materialAnimationSettingSupported = computed(() => isMaterialAnimationSettingSupported());
+const materialAnimationToggleChecked = computed(
+  () => materialAnimationSettingSupported.value && materialAnimationEnabled.value,
+);
 const letterCase = computed(() => gameSettings.letterCase);
 const letterQMode = computed(() => gameSettings.letterQMode);
 const hapticsAvailable = isHapticsAvailable();
@@ -452,6 +487,12 @@ function onDisplayLayoutModeChange(mode) {
 /** @param {string} tier */
 function onAnimationSpeedChange(tier) {
   setAnimationSpeedTier(/** @type {import('../settings/gameSettings.js').AnimationSpeedTier} */ (tier));
+}
+
+function onToggleMaterialAnimation() {
+  if (!materialAnimationSettingSupported.value) return;
+  setMaterialAnimationEnabled(!materialAnimationEnabled.value);
+  settingsChangeTap();
 }
 
 /** @param {string} caseMode */
@@ -674,6 +715,13 @@ function onWordDefinitionModeChange(mode) {
   display: inline-flex;
   align-items: center;
   min-width: 0;
+}
+
+.settings-row-hint {
+  margin-left: calc(8 * var(--rpx));
+  font-size: calc(22 * var(--rpx));
+  font-weight: 500;
+  color: var(--text-muted, #7a7468);
 }
 
 .settings-row-label-icon-chip {

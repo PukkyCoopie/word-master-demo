@@ -154,11 +154,6 @@ import { bumpOverlayZ } from "../game/overlayStack.js";
 import { EASE_TRANSFORM } from "../constants.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
-import {
-  instantPortalLayerClose,
-  instantPortalLayerEnter,
-  shouldSkipDecorativeMotion,
-} from "../settings/animationSpeed.js";
 
 const props = defineProps({
   session: { type: Object, required: true },
@@ -242,17 +237,6 @@ function runEnterAnimation() {
   const backdrop = backdropRef.value;
   if (!backdrop || props.overlaySuppressed) return;
 
-  if (shouldSkipDecorativeMotion()) {
-    killEnterTweens();
-    enterBoot.value = false;
-    instantPortalLayerEnter({
-      backdrop,
-      backdropFinal: portalScrimGsapVars("rgba(42, 38, 48, 0.82)"),
-      staggerEls: collectEnterStaggerEls(),
-    });
-    return;
-  }
-
   killEnterTweens();
   enterBoot.value = true;
   const staggerEls = collectEnterStaggerEls();
@@ -311,14 +295,6 @@ function playClose(options = {}) {
   if (!backdrop && !staggerEls.length) {
     closing.value = false;
     return Promise.resolve();
-  }
-
-  if (shouldSkipDecorativeMotion()) {
-    closeFlightPromise = instantPortalLayerClose({ backdrop, staggerEls }).then(() => {
-      closing.value = false;
-      closeFlightPromise = null;
-    });
-    return closeFlightPromise;
   }
 
   closeFlightPromise = new Promise((resolve) => {

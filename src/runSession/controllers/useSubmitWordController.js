@@ -4,7 +4,7 @@ import { EASE_TRANSFORM } from "../../constants.js";
 import { applyBossTileDebuffState } from "../../game/bossTileDebuff.js";
 import {
   evaluateBossSoftWordViolation,
-  getEndingLetterRarityFromTiles,
+  getEndingLetterRarityForResolvedWord,
   nextMouthLockedLengthAfterSubmit,
 } from "../../game/bossWordViolation.js";
 import { getTreasureAccessoryExpiredSlotIndices } from "../../game/treasureHourglassRuntime.js";
@@ -177,6 +177,7 @@ export function useSubmitWordController(options) {
     ui.wordDefinitionHiddenForWordLeave.value = true;
     submitWordBusy.value = true;
     let submitChanceConsumed = false;
+    let scoreBeforeHand = 0;
 
     try {
       const { wordPattern: wordPattern0, resolvedWord } = submitInput;
@@ -245,7 +246,7 @@ export function useSubmitWordController(options) {
         slug: callbacks.bossSlugForMechanics(),
         wordLen: judgedLenTable,
         resolvedWord,
-        endingLetterRarity: getEndingLetterRarityFromTiles(tiles),
+        endingLetterRarity: getEndingLetterRarityForResolvedWord(tiles, resolvedWord),
         getWordDefinition: callbacks.getWordDefinition,
         usedLengthsThisLevel: boss.usedWordLengthsThisBoss.value,
         mouthLockedLength: boss.mouthLockedLengthBoss.value,
@@ -328,7 +329,7 @@ export function useSubmitWordController(options) {
         };
       }
 
-      const scoreBeforeHand = gridApi.currentScore.value;
+      scoreBeforeHand = gridApi.currentScore.value;
       const deferWordSubmitForPager = !submitViolated && ownedTids.includes(TREASURE_118_ID);
       pager.pendingPagerQuizSession.value = deferWordSubmitForPager
         ? buildPagerQuizOptions(resolvedWord, run.runRandom)
@@ -422,7 +423,6 @@ export function useSubmitWordController(options) {
         const oxHit =
           callbacks.bossSlugForMechanics() === "the_ox" &&
           callbacks.evaluateOxBossHit(judgedLenTable, gridApi.spellCountsByLength.value);
-        gridApi.recordSpellWordLength(judgedLenTable);
         if (oxHit) {
           callbacks.playBossTapeTriggerCue();
           run.money.value = 0;
@@ -457,7 +457,12 @@ export function useSubmitWordController(options) {
       callbacks.clearDeferredWordSubmitPayload();
       callbacks.clearPagerQuizPendingResolve?.();
       if (isGamePaused()) releaseAllGamePause();
-      if (submitChanceConsumed) gridApi.remainingWords.value += 1;
+      if (submitChanceConsumed) {
+        gridApi.remainingWords.value += 1;
+        if (gridApi.currentScore.value !== scoreBeforeHand) {
+          gridApi.currentScore.value = scoreBeforeHand;
+        }
+      }
       scoringAnimating.value = false;
       ui.wordDefinitionHiddenForWordLeave.value = false;
       ui.scoringLetterIndex.value = -1;

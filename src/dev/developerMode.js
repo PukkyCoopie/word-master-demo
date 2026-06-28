@@ -1,10 +1,48 @@
 import { ref } from "vue";
 
-/** 本会话是否已开启开发者模式（版本号连点 5 次）。 */
-export const developerModeEnabled = ref(false);
+const STORAGE_KEY = "word_master_developer_mode_v1";
+
+/** @returns {boolean} */
+function readStoredDeveloperMode() {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** @param {boolean} enabled */
+function persistDeveloperMode(enabled) {
+  try {
+    if (enabled) localStorage.setItem(STORAGE_KEY, "1");
+    else localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* 隐私模式等环境下忽略 */
+  }
+}
+
+/** 是否已开启开发者模式（版本号连点 5 次切换；刷新后仍保留）。 */
+export const developerModeEnabled = ref(readStoredDeveloperMode());
+
+/** @param {boolean} enabled */
+export function setDeveloperModeEnabled(enabled) {
+  const next = enabled === true;
+  developerModeEnabled.value = next;
+  persistDeveloperMode(next);
+}
 
 export function enableDeveloperMode() {
-  developerModeEnabled.value = true;
+  setDeveloperModeEnabled(true);
+}
+
+export function disableDeveloperMode() {
+  setDeveloperModeEnabled(false);
+}
+
+/** @returns {boolean} 切换后的状态 */
+export function toggleDeveloperMode() {
+  setDeveloperModeEnabled(!developerModeEnabled.value);
+  return developerModeEnabled.value;
 }
 
 /** @returns {boolean} */

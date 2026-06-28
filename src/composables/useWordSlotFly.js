@@ -1,7 +1,6 @@
 import { computed, nextTick, ref, shallowRef } from "vue";
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { createFlyBackTileElement, disposeFlyBackTileElement } from "../utils/letterTileFlyBack.js";
 
 export const FLY_DURATION = 0.25;
@@ -269,17 +268,6 @@ export function useWordSlotFly(options) {
       flyingLetters.value = flyingLetters.value.filter((f) => f.id !== item.id);
       flushFlyInSelections();
     };
-    if (shouldSkipDecorativeMotion()) {
-      gsap.set(node, {
-        left: t.left,
-        top: t.top,
-        scaleX: 1,
-        scaleY: 1,
-        "--slot-scale": targetScale,
-      });
-      finishFlyIn();
-      return;
-    }
     gsap.to(node, {
       left: t.left,
       top: t.top,
@@ -425,18 +413,6 @@ export function useWordSlotFly(options) {
       nextTick(() => updateSlotPositions(true));
     };
 
-    if (shouldSkipDecorativeMotion()) {
-      gsap.set(el, {
-        left: toRect.left,
-        top: toRect.top,
-        scaleX: 1,
-        scaleY: 1,
-        "--slot-scale": 1,
-      });
-      finish();
-      return;
-    }
-
     gsap.to(el, {
       left: toRect.left,
       top: toRect.top,
@@ -520,17 +496,6 @@ export function useWordSlotFly(options) {
           delete flyingBackBatchMeta[batchId];
         }
       };
-      if (shouldSkipDecorativeMotion()) {
-        gsap.set(el, {
-          left: item.toRect.left,
-          top: item.toRect.top,
-          scaleX: 1,
-          scaleY: 1,
-          "--slot-scale": 1,
-        });
-        finishFlyBack();
-        continue;
-      }
       gsap.to(el, {
         left: item.toRect.left,
         top: item.toRect.top,

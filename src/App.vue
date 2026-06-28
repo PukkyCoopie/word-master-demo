@@ -90,7 +90,7 @@
       <AboutLayer
         :open="showAbout"
         @close="closeAbout"
-        @enable-developer-mode="enableDeveloperMode"
+        @toggle-developer-mode="toggleDeveloperMode"
         @open-privacy="openPrivacyPolicyView"
       />
       <PrivacyConsentLayer
@@ -286,7 +286,7 @@ import {
 } from "./achievements/achievementTapTapSync.js";
 import AchievementToastLayer from "./components/AchievementToastLayer.vue";
 import { applyDeveloperAchievementCheat } from "./dev/developerAchievementCheats.js";
-import { developerModeEnabled, enableDeveloperMode } from "./dev/developerMode.js";
+import { developerModeEnabled, toggleDeveloperMode } from "./dev/developerMode.js";
 import { formatCollectionMenuProgressSuffix } from "./collection/collectionProgress.js";
 import { registerAndroidBackHandler } from "./platform/androidBackButton.js";
 import { handleAppAndroidBack } from "./platform/handleAppAndroidBack.js";
@@ -1013,7 +1013,6 @@ onMounted(() => {
     mutateCareer: mutateSlotCareer,
     refreshUi: bumpCollectionUi,
     openMaterialBench,
-    enableDeveloperMode,
     openTapTapEngagementPrompt: () => openTapTapEngagementLayer({ showIntroQuestion: true }),
     openCollection,
     openPrivacyPolicy: openPrivacyPolicyDebug,

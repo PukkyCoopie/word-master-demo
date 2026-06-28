@@ -18,7 +18,7 @@
 ## 日常 commit 时会发生什么
 
 1. **pre-commit**（`commit-msg` 也会补跑）：把本次 **commit 说明** 追加到最新版本 md 的 **自动区**（`<!-- changelog:auto -->` 之后），并将 frontmatter 的 **`date` 更新为当天（本地日期）**；**手写区**不会被覆盖。若无手写内容则 `show: false`（仅存档）；若已有手写则保留原有 `show` 设置。
-2. **post-commit**：按最大版本 +1（或 minor/major）新建下一版空 md，并同步 `appVersion.json` / `package.json`（amend 时带 `SKIP_VERSION_BUMP`，避免连环升版）。
+2. **post-commit**：按最大版本 +1（或 minor/major）新建下一版空 md，并同步 `appVersion.json` / `package.json`（amend 时带 `SKIP_VERSION_BUMP`，避免连环升版）。**commit 说明含 `no-bump` 或 `[no-bump]` 时不升版**（仍写入 changelog 自动区，标记会被去掉）。
 
 要让玩家在游戏里看到某版说明：在该版本 md 里写好正文，并设 `show: true`。
 
@@ -61,8 +61,15 @@
 跳过升版 / 不写下一版空文件：
 
 ```bash
+# Cursor / GUI 提交：在说明里写 no-bump（仍记 changelog）
+git commit -m "fix: 某改动
+
+no-bump"
+
+# 终端：跳过升版且不写 changelog
 SKIP_VERSION_BUMP=1 git commit -m "说明"
-# 或 git commit --no-verify
+
+# 或 git commit --no-verify（跳过全部 hook，不推荐日常用）
 ```
 
 ---

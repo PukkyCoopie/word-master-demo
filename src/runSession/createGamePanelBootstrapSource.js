@@ -8,6 +8,7 @@ export function createGamePanelBootstrapSource(d) {
       d.shopPhase.suppressShopEnterVisitInit.value = v;
     },
     hydrateFromPayload: (payload) => d.runSaveBridge.hydrateFromPayload(payload),
+    syncOwnedTreasureSlots: () => d.syncOwnedTreasureSlots?.(),
     syncShopUpgradesFreeFromOwnedTreasures: () =>
       d.syncShopUpgradesFreeFromOwnedTreasures(d.ownedSlotTreasureIdList(), d.treasureRunState.value),
     syncPlayerMarkBatchCounterFromGrid: d.syncPlayerMarkBatchCounterFromGrid,

@@ -1,7 +1,7 @@
 import { ref, nextTick } from "vue";
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../../constants.js";
-import { animSleep, shouldSkipDecorativeMotion } from "../../settings/animationSpeed.js";
+import { animSleep } from "../../settings/animationSpeed.js";
 import { scoringSleep } from "../../game/submitScoringTiming.js";
 import { cloneGridDeep, restoreGridFromDeepClone } from "../../game/spellTileAppearanceAnim.js";
 import { diffGridAppearanceTargets } from "../../game/spellTileAppearanceAnim.js";
@@ -263,9 +263,7 @@ async function playImmolateConfirmFxOnOfferSlots(
     buildNewSnapsAfterApply,
   );
 
-  if (!shouldSkipDecorativeMotion()) {
-    await animSleep(Math.round(SPELL_TILE_REMOVE_GROW_DUR_S * 1000));
-  }
+  await animSleep(Math.round(SPELL_TILE_REMOVE_GROW_DUR_S * 1000));
   showMoneyBubble();
 
   const ok = await animPromise;

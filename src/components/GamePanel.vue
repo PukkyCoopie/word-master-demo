@@ -462,6 +462,7 @@ const bossDebuffBridge = {
     pillarUsedDeckUids: pillarUsedDeckUids.value,
     verdantTreasureSold: verdantTreasureSold.value,
     ownedSlotTreasureIds: ownedSlotTreasureIdListEarly(),
+    treasureRun: treasureRunState.value,
   }),
 };
 
@@ -536,6 +537,7 @@ const {
   verdantTreasureSoldRef: verdantTreasureSold,
   bossMechanicsSuppressedRef: bossMechanicsSuppressed,
   getOwnedSlotTreasureIds: ownedSlotTreasureIdListEarly,
+  getTreasureRunState: () => treasureRunState.value,
   onBossTapeTriggerCue: () => bossTapeTriggerCueDispatch(),
   onBossRestrictionTreasureCue: () => bossRestrictionTreasureCueDispatch(),
 });
@@ -947,6 +949,10 @@ function setRarityLevelWithTreasurePairs(rarity, level) {
   applyRarityLevelUpgrade(rarity, level, setRarityLevel, ownedSlotTreasureIdList());
 }
 
+function getWordSlotRefsFromPlayfield() {
+  return playfieldActionsRef.current?.wordSlotRefs ?? [];
+}
+
 function buildSubmitAfterLettersContext(tiles, detailed) {
   return buildSubmitAfterLettersContextFromDeps(
     {
@@ -954,7 +960,7 @@ function buildSubmitAfterLettersContext(tiles, detailed) {
       resolveRealSubmitTileForWordSlot,
       touchGrid,
       playSubmitTileEnhancementStripLeave,
-      wordSlotRefs,
+      getWordSlotRefs: getWordSlotRefsFromPlayfield,
       getSelectedGridTileElsInOrder,
       getPendingPagerQuizSession: () => ctrlEarly.pendingPagerQuizSession.value,
       findOwnedTreasureSlotIndex,
@@ -1483,6 +1489,7 @@ const ctrlLate = wireGamePanelControllers({
   bossMechanicsSuppressed,
   activeBossSlug,
   ownedTreasures,
+  treasureRunState,
   ROWS,
   COLS,
   touchGrid,
@@ -2069,7 +2076,8 @@ wireGamePanelFxFromDeps({
   scheduleRunAutoSave,
   createWobbleScoreSlotTimeline, awaitWobbleScoreSlotTimeline, playOwnedTreasureWobbleOnlyFx,
   hourglassStageFxRef, inRunUpgradePlaybackRef, runResultPresentationCtrl, sleep,
-  submitTileLeaveFxRef, treasureRunState, getSelectedGridTileElsInOrder, wordSlotRefs, runRandom,
+  submitTileLeaveFxRef, treasureRunState, getSelectedGridTileElsInOrder,
+  getWordSlotRefs: getWordSlotRefsFromPlayfield, runRandom,
   isBossTileDebuffed, removeDeckCardByUidAndNotify, ownedSlotTreasureIdList, ownedTreasureHookFxBridge,
   playTreasureSlotBubbleBurstAtPeak, playOwnedTreasureMoneyFx, triggerHaptic,
   awaitTreasureSlotWobbleElForSubmit, runDetachedTileShrinkReplacePop,
@@ -2226,6 +2234,7 @@ function buildGamePanelBootstrapSource() {
     runSaveBridge,
     ownedSlotTreasureIdList,
     treasureRunState,
+    syncOwnedTreasureSlots: () => ctrlEarly.syncOwnedTreasureSlots(),
     syncShopUpgradesFreeFromOwnedTreasures,
     syncPlayerMarkBatchCounterFromGrid,
     rollRandomBigramForTreasure: ctrlEarly.rollRandomBigramForTreasure,

@@ -6,6 +6,7 @@ export function buildGamePanelBootstrapDeps(d) {
   return {
     setSuppressShopEnterVisitInit: d.setSuppressShopEnterVisitInit,
     hydrateFromPayload: d.hydrateFromPayload,
+    syncOwnedTreasureSlots: d.syncOwnedTreasureSlots,
     syncShopUpgradesFreeFromOwnedTreasures: d.syncShopUpgradesFreeFromOwnedTreasures,
     syncPlayerMarkBatchCounterFromGrid: d.syncPlayerMarkBatchCounterFromGrid,
     getTreasureRunState: d.getTreasureRunState,

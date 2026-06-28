@@ -490,6 +490,15 @@ export function sumTreasureShopAccessoryChanceMult(ownedSlotTreasureIds) {
   return mult;
 }
 
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
+export function ownedTreasureGuaranteesShopGainAccessory(ownedSlotTreasureIds) {
+  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.guaranteesShopTreasureGainAccessory;
+    if (fn?.()) return true;
+  }
+  return false;
+}
+
 /**
  * @param {(string | null | undefined)[]} ownedSlotTreasureIds
  * @param {{ hands: number, removals: number, treasureRun?: import('./treasureRunState.js').TreasureRunState }} ctx

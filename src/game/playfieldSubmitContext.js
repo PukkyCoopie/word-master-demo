@@ -5,7 +5,7 @@
  *   resolveRealSubmitTileForWordSlot: (index: number, scoringTile?: object | null) => object | null,
  *   touchGrid: () => void,
  *   playSubmitTileEnhancementStripLeave: (opts: object) => Promise<void>,
- *   wordSlotRefs: (HTMLElement | undefined)[],
+ *   getWordSlotRefs: () => (HTMLElement | undefined)[],
  *   getSelectedGridTileElsInOrder: () => HTMLElement[],
  *   getPendingPagerQuizSession: () => unknown,
  *   findOwnedTreasureSlotIndex: (treasureId: string) => number,
@@ -23,9 +23,11 @@ export function buildSubmitAfterLettersContext(deps, tiles, detailed) {
     touchGrid: deps.touchGrid,
     playSubmitTileEnhancementStripLeave: deps.playSubmitTileEnhancementStripLeave,
     getWordSlotEls: () => {
+      const refs = deps.getWordSlotRefs?.() ?? [];
+      /** @type {HTMLElement[]} */
       const out = [];
       for (let i = 0; i < tiles.length; i += 1) {
-        const el = deps.wordSlotRefs[i];
+        const el = refs[i];
         if (el) out[i] = el;
       }
       return out;

@@ -1,4 +1,5 @@
 import confetti from "canvas-confetti";
+import { getSupportsConfettiWorker } from "../platform/webViewCapabilities.js";
 import { playRunEndWinConfettiBursts } from "./runEndWinConfetti.js";
 
 /**
@@ -71,7 +72,7 @@ export function createRunEndConfettiController({ getCanvasEl }) {
   function ensureFire() {
     const canvas = getCanvasEl();
     if (!canvas) return null;
-    if (!fire) fire = confetti.create(canvas, { resize: false, useWorker: true });
+    if (!fire) fire = confetti.create(canvas, { resize: false, useWorker: getSupportsConfettiWorker() });
     return fire;
   }
 

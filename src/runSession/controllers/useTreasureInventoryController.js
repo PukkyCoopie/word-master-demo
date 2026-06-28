@@ -11,7 +11,7 @@ import {
 } from "../../game/treasureBarLayout.js";
 import { offerFlyOriginRectFromEl } from "../../game/offerFlyOrigin.js";
 import { createPreviewNavGroupFromItems } from "../../preview/previewGroupNav.js";
-import { animSleep, shouldSkipDecorativeMotion } from "../../settings/animationSpeed.js";
+import { animSleep } from "../../settings/animationSpeed.js";
 import { getTreasureDef } from "../../treasures/treasureRegistry.js";
 import { initTreasureBankOnAcquire } from "../../treasures/treasureAcquireInit.js";
 
@@ -98,7 +98,7 @@ export function useTreasureInventoryController(options) {
   });
 
   async function triggerCompactAnim() {
-    if (!stackMode.value || shouldSkipDecorativeMotion()) return;
+    if (!stackMode.value) return;
     compactAnimating.value = true;
     await animSleep(280);
     compactAnimating.value = false;

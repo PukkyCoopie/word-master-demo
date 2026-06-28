@@ -164,6 +164,32 @@ export function rollDeckTileEditionAccessoryId(rng, honeAccessoryMult = 1) {
 }
 
 /**
+ * @param {string | null | undefined} id
+ * @returns {boolean} 商店宝藏掷骰池内的增益配饰（火焰/水滴/扳手/裁剪等；不含租赁/沙漏/禁售）
+ */
+export function isTreasureShopGainAccessoryId(id) {
+  const key = normId(id);
+  if (!key) return false;
+  return (ACCESSORY_CATALOG[key]?.roll?.treasureShopWeight ?? 0) > 0;
+}
+
+/**
+ * 必定掷出一枚商店增益配饰（跳过概率门）。
+ * @param {() => number} [rng=Math.random]
+ * @returns {string}
+ */
+export function rollShopTreasureGainAccessoryId(rng = Math.random) {
+  const rnd = typeof rng === "function" ? rng : Math.random;
+  const u = rnd() * 100;
+  let t = 0;
+  for (const id of SHOP_TREASURE_ACCESSORY_ROLL_ORDER) {
+    t += ACCESSORY_CATALOG[id]?.roll?.treasureShopWeight ?? 0;
+    if (u < t) return id;
+  }
+  return SHOP_TREASURE_ACCESSORY_ROLL_ORDER[SHOP_TREASURE_ACCESSORY_ROLL_ORDER.length - 1] ?? ACCESSORY_FIRE;
+}
+
+/**
  * @param {() => number} [rng=Math.random]
  * @param {number} [chanceMult=1]
  * @returns {string | null}

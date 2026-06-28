@@ -1,5 +1,4 @@
 import gsap from "gsap";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 /** 宝藏入槽：小 → 略过冲 → 落回 1（与法术块 POP 节奏接近） */
 const GRANT_POP_OVERSHOOT = 1.12;
@@ -17,11 +16,6 @@ export function runTreasureGrantPopAnim(slotEl) {
       return;
     }
     gsap.killTweensOf(slotEl);
-    if (shouldSkipDecorativeMotion()) {
-      gsap.set(slotEl, { transformOrigin: "50% 50%", scale: 1, opacity: 1 });
-      resolve();
-      return;
-    }
     gsap.set(slotEl, { transformOrigin: "50% 50%", scale: 0, opacity: 1 });
     const tl = gsap.timeline({
       onComplete: () => {

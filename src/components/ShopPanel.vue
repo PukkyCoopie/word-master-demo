@@ -428,9 +428,7 @@ import {
   RARITY_UPGRADE_BALANCE,
 } from "../composables/useScoring";
 import { resolveUpgradePlaybackSpeed } from "../shop/randomUpgradeRoll.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { bubbleAtShopPanel } from "../game/popupBubbleFx.js";
-import { createWobbleHighlightTimeline } from "../game/wobbleHighlightFx.js";
 import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
 import { buildShopOfferPriceView } from "../shop/shopOfferPriceDisplay.js";
 import { isSingleDigitLabel } from "./detailLayerFormatters.js";
@@ -680,11 +678,6 @@ function bubbleAt(targetEl, text, kind) {
 function wobblePanelLikeScoreSlot(el, delayS = 0, speed = 1) {
   if (!el) return;
   const s = Math.max(0.01, Number(speed) || 1);
-  if (shouldSkipDecorativeMotion()) {
-    const tl = createWobbleHighlightTimeline(el, { delayS });
-    if (tl) tl.timeScale(s);
-    return;
-  }
   gsap.killTweensOf(el, "rotation,scale,x,y");
   const tCompress = 0.11;
   const tExpand = 0.15;

@@ -1,7 +1,5 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
-import { createWobbleHighlightTimeline } from "./wobbleHighlightFx.js";
 import { schedulePopupBubbleDismiss } from "./popupBubbleFx.js";
 import { isDebtMoneyBubbleLabel } from "./moneyDisplay.js";
 import { scoringSleep } from "./submitScoringTiming.js";
@@ -454,62 +452,58 @@ export function createScoreBubbleFx(deps) {
     const wobbleEl = resolveWobbleTransformEl(slotEl);
     /** @type {gsap.core.Timeline | null} */
     let tl = null;
-    if (shouldSkipDecorativeMotion()) {
-      tl = createWobbleHighlightTimeline(wobbleEl);
-    } else {
-      gsap.killTweensOf(wobbleEl, "rotation,scale,x,y");
-      const origin = "50% 55%";
-      gsap.set(wobbleEl, { x: 0, y: 0, rotation: 0, scale: 1, transformOrigin: origin });
+    gsap.killTweensOf(wobbleEl, "rotation,scale,x,y");
+    const origin = "50% 55%";
+    gsap.set(wobbleEl, { x: 0, y: 0, rotation: 0, scale: 1, transformOrigin: origin });
 
-      const t0 = 0;
-      const tCompress = WOBBLE_SCALE_COMPRESS_S;
-      const tExpand = WOBBLE_SCALE_EXPAND_S;
-      const peak = tCompress + tExpand;
-      const scaleDownStart = peak - 0.05;
-      const rotStart = tCompress + tExpand * 0.5;
-      const rotD1 = 0.034;
-      const rotD2 = 0.036;
+    const t0 = 0;
+    const tCompress = WOBBLE_SCALE_COMPRESS_S;
+    const tExpand = WOBBLE_SCALE_EXPAND_S;
+    const peak = tCompress + tExpand;
+    const scaleDownStart = peak - 0.05;
+    const rotStart = tCompress + tExpand * 0.5;
+    const rotD1 = 0.034;
+    const rotD2 = 0.036;
 
-      const scorePillEl =
-        pillAugment?.scorePill === true ? slotEl.querySelector(".tile-bonus-pill--score") : null;
-      const multPillEl =
-        pillAugment?.multPill === true ? slotEl.querySelector(".tile-bonus-pill--mult") : null;
-      /** @type {HTMLElement[]} */
-      const pillEls = [];
-      if (scorePillEl instanceof HTMLElement) pillEls.push(scorePillEl);
-      if (multPillEl instanceof HTMLElement) pillEls.push(multPillEl);
-      for (const pill of pillEls) {
-        gsap.killTweensOf(pill, "scale");
-        gsap.set(pill, { scale: 1, transformOrigin: "50% 50%" });
-      }
-
-      const tlBuilt = gsap.timeline();
-      tlBuilt.to(wobbleEl, { scale: WOBBLE_SCALE_COMPRESS_TO, duration: tCompress, ease: "circ.out" }, t0);
-      tlBuilt.to(wobbleEl, { scale: 1.18, duration: tExpand, ease: "circ.inOut" }, tCompress);
-      tlBuilt.to(wobbleEl, { scale: 1, duration: 0.3, ease: "circ.in" }, scaleDownStart);
-      tlBuilt.call(() => triggerHaptic("wobble"), null, rotStart);
-      tlBuilt.to(wobbleEl, { rotation: 2.6, duration: rotD1, ease: "power2.out" }, rotStart);
-      tlBuilt.to(wobbleEl, { rotation: -1.9, duration: rotD2, ease: "power2.inOut" }, rotStart + rotD1);
-      tlBuilt.to(wobbleEl, { rotation: 0, duration: 0.12, ease: "power2.out" }, rotStart + rotD1 + rotD2);
-
-      if (pillEls.length) {
-        tlBuilt.to(
-          pillEls,
-          { scale: TILE_AUGMENT_BADGE_BOUNCE_SCALE, duration: tCompress, ease: "circ.out" },
-          t0,
-        );
-        tlBuilt.to(pillEls, { scale: 1, duration: tExpand + 0.12, ease: "circ.inOut" }, tCompress);
-      }
-
-      attachTreasureStackShadowWobble(tlBuilt, slotEl, {
-        t0,
-        tCompress,
-        tExpand,
-        scaleDownStart,
-      });
-
-      tl = tlBuilt;
+    const scorePillEl =
+      pillAugment?.scorePill === true ? slotEl.querySelector(".tile-bonus-pill--score") : null;
+    const multPillEl =
+      pillAugment?.multPill === true ? slotEl.querySelector(".tile-bonus-pill--mult") : null;
+    /** @type {HTMLElement[]} */
+    const pillEls = [];
+    if (scorePillEl instanceof HTMLElement) pillEls.push(scorePillEl);
+    if (multPillEl instanceof HTMLElement) pillEls.push(multPillEl);
+    for (const pill of pillEls) {
+      gsap.killTweensOf(pill, "scale");
+      gsap.set(pill, { scale: 1, transformOrigin: "50% 50%" });
     }
+
+    const tlBuilt = gsap.timeline();
+    tlBuilt.to(wobbleEl, { scale: WOBBLE_SCALE_COMPRESS_TO, duration: tCompress, ease: "circ.out" }, t0);
+    tlBuilt.to(wobbleEl, { scale: 1.18, duration: tExpand, ease: "circ.inOut" }, tCompress);
+    tlBuilt.to(wobbleEl, { scale: 1, duration: 0.3, ease: "circ.in" }, scaleDownStart);
+    tlBuilt.call(() => triggerHaptic("wobble"), null, rotStart);
+    tlBuilt.to(wobbleEl, { rotation: 2.6, duration: rotD1, ease: "power2.out" }, rotStart);
+    tlBuilt.to(wobbleEl, { rotation: -1.9, duration: rotD2, ease: "power2.inOut" }, rotStart + rotD1);
+    tlBuilt.to(wobbleEl, { rotation: 0, duration: 0.12, ease: "power2.out" }, rotStart + rotD1 + rotD2);
+
+    if (pillEls.length) {
+      tlBuilt.to(
+        pillEls,
+        { scale: TILE_AUGMENT_BADGE_BOUNCE_SCALE, duration: tCompress, ease: "circ.out" },
+        t0,
+      );
+      tlBuilt.to(pillEls, { scale: 1, duration: tExpand + 0.12, ease: "circ.inOut" }, tCompress);
+    }
+
+    attachTreasureStackShadowWobble(tlBuilt, slotEl, {
+      t0,
+      tCompress,
+      tExpand,
+      scaleDownStart,
+    });
+
+    tl = tlBuilt;
 
     if (tl) attachTreasureSlotWobbleZFront(tl, slotEl);
     return tl;

@@ -5,6 +5,8 @@ import {
   bossWildcardComplianceMode,
   dictionaryPosMatchesClubKey,
   evaluateBossSoftWordViolation,
+  getEndingLetterRarityForResolvedWord,
+  getEndingLetterRarityFromTiles,
   inferPosFromTranslationHead,
 } from "./bossWordViolation.js";
 
@@ -70,4 +72,25 @@ test("bossWildcardComplianceMode: 独口锁定长度", () => {
 test("bossWildcardComplianceMode: 棘梅需逐词判定", () => {
   const ctx = { slug: "the_club", clubRequiredKey: "n" };
   assert.equal(bossWildcardComplianceMode(ctx, 5), "per_candidate");
+});
+
+test("魔鬼：末字稀有度按解析字母判定，非仅格上 rarity", () => {
+  const tiles = [
+    { letter: "c", rarity: "common" },
+    { letter: "a", rarity: "common" },
+    { letter: "?", rarity: "epic", isWildcard: true, materialId: "wildcard" },
+  ];
+  assert.equal(getEndingLetterRarityFromTiles(tiles), "epic");
+  assert.equal(getEndingLetterRarityForResolvedWord(tiles, "cat"), "common");
+  const soft = evaluateBossSoftWordViolation({
+    slug: "the_noble_end",
+    wordLen: 3,
+    resolvedWord: "cat",
+    endingLetterRarity: getEndingLetterRarityForResolvedWord(tiles, "cat"),
+    getWordDefinition: () => null,
+    usedLengthsThisLevel: new Set(),
+    mouthLockedLength: null,
+    clubRequiredKey: null,
+  });
+  assert.equal(soft.violated, true);
 });

@@ -165,12 +165,14 @@ export function useTreasureRunController(options) {
     return getOwnedTreasureSlotBonusFromVouchers(ownedVoucherIds.value);
   }
 
+  /** 券 + 预设对栏位上限的加减（如挂钩 +1、三角尺 -1） */
+  function treasureSlotCapacityExtra() {
+    return treasureVoucherExtraSlots() + getPresetTreasureSlotDelta(runPresetId.value);
+  }
+
   function syncOwnedTreasureSlots() {
     const arr = ownedTreasures.value;
-    const target = computeOwnedTreasureSlotTargetLength(
-      arr,
-      treasureVoucherExtraSlots() + getPresetTreasureSlotDelta(runPresetId.value),
-    );
+    const target = computeOwnedTreasureSlotTargetLength(arr, treasureSlotCapacityExtra());
     const next = [...arr];
     while (next.length < target) next.push(null);
     while (next.length > target && next[next.length - 1] == null) next.pop();
@@ -202,6 +204,12 @@ export function useTreasureRunController(options) {
     },
     { deep: true },
   );
+
+  watch(runPresetId, () => {
+    syncOwnedTreasureSlots();
+  });
+
+  syncOwnedTreasureSlots();
 
   const {
     dragActive: gameOwnedDragActive,
@@ -491,7 +499,7 @@ export function useTreasureRunController(options) {
   function canPlaceTreasureOffer(offer) {
     return canAcquireTreasureOffer(
       ownedTreasures.value,
-      treasureVoucherExtraSlots(),
+      treasureSlotCapacityExtra(),
       readTreasureAccessoryIds(offer),
     );
   }
@@ -501,7 +509,7 @@ export function useTreasureRunController(options) {
     const slots = ownedTreasures.value;
     const ix = slots.findIndex((s) => s == null);
     if (ix >= 0) return ix;
-    if (willIncomingTreasureAccessoriesExpandSlots(slots, treasureVoucherExtraSlots(), readTreasureAccessoryIds(offer))) {
+    if (willIncomingTreasureAccessoriesExpandSlots(slots, treasureSlotCapacityExtra(), readTreasureAccessoryIds(offer))) {
       const next = [...slots, null];
       ownedTreasures.value = next;
       const keys = [...gameOwnedKeyOrder.value];

@@ -1,5 +1,4 @@
 import { watch } from "vue";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 import { LEVELS, RUN_START_LEVEL_INDEX, isStandardRunFinalLevelIndex } from "../levelDefinitions.js";
 import {
   reportAverageWordLengthOnWin,
@@ -59,7 +58,7 @@ export function createRunEndFlow(deps) {
       void deps.dismissTileDetailLayer();
       deps.showShop.value = false;
       void deps.nextTick(() => {
-        if (deps.runEndOutcome.value === "win" && !shouldSkipDecorativeMotion()) {
+        if (deps.runEndOutcome.value === "win") {
           deps.getRunEndFlowHost()?.triggerConfettiWin?.();
         }
       });

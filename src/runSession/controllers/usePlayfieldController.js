@@ -2,7 +2,6 @@ import { computed, ref, shallowRef, watch, nextTick } from "vue";
 import gsap from "gsap";
 import { useTileDrag, buildInsertDragPreviewSlots } from "../../composables/useTileDrag.js";
 import { useWordSlotFly, MIDDLE_MAX_W, SLOT_TILE_W } from "../../composables/useWordSlotFly.js";
-import { shouldSkipDecorativeMotion } from "../../settings/animationSpeed.js";
 import { createPlayfieldGridRender } from "../../game/playfieldGridRender.js";
 import { createPlayfieldWordAux } from "../../game/playfieldWordAux.js";
 import { createPlayfieldViewContext } from "../../components/run/playfieldViewKey.js";
@@ -508,7 +507,6 @@ function updateSlotPositions(deltaMs) {
     batches.length > 0
       ? Math.min(...batches.map((b) => b.slotIndex))
       : N + flyingLetters.value.length;
-  const skipMotion = shouldSkipDecorativeMotion();
   if (N === 0) {
     slotCurrentPositions.length = 0;
     slotPhScales.length = 0;
@@ -553,7 +551,7 @@ function updateSlotPositions(deltaMs) {
     });
   }
   const dt = deltaMs === true ? 1 : (deltaMs || 16) / SLOT_EXPO_TIME_MS;
-  const factor = deltaMs === true || skipMotion ? 1 : 1 - Math.pow(2, -10 * Math.min(dt, 1));
+  const factor = deltaMs === true ? 1 : 1 - Math.pow(2, -10 * Math.min(dt, 1));
   const phActiveNow = [];
   for (let i = 0; i < N; i++) {
     const outOfFlow = batches.some((b) => i >= b.slotIndex);
@@ -608,26 +606,7 @@ function updateSlotPositions(deltaMs) {
   for (let i = 0; i < phActiveNow.length; i += 1) {
     slotPhPrevActive.push(!!phActiveNow[i]);
   }
-  if (!skipMotion) {
-    tryCompleteWordDragPhExit();
-  } else {
-    const exit = wordDragPhExit.value;
-    if (exit) {
-      const src = tileDragSource.value;
-      const base = presentation.getWordSlotTilePresentations();
-      const slotIndex = exit.slotIndex;
-      wordDragPhExit.value = null;
-      if (src?.zone === "word" && tileDragHoverZone.value === "grid") {
-        const prevPres = buildWordDragPreviewSlots(base, slotIndex, slotIndex);
-        const nextPres = base.filter((_, i) => i !== slotIndex);
-        remapSlotPositionsAfterShuffleAndSync(prevPres, nextPres);
-      } else if (src?.zone === "grid") {
-        const prevPres = buildInsertDragPreviewSlots(base, slotIndex);
-        remapSlotPositionsAfterShuffleAndSync(prevPres, base);
-      }
-      lastWordDragPresentations = displayWordSlotPresentations.value;
-    }
-  }
+  tryCompleteWordDragPhExit();
 }
 
 slotLayoutBridge.ensureSlotRafRunning = ensureSlotRafRunning;

@@ -27,8 +27,9 @@ export function computeOwnedTreasureSlotTargetLength(ownedSlots, voucherExtraSlo
   const arr = Array.isArray(ownedSlots) ? ownedSlots : [];
   const filled = arr.filter(Boolean).length;
   const bonus = countTreasureCropSlotBonus(arr);
-  const vx = Math.max(0, Math.floor(Number(voucherExtraSlots) || 0));
-  return Math.max(BASE_TREASURE_SLOT_COUNT + bonus + vx, filled);
+  const extra = Math.floor(Number(voucherExtraSlots) || 0);
+  const baseTarget = BASE_TREASURE_SLOT_COUNT + bonus + extra;
+  return Math.max(Math.max(1, baseTarget), filled);
 }
 
 /**

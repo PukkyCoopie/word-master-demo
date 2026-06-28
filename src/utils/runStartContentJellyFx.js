@@ -1,5 +1,4 @@
 import gsap from "gsap";
-import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
 
 /**
  * 开局预设/难度卡片切换：横向挤压 → 内容交换 → 弹性回弹（jelly）。
@@ -12,11 +11,6 @@ import { shouldSkipDecorativeMotion } from "../settings/animationSpeed.js";
  */
 export function playRunStartContentJellySwap(el, _direction, onSwap) {
   if (!el) {
-    onSwap?.();
-    return null;
-  }
-
-  if (shouldSkipDecorativeMotion()) {
     onSwap?.();
     return null;
   }

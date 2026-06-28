@@ -568,6 +568,7 @@ function wireGamePanelControllersLate(d) {
     activeBossSlug: d.activeBossSlug,
     getOwnedTreasures: () => d.ownedTreasures.value,
     getOwnedSlotTreasureIds: d.ownedSlotTreasureIdList,
+    getTreasureRunState: () => d.treasureRunState.value,
     grid: d.grid,
     ROWS: d.ROWS,
     COLS: d.COLS,

@@ -220,10 +220,44 @@ function dictionaryFromDataDir() {
   };
 }
 
+/** 构建时把 index.html 内联引导中的占位符替换为实际 module 入口 */
+function wordMasterDynamicEntry() {
+  return {
+    name: "word-master-dynamic-entry",
+    transformIndexHtml: {
+      order: "pre",
+      handler(html) {
+        return html.replaceAll("__WM_MAIN_IMPORT__", "/src/main.js");
+      },
+    },
+    generateBundle(_options, bundle) {
+      /** @type {import('rollup').OutputChunk | undefined} */
+      let mainChunk;
+      for (const item of Object.values(bundle)) {
+        if (item.type !== "chunk" || !item.isEntry) continue;
+        if (!mainChunk || item.code.length > mainChunk.code.length) {
+          mainChunk = item;
+        }
+      }
+      if (!mainChunk?.fileName) return;
+      const entryImport = `./${mainChunk.fileName}`;
+      for (const fileName of Object.keys(bundle)) {
+        if (fileName !== "index.html") continue;
+        const asset = bundle[fileName];
+        if (asset.type !== "asset" || typeof asset.source !== "string") continue;
+        asset.source = asset.source.replaceAll("__WM_MAIN_IMPORT__", entryImport);
+      }
+    },
+  };
+}
+
 export default defineConfig({
   base: "./",
   root: ".",
   publicDir: "public",
+  build: {
+    target: "chrome70",
+  },
   // 等写入稳定后再触发 HMR，减轻编辑器/Agent 分步保存时的半截语法报错
   server: {
     watch: {
@@ -233,5 +267,12 @@ export default defineConfig({
       },
     },
   },
-  plugins: [changelogFromMarkdownPlugin(), remixiconWoff2Only(), dictionaryFromDataDir(), devRecentTreasuresPlugin(), vue()],
+  plugins: [
+    changelogFromMarkdownPlugin(),
+    remixiconWoff2Only(),
+    dictionaryFromDataDir(),
+    devRecentTreasuresPlugin(),
+    wordMasterDynamicEntry(),
+    vue(),
+  ],
 });

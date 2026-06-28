@@ -1,4 +1,9 @@
 import { clampSaveSlotIndex } from "../save/runSaveSchema.js";
+import {
+  disableDeveloperMode as disableDeveloperModeState,
+  enableDeveloperMode as enableDeveloperModeState,
+  toggleDeveloperMode as toggleDeveloperModeState,
+} from "./developerMode.js";
 import { normalizeScreenshotPresetId } from "./screenshotPresetScenario.js";
 import {
   applyFullCollectionUnlockToCareer,
@@ -12,7 +17,6 @@ import {
  * @param {(slotIndex: number, mutator: (career: import('../save/runSaveSchema.js').SlotCareerStats) => void) => void} deps.mutateCareer
  * @param {() => void} [deps.refreshUi]
  * @param {() => void} [deps.openMaterialBench]
- * @param {() => void} [deps.enableDeveloperMode]
  * @param {() => void} [deps.openTapTapEngagementPrompt]
  * @param {() => void | Promise<void>} [deps.openCollection]
  * @param {(mode?: 'view' | 'consent') => void} [deps.openPrivacyPolicy]
@@ -26,7 +30,6 @@ export function registerDevConsole(deps) {
     mutateCareer,
     refreshUi,
     openMaterialBench,
-    enableDeveloperMode,
     openTapTapEngagementPrompt,
     openCollection,
     openPrivacyPolicy,
@@ -109,6 +112,8 @@ export function registerDevConsole(deps) {
         "  __WM_DEV__.unlockFullCollection(0)      — 指定槽位（0/1/2）",
         "  __WM_DEV__.openMaterialBench()        — 材质性能实验（10 格）",
         "  __WM_DEV__.enableDeveloperMode()      — 开启开发者模式（收藏成就连点作弊）",
+        "  __WM_DEV__.disableDeveloperMode()     — 关闭开发者模式",
+        "  __WM_DEV__.toggleDeveloperMode()      — 切换开发者模式",
         "  __WM_DEV__.openTapTapEngagementPrompt() — 打开评价和反馈弹窗（含引导问句）",
         "  __WM_DEV__.openPrivacyPolicy()          — 预览隐私政策（只读，确定关闭）",
         "  __WM_DEV__.openPrivacyPolicy('consent') — 预览首次同意弹窗（同意/不同意）",
@@ -150,8 +155,17 @@ export function registerDevConsole(deps) {
       console.log("[DEV] 已打开材质性能实验页");
     },
     enableDeveloperMode: () => {
-      enableDeveloperMode?.();
+      enableDeveloperModeState();
       console.log("[DEV] 已开启开发者模式");
+    },
+    disableDeveloperMode: () => {
+      disableDeveloperModeState();
+      console.log("[DEV] 已关闭开发者模式");
+    },
+    toggleDeveloperMode: () => {
+      const on = toggleDeveloperModeState();
+      console.log(`[DEV] 开发者模式已${on ? "开启" : "关闭"}`);
+      return on;
     },
     openTapTapEngagementPrompt: () => {
       openTapTapEngagementPrompt?.();

@@ -402,6 +402,7 @@ export function rollBundleOptionsForOffer(bundleOffer, ctx) {
       honeMult,
       ctx.runDifficultyIndex ?? null,
       ctx.rollTreasureAccessories !== false,
+      ctx.guaranteeShopTreasureGainAccessory === true,
     );
 
   const kind = String(bundleOffer?.bundleKind ?? "");
