@@ -6,6 +6,10 @@
 
  */
 
+import {
+  advanceResolvedReadPosPastTile,
+  readWildcardRawFromResolved,
+} from "../game/resolvedWordTileMapping.js";
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { resolveScoringLetterRarity } from "../game/treasureRarityTierMerge.js";
 
@@ -589,8 +593,8 @@ export function shouldShowTileDetailRarityScoreMult(payload) {
 }
 
 /**
- * 按 `resolveWordPattern` 得到的小写整词，把各槽位 pattern 片段为单个 `?` 的格写回真实 `letter`/`rarity`/`baseScore`（与棋盘普通字母一致）。
- * `resolvedLower` 须与 `tiles` 拼出的 pattern 等长（`qu` 等双字符格占 pattern 中两格）。
+ * 提交计分时万能块按整词写回真实字母；Qu 模式下 `q`+`u` 占单槽（与词典槽位对齐）。
+ * `resolvedLower` 可与 `tiles` 拼出的 pattern 不同长（Qu 模式：`????????` → `quizzable`）。
  */
 export function withWildcardsResolvedForScoring(
   tiles,
@@ -600,21 +604,24 @@ export function withWildcardsResolvedForScoring(
 ) {
   const res = String(resolvedLower ?? "").toLowerCase();
   if (!Array.isArray(tiles) || tiles.length === 0 || !res) return (tiles ?? []).map((t) => ({ ...t }));
-  let pos = 0;
+  let readPos = 0;
   return tiles.map((tile) => {
     const frag = String(tile?.letter ?? "").toLowerCase();
-    const start = pos;
-    pos += frag.length;
     const out = { ...tile };
-    if (!isWildcardMaterialTile(tile) || frag !== "?") return out;
-    const ch = res[start];
-    if (!ch || ch < "a" || ch > "z") return out;
-    const letter = resolveLetterFromRaw(ch);
-    const rarity = getRarityForLetter(ch);
-    out.letter = letter;
-    out.rarity = rarity;
-    const scoringRarity = resolveScoringLetterRarity(rarity, ownedSlotTreasureIds);
-    out.baseScore = getBaseScoreForRarity(scoringRarity, rarityLevelsByRarity);
+    if (isWildcardMaterialTile(tile) && frag === "?") {
+      const { raw, nextReadPos } = readWildcardRawFromResolved(res, readPos);
+      readPos = nextReadPos;
+      if (raw) {
+        const letter = resolveLetterFromRaw(raw);
+        const rarity = getRarityForLetter(raw);
+        out.letter = letter;
+        out.rarity = rarity;
+        const scoringRarity = resolveScoringLetterRarity(rarity, ownedSlotTreasureIds);
+        out.baseScore = getBaseScoreForRarity(scoringRarity, rarityLevelsByRarity);
+      }
+      return out;
+    }
+    readPos += frag.length;
     return out;
   });
 }

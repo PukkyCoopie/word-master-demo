@@ -12,6 +12,7 @@ import { computed, ref } from "vue";
  * @param {() => boolean} options.isFirstWordTutorialBlockingInput
  * @param {() => void} options.openPauseOptionsPortal
  * @param {() => number} options.bumpOverlayZ
+ * @param {() => number} [options.getShopPortalZ]
  * @param {() => void} [options.requestNewRun]
  * @param {() => void} [options.openSettings]
  * @param {() => void} [options.beforeMainMenuExit]
@@ -20,7 +21,7 @@ import { computed, ref } from "vue";
 export function usePauseOverlayController(options) {
   const showPauseOptions = ref(false);
   const showDeveloperOptions = ref(false);
-  /** @type {import('vue').Ref<{ reportConvertResult?: Function, reportGrantResult?: Function, closeTreasurePicker?: Function, isTreasurePickerOpen?: () => boolean } | null>} */
+  /** @type {import('vue').Ref<{ reportConvertResult?: Function, reportGrantResult?: Function, reportBalanceResult?: Function, reportBossShopJumpResult?: Function, closeTreasurePicker?: Function, isTreasurePickerOpen?: () => boolean } | null>} */
   const developerOptionsLayerRef = ref(null);
   const developerOptionsPortalZ = ref(0);
 
@@ -60,9 +61,18 @@ export function usePauseOverlayController(options) {
     showDeveloperOptions.value = false;
   }
 
+  function resolveDeveloperOptionsPortalZ() {
+    const shopZ = Math.max(0, Math.floor(Number(options.getShopPortalZ?.() ?? 0) || 0));
+    let z = options.bumpOverlayZ();
+    while (shopZ > 0 && z <= shopZ) {
+      z = options.bumpOverlayZ();
+    }
+    return z;
+  }
+
   function onPauseDeveloperOptions() {
     showPauseOptions.value = false;
-    developerOptionsPortalZ.value = options.bumpOverlayZ();
+    developerOptionsPortalZ.value = resolveDeveloperOptionsPortalZ();
     showDeveloperOptions.value = true;
   }
 

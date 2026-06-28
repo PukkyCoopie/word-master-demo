@@ -15,7 +15,12 @@ import {
   yieldDuringDictionaryIndex,
 } from "../dictionary/dictionaryLowEnd.js";
 import { estimateLineCountFromText } from "../dictionary/dictionaryJsonlParse.js";
-import { getAllowSpellingAbbreviations } from "../settings/gameSettings.js";
+import { getAllowSpellingAbbreviations, getLetterQMode } from "../settings/gameSettings.js";
+import {
+  candidateMatchesWildcardPattern,
+  countWildcardCharsInPattern,
+  countWildcardSlotsForWord,
+} from "../game/resolvedWordTileMapping.js";
 import {
   getRarityForLetter,
   getRarityBonusForRarity,
@@ -305,6 +310,11 @@ function clearResolvePatternCache() {
   pureWildcardNobleEndBestByLengthTables.clear();
 }
 
+/** 设置切换 Q/Qu 或词典相关选项后，丢弃万能解析预计算表。 */
+export function invalidateWildcardResolveCaches() {
+  clearResolvePatternCache();
+}
+
 let letterIntrinsicTablesKey = "";
 /** @type {Float64Array | null} */
 let letterProductByCharCode = null;
@@ -351,6 +361,28 @@ function scoreWildcardIntrinsicProductSum(
 ) {
   let productSum = 0;
   let scoreSum = 0;
+  if (getLetterQMode() === "qu") {
+    let pi = 0;
+    let ci = 0;
+    while (pi < pattern.length && ci < candidate.length) {
+      if (pattern[pi] !== wildcardChar) {
+        pi += 1;
+        ci += 1;
+        continue;
+      }
+      const code = candidate.charCodeAt(ci);
+      productSum += letterProductByCharCode[code] ?? 0;
+      scoreSum += letterScoreByCharCode[code] ?? 0;
+      if (candidate[ci] === "q" && candidate[ci + 1] === "u") {
+        pi += 1;
+        ci += 2;
+      } else {
+        pi += 1;
+        ci += 1;
+      }
+    }
+    return { productSum, scoreSum };
+  }
   for (let i = 0; i < pattern.length; i++) {
     if (pattern[i] !== wildcardChar) continue;
     const code = candidate.charCodeAt(i);
@@ -411,7 +443,7 @@ function mouthPatternHasSubstitutableFixedPositions(raw, vowelAltMask, wildcardC
 function buildPureWildcardTableKey(rarityLevelsByRarity) {
   const rarityKey = buildRarityLevelsKey(rarityLevelsByRarity);
   const abbrevKey = getAllowSpellingAbbreviations() ? "1" : "0";
-  return `${rarityKey}\0${abbrevKey}`;
+  return `${rarityKey}\0${abbrevKey}\0${getLetterQMode()}`;
 }
 
 /** @param {Record<string, number> | null | undefined} rarityLevelsByRarity @returns {Map<number, string | null>} */
@@ -441,20 +473,12 @@ function buildAllPureWildcardTables(rarityLevelsByRarity) {
     const { letterProductByCharCode, letterScoreByCharCode } = getLetterIntrinsicTables(rarityLevelsByRarity);
     for (const [len, candidates] of byLength) {
       if (!Array.isArray(candidates) || candidates.length === 0) {
-        anyTable.set(len, null);
-        nobleTable.set(len, null);
-        for (const clubTable of clubTables.values()) clubTable.set(len, null);
+        if (getLetterQMode() !== "qu") {
+          anyTable.set(len, null);
+          nobleTable.set(len, null);
+          for (const clubTable of clubTables.values()) clubTable.set(len, null);
+        }
         continue;
-      }
-
-      let bestAny = null;
-      let bestAnyMetrics = { productSum: -1, scoreSum: -1 };
-      let bestNoble = null;
-      let bestNobleMetrics = { productSum: -1, scoreSum: -1 };
-      /** @type {Map<string, { best: string | null, metrics: { productSum: number, scoreSum: number } }>} */
-      const clubBest = new Map();
-      for (const clubKey of PURE_WILDCARD_CLUB_KEYS) {
-        clubBest.set(clubKey, { best: null, metrics: { productSum: -1, scoreSum: -1 } });
       }
 
       for (const candidate of candidates) {
@@ -464,42 +488,37 @@ function buildAllPureWildcardTables(rarityLevelsByRarity) {
           letterProductByCharCode,
           letterScoreByCharCode,
         );
-        if (bestAny === null || isWildcardCandidateBetter(metrics, bestAnyMetrics, candidate, bestAny)) {
-          bestAny = candidate;
-          bestAnyMetrics = metrics;
-        }
+        const bucketKey =
+          getLetterQMode() === "qu" ? countWildcardSlotsForWord(candidate, "qu") : len;
+        if (bucketKey < 1) continue;
+
+        /** @param {Map<number, string | null>} table */
+        const tryUpdate = (table, prevBest) => {
+          const prevMetrics =
+            prevBest != null
+              ? scoreAllLettersIntrinsicProductSum(prevBest, letterProductByCharCode, letterScoreByCharCode)
+              : { productSum: -1, scoreSum: -1 };
+          if (prevBest === null || isWildcardCandidateBetter(metrics, prevMetrics, candidate, prevBest)) {
+            table.set(bucketKey, candidate);
+          }
+        };
+
+        tryUpdate(anyTable, anyTable.get(bucketKey) ?? null);
 
         const endCh = candidate.charAt(candidate.length - 1);
-        if (
-          getRarityForLetter(endCh) !== "common" &&
-          (bestNoble === null || isWildcardCandidateBetter(metrics, bestNobleMetrics, candidate, bestNoble))
-        ) {
-          bestNoble = candidate;
-          bestNobleMetrics = metrics;
+        if (getRarityForLetter(endCh) !== "common") {
+          tryUpdate(nobleTable, nobleTable.get(bucketKey) ?? null);
         }
 
         if (infoMap instanceof Map) {
           const def = infoMap.get(candidate);
           for (const clubKey of PURE_WILDCARD_CLUB_KEYS) {
             if (!dictionaryPosMatchesClubKey(def?.pos, clubKey, def?.translation_zh)) continue;
-            const slot = clubBest.get(clubKey);
-            if (!slot) continue;
-            if (
-              slot.best === null ||
-              isWildcardCandidateBetter(metrics, slot.metrics, candidate, slot.best)
-            ) {
-              slot.best = candidate;
-              slot.metrics = metrics;
-            }
+            const clubTable = clubTables.get(clubKey);
+            if (!clubTable) continue;
+            tryUpdate(clubTable, clubTable.get(bucketKey) ?? null);
           }
         }
-      }
-
-      anyTable.set(len, bestAny);
-      nobleTable.set(len, bestNoble);
-      for (const clubKey of PURE_WILDCARD_CLUB_KEYS) {
-        const slot = clubBest.get(clubKey);
-        clubTables.get(clubKey)?.set(len, slot?.best ?? null);
       }
     }
   }
@@ -707,9 +726,13 @@ function pickBestWildcardFromCandidatesLinear(
   outer: for (const candidate of candidates) {
     if (matchesPattern && !matchesPattern(candidate)) continue;
     if (!matchesPattern) {
-      for (let i = 0; i < raw.length; i += 1) {
-        const ch = raw[i];
-        if (ch !== wildcardChar && ch !== candidate[i]) continue outer;
+      if (getLetterQMode() === "qu") {
+        if (!candidateMatchesWildcardPattern(raw, candidate, wildcardChar, "qu")) continue;
+      } else {
+        for (let i = 0; i < raw.length; i += 1) {
+          const ch = raw[i];
+          if (ch !== wildcardChar && ch !== candidate[i]) continue outer;
+        }
       }
     }
     if (!isWordAllowedByAbbrevSetting(candidate)) continue;
@@ -740,6 +763,29 @@ function pickBestWildcardFromCandidatesLinear(
 }
 
 /**
+ * Qu 模式：收集 pattern 槽位可对齐的候选词（pattern 长 = 槽位数，候选词长可更长）。
+ * @param {string} raw
+ * @param {string} wildcardChar
+ * @returns {string[]}
+ */
+function collectCandidatesForQuWildcardPattern(raw, wildcardChar) {
+  /** @type {string[]} */
+  const out = [];
+  const byLength = wordsByLength.value;
+  if (!(byLength instanceof Map)) return out;
+  const minLen = raw.length;
+  const maxLen = raw.length + countWildcardCharsInPattern(raw, wildcardChar);
+  for (let len = minLen; len <= maxLen; len += 1) {
+    const bucket = byLength.get(len);
+    if (!Array.isArray(bucket)) continue;
+    for (const w of bucket) {
+      if (candidateMatchesWildcardPattern(raw, w, wildcardChar, "qu")) out.push(w);
+    }
+  }
+  return out;
+}
+
+/**
  * @param {string} raw
  * @param {string} wildcardChar
  * @param {Record<string, number> | null | undefined} rarityLevelsByRarity
@@ -747,6 +793,21 @@ function pickBestWildcardFromCandidatesLinear(
  * @returns {string | null}
  */
 function resolveMixedWildcardPattern(raw, wildcardChar, rarityLevelsByRarity, bossResolveContext) {
+  if (getLetterQMode() === "qu" && raw.includes(wildcardChar)) {
+    if (isAllWildcardPattern(raw, wildcardChar)) {
+      return resolvePureWildcardWord(raw.length, wildcardChar, rarityLevelsByRarity, bossResolveContext);
+    }
+    const candidates = collectCandidatesForQuWildcardPattern(raw, wildcardChar);
+    return pickBestWildcardFromCandidatesLinear(
+      candidates,
+      raw,
+      wildcardChar,
+      rarityLevelsByRarity,
+      bossResolveContext,
+      (candidate) => candidateMatchesWildcardPattern(raw, candidate, wildcardChar, "qu"),
+    );
+  }
+
   const slotMaps = slotIndexByLength.value;
   const lengthIndex = slotMaps instanceof Map ? slotMaps.get(raw.length) : null;
 
@@ -854,7 +915,7 @@ export function resolveWordPattern(
 
   const rarityKey = buildRarityLevelsKey(rarityLevelsByRarity);
   const bossKey = buildBossWildcardResolveCacheKey(bossResolveContext);
-  const cacheKey = `${raw}\0${wildcardChar}\0${rarityKey}\0${bossKey}`;
+  const cacheKey = `${raw}\0${wildcardChar}\0${rarityKey}\0${bossKey}\0${getLetterQMode()}`;
   if (resolvePatternCache.has(cacheKey)) return resolvePatternCache.get(cacheKey) ?? null;
 
   const best = resolveMixedWildcardPattern(raw, wildcardChar, rarityLevelsByRarity, bossResolveContext);
@@ -916,7 +977,7 @@ export function resolveWordPatternWithMouthSubstitutions(
   const tubeFlag = hasTestTubeAllVowelsForMouth(ownedSlotTreasureIds) ? "1" : "0";
   const rarityKey = buildRarityLevelsKey(rarityLevelsByRarity);
   const bossKey = buildBossWildcardResolveCacheKey(bossResolveContext);
-  const cacheKey = `mouth\0${raw}\0${maskBits}\0${tubeFlag}\0${wildcardChar}\0${rarityKey}\0${bossKey}`;
+  const cacheKey = `mouth\0${raw}\0${maskBits}\0${tubeFlag}\0${wildcardChar}\0${rarityKey}\0${bossKey}\0${getLetterQMode()}`;
   if (mouthResolvePatternCache.has(cacheKey)) return mouthResolvePatternCache.get(cacheKey) ?? null;
 
   const best = resolveMixedMouthWildcardPattern(

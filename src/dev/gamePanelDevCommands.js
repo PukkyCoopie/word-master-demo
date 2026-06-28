@@ -15,6 +15,10 @@ import {
   normalizeScreenshotPresetId,
 } from "./screenshotPresetScenario.js";
 import { STANDARD_RUN_FINAL_LEVEL_INDEX } from "../levelDefinitions.js";
+import {
+  isValidDevBossJumpSlug,
+  resolveDevBossShopJumpTarget,
+} from "./devBossShopJump.js";
 
 /**
  * GamePanel 开发命令（控制台 / 预设场景）。
@@ -54,6 +58,7 @@ import { STANDARD_RUN_FINAL_LEVEL_INDEX } from "../levelDefinitions.js";
  *   getRunLevelAtIndex: (index: number) => object,
  *   getRunLevelIndexForId: (id: string) => number | null | undefined,
  *   resetLevelAfterTreasurePrep: (levelDef: object, opts?: object) => Promise<void>,
+ *   resetDeckAfterStageEnd?: () => void,
  *   runPendingAfterGridTilesSettled: () => Promise<void>,
  *   runGridIntroAfterReset: () => Promise<unknown>,
  *   playLevelAdvanceHeaderFx: () => Promise<unknown>,
@@ -139,6 +144,60 @@ export function createGamePanelDevCommands(deps) {
     await deps.nextTick();
     await finishScreenshotDevGridVisual();
     console.log("[DEV] 寻呼机测试局：槽位 1 已装备寻呼机。提交单词触发翻译测验。");
+  }
+
+  /**
+   * @param {string} bossSlug
+   * @param {string} [levelInputRaw]
+   * @returns {Promise<{ ok: boolean, message: string, preLevelId?: string, bossLevelId?: string } | null>}
+   */
+  async function jumpToBossShopDev(bossSlug, levelInputRaw = "") {
+    if (deps.refs.transitionBusy.value) {
+      return { ok: false, message: "转场进行中，请稍后再试" };
+    }
+    const slug = String(bossSlug ?? "").trim();
+    if (!isValidDevBossJumpSlug(slug)) {
+      return { ok: false, message: "无效的 Boss" };
+    }
+    const target = resolveDevBossShopJumpTarget(levelInputRaw);
+    if (!target) {
+      return {
+        ok: false,
+        message: "无效关卡：请填章号（如 2）或关卡 id（如 3-2），留空为第 1 章",
+      };
+    }
+
+    deps.refs.transitionBusy.value = true;
+    try {
+      deps.refs.showShop.value = false;
+      deps.refs.showSettlement.value = false;
+      deps.refs.showRunEnd.value = false;
+      deps.refs.showPauseOptions.value = false;
+      deps.refs.showDeveloperOptions.value = false;
+      await deps.nextTick();
+
+      deps.refs.glyphShopSkipLevelAdvance.value = false;
+      deps.refs.levelIndex.value = target.preLevelIndex;
+      deps.refs.pendingBossSlugOverride.value = slug;
+      deps.resetDeckAfterStageEnd?.();
+
+      await deps.nextTick();
+      deps.refs.showShop.value = true;
+      await deps.nextTick();
+
+      deps.scheduleRunAutoSave();
+      const result = {
+        ok: true,
+        message: `已进入 ${target.preLevelId} 后商店，离店将进入 ${target.bossLevelId}`,
+        preLevelId: target.preLevelId,
+        bossLevelId: target.bossLevelId,
+        bossSlug: slug,
+      };
+      console.log(`[DEV] Boss 前商店：${target.preLevelId} → ${target.bossLevelId}（${slug}）`, result);
+      return result;
+    } finally {
+      deps.refs.transitionBusy.value = false;
+    }
   }
 
   async function jumpToLevelDev(levelIdOrIndex, opts = {}) {
@@ -314,6 +373,8 @@ export function createGamePanelDevCommands(deps) {
     dev.startCeruleanBellDevTest = () => startCeruleanBellDevTest();
     dev.startPagerDevTest = () => startPagerDevTest();
     dev.jumpToLevel = (levelIdOrIndex, opts) => jumpToLevelDev(levelIdOrIndex, opts);
+    dev.jumpToBossShop = (bossSlug, chapterOrLevelId) =>
+      jumpToBossShopDev(bossSlug, chapterOrLevelId);
     dev.randomizeGridTileMaterials = () => randomizeGridTileMaterialsDev(deps.getGrid?.(), deps.runRandom);
     dev.debugSetScoreCardValues = (target, round) => debugSetScoreCardValues(target, round);
     dev.debugClearScoreCardValues = () => debugClearScoreCardValues();
@@ -345,6 +406,7 @@ export function createGamePanelDevCommands(deps) {
     startPagerDevTest,
     startCeruleanBellDevTest,
     jumpToLevelDev,
+    jumpToBossShopDev,
     startScreenshotPresetDevTest,
     randomizeGridTileMaterialsDev,
     applyCeruleanBellDevRunStart,

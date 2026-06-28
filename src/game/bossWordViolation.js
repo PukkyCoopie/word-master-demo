@@ -1,4 +1,5 @@
 import { isBossEffectsSuppressedByTreasures } from "./treasureBossSuppress.js";
+import { advanceResolvedReadPosPastTile, readWildcardRawFromResolved } from "./resolvedWordTileMapping.js";
 import { getRarityForLetter, isWildcardMaterialTile } from "../composables/useScoring.js";
 
 /**
@@ -103,17 +104,17 @@ export function getEndingLetterRarityForResolvedWord(tiles, resolvedWord) {
   const res = String(resolvedWord ?? "").toLowerCase().trim();
   const list = Array.isArray(tiles) ? tiles : [];
   if (!list.length || !res) return "common";
-  let pos = 0;
+  let readPos = 0;
   let lastRarity = "common";
   for (const tile of list) {
     const frag = String(tile?.letter ?? "").toLowerCase();
-    const start = pos;
-    pos += frag.length;
     if (isWildcardMaterialTile(tile) && frag === "?") {
-      const ch = res[start];
-      if (ch >= "a" && ch <= "z") lastRarity = getRarityForLetter(ch);
+      const { raw } = readWildcardRawFromResolved(res, readPos);
+      if (raw) lastRarity = getRarityForLetter(raw);
+      readPos = advanceResolvedReadPosPastTile(tile, res, readPos);
     } else {
       lastRarity = String(tile?.rarity ?? "common");
+      readPos += frag.length;
     }
   }
   return lastRarity;

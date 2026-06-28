@@ -27,6 +27,11 @@ export async function startGamePanelFromRestoredSave(deps, restored) {
     if (el) gsap.set(el, { x: 0, y: 0, opacity: 1 });
   }
   deps.updateSlotPositions(true);
+  if (deps.tryCeruleanBellFlyInAfterGridStable) {
+    await deps.nextTick();
+    await deps.tryCeruleanBellFlyInAfterGridStable();
+    deps.updateSlotPositions(true);
+  }
   if (deps.getShowShop() && deps.shopVisitStockMissingFromSave()) {
     deps.refreshShopVoucherShelfForCurrentVisit();
     deps.applyShopVisitStockRoll();

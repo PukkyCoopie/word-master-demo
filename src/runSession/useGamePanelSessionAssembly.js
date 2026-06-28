@@ -6,6 +6,7 @@ import { createGridDropAnim } from "../game/gridDropAnim.js";
 import { syncTileStateToDeckCard } from "../game/deckCardSync.js";
 import { recordWordSubmit } from "../game/runMatchStats.js";
 import { buildSettlementSnapshot } from "../game/buildSettlementSnapshot.js";
+import { countOwnedRentalTreasures } from "../game/treasureHourglassRuntime.js";
 import { applyWalletDeltaClamped } from "../treasures/treasureWalletFloor.js";
 import { getUpgradeTreasureIdForRarityKey } from "../collection/collectionUpgradeCatalog.js";
 import { noteTreasureRunUpgradeUsed } from "../treasures/treasureRunTracking.js";
@@ -762,6 +763,19 @@ const discardController = useGridDiscardController({
 
 const submitUpgradeFxRegistrarState = { current: null };
 
+function buildSettlementSnapshotForSubmit() {
+  return buildSettlementSnapshot({
+    moneyBefore: money.value,
+    clearReward: stageRewardYuan.value,
+    remainingWords: remainingWords.value,
+    remainingRemovals: remainingRemovals.value,
+    rentalTreasureCount: countOwnedRentalTreasures(ownedTreasures.value),
+    runPresetId: runPresetId.value,
+    ownedVoucherIds: ownedVoucherIds.value,
+    ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+  });
+}
+
 const submitController = useSubmitWordController({
   busy: {
     submitWordBusy,
@@ -988,7 +1002,7 @@ const submitController = useSubmitWordController({
     evaluateOxBossHit,
     runHourglassStageEndFx,
     runTreasureLevelCompleteHooks,
-    buildSettlementSnapshot,
+    buildSettlementSnapshot: buildSettlementSnapshotForSubmit,
     openRunEnd,
     openStageSettlement,
     getWordDefinition,

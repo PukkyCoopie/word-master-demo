@@ -428,15 +428,33 @@ export function createPlayfieldWordAux(deps) {
     }
   }
 
+  function isCeruleanBellLockedTileInWordSlot() {
+    const bell = ceruleanBellSlotIndex.value;
+    if (bell == null) return false;
+    const order = selectedOrder.value;
+    if (bell < 0 || bell >= order.length) return false;
+    const { row, col } = order[bell];
+    const tile = grid.value[row]?.[col];
+    return tile?.ceruleanBellLocked === true;
+  }
+
   async function tryCeruleanBellFlyInAfterGridStable() {
-    if (ceruleanBellSlotIndex.value != null) return;
+    if (isCeruleanBellLockedTileInWordSlot()) return;
+
     let pick = findCeruleanBellLockedTileOnGrid();
-    if (!pick) {
-      const marked = ensureCeruleanBellMarkedOnGrid();
-      if (marked) {
-        await onCeruleanBellNewGridLock(marked);
-        pick = findCeruleanBellLockedTileOnGrid();
-      }
+    if (pick) {
+      await flyCeruleanBellLockedTileIntoWordSlot(pick);
+      return;
+    }
+
+    if (ceruleanBellSlotIndex.value != null) {
+      ceruleanBellSlotIndex.value = null;
+    }
+
+    const marked = ensureCeruleanBellMarkedOnGrid();
+    if (marked) {
+      await onCeruleanBellNewGridLock(marked);
+      pick = findCeruleanBellLockedTileOnGrid();
     }
     if (pick) {
       await flyCeruleanBellLockedTileIntoWordSlot(pick);

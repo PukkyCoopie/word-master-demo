@@ -47,6 +47,8 @@ const developerOptionsStyle = computed(() => pauseOverlay.developerOptionsPortal
 const developerOptionsItems = computed(() => pauseOverlay.developerTreasureItems.value);
 const developerCurrentBalance = computed(() => pauseOverlay.developerCurrentBalance.value);
 
+const developerOptionsLayerRef = pauseOverlay.developerOptionsLayerRef;
+
 const treasureDetailLayerRef = ref(null);
 const packPickLayerRef = ref(null);
 const spellTargetLayerRef = ref(null);
@@ -229,16 +231,21 @@ defineExpose({
       @resolved="lifecycle.onPagerQuizResolved($event)"
       @closed="lifecycle.onPagerQuizClosed()"
     />
-    <DeveloperOptionsLayer
-      :open="developerOptionsOpen"
-      :portal-stack-style="developerOptionsStyle"
-      :current-balance="developerCurrentBalance"
-      :treasure-items="developerOptionsItems"
-      @close="pauseOverlay.onDeveloperOptionsClose()"
-      @convert-deck="pauseOverlay.onDeveloperConvertDeck($event)"
-      @jump-level="pauseOverlay.onDeveloperJumpLevel($event)"
-      @grant-treasures="pauseOverlay.onDeveloperGrantTreasures($event)"
-    />
+    <Teleport defer to="#game-view-portal-frame">
+      <DeveloperOptionsLayer
+        ref="developerOptionsLayerRef"
+        :open="developerOptionsOpen"
+        :portal-stack-style="developerOptionsStyle"
+        :current-balance="developerCurrentBalance"
+        :treasure-items="developerOptionsItems"
+        @close="pauseOverlay.onDeveloperOptionsClose()"
+        @convert-deck="pauseOverlay.onDeveloperConvertDeck($event)"
+        @jump-level="pauseOverlay.onDeveloperJumpLevel($event)"
+        @jump-boss-shop="pauseOverlay.onDeveloperJumpBossShop($event)"
+        @grant-treasures="pauseOverlay.onDeveloperGrantTreasures($event)"
+        @set-balance="pauseOverlay.onDeveloperSetBalance($event)"
+      />
+    </Teleport>
     <Teleport defer to="#game-view-portal-frame">
       <PauseOptionsLayer
         :open="ov.showPauseOptions"

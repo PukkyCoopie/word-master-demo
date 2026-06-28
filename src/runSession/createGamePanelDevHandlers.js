@@ -3,6 +3,12 @@ import { initTreasureBankOnAcquire } from "../treasures/treasureAcquireInit.js";
 import { devConvertDeckTiles } from "../dev/devDeckTileConvert.js";
 import { grantDevOwnedTreasuresByIds } from "../dev/devGrantTreasures.js";
 
+/** @param {number} amount */
+function formatDevBalanceLabel(amount) {
+  const x = Math.floor(Number(amount) || 0);
+  return x < 0 ? `-$${Math.abs(x)}` : `$${x}`;
+}
+
 /**
  * Developer 选项层回调 + dev grant deps。
  * @param {object} d
@@ -47,6 +53,19 @@ export function createGamePanelDevHandlers(d) {
     await d.devCommandsRef.current?.jumpToLevelDev(levelId, { skipIntro: true });
   }
 
+  async function onDeveloperJumpBossShop(payload) {
+    const bossSlug = String(payload?.bossSlug ?? "").trim();
+    if (!bossSlug) return;
+    const result = await d.devCommandsRef.current?.jumpToBossShopDev?.(
+      bossSlug,
+      payload?.levelId ?? "",
+    );
+    d.developerOptionsLayerRef.value?.reportBossShopJumpResult?.(result ?? {
+      ok: false,
+      message: "跳转失败（开发命令未就绪）",
+    });
+  }
+
   function onDeveloperGrantTreasures(payload) {
     const ids = Array.isArray(payload?.treasureIds) ? payload.treasureIds : [];
     if (!ids.length) return;
@@ -66,11 +85,44 @@ export function createGamePanelDevHandlers(d) {
     d.developerOptionsLayerRef.value?.reportGrantResult?.({ granted, failed, cropCount });
   }
 
+  function onDeveloperSetBalance(payload) {
+    const raw = String(payload?.amountRaw ?? "").trim();
+    if (!raw) {
+      d.developerOptionsLayerRef.value?.reportBalanceResult?.({
+        ok: false,
+        message: "请输入目标余额。",
+      });
+      return;
+    }
+    if (!/^-?\d+$/.test(raw)) {
+      d.developerOptionsLayerRef.value?.reportBalanceResult?.({
+        ok: false,
+        message: "请输入整数（可带负号）。",
+      });
+      return;
+    }
+    const target = Math.floor(Number(raw));
+    const floor = Math.floor(Number(d.runWalletFloor?.value ?? 0) || 0);
+    const applied = Math.max(floor, target);
+    d.money.value = applied;
+    d.scheduleRunAutoSave();
+    d.developerOptionsLayerRef.value?.reportBalanceResult?.({
+      ok: true,
+      amount: applied,
+      message:
+        applied !== target
+          ? `已设为 ${formatDevBalanceLabel(applied)}（不低于钱包下限 ${formatDevBalanceLabel(floor)}）。`
+          : `已设为 ${formatDevBalanceLabel(applied)}。`,
+    });
+  }
+
   return {
     buildDevGrantTreasureDeps,
     onDeveloperConvertDeck,
     onDeveloperJumpLevel,
+    onDeveloperJumpBossShop,
     onDeveloperGrantTreasures,
+    onDeveloperSetBalance,
   };
 }
 
@@ -114,6 +166,7 @@ export function buildGamePanelDevCommandsOptions(d) {
     getRunLevelAtIndex: d.getRunLevelAtIndex,
     getRunLevelIndexForId: d.getRunLevelIndexForId,
     resetLevelAfterTreasurePrep: d.resetLevelAfterTreasurePrep,
+    resetDeckAfterStageEnd: d.resetDeckAfterStageEnd,
     runPendingAfterGridTilesSettled: d.runPendingAfterGridTilesSettled,
     runGridIntroAfterReset: d.runGridIntroAfterReset,
     playLevelAdvanceHeaderFx: d.playLevelAdvanceHeaderFx,

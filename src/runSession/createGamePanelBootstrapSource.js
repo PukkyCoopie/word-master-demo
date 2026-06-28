@@ -44,5 +44,6 @@ export function createGamePanelBootstrapSource(d) {
     getLevelIndex: d.getLevelIndex,
     resetLevelAfterTreasurePrep: d.resetLevelAfterTreasurePrep,
     runNewRunGridIntro: d.runNewRunGridIntro,
+    tryCeruleanBellFlyInAfterGridStable: d.tryCeruleanBellFlyInAfterGridStable,
   };
 }

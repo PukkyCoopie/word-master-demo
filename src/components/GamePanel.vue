@@ -1361,7 +1361,8 @@ watchEffect(() => {
   wordSlotsScaleRootRef.value = resolvePlayfieldExposeDom(playfield?.wordSlotsScaleRootRef);
   wordTranslationWrapRef.value = resolvePlayfieldExposeDom(playfield?.wordTranslationWrapRef);
   wordTranslationInnerRef.value = resolvePlayfieldExposeDom(playfield?.wordTranslationInnerRef);
-  gameTreasureBarRowRef.value = resolvePlayfieldExposeDom(playfield?.gameTreasureBarRowRef);
+  // 保留 TreasureBarRow 组件实例（getExpandBtnEl / getContainerEl）；勿 refToDom
+  gameTreasureBarRowRef.value = unref(playfield?.gameTreasureBarRowRef) ?? null;
   letterGridWrapRef.value = resolvePlayfieldExposeDom(playfield?.letterGridWrapRef);
   letterGridRef.value = resolvePlayfieldExposeDom(playfield?.letterGridRef);
   deckBtnRef.value = resolvePlayfieldExposeDom(playfield?.deckBtnRef);
@@ -1467,6 +1468,7 @@ const ctrlLate = wireGamePanelControllers({
   isFirstWordTutorialBlockingInput,
   openPauseOptionsPortal: () => openPauseOptionsPortal(),
   bumpOverlayZ,
+  shopPortalZ,
   requestNewRun,
   openSettings,
   runAutoSave: runAutoSaveBridge,
@@ -1963,7 +1965,7 @@ runAutoSaveBridge.tryFlush = (opts) => runSaveBridge?.tryFlush?.(opts);
     debugScoreCardRoundOverride: ctrlEarly.debugScoreCardRoundOverride,
     dictionaryReady, ROWS, COLS,
     buildOwnedTreasureSlot, currentLevel, getRunLevelAtIndex, getRunLevelIndexForId,
-    resetLevelAfterTreasurePrep,
+    resetLevelAfterTreasurePrep, resetDeckAfterStageEnd,
     runPendingAfterGridTilesSettled: ctrlEarly.runPendingAfterGridTilesSettled,
     runGridIntroAfterReset,
     playLevelAdvanceHeaderFx: ctrlEarly.playLevelAdvanceHeaderFx,
@@ -2028,7 +2030,8 @@ wireOverlayViewContext(overlayStackController, {
 });
 
 const {
-  onDeveloperConvertDeck, onDeveloperJumpLevel, onDeveloperGrantTreasures,
+  onDeveloperConvertDeck, onDeveloperJumpLevel, onDeveloperJumpBossShop, onDeveloperGrantTreasures,
+  onDeveloperSetBalance,
 } = createGamePanelDevHandlers({
   ownedTreasures,
   findTreasurePlacementIndex: ctrlEarly.findTreasurePlacementIndex,
@@ -2036,13 +2039,18 @@ const {
   noteCollectionTreasureAcquired: ctrlEarly.noteCollectionTreasureAcquired,
   applyTreasureAcquireImmediateEffectsForRun: ctrlEarly.applyTreasureAcquireImmediateEffectsForRun,
   treasureRunState, deck, grid, ROWS, COLS, runRandom,
+  money,
+  runWalletFloor: shopPhase.runWalletFloor,
   rarityLevelsByRarity, touchGrid, scheduleRunAutoSave, developerOptionsLayerRef, devCommandsRef,
+  resetDeckAfterStageEnd,
 });
 
 Object.assign(pauseOverlaySession, {
   onDeveloperConvertDeck,
   onDeveloperJumpLevel,
+  onDeveloperJumpBossShop,
   onDeveloperGrantTreasures,
+  onDeveloperSetBalance,
 });
 
 wireGamePanelFxFromDeps({
@@ -2257,6 +2265,8 @@ function buildGamePanelBootstrapSource() {
     getLevelIndex: () => levelIndex.value,
     resetLevelAfterTreasurePrep,
     runNewRunGridIntro: runGridIntroAfterReset,
+    tryCeruleanBellFlyInAfterGridStable: () =>
+      playfieldController.tryCeruleanBellFlyInAfterGridStable(),
   });
 }
 

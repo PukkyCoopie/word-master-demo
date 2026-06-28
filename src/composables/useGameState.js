@@ -21,6 +21,7 @@ import {
   LETTER_RARITY_ORDER,
 
 } from "./useScoring";
+import { invalidateWildcardResolveCaches } from "./useDictionary.js";
 
 import {
   gridSelectedPositionKeySet,
@@ -705,6 +706,7 @@ export function useGameState(gameOpts = {}) {
     () => gameSettings.letterQMode,
     () => {
       syncGridLettersForLetterQMode();
+      invalidateWildcardResolveCaches();
     },
   );
 
@@ -1090,6 +1092,51 @@ export function useGameState(gameOpts = {}) {
     return false;
   }
 
+  /** 棋盘上仅保留 canonical tileId 的青铃锁，避免读档后重复标记 */
+  function normalizeCeruleanBellLocksOnGrid() {
+    if (bossSlugForMechanics() !== "cerulean_bell") return;
+    const fromRef = String(ceruleanBellLockedTileId.value ?? "").trim();
+    const fromGrid = findCeruleanBellLockedTileIdOnGrid();
+    const tid = fromRef || fromGrid || "";
+    if (!tid) return;
+    ceruleanBellLockedTileId.value = tid;
+    const g = grid.value;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const t = g[r]?.[c];
+        if (!t?.letter) continue;
+        t.ceruleanBellLocked = String(t.id ?? "") === tid;
+      }
+    }
+    triggerRef(grid);
+  }
+
+  /** 读档灌入棋盘后：恢复锁标记、清空词槽，留待青铃飞入词槽 */
+  function reconcileCeruleanBellStateAfterHydrate() {
+    selectedOrder.value = [];
+    lastWordInfo.value = null;
+    if (bossSlugForMechanics() !== "cerulean_bell") {
+      ceruleanBellSlotIndex.value = null;
+      return;
+    }
+    syncCeruleanBellLockFromSavedTileId();
+    normalizeCeruleanBellLocksOnGrid();
+    if (!hasCeruleanBellLockOnGrid()) {
+      ceruleanBellLockedTileId.value = null;
+      ceruleanBellSlotIndex.value = null;
+      return;
+    }
+    ceruleanBellSlotIndex.value = null;
+    const g = grid.value;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const t = g[r]?.[c];
+        if (t && typeof t === "object") t.selected = false;
+      }
+    }
+    triggerRef(grid);
+  }
+
   function findCeruleanBellLockedTileIdOnGrid() {
     const g = grid.value;
     for (let r = 0; r < ROWS; r++) {
@@ -1135,6 +1182,7 @@ export function useGameState(gameOpts = {}) {
   function ensureCeruleanBellMarkedOnGrid() {
     if (bossSlugForMechanics() !== "cerulean_bell") return null;
     syncCeruleanBellLockFromSavedTileId();
+    normalizeCeruleanBellLocksOnGrid();
     if (hasCeruleanBellLockOnGrid()) return null;
     const g = grid.value;
     const top = bossSlugForMechanics() === "the_manacle" ? 1 : 0;
@@ -2068,9 +2116,7 @@ export function useGameState(gameOpts = {}) {
     }
     grid.value = nextGrid;
     triggerRef(grid);
-    syncCeruleanBellLockFromSavedTileId();
-    selectedOrder.value = [];
-    clearCurrentWord();
+    reconcileCeruleanBellStateAfterHydrate();
     void ownedUpgrades;
   }
 
@@ -2159,6 +2205,8 @@ export function useGameState(gameOpts = {}) {
     findCeruleanBellLockedTileOnGrid,
     ensureCeruleanBellMarkedOnGrid,
     syncCeruleanBellLockFromSavedTileId,
+    normalizeCeruleanBellLocksOnGrid,
+    reconcileCeruleanBellStateAfterHydrate,
     finalizeCeruleanBellSlotIndex,
 
     finalizeSubmitAfterAnimation,

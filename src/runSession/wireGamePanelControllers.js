@@ -532,6 +532,7 @@ function wireGamePanelControllersLate(d) {
     isFirstWordTutorialBlockingInput: d.isFirstWordTutorialBlockingInput,
     openPauseOptionsPortal: () => d.openPauseOptionsPortal(),
     bumpOverlayZ: d.bumpOverlayZ,
+    getShopPortalZ: () => d.shopPortalZ?.value ?? 0,
     requestNewRun: () => d.requestNewRun?.(),
     openSettings: () => d.openSettings?.(),
     beforeMainMenuExit: () => {
