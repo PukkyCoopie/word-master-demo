@@ -94,7 +94,7 @@ export const TREASURE_CATALOG = [
   { treasureId: "83", name: "记事本", emoji: "📓", scriptPath: "./items/treasure_83.js", implemented: true },
   { treasureId: "84", name: "齿轮", emoji: "⚙️", scriptPath: "./items/treasure_84.js", implemented: true },
   { treasureId: "85", name: "羽毛", emoji: "🪶", scriptPath: "./items/treasure_85.js", implemented: true },
-  { treasureId: "86", name: "炸药", emoji: "🧨", scriptPath: "./items/treasure_86.js", implemented: true },
+  { treasureId: "86", name: "雷管", emoji: "🧨", scriptPath: "./items/treasure_86.js", implemented: true },
   { treasureId: "87", name: "礼盒", emoji: "🎁", scriptPath: "./items/treasure_87.js", implemented: true },
   { treasureId: "88", name: "海绵", emoji: "🧽", scriptPath: "./items/treasure_88.js", implemented: true },
   { treasureId: "89", name: "邮筒", emoji: "📬", scriptPath: "./items/treasure_89.js", implemented: true },

@@ -1482,7 +1482,7 @@
       "treasureId": "86",
       "price": 7,
       "rarity": "rare",
-      "name": "炸药",
+      "name": "雷管",
       "emoji": "🧨",
       "description": "每当进入关卡时，获得x0.5倍率并随机摧毁一个其他宝藏",
       "userBatchIndex": 8,

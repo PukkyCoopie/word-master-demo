@@ -1,6 +1,6 @@
 import { dictionaryPosIsExclusivelyTreasureLevelKey } from "../../game/wordPosMatch.js";
 import { describe, mult } from "../treasureDescription.js";
-import { addMultAddBank, getMultAddBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { bankMultAddGain, getMultAddBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 
 const ID = "40";
 
@@ -49,15 +49,11 @@ export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription: buildBookDescription,
   buildPostLetterStep(ctx) {
-    const base = getMultAddBank(ctx.treasureRun, ID);
-    const pendingGain = isNonNounSubmittedWord(ctx) ? 3 : 0;
-    const total = base + pendingGain;
-    return total !== 0 ? { multAdd: total } : null;
+    const v = getMultAddBank(ctx.treasureRun, ID);
+    return v !== 0 ? { multAdd: v } : null;
   },
   async onSuccessfulWordSubmit(ctx) {
     if (!isNonNounSubmittedWord(ctx)) return;
-    const slotIx = Math.max(0, Math.floor(Number(ctx.hookSlotIndex) || 0));
-    addMultAddBank(ctx.treasureRun, ID, 3, ctx);
-    await ctx.playTreasureMultDeltaFxAtSlot?.(slotIx, 3);
+    await bankMultAddGain(ctx, ID, 3);
   },
 };
