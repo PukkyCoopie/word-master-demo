@@ -86,6 +86,9 @@ const wordSlotRefs = /** @type {(HTMLElement | undefined)[]} */ ([]);
 /** 计分动画中报纸等追加的临时词槽字母（不参与拼词/牌库） */
 const submitScoringAppendPresentations = ref(/** @type {object[]} */ ([]));
 
+/** 提交词槽离场后至补牌前：槽内字母仍挂在 selectedOrder，但须保持隐藏（防 slot RAF 清 GSAP opacity） */
+const submitWordLeaveHiddenCount = ref(0);
+
 function setSubmitScoringAppendPresentations(nextTiles) {
   if (Array.isArray(nextTiles)) {
     submitScoringAppendPresentations.value = nextTiles.filter((t) => t && typeof t === "object");
@@ -159,6 +162,25 @@ function clearGridTileGsapAfterDrop(el) {
   gsap.set(el, { clearProps: "opacity,transform" });
 }
 
+/**
+ * 提交离场动画结束后清掉 GSAP 写在 `.word-slot-tile` 上的 opacity/transform。
+ * @param {HTMLElement | null | undefined} el
+ */
+function clearWordSlotGsapAfterSubmitLeave(el) {
+  if (!el) return;
+  gsap.killTweensOf(el);
+  gsap.set(el, { clearProps: "opacity,transform,y,scale" });
+}
+
+/** @param {number} slotCount */
+function beginSubmitWordLeaveHide(slotCount) {
+  submitWordLeaveHiddenCount.value = Math.max(0, Math.round(Number(slotCount)) || 0);
+}
+
+function endSubmitWordLeaveHide() {
+  submitWordLeaveHiddenCount.value = 0;
+}
+
 /** 与 css `.letter-grid-cell--placeholder` 一致；离场动画在 cell 外包层 tween，避免盖掉 tile 材质 */
 
 function getGridCellElByIndex(index) {
@@ -226,6 +248,7 @@ const wordSlotFly = useWordSlotFly({
   },
   ensureSlotRafRunning: () => slotLayoutBridge.ensureSlotRafRunning(),
   updateSlotPositions: (deltaMs) => slotLayoutBridge.updateSlotPositions(deltaMs),
+  getSubmitWordLeaveHiddenCount: () => submitWordLeaveHiddenCount.value,
 });
 
 const {
@@ -571,8 +594,10 @@ function updateSlotPositions(deltaMs) {
   const dt = deltaMs === true ? 1 : (deltaMs || 16) / SLOT_EXPO_TIME_MS;
   const factor = deltaMs === true ? 1 : 1 - Math.pow(2, -10 * Math.min(dt, 1));
   const phActiveNow = [];
+  const submitLeaveHiddenCount = submitWordLeaveHiddenCount.value;
   for (let i = 0; i < N; i++) {
     const outOfFlow = batches.some((b) => i >= b.slotIndex);
+    const submitLeaveHidden = submitLeaveHiddenCount > 0 && i < submitLeaveHiddenCount;
     const el = wordSlotRefs[i];
     const phVisual = isWordSlotPhVisualAt(i, presentations);
     phActiveNow[i] = phVisual;
@@ -600,7 +625,9 @@ function updateSlotPositions(deltaMs) {
       el.style.top = cur.y + "px";
       el.style.width = cur.w + "px";
       el.style.height = cur.h + "px";
-      if (phVisual) {
+      if (submitLeaveHidden) {
+        // 提交离场 GSAP 已将槽位淡出；勿清 inline opacity/transform（否则会闪回 1 帧）
+      } else if (phVisual) {
         const phScale = slotPhScales[i] ?? 1;
         el.style.setProperty("--slot-ph-scale", String(phScale));
         // 行内写入以盖过 GSAP 留在 .word-slot-tile 上的 opacity（对齐棋盘 cell 外包层做法）
@@ -1320,6 +1347,9 @@ function disposeSlotRaf() {
     getGridTileElByIndex,
     setWordSlotRef,
     clearGridTileGsapAfterDrop,
+    clearWordSlotGsapAfterSubmitLeave,
+    beginSubmitWordLeaveHide,
+    endSubmitWordLeaveHide,
     onWordSlotsLayoutResize,
     disposeSlotRaf,
     onTileClick,

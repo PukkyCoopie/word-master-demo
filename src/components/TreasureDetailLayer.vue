@@ -779,16 +779,16 @@
               <span class="hold-peer-btn-label">卖出 ${{ sellRefund }}</span>
               <HoldPeerProgress :active="offerPeerHoldActive" :progress="offerPeerHoldProgress" />
             </button>
-            <button
+            <HoldSkipButton
               v-if="!(mode === 'offer' && !isCollectionPreviewMode && spellGrantFlow)"
-              type="button"
-              class="shop-btn shop-btn--next"
-              :class="{ 'hold-peer-btn--holding': offerPeerHoldActive }"
-              @click="requestClose"
-            >
-              <span class="hold-peer-btn-label">返回</span>
-              <HoldPeerProgress :active="offerPeerHoldActive" :progress="offerPeerHoldProgress" />
-            </button>
+              variant="next"
+              label="返回"
+              hold-label="按住以返回"
+              :hold-mode="previewCloseHoldMode"
+              :peer-hold-active="offerPeerHoldActive"
+              :peer-hold-progress="offerPeerHoldProgress"
+              @skip="requestClose"
+            />
           </div>
         </div>
       </div>
@@ -1075,6 +1075,7 @@ import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.j
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import PreviewGroupNav from "./PreviewGroupNav.vue";
 import HoldConfirmButton from "./HoldConfirmButton.vue";
+import HoldSkipButton from "./HoldSkipButton.vue";
 import HoldPeerProgress from "./HoldPeerProgress.vue";
 import { isHighRiskSpellId } from "../spells/highRiskSpells.js";
 import { getHighRiskSpellConfirmEnabled } from "../settings/gameSettings.js";
@@ -1163,6 +1164,13 @@ const props = defineProps({
 });
 
 const isCollectionPreviewMode = computed(() => props.mode === "collection-preview");
+const isSpellReferenceMode = computed(() => props.mode === "spell-reference");
+const isPreviewLayerMode = computed(
+  () => isCollectionPreviewMode.value || isSpellReferenceMode.value,
+);
+const previewCloseHoldMode = computed(
+  () => isPreviewLayerMode.value && getHighRiskSpellConfirmEnabled(),
+);
 const isEffectDepleted = computed(() => props.effectDepleted === true);
 
 const isCollectionTreasurePreview = computed(

@@ -3703,6 +3703,11 @@ textarea::-moz-placeholder {
 	color: var(--btn-white);
 }
 
+.shop-btn--danger {
+	background: var(--btn-red);
+	color: var(--btn-white);
+}
+
 /* ----- 商店宝藏方框（货架格与详情 icon 共用） ----- */
 .shop-treasure-frame {
 	position: relative;
@@ -5336,6 +5341,11 @@ html.has-rarity-tier-merge .treasure-slot.filled .letter-gem.gem-common {
 
 html.swap-confirm-button-side .confirm-actions-row {
 	flex-direction: row-reverse;
+}
+
+/* 法术操作层：默认跳过左、确定右；不受全局对调影响 */
+html.swap-confirm-button-side .spell-target-actions.confirm-actions-row {
+	flex-direction: row;
 }
 
 .confirm-actions-row > .shop-btn,

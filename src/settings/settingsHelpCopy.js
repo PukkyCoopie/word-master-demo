@@ -22,7 +22,7 @@ export const SETTINGS_HELP_COPY = Object.freeze({
   },
   highRisk: {
     title: "",
-    paragraphs: ["确认高风险法术、提交违反Boss规则的单词等危险操作，需长按以确认，防止误触"],
+    paragraphs: ["危险操作与跳过需长按以确认，防止误触"],
     demoVariant: "",
   },
   confirmButtonSide: {

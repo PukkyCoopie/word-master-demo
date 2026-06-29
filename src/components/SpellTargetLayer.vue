@@ -104,7 +104,11 @@
               {{
                 session.skipDisabled
                   ? "点击确定继续施放此法术"
-                  : "点击确定施放此法术，或选择跳过"
+                  : confirmHoldMode
+                    ? "按住以确认施放此法术，或长按跳过"
+                    : skipHoldMode
+                      ? "点击确定施放此法术，或长按跳过"
+                      : "点击确定施放此法术，或选择跳过"
               }}
             </template>
             <template v-else>
@@ -161,7 +165,18 @@
           </div>
 
           <div class="spell-target-actions confirm-actions-row">
+            <HoldSkipButton
+              v-if="!session.skipDisabled"
+              variant="danger"
+              :hold-mode="skipHoldMode"
+              :disabled="tileAnimActive"
+              title="关闭弹窗，不施放本次法术"
+              :peer-hold-active="confirmPeerHoldActive"
+              :peer-hold-progress="confirmPeerHoldProgress"
+              @skip="onSkipDismiss"
+            />
             <HoldConfirmButton
+              variant="use"
               label="确定"
               hold-label="按住以确认"
               :hold-mode="confirmHoldMode"
@@ -169,18 +184,6 @@
               @confirm="onConfirm"
               @hold-change="onConfirmHoldChange"
             />
-            <button
-              v-if="!session.skipDisabled"
-              type="button"
-              class="shop-btn shop-btn--reroll"
-              :class="{ 'hold-peer-btn--holding': confirmPeerHoldActive }"
-              :disabled="tileAnimActive"
-              title="关闭弹窗，不施放本次法术"
-              @click="onSkipDismiss"
-            >
-              <span class="hold-peer-btn-label">跳过</span>
-              <HoldPeerProgress :active="confirmPeerHoldActive" :progress="confirmPeerHoldProgress" />
-            </button>
           </div>
         </div>
       </div>
@@ -207,7 +210,7 @@ import { collectExplicitDescriptionConceptPanels } from "../game/gameConceptCopy
 import LetterTile from "./LetterTile.vue";
 import TreasureDescRichText from "./TreasureDescRichText.vue";
 import HoldConfirmButton from "./HoldConfirmButton.vue";
-import HoldPeerProgress from "./HoldPeerProgress.vue";
+import HoldSkipButton from "./HoldSkipButton.vue";
 import { isHighRiskSpellId } from "../spells/highRiskSpells.js";
 import { getHighRiskSpellConfirmEnabled } from "../settings/gameSettings.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
@@ -355,6 +358,8 @@ const confirmHoldMode = computed(() => {
   const sid = String(props.session?.effectiveSpellId ?? props.session?.purchasedSpellId ?? "");
   return isHighRiskSpellId(sid) && getHighRiskSpellConfirmEnabled();
 });
+
+const skipHoldMode = computed(() => getHighRiskSpellConfirmEnabled());
 
 const confirmPeerHoldActive = ref(false);
 const confirmPeerHoldProgress = ref(0);

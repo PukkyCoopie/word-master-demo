@@ -133,9 +133,12 @@
           </div>
 
           <div class="treasure-detail-actions pack-pick-actions pack-pick-enter-stagger">
-            <button type="button" class="shop-btn shop-btn--next" :disabled="disabled" @click="onSkip">
-              跳过
-            </button>
+            <HoldSkipButton
+              variant="next"
+              :hold-mode="skipHoldMode"
+              :disabled="disabled"
+              @skip="onSkip"
+            />
           </div>
         </div>
       </div>
@@ -148,6 +151,8 @@ import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from "v
 import gsap from "gsap";
 import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
 import LetterTile from "./LetterTile.vue";
+import HoldSkipButton from "./HoldSkipButton.vue";
+import { getHighRiskSpellConfirmEnabled } from "../settings/gameSettings.js";
 import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
 import { buildPackInnerOfferPriceView } from "../shop/shopOfferPriceDisplay.js";
 import { bumpOverlayZ } from "../game/overlayStack.js";
@@ -167,6 +172,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["open-item", "skip"]);
+
+const skipHoldMode = computed(() => getHighRiskSpellConfirmEnabled());
 
 const titleId = useId();
 const backdropRef = ref(null);

@@ -227,6 +227,17 @@ async function playInstantSpellShopFx(effectiveSpellId) {
 
 const IMMOLATE_SPELL_REWARD = 15;
 
+/** 星星未命中：wobble +「没有！」气泡结束后再留一拍，再关预览层 */
+const STAR_SPELL_MISS_POST_FX_HOLD_MS = 300;
+
+/** @param {NonNullable<typeof spellTargetSession.value>} s */
+function isStarPreviewOnlySession(s) {
+  if (s.pickMode !== "preview_only") return false;
+  const eff = String(s.effectiveSpellId ?? "");
+  const pur = String(s.purchasedSpellId ?? "");
+  return eff === "star" || pur === "star";
+}
+
 /** 火柴：候选格 stagger 放大→缩没（与「删除」同款）→ 法术图标弹出 $15 气泡 */
 async function playImmolateConfirmFxOnOfferSlots(
   slotIndices,
@@ -272,25 +283,24 @@ async function playImmolateConfirmFxOnOfferSlots(
   return true;
 }
 
-/** 星星法术未命中：预览区 shop-treasure-visual wobble + 灰色「没有！」气泡 */
+/** 星星法术未命中：预览区 shop-treasure-visual wobble 与红色「没有！」气泡同拍，结束后留短后摇 */
 async function playStarSpellMissFxOnVisual(visualEl) {
   if (!(visualEl instanceof HTMLElement)) {
-    await animSleep(LEVEL_COMPLETE_MONEY_FX_OUTRO_WAIT_MS);
+    await animSleep(STAR_SPELL_MISS_POST_FX_HOLD_MS);
     return;
   }
   const sp = 1;
   const wobbleTl = fxApi.createWobbleScoreSlotTimeline(visualEl);
   if (wobbleTl) {
     wobbleTl.timeScale(sp);
-    wobbleTl.play(0);
-    await fxApi.awaitWobbleScoreSlotTimeline(wobbleTl);
-  } else {
-    await animSleep(SCORING_BUBBLE_POP_DELAY_MS);
   }
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
   const bubble = fxApi.showScoreBubble(visualEl, "没有！", "star-miss", sp, fxApi.bumpOverlayZ());
-  fxApi.scheduleSmallPlusBubbleOutro(bubble, sp);
-  await animSleep(LEVEL_COMPLETE_MONEY_FX_OUTRO_WAIT_MS);
+  if (bubble) fxApi.scheduleSmallPlusBubbleOutro(bubble, sp);
+  if (wobbleTl) {
+    await fxApi.awaitWobbleScoreSlotTimeline(wobbleTl);
+  }
+  await animSleep(STAR_SPELL_MISS_POST_FX_HOLD_MS);
 }
 
 /** 星星命中：宝藏槽缩小→谷底写入配饰→回弹（与法术材质切换同款） */
@@ -383,6 +393,17 @@ async function playSpectralSpellResultFx(spellFx, effectiveSpellId) {
   if (fx?.kind === "ankh") {
     const ixs = [fx.keptSlotIndex, fx.copySlotIndex].filter((i) => typeof i === "number" && i >= 0);
     await wobbleGameTreasureSlots(ixs);
+    return;
+  }
+  if (fx?.kind === "star_miss") {
+    const spellLayer = dom.getSpellTargetLayer();
+    const detailLayer = dom.getTreasureDetailLayer();
+    const starVisual =
+      spellLayer?.getSpellVisualEl?.() ??
+      spellLayer?.getSpellIconEl?.() ??
+      detailLayer?.getTargetVisualEl?.() ??
+      detailLayer?.getFlyFrameEl?.();
+    await playStarSpellMissFxOnVisual(starVisual);
     return;
   }
   if (fx?.kind === "deck_add" && typeof fx.count === "number") {
@@ -990,6 +1011,15 @@ async function applyInstantSpellWithoutPreview(purchasedSpellId, context, offerD
     const outcome = resolveStarSpellOutcome(ctx, runRandom);
     if (outcome.ok) {
       await playStarSpellAccessoryGrantFx(outcome);
+    } else {
+      const spellLayer = dom.getSpellTargetLayer();
+      const detailLayer = dom.getTreasureDetailLayer();
+      const starVisual =
+        spellLayer?.getSpellVisualEl?.() ??
+        spellLayer?.getSpellIconEl?.() ??
+        detailLayer?.getTargetVisualEl?.() ??
+        detailLayer?.getFlyFrameEl?.();
+      await playStarSpellMissFxOnVisual(starVisual);
     }
     noteSpellCastForReplay(pid);
     void offerDeckSource;
@@ -1162,8 +1192,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
   if (!s) return;
   if (s.confirmDisabled === true) return;
 
-  const sidEarly = String(s.effectiveSpellId ?? "");
-  if (sidEarly === "star" && s.pickMode === "preview_only") {
+  if (isStarPreviewOnlySession(s)) {
     await fulfillStarSpellPreviewConfirm(s);
     return;
   }

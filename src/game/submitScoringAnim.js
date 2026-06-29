@@ -1690,6 +1690,9 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
 
   await leavePromise;
 
+  callbacks.beginSubmitWordLeaveHide?.(leaveSlotCount);
+  await nextTick();
+
   callbacks.setSubmitScoringAppendPresentation?.(null);
   callbacks.setSubmitScoringAppendPresentations?.([]);
   await nextTick();
@@ -1704,6 +1707,10 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   }
 
   callbacks.applySubmitRefill({ skipNewFromDeck });
+  for (const slotEl of slotTileEls) {
+    callbacks.clearWordSlotGsapAfterSubmitLeave?.(slotEl);
+  }
+  callbacks.endSubmitWordLeaveHide?.();
   await callbacks.applyHookBossAfterSubmit();
   refs.gridRefillAnimating.value = true;
   const dropPromise = (async () => {
@@ -1738,6 +1745,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     callbacks.submitUpgradeFxRegistrarState.current = null;
     callbacks.setSubmitScoringAppendPresentation?.(null);
     callbacks.setSubmitScoringAppendPresentations?.([]);
+    callbacks.endSubmitWordLeaveHide?.();
     refs.scoringTreasureBarIndex.value = null;
     clearAllTreasureSlotWobbleFront();
     refs.crimsonTreasureDisabledSlotIndex.value = null;
