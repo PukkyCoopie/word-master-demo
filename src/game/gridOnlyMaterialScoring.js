@@ -28,11 +28,14 @@ export function gridTileEntranceDelayKey(row, col, rows, cols, colMul = 1) {
 }
 
 /**
- * 棋盘上某格光环单次结算的触发次数（与 GamePanel `getGridEffectTriggerCount` 一致）。
+ * 棋盘上某格光环单次结算的触发次数（无已拥有宝藏上下文时的预览回退：仅本体 + 同格重播）。
+ * 局内结算/预览请传入 `resolveGridEffectTriggerCount`（含电视机等全局加成）。
  * @param {{ accessoryId?: string | null } | null | undefined} tile
  */
 export function getGridPresenceEffectTriggerCount(tile) {
-  return tileHasRewindAccessory(tile) ? 2 : 1;
+  let count = 1;
+  if (tileHasRewindAccessory(tile)) count += 1;
+  return count;
 }
 
 /** @type {ReadonlySet<string>} */

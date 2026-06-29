@@ -45,6 +45,7 @@ if (!pauseOverlay) {
 const developerOptionsOpen = computed(() => pauseOverlay.showDeveloperOptions.value);
 const developerOptionsStyle = computed(() => pauseOverlay.developerOptionsPortalStackStyle.value);
 const developerOptionsItems = computed(() => pauseOverlay.developerTreasureItems.value);
+const developerSpellItems = computed(() => pauseOverlay.developerSpellItems.value);
 const developerCurrentBalance = computed(() => pauseOverlay.developerCurrentBalance.value);
 
 const developerOptionsLayerRef = pauseOverlay.developerOptionsLayerRef;
@@ -197,7 +198,7 @@ defineExpose({
     <SettingsHelpDialog
       :open="ov.showEmptyTreasureSlotHelp"
       title="空的宝藏栏位"
-      :paragraphs="['从商店中购买的宝藏会放置在这里']"
+      :paragraphs="['你获得的宝藏会放置在这里']"
       @close="ov.closeEmptyTreasureSlotHelp()"
     />
     <SpellTargetLayer
@@ -247,11 +248,13 @@ defineExpose({
         :portal-stack-style="developerOptionsStyle"
         :current-balance="developerCurrentBalance"
         :treasure-items="developerOptionsItems"
+        :spell-items="developerSpellItems"
         @close="pauseOverlay.onDeveloperOptionsClose()"
         @convert-deck="pauseOverlay.onDeveloperConvertDeck($event)"
         @jump-level="pauseOverlay.onDeveloperJumpLevel($event)"
         @jump-boss-shop="pauseOverlay.onDeveloperJumpBossShop($event)"
         @grant-treasures="pauseOverlay.onDeveloperGrantTreasures($event)"
+        @cast-spell="pauseOverlay.onDeveloperCastSpell($event)"
         @set-balance="pauseOverlay.onDeveloperSetBalance($event)"
       />
     </Teleport>

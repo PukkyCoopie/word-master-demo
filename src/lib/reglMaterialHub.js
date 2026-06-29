@@ -13,6 +13,7 @@ import {
   executeReglHubDraw,
   findReglSubscriberByCanvas,
   runProfiledMaterialHubTick,
+  seedReglSubscriberFromPeers,
 } from "./reglSubscriberAnimation.js";
 import { forceLoseWebglContext } from "./reglDebugLog.js";
 import {
@@ -36,6 +37,7 @@ import {
   attachDirectMaterialRegl,
   setDirectMaterialReglAnimated,
   repaintUnpaintedDirectMaterialCanvasesIn,
+  repaintStaticDirectMaterialSubscribers,
 } from "./reglDirectMaterialMount.js";
 import {
   attachVideoAtlasMaterial,
@@ -45,6 +47,7 @@ import {
   attachBitmapRendererMaterial,
   setBitmapRendererMaterialAnimated,
   repaintUnpaintedBitmapRendererCanvasesIn,
+  repaintStaticBitmapRendererSubscribers,
 } from "./reglMaterialBitmapRenderer.js";
 
 /** @typedef {import("./reglSubscriberAnimation.js").ReglDisplaySubscriber} ReglDisplaySubscriber */
@@ -229,7 +232,7 @@ if (import.meta.hot) {
 /**
  * @param {string} materialId
  * @param {HTMLCanvasElement} canvas
- * @param {{ fixedCssWidth?: number, fixedCssHeight?: number, animated?: boolean }} [options]
+ * @param {{ fixedCssWidth?: number, fixedCssHeight?: number, animated?: boolean, seedFromPeers?: boolean }} [options]
  * @returns {() => void}
  */
 export function attachMaterialRegl(materialId, canvas, options = {}) {
@@ -301,9 +304,15 @@ export function attachMaterialRegl(materialId, canvas, options = {}) {
 
   if (animated) {
     ensureUnifiedMaterialTick();
+    const seeded =
+      options.seedFromPeers === true && seedReglSubscriberFromPeers(sub, subs);
+    if (!seeded) {
+      paintMaterialSubscriberOnce(materialId, sub);
+    }
+  } else {
+    paintMaterialSubscriberOnce(materialId, sub);
+    sub.frameFrozen = true;
   }
-  paintMaterialSubscriberOnce(materialId, sub);
-  if (!animated) sub.frameFrozen = true;
 
   return function disposeMaterialRegl() {
     disposeReglSubscriberBindings(sub);
@@ -336,6 +345,24 @@ export function repaintUnpaintedMaterialCanvasesIn(root) {
   }
   repaintUnpaintedBitmapRendererCanvasesIn(root);
   repaintUnpaintedDirectMaterialCanvasesIn(root);
+}
+
+function repaintStaticBlitSubscribers() {
+  if (!sharedHub) return;
+  for (const [materialId, subs] of subscribersByMaterial) {
+    for (const sub of subs) {
+      if (sub.animated !== false) continue;
+      paintMaterialSubscriberOnce(materialId, sub);
+      sub.frameFrozen = true;
+    }
+  }
+}
+
+/** 关闭材质动画后，用统一静帧时刻重绘全部静态 subscriber（各渲染管线）。 */
+export function repaintAllStaticMaterialCanvases() {
+  repaintStaticBlitSubscribers();
+  repaintStaticBitmapRendererSubscribers();
+  repaintStaticDirectMaterialSubscribers();
 }
 
 /** 预创建共享 WebGL、编译全部材质 shader，并各绘 1 帧（含 blit 读回路径）。 */

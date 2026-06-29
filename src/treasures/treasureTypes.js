@@ -127,6 +127,7 @@
  * @property {(len: number) => Promise<void>} [runSingleInRunLengthUpgradeFx] 局内播放「单一词长 +1」升级动画并应用升级（会抑制交互层）
  * @property {(opts?: { spellId?: string, treasureSlotIndex?: number, treasureId?: string }) => Promise<void>} [requestInRunSpellGrant]
  * @property {(runner: SubmitWordLeaveFxRunner) => void} [registerSubmitWordLeaveFx] 登记本词提交后词槽/棋盘格消失阶段的自定义动画（在计分结束、默认批量消失之前执行）
+ * @property {(runner: () => Promise<void>) => void} [registerSubmitAfterWordLeaveFx] 登记本词词槽/棋盘格消失动画结束后执行的展示（补牌与总分滚动之前）
  * @property {(runner: () => Promise<void>) => void} [registerSubmitPostScoreClearFx] 登记本词「计分清空」完成后执行的展示（在入库补牌与总分结算后）
  * @property {(opts: SubmitWordLetterRemoveLeaveOpts) => Promise<void>} [playSubmitWordLetterRemoveAndRewardLeave] 逐字 wobble + 红色「移除」气泡并消失，结束后宝藏 +$ 动效（由 GamePanel 实现）
  * @property {(opts: SubmitWordEnhancementStripLeaveOpts) => Promise<void>} [playSubmitTileEnhancementStripLeave] 海绵等：逐字黄色「擦除」+ 缩小换图回弹

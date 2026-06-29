@@ -555,6 +555,7 @@ function wireGamePanelControllersLate(d) {
     developerOptionsLayerRef: pauseOverlay.developerOptionsLayerRef,
     developerOptionsPortalStackStyle: pauseOverlay.developerOptionsPortalStackStyle,
     developerTreasureItems: d.devTreasurePickerItems,
+    developerSpellItems: d.devSpellPickerItems,
     developerCurrentBalance: d.walletHeaderShown,
     openPauseOptions: pauseOverlay.openPauseOptions,
     openPauseOptionsFromShop: pauseOverlay.openPauseOptionsFromShop,

@@ -817,17 +817,22 @@ export function useTreasureRunController(options) {
     /** @type {import('../../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[]} */
     const submitWordLeaveFx = [];
     /** @type {(() => Promise<void>)[]} */
+    const submitAfterWordLeaveFx = [];
+    /** @type {(() => Promise<void>)[]} */
     const submitPostScoreClearFx = [];
     await notifyOwnedTreasuresSuccessfulWordSubmit(ownedSlotTreasureIdList(), {
       ...buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand),
       registerSubmitWordLeaveFx: (runner) => {
         if (typeof runner === "function") submitWordLeaveFx.push(runner);
       },
+      registerSubmitAfterWordLeaveFx: (runner) => {
+        if (typeof runner === "function") submitAfterWordLeaveFx.push(runner);
+      },
       registerSubmitPostScoreClearFx: (runner) => {
         if (typeof runner === "function") submitPostScoreClearFx.push(runner);
       },
     });
-    return { submitWordLeaveFx, submitPostScoreClearFx };
+    return { submitWordLeaveFx, submitAfterWordLeaveFx, submitPostScoreClearFx };
   }
 
   async function notifyBossRestrictionTreasures(bossSlug) {

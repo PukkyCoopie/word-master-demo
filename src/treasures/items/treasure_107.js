@@ -1,27 +1,28 @@
 import { describe, mult } from "../treasureDescription.js";
+import { resolveGridEffectTriggerCount } from "../../game/gridEffectTriggerCount.js";
 import { normalizeLetterChar } from "../treasureLifecycleShared.js";
 
 const JK = new Set(["j", "k"]);
 
 /** @param {import('../treasureTypes.js').TreasureLogicContext} ctx */
-function collectJkGridIndices(ctx) {
+function collectJkGridCells(ctx) {
   const grid = ctx.grid;
   const rows = Math.max(0, Math.floor(Number(ctx.gridRows) || 0));
   const cols = Math.max(0, Math.floor(Number(ctx.gridCols) || 0));
   if (!Array.isArray(grid) || rows <= 0 || cols <= 0) return [];
 
-  /** @type {number[]} */
-  const indices = [];
+  /** @type {{ index: number, tile: object }[]} */
+  const cells = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const t = grid[r]?.[c];
       if (!t?.letter) continue;
       if (t.bossTileDebuffed === true) continue;
       const ch = normalizeLetterChar(t.letter);
-      if (JK.has(ch)) indices.push(r * cols + c);
+      if (JK.has(ch)) cells.push({ index: r * cols + c, tile: t });
     }
   }
-  return indices;
+  return cells;
 }
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
@@ -35,8 +36,21 @@ export default {
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   collectPostLetterSteps(ctx) {
-    const indices = collectJkGridIndices(ctx);
-    if (!indices.length) return null;
-    return indices.map((scoreFxGridTileIndex) => ({ multMul: 2, scoreFxGridTileIndex }));
+    const owned = ctx.ownedSlotTreasureIds ?? [];
+    const cells = collectJkGridCells(ctx);
+    if (!cells.length) return null;
+    /** @type {{ multMul: number, scoreFxGridTileIndex: number, accessoryTriggered?: boolean }[]} */
+    const steps = [];
+    for (const { index, tile } of cells) {
+      const triggerCount = resolveGridEffectTriggerCount(tile, owned);
+      for (let k = 0; k < triggerCount; k++) {
+        steps.push({
+          multMul: 2,
+          scoreFxGridTileIndex: index,
+          accessoryTriggered: k > 0,
+        });
+      }
+    }
+    return steps.length ? steps : null;
   },
 };

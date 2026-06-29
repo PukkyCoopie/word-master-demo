@@ -1,5 +1,4 @@
 import confetti from "canvas-confetti";
-import { getSupportsConfettiWorker } from "../platform/webViewCapabilities.js";
 import { playRunEndWinConfettiBursts } from "./runEndWinConfetti.js";
 
 /**
@@ -33,7 +32,7 @@ export function createRunEndConfettiController({ getCanvasEl }) {
       if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     } catch {
-      // useWorker: true 时 canvas 已 transfer 到 OffscreenCanvas，主线程无法再 getContext。
+      // ignore
     }
   }
 
@@ -52,7 +51,7 @@ export function createRunEndConfettiController({ getCanvasEl }) {
       canvas.width = 0;
       canvas.height = 0;
     } catch {
-      // 同上：worker 接管后主线程 canvas 可能已不可用。
+      // ignore
     }
   }
 
@@ -72,7 +71,7 @@ export function createRunEndConfettiController({ getCanvasEl }) {
   function ensureFire() {
     const canvas = getCanvasEl();
     if (!canvas) return null;
-    if (!fire) fire = confetti.create(canvas, { resize: false, useWorker: getSupportsConfettiWorker() });
+    if (!fire) fire = confetti.create(canvas, { resize: false, useWorker: false });
     return fire;
   }
 

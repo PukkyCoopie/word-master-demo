@@ -151,3 +151,91 @@ export function resolveWildcardTileFromResolved(tile, res, readPos, mode = getLe
     nextReadPos: hit.nextReadPos,
   };
 }
+
+/** @param {object | null | undefined} tile */
+function isSubmitScoringAppendTempTile(tile) {
+  return tile?.isNewspaperTempTile === true;
+}
+
+/**
+ * 拼词 pattern（可含 `?`）与各格 letter 逐位对齐；pattern 中 `?` 由 tile 上已解析字母填充。
+ * @param {string | null | undefined} pattern
+ * @param {readonly object[] | null | undefined} tiles
+ * @returns {string}
+ */
+function alignWildcardPatternWithTileLetters(pattern, tiles) {
+  const p = String(pattern ?? "").toLowerCase();
+  const list = (tiles ?? []).filter((t) => t && !isSubmitScoringAppendTempTile(t));
+  if (!p || list.length === 0) return "";
+  let out = "";
+  let ti = 0;
+  for (let pi = 0; pi < p.length; pi += 1) {
+    const tile = list[ti];
+    if (!tile) return "";
+    const frag = String(tile?.letter ?? "").toLowerCase();
+    if (p[pi] === "?") {
+      if (!frag || frag === "?") return "";
+      out += frag;
+      ti += 1;
+      continue;
+    }
+    if (frag === "?") return "";
+    if (frag.length !== 1 || frag !== p[pi]) return "";
+    out += frag;
+    ti += 1;
+  }
+  return ti === list.length ? out : "";
+}
+
+/**
+ * 按拼词顺序 + 词典整词，将各格 letter 拼成钩子用字符串（万能 `?` 按整词写回真实字母）。
+ * @param {readonly object[] | null | undefined} tiles
+ * @param {string | null | undefined} resolvedWord
+ * @returns {string}
+ */
+export function buildWordFromTilesAgainstResolved(tiles, resolvedWord) {
+  const res = String(resolvedWord ?? "").toLowerCase().trim();
+  const list = (tiles ?? []).filter((t) => t && !isSubmitScoringAppendTempTile(t));
+  if (!res || list.length === 0) return res;
+  let readPos = 0;
+  let out = "";
+  for (const tile of list) {
+    const frag = String(tile?.letter ?? "").toLowerCase();
+    if (isWildcardQuestionTile(tile) && frag === "?") {
+      const { raw, nextReadPos } = readWildcardRawFromResolved(res, readPos);
+      readPos = nextReadPos;
+      if (raw) out += raw;
+      continue;
+    }
+    out += frag;
+    readPos = advanceResolvedReadPosPastTile(tile, res, readPos);
+  }
+  return out;
+}
+
+/**
+ * 提交成功宝藏钩子用的整词：优先词典解析词；缺省或含 `?` 时按 tile 与整词对齐写回万能块。
+ * @param {string | null | undefined} resolvedWord
+ * @param {readonly object[] | null | undefined} [tiles]
+ * @returns {string}
+ */
+export function resolveSubmittedWordForHooks(resolvedWord, tiles = null) {
+  const raw = String(resolvedWord ?? "").toLowerCase().trim();
+  const list = (tiles ?? []).filter((t) => t && !isSubmitScoringAppendTempTile(t));
+  if (raw && !raw.includes("?")) return raw;
+
+  if (raw && raw.includes("?") && list.length) {
+    const fromPattern = alignWildcardPatternWithTileLetters(raw, list);
+    if (fromPattern && !fromPattern.includes("?")) return fromPattern;
+  }
+
+  if (raw && !raw.includes("?") && list.length) {
+    const aligned = buildWordFromTilesAgainstResolved(list, raw);
+    if (aligned && !aligned.includes("?")) return aligned;
+  }
+
+  const joined = list.map((t) => String(t?.letter ?? "").toLowerCase()).join("");
+  if (joined && !joined.includes("?")) return joined;
+
+  return raw || joined;
+}

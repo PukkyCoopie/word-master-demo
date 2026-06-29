@@ -396,7 +396,7 @@
   <SettingsHelpDialog
     :open="showEmptyTreasureSlotHelp"
     title="空的宝藏栏位"
-    :paragraphs="['从商店中购买的宝藏会放置在这里']"
+    :paragraphs="['你获得的宝藏会放置在这里']"
     @close="showEmptyTreasureSlotHelp = false"
   />
 </template>

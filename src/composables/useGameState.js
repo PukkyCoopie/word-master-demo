@@ -27,6 +27,7 @@ import {
   gridSelectedPositionKeySet,
   previewGridPresenceMultProduct,
 } from "../game/gridOnlyMaterialScoring.js";
+import { resolveGridEffectTriggerCount } from "../game/gridEffectTriggerCount.js";
 import { previewIceMaterialMultProduct } from "../game/iceMaterialScoring.js";
 import { deckCardRaw, syncTileStateToDeckCard } from "../game/deckCardSync.js";
 import { snapshotMaxIntrinsicGainsFromTile, applyIntrinsicGainsToTileAndLinkedCard } from "../game/tileIntrinsicGains.js";
@@ -900,7 +901,14 @@ export function useGameState(gameOpts = {}) {
     const base = computeWordScore(tiles, 1, lengthLevelsByLength.value, rarityLevelsByRarity.value, lengthJb, flintOpts);
     const g = grid.value;
     const excludedKeys = gridSelectedPositionKeySet(selectedTiles.value);
-    const gridPresenceMul = previewGridPresenceMultProduct(g, ROWS, COLS, excludedKeys);
+    const ownedIds = getOwnedSlotTreasureIds?.() ?? [];
+    const gridPresenceMul = previewGridPresenceMultProduct(
+      g,
+      ROWS,
+      COLS,
+      excludedKeys,
+      (tile) => resolveGridEffectTriggerCount(tile, ownedIds),
+    );
     // 预览对齐当前规则：棋盘光环类材质仅统计未入本手拼词的格；冰材质仅对本次入词的冰字母位触发。
     const iceMul = previewIceMaterialMultProduct(tiles);
     const mul = gridPresenceMul * iceMul;

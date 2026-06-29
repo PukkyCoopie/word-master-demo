@@ -22,6 +22,16 @@ export const TREASURE_COLLECTION_GROUP_BY = Object.freeze({
   version: "version",
 });
 
+const TREASURE_COLLECTION_GROUP_BY_IDS = new Set(Object.values(TREASURE_COLLECTION_GROUP_BY));
+
+/** @param {unknown} value @returns {TreasureCollectionGroupBy} */
+export function normalizeTreasureCollectionGroupBy(value) {
+  const s = String(value ?? "");
+  return TREASURE_COLLECTION_GROUP_BY_IDS.has(/** @type {TreasureCollectionGroupBy} */ (s))
+    ? /** @type {TreasureCollectionGroupBy} */ (s)
+    : TREASURE_COLLECTION_GROUP_BY.rarity;
+}
+
 /** 未写 `collectionOrder` 时落在该基数之后，便于用 0、10、20… 插入自定义序 */
 const DEFAULT_COLLECTION_ORDER_BASE = 1_000_000;
 

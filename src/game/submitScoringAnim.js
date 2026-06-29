@@ -45,6 +45,8 @@ import {
 } from "./newspaperSubmitAnim.js";
 import { isNewspaperTempTile } from "../treasures/items/treasure_140.js";
 import { findGridCellByTileId } from "./gridTileCellLookup.js";
+import { resolveSubmittedWordForHooks } from "./resolvedWordTileMapping.js";
+import { resolveGridEffectTriggerCount } from "./gridEffectTriggerCount.js";
 
 /** 记分步间等待、气泡延迟等统一再 ×0.7（比上一版缩短 30%） */
 export const SCORING_GAP_SCALE = 0.7;
@@ -987,13 +989,10 @@ async function runPerLetterTreasureReplayCue(cue, speed = 1) {
 const GOLD_MATERIAL_CLEAR_BONUS_DOLLARS = 3;
 /** 字母块钱币配饰：在该字母轮到计分时触发 $3 */
 const COIN_ACCESSORY_SCORE_BONUS_DOLLARS = 3;
-/**
- * Grid 触发型效果（如通关前的黄金结算、提交后的钢材质倍率）在单次触发时的触发次数。
- * 规则：同格佩戴重播配饰时，该格 Grid 效果额外触发 1 次。
- * @param {{ accessoryId?: string | null } | null | undefined} tile
- */
-function getGridEffectTriggerCount(tile) {
-  return tile?.accessoryId === TILE_ACCESSORY_REWIND ? 2 : 1;
+
+/** @param {{ accessoryId?: string | null } | null | undefined} tile */
+function gridEffectTriggerCountForTile(tile) {
+  return resolveGridEffectTriggerCount(tile, callbacks.ownedSlotTreasureIdList());
 }
 
 /** 通关黄金材质：按格子入场顺序交错触发 */
@@ -1007,7 +1006,7 @@ function buildClearWinGoldEffectQueue() {
       if (!t?.letter || t.selected || callbacks.isBossTileDebuffed(t)) continue;
       if (t.materialId !== "gold") continue;
       const delay = callbacks.gridTileEntranceDelay(r, c);
-      const triggerCount = getGridEffectTriggerCount(t);
+      const triggerCount = gridEffectTriggerCountForTile(t);
       for (let k = 0; k < triggerCount; k++) {
         items.push({ r, c, delay, accessoryTriggered: k > 0 });
       }
@@ -1020,7 +1019,7 @@ function buildClearWinGoldEffectQueue() {
 /** 通关「升级配饰」：登记到计分清空结束队列（排在飞机等宝藏之后） */
 function buildClearWinLengthUpgradeAccessoryEntries() {
   const g = refs.grid.value;
-  /** @type {{ tileId: string, delay: number }[]} */
+  /** @type {{ tileId: string, delay: number, accessoryTriggered?: boolean }[]} */
   const items = [];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
@@ -1029,7 +1028,11 @@ function buildClearWinLengthUpgradeAccessoryEntries() {
       if (t.accessoryId !== TILE_ACCESSORY_LEVEL_UPGRADE) continue;
       const tileId = t.id != null && String(t.id) !== "" ? String(t.id) : "";
       if (!tileId) continue;
-      items.push({ tileId, delay: callbacks.gridTileEntranceDelay(r, c) });
+      const delay = callbacks.gridTileEntranceDelay(r, c);
+      const triggerCount = gridEffectTriggerCountForTile(t);
+      for (let k = 0; k < triggerCount; k++) {
+        items.push({ tileId, delay, accessoryTriggered: k > 0 });
+      }
     }
   }
   items.sort((a, b) => a.delay - b.delay);
@@ -1043,8 +1046,8 @@ function buildClearWinLengthUpgradeAccessoryEntries() {
 function registerClearWinLengthUpgradePostScoreFx(fxQueue, judgedLen) {
   const len = Math.max(3, Math.min(16, Math.round(Number(judgedLen)) || 0));
   if (len < 3 || len > 16) return;
-  for (const { tileId } of buildClearWinLengthUpgradeAccessoryEntries()) {
-    fxQueue.push(() => runClearWinLengthUpgradeAccessoryTileFx(tileId, len));
+  for (const { tileId, accessoryTriggered } of buildClearWinLengthUpgradeAccessoryEntries()) {
+    fxQueue.push(() => runClearWinLengthUpgradeAccessoryTileFx(tileId, len, accessoryTriggered));
   }
 }
 
@@ -1171,8 +1174,8 @@ async function runClearWinVipDiamondRarityPostScoreFx(rk, beforeLevel) {
   }
 }
 
-/** @param {string} tileId @param {number} len */
-async function runClearWinLengthUpgradeAccessoryTileFx(tileId, len) {
+/** @param {string} tileId @param {number} len @param {boolean} [accessoryTriggered] */
+async function runClearWinLengthUpgradeAccessoryTileFx(tileId, len, accessoryTriggered = false) {
   await nextTick();
   const cell = findGridCellByTileId(refs.grid.value, tileId, ROWS, COLS);
   if (!cell) return;
@@ -1185,7 +1188,7 @@ async function runClearWinLengthUpgradeAccessoryTileFx(tileId, len) {
     wobbleTl.timeScale(sp);
     wobbleTl.play(0);
   }
-  triggerAccessoryChipRipple(el, sp);
+  triggerAccessoryChipRipple(el, sp, accessoryTriggered === true);
   const bubbleTask = (async () => {
     await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
     const bubble = showScoreBubble(el, "升级", "upgrade", sp);
@@ -1301,10 +1304,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   }
   seedAnimFormulaFromSubmitDetailed(detailed);
 
-  const wordStr =
-    String(resolvedWord ?? "")
-      .toLowerCase()
-      .trim() || tiles.map((c) => c.letter.toLowerCase()).join("");
+  const wordStr = resolveSubmittedWordForHooks(resolvedWord, tiles);
   const def = callbacks.getWordDefinition(wordStr);
   if (SHOW_SUBMIT_TRANSLATION) {
     refs.submitTranslationLines.value = callbacks.parseTranslationLines(def?.translation_zh);
@@ -1580,21 +1580,23 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   /** @type {import('../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[]} */
   let submitWordLeaveFx = [];
   /** @type {(() => Promise<void>)[]} */
+  let submitAfterWordLeaveFx = [];
+  /** @type {(() => Promise<void>)[]} */
   let submitPostScoreClearFx = [];
   callbacks.submitUpgradeFxRegistrarState.current = (runner) => {
     if (typeof runner === "function") submitPostScoreClearFx.push(runner);
   };
   if (detailed.bossSoftViolation !== true) {
+    const grantWord = resolveSubmittedWordForHooks(resolvedWord, persistedSubmitTiles);
     const pending = await callbacks.runPendingInRunGrantsAfterSubmit(
       persistedSubmitTiles,
-      String(resolvedWord ?? "")
-        .toLowerCase()
-        .trim() || tiles.map((c) => c.letter.toLowerCase()).join(""),
+      grantWord,
       lenTb,
       refs.currentScore.value,
     );
     submitWordLeaveFx = pending.submitWordLeaveFx;
     submitPostScoreClearFx.push(...pending.submitPostScoreClearFx);
+    submitAfterWordLeaveFx.push(...pending.submitAfterWordLeaveFx);
   }
 
   const startRound = refs.currentScore.value;
@@ -1698,6 +1700,12 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
 
   callbacks.beginSubmitWordLeaveHide?.(leaveSlotCount);
   await nextTick();
+
+  if (submitAfterWordLeaveFx.length > 0) {
+    for (const fx of submitAfterWordLeaveFx) {
+      await fx();
+    }
+  }
 
   callbacks.setSubmitScoringAppendPresentation?.(null);
   callbacks.setSubmitScoringAppendPresentations?.([]);

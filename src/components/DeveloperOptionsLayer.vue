@@ -135,6 +135,13 @@
             </button>
             <p v-if="grantResultText" class="developer-options-result">{{ grantResultText }}</p>
           </section>
+
+          <section class="developer-options-section">
+            <h3 class="developer-options-section-title">释放法术</h3>
+            <button type="button" class="developer-options-btn" @click="openSpellPicker">
+              选择法术…
+            </button>
+          </section>
         </div>
 
         <button type="button" class="developer-options-close" @click="$emit('close')">关闭</button>
@@ -232,6 +239,92 @@
           </div>
         </div>
       </div>
+
+      <div
+        v-if="showSpellPicker"
+        class="developer-treasure-picker developer-spell-picker"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="developer-spell-picker-title"
+        @click.self="closeSpellPicker"
+      >
+        <div class="developer-treasure-picker-card" @click.stop>
+          <h3 id="developer-spell-picker-title" class="developer-treasure-picker-title">
+            <span class="developer-treasure-picker-title-main">选择法术</span>
+            <span v-if="selectedSpellName" class="developer-treasure-picker-title-count">
+              已选 {{ selectedSpellName }}
+            </span>
+          </h3>
+          <p class="developer-treasure-picker-hint">点击格子选中一张法术卡，确认后将直接释放</p>
+          <div class="developer-treasure-picker-grid-stage">
+            <div class="developer-spell-picker-grid" role="list">
+              <button
+                v-for="item in spellPickerPageItems"
+                :key="item.spellId"
+                type="button"
+                class="developer-spell-picker-cell"
+                :class="{ 'developer-spell-picker-cell--picked': selectedSpellId === item.spellId }"
+                role="listitem"
+                :aria-label="`${item.name}${selectedSpellId === item.spellId ? '，已选中' : ''}`"
+                @click="onSpellCellClick(item.spellId)"
+              >
+                <div class="shop-treasure-visual">
+                  <div
+                    class="shop-treasure-frame shop-treasure-frame--spell-offer developer-spell-picker-frame"
+                  >
+                    <i
+                      class="shop-treasure-emoji shop-treasure-emoji--icon"
+                      :class="item.iconClass || 'ri-magic-fill'"
+                      aria-hidden="true"
+                    />
+                  </div>
+                </div>
+                <span class="developer-spell-picker-name">{{ item.name }}</span>
+              </button>
+            </div>
+          </div>
+          <nav
+            v-if="spellPickerPageCount > 1"
+            class="developer-treasure-picker-pager"
+            aria-label="法术列表翻页"
+          >
+            <button
+              type="button"
+              class="developer-treasure-picker-pager-btn"
+              :disabled="spellPickerPage <= 0"
+              aria-label="上一页"
+              @click="stepSpellPickerPage(-1)"
+            >
+              上一页
+            </button>
+            <span class="developer-treasure-picker-pager-label" aria-live="polite">
+              {{ spellPickerPage + 1 }} / {{ spellPickerPageCount }}
+            </span>
+            <button
+              type="button"
+              class="developer-treasure-picker-pager-btn"
+              :disabled="spellPickerPage >= spellPickerPageCount - 1"
+              aria-label="下一页"
+              @click="stepSpellPickerPage(1)"
+            >
+              下一页
+            </button>
+          </nav>
+          <div class="developer-treasure-picker-actions confirm-actions-row">
+            <button
+              type="button"
+              class="developer-options-btn developer-options-btn--confirm"
+              :disabled="!selectedSpellId"
+              @click="onCastSpellConfirm"
+            >
+              确认释放
+            </button>
+            <button type="button" class="developer-options-btn developer-options-btn--secondary" @click="closeSpellPicker">
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </Transition>
 </template>
@@ -256,6 +349,8 @@ const props = defineProps({
   currentBalance: { type: Number, default: 0 },
   /** @type {{ treasureId: string, name: string, emoji: string, rarity?: string }[]} */
   treasureItems: { type: Array, default: () => [] },
+  /** @type {{ spellId: string, name: string, iconClass: string }[]} */
+  spellItems: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits([
@@ -264,6 +359,7 @@ const emit = defineEmits([
   "jump-level",
   "jump-boss-shop",
   "grant-treasures",
+  "cast-spell",
   "set-balance",
 ]);
 
@@ -271,6 +367,11 @@ const emit = defineEmits([
 const TREASURE_PICKER_COLS = 6;
 const TREASURE_PICKER_ROWS = 5;
 const TREASURE_PICKER_PAGE_SIZE = TREASURE_PICKER_COLS * TREASURE_PICKER_ROWS;
+
+/** 4×5 法术格（含名称），38 张法术约两页 */
+const SPELL_PICKER_COLS = 4;
+const SPELL_PICKER_ROWS = 5;
+const SPELL_PICKER_PAGE_SIZE = SPELL_PICKER_COLS * SPELL_PICKER_ROWS;
 
 const titleId = "developer-options-title";
 const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
@@ -337,6 +438,17 @@ const showTreasurePicker = ref(false);
 const treasurePickerPage = ref(0);
 const selectedTreasureCounts = ref(/** @type {Record<string, number>} */ ({}));
 
+const showSpellPicker = ref(false);
+const spellPickerPage = ref(0);
+const selectedSpellId = ref("");
+
+const selectedSpellName = computed(() => {
+  const id = String(selectedSpellId.value ?? "").trim();
+  if (!id) return "";
+  const item = props.spellItems.find((s) => s.spellId === id);
+  return item?.name ?? id;
+});
+
 const treasurePickerPageCount = computed(() =>
   Math.max(1, Math.ceil(props.treasureItems.length / TREASURE_PICKER_PAGE_SIZE)),
 );
@@ -348,6 +460,16 @@ const treasurePickerPageItems = computed(() => {
   );
   const start = page * TREASURE_PICKER_PAGE_SIZE;
   return props.treasureItems.slice(start, start + TREASURE_PICKER_PAGE_SIZE);
+});
+
+const spellPickerPageCount = computed(() =>
+  Math.max(1, Math.ceil(props.spellItems.length / SPELL_PICKER_PAGE_SIZE)),
+);
+
+const spellPickerPageItems = computed(() => {
+  const page = Math.min(Math.max(0, spellPickerPage.value), spellPickerPageCount.value - 1);
+  const start = page * SPELL_PICKER_PAGE_SIZE;
+  return props.spellItems.slice(start, start + SPELL_PICKER_PAGE_SIZE);
 });
 
 const totalSelectedCount = computed(() =>
@@ -395,6 +517,8 @@ watch(
       scheduleOverlayDismiss(240);
       showTreasurePicker.value = false;
       selectedTreasureCounts.value = {};
+      showSpellPicker.value = false;
+      selectedSpellId.value = "";
       bossSelectOpen.value = false;
     }
   },
@@ -403,6 +527,10 @@ watch(
 function onBackdropSelfClick() {
   if (showTreasurePicker.value) {
     closeTreasurePicker();
+    return;
+  }
+  if (showSpellPicker.value) {
+    closeSpellPicker();
     return;
   }
   backdropSelfCloseGuard.onBackdropSelfClick(() => emit("close"));
@@ -529,6 +657,42 @@ function onGrantTreasuresConfirm() {
   closeTreasurePicker();
 }
 
+function openSpellPicker() {
+  selectedSpellId.value = "";
+  spellPickerPage.value = 0;
+  showSpellPicker.value = true;
+}
+
+function closeSpellPicker() {
+  showSpellPicker.value = false;
+  selectedSpellId.value = "";
+  spellPickerPage.value = 0;
+}
+
+/** @param {number} delta */
+function stepSpellPickerPage(delta) {
+  const count = spellPickerPageCount.value;
+  if (count <= 1) return;
+  spellPickerPage.value = Math.min(
+    count - 1,
+    Math.max(0, spellPickerPage.value + Math.trunc(Number(delta) || 0)),
+  );
+}
+
+/** @param {string} spellId */
+function onSpellCellClick(spellId) {
+  const id = String(spellId ?? "").trim();
+  if (!id) return;
+  selectedSpellId.value = selectedSpellId.value === id ? "" : id;
+}
+
+function onCastSpellConfirm() {
+  const id = String(selectedSpellId.value ?? "").trim();
+  if (!id) return;
+  emit("cast-spell", { spellId: id });
+  closeSpellPicker();
+}
+
 /** @param {{ granted: number, failed: number, cropCount: number }} summary */
 function reportGrantResult(summary) {
   if (!summary?.granted) {
@@ -548,6 +712,8 @@ defineExpose({
   reportBossShopJumpResult,
   closeTreasurePicker,
   isTreasurePickerOpen: () => showTreasurePicker.value,
+  closeSpellPicker,
+  isSpellPickerOpen: () => showSpellPicker.value,
 });
 </script>
 
@@ -949,6 +1115,52 @@ defineExpose({
   gap: calc(8 * var(--rpx));
   justify-content: center;
   flex-wrap: wrap;
+}
+
+.developer-spell-picker-grid {
+  --spell-picker-cell-width: calc(132 * var(--rpx));
+  --spell-picker-grid-gap: calc(10 * var(--rpx));
+  display: grid;
+  grid-template-columns: repeat(4, var(--spell-picker-cell-width));
+  grid-auto-rows: auto;
+  gap: var(--spell-picker-grid-gap);
+  justify-content: center;
+  align-content: start;
+}
+
+.developer-spell-picker-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: var(--spell-picker-cell-width);
+  padding: calc(4 * var(--rpx));
+  border: calc(3 * var(--rpx)) solid transparent;
+  border-radius: calc(10 * var(--rpx));
+  background: transparent;
+  cursor: pointer;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.developer-spell-picker-cell--picked {
+  border-color: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 0 0 calc(2 * var(--rpx)) rgba(106, 159, 92, 0.65);
+}
+
+.developer-spell-picker-frame {
+  width: calc(88 * var(--rpx));
+  height: calc(88 * var(--rpx));
+}
+
+.developer-spell-picker-name {
+  margin-top: calc(6 * var(--rpx));
+  width: 100%;
+  text-align: center;
+  font-size: calc(20 * var(--rpx));
+  font-weight: 700;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.92);
+  word-break: break-word;
 }
 
 .developer-options-layer-enter-active,

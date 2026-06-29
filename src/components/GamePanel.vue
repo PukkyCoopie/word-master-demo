@@ -101,6 +101,7 @@ import {
 } from "../treasures/treasureRunState.js";
 
 import { IMPLEMENTED_TREASURE_ID_SET } from "../treasures/treasureCatalog.js";
+import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
 
 import {
   RUN_START_LEVEL_INDEX,
@@ -335,6 +336,14 @@ const devTreasurePickerItems = computed(() =>
     name: t.name,
     emoji: t.emoji,
     rarity: t.rarity,
+  })),
+);
+
+const devSpellPickerItems = computed(() =>
+  SPELL_DEFINITIONS.map((s) => ({
+    spellId: s.id,
+    name: s.name,
+    iconClass: s.iconClass,
   })),
 );
 
@@ -1128,7 +1137,7 @@ const ctrlEarly = wireGamePanelControllers({
     destroyOtherOwnedTreasureFromSourceFx,
     grantRandomOwnedTreasuresInRun,
     grantRandomOwnedTreasuresInRunWithPopAnim,
-    runSpellPreviewChain,
+    runSpellPreviewChain: (...args) => runSpellPreviewChain(...args),
     getRemainingWords: () => remainingWords.value,
     setRemainingWords: (v) => {
       remainingWords.value = v;
@@ -1141,8 +1150,8 @@ const ctrlEarly = wireGamePanelControllers({
     setOwnedTreasureSlot: (ix, slot) => {
       ownedTreasures.value[ix] = slot;
     },
-    runInRunSpellGrant,
-    runInRunPackPickFlow,
+    runInRunSpellGrant: (...args) => runInRunSpellGrant(...args),
+    runInRunPackPickFlow: (...args) => runInRunPackPickFlow(...args),
     rollInRunBundlePackOfKind,
     getWordDefinition,
     isValidWord,
@@ -1490,6 +1499,7 @@ const ctrlLate = wireGamePanelControllers({
   showShop,
   showInfoLayer,
   devTreasurePickerItems,
+  devSpellPickerItems,
   walletHeaderShown,
   pillarUsedDeckUids,
   verdantTreasureSold,
@@ -1620,6 +1630,7 @@ function sleep(ms) {
 }
 
 function onTreasureDetailClose() {
+  if (spellGrantDetailCloseHandler()) return;
   treasureDetail.value = null;
 }
 
@@ -2045,6 +2056,7 @@ wireOverlayViewContext(overlayStackController, {
 
 const {
   onDeveloperConvertDeck, onDeveloperJumpLevel, onDeveloperJumpBossShop, onDeveloperGrantTreasures,
+  onDeveloperCastSpell,
   onDeveloperSetBalance,
 } = createGamePanelDevHandlers({
   ownedTreasures,
@@ -2057,6 +2069,11 @@ const {
   runWalletFloor: shopPhase.runWalletFloor,
   rarityLevelsByRarity, touchGrid, scheduleRunAutoSave, developerOptionsLayerRef, devCommandsRef,
   resetDeckAfterStageEnd,
+  showDeveloperOptions,
+  showPauseOptions,
+  showShop,
+  nextTick,
+  runInRunSpellGrant,
 });
 
 Object.assign(pauseOverlaySession, {
@@ -2064,6 +2081,7 @@ Object.assign(pauseOverlaySession, {
   onDeveloperJumpLevel,
   onDeveloperJumpBossShop,
   onDeveloperGrantTreasures,
+  onDeveloperCastSpell,
   onDeveloperSetBalance,
 });
 

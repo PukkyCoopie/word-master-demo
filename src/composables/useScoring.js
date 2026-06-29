@@ -621,7 +621,7 @@ export function withWildcardsResolvedForScoring(
       }
       return out;
     }
-    readPos += frag.length;
+    readPos = advanceResolvedReadPosPastTile(tile, res, readPos);
     return out;
   });
 }

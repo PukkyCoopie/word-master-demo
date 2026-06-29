@@ -392,6 +392,21 @@
 .deck-stack-expand-tiles .deck-expand-face-tile .letter-gem.gem-legendary {
   background: #e67e22;
 }
+
+/* 牌库展开：滑块合并档时与棋盘 letter-gem 一致 */
+html.has-rarity-tier-merge .deck-stack-expand-tiles .deck-expand-face-tile .letter-gem.gem-common,
+html.has-rarity-tier-merge .deck-stack-expand-tiles .deck-expand-face-tile .letter-gem.gem-rare {
+  background: var(--rarity-gem-merge-low);
+}
+
+html.has-rarity-tier-merge .deck-stack-expand-tiles .deck-expand-face-tile .letter-gem.gem-epic,
+html.has-rarity-tier-merge .deck-stack-expand-tiles .deck-expand-face-tile .letter-gem.gem-legendary {
+  background: var(--rarity-gem-merge-high);
+}
+
+html.has-rarity-tier-merge .deck-stack-expand-tiles .deck-expand-face-tile .letter-gem.gem-common {
+  border-color: rgba(156, 139, 122, 0.55);
+}
 .deck-layer-inner > .shop-btn.deck-layer-confirm {
   flex-shrink: 0;
   position: relative;

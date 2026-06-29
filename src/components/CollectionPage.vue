@@ -169,7 +169,13 @@ import {
 import { formatCollectionTabProgressLine } from "../collection/collectionProgress.js";
 import { TREASURE_CATALOG } from "../treasures/treasureCatalog.js";
 import { getTreasureDef } from "../treasures/treasureRegistry.js";
-import { getCollectionTreasureNavIds, TREASURE_COLLECTION_GROUP_BY } from "../collection/collectionTreasureSort.js";
+import { getCollectionTreasureNavIds } from "../collection/collectionTreasureSort.js";
+import {
+  getCollectionTreasureGroupBy,
+  getCollectionTreasureGroupView,
+  setCollectionTreasureGroupBy,
+  setCollectionTreasureGroupView,
+} from "../settings/gameSettings.js";
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
 import {
   COLLECTION_LENGTH_UPGRADE_CATALOG,
@@ -241,8 +247,14 @@ const effectiveDiscoveredTreasureIds = computed(() =>
 
 /** @type {import('vue').Ref<{ treasure: object, originRect: object | null, shelfPriceKind: 'offer' | null, previewNav: import('../preview/previewGroupNav.js').PreviewNavGroup<unknown> | null, previewNavKind: string | null, collectionEntryState: import('../collection/collectionEntryState.js').CollectionEntryState } | null>} */
 const collectionTreasureDetail = ref(null);
-const treasureGroupView = ref(false);
-const treasureGroupBy = ref(TREASURE_COLLECTION_GROUP_BY.rarity);
+const treasureGroupView = computed({
+  get: () => getCollectionTreasureGroupView(),
+  set: (value) => setCollectionTreasureGroupView(value === true),
+});
+const treasureGroupBy = computed({
+  get: () => getCollectionTreasureGroupBy(),
+  set: (value) => setCollectionTreasureGroupBy(value),
+});
 /** @type {import('vue').Ref<Record<string, unknown> | null>} */
 const collectionTileDetailPayload = ref(null);
 /** @type {import('vue').Ref<{ left: number, top: number, width: number, height: number } | null>} */

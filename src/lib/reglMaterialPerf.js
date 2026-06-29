@@ -30,8 +30,13 @@ export function initMaterialAnimationSettings() {
   materialAnimationWatchInitialized = true;
   watch(
     () => gameSettings.materialAnimationEnabled,
-    () => {
+    (enabled) => {
       materialAnimationSignal.value += 1;
+      if (enabled === false) {
+        void import("./reglMaterialHub.js").then((m) => {
+          m.repaintAllStaticMaterialCanvases?.();
+        });
+      }
     },
   );
 }

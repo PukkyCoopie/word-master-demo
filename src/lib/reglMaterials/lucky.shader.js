@@ -1,5 +1,6 @@
 /** lucky 材质 shader（由 luckyReglMount.js 抽出，供统一 regl hub 使用） */
 import { blitReglOffscreenToSubscriber } from "../reglSubscriberAnimation.js";
+import { resolveMaterialShaderITime } from "../reglMaterialITime.js";
 
 export const MATERIAL_ID = "lucky";
 
@@ -41,9 +42,8 @@ void main() {
 }
 `;
 
-const SHADER_TIME0 = performance.now();
 export function getITime() {
-  return (performance.now() - SHADER_TIME0) * 0.001 * 0.7;
+  return resolveMaterialShaderITime(0.7);
 }
 
 /** @param {import("regl").Regl} regl */

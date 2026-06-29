@@ -6,7 +6,7 @@ const ID = "133";
 export default {
   price: 7,
   rarity: "rare",
-  description: describe("每个关卡完成时，使你其他的宝藏的售价增加", money("1")),
+  description: describe("每个关卡完成时，使你其他宝藏的售价增加", money("1")),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

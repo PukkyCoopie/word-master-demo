@@ -48,7 +48,9 @@ export function buildTreasureRunShellHooks(d) {
         requestInRunSpellGrant: async (opts = {}) => {
           const spellId = opts.spellId ?? d.pickRandomInRunSpellIdForRun();
           if (!spellId) return;
-          await d.runSpellPreviewChain(spellId, "inRun", "remainingDeck");
+          let slotIx = opts.treasureSlotIndex;
+          if (slotIx == null && opts.treasureId) slotIx = d.findOwnedTreasureSlotIndex(opts.treasureId);
+          await d.runInRunSpellGrant(spellId, { treasureSlotIndex: slotIx });
         },
         addRemainingWords: (n) => {
           const next = d.getRemainingWords() + Math.floor(Number(n) || 0);
@@ -66,8 +68,11 @@ export function buildTreasureRunShellHooks(d) {
         destroyTreasureSlotById: d.destroyOwnedTreasureWithFx,
         destroyBombBlastAtSlot: d.destroyBombBlastAtSlot,
         playVolcanoEruptionAtSlot: d.playVolcanoEruptionAtSlot,
-        playOwnedTreasureMoneyFx: (treasureId, amount, fxOpts) =>
-          d.playOwnedTreasureMoneyFx(treasureId, amount, { ...fxOpts, awaitOutro: true }),
+        playOwnedTreasureMoneyFx: (treasureId, amount, fxOpts = {}) =>
+          d.playOwnedTreasureMoneyFx(treasureId, amount, {
+            awaitOutro: true,
+            ...fxOpts,
+          }),
         remainingRemovals: d.getRemainingRemovals(),
         currentScore: d.getCurrentScore(),
         targetScore: d.getTargetScore(),

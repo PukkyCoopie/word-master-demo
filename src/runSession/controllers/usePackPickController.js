@@ -38,6 +38,7 @@ function refToDom(el) {
  * }} shop
  * @property {{
  *   runSpellPreviewChain: (...args: unknown[]) => Promise<unknown>,
+ *   runInRunSpellGrant: (...args: unknown[]) => Promise<unknown>,
  *   runInRunUpgradePlaybackSteps: (steps: object[]) => Promise<void>,
  *   appendShopDeckEntriesAndNotify: (entries: object[]) => void,
  * }} grant
@@ -232,8 +233,9 @@ export function usePackPickController(options) {
               : null);
           if (!spellId) return;
           const grantCtx = getPackPickGrantContext();
-          const offerDeck = grantCtx === "inRun" ? "remainingDeck" : "fullDeck";
-          await grant.runSpellPreviewChain(spellId, grantCtx, offerDeck);
+          await grant.runInRunSpellGrant(spellId, {
+            cdShopLeaveReplay: grantCtx !== "inRun",
+          });
         },
       });
       await dismissPackPickLayer();
@@ -247,14 +249,10 @@ export function usePackPickController(options) {
     const spellId = String(t.spellId ?? "");
     if (!spellId) return;
     const grantCtx = getPackPickGrantContext();
-    const offerDeck = grantCtx === "inRun" ? "remainingDeck" : "fullDeck";
     packPickOverlaySuppressed.value = true;
     await nextTick();
-    await grant.runSpellPreviewChain(spellId, grantCtx, offerDeck, {
-      spellDescription: t.description,
-      spellName: t.name,
-      spellIconClass: t.iconClass,
-      spellRarity: t.rarity,
+    await grant.runInRunSpellGrant(spellId, {
+      cdShopLeaveReplay: grantCtx !== "inRun",
     });
     if (restoreLayersAfter) {
       ensurePackPickOverlayVisible();

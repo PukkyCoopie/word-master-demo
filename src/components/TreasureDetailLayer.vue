@@ -743,7 +743,15 @@
               :hold-mode="spellOfferHoldConfirm"
               :disabled="!canBuyOffer"
               @confirm="emit('purchase')"
-              @hold-change="onOfferHoldChange"
+            />
+            <HoldSkipButton
+              v-if="mode === 'offer' && !isCollectionPreviewMode && spellGrantFlow"
+              variant="danger"
+              label="跳过"
+              hold-label="按住以跳过"
+              :hold-mode="spellGrantSkipHoldConfirm"
+              title="关闭弹窗，不施放本次法术"
+              @skip="requestClose"
             />
             <HoldConfirmButton
               v-else-if="mode === 'offer' && !isCollectionPreviewMode"
@@ -1169,7 +1177,7 @@ const isPreviewLayerMode = computed(
   () => isCollectionPreviewMode.value || isSpellReferenceMode.value,
 );
 const previewCloseHoldMode = computed(
-  () => isPreviewLayerMode.value && getHighRiskSpellConfirmEnabled(),
+  () => isSpellReferenceMode.value && getHighRiskSpellConfirmEnabled(),
 );
 const isEffectDepleted = computed(() => props.effectDepleted === true);
 
@@ -1689,6 +1697,7 @@ const spellOfferId = computed(() =>
 const spellOfferHoldConfirm = computed(
   () => isSpellOffer.value && isHighRiskSpellId(spellOfferId.value) && getHighRiskSpellConfirmEnabled(),
 );
+const spellGrantSkipHoldConfirm = computed(() => getHighRiskSpellConfirmEnabled());
 
 const offerPeerHoldActive = ref(false);
 const offerPeerHoldProgress = ref(0);

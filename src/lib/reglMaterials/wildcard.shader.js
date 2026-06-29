@@ -1,6 +1,7 @@
 /** wildcard 材质 shader（由 wildcardReglMount.js 抽出，供统一 regl hub 使用） */
 
 import { useMobileMaterialLowPower, reglBlitImageSmoothingQuality } from "../reglMaterialPerf.js";
+import { resolveMaterialShaderITime } from "../reglMaterialITime.js";
 
 /** @param {import("../reglSubscriberAnimation.js").ReglDisplaySubscriber} sub */
 export function blitWildcardSubscriber(sub, offscreen, texPx) {
@@ -120,7 +121,7 @@ void main() {
 `;
 
 export function getITime() {
-  return performance.now() * 0.001;
+  return resolveMaterialShaderITime(1, { wallClock: true });
 }
 
 /** @param {import("regl").Regl} regl */

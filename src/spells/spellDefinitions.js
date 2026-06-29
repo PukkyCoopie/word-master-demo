@@ -434,16 +434,29 @@ export function resolveSpellPickMode(spellId) {
  * @param {string} spellId
  * @param {string | null} [lastReplayableSpellId]
  */
-export function shouldOpenSpellTargetLayer(spellId, lastReplayableSpellId) {
+export function shouldOpenSpellTargetLayer(spellId, lastReplayableSpellId = null) {
   const sid = String(spellId ?? "");
-  if (sid === "restart" || sid === "dice") return true;
+  if (sid === "dice") return false;
+  if (sid === "restart") {
+    const target = String(lastReplayableSpellId ?? "").trim();
+    if (!target || target === "restart" || target === "dice") return false;
+    return resolveSpellPickMode(target) !== "none";
+  }
   return resolveSpellPickMode(sid) !== "none";
 }
 
 /**
- * 对局内释法：一律先开预览层（含无选格法术）。
+ * 对局内详情「施放」后是否再打开法术选格层（SpellTargetLayer）。
+ * 与商店一致：`pickMode === "none"` 的法术在详情确认后直接结算；需选格 / confirm_all / preview_only 仍开层。
  * @param {string} spellId
+ * @param {string | null} [replayTarget] `restart` 时传入可重播的目标法术 id
  */
-export function shouldOpenInRunSpellPreview(spellId) {
-  return Boolean(String(spellId ?? "").trim());
+export function shouldOpenInRunSpellPreview(spellId, replayTarget = null) {
+  const sid = String(spellId ?? "").trim();
+  if (!sid) return false;
+  if (sid === "dice") return false;
+  if (sid === "restart") {
+    return shouldOpenSpellTargetLayer("restart", replayTarget);
+  }
+  return shouldOpenSpellTargetLayer(sid);
 }

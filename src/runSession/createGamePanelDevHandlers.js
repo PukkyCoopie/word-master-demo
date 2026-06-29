@@ -85,6 +85,15 @@ export function createGamePanelDevHandlers(d) {
     d.developerOptionsLayerRef.value?.reportGrantResult?.({ granted, failed, cropCount });
   }
 
+  async function onDeveloperCastSpell(payload) {
+    const spellId = String(payload?.spellId ?? "").trim();
+    if (!spellId) return;
+    d.showDeveloperOptions.value = false;
+    d.showPauseOptions.value = false;
+    await d.nextTick();
+    await d.runInRunSpellGrant(spellId, { cdShopLeaveReplay: d.showShop.value });
+  }
+
   function onDeveloperSetBalance(payload) {
     const raw = String(payload?.amountRaw ?? "").trim();
     if (!raw) {
@@ -122,6 +131,7 @@ export function createGamePanelDevHandlers(d) {
     onDeveloperJumpLevel,
     onDeveloperJumpBossShop,
     onDeveloperGrantTreasures,
+    onDeveloperCastSpell,
     onDeveloperSetBalance,
   };
 }

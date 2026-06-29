@@ -1250,6 +1250,10 @@ const spellCastController = useSpellCastController({
   sleep,
 });
 
+runLifecycle.bindSpell({
+  runInRunSpellGrant: spellCastController.runInRunSpellGrant,
+});
+
 const spellSession = spellCastController;
 
 const packPickController = usePackPickController({
@@ -1268,6 +1272,7 @@ const packPickController = usePackPickController({
   },
   grant: {
     runSpellPreviewChain: (...args) => spellCastController.runSpellPreviewChain(...args),
+    runInRunSpellGrant: (...args) => spellCastController.runInRunSpellGrant(...args),
     runInRunUpgradePlaybackSteps,
     appendShopDeckEntriesAndNotify,
   },

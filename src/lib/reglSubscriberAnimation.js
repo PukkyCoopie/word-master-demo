@@ -102,6 +102,66 @@ export function blitReglOffscreenToSubscriber(sub, offscreen, texPx, opts = {}) 
 }
 
 /**
+ * 从已有展示 canvas 复制一帧（2D drawImage，无 WebGL）。
+ * @param {ReglDisplaySubscriber} fromSub
+ * @param {ReglDisplaySubscriber} toSub
+ * @returns {boolean}
+ */
+export function copyReglSubscriberDisplayFrame(fromSub, toSub) {
+  if (!fromSub._displayFrameReady || fromSub.canvas.width <= 0 || fromSub.canvas.height <= 0) {
+    return false;
+  }
+  let cssW = toSub.canvas.clientWidth;
+  let cssH = toSub.canvas.clientHeight;
+  const useFixed =
+    typeof toSub.fixedCssWidth === "number" &&
+    typeof toSub.fixedCssHeight === "number" &&
+    Number.isFinite(toSub.fixedCssWidth) &&
+    Number.isFinite(toSub.fixedCssHeight) &&
+    toSub.fixedCssWidth > 0 &&
+    toSub.fixedCssHeight > 0;
+  if (useFixed) {
+    cssW = toSub.fixedCssWidth;
+    cssH = toSub.fixedCssHeight;
+  }
+  if (cssW <= 0 || cssH <= 0) return false;
+  const pw = Math.max(2, Math.ceil(cssW * toSub.dpr));
+  const ph = Math.max(2, Math.ceil(cssH * toSub.dpr));
+  if (toSub.canvas.width !== pw || toSub.canvas.height !== ph) {
+    toSub.canvas.width = pw;
+    toSub.canvas.height = ph;
+  }
+  if (toSub.ctx.imageSmoothingEnabled !== true) {
+    toSub.ctx.imageSmoothingEnabled = true;
+  }
+  const smoothingQuality = reglBlitImageSmoothingQuality();
+  if (toSub.ctx.imageSmoothingQuality !== smoothingQuality) {
+    toSub.ctx.imageSmoothingQuality = smoothingQuality;
+  }
+  toSub.ctx.drawImage(fromSub.canvas, 0, 0, pw, ph);
+  toSub._displayFrameReady = true;
+  return true;
+}
+
+/**
+ * 飞字等新建 subscriber：优先从仍在动的 peer 复制当前帧。
+ * @param {ReglDisplaySubscriber} targetSub
+ * @param {Iterable<ReglDisplaySubscriber>} peers
+ * @returns {boolean}
+ */
+export function seedReglSubscriberFromPeers(targetSub, peers) {
+  for (const peer of peers) {
+    if (peer.canvas === targetSub.canvas || peer.frameFrozen) continue;
+    if (copyReglSubscriberDisplayFrame(peer, targetSub)) return true;
+  }
+  for (const peer of peers) {
+    if (peer.canvas === targetSub.canvas) continue;
+    if (copyReglSubscriberDisplayFrame(peer, targetSub)) return true;
+  }
+  return false;
+}
+
+/**
  * 带剖析的材质 hub 单帧：1 次 WebGL draw + 对可见订阅者 blit。
  * @param {string} materialId
  * @param {Iterable<ReglDisplaySubscriber>} subscribers
@@ -222,7 +282,9 @@ export function applyReglSubscriberAnimated(sub, animated, hub) {
     hub.paintSubscriberOnce(sub);
     hub.ensureTick();
   } else {
-    hub.paintSubscriberOnce(sub);
+    if (!sub._displayFrameReady) {
+      hub.paintSubscriberOnce(sub);
+    }
     sub.frameFrozen = true;
   }
   hub.stopTickIfIdle();

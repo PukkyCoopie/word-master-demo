@@ -1,5 +1,6 @@
 /** steel 材质 shader（由 steelReglMount.js 抽出，供统一 regl hub 使用） */
 import { blitReglOffscreenToSubscriber } from "../reglSubscriberAnimation.js";
+import { resolveMaterialShaderITime } from "../reglMaterialITime.js";
 
 export const MATERIAL_ID = "steel";
 
@@ -350,9 +351,8 @@ void main() {
 }
 `;
 
-const SHADER_TIME0 = performance.now();
 export function getITime() {
-  return (performance.now() - SHADER_TIME0) * 0.001;
+  return resolveMaterialShaderITime();
 }
 
 /** @param {import("regl").Regl} regl */

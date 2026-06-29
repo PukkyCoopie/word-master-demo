@@ -887,6 +887,32 @@ function resolveSpellPreviewFlow(previewResult) {
 }
 
 /**
+ * 骰子：逐张展示随机抽到的法术详情，点「施放」后再结算（或进入该法术的操作层）。
+ * @param {'shop' | 'inRun'} context
+ * @param {'fullDeck' | 'remainingDeck'} offerDeckSource
+ * @param {Parameters<typeof buildSpellTargetSessionFields>[4]} [overrides]
+ */
+async function runDiceSubSpellChain(context, offerDeckSource, overrides = {}) {
+  const { spellDescription, spellName, spellIconClass, spellRarity, ...diceRestOverrides } =
+    overrides;
+  void spellDescription;
+  void spellName;
+  void spellIconClass;
+  void spellRarity;
+  for (const subId of pickDiceChainSpellIds(runRandom)) {
+    const result = await openSpellGrantDetailPreviewThenCast(
+      subId,
+      subId,
+      context,
+      offerDeckSource,
+      diceRestOverrides,
+    );
+    if (!result.confirmed) return result;
+  }
+  return { confirmed: true, skipped: false };
+}
+
+/**
  * 详情层点「施放」后：无选格则即时结算，否则打开 SpellTargetLayer。
  * @param {string} purchasedSpellId
  * @param {'shop' | 'inRun'} context
@@ -895,6 +921,9 @@ function resolveSpellPreviewFlow(previewResult) {
  */
 async function runSpellCastAfterDetailPreview(purchasedSpellId, context, offerDeckSource, overrides = {}) {
   const pid = String(purchasedSpellId ?? "");
+  if (pid === "dice") {
+    return runDiceSubSpellChain(context, offerDeckSource, overrides);
+  }
   const replayTarget = resolveRestartEffectiveSpellId(spellCastHistory.value, lastReplayableSpellId.value);
   if (overrides.afterDetailUseShopCastLogic === true) {
     const openTargetLayer = shouldOpenSpellTargetLayer(pid, replayTarget);
@@ -906,7 +935,7 @@ async function runSpellCastAfterDetailPreview(purchasedSpellId, context, offerDe
   }
   const openTargetLayer =
     context === "inRun"
-      ? shouldOpenInRunSpellPreview(pid)
+      ? shouldOpenInRunSpellPreview(pid, replayTarget)
       : shouldOpenSpellTargetLayer(pid, replayTarget);
 
   if (!openTargetLayer) {
@@ -952,14 +981,32 @@ async function fulfillSpellGrantDetailCast() {
   if (!pending || !resolve) return;
   spellGrantDetailPending = null;
   spellGrantDetailResolve = null;
-  const result = await runSpellPreviewChainAfterDetailClose(() =>
-    runSpellCastAfterDetailPreview(
-      pending.purchasedSpellId,
+
+  /** 骰子：须先关详情再开子法术链；不可在关层前写入下一层 treasureDetail（会被 playClose 一起关掉） */
+  let result;
+  if (pending.purchasedSpellId === "dice") {
+    await nextTick();
+    const layer = dom.getTreasureDetailLayer();
+    await layer?.playClose?.();
+    treasureDetail.value = null;
+    await nextTick();
+    await new Promise((r) => requestAnimationFrame(r));
+    result = await runSpellPreviewChain(
+      "dice",
       pending.context,
       pending.offerDeckSource,
       pending.overrides,
-    ),
-  );
+    );
+  } else {
+    result = await runSpellPreviewChainAfterDetailClose(() =>
+      runSpellCastAfterDetailPreview(
+        pending.purchasedSpellId,
+        pending.context,
+        pending.offerDeckSource,
+        pending.overrides,
+      ),
+    );
+  }
   resolve(result);
 }
 
@@ -1097,36 +1144,17 @@ async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, 
     void spellIconClass;
     void spellRarity;
     return openSpellGrantDetailPreviewThenCast(
-      replayTarget,
-      replayTarget,
+      "restart",
+      "restart",
       context,
       offerDeckSource,
-      {
-        ...restartRestOverrides,
-        replayAsPurchasedId: "restart",
-      },
+      restartRestOverrides,
     );
   }
 
   if (pid === "dice") {
     callbacks.noteCollectionDiscovery({ spellId: "dice" });
-    const { spellDescription, spellName, spellIconClass, spellRarity, ...diceRestOverrides } =
-      overrides;
-    void spellDescription;
-    void spellName;
-    void spellIconClass;
-    void spellRarity;
-    for (const subId of pickDiceChainSpellIds(runRandom)) {
-      const result = await openSpellGrantDetailPreviewThenCast(
-        subId,
-        subId,
-        context,
-        offerDeckSource,
-        diceRestOverrides,
-      );
-      if (!result.confirmed) return result;
-    }
-    return { confirmed: true, skipped: false };
+    return runDiceSubSpellChain(context, offerDeckSource, overrides);
   }
 
   const replayTarget = resolveRestartEffectiveSpellId(spellCastHistory.value, lastReplayableSpellId.value);
@@ -1134,7 +1162,7 @@ async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, 
     overrides.forcePreview === true
       ? true
       : context === "inRun"
-      ? shouldOpenInRunSpellPreview(pid)
+      ? shouldOpenInRunSpellPreview(pid, replayTarget)
       : shouldOpenSpellTargetLayer(pid, replayTarget);
 
   if (!openPreview) {
@@ -1365,20 +1393,24 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
       },
     })) === true;
   if (!playedOnOffer) {
-    await queueOrRunSpellTileAppearanceAnim({
-      spellId: sid,
-      targets,
-      oldSnaps,
-      grid,
-      touchGrid,
-      getTileEl: (row, col) => dom.getGridTileElByIndex(row * COLS + col),
-      nextTick,
-      getNewSnapsAtMid: () => {
-        applySpellNow();
-        touchGrid();
-        return targets.map(({ row, col }) => cloneGridTileSnapshot(grid.value[row][col]));
-      },
-    });
+    if (targets.length === 0) {
+      applySpellNow();
+    } else {
+      await queueOrRunSpellTileAppearanceAnim({
+        spellId: sid,
+        targets,
+        oldSnaps,
+        grid,
+        touchGrid,
+        getTileEl: (row, col) => dom.getGridTileElByIndex(row * COLS + col),
+        nextTick,
+        getNewSnapsAtMid: () => {
+          applySpellNow();
+          touchGrid();
+          return targets.map(({ row, col }) => cloneGridTileSnapshot(grid.value[row][col]));
+        },
+      });
+    }
   }
   await sleep(
     playedOnOffer && !isTreasureGrantSpellFx(lastSpellFx)

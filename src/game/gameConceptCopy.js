@@ -227,7 +227,7 @@ export const GAME_TERM_CONCEPT_BY_LABEL = Object.freeze({
   }),
   削弱: Object.freeze({
     title: "削弱",
-    effectDescription: "会跳过计分",
+    effectDescription: "会跳过计分，且增益不会生效",
   }),
 });
 

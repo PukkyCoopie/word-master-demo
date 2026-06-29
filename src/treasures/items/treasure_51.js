@@ -1,4 +1,6 @@
 import { describe } from "../treasureDescription.js";
+import { resolveSubmittedWordForHooks } from "../../game/resolvedWordTileMapping.js";
+import { wordEndsWithSuffix } from "../../game/wordPosMatch.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
@@ -10,12 +12,19 @@ export default {
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   async onSuccessfulWordSubmit(ctx) {
-    const word = String(ctx.resolvedWord ?? "").toLowerCase();
-    if (!word.endsWith("tion")) return;
+    const word = resolveSubmittedWordForHooks(ctx.resolvedWord, ctx.submittedScoringTiles);
+    if (!wordEndsWithSuffix(word, "tion")) return;
     const slotIx = ctx.findOwnedTreasureSlotIndex?.("51") ?? -1;
-    await ctx.requestInRunSpellGrant?.({
-      treasureId: "51",
-      treasureSlotIndex: slotIx >= 0 ? slotIx : undefined,
-    });
+    const runGrant = async () => {
+      await ctx.requestInRunSpellGrant?.({
+        treasureId: "51",
+        treasureSlotIndex: slotIx >= 0 ? slotIx : undefined,
+      });
+    };
+    if (typeof ctx.registerSubmitAfterWordLeaveFx === "function") {
+      ctx.registerSubmitAfterWordLeaveFx(runGrant);
+      return;
+    }
+    await runGrant();
   },
 };

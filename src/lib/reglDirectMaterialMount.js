@@ -186,6 +186,14 @@ export function setDirectMaterialReglAnimated(materialId, canvas, animated) {
   return false;
 }
 
+/** 关闭材质动画后，用统一静帧时刻重绘全部 direct WebGL 静态 subscriber。 */
+export function repaintStaticDirectMaterialSubscribers() {
+  for (const sub of directSubscribers) {
+    if (sub.animated !== false) continue;
+    drawDirectSubscriber(sub);
+  }
+}
+
 /** 离屏单上下文预编译全部材质 shader 并各绘 1 帧。 */
 export function warmupDirectMaterialShaders() {
   const texPx = reglOffscreenTexPx();

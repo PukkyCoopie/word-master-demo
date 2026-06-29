@@ -18,7 +18,7 @@ import { applyRandomUpgradePick, rollRandomUpgradePicks } from "../shop/randomUp
 import { SHOP_TILE_PACK_MATERIAL_IDS } from "../shop/shopPackEconomy.js";
 import { spellHasTag } from "./spellTags.js";
 import { SPELL_TAG_SPECTRAL } from "./spellTags.js";
-import { normalizeExclusiveTileAccessoryPair, writeEntityAccessory } from "../accessories/accessoryState.js";
+import { addTreasureAccessory, normalizeExclusiveTileAccessoryPair, writeEntityAccessory } from "../accessories/accessoryState.js";
 import {
   buildOwnedTreasureSlot,
   computeOwnedTreasureSellRefund,
@@ -979,8 +979,11 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       const cur = slots[ix];
       if (cur && typeof cur === "object") {
         const nextSlots = [...slots];
-        nextSlots[ix] = { ...cur, treasureAccessoryId: TREASURE_ACCESSORY_CROP };
+        const nextSlot = { ...cur };
+        addTreasureAccessory(nextSlot, TREASURE_ACCESSORY_CROP);
+        nextSlots[ix] = nextSlot;
         ctx.ownedTreasures.value = nextSlots;
+        ctx.onAccessoryAcquired?.(TREASURE_ACCESSORY_CROP);
         spellFx = { kind: "treasure_accessory", slotIndex: ix };
       }
       ctx.setRunWordLengthJudgmentPenalty?.(1);

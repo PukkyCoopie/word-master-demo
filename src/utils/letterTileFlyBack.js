@@ -79,6 +79,7 @@ export function createFlyBackTileElement(item) {
       attachMaterialRegl(item.materialId, canvas, {
         ...reglOpts,
         animated: resolveTileMaterialAnimate("fly", true),
+        seedFromPeers: true,
       }),
     );
   }

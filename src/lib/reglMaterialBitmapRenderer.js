@@ -213,8 +213,34 @@ function paintBitmapRendererSubscriberFrame(materialId, sub) {
 
 function freezeBitmapRendererSubscriberFrame(materialId, sub) {
   if (sub.frameFrozen) return;
-  paintBitmapRendererSubscriberFrame(materialId, sub);
+  if (!sub._displayFrameReady) {
+    paintBitmapRendererSubscriberFrame(materialId, sub);
+  }
   sub.frameFrozen = true;
+}
+
+/**
+ * @param {{ canvas: HTMLCanvasElement, _displayFrameReady?: boolean, frameFrozen?: boolean }} targetSub
+ * @param {Iterable<{ canvas: HTMLCanvasElement, _displayFrameReady?: boolean }>} peers
+ */
+async function seedBitmapRendererSubscriberFromPeers(targetSub, peers) {
+  if (typeof createImageBitmap !== "function") return false;
+  for (const peer of peers) {
+    if (peer.canvas === targetSub.canvas || !peer._displayFrameReady) continue;
+    try {
+      const bmp = await createImageBitmap(peer.canvas);
+      if (targetSub.disposed) {
+        bmp.close?.();
+        return false;
+      }
+      targetSub.ctx.transferFromImageBitmap(bmp);
+      targetSub._displayFrameReady = true;
+      return true;
+    } catch {
+      // try next peer
+    }
+  }
+  return false;
 }
 
 function bitmapRendererTick() {
@@ -281,7 +307,7 @@ export function repaintUnpaintedBitmapRendererCanvasesIn(root) {
 /**
  * @param {string} materialId
  * @param {HTMLCanvasElement} canvas
- * @param {{ animated?: boolean }} [options]
+ * @param {{ animated?: boolean, seedFromPeers?: boolean }} [options]
  * @returns {() => void}
  */
 export function attachBitmapRendererMaterial(materialId, canvas, options = {}) {
@@ -305,9 +331,19 @@ export function attachBitmapRendererMaterial(materialId, canvas, options = {}) {
     disposeBindings: () => {},
   };
   bindBitmapVisibility(sub);
-  ensureSubscribersSet(materialId).add(sub);
+  const subs = ensureSubscribersSet(materialId);
+  subs.add(sub);
   if (sub.animated) {
-    paintMaterialSubscribers(materialId, false);
+    if (options.seedFromPeers === true) {
+      void seedBitmapRendererSubscriberFromPeers(sub, subs).then((seeded) => {
+        if (sub.disposed) return;
+        if (!seeded) {
+          paintBitmapRendererSubscriberFrame(materialId, sub);
+        }
+      });
+    } else {
+      paintBitmapRendererSubscriberFrame(materialId, sub);
+    }
     ensureTick();
   } else {
     freezeBitmapRendererSubscriberFrame(materialId, sub);
@@ -348,6 +384,18 @@ export function setBitmapRendererMaterialAnimated(materialId, canvas, animated) 
     return true;
   }
   return false;
+}
+
+/** 关闭材质动画后，用统一静帧时刻重绘全部 bitmaprenderer 静态 subscriber。 */
+export function repaintStaticBitmapRendererSubscribers() {
+  ensureSharedHub();
+  for (const [materialId, subs] of subscribersByMaterial) {
+    for (const sub of subs) {
+      if (sub.disposed || sub.animated !== false) continue;
+      paintBitmapRendererSubscriberFrame(materialId, sub);
+      sub.frameFrozen = true;
+    }
+  }
 }
 
 /** 预创建共享 WebGL、编译 shader，并预热 createImageBitmap → bitmaprenderer 路径。 */

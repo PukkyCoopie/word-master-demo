@@ -60,6 +60,10 @@ export function handleGameAndroidBack(ctx) {
       ctx.developerOptionsLayerRef.value.closeTreasurePicker?.();
       return true;
     }
+    if (ctx.developerOptionsLayerRef?.value?.isSpellPickerOpen?.()) {
+      ctx.developerOptionsLayerRef.value.closeSpellPicker?.();
+      return true;
+    }
     ctx.closeDeveloperOptions?.();
     return true;
   }

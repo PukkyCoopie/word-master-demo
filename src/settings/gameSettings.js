@@ -1,5 +1,6 @@
 import { reactive } from "vue";
 import { inferDefaultDisplayLayoutMode } from "../composables/viewportSize.js";
+import { normalizeTreasureCollectionGroupBy } from "../collection/collectionTreasureSort.js";
 import { RUN_SAVES_STORAGE_KEY } from "../save/runSaveSchema.js";
 
 const STORAGE_KEY = "word_master_game_settings_v1";
@@ -146,12 +147,12 @@ function applyLegacyWordDefinitionDefault() {
   gameSettings.wordDefinitionMode = "definition";
 }
 
-/** 释义：新玩家默认关闭 */
+/** 释义：新玩家默认按钮 */
 function applyNewPlayerWordDefinitionDefault() {
-  gameSettings.wordDefinitionMode = "off";
+  gameSettings.wordDefinitionMode = "button";
 }
 
-/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; materialAnimationEnabled: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean; devSuppressAchievementsAndLeaderboards: boolean }} */
+/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; materialAnimationEnabled: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean; devSuppressAchievementsAndLeaderboards: boolean; collectionTreasureGroupView: boolean; collectionTreasureGroupBy: import('../collection/collectionTreasureSort.js').TreasureCollectionGroupBy }} */
 export const gameSettings = reactive({
   allowSpellingAbbreviations: false,
   uiScalePercent: UI_SCALE_DEFAULT,
@@ -162,13 +163,15 @@ export const gameSettings = reactive({
   materialAnimationEnabled: true,
   hapticsEnabled: true,
   displayLayoutMode: inferDefaultDisplayLayoutMode(),
-  wordDefinitionMode: "off",
+  wordDefinitionMode: "button",
   letterCase: "uppercase",
   letterQMode: "qu",
   highRiskSpellConfirm: true,
   swapConfirmButtonSide: false,
   /** 开发者模式下抑制成就解锁与排行榜上报；默认开启 */
   devSuppressAchievementsAndLeaderboards: true,
+  collectionTreasureGroupView: false,
+  collectionTreasureGroupBy: "rarity",
 });
 
 /**
@@ -244,6 +247,14 @@ export function loadGameSettings() {
     if (typeof parsed.devSuppressAchievementsAndLeaderboards === "boolean") {
       gameSettings.devSuppressAchievementsAndLeaderboards = parsed.devSuppressAchievementsAndLeaderboards;
     }
+    if (typeof parsed.collectionTreasureGroupView === "boolean") {
+      gameSettings.collectionTreasureGroupView = parsed.collectionTreasureGroupView;
+    }
+    if (parsed.collectionTreasureGroupBy != null) {
+      gameSettings.collectionTreasureGroupBy = normalizeTreasureCollectionGroupBy(
+        parsed.collectionTreasureGroupBy,
+      );
+    }
     if (needsWordAuxMigration) {
       if (hasExistingPlayerSaveData()) {
         gameSettings.markButtonEnabled = true;
@@ -292,6 +303,8 @@ export function persistGameSettings() {
         highRiskSpellConfirm: gameSettings.highRiskSpellConfirm,
         swapConfirmButtonSide: gameSettings.swapConfirmButtonSide,
         devSuppressAchievementsAndLeaderboards: gameSettings.devSuppressAchievementsAndLeaderboards,
+        collectionTreasureGroupView: gameSettings.collectionTreasureGroupView,
+        collectionTreasureGroupBy: gameSettings.collectionTreasureGroupBy,
       }),
     );
     void import("../save/cloudSave/cloudSaveSync.js").then(({ markCloudSyncDirty }) => {
@@ -483,6 +496,28 @@ export function getDevSuppressAchievementsAndLeaderboards() {
 /** @param {boolean} enabled */
 export function setDevSuppressAchievementsAndLeaderboards(enabled) {
   gameSettings.devSuppressAchievementsAndLeaderboards = Boolean(enabled);
+  persistGameSettings();
+}
+
+/** @returns {boolean} */
+export function getCollectionTreasureGroupView() {
+  return gameSettings.collectionTreasureGroupView === true;
+}
+
+/** @param {boolean} enabled */
+export function setCollectionTreasureGroupView(enabled) {
+  gameSettings.collectionTreasureGroupView = Boolean(enabled);
+  persistGameSettings();
+}
+
+/** @returns {import('../collection/collectionTreasureSort.js').TreasureCollectionGroupBy} */
+export function getCollectionTreasureGroupBy() {
+  return normalizeTreasureCollectionGroupBy(gameSettings.collectionTreasureGroupBy);
+}
+
+/** @param {import('../collection/collectionTreasureSort.js').TreasureCollectionGroupBy} groupBy */
+export function setCollectionTreasureGroupBy(groupBy) {
+  gameSettings.collectionTreasureGroupBy = normalizeTreasureCollectionGroupBy(groupBy);
   persistGameSettings();
 }
 

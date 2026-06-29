@@ -3,7 +3,7 @@
  * 局内字母块统一入口：宝石 + 字母，按 variant 挂对应布局类。
  * 后续状态/动效可集中加 props 或插槽，避免各处复制 DOM。
  */
-import { computed, useAttrs } from "vue";
+import { computed, provide, useAttrs } from "vue";
 import TileFireRegl from "./TileFireRegl.vue";
 import TileGoldRegl from "./TileGoldRegl.vue";
 import TileIceRegl from "./TileIceRegl.vue";
@@ -16,6 +16,7 @@ import { getTileAccessoryChipVisual } from "../game/tileAccessories";
 import { getTreasureAccessoryChipVisual } from "../game/treasureAccessories";
 import { shouldHideRarityGemForTile } from "../composables/useScoring.js";
 import { resolveTileMaterialAnimate, materialAnimationSignal } from "../lib/reglMaterialPerf.js";
+import { TILE_MATERIAL_REGL_ATTACH_OPTIONS } from "../composables/tileMaterialReglContext.js";
 import {
   getRequiresMaterialCssFallback,
   materialCssFallbackSignal,
@@ -65,6 +66,11 @@ const props = defineProps({
   /** regl 材质 canvas 是否逐帧动画；牌库未展开 stack 传 false 只绘一帧 */
   materialAnimate: { type: Boolean, default: true },
 });
+
+provide(
+  TILE_MATERIAL_REGL_ATTACH_OPTIONS,
+  computed(() => ({ seedFromPeers: props.variant === "fly" })),
+);
 
 const attrs = useAttrs();
 
