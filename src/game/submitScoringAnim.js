@@ -44,6 +44,7 @@ import {
   runNewspaperAppendSequence,
 } from "./newspaperSubmitAnim.js";
 import { isNewspaperTempTile } from "../treasures/items/treasure_140.js";
+import { findGridCellByTileId } from "./gridTileCellLookup.js";
 
 /** 记分步间等待、气泡延迟等统一再 ×0.7（比上一版缩短 30%） */
 export const SCORING_GAP_SCALE = 0.7;
@@ -1019,14 +1020,16 @@ function buildClearWinGoldEffectQueue() {
 /** 通关「升级配饰」：登记到计分清空结束队列（排在飞机等宝藏之后） */
 function buildClearWinLengthUpgradeAccessoryEntries() {
   const g = refs.grid.value;
-  /** @type {{ r: number, c: number, delay: number }[]} */
+  /** @type {{ tileId: string, delay: number }[]} */
   const items = [];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const t = g[r][c];
       if (!t?.letter || t.selected || callbacks.isBossTileDebuffed(t)) continue;
       if (t.accessoryId !== TILE_ACCESSORY_LEVEL_UPGRADE) continue;
-      items.push({ r, c, delay: callbacks.gridTileEntranceDelay(r, c) });
+      const tileId = t.id != null && String(t.id) !== "" ? String(t.id) : "";
+      if (!tileId) continue;
+      items.push({ tileId, delay: callbacks.gridTileEntranceDelay(r, c) });
     }
   }
   items.sort((a, b) => a.delay - b.delay);
@@ -1040,8 +1043,8 @@ function buildClearWinLengthUpgradeAccessoryEntries() {
 function registerClearWinLengthUpgradePostScoreFx(fxQueue, judgedLen) {
   const len = Math.max(3, Math.min(16, Math.round(Number(judgedLen)) || 0));
   if (len < 3 || len > 16) return;
-  for (const { r, c } of buildClearWinLengthUpgradeAccessoryEntries()) {
-    fxQueue.push(() => runClearWinLengthUpgradeAccessoryTileFx(r, c, len));
+  for (const { tileId } of buildClearWinLengthUpgradeAccessoryEntries()) {
+    fxQueue.push(() => runClearWinLengthUpgradeAccessoryTileFx(tileId, len));
   }
 }
 
@@ -1168,9 +1171,12 @@ async function runClearWinVipDiamondRarityPostScoreFx(rk, beforeLevel) {
   }
 }
 
-/** @param {number} r @param {number} c @param {number} len */
-async function runClearWinLengthUpgradeAccessoryTileFx(r, c, len) {
-  const idx = r * COLS + c;
+/** @param {string} tileId @param {number} len */
+async function runClearWinLengthUpgradeAccessoryTileFx(tileId, len) {
+  await nextTick();
+  const cell = findGridCellByTileId(refs.grid.value, tileId, ROWS, COLS);
+  if (!cell) return;
+  const idx = cell.row * COLS + cell.col;
   const el = getGridTileElByIndex(idx);
   if (!el) return;
   const sp = 1;

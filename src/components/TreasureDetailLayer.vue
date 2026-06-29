@@ -305,7 +305,7 @@
                 v-if="hasTreasureDescBody && showMainVoucherDesc"
                 :description="descriptionOverride ?? treasure.description"
                 polish-treasure-copy
-                :probability-display-doubled="probabilityDisplayDoubled"
+                :probability-doubler-count="probabilityDoublerCount"
               />
               <template v-if="showUpgradePreviewGainRows">
                 <div
@@ -623,7 +623,7 @@
                 class="treasure-detail-desc-panel-rich"
                 :description="spellGainPanelContent.description"
                 :panel-body="true"
-                :probability-display-doubled="probabilityDisplayDoubled"
+                :probability-doubler-count="probabilityDoublerCount"
               />
             </div>
           </div>
@@ -641,7 +641,7 @@
               class="treasure-detail-desc-panel-rich"
               :description="panel.effectDescription"
               :panel-body="true"
-              :probability-display-doubled="probabilityDisplayDoubled"
+              :probability-doubler-count="probabilityDoublerCount"
             />
           </div>
 
@@ -739,6 +739,7 @@
               variant="use"
               label="使用"
               hold-label="按住以使用"
+              fill-direction="horizontal"
               :hold-mode="spellOfferHoldConfirm"
               :disabled="!canBuyOffer"
               @confirm="emit('purchase')"
@@ -749,6 +750,7 @@
               variant="buy"
               label="购买"
               hold-label="按住以购买"
+              fill-direction="horizontal"
               :hold-mode="spellOfferHoldConfirm"
               :disabled="!canBuyOffer"
               @confirm="emit('purchase')"
@@ -785,8 +787,6 @@
               label="返回"
               hold-label="按住以返回"
               :hold-mode="previewCloseHoldMode"
-              :peer-hold-active="offerPeerHoldActive"
-              :peer-hold-progress="offerPeerHoldProgress"
               @skip="requestClose"
             />
           </div>
@@ -1127,8 +1127,8 @@ const props = defineProps({
   overlaySuppressed: { type: Boolean, default: false },
   /** 字母块预览：分数×倍率与 TileDetailLayer 一致 */
   rarityLevelsByRarity: { type: Object, default: null },
-  /** 已拥有彗星时宝藏简介概率显示翻倍 */
-  probabilityDisplayDoubled: { type: Boolean, default: false },
+  /** 已拥有彗星叠乘次数：宝藏简介概率 chip 按 2^n 显示 */
+  probabilityDoublerCount: { type: Number, default: 0 },
   /** 骰子/重播释法：主按钮为「使用」（绿），非商店购买 */
   spellGrantFlow: { type: Boolean, default: false },
   /** null=按 mode 推断；offer=货架标价（收藏图鉴）；sell=卖出价 */

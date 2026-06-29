@@ -43,7 +43,7 @@ export const ACHIEVEMENT_DEFINITIONS = Object.freeze([
   {
     id: "safe_bomb_blast",
     name: "安全距离",
-    description: "将一个炸弹安放在安全的位置，使其在爆炸时没有摧毁其他宝藏",
+    description: "使一个炸弹在爆炸时不摧毁其他宝藏",
     condition: { kind: "event_safe_bomb_blast" },
   },
   {

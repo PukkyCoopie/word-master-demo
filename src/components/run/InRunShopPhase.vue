@@ -22,6 +22,8 @@ defineExpose({
   getOwnedSlotEl: (i) => shopPanelRef.value?.getOwnedSlotEl?.(i) ?? null,
   getTreasureBarExpandBtnEl: () => shopPanelRef.value?.getTreasureBarExpandBtnEl?.() ?? null,
   getDeckViewBtnEl: () => shopPanelRef.value?.getDeckViewBtnEl?.() ?? null,
+  getFirstGuaranteedTreasureOfferEl: () =>
+    shopPanelRef.value?.getFirstGuaranteedTreasureOfferEl?.() ?? null,
   playGlyphRoundInfoFx: (...args) => shopPanelRef.value?.playGlyphRoundInfoFx?.(...args),
   playUpgradeResult: (...args) => shopPanelRef.value?.playUpgradeResult?.(...args),
   playVoucherBonusEnterAnim: (...args) => shopPanelRef.value?.playVoucherBonusEnterAnim?.(...args),

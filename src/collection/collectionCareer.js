@@ -210,7 +210,7 @@ export function recordPrerequisiteTreasureShopAppeared(career, treasureId, opts)
  */
 export function recordSpellDiscovered(career, spellId) {
   const id = String(spellId ?? "").trim();
-  if (!id || id === "restart" || id === "dice") return false;
+  if (!id) return false;
   if (!Array.isArray(career.discoveredSpellIds)) career.discoveredSpellIds = [];
   if (career.discoveredSpellIds.includes(id)) return false;
   career.discoveredSpellIds.push(id);

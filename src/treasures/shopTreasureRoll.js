@@ -50,6 +50,28 @@ export function pickWeightedTreasureFromPool(pool, rng = Math.random, opts) {
 }
 
 /**
+ * 从可用池中均匀抽取一个传说宝藏（仍受前提权重与货架出现回调约束）。
+ *
+ * @param {import('./treasureTypes.js').TreasureDef[]} pool
+ * @param {() => number} [rng]
+ * @param {ShopTreasurePickOpts} [opts]
+ */
+export function pickLegendaryTreasureFromPool(pool, rng = Math.random, opts) {
+  if (!pool.length) return null;
+  const leg = pool.filter((t) => t.rarity === "legendary");
+  if (leg.length === 0) return null;
+  const getMult = opts?.getPrerequisiteWeightMultiplier;
+  const pickFromTier = (tier) => {
+    const def = pickUniformFromTierWithWeightMultipliers(tier, rng, getMult);
+    if (def) {
+      notifyPrerequisiteTreasureShopShelfAppearance(def.treasureId, opts?.onPrerequisiteTreasureShopAppeared);
+    }
+    return def;
+  };
+  return pickFromTier(leg) ?? leg[Math.floor(rng() * leg.length)];
+}
+
+/**
  * 从全集中抽取若干互不重复的宝藏（排除已拥有与额外排除集）。
  *
  * @param {import('./treasureTypes.js').TreasureDef[]} all

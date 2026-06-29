@@ -4,7 +4,7 @@ import { describe, discardDelta } from "../treasureDescription.js";
 export default {
   price: 3,
   rarity: "common",
-  description: describe(discardDelta("+1")),
+  description: describe(discardDelta("+1"), "丢弃次数"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

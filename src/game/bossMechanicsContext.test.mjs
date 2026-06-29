@@ -5,12 +5,28 @@ import {
   pickCrimsonDisabledTreasureSlotIndex,
   pickHookBossDebuffTargets,
   isFlintBossActive,
+  resolveUniqueMostSpellLength,
 } from "./bossMechanicsContext.js";
 
-test("evaluateOxBossHit picks mode length", () => {
-  assert.equal(evaluateOxBossHit(5, { 3: 1, 5: 2, 7: 2 }), true);
-  assert.equal(evaluateOxBossHit(7, { 3: 1, 5: 2, 7: 2 }), false);
-  assert.equal(evaluateOxBossHit(3, { 3: 2, 5: 2 }), true);
+test("resolveUniqueMostSpellLength: unique winner", () => {
+  assert.equal(resolveUniqueMostSpellLength({ 3: 1, 5: 2, 7: 1 }), 5);
+});
+
+test("resolveUniqueMostSpellLength: tie returns null", () => {
+  assert.equal(resolveUniqueMostSpellLength({ 3: 2, 5: 2 }), null);
+  assert.equal(resolveUniqueMostSpellLength({ 3: 1, 5: 2, 7: 2 }), null);
+});
+
+test("resolveUniqueMostSpellLength: empty returns null", () => {
+  assert.equal(resolveUniqueMostSpellLength({}), null);
+  assert.equal(resolveUniqueMostSpellLength(null), null);
+});
+
+test("evaluateOxBossHit picks unique mode length", () => {
+  assert.equal(evaluateOxBossHit(5, { 3: 1, 5: 2, 7: 1 }), true);
+  assert.equal(evaluateOxBossHit(7, { 3: 1, 5: 2, 7: 1 }), false);
+  assert.equal(evaluateOxBossHit(5, { 3: 1, 5: 2, 7: 2 }), false);
+  assert.equal(evaluateOxBossHit(3, { 3: 2, 5: 2 }), false);
 });
 
 test("pickCrimsonDisabledTreasureSlotIndex returns filled index", () => {

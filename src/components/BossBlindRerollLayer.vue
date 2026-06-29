@@ -46,7 +46,7 @@
               <span class="treasure-detail-desc-panel-title-text">下一关 Boss</span>
             </div>
             <p class="boss-blind-reroll-boss-name">{{ bossDef.nameZh }}</p>
-            <TreasureDescRichText :description="bossDef.uiDescription" />
+            <TreasureDescRichText :description="bossDescription" />
           </div>
 
           <div class="treasure-detail-actions boss-blind-reroll-stagger">
@@ -77,6 +77,7 @@ import gsap from "gsap";
 import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
 import { EASE_TRANSFORM } from "../constants.js";
 import { getBossDef } from "../game/bossBlindDefinitions.js";
+import { buildBossTapeSubLine } from "../game/bossTapeUi.js";
 import { formatVoucherDisplayName } from "../vouchers/voucherDisplay.js";
 import { pairHasTier2Owned, getTier2DefForPair } from "../vouchers/voucherDefinitions.js";
 import {
@@ -94,6 +95,7 @@ const props = defineProps({
   walletAmount: { type: Number, default: 0 },
   walletFloor: { type: Number, default: 0 },
   ownedVoucherIds: { type: Array, default: () => [] },
+  spellCountsByLength: { type: Object, default: () => ({}) },
   overlaySuppressed: { type: Boolean, default: false },
 });
 
@@ -199,6 +201,10 @@ const voucherDisplayName = computed(() => {
 });
 
 const bossDef = computed(() => getBossDef(props.session?.slug));
+
+const bossDescription = computed(() =>
+  buildBossTapeSubLine(bossDef.value, { spellCountsByLength: props.spellCountsByLength }),
+);
 
 const rerollsUsed = computed(() => Math.max(0, Math.floor(Number(props.session?.rerollsUsed) || 0)));
 

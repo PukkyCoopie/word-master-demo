@@ -28,8 +28,8 @@ const props = defineProps({
   panelBody: { type: Boolean, default: false },
   /** 宝藏主简介：英文字母大写、文案内 xN → ×N chip */
   polishTreasureCopy: { type: Boolean, default: false },
-  /** 已拥有彗星（45）时：简介 prob chip 由基础分数改为翻倍（如 1/3→2/3） */
-  probabilityDisplayDoubled: { type: Boolean, default: false },
+  /** 已拥有彗星（45）叠乘次数：简介 prob chip 按 2^n 显示（如 1/5→2/5→4/5） */
+  probabilityDoublerCount: { type: Number, default: 0 },
 });
 
 const segments = computed(() => {
@@ -40,7 +40,7 @@ const segments = computed(() => {
   const expanded = expandEffectTokensInDescription(polished);
   const withRarity = expandRarityLabelsInDescription(expanded);
   const withProb = resolveDescriptionProbabilityDisplay(withRarity, {
-    probabilityDisplayDoubled: props.probabilityDisplayDoubled,
+    probabilityDoublerCount: props.probabilityDoublerCount,
   });
   return injectLineBreaksBeforeParentheses(withProb);
 });

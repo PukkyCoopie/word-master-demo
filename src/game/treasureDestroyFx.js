@@ -15,6 +15,7 @@ import { resolveBombAdjacentVictimSlotIndices, resolveBombBlastDestroySlotIndice
  *   getOwnedTreasureSlotEl: (slotIndex: number) => HTMLElement | null,
  *   getOwnedTreasures: () => (object | null)[],
  *   removeAndCompactOwnedTreasureAtIndex: (slotIndex: number, opts?: { triggerBarCompactAnim?: boolean }) => void,
+ *   removeOwnedTreasureSlotsLeaveGapAtIndices: (indices: readonly number[], opts?: { triggerBarCompactAnim?: boolean }) => void,
  *   scheduleRunAutoSave: () => void,
  *   wobbleGameTreasureSlot: (slotIndex: number) => Promise<void>,
  *   showScoreBubble: (el: HTMLElement, label: string, kind: string, speed?: number) => HTMLElement | null,
@@ -230,12 +231,7 @@ export function createTreasureDestroyFx(deps) {
 
     deps.setShopOverlayLayersSuppressed(false);
 
-    const removeOrder = [...indices].sort((a, b) => b - a);
-    for (let i = 0; i < removeOrder.length; i += 1) {
-      deps.removeAndCompactOwnedTreasureAtIndex(removeOrder[i], {
-        triggerBarCompactAnim: i === removeOrder.length - 1,
-      });
-    }
+    deps.removeOwnedTreasureSlotsLeaveGapAtIndices(indices, { triggerBarCompactAnim: true });
     deps.scheduleRunAutoSave();
   }
 

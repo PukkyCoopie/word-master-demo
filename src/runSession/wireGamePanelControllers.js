@@ -71,6 +71,7 @@ function wireGamePanelControllersEarly(d) {
     initialDeckSnapshot: d.initialDeckSnapshot,
     remainingRemovals: d.remainingRemovals,
     getTreasureRunState: () => d.treasureRunState.value,
+    tryUnlockAchievements: d.tryUnlockAchievements,
   });
 
   /** @type {ReturnType<typeof useTreasureInventoryController>} */
@@ -181,6 +182,7 @@ function wireGamePanelControllersEarly(d) {
       runMatchStats: d.runMatchStats,
       runPresetId: d.runPresetId,
       runDifficultyIndex: d.runDifficultyIndex,
+      isEndlessRun: d.isEndlessRun,
       runRandom: d.runRandom,
     },
     grid: {
@@ -459,6 +461,7 @@ function wireGamePanelControllersEarly(d) {
     appendShopDeckEntriesAndNotify: treasureRun.appendShopDeckEntriesAndNotify,
     appendDeckCardSpecToInitialSnapshotAndNotify: treasureRun.appendDeckCardSpecToInitialSnapshotAndNotify,
     removeAndCompactOwnedTreasureAtIndex: treasureRun.removeAndCompactOwnedTreasureAtIndex,
+    removeOwnedTreasureSlotsLeaveGapAtIndices: treasureRun.removeOwnedTreasureSlotsLeaveGapAtIndices,
     clearOwnedTreasureSlotLeaveGapAtIndex: treasureRun.clearOwnedTreasureSlotLeaveGapAtIndex,
     notifyShopLeave: treasureRun.notifyShopLeave,
     rollRandomBigramForTreasure: treasureRun.rollRandomBigramForTreasure,

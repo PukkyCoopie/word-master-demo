@@ -27,6 +27,8 @@ import {
   canAcquireTreasureOffer,
   compactOwnedTreasureSlotsAtIndex,
   computeOwnedTreasureSlotTargetLength,
+  nextUniqueOwnedTreasureSlotKey,
+  reconcileOwnedTreasureSlotsAfterDestruction,
   willIncomingTreasureAccessoriesExpandSlots,
 } from "../../game/treasureSlotCapacity.js";
 import { parseChapterFromLevelId } from "../../treasures/treasureLifecycleShared.js";
@@ -51,7 +53,7 @@ import {
   resolveTreasureDescriptionPatches,
   treasureDescriptionPatchReplacesBase,
 } from "../../treasures/treasureRegistry.js";
-import { hasProbabilityDoubler } from "../../treasures/treasureProbability.js";
+import { countProbabilityDoublerContributions } from "../../treasures/treasureProbability.js";
 import { isVowelLetterWithMask } from "../../treasures/treasureLetterClassify.js";
 import {
   beginLevelLegendaryDeckTracking,
@@ -177,7 +179,7 @@ export function useTreasureRunController(options) {
     while (next.length < target) next.push(null);
     while (next.length > target && next[next.length - 1] == null) next.pop();
     let keys = [...gameOwnedKeyOrder.value];
-    while (keys.length < next.length) keys.push(`g-slot-${keys.length}`);
+    while (keys.length < next.length) keys.push(nextUniqueOwnedTreasureSlotKey(keys));
     while (keys.length > next.length) keys.pop();
     const keysSame =
       keys.length === gameOwnedKeyOrder.value.length && keys.every((k, i) => k === gameOwnedKeyOrder.value[i]);
@@ -429,8 +431,8 @@ export function useTreasureRunController(options) {
     return computeOwnedTreasureSellRefund(d.treasure);
   });
 
-  const treasureProbabilityDisplayDoubled = computed(() =>
-    hasProbabilityDoubler(ownedSlotTreasureIdList()),
+  const treasureProbabilityDoublerCount = computed(() =>
+    countProbabilityDoublerContributions(ownedSlotTreasureIdList()),
   );
 
   /** @param {NonNullable<typeof treasureDetail.value>} d @param {object} nav */
@@ -524,7 +526,7 @@ export function useTreasureRunController(options) {
       const next = [...slots, null];
       ownedTreasures.value = next;
       const keys = [...gameOwnedKeyOrder.value];
-      while (keys.length < next.length) keys.push(`g-slot-${keys.length}`);
+      while (keys.length < next.length) keys.push(nextUniqueOwnedTreasureSlotKey(keys));
       gameOwnedKeyOrder.value = keys;
       return next.length - 1;
     }
@@ -622,6 +624,42 @@ export function useTreasureRunController(options) {
     slots[ix] = null;
     ownedTreasures.value = slots;
     syncOwnedTreasureSlots();
+  }
+
+  /**
+   * 批量清空槽位但保留空位（炸弹等）；仅当裁剪配饰减少栏位上限时才前移超出段的宝藏。
+   * @param {readonly number[]} indices
+   * @param {{ triggerBarCompactAnim?: boolean }} [opts]
+   */
+  function removeOwnedTreasureSlotsLeaveGapAtIndices(indices, opts = {}) {
+    const unique = [
+      ...new Set(
+        indices.map((i) => Math.floor(Number(i))).filter((i) => Number.isFinite(i) && i >= 0),
+      ),
+    ];
+    if (!unique.length) return;
+
+    const slots = [...ownedTreasures.value];
+    let any = false;
+    for (const ix of unique) {
+      if (ix >= slots.length || slots[ix] == null) continue;
+      slots[ix] = null;
+      any = true;
+    }
+    if (!any) return;
+
+    const keys = [...gameOwnedKeyOrder.value];
+    const reconciled = reconcileOwnedTreasureSlotsAfterDestruction(
+      slots,
+      keys,
+      treasureSlotCapacityExtra(),
+    );
+    ownedTreasures.value = slots;
+    gameOwnedKeyOrder.value = keys;
+    syncOwnedTreasureSlots();
+    if (reconciled && opts.triggerBarCompactAnim !== false) {
+      hooks.triggerTreasureBarCompactAnim?.();
+    }
   }
 
   function syncAmberBossTreasureLayoutForLevelEnter(incomingMechSlug) {
@@ -890,7 +928,7 @@ export function useTreasureRunController(options) {
     gameOwnedDragChargeProgress,
     gameOwnedDragEffectDepleted,
     treasureSellRefund,
-    treasureProbabilityDisplayDoubled,
+    treasureProbabilityDoublerCount,
     onTreasureCollectionReorder,
     buildTreasurePoolSnapshot,
     buildTreasureSubmitSuccessContext,
@@ -905,6 +943,7 @@ export function useTreasureRunController(options) {
     clearOwnedTreasureSlotById,
     removeAndCompactOwnedTreasureAtIndex,
     clearOwnedTreasureSlotLeaveGapAtIndex,
+    removeOwnedTreasureSlotsLeaveGapAtIndices,
     notifyBossRestrictionTreasures,
     notifyWordDefinitionOpenAttempt,
     notifyIceBreak,

@@ -55,6 +55,7 @@ import { recordReroll } from "../../game/runMatchStats.js";
 import { createShopSelectionHandlers } from "../../game/shopSelectionHandlers.js";
 import { createShopViewContext } from "../../components/run/shopViewKey.js";
 import { assembleShopViewContext } from "../viewContext/assembleShopViewContext.js";
+import { shouldGuaranteeEndlessMilestoneLegendaryShop } from "../../game/endlessMilestoneShop.js";
 
 /** @typedef {import('../runSessionTypes.js').ShopStore} ShopStore */
 
@@ -83,6 +84,7 @@ const shopVoucherShelfEmpty = Object.freeze({ kind: "empty", emptySlotId: 0 });
  *   runMatchStats: import('vue').Ref<object>,
  *   runPresetId: import('vue').Ref<string>,
  *   runDifficultyIndex: import('vue').Ref<number>,
+ *   isEndlessRun: import('vue').Ref<boolean>,
  *   runRandom: () => number,
  * }} run
  * @property {{
@@ -218,6 +220,7 @@ export function useShopPhaseController(options) {
     runMatchStats,
     runPresetId,
     runDifficultyIndex,
+    isEndlessRun,
     runRandom,
   } = run;
   const { lengthLevelsByLength, rarityLevelsByRarity, spellCountsByLength } = grid;
@@ -567,11 +570,19 @@ export function useShopPhaseController(options) {
     );
   }
 
+  function shouldGuaranteeEndlessMilestoneLegendaryShopVisit() {
+    return shouldGuaranteeEndlessMilestoneLegendaryShop({
+      isEndlessRun: isEndlessRun.value === true,
+      completedLevelId: getCurrentLevelId() ?? "1-1",
+    });
+  }
+
   function rollShopStock(rng = Math.random, sessionExcludeTreasureIds = null, opts = {}) {
     const rows = rollShopRandomCardOffers({
       ...buildShopRandomCardRollCtx(sessionExcludeTreasureIds),
       rng,
       guaranteeFirstShopTreasureSlot: opts.guaranteeFirstShopTreasureSlot === true,
+      guaranteeEndlessMilestoneLegendarySlot: opts.guaranteeEndlessMilestoneLegendarySlot === true,
     });
     applyRandomSaleToShopStockRows(rows, rng);
     return rows;
@@ -608,8 +619,10 @@ export function useShopPhaseController(options) {
   function rollShopVisitStock(rng = Math.random) {
     const sessionExcludeTreasureIds = new Set();
     const guaranteeTreasure = firstShopTreasureConsumed.value === false;
+    const guaranteeMilestoneLegendary = shouldGuaranteeEndlessMilestoneLegendaryShopVisit();
     const shop = rollShopStock(rng, sessionExcludeTreasureIds, {
       guaranteeFirstShopTreasureSlot: guaranteeTreasure,
+      guaranteeEndlessMilestoneLegendarySlot: guaranteeMilestoneLegendary,
     });
     if (guaranteeTreasure) firstShopTreasureConsumed.value = true;
     const pack = rollPackStock(rng, sessionExcludeTreasureIds);

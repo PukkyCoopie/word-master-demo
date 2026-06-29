@@ -189,7 +189,9 @@ test("collection treasure and spell discovery", () => {
   assert.equal(recordTreasureDiscovered(career, "32"), true);
   assert.equal(recordTreasureDiscovered(career, "32"), false);
   assert.equal(recordSpellDiscovered(career, "cake"), true);
+  assert.equal(recordSpellDiscovered(career, "restart"), true);
   assert.equal(recordSpellDiscovered(career, "restart"), false);
+  assert.equal(recordSpellDiscovered(career, "dice"), true);
 });
 
 test("collection voucher tier only upgrades", () => {

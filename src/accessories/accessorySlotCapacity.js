@@ -8,6 +8,18 @@ import { readTreasureAccessoryIds } from "./accessoryState.js";
 export const BASE_TREASURE_SLOT_COUNT = 5;
 
 /**
+ * @param {readonly string[]} keys
+ * @returns {string}
+ */
+export function nextUniqueOwnedTreasureSlotKey(keys) {
+  const arr = Array.isArray(keys) ? keys : [];
+  let n = arr.length;
+  const used = new Set(arr);
+  while (used.has(`g-slot-${n}`)) n += 1;
+  return `g-slot-${n}`;
+}
+
+/**
  * @param {readonly (null | { treasureAccessoryIds?: unknown, treasureAccessoryId?: unknown })[]} ownedSlots
  */
 export function countTreasureCropSlotBonus(ownedSlots) {
@@ -102,6 +114,50 @@ export function compactOwnedTreasureSlotsAtIndex(slots, removedIndex) {
   if (!Array.isArray(slots) || !Number.isFinite(ix) || ix < 0 || ix >= slots.length) return false;
   slots.splice(ix, 1);
   return true;
+}
+
+/**
+ * 摧毁后保留空位；若栏长超出裁剪配饰允许的槽位上限，将超出段的宝藏移入左侧空位并裁掉尾部空槽。
+ * @param {Array<object | null>} slots
+ * @param {string[]} [keys]
+ * @param {number} [voucherExtraSlots=0]
+ * @returns {boolean}
+ */
+export function reconcileOwnedTreasureSlotsAfterDestruction(slots, keys, voucherExtraSlots = 0) {
+  if (!Array.isArray(slots) || slots.length === 0) return false;
+  let changed = false;
+  const extra = Math.floor(Number(voucherExtraSlots) || 0);
+
+  for (;;) {
+    const target = computeOwnedTreasureSlotTargetLength(slots, extra);
+    if (slots.length <= target) break;
+
+    let moved = false;
+    for (let i = slots.length - 1; i >= target; i -= 1) {
+      if (slots[i] == null) continue;
+      const hole = slots.findIndex((s, j) => j < target && s == null);
+      if (hole < 0) break;
+      slots[hole] = slots[i];
+      slots[i] = null;
+      moved = true;
+      changed = true;
+    }
+
+    while (slots.length > target && slots[slots.length - 1] == null) {
+      slots.pop();
+      if (Array.isArray(keys) && keys.length > 0) keys.pop();
+      changed = true;
+    }
+
+    if (!moved) break;
+  }
+
+  if (Array.isArray(keys)) {
+    while (keys.length < slots.length) keys.push(nextUniqueOwnedTreasureSlotKey(keys));
+    while (keys.length > slots.length) keys.pop();
+  }
+
+  return changed;
 }
 
 /**

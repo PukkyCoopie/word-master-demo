@@ -10,7 +10,6 @@ import LetterTile from "../LetterTile.vue";
 import WordDefinitionTrigger from "../WordDefinitionTrigger.vue";
 import TreasureBarRow from "../TreasureBarRow.vue";
 import WordDefinitionLayer from "../WordDefinitionLayer.vue";
-import HoldPeerProgress from "../HoldPeerProgress.vue";
 import { isQuStyleTileLetter } from "../../settings/letterQ.js";
 import { getHighRiskSpellConfirmEnabled } from "../../settings/gameSettings.js";
 import { useHoldConfirmInteraction } from "../../composables/useHoldConfirmInteraction.js";
@@ -144,6 +143,7 @@ defineExpose({
         :active-boss-slug="pv.activeBossSlug"
         :club-required-key="pv.clubRequiredKeyBoss"
         :mouth-locked-length="pv.mouthLockedLengthBoss"
+        :spell-counts-by-length="pv.spellCountsByLength"
         :soft-preview="pv.bossTapeSoftPreview"
         :mechanics-suppressed="pv.bossMechanicsSuppressed"
       />
@@ -444,7 +444,6 @@ defineExpose({
             ref="deckBtnRef"
             type="button"
             class="deck-btn deck-btn--grid-row"
-            :class="{ 'hold-peer-btn--holding': submitHold.holding.value }"
             title="牌库"
             aria-label="牌库"
             :disabled="pfRunFlowOverlayOpen || pfBlockingInput"
@@ -453,7 +452,6 @@ defineExpose({
             <i class="ri-stack-line deck-btn-icon" aria-hidden="true"></i>
             <span class="deck-btn-label">牌库</span>
             <span class="deck-btn-count">{{ pv.deckCount }}</span>
-            <HoldPeerProgress :active="submitHold.holding.value" :progress="submitHold.fillRatio.value" />
           </button>
           <div
             v-if="pv.showMarkButtonInRun || pv.showSwapWordButtonInRun"
@@ -465,10 +463,7 @@ defineExpose({
               v-if="pv.showMarkButtonInRun"
               type="button"
               class="action-aux-btn action-aux-btn--blue"
-              :class="{
-                'action-aux-btn--disabled': !pv.canUseMarkButton,
-                'hold-peer-btn--holding': submitHold.holding.value,
-              }"
+              :class="{ 'action-aux-btn--disabled': !pv.canUseMarkButton }"
               :title="pv.markButtonTitle"
               :aria-label="pv.markButtonTitle"
               @click="pv.onMarkButtonClick"
@@ -481,23 +476,18 @@ defineExpose({
                   aria-hidden="true"
                 ></i>
               </span>
-              <HoldPeerProgress :active="submitHold.holding.value" :progress="submitHold.fillRatio.value" />
             </button>
             <button
               v-if="pv.showSwapWordButtonInRun"
               type="button"
               class="action-aux-btn action-aux-btn--purple"
-              :class="{
-                'action-aux-btn--disabled': !pv.canSwapWordSelection,
-                'hold-peer-btn--holding': submitHold.holding.value,
-              }"
+              :class="{ 'action-aux-btn--disabled': !pv.canSwapWordSelection }"
               :title="pv.swapWordButtonTitle"
               :aria-label="pv.swapWordButtonTitle"
               data-haptic-skip-ui-tap
               @click="pv.onSwapWordSelectionClick"
             >
               <i class="ri-arrow-up-down-line" aria-hidden="true"></i>
-              <HoldPeerProgress :active="submitHold.holding.value" :progress="submitHold.fillRatio.value" />
             </button>
           </div>
         </div>
@@ -549,14 +539,12 @@ defineExpose({
               :class="{
                 'action-btn-disabled': !pv.canRemove,
                 'action-btn-disabled--interactive': pv.discardBtnOverLimit,
-                'hold-peer-btn--holding': submitHold.holding.value,
               }"
               title="丢弃选中的字母（先选字再点）"
               data-haptic-skip-ui-tap
               @click="pv.onDiscardBtnClick"
             >
               <i class="ri-delete-bin-line action-icon"></i>
-              <HoldPeerProgress :active="submitHold.holding.value" :progress="submitHold.fillRatio.value" />
             </button>
             <div class="action-label-wrap">
               <span class="action-label action-label-red">{{ pv.remainingRemovals }}</span>

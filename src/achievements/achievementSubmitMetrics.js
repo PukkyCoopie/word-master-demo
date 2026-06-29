@@ -29,13 +29,25 @@ export function countLuckyMaterialTriggers(detailed) {
 }
 
 /**
+ * @param {{ treasureId?: string | null, materialGridPresenceId?: string | null, scoreFxGridTileIndex?: number }} step
+ */
+function isSteelGridPresencePostLetterStep(step) {
+  if (step?.materialGridPresenceId === "steel") return true;
+  if (step?.materialGridPresenceId != null) return false;
+  // 兼容未标注材质的旧步：当前仅钢铁块使用「宝藏 id 为空 + 棋盘格 index」字后步
+  return (
+    step?.treasureId == null &&
+    typeof step?.scoreFxGridTileIndex === "number" &&
+    step.scoreFxGridTileIndex >= 0
+  );
+}
+
+/**
  * 单次 submit 内钢铁块棋盘光环增强次数（字后倍率步中来自棋盘格的步数）。
- * @param {{ postLetterTreasureSteps?: { treasureId?: string | null, scoreFxGridTileIndex?: number }[] }} detailed
+ * @param {{ postLetterTreasureSteps?: { treasureId?: string | null, materialGridPresenceId?: string | null, scoreFxGridTileIndex?: number }[] }} detailed
  */
 export function countSteelGridPresenceEnhancements(detailed) {
   const steps = detailed?.postLetterTreasureSteps;
   if (!Array.isArray(steps)) return 0;
-  return steps.filter(
-    (step) => step?.treasureId == null && Math.floor(Number(step?.scoreFxGridTileIndex) || -1) >= 0,
-  ).length;
+  return steps.filter((step) => isSteelGridPresencePostLetterStep(step)).length;
 }

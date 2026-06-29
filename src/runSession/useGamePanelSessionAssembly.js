@@ -1060,6 +1060,7 @@ playfieldController.initViewContext({
   activeBossSlug,
   clubRequiredKeyBoss,
   mouthLockedLengthBoss,
+  spellCountsByLength,
   bossTapeSoftPreview,
   bossSoftWordViolationPreview: bossMechanicsCtrl.bossSoftWordViolationPreview,
   bossMechanicsSuppressed,

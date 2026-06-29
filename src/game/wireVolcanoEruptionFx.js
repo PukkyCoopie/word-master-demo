@@ -27,12 +27,12 @@ import { runVolcanoEruptionFx } from "./volcanoEruptionFx.js";
 export function createVolcanoEruptionRunner(deps) {
   return {
     async playVolcanoEruptionAtSlot(volcanoSlotIndex) {
+      deps.onVolcanoEruptionPlayed?.();
+
       const destroyFx = deps.treasureDestroyFxRef.current;
       const wobbleFn = destroyFx?.wobbleTreasureSlotWithDestroyBubbleConcurrent;
       const shrinkFn = destroyFx?.shrinkTreasureSlotElOnly;
       if (!wobbleFn || !shrinkFn) return;
-
-      deps.onVolcanoEruptionPlayed?.();
 
       await runVolcanoEruptionFx({
         volcanoSlotIndex,

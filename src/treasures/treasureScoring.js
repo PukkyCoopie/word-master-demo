@@ -632,6 +632,7 @@ export function computeWordScoreDetailedForSubmit(
       slotIndex: -1,
       multMul: mm,
       scoreFxGridTileIndex: Math.floor(idx),
+      materialGridPresenceId: st.materialGridPresenceId ?? undefined,
       accessoryTriggered: !!st.accessoryTriggered,
     });
   }

@@ -7,7 +7,10 @@
  * 商店「刷新」仅重掷本区；牌包区与优惠券进店生成后不变。
  */
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
-import { pickWeightedTreasureFromPool } from "../treasures/shopTreasureRoll.js";
+import {
+  pickLegendaryTreasureFromPool,
+  pickWeightedTreasureFromPool,
+} from "../treasures/shopTreasureRoll.js";
 import {
   PREREQUISITE_PHASE1_SLOT_PRIORITY_CHANCE,
   buildPrerequisiteWeightMultiplierGetter,
@@ -80,6 +83,7 @@ function pickWeightedCategory(keys, weights, rng) {
  *   },
  *   onPrerequisiteTreasureShopAppeared?: (treasureId: string) => void,
  *   guaranteeFirstShopTreasureSlot?: boolean,
+ *   guaranteeEndlessMilestoneLegendarySlot?: boolean,
  * }} ctx
  */
 /**
@@ -212,6 +216,36 @@ function createShopRandomCardRoller(ctx) {
     );
   }
 
+  function tryLegendaryTreasure() {
+    const avail = availableTreasurePool().filter((t) => t.rarity === "legendary");
+    if (avail.length === 0) return null;
+
+    /** @type {import('../treasures/shopTreasureRoll.js').ShopTreasurePickOpts} */
+    const treasurePickOpts = {
+      onPrerequisiteTreasureShopAppeared: ctx.onPrerequisiteTreasureShopAppeared,
+      allowOwnedTreasuresInShop: ctx.allowOwnedTreasuresInShop === true,
+    };
+    if (prerequisiteRollContext) {
+      treasurePickOpts.getPrerequisiteWeightMultiplier = buildPrerequisiteWeightMultiplierGetter(
+        prerequisiteRollContext.shopAppearedPrerequisiteTreasureIds,
+        prerequisiteRollContext.shopPrerequisiteTreasureSingleCardAppearanceCounts,
+      );
+    }
+
+    const def = pickLegendaryTreasureFromPool(avail, rng, treasurePickOpts);
+    if (!def) return null;
+    sessionExcluded?.add(def.treasureId);
+    return buildTreasureShopRowFromDef(
+      ctx.nextOfferInstanceId,
+      def,
+      rng,
+      honeMult,
+      ctx.runDifficultyIndex ?? null,
+      true,
+      ctx.guaranteeShopTreasureGainAccessory === true,
+    );
+  }
+
   function trySpell() {
     const avail = availableSpellDefs();
     if (!avail.length) return null;
@@ -299,19 +333,29 @@ function createShopRandomCardRoller(ctx) {
     return makeEmpty();
   }
 
-  return { rollOneSlot, tryTreasure, tryTreasureById };
+  return { rollOneSlot, tryTreasure, tryTreasureById, tryLegendaryTreasure };
 }
 
 export function rollShopRandomCardOffers(ctx) {
   const ownedV = ctx.ownedVoucherIds != null ? new Set([...ctx.ownedVoucherIds]) : new Set();
   const slotCount = getShopRandomCardSlotCount(getShopRandomCardSlotBonus(ownedV));
-  const { rollOneSlot, tryTreasure, tryTreasureById } = createShopRandomCardRoller(ctx);
+  const { rollOneSlot, tryTreasure, tryTreasureById, tryLegendaryTreasure } =
+    createShopRandomCardRoller(ctx);
   const guaranteeTreasure = ctx.guaranteeFirstShopTreasureSlot === true;
+  const guaranteeMilestoneLegendary = ctx.guaranteeEndlessMilestoneLegendarySlot === true;
+  const milestoneLegendarySlotIndex = guaranteeTreasure && guaranteeMilestoneLegendary ? 1 : 0;
   const difficulty0FirstShop =
     guaranteeTreasure && normalizeRunDifficultyIndex(ctx.runDifficultyIndex) === 0;
   /** @type {object[]} */
   const rows = [];
   for (let i = 0; i < slotCount; i += 1) {
+    if (guaranteeMilestoneLegendary && i === milestoneLegendarySlotIndex) {
+      const treasureRow = tryLegendaryTreasure();
+      if (treasureRow) {
+        rows.push(treasureRow);
+        continue;
+      }
+    }
     if (guaranteeTreasure && i === 0) {
       let treasureRow = null;
       if (difficulty0FirstShop) {

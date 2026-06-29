@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { getDevSuppressAchievementsAndLeaderboards } from "../settings/gameSettings.js";
 
 const STORAGE_KEY = "word_master_developer_mode_v1";
 
@@ -52,9 +53,11 @@ export function isDeveloperModeEnabled() {
 
 /**
  * 开发者模式下抑制：本地成就解锁、TapTap 成就同步/解锁、TapTap 排行榜上报。
+ * 可在设置 → 开发者 中关闭「抑制成就与排行榜」以在开发者模式下仍正常解锁。
  * 生涯其它统计（词数、收藏等）仍照常写入。
  * @returns {boolean}
  */
 export function shouldSuppressAchievementsAndLeaderboardsInDevMode() {
-  return developerModeEnabled.value;
+  if (!developerModeEnabled.value) return false;
+  return getDevSuppressAchievementsAndLeaderboards();
 }

@@ -769,9 +769,10 @@ function filterSpellOfferSlotsBySpell(slots, spellId) {
 
 function noteSpellCastForReplay(purchasedSpellId) {
   const sid = String(purchasedSpellId ?? "");
-  if (!sid || sid === "restart" || sid === "dice") return;
-  spellCastHistory.value = [...spellCastHistory.value, sid];
+  if (!sid) return;
   callbacks.noteCollectionDiscovery({ spellId: sid });
+  if (sid === "restart" || sid === "dice") return;
+  spellCastHistory.value = [...spellCastHistory.value, sid];
   noteTreasureRunSpellCast(treasureRunState.value);
   treasureRunState.value.lastSpellIdBeforeShopLeave = sid;
 }
@@ -1083,6 +1084,7 @@ async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, 
   if (!pid) return { confirmed: false, skipped: true };
 
   if (pid === "restart") {
+    callbacks.noteCollectionDiscovery({ spellId: "restart" });
     const replayTarget = resolveRestartEffectiveSpellId(
       spellCastHistory.value,
       lastReplayableSpellId.value,
@@ -1107,6 +1109,7 @@ async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, 
   }
 
   if (pid === "dice") {
+    callbacks.noteCollectionDiscovery({ spellId: "dice" });
     const { spellDescription, spellName, spellIconClass, spellRarity, ...diceRestOverrides } =
       overrides;
     void spellDescription;

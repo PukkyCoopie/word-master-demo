@@ -127,7 +127,7 @@ export function previewGridPresenceMultProduct(
  * @param {number} cols
  * @param {Set<string>} excludedPositionKeys
  * @param {(tile: unknown) => number} [getGridEffectTriggerCount]
- * @returns {{ treasureId: null, slotIndex: number, multMul: number, scoreFxGridTileIndex: number, accessoryTriggered: boolean }[]}
+ * @returns {{ treasureId: null, slotIndex: number, multMul: number, scoreFxGridTileIndex: number, materialGridPresenceId: string, accessoryTriggered: boolean }[]}
  */
 export function buildGridPresencePostLetterSteps(
   grid,
@@ -137,7 +137,7 @@ export function buildGridPresencePostLetterSteps(
   getGridEffectTriggerCount = getGridPresenceEffectTriggerCount,
 ) {
   const items = collectSortedGridPresenceItems(grid, rows, cols, excludedPositionKeys);
-  /** @type {{ treasureId: null, slotIndex: number, multMul: number, scoreFxGridTileIndex: number, accessoryTriggered: boolean }[]} */
+  /** @type {{ treasureId: null, slotIndex: number, multMul: number, scoreFxGridTileIndex: number, materialGridPresenceId: string, accessoryTriggered: boolean }[]} */
   const steps = [];
   for (const it of items) {
     const factor = Number(GRID_PRESENCE_SCORE_MULT_BY_ID[it.materialId]);
@@ -150,6 +150,7 @@ export function buildGridPresencePostLetterSteps(
         slotIndex: -1,
         multMul: factor,
         scoreFxGridTileIndex: idx,
+        materialGridPresenceId: it.materialId,
         accessoryTriggered: k > 0,
       });
     }

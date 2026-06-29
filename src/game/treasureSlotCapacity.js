@@ -5,6 +5,8 @@ export {
   compactOwnedTreasureSlotsAtIndex,
   computeOwnedTreasureSlotTargetLength,
   countTreasureCropSlotBonus,
+  nextUniqueOwnedTreasureSlotKey,
+  reconcileOwnedTreasureSlotsAfterDestruction,
   willCropAccessoryExpandSlots,
   willIncomingTreasureAccessoriesExpandSlots,
 } from "../accessories/accessorySlotCapacity.js";

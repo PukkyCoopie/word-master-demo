@@ -1,4 +1,5 @@
 import { getBossDef } from "./bossBlindDefinitions.js";
+import { buildBossTapeSubLine } from "./bossTapeUi.js";
 import { pickBossSlugForLevel } from "./bossRoll.js";
 import { resolveLevelTargetScoreForDifficulty } from "./runDifficultyRuntime.js";
 import { parseLevelSubFromId, parseMajorFromLevelId } from "../vouchers/voucherRuntime.js";
@@ -55,7 +56,7 @@ function resolveBossSlugForStageBlock(levelId, currentLevelId, activeBossSlug, r
 
 /**
  * @param {number} chapter
- * @param {{ currentLevelId: string, activeBossSlug: string, runSeedNumeric: number, runDifficultyIndex?: number, inShop?: boolean, dimmed: boolean, fadeMask?: InfoStageFadeMask | null }} ctx
+ * @param {{ currentLevelId: string, activeBossSlug: string, runSeedNumeric: number, runDifficultyIndex?: number, inShop?: boolean, dimmed: boolean, fadeMask?: InfoStageFadeMask | null, spellCountsByLength?: Record<string | number, number> | null }} ctx
  * @returns {InfoStageChapterRow}
  */
 function buildChapterRow(chapter, ctx) {
@@ -72,7 +73,9 @@ function buildChapterRow(chapter, ctx) {
       targetScore: resolveLevelTargetScoreForDifficulty(id, bossSlug, ctx.runDifficultyIndex),
       isBoss,
       bossName: bossDef?.nameZh ?? "",
-      bossRequirement: bossDef?.uiDescription ?? "",
+      bossRequirement: bossDef
+        ? buildBossTapeSubLine(bossDef, { spellCountsByLength: ctx.spellCountsByLength ?? null })
+        : "",
       isCurrent: !ctx.inShop && id === ctx.currentLevelId,
     };
   });
@@ -87,7 +90,7 @@ function buildChapterRow(chapter, ctx) {
 
 /**
  * 对局信息 · 关卡 Tab：上/中/下三行对应前、当前、后一大关。
- * @param {{ currentLevelId: string, activeBossSlug?: string, runSeedNumeric?: number, runDifficultyIndex?: number, inShop?: boolean, isEndlessRun?: boolean }} opts
+ * @param {{ currentLevelId: string, activeBossSlug?: string, runSeedNumeric?: number, runDifficultyIndex?: number, inShop?: boolean, isEndlessRun?: boolean, spellCountsByLength?: Record<string | number, number> | null }} opts
  * @returns {InfoStageChapterRow[]}
  */
 export function buildInfoStageProgressRows(opts) {
@@ -97,6 +100,7 @@ export function buildInfoStageProgressRows(opts) {
   const inShop = opts.inShop === true;
   const isEndlessRun = opts.isEndlessRun === true;
   const runDifficultyIndex = normalizeRunDifficultyIndex(opts.runDifficultyIndex);
+  const spellCountsByLength = opts.spellCountsByLength ?? null;
   const MAX_NORMAL_CHAPTER = 8;
   const chapter = parseMajorFromLevelId(currentLevelId);
   const rowCtxBase = {
@@ -105,6 +109,7 @@ export function buildInfoStageProgressRows(opts) {
     runSeedNumeric,
     runDifficultyIndex,
     inShop,
+    spellCountsByLength,
   };
 
   /** @type {InfoStageChapterRow[]} */

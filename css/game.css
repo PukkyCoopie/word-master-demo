@@ -5343,11 +5343,6 @@ html.swap-confirm-button-side .confirm-actions-row {
 	flex-direction: row-reverse;
 }
 
-/* 法术操作层：默认跳过左、确定右；不受全局对调影响 */
-html.swap-confirm-button-side .spell-target-actions.confirm-actions-row {
-	flex-direction: row;
-}
-
 .confirm-actions-row > .shop-btn,
 .confirm-actions-row > .hold-confirm-btn,
 .confirm-actions-row > .developer-options-btn,

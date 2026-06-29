@@ -304,6 +304,27 @@
               :inert="activeTab !== 'developer'"
             >
               <div class="settings-layer-list">
+                <label class="settings-row settings-row--dev-bench">
+                  <div class="settings-dev-copy">
+                    <span class="settings-row-label">抑制成就与排行榜</span>
+                    <p class="settings-dev-hint">开启时，开发者模式下不会解锁成就、也不会上报排行榜</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="settings-toggle"
+                    role="switch"
+                    :aria-checked="devSuppressAchievementsEnabled"
+                    @click="onToggleDevSuppressAchievements"
+                  >
+                    <span
+                      class="settings-toggle-track"
+                      :class="{ 'settings-toggle-track--on': devSuppressAchievementsEnabled }"
+                    >
+                      <span class="settings-toggle-thumb" />
+                    </span>
+                  </button>
+                </label>
+
                 <div class="settings-row settings-row--dev-bench">
                   <div class="settings-dev-copy">
                     <span class="settings-row-label">材质性能实验</span>
@@ -356,6 +377,8 @@ import {
   getHighRiskSpellConfirmEnabled,
   setSwapConfirmButtonSide,
   getSwapConfirmButtonSideEnabled,
+  getDevSuppressAchievementsAndLeaderboards,
+  setDevSuppressAchievementsAndLeaderboards,
 } from "../settings/gameSettings.js";
 import { isHapticsAvailable, previewHaptic, scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 import SegmentTabControl from "./SegmentTabControl.vue";
@@ -466,6 +489,7 @@ const hapticsAvailable = isHapticsAvailable();
 const hapticsEnabled = computed(() => gameSettings.hapticsEnabled !== false);
 const highRiskSpellConfirmEnabled = computed(() => getHighRiskSpellConfirmEnabled());
 const swapConfirmButtonSideEnabled = computed(() => getSwapConfirmButtonSideEnabled());
+const devSuppressAchievementsEnabled = computed(() => getDevSuppressAchievementsAndLeaderboards());
 
 function onToggleHaptics() {
   const next = !hapticsEnabled.value;
@@ -545,6 +569,11 @@ function onToggleHighRiskSpellConfirm() {
 
 function onToggleSwapConfirmButtonSide() {
   setSwapConfirmButtonSide(!swapConfirmButtonSideEnabled.value);
+  settingsChangeTap();
+}
+
+function onToggleDevSuppressAchievements() {
+  setDevSuppressAchievementsAndLeaderboards(!devSuppressAchievementsEnabled.value);
   settingsChangeTap();
 }
 

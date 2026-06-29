@@ -159,16 +159,16 @@ export function prob(v) {
 }
 
 /**
- * 简介展示：数据里 `prob("1/3")` 始终为基础概率；已拥有彗星（45）时 chip 显示翻倍（如 2/3）。
+ * 简介展示：数据里 `prob("1/3")` 始终为基础概率；已拥有彗星（45）时 chip 按叠乘次数显示（如 1/5→2/5→4/5）。
  * @param {TreasureDescSegment[]} segments
- * @param {{ probabilityDisplayDoubled?: boolean }} [opts]
+ * @param {{ probabilityDoublerCount?: number }} [opts]
  */
 export function resolveDescriptionProbabilityDisplay(segments, opts = {}) {
-  const doubled = opts.probabilityDisplayDoubled === true;
-  if (!doubled) return segments;
+  const count = Math.max(0, Math.floor(Number(opts.probabilityDoublerCount) || 0));
+  if (count <= 0) return segments;
   return segments.map((seg) => {
     if (seg.type !== "prob") return seg;
-    return { type: "prob", v: parseProbabilityFraction(seg.v, true) };
+    return { type: "prob", v: parseProbabilityFraction(seg.v, count) };
   });
 }
 

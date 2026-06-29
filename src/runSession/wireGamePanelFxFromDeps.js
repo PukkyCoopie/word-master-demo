@@ -32,6 +32,7 @@ export function wireGamePanelFxFromDeps(d) {
       treasureInventoryCtrl: d.treasureInventoryCtrl,
       ownedTreasures: d.ownedTreasures,
       removeAndCompactOwnedTreasureAtIndex: d.removeAndCompactOwnedTreasureAtIndex,
+      removeOwnedTreasureSlotsLeaveGapAtIndices: d.removeOwnedTreasureSlotsLeaveGapAtIndices,
       scheduleRunAutoSave: d.scheduleRunAutoSave,
       wobbleGameTreasureSlot: d.wobbleGameTreasureSlot,
       showScoreBubble: d.showScoreBubble,

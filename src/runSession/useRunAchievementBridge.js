@@ -50,9 +50,11 @@ import { getTreasureDef } from "../treasures/treasureRegistry.js";
  * @param {import('vue').Ref<unknown[]>} deps.initialDeckSnapshot
  * @param {import('vue').Ref<number>} deps.remainingRemovals
  * @param {() => import('../treasures/treasureRunState.js').TreasureRunState} deps.getTreasureRunState
+ * @param {(ctx: import('../achievements/achievementEvaluate.js').AchievementEvalContext) => import('../achievements/achievementTypes.js').AchievementDefinition[]} [deps.tryUnlockAchievements]
  */
 export function useRunAchievementBridge(deps) {
-  const tryUnlockAchievementsInject = inject("tryUnlockAchievements", null);
+  const tryUnlockAchievementsInject =
+    deps.tryUnlockAchievements ?? inject("tryUnlockAchievements", null);
   const recordCollectionDiscovery = inject("recordCollectionDiscovery", null);
   const patchActiveSlotCareer = inject("patchActiveSlotCareer", null);
   const recordCollectionWordSubmit = inject("recordCollectionWordSubmit", null);
@@ -80,11 +82,14 @@ export function useRunAchievementBridge(deps) {
 
   /** @param {import('../achievements/achievementEvaluate.js').AchievementEvalContext} [overrides] */
   function flushAchievementUnlocks(overrides = {}) {
-    const unlockFn = tryUnlockAchievementsInject ?? ((ctx) => {
-      /** @type {import('../achievements/achievementTypes.js').AchievementDefinition[]} */
-      const newly = [];
-      return newly;
-    });
+    const unlockFn =
+      tryUnlockAchievementsInject ??
+      (import.meta.env?.DEV
+        ? () => {
+            console.warn("[achievement] tryUnlockAchievements 未注入，本局成就解锁被跳过");
+            return [];
+          }
+        : () => []);
     unlockFn(buildAchievementEvalContext(overrides));
   }
 

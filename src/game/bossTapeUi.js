@@ -4,6 +4,7 @@
  */
 
 import { BOSS_CLUB_POS_OPTIONS } from "./bossWordViolation.js";
+import { resolveUniqueMostSpellLength } from "./bossMechanicsContext.js";
 
 /** Boss 条 wobble 单次时长（与 CSS `boss-tape-wobble` 对齐） */
 export const BOSS_TAPE_WOBBLE_MS = 520;
@@ -12,8 +13,17 @@ export const BOSS_TAPE_WOBBLE_MS = 520;
 export const BOSS_TAPE_TRIGGER_RIPPLE_MS = 1180;
 
 /**
+ * @param {Record<string | number, number> | Map<number, number> | null | undefined} spellCountsByLength
+ * @returns {string}
+ */
+export function formatOxBossLengthSuffix(spellCountsByLength) {
+  const len = resolveUniqueMostSpellLength(spellCountsByLength);
+  return len != null ? `（长度${len}）` : "（暂无）";
+}
+
+/**
  * @param {import("./bossBlindDefinitions.js").BossBlindDef | null | undefined} bossDef
- * @param {{ clubRequiredKey?: string, mouthLockedLength?: number | null }} [opts]
+ * @param {{ clubRequiredKey?: string, mouthLockedLength?: number | null, spellCountsByLength?: Record<string | number, number> | Map<number, number> | null }} [opts]
  * @returns {string}
  */
 export function buildBossTapeSubLine(bossDef, opts = {}) {
@@ -30,6 +40,9 @@ export function buildBossTapeSubLine(bossDef, opts = {}) {
       return `${base}（长度${mouthLockedLength}）`;
     }
     return base;
+  }
+  if (bossDef.slug === "the_ox") {
+    return `${bossDef.uiDescription}${formatOxBossLengthSuffix(opts.spellCountsByLength)}`;
   }
   return bossDef.uiDescription;
 }

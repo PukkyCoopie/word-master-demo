@@ -51,7 +51,7 @@ function bumpSpellDiscoveries(career, add) {
   for (const spell of SPELL_DEFINITIONS) {
     if (remaining <= 0) break;
     const id = spell.id;
-    if (!id || id === "restart" || id === "dice" || discovered.has(id)) continue;
+    if (!id || discovered.has(id)) continue;
     if (recordSpellDiscovered(career, id)) remaining -= 1;
   }
 }

@@ -52,7 +52,7 @@
             <TreasureDescRichText
               v-if="hasSpellDesc"
               :description="session.spellDescription"
-              :probability-display-doubled="probabilityDisplayDoubled"
+              :probability-doubler-count="probabilityDoublerCount"
             />
           </div>
 
@@ -69,7 +69,7 @@
                 class="treasure-detail-desc-panel-rich"
                 :description="spellGainPanelContent.description"
                 :panel-body="true"
-                :probability-display-doubled="probabilityDisplayDoubled"
+                :probability-doubler-count="probabilityDoublerCount"
               />
             </div>
           </div>
@@ -87,7 +87,7 @@
               class="treasure-detail-desc-panel-rich"
               :description="panel.effectDescription"
               :panel-body="true"
-              :probability-display-doubled="probabilityDisplayDoubled"
+              :probability-doubler-count="probabilityDoublerCount"
             />
           </div>
         </div>
@@ -165,24 +165,22 @@
           </div>
 
           <div class="spell-target-actions confirm-actions-row">
+            <HoldConfirmButton
+              variant="use"
+              label="确定"
+              hold-label="按住以确认"
+              fill-direction="horizontal"
+              :hold-mode="confirmHoldMode"
+              :disabled="tileAnimActive || !canConfirmSpell"
+              @confirm="onConfirm"
+            />
             <HoldSkipButton
               v-if="!session.skipDisabled"
               variant="danger"
               :hold-mode="skipHoldMode"
               :disabled="tileAnimActive"
               title="关闭弹窗，不施放本次法术"
-              :peer-hold-active="confirmPeerHoldActive"
-              :peer-hold-progress="confirmPeerHoldProgress"
               @skip="onSkipDismiss"
-            />
-            <HoldConfirmButton
-              variant="use"
-              label="确定"
-              hold-label="按住以确认"
-              :hold-mode="confirmHoldMode"
-              :disabled="tileAnimActive || !canConfirmSpell"
-              @confirm="onConfirm"
-              @hold-change="onConfirmHoldChange"
             />
           </div>
         </div>
@@ -219,8 +217,8 @@ import { scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from ".
 const props = defineProps({
   session: { type: Object, default: null },
   overlaySuppressed: { type: Boolean, default: false },
-  /** 已拥有彗星（45）时：法术描述中的概率 chip 显示翻倍 */
-  probabilityDisplayDoubled: { type: Boolean, default: false },
+  /** 已拥有彗星（45）叠乘次数：法术描述中的概率 chip 按 2^n 显示 */
+  probabilityDoublerCount: { type: Number, default: 0 },
 });
 
 const emit = defineEmits(["confirm", "cancel"]);
@@ -285,8 +283,6 @@ watch(
     tileAnimActive.value = false;
     surfaceOverrides.value = null;
     clearOfferTileElList();
-    confirmPeerHoldActive.value = false;
-    confirmPeerHoldProgress.value = 0;
   },
 );
 
@@ -360,15 +356,6 @@ const confirmHoldMode = computed(() => {
 });
 
 const skipHoldMode = computed(() => getHighRiskSpellConfirmEnabled());
-
-const confirmPeerHoldActive = ref(false);
-const confirmPeerHoldProgress = ref(0);
-
-/** @param {{ holding: boolean, progress: number }} state */
-function onConfirmHoldChange(state) {
-  confirmPeerHoldActive.value = Boolean(state?.holding);
-  confirmPeerHoldProgress.value = Math.max(0, Math.min(1, Number(state?.progress) || 0));
-}
 
 function staggerTargets() {
   return [

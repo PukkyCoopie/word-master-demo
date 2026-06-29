@@ -831,6 +831,7 @@ const irisTransition = inject("irisTransition", null);
 const requestNewRun = inject("requestNewRun", null);
 const openSettings = inject("openSettings", null);
 const mergeCareerOnRunEnd = inject("mergeCareerOnRunEnd", null);
+const tryUnlockAchievements = inject("tryUnlockAchievements", null);
 const recordPrerequisiteTreasureShopAppeared = inject("recordPrerequisiteTreasureShopAppeared", null);
 shopPrerequisiteBridge._fn = recordPrerequisiteTreasureShopAppeared;
 const patchActiveSlotCareer = inject("patchActiveSlotCareer", null);
@@ -1011,6 +1012,7 @@ function noteRunShopPurchase() {
 
 const ctrlEarly = wireGamePanelControllers({
   phase: "early",
+  tryUnlockAchievements,
   isRunFlowOverlayOpen,
   firstWordTutorialActive,
   getResolveNextLevelDefAfterShop: () => resolveNextLevelDefAfterShop,
@@ -2078,6 +2080,8 @@ wireGamePanelFxFromDeps({
   clearOwnedTreasureSlotLeaveGapAtIndex: (ix) =>
     ctrlEarly.treasureRun?.clearOwnedTreasureSlotLeaveGapAtIndex(ix),
   removeAndCompactOwnedTreasureAtIndex: ctrlEarly.removeAndCompactOwnedTreasureAtIndex,
+  removeOwnedTreasureSlotsLeaveGapAtIndices: (indices, opts) =>
+    ctrlEarly.treasureRun?.removeOwnedTreasureSlotsLeaveGapAtIndices(indices, opts),
   scheduleRunAutoSave,
   createWobbleScoreSlotTimeline, awaitWobbleScoreSlotTimeline, playOwnedTreasureWobbleOnlyFx,
   hourglassStageFxRef, inRunUpgradePlaybackRef, runResultPresentationCtrl, sleep,

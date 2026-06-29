@@ -803,6 +803,7 @@ const stageProgressRows = computed(() => {
     runDifficultyIndex: props.runDifficultyIndex,
     inShop: props.inShop,
     isEndlessRun: props.isEndlessRun,
+    spellCountsByLength: props.spellCounts,
   });
 });
 

@@ -151,7 +151,7 @@ function applyNewPlayerWordDefinitionDefault() {
   gameSettings.wordDefinitionMode = "off";
 }
 
-/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; materialAnimationEnabled: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean }} */
+/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; materialAnimationEnabled: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean; devSuppressAchievementsAndLeaderboards: boolean }} */
 export const gameSettings = reactive({
   allowSpellingAbbreviations: false,
   uiScalePercent: UI_SCALE_DEFAULT,
@@ -167,6 +167,8 @@ export const gameSettings = reactive({
   letterQMode: "qu",
   highRiskSpellConfirm: true,
   swapConfirmButtonSide: false,
+  /** 开发者模式下抑制成就解锁与排行榜上报；默认开启 */
+  devSuppressAchievementsAndLeaderboards: true,
 });
 
 /**
@@ -239,6 +241,9 @@ export function loadGameSettings() {
     if (typeof parsed.swapConfirmButtonSide === "boolean") {
       gameSettings.swapConfirmButtonSide = parsed.swapConfirmButtonSide;
     }
+    if (typeof parsed.devSuppressAchievementsAndLeaderboards === "boolean") {
+      gameSettings.devSuppressAchievementsAndLeaderboards = parsed.devSuppressAchievementsAndLeaderboards;
+    }
     if (needsWordAuxMigration) {
       if (hasExistingPlayerSaveData()) {
         gameSettings.markButtonEnabled = true;
@@ -286,6 +291,7 @@ export function persistGameSettings() {
         letterQMode: gameSettings.letterQMode,
         highRiskSpellConfirm: gameSettings.highRiskSpellConfirm,
         swapConfirmButtonSide: gameSettings.swapConfirmButtonSide,
+        devSuppressAchievementsAndLeaderboards: gameSettings.devSuppressAchievementsAndLeaderboards,
       }),
     );
     void import("../save/cloudSave/cloudSaveSync.js").then(({ markCloudSyncDirty }) => {
@@ -466,6 +472,17 @@ export function getSwapConfirmButtonSideEnabled() {
 /** @param {boolean} enabled */
 export function setSwapConfirmButtonSide(enabled) {
   gameSettings.swapConfirmButtonSide = Boolean(enabled);
+  persistGameSettings();
+}
+
+/** @returns {boolean} 开发者模式下是否抑制成就与排行榜 */
+export function getDevSuppressAchievementsAndLeaderboards() {
+  return gameSettings.devSuppressAchievementsAndLeaderboards !== false;
+}
+
+/** @param {boolean} enabled */
+export function setDevSuppressAchievementsAndLeaderboards(enabled) {
+  gameSettings.devSuppressAchievementsAndLeaderboards = Boolean(enabled);
   persistGameSettings();
 }
 

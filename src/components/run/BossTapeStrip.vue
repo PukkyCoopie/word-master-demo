@@ -52,6 +52,7 @@ const props = defineProps({
   activeBossSlug: { type: String, default: "" },
   clubRequiredKey: { type: String, default: "" },
   mouthLockedLength: { type: Number, default: null },
+  spellCountsByLength: { type: Object, default: () => ({}) },
   softPreview: { type: Boolean, default: false },
   /** 盾牌 / 钥匙等：Boss 机制本关或本局被屏蔽 */
   mechanicsSuppressed: { type: Boolean, default: false },
@@ -70,6 +71,7 @@ const subLine = computed(() =>
   buildBossTapeSubLine(bossDef.value, {
     clubRequiredKey: props.clubRequiredKey,
     mouthLockedLength: props.mouthLockedLength,
+    spellCountsByLength: props.spellCountsByLength,
   }),
 );
 

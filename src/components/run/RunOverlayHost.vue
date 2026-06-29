@@ -69,7 +69,7 @@ const treasureDetailChargeProgress = computed(() => sv(treasures.treasureDetailC
 const treasureDetailEffectDepleted = computed(() => sv(treasures.treasureDetailEffectDepleted));
 const treasureDetailMode = computed(() => sv(treasures.treasureDetailMode));
 const treasureSellRefund = computed(() => sv(treasures.treasureSellRefund));
-const treasureProbabilityDisplayDoubled = computed(() => sv(treasures.treasureProbabilityDisplayDoubled));
+const treasureProbabilityDoublerCount = computed(() => sv(treasures.treasureProbabilityDoublerCount));
 const treasureDetailPreviewNavIndex = computed(() => sv(treasures.treasureDetailPreviewNavIndex));
 const treasureDetailPreviewNavTotal = computed(() => sv(treasures.treasureDetailPreviewNavTotal));
 
@@ -138,7 +138,7 @@ defineExpose({
       :wallet-floor="shopRunWalletFloor"
       :spell-replay-target-spell-id="spellReplayTargetSpellId"
       :rarity-levels-by-rarity="ov.rarityLevelsByRarity"
-      :probability-display-doubled="treasureProbabilityDisplayDoubled"
+      :probability-doubler-count="treasureProbabilityDoublerCount"
       :spell-grant-flow="activeTreasureDetail.spellGrantFlow === true"
       :preview-nav-index="treasureDetailPreviewNavIndex"
       :preview-nav-total="treasureDetailPreviewNavTotal"
@@ -157,7 +157,7 @@ defineExpose({
       mode="spell-reference"
       :owned-voucher-ids="runOwnedVoucherIds"
       :rarity-levels-by-rarity="ov.rarityLevelsByRarity"
-      :probability-display-doubled="treasureProbabilityDisplayDoubled"
+      :probability-doubler-count="treasureProbabilityDoublerCount"
       :owned-slot-treasure-ids="runOwnedSlotTreasureIds"
       @close="ov.clearSpellReferencePreview()"
     />
@@ -205,7 +205,7 @@ defineExpose({
       ref="spellTargetLayerRef"
       :overlay-suppressed="shopOverlayLayersSuppressed"
       :session="spellTargetSessionActive"
-      :probability-display-doubled="treasureProbabilityDisplayDoubled"
+      :probability-doubler-count="treasureProbabilityDoublerCount"
       @confirm="spell.onSpellTargetConfirm"
       @cancel="spell.onSpellTargetCancel"
     />
@@ -228,6 +228,7 @@ defineExpose({
       :wallet-amount="ov.walletHeaderShown"
       :wallet-floor="shopRunWalletFloor"
       :owned-voucher-ids="runOwnedVoucherIds"
+      :spell-counts-by-length="ov.spellCountsByLength"
       :overlay-suppressed="shopOverlayLayersSuppressed"
       @reroll="lifecycle.onBossBlindRerollPaid()"
       @continue="lifecycle.onBossBlindRerollContinue($event)"
