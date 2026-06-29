@@ -129,6 +129,7 @@ export function buildGamePanelAssemblySections(d) {
       onShopNextLevel: sh.onShopNextLevel,
       onShopReroll: sp.onShopReroll,
       onShopSelectOffer: sp.onShopSelectOffer,
+      onShopSelectVoucher: sp.onShopSelectVoucher,
       onShopSelectOwned: sp.onShopSelectOwned,
       onShopSelectPackOffer: sp.onShopSelectPackOffer,
       onShopReorderOwned: sp.onShopReorderOwned,

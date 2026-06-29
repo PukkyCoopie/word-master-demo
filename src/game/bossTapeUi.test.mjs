@@ -23,12 +23,22 @@ test("buildBossTapeSubLine: club required key", () => {
   );
 });
 
+test("buildBossTapeSubLine: mouth before first word", () => {
+  assert.equal(
+    buildBossTapeSubLine(
+      { slug: "the_mouth", uiDescription: "本关内只允许拼写一种长度的单词" },
+      { mouthLockedLength: null },
+    ),
+    "本关内只允许拼写一种长度的单词",
+  );
+});
+
 test("buildBossTapeSubLine: mouth locked length", () => {
   assert.equal(
     buildBossTapeSubLine(
-      { slug: "the_mouth", uiDescription: "fallback" },
+      { slug: "the_mouth", uiDescription: "本关内只允许拼写一种长度的单词" },
       { mouthLockedLength: 5 },
     ),
-    "固定长度：5",
+    "本关内只允许拼写一种长度的单词（长度5）",
   );
 });

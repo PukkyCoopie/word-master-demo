@@ -97,7 +97,7 @@
  * @property {(treasureId: string) => Promise<void>} [playOwnedTreasureWobbleOnlyFx] 仅 wobble（不改遮罩层）
  * @property {(treasureId: string) => Promise<void>} [destroyTreasureSlotById]
  * @property {(raws: string[]) => void} [removeDeckLettersByRaws]
- * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（工具箱等）
+ * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（菜刀等）
  * @property {object[]} [ownedTreasureInstances]
  * @property {() => number} [rng]
  * @property {{ materialId?: string | null, tileScoreBonus?: number, letterMultBonus?: number, materialScoreBonus?: number, materialMultBonus?: number, accessoryId?: string | null, treasureAccessoryId?: string | null, _deckCard?: object }[] | null | undefined} [submittedScoringTiles] 本词参与记分的字母块（补牌前，含角标/配饰；用于材质类与海绵等结算后效果）
@@ -111,7 +111,7 @@
  * @property {number} [handFinalScore] 本词最终得分（与 `currentScore` 相加即提交后累计分）
  * @property {(n: number) => void} [addRemainingWords] 增加拼写次数
  * @property {(raws: string[]) => void} [removeDeckLettersByRaws]
- * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（工具箱等） 从牌库移除字母
+ * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（菜刀等） 从牌库移除字母
  * @property {() => number} [rng]
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {() => string | null} [pickRandomInRunSpellId]
@@ -132,6 +132,10 @@
  * @property {(opts: SubmitWordEnhancementStripLeaveOpts) => Promise<void>} [playSubmitTileEnhancementStripLeave] 海绵等：逐字黄色「擦除」+ 缩小换图回弹
  * @property {(slotIndex: number, scoringTile?: object | null) => object | null} [resolveSubmitTileAtIndex] 词槽索引 → 棋盘真实 tile
  * @property {() => void} [touchGrid] 刷新棋盘响应式
+ * @property {() => object[][] | null | undefined} [getGrid] 当前棋盘二维数组
+ * @property {(row: number, col: number, onMidApply?: () => void) => Promise<void>} [playGridTileIgniteFxAtCell] 棋盘格引燃：缩小→onMidApply→回弹+「点燃」气泡
+ * @property {(slotIndex: number) => Promise<void>} [playWordSlotCopyFxAtIndex] 词槽字母 wobble +「复制」气泡（传真机等）
+ * @property {(spec: { raw: string, accessoryId?: string | null, tileScoreBonus?: number, letterMultBonus?: number, materialId?: string | null }) => object | null} [appendDeckCardSpecToRunDeck]
  */
 
 /**
@@ -209,12 +213,15 @@
  * @property {number} [multAdd]
  * @property {number} [scoreAdd]
  * @property {number} [multMul]
+ * @property {number} [finalScoreAdd] 公式汇聚后的最终得分加成（不参与 score×mult，见 `buildFinalScoreStep`）
  * @property {number} [scoreFxGridTileIndex] 字后动效落在棋盘格（`r * gridCols + c`）
  */
 
 /**
  * @typedef {Object} TreasureHooks
  * @property {(ctx: TreasureLogicContext) => void} [prepareSubmitScoringBank] 提交计分前：擦除类宝藏将 +0.1 等写入 run 银行，供同词 `buildPostLetterStep` 读取累计倍率
+ * @property {(ctx: TreasureLogicContext) => object | null | undefined} [buildSubmitScoringAppendTile] 提交计分时在字母步开始前追加临时字母块（如报纸 +S）；须与 `getSubmitScoringWordLetterCountBonus` 成对
+ * @property {(ctx: TreasureLogicContext) => number} [getSubmitScoringWordLetterCountBonus] 追加临时字母后等效词长表 +n（默认按追加块数）
  * @property {(ctx: TreasureSubmitAfterLettersContext) => void | Promise<void>} [runAfterLettersBeforePostSteps] 计分动画：逐字母步结束后、字后宝藏步开始前（如海绵擦除动效）
  * @property {(ctx: TreasureLogicContext) => TreasurePostStep | null | undefined} [buildPostLetterStep]
  * @property {(ctx: TreasureLogicContext) => (TreasurePostStep | null | undefined)[] | null | undefined} [collectPostLetterSteps] 字后多步（如钢琴逐格 J/K）；若实现则优先于 `buildPostLetterStep`
@@ -225,6 +232,7 @@
  * @property {(ctx: TreasureLogicContext) => number} [getExtraLetterScoringPasses] - 整词额外几轮逐字母 replay（每轮每字母 +1，与动画轮数一致）
  * @property {(ctx: TreasureLogicContext, part: { letter?: string, rarity?: string }, letterIndex: number) => number} [getLetterReplayCountForLetter]
  * @property {(ctx: TreasureLogicContext) => TreasurePostStep | null | undefined} [buildPostLetterReplayStep]
+ * @property {(ctx: TreasureLogicContext) => TreasurePostStep | null | undefined} [buildFinalScoreStep] 公式区 score×mult 汇聚为总分后追加的最终得分（动画在总分初显之后）
  * @property {(ctx: TreasureReplaySubmitAdjustmentsContext) => { scoreAdd?: number, multAdd?: number } | null | undefined} [accumulateReplaySubmitAdjustments]
  * @property {(ctx: { realTile: object | null, scoringTile?: object | null, scoringLetter?: string, band: 'score' | 'mult', delta: number }) => boolean} [persistTileAfterPerLetterTreasureCue] 逐字「宝藏 +Δ」与词槽 wobble 同节拍前写回 tile/_deckCard；`scoringTile`/`scoringLetter` 为本词解析后的计分字母（万能块变形前须由调用方 `commitWildcardMorphBeforeEnhancementStrip` 或 `persistTileIntrinsicTreasureCue` 写回）；返回 true 表示已改角标（调用方 `nextTick` 后再建含角标的 wobble timeline）
  * @property {(ctx: { ownedSlotTreasureIds: (string | null | undefined)[] }, part: { letter?: string, rarity?: string }, letterIndex: number) => { delta: number, label?: string } | null | undefined} [getPerLetterScoreCue]
@@ -236,6 +244,7 @@
  * @property {(ctx: { ownedSlotTreasureIds: (string | null | undefined)[], scoringVisitIndex?: number, rng?: () => number, treasureRun?: import('./treasureRunState.js').TreasureRunState }, part: { letter?: string, rarity?: string }, letterIndex: number) => { money?: number } | null | undefined} [getPerLetterMoneyCue] 逐字计分后各 visit 独立掷概率得金币；提交时预掷、动画在词槽 wobble 后弹出金币气泡并入账
  * @property {() => { title: string, description: string | import('./treasureDescription.js').TreasureDescSegment[] } | null | undefined} [getDetailGainPanel] 详情层主简介下、与具名配饰分区并列的补充说明：**仅**用于**具名棋盘材质**或**具名配饰**（火焰/水滴/扳手/裁剪等）的二次展示；**禁止**类目词（如「宝藏配饰」）作标题、禁止抽象计分复述。**当前仅 id「77」**应实现。原则见 `.cursor/rules/treasure-detail-supplement.mdc`、法术卡见 `spell-gain-panel.mdc`。
  * @property {(ctx: { chargeWordsSubmitted: number, ownedSlotTreasureIds: (string | null | undefined)[], remainingDeckCount?: number }) => import('./treasureDescription.js').TreasureDescSegment[] | null | undefined} [buildOwnedDetailDescriptionSegments] 已拥有详情（非货架报价）：在静态简介后追加片段；**仅限材质/配饰类补充**（与 `getDetailGainPanel` 同一原则）。充能进度、动态倍率数值等请用 footer 充能条等专用 UI，不要在此处追加简介。
+ * @property {(ctx: { treasureRun?: import('./treasureRunState.js').TreasureRunState }) => string | null | undefined} [getOwnedDetailSpellReplayTargetId] 已拥有详情：在简介区展示可点开的「上一张法术」预览（如光盘 117、重播法术货架由 spellReplayTargetSpellId 传入）
  * @property {(ctx: TreasureSubmitSuccessContext) => void | Promise<void>} [onSuccessfulWordSubmit] 本词结算动画成功后调用（每词每宝藏 id 至多一次）
  * @property {(ctx: TreasureWordDefinitionOpenContext) => void | Promise<{ blocked?: boolean } | void>} [onWordDefinitionOpenAttempt] 拼词区释义按钮：返回 `{ blocked: true }` 时阻止弹窗
  * @property {(ctx: TreasureWordDefinitionPresentationContext) => { triggerMode?: 'button' | 'definition' } | void} [resolveWordDefinitionTriggerMode] 设置「释义」时：返回 `{ triggerMode: 'button' }` 则退化为仅 icon 按钮（不展示行内预览条）
@@ -397,7 +406,7 @@
  * @typedef {Object} TreasureShopLeaveContext
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun]
  * @property {(string | null | undefined)[]} ownedSlotTreasureIds
- * @property {(spellId: string) => Promise<void>} [replayLastSpellInRun]
+ * @property {(spellId: string, opts?: { treasureSlotIndex?: number }) => Promise<void>} [replayLastSpellInRun]
  */
 
 /**

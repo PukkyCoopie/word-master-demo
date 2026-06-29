@@ -237,7 +237,7 @@ export function evaluateBossSoftWordViolation(ctx) {
   if (slug === "the_mouth") {
     const locked = ctx.mouthLockedLength;
     if (locked != null && Number.isFinite(locked) && wordLen !== locked) {
-      return { violated: true, reason: "独口：长度不符" };
+      return { violated: true, reason: "独眼：长度不符" };
     }
     return { violated: false, reason: "" };
   }

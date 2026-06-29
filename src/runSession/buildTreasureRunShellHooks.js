@@ -1,4 +1,7 @@
 import { handleRunEndDiscoverySelect as handleRunEndDiscoverySelectPreview } from "../game/runEndDiscoveryPreview.js";
+import { runGridTileIgniteAtCell, resolveWordSlotShrinkPopEl } from "../game/gridTileIgniteFx.js";
+import { findWordSlotIndexForGridCell } from "../game/fireworkIgniteTargets.js";
+import { runWordSlotCopyFxAtIndex } from "../game/wordSlotCopyFx.js";
 import { clampRemainingWordsForBossMechanics, isLengthObservatoryBoosted } from "../vouchers/voucherRuntime.js";
 import { noteTreasureRunUpgradeUsed } from "../treasures/treasureRunTracking.js";
 import { ownedTreasureHasNoSellAccessory } from "../game/runDifficultyRuntime.js";
@@ -182,6 +185,35 @@ export function buildTreasureRunShellHooks(d) {
         getGrid: () => d.getGrid(),
         getSelectedOrder: () => d.getSelectedOrder(),
         appendDeckCardSpecToRunDeck: (spec) => d.appendDeckCardSpecToRunDeck(spec),
+        playGridTileIgniteFxAtCell: async (row, col, onMidApply) => {
+          await runGridTileIgniteAtCell(
+            {
+              getGridTileEl: (r, c) => d.getGridTileElAtRowCol?.(r, c),
+              getWordSlotShrinkPopElForGridCell: (r, c) => {
+                const ix = findWordSlotIndexForGridCell(d.getSelectedOrder?.() ?? [], r, c);
+                if (ix < 0) return null;
+                return resolveWordSlotShrinkPopEl(d.getWordSlotElAtIndex?.(ix) ?? null);
+              },
+              touchGrid: d.touchGrid,
+              showScoreBubble: d.showScoreBubble,
+              scheduleSmallPlusBubbleOutro: d.scheduleSmallPlusBubbleOutro,
+            },
+            row,
+            col,
+            onMidApply,
+          );
+        },
+        playWordSlotCopyFxAtIndex: async (slotIndex) => {
+          await runWordSlotCopyFxAtIndex(
+            {
+              getWordSlotEl: (i) => d.getWordSlotElAtIndex?.(i) ?? null,
+              awaitTreasureSlotWobbleEl: (el, sp) => d.awaitTreasureSlotWobbleElForSubmit?.(el, sp),
+              showScoreBubble: d.showScoreBubble,
+              scheduleSmallPlusBubbleOutro: d.scheduleSmallPlusBubbleOutro,
+            },
+            slotIndex,
+          );
+        },
       };
     },
     playOwnedTreasureMoneyFx: d.playOwnedTreasureMoneyFx,

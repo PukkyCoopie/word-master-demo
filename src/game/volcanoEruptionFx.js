@@ -1,7 +1,7 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
 import { animSleep } from "../settings/animationSpeed.js";
-import { animateGridTileMaterialChangeAtCell } from "./spellTileAppearanceAnim.js";
+import { runGridTileIgniteAtCell } from "./gridTileIgniteFx.js";
 import { applyFireMaterialToTile } from "./tileMaterialApply.js";
 import {
   buildVolcanoEruptionRippleTargets,
@@ -21,7 +21,6 @@ const ERUPTION_DURATION_S = 1.35;
 const VOLCANO_BUBBLE_HOLD_S = 1.05;
 const VOLCANO_BUBBLE_GROW_SCALE = 1.42;
 const VOLCANO_BUBBLE_OUTRO_S = 0.55;
-const IGNITE_BUBBLE_Z_INDEX = 380;
 
 /** @param {Element | null | undefined} slotEl */
 function resolveVolcanoWobbleEl(slotEl) {
@@ -169,38 +168,26 @@ async function runVolcanoDestroyTreasureAtSlot(deps, slotIndex, sp) {
 }
 
 /** @param {VolcanoEruptionFxDeps} deps @param {number} row @param {number} col @param {number} sp */
-function showIgniteBubbleAtGridCell(deps, row, col, sp) {
-  const tileEl = deps.getGridTileEl(row, col);
-  let anchor = tileEl;
-  if (tileEl instanceof HTMLElement) {
-    const cellEl = tileEl.closest(".letter-grid-cell");
-    if (cellEl instanceof HTMLElement) anchor = cellEl;
-  }
-  if (!(anchor instanceof HTMLElement)) return;
-  const bubble = deps.showScoreBubble(anchor, "点燃", "ignite", sp, IGNITE_BUBBLE_Z_INDEX);
-  if (bubble) deps.scheduleSmallPlusBubbleOutro(bubble, sp);
-}
-
-/** @param {VolcanoEruptionFxDeps} deps @param {number} row @param {number} col @param {number} sp */
 async function runVolcanoIgniteGridCell(deps, row, col, sp) {
   const g = deps.grid.value;
   const cell = g[row]?.[col];
   if (!cell || typeof cell !== "object") return;
 
-  await animateGridTileMaterialChangeAtCell({
+  await runGridTileIgniteAtCell(
+    {
+      getGridTileEl: deps.getGridTileEl,
+      touchGrid: deps.touchGrid,
+      showScoreBubble: deps.showScoreBubble,
+      scheduleSmallPlusBubbleOutro: deps.scheduleSmallPlusBubbleOutro,
+    },
     row,
     col,
-    getTileEl: deps.getGridTileEl,
-    touchGrid: deps.touchGrid,
-    delay: 0,
-    onMidApply: () => {
+    () => {
       const c = g[row]?.[col];
       if (c && typeof c === "object") applyFireMaterialToTile(/** @type {Record<string, unknown>} */ (c));
     },
-    onPopStart: () => {
-      showIgniteBubbleAtGridCell(deps, row, col, sp);
-    },
-  });
+    sp,
+  );
 }
 
 /** @param {VolcanoEruptionFxDeps} deps */

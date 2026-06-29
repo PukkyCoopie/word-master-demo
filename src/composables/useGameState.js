@@ -1628,7 +1628,7 @@ export function useGameState(gameOpts = {}) {
    * 小关结束进商店时调用：本局 multiset 全部牌张回到抽牌堆，牌库浮层预览全部为「在库」状态。
    * 棋盘等仍保持本关结束态（进商店时主界面不展示）；点「下一关」时 resetLevel 会再整盘重建。
    * 会把格上材质/稀有度等写回牌张，以便下一小关仍生效。
-   * 以 `initialDeckSnapshot` 为准（含工具箱/法术等本局永久移除），不再按开局模板补回张数。
+   * 以 `initialDeckSnapshot` 为准（含菜刀/法术等本局永久移除），不再按开局模板补回张数。
    */
   function resetDeckAfterStageEnd() {
     const g = grid.value;

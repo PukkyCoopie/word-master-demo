@@ -79,7 +79,15 @@ const packPickBusyActive = computed(() => sv(packPick.packPickBusy));
 const packPickSkipBusyActive = computed(() => sv(packPick.packPickSkipBusy));
 
 const spellTargetSessionActive = computed(() => sv(spell.spellTargetSession));
-const spellReplayTargetSpellId = computed(() => sv(spell.lastReplayableSpellId));
+const spellReplayTargetSpellId = computed(() => {
+  const fromOwned = sv(treasures.treasureDetailSpellReplayTargetId);
+  if (fromOwned) return fromOwned;
+  const detail = sv(treasures.treasureDetail);
+  if (detail?.treasure?.offerType === "spell" && String(detail.treasure.spellId ?? "") === "restart") {
+    return sv(spell.lastReplayableSpellId);
+  }
+  return null;
+});
 
 const bossRerollSessionActive = computed(() => sv(lifecycle.bossRerollSession));
 const pagerQuizSessionActive = computed(() => sv(lifecycle.pagerQuizSession));

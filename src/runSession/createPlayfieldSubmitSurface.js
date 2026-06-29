@@ -9,6 +9,7 @@ import {
   pfPlayfieldFlyingBackBatchesCount,
   pfPlayfieldFlyingLettersCount,
 } from "./gpPlayfieldBridge.js";
+import { isNewspaperTempTile } from "../treasures/items/treasure_140.js";
 
 /**
  * 提交 snapshot / 有效词解析（assembly 前可用；bind 后飞字状态经 gpPlayfieldBridge 转发）。
@@ -87,6 +88,7 @@ export function createPlayfieldSubmitSurface(deps) {
 
   /** 本手词槽 `i` 对应的棋盘真实 tile（用于剪贴板等：与计分动画同步写回角标） */
   function resolveRealSubmitTileForWordSlot(slotIndex, scoringTile = null) {
+    if (isNewspaperTempTile(scoringTile)) return null;
     const order = selectedOrder.value;
     if (Array.isArray(order) && slotIndex >= 0 && slotIndex < order.length) {
       const pos = order[slotIndex];

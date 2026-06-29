@@ -485,12 +485,19 @@ export async function runDetachedSpellTileAppearanceAnim(opts) {
  *   delay?: number,
  *   onMidApply?: () => void,
  *   onPopStart?: () => void,
+ *   companionEls?: (HTMLElement | null | undefined)[],
  * }} opts
  */
 export async function animateGridTileMaterialChangeAtCell(opts) {
-  const { row, col, getTileEl, touchGrid, delay = 0, onMidApply, onPopStart } = opts;
-  const el = getTileEl(row, col);
-  if (!(el instanceof HTMLElement)) {
+  const { row, col, getTileEl, touchGrid, delay = 0, onMidApply, onPopStart, companionEls = [] } = opts;
+  const primary = getTileEl(row, col);
+  /** @type {HTMLElement[]} */
+  const animEls = [];
+  if (primary instanceof HTMLElement) animEls.push(primary);
+  for (const el of companionEls) {
+    if (el instanceof HTMLElement && !animEls.includes(el)) animEls.push(el);
+  }
+  if (!animEls.length) {
     onMidApply?.();
     touchGrid();
     onPopStart?.();
@@ -498,15 +505,19 @@ export async function animateGridTileMaterialChangeAtCell(opts) {
   }
 
   return new Promise((resolve) => {
-    gsap.set(el, { transformOrigin: "50% 50%", rotation: 0, x: 0, y: 0 });
+    for (const target of animEls) {
+      gsap.set(target, { transformOrigin: "50% 50%", rotation: 0, x: 0, y: 0 });
+    }
     const tl = gsap.timeline({
       delay,
       onComplete: () => {
-        gsap.set(el, { clearProps: "scale,rotation,x,y" });
+        for (const target of animEls) {
+          gsap.set(target, { clearProps: "scale,rotation,x,y" });
+        }
         resolve();
       },
     });
-    tl.to(el, { scale: SHRINK_SCALE, duration: SHRINK, ease: "power3.in" });
+    tl.to(animEls, { scale: SHRINK_SCALE, duration: SHRINK, ease: "power3.in" });
     tl.add(() => {
       onMidApply?.();
       touchGrid();
@@ -515,7 +526,7 @@ export async function animateGridTileMaterialChangeAtCell(opts) {
     tl.add(() => {
       onPopStart?.();
     });
-    tl.to(el, { scale: POP_PEAK, duration: POP_IN, ease: "back.out(1.42)" });
-    tl.to(el, { scale: 1, duration: POP_SETTLE, ease: "power3.out" });
+    tl.to(animEls, { scale: POP_PEAK, duration: POP_IN, ease: "back.out(1.42)" });
+    tl.to(animEls, { scale: 1, duration: POP_SETTLE, ease: "power3.out" });
   });
 }

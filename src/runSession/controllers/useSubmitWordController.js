@@ -292,6 +292,7 @@ export function useSubmitWordController(options) {
           disabledTreasureSlotIndices: crimsonSet,
           bossFlintQuarter: boss.isFlintBossActive.value,
           skipPrepareSubmitScoringBank: submitViolated,
+          skipFinalScoreTreasureSteps: submitViolated,
           lengthUpgradeObservatoryExtra: gridApi.lengthUpgradeObservatoryExtra.value,
           rng: run.runRandom,
           resolvedWord,
@@ -325,6 +326,7 @@ export function useSubmitWordController(options) {
           scoreSum: 0,
           finalScore: 0,
           postLetterTreasureSteps: [],
+          finalScoreTreasureSteps: [],
           bossSoftViolation: true,
         };
       }
@@ -378,7 +380,7 @@ export function useSubmitWordController(options) {
       ui.scoringLetterIndex.value = -1;
 
       const iceShatterCount = await runSubmitScoringSequence(
-        tiles,
+        detailed.submitScoringTiles ?? tiles,
         detailed,
         resolvedWord,
         isLastSubmitChance,
@@ -468,6 +470,8 @@ export function useSubmitWordController(options) {
       ui.scoringLetterIndex.value = -1;
       ui.roundScoreOverride.value = null;
       ui.submitTranslationLines.value = [];
+      callbacks.setSubmitScoringAppendPresentation?.(null);
+    callbacks.setSubmitScoringAppendPresentations?.([]);
       const tw = dom.getWordTranslationWrap?.();
       if (tw) {
         gsapLib.killTweensOf(tw);

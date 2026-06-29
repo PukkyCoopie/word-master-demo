@@ -612,10 +612,13 @@ export function useRunLifecycleController(options) {
    * @param {{ runInRunSpellGrant: (spellId: string) => Promise<unknown> }} spellController
    */
   function bindSpell(spellController) {
-    replayLastSpellInRunImpl = async (spellId) => {
+    replayLastSpellInRunImpl = async (spellId, opts = {}) => {
       const sid = String(spellId ?? "").trim();
       if (!sid) return;
-      await spellController.runInRunSpellGrant(sid);
+      await spellController.runInRunSpellGrant(sid, {
+        treasureSlotIndex: opts.treasureSlotIndex,
+        cdShopLeaveReplay: true,
+      });
     };
   }
 

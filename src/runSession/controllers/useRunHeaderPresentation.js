@@ -53,7 +53,7 @@ export function useRunHeaderPresentation(deps) {
   const walletHeaderShown = computed(() => {
     const o = walletHeaderDisplayOverride.value;
     if (o === null) return money.value;
-    return Math.min(o, money.value);
+    return o;
   });
 
   const settlementWalletGainAnim = createShopWalletGainAnim({

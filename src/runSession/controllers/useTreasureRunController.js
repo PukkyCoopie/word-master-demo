@@ -304,6 +304,17 @@ export function useTreasureRunController(options) {
     return parts.length > base.length ? parts : null;
   });
 
+  const treasureDetailSpellReplayTargetId = computed(() => {
+    const d = treasureDetail.value;
+    if (!d?.treasure || d.kind !== "owned") return null;
+    const tid = String(d.treasure.treasureId ?? "");
+    return (
+      TREASURE_HOOKS_BY_ID.get(tid)?.getOwnedDetailSpellReplayTargetId?.({
+        treasureRun: treasureRunState.value,
+      }) ?? null
+    );
+  });
+
   const treasureChargeVisualBySlot = computed(() => {
     const runState = treasureRunState.value;
     return ownedTreasures.value.map((s) =>
@@ -860,6 +871,7 @@ export function useTreasureRunController(options) {
     presentTreasureDetail,
     treasureDetailMode,
     treasureDetailDescriptionOverride,
+    treasureDetailSpellReplayTargetId,
     treasureDetailChargeVisualState,
     treasureDetailChargeProgress,
     treasureDetailEffectDepleted,

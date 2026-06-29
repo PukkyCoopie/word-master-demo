@@ -1175,6 +1175,12 @@ textarea::-moz-placeholder {
 	color: #fff;
 	text-shadow: 0 calc(1 * var(--rpx)) 0 rgba(120, 84, 40, 0.45);
 }
+/* 公式汇聚后的最终得分加成（电池等）：白底黑字，区别于蓝分/红倍 */
+.score-popup-bubble--final-total {
+	background: #f9f6f2;
+	color: #1a1a1a;
+	box-shadow: 0 calc(4 * var(--rpx)) calc(12 * var(--rpx)) rgba(0, 0, 0, 0.12);
+}
 /* 宝藏自毁：摧毁！ */
 .score-popup-bubble--destroy {
 	background: #e04545;
@@ -1199,6 +1205,12 @@ textarea::-moz-placeholder {
 .score-popup-bubble--ice-shatter {
 	background: #5a8fb8;
 	color: #f9f6f2;
+}
+/* 传真机复制：略深于「继续游戏 / 下一关」主蓝 */
+.score-popup-bubble--copy {
+	background: #4a7da8;
+	color: #f9f6f2;
+	font-weight: 700;
 }
 /* 废格 / 软违规：跳过计分 */
 .score-popup-bubble--skip {
@@ -2718,17 +2730,22 @@ textarea::-moz-placeholder {
 }
 
 .deck-layer-tile .tile-bonus-pill {
-	font-size: calc(var(--deck-tile-size) * 0.16);
-	padding: calc(var(--deck-tile-size) * 0.02) calc(var(--deck-tile-size) * 0.055);
-	border-radius: calc(var(--deck-tile-size) * 0.08);
-	min-width: calc(var(--deck-tile-size) * 0.2);
-	top: calc(var(--deck-tile-size) * 0.04);
+	/* 与棋盘 108 基准同比例，按 --deck-tile-size 缩放 */
+	font-size: calc(var(--deck-tile-size) * 14 / 108);
+	padding: calc(var(--deck-tile-size) * 2 / 108) calc(var(--deck-tile-size) * 5 / 108);
+	border-radius: calc(var(--deck-tile-size) * 5 / 108);
+	min-width: calc(var(--deck-tile-size) * 18 / 108);
+	top: calc(var(--deck-tile-size) * 4 / 108);
 }
 .deck-layer-tile .tile-bonus-pill--score {
-	left: calc(var(--deck-tile-size) * 0.04);
+	left: calc(var(--deck-tile-size) * 4 / 108);
 }
 .deck-layer-tile .tile-bonus-pill--mult {
-	right: calc(var(--deck-tile-size) * 0.04);
+	right: calc(var(--deck-tile-size) * 4 / 108);
+	left: auto;
+}
+.deck-layer-tile[class*="tile-material-"] .tile-bonus-pill {
+	z-index: 4;
 }
 
 .grid-tile {
@@ -3420,6 +3437,8 @@ textarea::-moz-placeholder {
 	pointer-events: none;
 }
 
+.treasure-slot.filled .treasure-accessory-chip-stack .treasure-accessory-chip,
+.shop-treasure-frame .treasure-accessory-chip-stack .treasure-accessory-chip,
 .treasure-accessory-chip-stack .treasure-accessory-chip {
 	position: relative;
 	top: auto;

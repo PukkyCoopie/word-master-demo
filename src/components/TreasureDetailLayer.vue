@@ -338,7 +338,7 @@
                   type="button"
                   class="treasure-detail-spell-replay-prev-hit"
                   :aria-label="`预览上一张法术 ${spellReplayTargetName}`"
-                  @click="emit('openSpellReplayTargetPreview')"
+                  @click="emit('openSpellReplayTargetPreview', spellReplayTargetSpellId)"
                 >
                   <ShopSpellShelfCell
                     :icon-class="spellReplayTargetIconClass"
@@ -1691,12 +1691,8 @@ function onOfferHoldChange(state) {
   offerPeerHoldProgress.value = Math.max(0, Math.min(1, Number(state?.progress) || 0));
 }
 
-const isRestartSpellOffer = computed(
-  () => isSpellOffer.value && String(props.treasure?.spellId ?? "") === "restart",
-);
-
 const showSpellReplayTargetRow = computed(
-  () => isRestartSpellOffer.value && Boolean(String(props.spellReplayTargetSpellId ?? "").trim()),
+  () => Boolean(String(props.spellReplayTargetSpellId ?? "").trim()),
 );
 
 const spellReplayTargetDef = computed(() => {

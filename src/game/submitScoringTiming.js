@@ -32,6 +32,9 @@ export function getSubmitScoringTotalBeats(detailed) {
   const n = detailed.letterParts?.length ?? 0;
   const letterPassCount = Math.max(1, Math.round(Number(detailed.letterScoringPassCount)) || 1);
   const post = countActivePostLetterTreasureSteps(detailed.postLetterTreasureSteps);
+  const finalScore = (detailed.finalScoreTreasureSteps ?? []).filter(
+    (st) => Math.round(Number(st?.finalScoreAdd) || 0) > 0,
+  ).length;
   const extraCues = Math.max(0, letterPassCount - 1);
   const replayExtra = (detailed.letterReplayExtraCounts ?? []).reduce(
     (s, v) => s + Math.max(0, Math.floor(Number(v) || 0)),
@@ -41,7 +44,19 @@ export function getSubmitScoringTotalBeats(detailed) {
     (s, steps) => s + (steps?.length ?? 0),
     0,
   );
-  return letterPassCount * n + replayExtra + perLetterTreasureReplayCues + extraCues + post;
+  const newspaperAppend =
+    detailed.bossSoftViolation === true
+      ? 0
+      : Math.max(0, detailed.submitScoringAppendedTiles?.length ?? 0);
+  return (
+    letterPassCount * n +
+    replayExtra +
+    perLetterTreasureReplayCues +
+    extraCues +
+    post +
+    finalScore +
+    newspaperAppend
+  );
 }
 
 function getSubmitScoringLengthBaseSpeed(totalBeats) {

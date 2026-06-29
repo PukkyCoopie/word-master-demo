@@ -56,7 +56,7 @@ function resolveWordSlotLeaveAnimEl(slotWrapper) {
  */
 
 /**
- * 提交/弃牌路径：冰碎、工具箱移除离场、海绵擦除（S.4）。
+ * 提交/弃牌路径：冰碎、菜刀移除离场、海绵擦除（S.4）。
  *
  * @param {SubmitTileLeaveAnimDeps} deps
  */

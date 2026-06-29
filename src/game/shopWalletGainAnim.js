@@ -1,18 +1,29 @@
 import gsap from "gsap";
+import { watch } from "vue";
 import { EASE_TRANSFORM } from "../constants.js";
 
 /**
- * 结算后进商店：顶栏钱包数字从 start 滚到 end（仅展示）；入账在 end>start 时于动画开始前即写入 money。
+ * 商店顶栏钱包：数字从 start 滚到 end（仅展示）；实际余额在动画开始前即写入 money。
  *
  * @param {Object} deps
  * @param {import('vue').Ref<number>} deps.money
  * @param {import('vue').Ref<number | null>} deps.walletHeaderDisplayOverride
  * @param {() => HTMLElement | null} deps.getDefaultWalletEl
+ * @param {{
+ *   showShop?: import('vue').Ref<boolean>,
+ *   transitionBusy?: import('vue').Ref<boolean>,
+ * } | null} [deps.autoAnimateWhileInShop]
  */
 export function createShopWalletGainAnim(deps) {
-  const { money, walletHeaderDisplayOverride, getDefaultWalletEl } = deps;
+  const { money, walletHeaderDisplayOverride, getDefaultWalletEl, autoAnimateWhileInShop } = deps;
   /** @type {import('gsap').Timeline | null} */
   let walletGainTl = null;
+  let suppressMoneyWatch = false;
+  let shopWalletAutoAnimReady = false;
+  /** @type {(() => void) | null} */
+  let stopMoneyWatch = null;
+  /** @type {(() => void) | null} */
+  let stopShopGateWatch = null;
 
   /**
    * @param {number} start
@@ -21,21 +32,23 @@ export function createShopWalletGainAnim(deps) {
    */
   function playWalletHeaderGainAnim(start, end, elOverride = null) {
     return new Promise((resolve) => {
-      if (walletGainTl) {
-        walletGainTl.kill();
-        walletGainTl = null;
-      }
-      const el = elOverride ?? getDefaultWalletEl?.() ?? null;
-      if (end <= start) {
-        money.value = end;
-        walletHeaderDisplayOverride.value = null;
-        if (el) gsap.set(el, { scale: 1 });
+      if (start === end) {
         resolve(undefined);
         return;
       }
 
+      if (walletGainTl) {
+        walletGainTl.kill();
+        walletGainTl = null;
+      }
+
+      const el = elOverride ?? getDefaultWalletEl?.() ?? null;
+
+      suppressMoneyWatch = true;
       money.value = end;
       walletHeaderDisplayOverride.value = start;
+      suppressMoneyWatch = false;
+
       const o = { v: start };
 
       walletGainTl = gsap.timeline({
@@ -74,11 +87,59 @@ export function createShopWalletGainAnim(deps) {
     });
   }
 
+  function setupShopWalletMoneyWatch() {
+    const { showShop, transitionBusy } = autoAnimateWhileInShop ?? {};
+    if (!showShop) return;
+
+    stopShopGateWatch?.();
+    stopMoneyWatch?.();
+
+    stopShopGateWatch = watch(
+      [showShop, () => transitionBusy?.value ?? false],
+      ([shopOpen, busy]) => {
+        shopWalletAutoAnimReady = false;
+        if (!shopOpen || busy) return;
+        void Promise.resolve().then(() => {
+          shopWalletAutoAnimReady = !!(showShop.value && !(transitionBusy?.value ?? false));
+        });
+      },
+      { immediate: true, flush: "post" },
+    );
+
+    stopMoneyWatch = watch(
+      money,
+      (next, prev) => {
+        if (suppressMoneyWatch) return;
+        if (!shopWalletAutoAnimReady) return;
+        if (next === prev) return;
+
+        const start =
+          walletHeaderDisplayOverride.value !== null
+            ? walletHeaderDisplayOverride.value
+            : prev;
+        if (start === next) return;
+
+        void playWalletHeaderGainAnim(start, next);
+      },
+      { flush: "sync" },
+    );
+  }
+
+  if (autoAnimateWhileInShop) {
+    setupShopWalletMoneyWatch();
+  }
+
   function disposeShopWalletGainAnim() {
+    stopShopGateWatch?.();
+    stopShopGateWatch = null;
+    stopMoneyWatch?.();
+    stopMoneyWatch = null;
+    shopWalletAutoAnimReady = false;
     if (walletGainTl) {
       walletGainTl.kill();
       walletGainTl = null;
     }
+    walletHeaderDisplayOverride.value = null;
   }
 
   return { playWalletHeaderGainAnim, disposeShopWalletGainAnim };

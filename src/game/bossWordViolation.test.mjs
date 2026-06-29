@@ -59,7 +59,7 @@ test("形容词 token 不因 adj 子串误匹配（如 adjust）", () => {
   assert.equal(dictionaryPosMatchesClubKey("adj", "adj"), true);
 });
 
-test("bossWildcardComplianceMode: 独口锁定长度", () => {
+test("bossWildcardComplianceMode: 独眼锁定长度", () => {
   const ctx = {
     slug: "the_mouth",
     mouthLockedLength: 8,

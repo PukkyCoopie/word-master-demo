@@ -31,7 +31,7 @@ import { useSpellCastController } from "./controllers/useSpellCastController.js"
 import { usePackPickController } from "./controllers/usePackPickController.js";
 import { useRunSaveBridge } from "./controllers/useRunSaveBridge.js";
 import { useRunEndFlowController } from "./controllers/useRunEndFlowController.js";
-import { pickRandomInRunSpellId, IN_RUN_RANDOM_SPELL_EXCLUDE } from "../spells/spellInRunPool.js";
+import { resolveRunOverlayChildLayer } from "./resolveRunOverlayChildLayer.js";
 
 /** @param {{ ports: { core: import('./ports/createCorePorts.js').CorePort, playfield: import('./ports/createPlayfieldPorts.js').PlayfieldPort, shop: import('./ports/createShopPorts.js').ShopPort, treasures: import('./ports/createTreasurePorts.js').TreasuresPort, run: import('./ports/createRunPorts.js').RunPort, overlay: import('./ports/createOverlayPorts.js').OverlayPort, scoring: import('./ports/createScoringPorts.js').ScoringPort, uiFx: import('./ports/createUiFxPorts.js').UiFxPort }, openStageSettlement: (...args: unknown[]) => unknown, hooks?: import('./runSessionTypes.js').GamePanelSessionAssemblyHooks }} input */
 export function useGamePanelSessionAssembly(input) {
@@ -58,6 +58,7 @@ export function useGamePanelSessionAssembly(input) {
     onShopReorderOwned,
     onShopReroll,
     onShopSelectOffer,
+    onShopSelectVoucher,
     onShopSelectOwned,
     onShopSelectPackOffer,
     onShopUpgradeInteractionUnlock,
@@ -884,6 +885,9 @@ const submitController = useSubmitWordController({
     applyHookBossAfterSubmit,
     tryCeruleanBellFlyInAfterGridStable: playfieldController.tryCeruleanBellFlyInAfterGridStable,
     updateSlotPositions: playfieldController.updateSlotPositions,
+    ensureSlotRafRunning: playfieldController.ensureSlotRafRunning,
+    setSubmitScoringAppendPresentation: playfieldController.setSubmitScoringAppendPresentation,
+    setSubmitScoringAppendPresentations: playfieldController.setSubmitScoringAppendPresentations,
     scheduleRunAutoSave,
   },
   gridDropAnim,
@@ -1013,6 +1017,8 @@ const submitController = useSubmitWordController({
       settlementSnapshot.value = snapshot;
     },
     clearPagerQuizPendingResolve,
+    setSubmitScoringAppendPresentation: playfieldController.setSubmitScoringAppendPresentation,
+    setSubmitScoringAppendPresentations: playfieldController.setSubmitScoringAppendPresentations,
   },
   sleep,
   gsapLib: gsap,
@@ -1171,8 +1177,10 @@ const spellCastController = useSpellCastController({
   spellReferencePreview,
   dom: {
     getDeckBtn: () => deckBtnRef.value,
-    getSpellTargetLayer: () => runOverlayHostRef.value?.spellTargetLayerRef ?? null,
-    getTreasureDetailLayer: () => runOverlayHostRef.value?.treasureDetailLayerRef ?? null,
+    getSpellTargetLayer: () =>
+      resolveRunOverlayChildLayer(runOverlayHostRef.value?.spellTargetLayerRef),
+    getTreasureDetailLayer: () =>
+      resolveRunOverlayChildLayer(runOverlayHostRef.value?.treasureDetailLayerRef),
     getGridTileElByIndex,
   },
   shop: {
@@ -1229,7 +1237,8 @@ const spellSession = spellCastController;
 const packPickController = usePackPickController({
   gates: { shopOverlayLayersSuppressed },
   getPackPickLayer: () => runOverlayHostRef.value?.packPickLayerRef ?? null,
-  getTreasureDetailLayer: () => runOverlayHostRef.value?.treasureDetailLayerRef ?? null,
+  getTreasureDetailLayer: () =>
+    resolveRunOverlayChildLayer(runOverlayHostRef.value?.treasureDetailLayerRef),
   treasureDetail,
   shop: {
     buildRollBundleOptionsCtx,
@@ -1253,7 +1262,7 @@ const packPickController = usePackPickController({
         onTreasureDetailClose();
         return;
       }
-      const layer = runOverlayHostRef.value?.treasureDetailLayerRef;
+      const layer = resolveRunOverlayChildLayer(runOverlayHostRef.value?.treasureDetailLayerRef);
       if (layer?.playClose) await layer.playClose();
       onTreasureDetailClose();
     },
@@ -1452,6 +1461,7 @@ initShopViewContext({
   onShopNextLevel,
   onShopReroll,
   onShopSelectOffer,
+  onShopSelectVoucher,
   onShopSelectPackOffer,
   onShopSelectOwned,
   onShopReorderOwned,

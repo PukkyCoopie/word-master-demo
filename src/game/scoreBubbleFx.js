@@ -369,8 +369,10 @@ export function createScoreBubbleFx(deps) {
                     : kind === "ignite"
                       ? "score-popup-bubble score-popup-bubble--ignite"
                       : kind === "ice-shatter"
-                    ? "score-popup-bubble score-popup-bubble--ice-shatter"
-                    : kind === "skip"
+                        ? "score-popup-bubble score-popup-bubble--ice-shatter"
+                        : kind === "copy"
+                          ? "score-popup-bubble score-popup-bubble--copy"
+                          : kind === "skip"
                       ? "score-popup-bubble score-popup-bubble--skip"
                       : kind === "star-miss"
                         ? "score-popup-bubble score-popup-bubble--star-miss"
@@ -380,7 +382,9 @@ export function createScoreBubbleFx(deps) {
                             ? "score-popup-bubble score-popup-bubble--accessory-expired"
                             : kind === "sponge-erase"
                               ? "score-popup-bubble score-popup-bubble--sponge-erase"
-                              : "score-popup-bubble";
+                              : kind === "final-total"
+                                ? "score-popup-bubble score-popup-bubble--final-total"
+                                : "score-popup-bubble";
     if (kind === "hourglass") {
       const countLabel = displayText
         ? `<span class="score-popup-bubble-hourglass-count">${displayText}</span>`

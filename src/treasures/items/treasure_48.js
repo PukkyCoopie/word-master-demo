@@ -4,7 +4,7 @@ const ID = "48";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 7,
+  price: 5,
   rarity: "rare",
   description: describe("触发boss的限制时，获得", money("8")),
 };

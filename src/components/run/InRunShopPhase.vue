@@ -67,7 +67,7 @@ defineExpose({
         @shop-reroll="sv.onShopReroll"
         @select-offer="sv.onShopSelectOffer"
         @select-pack-offer="sv.onShopSelectPackOffer"
-        @select-voucher="sv.onShopSelectPackOffer"
+        @select-voucher="sv.onShopSelectVoucher"
         @select-owned="sv.onShopSelectOwned"
         @reorder-owned="sv.onShopReorderOwned"
         @upgrade-interaction-unlock="sv.onShopUpgradeInteractionUnlock"

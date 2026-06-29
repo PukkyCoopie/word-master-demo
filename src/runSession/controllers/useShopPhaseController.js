@@ -31,6 +31,10 @@ import {
 import { applyRandomSaleToOfferRow, applyRandomSaleToShopStockRows } from "../../shop/shopRandomSale.js";
 import { resolveShopOfferEffectivePrice } from "../../shop/shopOfferPriceDisplay.js";
 import { buildVoucherShopOfferRow } from "../../vouchers/shopVoucherOfferBuild.js";
+import {
+  resolveVoucherShelfClearTarget,
+  shouldClearVoucherShelfSlot,
+} from "../../vouchers/shopVoucherShelfPurchase.js";
 import { rollShopVoucherOfferDef } from "../../vouchers/voucherRegistry.js";
 import {
   buildSpellPoolEligibilityCounts,
@@ -167,6 +171,7 @@ const shopVoucherShelfEmpty = Object.freeze({ kind: "empty", emptySlotId: 0 });
  *   playWalletHeaderGainAnim: (start: number, end: number, elOverride?: HTMLElement | null) => Promise<void>,
  *   disposeShopWalletGainAnim: () => void,
  *   onShopSelectOffer: (payload: object) => void,
+ *   onShopSelectVoucher: (payload: object) => void,
  *   onShopSelectPackOffer: (payload: object) => void,
  *   onShopSelectOwned: (payload: object) => void,
  *   onShopReroll: () => Promise<void>,
@@ -299,6 +304,28 @@ export function useShopPhaseController(options) {
     return { kind: "empty", emptySlotId: nextVoucherEmptySlotId.value++ };
   }
 
+  /** @param {object | null | undefined} shelf */
+  function readVoucherOfferInstanceId(shelf) {
+    if (shelf?.kind !== "offer") return 0;
+    const id = Math.floor(Number(shelf.offerInstanceId) || 0);
+    return id > 0 ? id : 0;
+  }
+
+  function syncNextVoucherOfferInstanceIdFromShelves() {
+    const maxAssigned = Math.max(
+      readVoucherOfferInstanceId(shopVoucherShelf.value),
+      readVoucherOfferInstanceId(shopVoucherBonusShelf.value),
+    );
+    if (maxAssigned > 0) {
+      nextVoucherOfferInstanceId.value = Math.max(nextVoucherOfferInstanceId.value, maxAssigned + 1);
+    }
+  }
+
+  function allocateNextVoucherOfferInstanceId() {
+    syncNextVoucherOfferInstanceIdFromShelves();
+    return nextVoucherOfferInstanceId.value++;
+  }
+
   function clearShopVoucherBonusShelf() {
     shopVoucherBonusShelf.value = null;
   }
@@ -361,7 +388,7 @@ export function useShopPhaseController(options) {
     shopVoucherBonusShelf.value = applyRandomSaleToOfferRow(
       buildVoucherShopOfferRow(
         d,
-        nextVoucherOfferInstanceId.value++,
+        allocateNextVoucherOfferInstanceId(),
         ownedVoucherIds.value,
         { spellGranted: true },
       ),
@@ -605,7 +632,7 @@ export function useShopPhaseController(options) {
       const d = rollShopVoucherOfferDef(ownedVoucherIds.value, runRandom);
       shopVoucherShelf.value = d
         ? applyRandomSaleToOfferRow(
-            buildVoucherShopOfferRow(d, nextVoucherOfferInstanceId.value++, ownedVoucherIds.value),
+            buildVoucherShopOfferRow(d, allocateNextVoucherOfferInstanceId(), ownedVoucherIds.value),
             runRandom,
           )
         : makeEmptyVoucherSlot();
@@ -636,11 +663,13 @@ export function useShopPhaseController(options) {
     if (!Number.isFinite(pid)) return;
     const isOfferPid = (o) => o.kind === "offer" && Number(o.offerInstanceId) === pid;
     if (t?.offerType === "voucher") {
-      if (shopVoucherShelf.value?.kind === "offer" && isOfferPid(shopVoucherShelf.value)) {
+      const target = resolveVoucherShelfClearTarget(t);
+      if (target === "bonus") {
+        if (shouldClearVoucherShelfSlot(shopVoucherBonusShelf.value, pid)) {
+          clearShopVoucherBonusShelf();
+        }
+      } else if (target === "main" && shouldClearVoucherShelfSlot(shopVoucherShelf.value, pid)) {
         shopVoucherShelf.value = makeEmptyVoucherSlot();
-      }
-      if (shopVoucherBonusShelf.value?.kind === "offer" && isOfferPid(shopVoucherBonusShelf.value)) {
-        clearShopVoucherBonusShelf();
       }
       return;
     }
@@ -714,6 +743,7 @@ export function useShopPhaseController(options) {
   function onShopVisitEnter({ hydrateSkip = false } = {}) {
     if (hydrateSkip) {
       suppressShopEnterVisitInit.value = false;
+      syncNextVoucherOfferInstanceIdFromShelves();
       syncShopUpgradesFreeFromOwnedTreasures(ownedSlotTreasureIdList(), treasureRunState.value);
       return;
     }
@@ -794,6 +824,10 @@ export function useShopPhaseController(options) {
           money,
           walletHeaderDisplayOverride,
           getDefaultWalletEl,
+          autoAnimateWhileInShop: {
+            showShop,
+            transitionBusy: gates.transitionBusy,
+          },
         })
       : null;
 
@@ -806,6 +840,7 @@ export function useShopPhaseController(options) {
 
   const {
     onShopSelectOffer,
+    onShopSelectVoucher,
     onShopSelectPackOffer,
     onShopSelectOwned,
     onShopReroll,
@@ -816,6 +851,14 @@ export function useShopPhaseController(options) {
     ownedTreasures,
     presentTreasureDetail: selection.presentTreasureDetail,
     buildShopOwnedPreviewNavItems: selection.buildShopOwnedPreviewNavItems,
+    buildShopVoucherPreviewNavItems: () => {
+      /** @type {object[]} */
+      const items = [];
+      const main = shopVoucherShelf.value ?? shopVoucherShelfEmpty;
+      if (main.kind === "offer") items.push(main);
+      if (shopVoucherBonusShelf.value?.kind === "offer") items.push(shopVoucherBonusShelf.value);
+      return items;
+    },
     isShopTutorialBlockedShopInteraction: selection.isShopTutorialBlockedShopInteraction,
     maybeEndShopTutorialOnOfferOpen: selection.maybeEndShopTutorialOnOfferOpen,
     getFirstWordTutorialPhase: selection.getFirstWordTutorialPhase,
@@ -900,6 +943,7 @@ export function useShopPhaseController(options) {
     playWalletHeaderGainAnim,
     disposeShopWalletGainAnim,
     onShopSelectOffer,
+    onShopSelectVoucher,
     onShopSelectPackOffer,
     onShopSelectOwned,
     onShopReroll,

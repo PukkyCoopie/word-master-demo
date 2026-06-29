@@ -27,6 +27,7 @@ export function createShopPorts(binding) {
     onShopNextLevel: binding.onShopNextLevel,
     onShopReroll: binding.onShopReroll,
     onShopSelectOffer: binding.onShopSelectOffer,
+    onShopSelectVoucher: binding.onShopSelectVoucher,
     onShopSelectOwned: binding.onShopSelectOwned,
     onShopSelectPackOffer: binding.onShopSelectPackOffer,
     onShopReorderOwned: binding.onShopReorderOwned,

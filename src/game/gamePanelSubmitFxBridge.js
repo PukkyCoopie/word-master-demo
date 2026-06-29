@@ -37,10 +37,23 @@ export function createGamePanelSubmitFxBridge(deps) {
     }
   }
 
+  /** @param {HTMLElement | null | undefined} el @param {number} [sp=1] */
+  async function awaitSlotWobbleEl(el, sp = 1) {
+    if (!el) return;
+    const s = Math.max(0.01, Number(sp) || 1);
+    const tl = scoringFx.createWobbleScoreSlotTimeline(el);
+    if (tl) {
+      tl.timeScale(s);
+      tl.play(0);
+    }
+    await scoringFx.awaitWobbleScoreSlotTimeline(tl);
+  }
+
   return {
     scoringFx,
     ...scoringFx,
     wobbleGameTreasureSlot,
     wobbleGameTreasureSlots,
+    awaitSlotWobbleEl,
   };
 }

@@ -100,6 +100,7 @@ export function createGamePanelAssemblyGroups(b) {
       onShopNextLevel: b.onShopNextLevel,
       onShopReroll: b.onShopReroll,
       onShopSelectOffer: b.onShopSelectOffer,
+      onShopSelectVoucher: b.onShopSelectVoucher,
       onShopSelectOwned: b.onShopSelectOwned,
       onShopSelectPackOffer: b.onShopSelectPackOffer,
       onShopReorderOwned: b.onShopReorderOwned,

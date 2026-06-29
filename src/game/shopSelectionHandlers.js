@@ -8,6 +8,7 @@ import { offerFlyOriginRectFromEl, packDeckOfferFlyOriginRectFromEl } from "./of
  * @property {import('vue').Ref<(object | null)[]>} ownedTreasures
  * @property {(detail: object) => void} presentTreasureDetail
  * @property {() => { index: number, treasure: object }[]} buildShopOwnedPreviewNavItems
+ * @property {() => object[]} buildShopVoucherPreviewNavItems
  * @property {(offer: object) => boolean} isShopTutorialBlockedShopInteraction
  * @property {(treasure: object) => void} maybeEndShopTutorialOnOfferOpen
  * @property {() => string} getFirstWordTutorialPhase
@@ -30,6 +31,7 @@ export function createShopSelectionHandlers(deps) {
     ownedTreasures,
     presentTreasureDetail,
     buildShopOwnedPreviewNavItems,
+    buildShopVoucherPreviewNavItems,
     isShopTutorialBlockedShopInteraction,
     maybeEndShopTutorialOnOfferOpen,
     getFirstWordTutorialPhase,
@@ -55,6 +57,23 @@ export function createShopSelectionHandlers(deps) {
         : offerFlyOriginRectFromEl(root),
       previewNav: createPreviewNavGroupFromItems(
         shopOffers.value,
+        (o) => o.offerInstanceId === payload.treasure.offerInstanceId,
+      ),
+    });
+  }
+
+  /** @param {{ originEl?: HTMLElement | null, treasure: object }} payload */
+  function onShopSelectVoucher(payload) {
+    const root = payload.originEl;
+    const t = payload.treasure;
+    if (isShopTutorialBlockedShopInteraction(t)) return;
+    maybeEndShopTutorialOnOfferOpen(t);
+    presentTreasureDetail({
+      kind: "offer",
+      treasure: payload.treasure,
+      originRect: offerFlyOriginRectFromEl(root),
+      previewNav: createPreviewNavGroupFromItems(
+        buildShopVoucherPreviewNavItems(),
         (o) => o.offerInstanceId === payload.treasure.offerInstanceId,
       ),
     });
@@ -113,6 +132,7 @@ export function createShopSelectionHandlers(deps) {
 
   return {
     onShopSelectOffer,
+    onShopSelectVoucher,
     onShopSelectPackOffer,
     onShopSelectOwned,
     onShopReroll,

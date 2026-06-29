@@ -42,17 +42,23 @@ export const treasureHooks = {
     if (!rs || rs.level139FaxCopyDone) return;
     const tiles = ctx.submittedScoringTiles ?? [];
     let sourceCard = null;
-    for (const tile of tiles) {
+    let sourceIndex = -1;
+    for (let i = 0; i < tiles.length; i += 1) {
+      const tile = tiles[i];
       if (!tileIsEnhanced(tile)) continue;
       const card = tile._deckCard;
       if (card && typeof card === "object") {
         sourceCard = card;
+        sourceIndex = i;
         break;
       }
     }
-    if (!sourceCard) return;
+    if (!sourceCard || sourceIndex < 0) return;
     ctx.appendDeckCardSpecToRunDeck?.(deckCardToSpec(sourceCard));
     rs.level139FaxCopyDone = true;
-    await ctx.wobbleOwnedTreasureById?.(ID);
+    await Promise.all([
+      ctx.wobbleOwnedTreasureById?.(ID),
+      ctx.playWordSlotCopyFxAtIndex?.(sourceIndex),
+    ]);
   },
 };

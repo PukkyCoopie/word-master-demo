@@ -73,7 +73,7 @@ export const BOSS_BY_SLUG = Object.freeze({
   },
   the_mouth: {
     slug: "the_mouth",
-    nameZh: "独口",
+    nameZh: "独眼",
     scoreBaseMult: 2,
     uiDescription: "本关内只允许拼写一种长度的单词",
     kind: "normal",

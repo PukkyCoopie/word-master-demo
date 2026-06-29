@@ -249,6 +249,9 @@ function wireGamePanelControllersEarly(d) {
 
   const treasureRunHooks = buildTreasureRunShellHooks({
     ...d.treasureRunHookExtras,
+    showScoreBubble: submitFxBridge.showScoreBubble,
+    scheduleSmallPlusBubbleOutro: submitFxBridge.scheduleSmallPlusBubbleOutro,
+    awaitTreasureSlotWobbleElForSubmit: (el, sp) => submitFxBridge.awaitSlotWobbleEl(el, sp),
     scheduleAfterGridTilesSettled: runLifecycle.scheduleAfterGridTilesSettled,
     buildLevelResetRunOpts: runLifecycle.buildLevelResetRunOpts,
     clearPendingAfterGridTilesSettled: runLifecycle.clearPendingAfterGridTilesSettled,

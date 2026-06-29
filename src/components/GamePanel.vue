@@ -45,6 +45,7 @@ import {
   buildGamePanelAssemblyFromWiring,
 } from "../runSession/buildGamePanelAssemblyDeps.js";
 import { createPlayfieldDomSurface, refToDom } from "../runSession/playfieldDomUtils.js";
+import { resolveRunOverlayChildLayer } from "../runSession/resolveRunOverlayChildLayer.js";
 import { createPlayfieldSubmitSurface } from "../runSession/createPlayfieldSubmitSurface.js";
 import { wireOverlayViewContext } from "../runSession/wireOverlayViewContext.js";
 import { wireGamePanelPostAssembly } from "../runSession/wireGamePanelPostAssembly.js";
@@ -1157,6 +1158,8 @@ const ctrlEarly = wireGamePanelControllers({
     getGrid: () => grid.value,
     getSelectedOrder: () => selectedOrder.value,
     appendDeckCardSpecToRunDeck: (spec) => appendDeckCardSpecToRunDeck(spec),
+    getGridTileElAtRowCol: (row, col) => getGridTileElByIndex(row * COLS + col),
+    getWordSlotElAtIndex: (index) => getWordSlotRefsFromPlayfield()[index] ?? null,
     getTreasureRunState: () => treasureRunState.value,
     getOwnedVoucherIds: () => ownedVoucherIds.value,
     getSpellCountsByLength: () => spellCountsByLength.value,
@@ -1940,7 +1943,7 @@ Object.assign(shopSelectionBridge, {
   _clearDetail: () => {
     treasureDetail.value = null;
   },
-  _getLayer: () => runOverlayHostRef.value?.treasureDetailLayerRef ?? null,
+  _getLayer: () => resolveRunOverlayChildLayer(runOverlayHostRef.value?.treasureDetailLayerRef),
 });
 
 runAutoSaveBridge.tryFlush = (opts) => runSaveBridge?.tryFlush?.(opts);

@@ -82,12 +82,20 @@ export function useWordSlotFly(options) {
   /** batchId -> meta */
   const flyingBackBatchMeta = {};
 
-  /** 计算「第 numSlots 个 slot」在 numSlots 缩放下的视口矩形（像素），用于飞字目标 */
-  function getScaledSlotRect(wrapRect, numSlots, slotIndex) {
+  /**
+   * 计算词槽视口矩形（像素）。
+   * @param {DOMRect} wrapRect
+   * @param {number} numSlots 布局槽数（含占位 / 追加 S 等）
+   * @param {number} slotIndex
+   * @param {number} [scaleFromSlotCount] 缩放基准槽数；省略时与 numSlots 相同
+   */
+  function getScaledSlotRect(wrapRect, numSlots, slotIndex, scaleFromSlotCount) {
     if (numSlots <= 0) return null;
     const rpx = getSlotLayoutRpx() || 1;
+    const countForScale = scaleFromSlotCount ?? numSlots;
+    const totalDesignForScale = countForScale * SLOT_TILE_W + (countForScale - 1) * SLOT_GAP;
+    const scale = Math.min(1, MIDDLE_MAX_W / totalDesignForScale);
     const totalDesign = numSlots * SLOT_TILE_W + (numSlots - 1) * SLOT_GAP;
-    const scale = Math.min(1, MIDDLE_MAX_W / totalDesign);
     const slotVisualSizePx = SLOT_TILE_W * scale * rpx;
     const totalVisualWidthPx = totalDesign * scale * rpx;
     const left =

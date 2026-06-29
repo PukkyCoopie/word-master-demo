@@ -83,6 +83,22 @@ let lastWordDragPresentations = null;
 const gridTileRefs = ref([]);
 const wordSlotRefs = /** @type {(HTMLElement | undefined)[]} */ ([]);
 
+/** 计分动画中报纸等追加的临时词槽字母（不参与拼词/牌库） */
+const submitScoringAppendPresentations = ref(/** @type {object[]} */ ([]));
+
+function setSubmitScoringAppendPresentations(nextTiles) {
+  if (Array.isArray(nextTiles)) {
+    submitScoringAppendPresentations.value = nextTiles.filter((t) => t && typeof t === "object");
+  } else {
+    submitScoringAppendPresentations.value =
+      nextTiles && typeof nextTiles === "object" ? [nextTiles] : [];
+  }
+}
+
+function setSubmitScoringAppendPresentation(tile) {
+  setSubmitScoringAppendPresentations(tile ? [tile] : []);
+}
+
 /** 词槽布局 ↔ 飞字动画桥（updateSlotPositions 定义后写入） */
 const slotLayoutBridge = {
   slotScaleRuntime: 1,
@@ -507,6 +523,7 @@ function updateSlotPositions(deltaMs) {
     batches.length > 0
       ? Math.min(...batches.map((b) => b.slotIndex))
       : N + flyingLetters.value.length;
+  const scaleFromSlotCount = resolveWordSlotScaleSlotCount();
   if (N === 0) {
     slotCurrentPositions.length = 0;
     slotPhScales.length = 0;
@@ -517,7 +534,7 @@ function updateSlotPositions(deltaMs) {
     const idx = slotCurrentPositions.length;
     const layoutSlots = batches.length > 0 ? effectiveNumSlots : N + flyingLetters.value.length;
     const slotIdx = batches.length > 0 && idx >= effectiveNumSlots ? effectiveNumSlots - 1 : idx;
-    const r = getScaledSlotRect(wrapRect, layoutSlots, slotIdx);
+    const r = getScaledSlotRect(wrapRect, layoutSlots, slotIdx, scaleFromSlotCount);
     if (!r) break;
     const tgtW = r.width;
     const tgtH = r.height;
@@ -541,7 +558,7 @@ function updateSlotPositions(deltaMs) {
       targets.push({ x: 0, y: 0, w: 0, h: 0 });
       continue;
     }
-    const r = getScaledSlotRect(wrapRect, effectiveNumSlots, i);
+    const r = getScaledSlotRect(wrapRect, effectiveNumSlots, i, scaleFromSlotCount);
     if (!r) break;
     targets.push({
       x: r.left - wrapRect.left,
@@ -627,9 +644,10 @@ function isSlotLayoutSettled() {
     batches.length > 0
       ? Math.min(...batches.map((b) => b.slotIndex))
       : N + flyingLetters.value.length;
+  const scaleFromSlotCount = resolveWordSlotScaleSlotCount();
   for (let i = 0; i < N; i++) {
     if (batches.some((b) => i >= b.slotIndex)) continue;
-    const r = getScaledSlotRect(wrapRect, effectiveNumSlots, i);
+    const r = getScaledSlotRect(wrapRect, effectiveNumSlots, i, scaleFromSlotCount);
     const cur = slotCurrentPositions[i];
     if (!r || !cur) return false;
     const tgtX = r.left - wrapRect.left;
@@ -701,7 +719,34 @@ function resolveWordSlotLayoutCount() {
   }
   const flyMin = getFlyingBackMinSlotIndex();
   if (flyMin != null) return flyMin;
-  return selectedOrder.value.length;
+  const baseCount = selectedOrder.value.length;
+  if (
+    submitScoringAppendPresentations.value.length > 0 &&
+    !tileDragActive.value &&
+    wordDragReturnAnimSlot.value == null
+  ) {
+    return baseCount + submitScoringAppendPresentations.value.length;
+  }
+  return baseCount;
+}
+
+/** 计分追加 S 期间：缩放仍按原词长，仅位移挤开，避免已有字母块缩小 */
+function resolveWordSlotScaleSlotCount() {
+  const appendLen = submitScoringAppendPresentations.value.length;
+  if (
+    appendLen > 0 &&
+    !tileDragActive.value &&
+    wordDragReturnAnimSlot.value == null
+  ) {
+    const batches = flyingBackBatches.value;
+    if (batches.length > 0) {
+      return Math.min(...batches.map((b) => b.slotIndex));
+    }
+    return Math.max(1, selectedOrder.value.length);
+  }
+  const N = resolveWordSlotLayoutCount();
+  const batches = flyingBackBatches.value;
+  return batches.length > 0 ? Math.min(...batches.map((b) => b.slotIndex)) : N + flyingLetters.value.length;
 }
 
 function resolveTileDragWordSlotRect(index, layoutCountOverride) {
@@ -809,10 +854,7 @@ watch(
 
 /** 目标槽数（移出时用 effectiveNumSlots，与 updateSlotPositions 一致） */
 const slotScaleTarget = computed(() => {
-  const N = resolveWordSlotLayoutCount();
-  const batches = flyingBackBatches.value;
-  const n =
-    batches.length > 0 ? Math.min(...batches.map((b) => b.slotIndex)) : N + flyingLetters.value.length;
+  const n = resolveWordSlotScaleSlotCount();
   if (n === 0) return 1;
   const total = n * SLOT_TILE_W + (n - 1) * SLOT_GAP;
   return Math.min(1, MIDDLE_MAX_W / total);
@@ -824,6 +866,7 @@ watch(
     flyingLetters.value.length,
     flyingBackBatches.value.length,
     wordDragReturnAnimSlot.value,
+    submitScoringAppendPresentations.value.length,
     slotScaleTarget.value,
   ],
   () => ensureSlotRafRunning(),
@@ -897,6 +940,17 @@ function resolveWordDragTargetPresentations() {
   const flyMin = getFlyingBackMinSlotIndex();
   if (flyMin != null) {
     result = result.slice(0, flyMin);
+  }
+  if (
+    submitScoringAppendPresentations.value.length > 0 &&
+    !tileDragActive.value &&
+    wordDragReturnAnimSlot.value == null &&
+    flyMin == null
+  ) {
+    result = [
+      ...result,
+      ...submitScoringAppendPresentations.value.map((t) => ({ ...t })),
+    ];
   }
   return result;
 }
@@ -1259,6 +1313,8 @@ function disposeSlotRaf() {
     tileDragGridPlaceholderStyle,
     tileDragGhostPresentation,
     displayWordSlotPresentations,
+    setSubmitScoringAppendPresentation,
+    setSubmitScoringAppendPresentations,
     setGridTileRef,
     getGridTileElByIndex,
     setWordSlotRef,

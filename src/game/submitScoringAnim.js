@@ -34,10 +34,16 @@ import { snapshotMaxIntrinsicGainsFromTile } from "./tileIntrinsicGains.js";
 import {
   getWordLengthScoreForTableLen,
   scaleLengthContributionForBoss,
+  getLengthMultiplier,
   LETTER_RARITY_ORDER,
 } from "../composables/useScoring.js";
 
 import { submitWordLeaveStagger } from "./submitWordLeaveStagger.js";
+import {
+  getSeedLengthTableLenBeforeAppend,
+  runNewspaperAppendSequence,
+} from "./newspaperSubmitAnim.js";
+import { isNewspaperTempTile } from "../treasures/items/treasure_140.js";
 
 /** 记分步间等待、气泡延迟等统一再 ×0.7（比上一版缩短 30%） */
 export const SCORING_GAP_SCALE = 0.7;
@@ -53,6 +59,10 @@ export const SCORING_TREASURE_FALLBACK_MS = Math.round(200 * 1.2 * SCORING_GAP_S
 export const SCORING_BUBBLE_POP_DELAY_MS = Math.round(
   (0.11 + 0.15) * 0.8 * 1000 * SCORING_GAP_SCALE,
 );
+/** 公式区总分初显后，再触发最终得分宝藏步（电池等） */
+export const FORMULA_TOTAL_HOLD_BEFORE_FINAL_SCORE_MS = Math.round(360 * SCORING_GAP_SCALE);
+/** 最终得分步结束后，再让本手分汇入顶栏 score-value-wrap */
+export const FINAL_SCORE_HOLD_BEFORE_HEADER_ROLL_MS = Math.round(420 * SCORING_GAP_SCALE);
 /** 通关当手：首格佩戴钻石配饰 → 升级该字母稀有度对应的全局等级。 */
 export const CLEAR_WIN_ACCESSORY_UPGRADE_FX_DELAY_MS = 300;
 /** 关卡通关时：棋盘上每个黄金材质字母块 wobble + 金币色 $ 气泡 */
@@ -1231,28 +1241,30 @@ async function runClearWinGoldEffectsBeforeRefill() {
 
 /** 计分动画起始：result-area 分数×倍率与 detailed 词长段对齐（提交瞬间即设，避免先闪 0×0） */
 function seedAnimFormulaFromSubmitDetailed(detailed) {
-  const n = detailed.letterParts?.length ?? 0;
-  const lenTb =
-    detailed.lengthTableLen != null && Number.isFinite(Number(detailed.lengthTableLen))
-      ? Math.max(1, Math.round(Number(detailed.lengthTableLen)))
-      : n;
   const skipLetters = detailed.bossSoftViolation === true;
+  const lenTb = getSeedLengthTableLenBeforeAppend(detailed);
   refs.animScoreSum.value = skipLetters
     ? 0
     : Math.round(
-        detailed.wordLengthScoreEffective ??
-          scaleLengthContributionForBoss(
-            getWordLengthScoreForTableLen(
-              lenTb,
-              refs.lengthLevelsByLength.value,
-              refs.lengthUpgradeObservatoryExtra.value,
-            ),
-            refs.isFlintBossActive.value,
+        scaleLengthContributionForBoss(
+          getWordLengthScoreForTableLen(
+            lenTb,
+            refs.lengthLevelsByLength.value,
+            refs.lengthUpgradeObservatoryExtra.value,
           ),
+          refs.isFlintBossActive.value,
+        ),
       );
-  refs.animMultTotal.value =
-    detailed.lengthMultiplierEffective ??
-    scaleLengthContributionForBoss(detailed.lengthMultiplier, refs.isFlintBossActive.value);
+  refs.animMultTotal.value = skipLetters
+    ? 0
+    : scaleLengthContributionForBoss(
+        getLengthMultiplier(
+          lenTb,
+          refs.lengthLevelsByLength.value,
+          refs.lengthUpgradeObservatoryExtra.value,
+        ),
+        refs.isFlintBossActive.value,
+      );
   refs.animResultTotal.value = 0;
 }
 
@@ -1264,6 +1276,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   refs.hideResultWordLengthBeforeTotal.value = false;
   refs.suppressResultWordLengthUntilScoringEnd.value = false;
   const n = detailed.letterParts.length;
+  const persistedSubmitTiles = tiles.filter((t) => !isNewspaperTempTile(t));
   const lenTb =
     detailed.lengthTableLen != null && Number.isFinite(Number(detailed.lengthTableLen))
       ? Math.max(1, Math.round(Number(detailed.lengthTableLen)))
@@ -1302,6 +1315,20 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   const luckyVisitByLetter = detailed.letterParts.map(() => 0);
   const totalScoringBeats = getSubmitScoringTotalBeats(detailed);
   let scoringBeat = 0;
+  const hasNewspaperAppend = (detailed.submitScoringAppendedTiles?.length ?? 0) > 0;
+  if (!skipLetters && hasNewspaperAppend) {
+    await runNewspaperAppendSequence({
+      detailed,
+      refs,
+      getDom,
+      fx,
+      callbacks,
+      nextTick,
+      speed: getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats),
+      gsap: gsapLib,
+    });
+    scoringBeat += detailed.submitScoringAppendedTiles?.length ?? 0;
+  }
   if (skipLetters) {
     const spSkip = 1.05;
     for (let i = 0; i < n; i++) {
@@ -1466,11 +1493,58 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   refs.hideResultWordLengthBeforeTotal.value = true;
   refs.suppressResultWordLengthUntilScoringEnd.value = true;
   await sleep(200);
-  refs.animResultTotal.value = detailed.finalScore;
+  const formulaFinalScore =
+    Number.isFinite(Number(detailed.formulaFinalScore))
+      ? Math.round(Number(detailed.formulaFinalScore))
+      : Math.round(Number(detailed.finalScore) || 0) -
+        (detailed.finalScoreTreasureSteps ?? []).reduce(
+          (s, st) => s + Math.max(0, Math.round(Number(st?.finalScoreAdd) || 0)),
+          0,
+        );
+  refs.animResultTotal.value = formulaFinalScore;
   refs.hideResultWordLengthBeforeTotal.value = false;
   await nextTick();
   pulseFill(getResultTotalEl());
   callbacks.triggerHaptic("scoreTotal");
+
+  const finalScoreSteps = detailed.finalScoreTreasureSteps ?? [];
+  const hasFinalScoreTreasureSteps = finalScoreSteps.some(
+    (st) => Math.round(Number(st?.finalScoreAdd) || 0) > 0,
+  );
+  if (hasFinalScoreTreasureSteps) {
+    await scoringSleep(FORMULA_TOTAL_HOLD_BEFORE_FINAL_SCORE_MS, 1);
+  }
+  for (const step of finalScoreSteps) {
+    const add = Math.round(Number(step.finalScoreAdd) || 0);
+    if (add <= 0) continue;
+    const spFinal = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
+    scoringBeat += 1;
+    const ti =
+      typeof step.slotIndex === "number" && step.slotIndex >= 0
+        ? step.slotIndex
+        : callbacks.findFirstOwnedTreasureSlotIndex(step.treasureId);
+    refs.scoringTreasureBarIndex.value = ti >= 0 ? ti : null;
+    await nextTick();
+    await new Promise((r) => requestAnimationFrame(r));
+    const tel = ti >= 0 ? getOwnedTreasureBarFxEl(ti) : null;
+    if (tel) {
+      wobbleScoreSlot(tel, spFinal);
+      await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, spFinal);
+      refs.animResultTotal.value += add;
+      await nextTick();
+      const bubbleFinal = showScoreBubble(tel, `+${add}`, "final-total", spFinal);
+      pulseFill(getResultTotalEl());
+      scheduleSmallPlusBubbleOutro(bubbleFinal, spFinal);
+      await scoringSleep(SCORING_STEP_BEAT_MS, spFinal);
+    } else {
+      await scoringSleep(SCORING_TREASURE_FALLBACK_MS, spFinal);
+      refs.animResultTotal.value += add;
+      await nextTick();
+      pulseFill(getResultTotalEl());
+    }
+    refs.scoringTreasureBarIndex.value = null;
+  }
+
   await sleep(220);
 
   await new Promise((resolve) => {
@@ -1494,7 +1568,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   await new Promise((r) => requestAnimationFrame(r));
 
   if (detailed.bossSoftViolation !== true) {
-    iceShatterCount = await submitFx.runSubmittedIceShatterEffects(tiles);
+    const gridTiles = tiles.filter((t) => !isNewspaperTempTile(t));
+    iceShatterCount = await submitFx.runSubmittedIceShatterEffects(gridTiles);
   }
   /** @type {import('../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[]} */
   let submitWordLeaveFx = [];
@@ -1505,7 +1580,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   };
   if (detailed.bossSoftViolation !== true) {
     const pending = await callbacks.runPendingInRunGrantsAfterSubmit(
-      tiles,
+      persistedSubmitTiles,
       String(resolvedWord ?? "")
         .toLowerCase()
         .trim() || tiles.map((c) => c.letter.toLowerCase()).join(""),
@@ -1523,14 +1598,15 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   if (detailed.bossSoftViolation !== true && Math.round(Number(detailed.finalScore) || 0) > 0) {
     registerClearWinVipDiamondRarityPostScoreFx(
       submitPostScoreClearFx,
-      tiles,
+      persistedSubmitTiles,
       willClearLevelThisSubmit,
     );
     registerArmBossLengthDowngradePostScoreFx(submitPostScoreClearFx, lenTb);
   }
-  /** 整格依次消失（占位+字母一起），按槽位索引 0..n-1 */
+  /** 整格依次消失（占位+字母一起），按槽位索引 0..n-1（含报纸临时 S） */
+  const leaveSlotCount = n;
   const slotTileEls = [];
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < leaveSlotCount; i++) {
     const el = getDom.getWordSlotEl(i);
     if (el) slotTileEls.push(el);
   }
@@ -1563,7 +1639,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     cells: callbacks.snapshotGridCellsByTileId(),
   };
   const leaveDuration = 0.28;
-  const leaveStagger = submitWordLeaveStagger(n);
+  const leaveStagger = submitWordLeaveStagger(leaveSlotCount);
   const leavePromise = (async () => {
     if (submitWordLeaveFx.length > 0) {
       for (const fx of submitWordLeaveFx) {
@@ -1583,6 +1659,9 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   })();
 
   const scorePromise = (async () => {
+    if (hasFinalScoreTreasureSteps) {
+      await scoringSleep(FINAL_SCORE_HOLD_BEFORE_HEADER_ROLL_MS, 1);
+    }
     const handScore = Math.round(Number(detailed.finalScore) || 0);
     const scoreRollSteps = 26;
     const scoreRollStepMs = Math.round(520 / scoreRollSteps);
@@ -1591,7 +1670,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     // 先入库再播顶栏滚分：原先依赖 GSAP onComplete，局内 pause 冻结 globalTimeline 时 onComplete 永不触发，会出现「计分播完但关卡分不变」。
     if (detailed.bossSoftViolation !== true) {
       refs.currentScore.value = endRound;
-      callbacks.setLastWordFromSubmit(callbacks.getWordDefinition, tiles, detailed, {
+      callbacks.setLastWordFromSubmit(callbacks.getWordDefinition, persistedSubmitTiles, detailed, {
         resolvedWord: wordStr,
       });
     }
@@ -1610,6 +1689,10 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   })();
 
   await leavePromise;
+
+  callbacks.setSubmitScoringAppendPresentation?.(null);
+  callbacks.setSubmitScoringAppendPresentations?.([]);
+  await nextTick();
 
   const willWinThisSubmit = willClearLevelThisSubmit;
   const noSubmitsLeft = refs.remainingWords.value <= 0;
@@ -1653,6 +1736,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   return iceShatterCount;
   } finally {
     callbacks.submitUpgradeFxRegistrarState.current = null;
+    callbacks.setSubmitScoringAppendPresentation?.(null);
+    callbacks.setSubmitScoringAppendPresentations?.([]);
     refs.scoringTreasureBarIndex.value = null;
     clearAllTreasureSlotWobbleFront();
     refs.crimsonTreasureDisabledSlotIndex.value = null;

@@ -772,8 +772,10 @@ function noteSpellCastForReplay(purchasedSpellId) {
  *   replayAsPurchasedId?: string,
  * }} [overrides]
  */
-function onOpenSpellReplayTargetPreview() {
-  const id = resolveRestartEffectiveSpellId(spellCastHistory.value, lastReplayableSpellId.value);
+function onOpenSpellReplayTargetPreview(spellId) {
+  const id =
+    String(spellId ?? "").trim() ||
+    resolveRestartEffectiveSpellId(spellCastHistory.value, lastReplayableSpellId.value);
   if (!id) return;
   const offer = buildSpellOfferPreviewFromId(id);
   if (offer) spellReferencePreview.value = offer;
@@ -872,6 +874,14 @@ function resolveSpellPreviewFlow(previewResult) {
 async function runSpellCastAfterDetailPreview(purchasedSpellId, context, offerDeckSource, overrides = {}) {
   const pid = String(purchasedSpellId ?? "");
   const replayTarget = resolveRestartEffectiveSpellId(spellCastHistory.value, lastReplayableSpellId.value);
+  if (overrides.afterDetailUseShopCastLogic === true) {
+    const openTargetLayer = shouldOpenSpellTargetLayer(pid, replayTarget);
+    if (!openTargetLayer) {
+      await applyInstantSpellWithoutPreview(pid, context, offerDeckSource);
+      return { confirmed: true, skipped: false };
+    }
+    return openSingleSpellPreviewSession(pid, context, offerDeckSource, overrides);
+  }
   const openTargetLayer =
     context === "inRun"
       ? shouldOpenInRunSpellPreview(pid)
@@ -1102,8 +1112,11 @@ async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, 
   return openSingleSpellPreviewSession(pid, context, offerDeckSource, overrides);
 }
 
-/** @param {string} spellId @param {{ treasureSlotIndex?: number }} [opts] */
-async function runInRunSpellGrant(spellId, { treasureSlotIndex } = {}) {
+/**
+ * @param {string} spellId
+ * @param {{ treasureSlotIndex?: number, cdShopLeaveReplay?: boolean }} [opts]
+ */
+async function runInRunSpellGrant(spellId, { treasureSlotIndex, cdShopLeaveReplay = false } = {}) {
   if (typeof treasureSlotIndex === "number" && treasureSlotIndex >= 0) {
     shopOverlayLayersSuppressed.value = true;
     await nextTick();
@@ -1112,7 +1125,11 @@ async function runInRunSpellGrant(spellId, { treasureSlotIndex } = {}) {
   }
   const pid = String(spellId ?? "");
   if (!pid) return { confirmed: false, skipped: true };
-  return openSpellGrantDetailPreviewThenCast(pid, pid, "inRun", "remainingDeck");
+  const context = cdShopLeaveReplay ? "shop" : "inRun";
+  const offerDeckSource = cdShopLeaveReplay ? "fullDeck" : "remainingDeck";
+  return openSpellGrantDetailPreviewThenCast(pid, pid, context, offerDeckSource, {
+    afterDetailUseShopCastLogic: cdShopLeaveReplay,
+  });
 }
 
 async function queueOrRunSpellTileAppearanceAnim(opts) {
@@ -1215,13 +1232,17 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
       ? offerSlotAnimIxs
       : confirmSelectionSlotIndices;
   const animOrderedForLayer = usePickSequenceAnim ? targets : resolvedOrdered;
-  /** 剩余牌库仅 deck 的选格无棋盘坐标；delete_back 也只改牌库 → 必须在候选格上播动效 */
+  /** 候选格上播缩小→换图→回弹（含仅改牌库、候选数与棋盘目标数不一致、以及蛋糕等材质法术） */
   const useOfferSlotConfirmPath =
     offerSlotAnimIxs.length > 0 &&
     (sid === "delete_back" ||
       sid === "ouija" ||
+      sid === "immolate" ||
+      usePickSequenceAnim ||
+      sid === "seedling" ||
+      sid === "file_copy" ||
+      sid === "aura" ||
       !targets.length ||
-      (usePickSequenceAnim && offerSlotAnimIxs.length !== targets.length) ||
       (s.pickMode === "confirm_all" && offerSlotAnimIxs.length !== targets.length));
 
   if (useOfferSlotConfirmPath) {

@@ -2,6 +2,13 @@ import { describe } from "../treasureDescription.js";
 
 const ID = "117";
 
+/** @param {string | null | undefined} spellId */
+function resolveCdReplaySpellId(spellId) {
+  const sid = String(spellId ?? "").trim();
+  if (!sid || sid === "restart" || sid === "dice") return null;
+  return sid;
+}
+
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 10,
@@ -12,10 +19,15 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  getOwnedDetailSpellReplayTargetId(ctx) {
+    return resolveCdReplaySpellId(ctx.treasureRun?.lastSpellIdBeforeShopLeave);
+  },
+
   async onShopLeave(ctx) {
     if (!(ctx.ownedSlotTreasureIds ?? []).includes(ID)) return;
-    const sid = String(ctx.treasureRun?.lastSpellIdBeforeShopLeave ?? "").trim();
-    if (!sid || sid === "restart" || sid === "dice") return;
-    await ctx.replayLastSpellInRun?.(sid);
+    const sid = resolveCdReplaySpellId(ctx.treasureRun?.lastSpellIdBeforeShopLeave);
+    if (!sid) return;
+    const slotIndex = typeof ctx.hookSlotIndex === "number" ? ctx.hookSlotIndex : undefined;
+    await ctx.replayLastSpellInRun?.(sid, { treasureSlotIndex: slotIndex });
   },
 };
