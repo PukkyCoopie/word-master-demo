@@ -60,6 +60,7 @@ export function buildGamePanelAssemblySections(d) {
       reorderSelectedOrder: g.reorderSelectedOrder,
       removeSelectedLetters: g.removeSelectedLetters,
       touchGrid: g.touchGrid,
+      releaseManacleBossTopRow: g.releaseManacleBossTopRow,
       flatGrid: g.flatGrid,
       snapshotGridCellsByTileId: g.snapshotGridCellsByTileId,
       syncPlayerMarkBatchCounterFromGrid: g.syncPlayerMarkBatchCounterFromGrid,

@@ -54,6 +54,7 @@ import { getShopRandomCardSlotBonus } from "../../vouchers/voucherRuntime.js";
  * @param {(vid: string) => boolean} options.applyGlyphVoucherLevelSkip
  * @param {() => object} options.ownedTreasureHookFxBridge
  * @param {() => void} options.onVerdantTreasureSold
+ * @param {() => Promise<void>} [options.onBossKeySold]
  * @param {() => { treasureDetailLayerRef?: { playClose?: () => Promise<void>, getFlyFrameEl?: () => HTMLElement | null } } | null} options.getRunOverlayHost
  * @param {() => { playGlyphRoundInfoFx?: (msg: string) => void } | null} [options.getShopPanel]
  * @param {() => Promise<void>} [options.onPackInnerClaim]
@@ -323,6 +324,9 @@ export function useShopTransactionController(options) {
     syncShopUpgradesFromOwned();
     options.treasureDetail.value = null;
     options.onVerdantTreasureSold();
+    if (soldId === "136") {
+      await options.onBossKeySold?.();
+    }
     options.scheduleRunAutoSave();
   }
 

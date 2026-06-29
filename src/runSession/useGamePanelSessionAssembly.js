@@ -142,6 +142,7 @@ export function useGamePanelSessionAssembly(input) {
     removeSelectedLetters,
     removeSingleTileFromWord,
     reorderSelectedOrder,
+    releaseManacleBossTopRow,
     selectTile,
     selectedOrder,
     selectedTiles,
@@ -678,6 +679,19 @@ const gridDropAnim = createGridDropAnim({
 });
 
 runLifecycle.bindGridDropAnim(gridDropAnim);
+bossMechanicsCtrl.bindBossKeySoldDeps({
+  gridDropAnim,
+  snapshotGridCellsByTileId,
+  targetScore,
+  runDifficultyIndex,
+  getLevelId: () => currentLevel.value?.id ?? "1-1",
+  releaseManacleBossTopRow,
+  getTargetScoreCardEl: () => {
+    const bar = gamePanelPlayfieldRef.value?.runHeaderBarRef;
+    const cardRef = bar?.targetScoreCardRef;
+    return cardRef?.value ?? cardRef ?? null;
+  },
+});
 runLifecycle.bindPlayfield({
   gridIntroDone,
   gridRefillAnimating,

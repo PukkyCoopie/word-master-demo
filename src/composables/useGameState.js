@@ -1722,6 +1722,22 @@ export function useGameState(gameOpts = {}) {
     triggerRef(grid);
   }
 
+  /** 钥匙解除镣铐：顶行由封锁变为可玩，抽牌填入并清除 `bossGridBlocked`。 */
+  function releaseManacleBossTopRow() {
+    const g = grid.value;
+    const d = deck.value;
+    let changed = false;
+    for (let c = 0; c < COLS; c++) {
+      const t = g[0]?.[c];
+      if (!t?.bossGridBlocked) continue;
+      const card = drawFromDeck(d, getRng);
+      g[0][c] = card ? createGridTileFromDeckCard(card) : emptyTile(nextId);
+      changed = true;
+    }
+    if (changed) triggerRef(grid);
+    return changed;
+  }
+
   /**
    * 从牌库与初始快照中各删去一枚对应字母（法术「删除」）。
    * @param {string[]} raws 小写；`q` 表示 Qu。
@@ -2229,6 +2245,8 @@ export function useGameState(gameOpts = {}) {
     resetDeckAfterStageEnd,
 
     touchGrid,
+
+    releaseManacleBossTopRow,
 
     removeDeckLetterInstancesByRaws,
 

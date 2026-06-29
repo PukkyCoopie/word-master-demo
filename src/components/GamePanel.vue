@@ -643,6 +643,7 @@ const bossMechanicsBridge = {
   isManacleBossGrid: () => false,
   buildBossWildcardResolveContext: () => null,
   onVerdantTreasureSold: () => false,
+  onBossKeySold: async () => {},
 };
 
 const playBossTapeTriggerCue = () => bossMechanicsBridge.playBossTapeTriggerCue();
@@ -1441,6 +1442,7 @@ function wireBossMechanicsBridge(bossMechanicsCtrl) {
   bossMechanicsBridge.buildBossWildcardResolveContext = () =>
     bossMechanicsCtrl.buildBossWildcardResolveContext();
   bossMechanicsBridge.onVerdantTreasureSold = () => bossMechanicsCtrl.onVerdantTreasureSold();
+  bossMechanicsBridge.onBossKeySold = () => bossMechanicsCtrl.onBossKeySold();
 }
 
 const ctrlLate = wireGamePanelControllers({

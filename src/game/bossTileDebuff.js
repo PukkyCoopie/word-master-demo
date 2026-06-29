@@ -29,6 +29,14 @@ const UNDEF_WILDCARD_EXEMPT_DEBUFF_SLUGS = new Set([
   "the_pillar",
 ]);
 
+/** 持续光环类削弱（钥匙解除后按规则清除） */
+export const CONTINUOUS_BOSS_DEBUFF_SLUGS = Object.freeze(
+  new Set(["the_plant", "the_vowel", "the_consonant", "the_pillar", "verdant_leaf"]),
+);
+
+/** 扳机类削弱：倒钩随机标记；钥匙解除后全盘清除 */
+export const TRIGGER_BOSS_DEBUFF_SLUGS = Object.freeze(new Set(["the_hook"]));
+
 /** @param {string} slug */
 function isUndeformedWildcardExemptBossSlug(slug) {
   return UNDEF_WILDCARD_EXEMPT_DEBUFF_SLUGS.has(String(slug ?? ""));
@@ -50,7 +58,10 @@ export function gridTileRawLowerForBoss(tile) {
 export function applyBossTileDebuffState(tile, slug, ctx = {}) {
   if (!tile || tile.bossGridBlocked) return;
   if (isBossEffectsSuppressedByTreasures(ctx.ownedSlotTreasureIds, ctx.treasureRun)) {
-    tile.bossTileDebuffed = false;
+    const s = String(slug ?? "");
+    if (CONTINUOUS_BOSS_DEBUFF_SLUGS.has(s) || TRIGGER_BOSS_DEBUFF_SLUGS.has(s)) {
+      tile.bossTileDebuffed = false;
+    }
     return;
   }
   const s = String(slug ?? "");
@@ -103,10 +114,69 @@ export function applyBossTileDebuffState(tile, slug, ctx = {}) {
  */
 export function resolvePresentationBossTileDebuffed(tile, slug, ctx = {}) {
   if (!tile || typeof tile !== "object") return false;
+  if (isBossEffectsSuppressedByTreasures(ctx.ownedSlotTreasureIds, ctx.treasureRun)) {
+    return false;
+  }
   /** @type {Record<string, unknown>} */
   const probe = { ...tile, bossTileDebuffed: false };
   applyBossTileDebuffState(probe, slug, ctx);
   return probe.bossTileDebuffed === true || tile.bossTileDebuffed === true;
+}
+
+/**
+ * @param {Record<string, unknown>[][] | null | undefined} grid
+ * @param {number} [rows]
+ * @param {number} [cols]
+ */
+export function clearTriggerBossDebuffsOnGrid(grid, rows = 4, cols = 4) {
+  if (!grid) return;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const t = grid[r]?.[c];
+      if (t && !t.bossGridBlocked) t.bossTileDebuffed = false;
+    }
+  }
+}
+
+/**
+ * 钥匙解除 Boss 后：清除格上削弱（倒钩全盘清除；持续类按规则清除）。
+ * @param {Record<string, unknown>[][] | null | undefined} grid
+ * @param {string} activeBossSlug
+ * @param {BossTileDebuffContext} [ctx]
+ * @param {number} [rows]
+ * @param {number} [cols]
+ */
+export function reconcileContinuousBossDebuffsAfterRestrictionLifted(
+  grid,
+  activeBossSlug,
+  ctx = {},
+  rows = 4,
+  cols = 4,
+) {
+  const slug = String(activeBossSlug ?? "");
+  if (!grid || !slug) return;
+  if (TRIGGER_BOSS_DEBUFF_SLUGS.has(slug)) {
+    clearTriggerBossDebuffsOnGrid(grid, rows, cols);
+    return;
+  }
+  if (!CONTINUOUS_BOSS_DEBUFF_SLUGS.has(slug)) return;
+  const liftedCtx = {
+    ...ctx,
+    treasureRun: ctx.treasureRun
+      ? { ...ctx.treasureRun, levelBossRestrictionSuppressed: false }
+      : null,
+  };
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const t = grid[r]?.[c];
+      if (!t?.letter || t.bossTileDebuffed !== true) continue;
+      const probe = { ...t, bossTileDebuffed: false };
+      applyBossTileDebuffState(probe, slug, liftedCtx);
+      if (probe.bossTileDebuffed === true) {
+        t.bossTileDebuffed = false;
+      }
+    }
+  }
 }
 
 /**

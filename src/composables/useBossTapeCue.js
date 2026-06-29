@@ -63,6 +63,17 @@ export function useBossTapeCue() {
     return true;
   }
 
+  function playSuppressedDeactivateCue(playBubble) {
+    triggerHaptic("wobble");
+    if (wobbleClearTimer) clearTimeout(wobbleClearTimer);
+    wobble.value = true;
+    wobbleClearTimer = setTimeout(() => {
+      wobble.value = false;
+      wobbleClearTimer = null;
+    }, BOSS_TAPE_WOBBLE_MS);
+    playBubble?.();
+  }
+
   return {
     attentionPulse,
     wobble,
@@ -70,6 +81,7 @@ export function useBossTapeCue() {
     playTriggerCue,
     playAttentionPulse,
     playViolationWobble,
+    playSuppressedDeactivateCue,
     resetSubmitToothCue,
     tryPlaySubmitToothCue,
   };

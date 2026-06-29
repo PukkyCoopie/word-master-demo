@@ -9,7 +9,7 @@ import {
   isBossEffectsSuppressedByTreasures,
   resolveBossSlugForMechanics,
 } from "../../game/treasureBossSuppress.js";
-import { useBossTapeCue } from "../../composables/useBossTapeCue.js";
+import { runBossKeySoldEffects } from "../../game/bossKeySoldFx.js";
 import {
   applyHookBossDebuffTargets,
   clearVerdantDebuffsOnGrid,
@@ -22,6 +22,7 @@ import {
   pickCrimsonDisabledTreasureSlotIndex as pickCrimsonDisabledSlotIndex,
   pickHookBossDebuffTargets,
 } from "../../game/bossMechanicsContext.js";
+import { useBossTapeCue } from "../../composables/useBossTapeCue.js";
 
 /**
  * `useGameState` 之前需要的 Boss 持久 ref（须在根组件尽早创建）。
@@ -76,6 +77,13 @@ export function useBossMechanicsController(options) {
 
   /** @type {((slug?: string) => Promise<void>) | null} */
   let notifyBossRestrictionTreasuresImpl = null;
+
+  /** @type {object | null} */
+  let bossKeySoldDeps = null;
+
+  function bindBossKeySoldDeps(deps) {
+    bossKeySoldDeps = deps;
+  }
 
   function slug() {
     return resolveBossSlugForMechanics(
@@ -215,6 +223,28 @@ export function useBossMechanicsController(options) {
     );
   }
 
+  /** 钥匙（136）卖出：解除本关 Boss 限制的棋盘/分数/条带动效 */
+  async function onBossKeySold() {
+    const activeBoss = String(options.activeBossSlug.value ?? "").trim();
+    if (!activeBoss || !bossKeySoldDeps) return;
+    await runBossKeySoldEffects({
+      activeBossSlug: activeBoss,
+      levelId: bossKeySoldDeps.getLevelId?.() ?? "1-1",
+      difficultyIndex: bossKeySoldDeps.runDifficultyIndex?.value ?? 0,
+      targetScore: bossKeySoldDeps.targetScore,
+      grid: options.grid.value,
+      rows: options.ROWS,
+      cols: options.COLS,
+      bossTileDebuffContext: getBossTileDebuffContext(),
+      touchGrid: options.touchGrid,
+      releaseManacleBossTopRow: bossKeySoldDeps.releaseManacleBossTopRow,
+      gridDropAnim: bossKeySoldDeps.gridDropAnim,
+      snapshotGridCellsByTileId: bossKeySoldDeps.snapshotGridCellsByTileId,
+      getTargetScoreCardEl: bossKeySoldDeps.getTargetScoreCardEl,
+      getBossTapeStrip: options.getBossTapeStrip,
+    });
+  }
+
   return {
     crimsonTreasureDisabledSlotIndex,
     suppressed: options.suppressed,
@@ -241,6 +271,8 @@ export function useBossMechanicsController(options) {
     clearVerdantDebuffsOnGrid: clearVerdantDebuffsOnGridLocal,
     applyHookBossAfterSubmit,
     onVerdantTreasureSold,
+    onBossKeySold,
+    bindBossKeySoldDeps,
     buildBossWildcardResolveContext,
     isCrimsonTreasureSlotDisabled,
   };

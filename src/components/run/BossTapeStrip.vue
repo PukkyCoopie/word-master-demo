@@ -18,10 +18,11 @@
       <span class="boss-tape-ripple" />
     </div>
     <div
+      ref="tapeBodyRef"
       class="boss-tape"
       :class="{
         'boss-tape--attention': attentionPulse && !mechanicsSuppressed,
-        'boss-tape--wobble': wobble && !mechanicsSuppressed,
+        'boss-tape--wobble': wobble,
         'boss-tape--suppressed': mechanicsSuppressed,
       }"
     >
@@ -39,10 +40,13 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { getBossDef } from "../../game/bossBlindDefinitions.js";
 import { buildBossTapeSubLine } from "../../game/bossTapeUi.js";
 import { useBossTapeCue } from "../../composables/useBossTapeCue.js";
+import { showBossNeutralBubble } from "../../game/bossKeySoldFx.js";
+
+const tapeBodyRef = ref(/** @type {HTMLElement | null} */ (null));
 
 const props = defineProps({
   activeBossSlug: { type: String, default: "" },
@@ -76,14 +80,22 @@ const {
   playTriggerCue,
   playAttentionPulse,
   playViolationWobble,
+  playSuppressedDeactivateCue,
   resetSubmitToothCue,
   tryPlaySubmitToothCue,
 } = useBossTapeCue();
+
+function playKeySuppressedCue() {
+  playSuppressedDeactivateCue(() => {
+    showBossNeutralBubble(tapeBodyRef.value, "失效！");
+  });
+}
 
 defineExpose({
   playTriggerCue,
   playAttentionPulse,
   playViolationWobble,
+  playKeySuppressedCue,
   resetSubmitToothCue,
   tryPlaySubmitToothCue,
 });

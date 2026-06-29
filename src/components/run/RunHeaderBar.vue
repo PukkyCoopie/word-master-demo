@@ -40,7 +40,7 @@
       </div>
     </div>
     <div ref="scoresHeaderRef" class="scores">
-      <div class="score-card score-target">
+      <div ref="targetScoreCardRef" class="score-card score-target">
         <div class="score-label">至少得分</div>
         <ScoreCardValue :value="targetScoreValue" />
       </div>
@@ -74,11 +74,13 @@ const emit = defineEmits(["open-stage-info"]);
 const levelTitleBoxRef = ref(/** @type {HTMLElement | null} */ (null));
 const headerWalletMarksRef = ref(/** @type {HTMLElement | null} */ (null));
 const scoresHeaderRef = ref(/** @type {HTMLElement | null} */ (null));
+const targetScoreCardRef = ref(/** @type {HTMLElement | null} */ (null));
 
 defineExpose({
   levelTitleBoxRef,
   headerWalletMarksRef,
   scoresHeaderRef,
+  targetScoreCardRef,
 });
 </script>
 

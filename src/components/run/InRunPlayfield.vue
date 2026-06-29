@@ -398,7 +398,8 @@ defineExpose({
                     selected: tile.selected,
                     'tile-flying': pv.isTileFlying(Math.floor(index / pv.COLS), index % pv.COLS),
                     'player-marked':
-                      (pv.gridPlaceholderFrozenPresentation(tile)?.playerMarked ?? tile.playerMarked)
+                      !pv.isGridTilePlaceholder(Math.floor(index / pv.COLS), index % pv.COLS, tile)
+                      && (pv.gridPlaceholderFrozenPresentation(tile)?.playerMarked ?? tile.playerMarked)
                       === true,
                   }"
                   role="button"

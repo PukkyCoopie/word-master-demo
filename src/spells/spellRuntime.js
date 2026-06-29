@@ -97,11 +97,50 @@ function dedupeAppearancePositions(list) {
 }
 
 /**
+ * 将法术点选目标（棋盘坐标或 `deckCardUid`）解析为棋盘格坐标。
+ * 候选格路径常只有 uid、无 row/col，勿直接读 `p.row`/`p.col`。
+ *
+ * @param {{ row?: unknown, col?: unknown, deckCardUid?: number | null }[]} ordered
+ * @param {Record<string, unknown>[][]} g
+ * @param {number} ROWS
+ * @param {number} COLS
+ * @returns {{ row: number, col: number }[]}
+ */
+export function resolveSpellTargetsToGridPositions(ordered, g, ROWS, COLS) {
+  const list = Array.isArray(ordered) ? ordered : [];
+  /** @type {{ row: number, col: number }[]} */
+  const out = [];
+  for (const p of list) {
+    if (!p) continue;
+    const row = Number(p.row);
+    const col = Number(p.col);
+    if (Number.isFinite(row) && Number.isFinite(col)) {
+      out.push({ row: Math.trunc(row), col: Math.trunc(col) });
+      continue;
+    }
+    const uid = p.deckCardUid;
+    if (uid == null) continue;
+    let found = false;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (g[r]?.[c]?._deckCard?._dcUid === uid) {
+          out.push({ row: r, col: c });
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+  }
+  return out;
+}
+
+/**
  * 会改变棋盘 tile 外观（字母/材质/稀有度/饰品等）的法术：用于结算后动效目标格。
  * 在 **尚未** 执行 `applySpell` 突变前调用，读取当前 `grid`。
  *
  * @param {string} effectiveSpellId
- * @param {{ row: number, col: number }[]} ordered
+ * @param {{ row?: unknown, col?: unknown, deckCardUid?: number | null }[]} ordered
  * @param {Record<string, unknown>[][]} g
  * @param {number} ROWS
  * @param {number} COLS
@@ -109,7 +148,7 @@ function dedupeAppearancePositions(list) {
  */
 export function getSpellTileAppearanceTargets(effectiveSpellId, ordered, g, ROWS, COLS) {
   const sid = String(effectiveSpellId ?? "");
-  const ord = Array.isArray(ordered) ? ordered : [];
+  const ord = resolveSpellTargetsToGridPositions(ordered, g, ROWS, COLS);
   /** @type {{ row: number, col: number }[]} */
   const acc = [];
   const seen = new Set();
@@ -180,26 +219,10 @@ export function buildSpellAnimPickTargetsFromOrdered(ordered, g) {
   const out = [];
   for (const p of list) {
     if (!p) continue;
-    const uid = p.deckCardUid;
-    if (uid != null) {
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const t = g[r]?.[c];
-          if (t?._deckCard?._dcUid === uid) {
-            out.push({ row: r, col: c });
-            break;
-          }
-        }
-      }
-      continue;
+    for (const { row, col } of resolveSpellTargetsToGridPositions([p], g, rows, cols)) {
+      if (!g[row]?.[col]?.letter) continue;
+      out.push({ row, col });
     }
-    const r = Number(p.row);
-    const c = Number(p.col);
-    if (!Number.isFinite(r) || !Number.isFinite(c)) continue;
-    const row = Math.trunc(r);
-    const col = Math.trunc(c);
-    if (!g[row]?.[col]?.letter) continue;
-    out.push({ row, col });
   }
   return out;
 }
@@ -623,21 +646,7 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
   const { ROWS, COLS } = ctx;
 
   const sid = String(effectiveSpellId ?? "");
-  const gridOrdered = ordered
-    .map((p) => {
-      const row = Number(p?.row);
-      const col = Number(p?.col);
-      if (Number.isFinite(row) && Number.isFinite(col)) return { row: Math.trunc(row), col: Math.trunc(col) };
-      const uid = p?.deckCardUid;
-      if (uid == null) return null;
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          if (g[r]?.[c]?._deckCard?._dcUid === uid) return { row: r, col: c };
-        }
-      }
-      return null;
-    })
-    .filter(Boolean);
+  const gridOrdered = resolveSpellTargetsToGridPositions(ordered, g, ROWS, COLS);
   let tileAppearanceTargets = getSpellTileAppearanceTargets(sid, gridOrdered, g, ROWS, COLS);
 
   /** @type {Record<string, unknown> | null} */
@@ -755,11 +764,11 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "seedling": {
-      const sorted = [...ordered].sort((a, b) => b.row - a.row);
+      const sorted = [...gridOrdered].sort((a, b) => b.row - a.row);
       for (const p of sorted) {
         if (p.row >= ROWS - 1) continue;
-        const a = g[p.row][p.col];
-        const b = g[p.row + 1][p.col];
+        const a = g[p.row]?.[p.col];
+        const b = g[p.row + 1]?.[p.col];
         g[p.row][p.col] = b;
         g[p.row + 1][p.col] = a;
       }

@@ -56,6 +56,7 @@ export function collectGamePanelAssemblySections(ctx) {
       reorderSelectedOrder: game.reorderSelectedOrder,
       removeSelectedLetters: game.removeSelectedLetters,
       touchGrid: game.touchGrid,
+      releaseManacleBossTopRow: game.releaseManacleBossTopRow,
       flatGrid: playfield.flatGrid,
       snapshotGridCellsByTileId: game.snapshotGridCellsByTileId,
       syncPlayerMarkBatchCounterFromGrid: game.syncPlayerMarkBatchCounterFromGrid,

@@ -279,7 +279,8 @@ function captureGridPlaceholderFreeze(tile) {
     tileMultBonus: Number(tile.letterMultBonus) || 0,
     bossTileDebuffed: tile.bossTileDebuffed === true,
     ceruleanBellLocked: tile.ceruleanBellLocked === true,
-    playerMarked: tile.playerMarked === true,
+    // 占位 ghost 不展示折角；字母离格时标记随飞字离开棋盘格
+    playerMarked: false,
     bossGridBlocked: tile.bossGridBlocked === true,
     vowelGhostPrev: ghost?.prev ?? null,
     vowelGhostNext: ghost?.next ?? null,

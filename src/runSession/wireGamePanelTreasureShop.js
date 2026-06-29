@@ -59,6 +59,7 @@ export function wireGamePanelTreasureShop(d) {
     applyGlyphVoucherLevelSkip: d.applyGlyphVoucherLevelSkip,
     ownedTreasureHookFxBridge: d.ownedTreasureHookFxBridge,
     onVerdantTreasureSold: d.onVerdantTreasureSold,
+    onBossKeySold: d.onBossKeySold,
     getRunOverlayHost: d.getRunOverlayHost,
     getShopPanel: d.getShopPanel,
   });

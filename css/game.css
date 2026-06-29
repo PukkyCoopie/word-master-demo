@@ -699,6 +699,7 @@ textarea::-moz-placeholder {
 .boss-tape--suppressed {
 	border-color: rgba(120, 112, 108, 0.38);
 	background: #ebe4df;
+	padding-right: calc(48 * var(--rpx));
 }
 
 .boss-tape-wrap--suppressed .boss-tape::before {
@@ -722,21 +723,24 @@ textarea::-moz-placeholder {
 }
 
 .boss-tape .boss-tape-suppressed-x {
-	position: relative;
-	flex: 0 0 auto;
-	align-self: center;
+	position: absolute;
+	right: calc(6 * var(--rpx));
+	top: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: calc(44 * var(--rpx));
-	height: calc(44 * var(--rpx));
-	margin-right: calc(-2 * var(--rpx));
-	font-size: calc(44 * var(--rpx));
+	width: calc(104 * var(--rpx));
+	height: calc(104 * var(--rpx));
+	margin: 0;
+	font-size: calc(56 * var(--rpx));
+	font-weight: 900;
 	line-height: 1;
+	color: rgba(88, 80, 76, 0.38);
+	text-shadow: none;
+	pointer-events: none;
 	z-index: 2;
-	inset: auto;
-	transform: none;
-	opacity: 0.35;
+	transform: translateY(-50%) scale(2);
+	transform-origin: 50% 50%;
 }
 
 .boss-tape-title {
@@ -1215,6 +1219,12 @@ textarea::-moz-placeholder {
 /* 废格 / 软违规：跳过计分 */
 .score-popup-bubble--skip {
 	background: #8a939c;
+	font-weight: 700;
+}
+/* Boss 条带钥匙解除：灰色提示气泡 */
+.score-popup-bubble--boss-neutral {
+	background: #8a939c;
+	color: #fff;
 	font-weight: 700;
 }
 /* 星星法术未命中 */

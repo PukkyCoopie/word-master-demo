@@ -344,6 +344,7 @@ function wireGamePanelControllersEarly(d) {
     applyGlyphVoucherLevelSkip: runLifecycle.applyGlyphVoucherLevelSkip,
     ownedTreasureHookFxBridge: d.ownedTreasureHookFxBridge,
     onVerdantTreasureSold: () => d.bossMechanicsBridge.onVerdantTreasureSold(),
+    onBossKeySold: () => d.bossMechanicsBridge.onBossKeySold(),
     getRunOverlayHost: () => d.runOverlayHostRef.value,
     getShopPanel: () => d.shopPanelRef.value,
   });
