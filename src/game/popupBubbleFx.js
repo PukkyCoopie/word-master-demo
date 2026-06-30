@@ -44,7 +44,7 @@ export function schedulePopupBubbleDismiss(el, opts) {
 /**
  * @param {HTMLElement} targetEl
  * @param {string} text
- * @param {"score" | "mult" | "level" | "info" | "boss-neutral"} kind
+ * @param {"score" | "mult" | "level" | "info" | "boss-neutral" | "money-debt"} kind
  * @returns {HTMLElement | null}
  */
 export function createShopStylePopupBubble(targetEl, text, kind = "score") {
@@ -55,6 +55,8 @@ export function createShopStylePopupBubble(targetEl, text, kind = "score") {
   else if (kind === "level") div.className = "score-popup-bubble shop-level-popup-bubble";
   else if (kind === "info") div.className = "score-popup-bubble shop-round-info-popup-bubble";
   else if (kind === "boss-neutral") div.className = "score-popup-bubble score-popup-bubble--boss-neutral";
+  else if (kind === "money-debt")
+    div.className = "score-popup-bubble score-popup-bubble--money score-popup-bubble--money-debt";
   else div.className = "score-popup-bubble";
   div.textContent = text;
   document.body.appendChild(div);

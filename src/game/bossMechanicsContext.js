@@ -82,6 +82,26 @@ export function evaluateOxBossHit(judgedLen, counts) {
 }
 
 /**
+ * 牛 Boss：当前选词是否将触发「最常拼写长度 → 资金归零」。
+ * @param {Object} p
+ * @param {boolean} p.dictionaryReady
+ * @param {string} p.slug
+ * @param {string | null} p.resolvedWord
+ * @param {string} p.effectiveWord
+ * @param {number} p.judgedLen
+ * @param {Record<string | number, number> | null | undefined} p.spellCountsByLength
+ */
+export function evaluateOxBossViolationPreview(p) {
+  if (!p.dictionaryReady) return false;
+  if (String(p.slug ?? "") !== "the_ox") return false;
+  if (p.resolvedWord == null) return false;
+  if (!p.effectiveWord || p.effectiveWord.length < 1) return false;
+  const judgedLen = Math.max(0, Math.floor(Number(p.judgedLen)) || 0);
+  if (judgedLen < 1) return false;
+  return evaluateOxBossHit(judgedLen, p.spellCountsByLength);
+}
+
+/**
  * @param {unknown[]} arr
  * @param {() => number} rng
  */

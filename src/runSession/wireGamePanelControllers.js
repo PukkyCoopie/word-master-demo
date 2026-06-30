@@ -595,6 +595,7 @@ function wireGamePanelControllersLate(d) {
     getWordDefinition: d.getWordDefinition,
     listEffectiveTilesForSubmit: d.listEffectiveTilesForSubmit,
     crimsonTreasureDisabledSlotIndex: d.crimsonTreasureDisabledSlotIndex,
+    spellCountsByLength: d.spellCountsByLength,
     getBossTapeStrip: () => d.gamePanelPlayfieldRef.value?.bossTapeStripRef?.value ?? null,
   });
 

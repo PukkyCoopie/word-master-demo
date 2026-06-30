@@ -44,7 +44,7 @@ import { computed, ref } from "vue";
 import { getBossDef } from "../../game/bossBlindDefinitions.js";
 import { buildBossTapeSubLine } from "../../game/bossTapeUi.js";
 import { useBossTapeCue } from "../../composables/useBossTapeCue.js";
-import { showBossNeutralBubble } from "../../game/bossKeySoldFx.js";
+import { showBossNeutralBubble, showBossMoneyDebtBubble } from "../../game/bossKeySoldFx.js";
 
 const tapeBodyRef = ref(/** @type {HTMLElement | null} */ (null));
 
@@ -93,11 +93,18 @@ function playKeySuppressedCue() {
   });
 }
 
+/** @param {number} amount */
+function playOxMoneyLossCue(amount) {
+  playViolationWobble();
+  showBossMoneyDebtBubble(tapeBodyRef.value, amount);
+}
+
 defineExpose({
   playTriggerCue,
   playAttentionPulse,
   playViolationWobble,
   playKeySuppressedCue,
+  playOxMoneyLossCue,
   resetSubmitToothCue,
   tryPlaySubmitToothCue,
 });

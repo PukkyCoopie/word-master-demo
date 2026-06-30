@@ -425,7 +425,8 @@ export function useSubmitWordController(options) {
           callbacks.bossSlugForMechanics() === "the_ox" &&
           callbacks.evaluateOxBossHit(judgedLenTable, gridApi.spellCountsByLength.value);
         if (oxHit) {
-          callbacks.playBossTapeTriggerCue();
+          const lostMoney = Math.max(0, Math.round(Number(run.money.value) || 0));
+          dom.getBossTapeStrip()?.playOxMoneyLossCue?.(lostMoney);
           run.money.value = 0;
           await callbacks.notifyBossRestrictionTreasures("the_ox");
         }

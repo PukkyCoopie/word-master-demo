@@ -39,6 +39,21 @@ export function showBossNeutralBubble(targetEl, text) {
 }
 
 /**
+ * Boss 条带扣款气泡（暗红 -$n）。
+ * @param {HTMLElement | null | undefined} targetEl
+ * @param {number} amount 正数金额
+ */
+export function showBossMoneyDebtBubble(targetEl, amount) {
+  const n = Math.max(0, Math.round(Number(amount) || 0));
+  if (n <= 0) return;
+  const div = createShopStylePopupBubble(targetEl, `-$${n}`, "money-debt");
+  if (!div) return;
+  const speed = getAnimationSpeedScale();
+  playShopStylePopupBubbleEnter(div, speed);
+  dismissShopStylePopupBubble(div, speed);
+}
+
+/**
  * @param {HTMLElement | null | undefined} el
  */
 function wobbleScoreTargetCard(el) {

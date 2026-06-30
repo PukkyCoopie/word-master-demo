@@ -6,6 +6,7 @@ import {
   pickHookBossDebuffTargets,
   isFlintBossActive,
   resolveUniqueMostSpellLength,
+  evaluateOxBossViolationPreview,
 } from "./bossMechanicsContext.js";
 
 test("resolveUniqueMostSpellLength: unique winner", () => {
@@ -27,6 +28,27 @@ test("evaluateOxBossHit picks unique mode length", () => {
   assert.equal(evaluateOxBossHit(7, { 3: 1, 5: 2, 7: 1 }), false);
   assert.equal(evaluateOxBossHit(5, { 3: 1, 5: 2, 7: 2 }), false);
   assert.equal(evaluateOxBossHit(3, { 3: 2, 5: 2 }), false);
+});
+
+test("evaluateOxBossViolationPreview mirrors hit when word ready", () => {
+  const base = {
+    dictionaryReady: true,
+    slug: "the_ox",
+    resolvedWord: "hello",
+    effectiveWord: "hello",
+    spellCountsByLength: { 3: 1, 5: 2, 7: 1 },
+  };
+  assert.equal(evaluateOxBossViolationPreview({ ...base, judgedLen: 5 }), true);
+  assert.equal(evaluateOxBossViolationPreview({ ...base, judgedLen: 4 }), false);
+  assert.equal(evaluateOxBossViolationPreview({ ...base, slug: "the_hook", judgedLen: 5 }), false);
+  assert.equal(
+    evaluateOxBossViolationPreview({ ...base, judgedLen: 5, dictionaryReady: false }),
+    false,
+  );
+  assert.equal(
+    evaluateOxBossViolationPreview({ ...base, judgedLen: 5, resolvedWord: null }),
+    false,
+  );
 });
 
 test("pickCrimsonDisabledTreasureSlotIndex returns filled index", () => {

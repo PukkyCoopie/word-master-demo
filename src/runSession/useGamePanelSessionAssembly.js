@@ -1062,6 +1062,7 @@ playfieldController.initViewContext({
   mouthLockedLengthBoss,
   spellCountsByLength,
   bossTapeSoftPreview,
+  bossSubmitDangerPreview: bossMechanicsCtrl.bossSubmitDangerPreview,
   bossSoftWordViolationPreview: bossMechanicsCtrl.bossSoftWordViolationPreview,
   bossMechanicsSuppressed,
   showResultTotalBar,

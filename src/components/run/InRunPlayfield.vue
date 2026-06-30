@@ -39,7 +39,7 @@ const pfGridRefillAnimating = computed(() => Boolean(sv(pv.gridRefillAnimating))
 const pfSubmitTutorialReady = computed(() => Boolean(sv(pv.firstWordTutorialSubmitHighlightReady)));
 const pfFlyingLetters = computed(() => sv(pv.flyingLetters) ?? []);
 const pfFlyingBackBatches = computed(() => sv(pv.flyingBackBatches) ?? []);
-const pfBossSoftViolation = computed(() => Boolean(sv(pv.bossSoftWordViolationPreview)));
+const pfBossSoftViolation = computed(() => Boolean(sv(pv.bossSubmitDangerPreview)));
 const pfSubmitHoldMode = computed(
   () => pfBossSoftViolation.value && getHighRiskSpellConfirmEnabled() && pfCanSubmit.value,
 );

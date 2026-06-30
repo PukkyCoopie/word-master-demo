@@ -15,6 +15,7 @@ import {
   clearVerdantDebuffsOnGrid,
   evaluateBossSoftWordViolationPreview,
   evaluateOxBossHit,
+  evaluateOxBossViolationPreview,
   isAmberBossMaskActive,
   isCrimsonBossMechanicsActive,
   isFlintBossActive,
@@ -68,6 +69,7 @@ export function createBossMechanicsEarlyState(getOwnedSlotTreasureIds, getTreasu
  * @param {(word: string) => unknown} options.getWordDefinition
  * @param {() => readonly unknown[]} options.listEffectiveTilesForSubmit
  * @param {import('vue').Ref<number | null>} options.crimsonTreasureDisabledSlotIndex
+ * @param {import('vue').Ref<Record<number, number>> | import('vue').ComputedRef<Record<number, number>>} options.spellCountsByLength
  * @param {() => { playTriggerCue?: () => void } | null} [options.getBossTapeStrip]
  */
 export function useBossMechanicsController(options) {
@@ -163,8 +165,26 @@ export function useBossMechanicsController(options) {
     }),
   );
 
+  const oxBossViolationPreview = computed(() => {
+    if (options.suppressed.value) return false;
+    return evaluateOxBossViolationPreview({
+      dictionaryReady: options.dictionaryReady.value,
+      slug: slug(),
+      resolvedWord: options.resolvedWordForSubmit.value,
+      effectiveWord: options.effectiveWordForSubmit.value,
+      judgedLen: resultAreaJudgedWordLength.value,
+      spellCountsByLength: options.spellCountsByLength.value,
+    });
+  });
+
+  const bossSubmitDangerPreview = computed(
+    () => softWordViolationPreview.value || oxBossViolationPreview.value,
+  );
+
   const bossTapeSoftPreview = computed(
-    () => !options.scoringAnimating.value && softWordViolationPreview.value,
+    () =>
+      !options.scoringAnimating.value &&
+      (softWordViolationPreview.value || oxBossViolationPreview.value),
   );
 
   function pickCrimsonDisabledTreasureSlotIndex() {
@@ -259,6 +279,8 @@ export function useBossMechanicsController(options) {
     bossStripDef,
     softWordViolationPreview,
     bossSoftWordViolationPreview: softWordViolationPreview,
+    oxBossViolationPreview,
+    bossSubmitDangerPreview,
     bossTapeSoftPreview,
     getBossTileDebuffContext,
     refreshBossTileDebuffOnTile,
