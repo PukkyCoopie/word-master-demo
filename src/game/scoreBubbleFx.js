@@ -200,6 +200,11 @@ export function createScoreBubbleFx(deps) {
       const tl = treasureSlotWobbleTimelines.get(root);
       if (tl?.isActive?.()) tl.kill();
       treasureSlotWobbleTimelines.delete(root);
+      const wobbleEl = resolveWobbleTransformEl(root);
+      if (wobbleEl instanceof HTMLElement) {
+        gsap.killTweensOf(wobbleEl);
+        gsap.set(wobbleEl, { clearProps: "scale,rotation,x,y,transform" });
+      }
     }
   }
 
@@ -372,7 +377,9 @@ export function createScoreBubbleFx(deps) {
                         ? "score-popup-bubble score-popup-bubble--ice-shatter"
                         : kind === "copy"
                           ? "score-popup-bubble score-popup-bubble--copy"
-                          : kind === "skip"
+                          : kind === "reroll"
+                            ? "score-popup-bubble score-popup-bubble--reroll"
+                            : kind === "skip"
                       ? "score-popup-bubble score-popup-bubble--skip"
                       : kind === "star-miss"
                         ? "score-popup-bubble score-popup-bubble--star-miss"

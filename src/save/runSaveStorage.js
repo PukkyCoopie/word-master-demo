@@ -284,7 +284,7 @@ export function mutateSlotCareer(index, mutator) {
         money: 0,
         isEndlessRun: false,
         phase: "playing",
-        ownedTreasureEmojis: [null, null, null, null, null],
+        ownedTreasureEmojis: [null, null, null, null, null, null],
         savedAt,
       },
       career: createEmptySlotCareerStats(),

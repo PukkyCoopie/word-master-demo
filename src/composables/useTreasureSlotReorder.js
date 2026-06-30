@@ -1,4 +1,4 @@
-import { computed, nextTick, onUnmounted, ref, shallowRef } from "vue";
+import { computed, isRef, nextTick, onUnmounted, ref, shallowRef } from "vue";
 
 /** 按下后移动超过该距离才进入拖动，避免与点击查看详情冲突 */
 export const TREASURE_SLOT_DRAG_THRESHOLD_PX = 10;
@@ -12,6 +12,18 @@ export function swapArrayItems(list, a, b) {
   next[a] = next[b];
   next[b] = t;
   return next;
+}
+
+/**
+ * 从宝藏槽 keyOrderBag 读取 key 数组副本；兼容经 reactive 解包后 ref 变为 plain array 的情况。
+ * @param {{ ref?: import("vue").Ref<string[]> | string[] | undefined }} bag
+ * @returns {string[]}
+ */
+export function readTreasureKeyOrderCopy(bag) {
+  const inner = bag?.ref;
+  if (isRef(inner)) return [...inner.value];
+  if (Array.isArray(inner)) return [...inner];
+  return [];
 }
 
 /** @param {readonly unknown[]} list @param {number} from @param {number} to */

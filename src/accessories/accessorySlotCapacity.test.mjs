@@ -61,11 +61,20 @@ test("reconcileOwnedTreasureSlotsAfterDestruction moves overflow when crop capac
     null,
     null,
     null,
-    { treasureId: "5" },
+    null,
+    { treasureId: "7" },
   ];
-  const keys = ["g-slot-0", "g-slot-1", "g-slot-2", "g-slot-3", "g-slot-4", "g-slot-5"];
+  const keys = [
+    "g-slot-0",
+    "g-slot-1",
+    "g-slot-2",
+    "g-slot-3",
+    "g-slot-4",
+    "g-slot-5",
+    "g-slot-6",
+  ];
   assert.equal(reconcileOwnedTreasureSlotsAfterDestruction(slots, keys, 0), true);
-  assert.equal(slots.length, 5);
+  assert.equal(slots.length, 6);
   assert.equal(slots[0]?.treasureId, "1");
-  assert.equal(slots[1]?.treasureId, "5");
+  assert.equal(slots[1]?.treasureId, "7");
 });

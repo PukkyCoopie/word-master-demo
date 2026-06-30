@@ -111,9 +111,10 @@ export function createSubmitTileLeaveAnim(deps) {
    * @param {number} duration
    */
   function animateToolboxTileShrinkToZero(slotEl, gridEl, duration) {
+    const wordAnimEl = resolveWordSlotLeaveAnimEl(slotEl);
     return new Promise((resolve) => {
       let done = 0;
-      const need = (slotEl ? 1 : 0) + (gridEl ? 1 : 0);
+      const need = (wordAnimEl ? 1 : 0) + (gridEl ? 1 : 0);
       if (need === 0) {
         resolve();
         return;
@@ -123,16 +124,19 @@ export function createSubmitTileLeaveAnim(deps) {
         if (done >= need) resolve();
       };
       const fireRemoveHaptic = () => triggerHaptic("tileRemove");
-      if (slotEl) {
-        gsapLib.killTweensOf(slotEl);
-        gsapLib.set(slotEl, { transformOrigin: "50% 55%" });
-        gsapLib.to(slotEl, {
+      if (wordAnimEl) {
+        gsapLib.killTweensOf(wordAnimEl);
+        gsapLib.set(wordAnimEl, { transformOrigin: "50% 55%" });
+        gsapLib.to(wordAnimEl, {
           opacity: 0,
           scale: 0,
           duration,
           ease: EASE_TRANSFORM,
           onStart: fireRemoveHaptic,
-          onComplete: finish,
+          onComplete: () => {
+            gsapLib.set(wordAnimEl, { clearProps: "scale,opacity,transform" });
+            finish();
+          },
         });
       }
       if (gridEl) {
@@ -152,15 +156,11 @@ export function createSubmitTileLeaveAnim(deps) {
 
   /** @param {HTMLElement | null | undefined} slotEl @param {number} [speed] */
   async function playToolboxRemoveWobbleAndBubble(slotEl, speed = 1) {
-    if (!slotEl) return;
+    const wordAnimEl = resolveWordSlotLeaveAnimEl(slotEl);
+    if (!wordAnimEl) return;
     const sp = Math.max(0.01, Number(speed) || 1);
-    const tl = createWobbleScoreSlotTimeline(slotEl);
-    if (tl) {
-      tl.timeScale(sp);
-      tl.play(0);
-    }
-    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-    const bubble = showScoreBubble(slotEl, "移除", "destroy", sp);
+    await awaitTreasureSlotWobbleEl(wordAnimEl, sp);
+    const bubble = showScoreBubble(wordAnimEl, "移除", "destroy", sp);
     scheduleToolboxRemoveBubbleOutro(bubble, sp);
   }
 
@@ -232,7 +232,7 @@ export function createSubmitTileLeaveAnim(deps) {
       const slotEl = slotEls[i];
       const gridEl = gridEls[i];
       if (i === 0 && treasureSlotIx >= 0) {
-        void wobbleGameTreasureSlot(treasureSlotIx);
+        await wobbleGameTreasureSlot(treasureSlotIx);
       }
       await playToolboxRemoveWobbleAndBubble(slotEl, sp);
       await sleep(TOOLBOX_REMOVE_BUBBLE_HOLD_MS);

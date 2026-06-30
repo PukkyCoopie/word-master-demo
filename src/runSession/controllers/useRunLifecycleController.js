@@ -193,6 +193,7 @@ export function useRunLifecycleController(options) {
   let showRunEndRef = null;
   /** @type {import('vue').ComputedRef<number> | null} */
   let runWalletFloorComputed = null;
+  let expireSpellBonusShopVoucherIfEnteringBossImpl = () => {};
 
   let runGridDropAnimationImpl = async (_tiles, _opts) => {};
   let measureGridTileStepYImpl = () => 48;
@@ -466,6 +467,7 @@ export function useRunLifecycleController(options) {
     transitionBusy.value = true;
 
     try {
+      expireSpellBonusShopVoucherIfEnteringBossImpl();
       await notifyShopLeaveImpl({
         replayLastSpellInRun: replayLastSpellInRunImpl,
       });
@@ -673,6 +675,9 @@ export function useRunLifecycleController(options) {
     showShopRef = shopRefs.showShop;
     showRunEndRef = shopRefs.showRunEnd;
     runWalletFloorComputed = shopRefs.runWalletFloor;
+    if (typeof shopRefs.expireSpellBonusShopVoucherIfEnteringBoss === "function") {
+      expireSpellBonusShopVoucherIfEnteringBossImpl = shopRefs.expireSpellBonusShopVoucherIfEnteringBoss;
+    }
   }
 
   return {

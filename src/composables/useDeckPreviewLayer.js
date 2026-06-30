@@ -11,6 +11,7 @@ import {
   deckExpandHitRestingOpacity,
   deckStackMaterialAnimateEnabled,
   deckStackPileCellStyle,
+  deckStackPileVisibleEntries,
   deckStackPileRotationDeg,
 } from "../game/deckStackPileLayout.js";
 import {
@@ -645,6 +646,7 @@ export function useDeckPreviewLayer(deps) {
     deckEntryKey,
     deckEntryTileProps,
     deckStackPileCellStyle,
+    deckStackPileVisibleEntries,
     deckStackMaterialAnimate,
     onDeckExpandedTileClick,
     onDeckExpandedTileContextMenu,

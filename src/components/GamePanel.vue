@@ -171,7 +171,6 @@ import {
   getPresetStartMoneyBonus,
   getPresetStartVoucherIds,
   getPresetStartWildcardCount,
-  presetUsesFiveSlotLayoutAtFour,
 } from "../game/runPresetRuntime.js";
 
 import { resolveWordLengthJudgmentBonus } from "../game/wordLengthJudgmentBonus.js";
@@ -416,7 +415,7 @@ const { submitDeltaKey, flashSubmitCountDelta, disposeSubmitCountDeltaTimer } =
 
 
 /** 至多 5 格；null 为空（须在 `useGameState` 前，供盾牌 Boss 屏蔽与宝藏逻辑） */
-const ownedTreasures = ref([null, null, null, null, null]);
+const ownedTreasures = ref([null, null, null, null, null, null]);
 const bossTreasureRunBridge = { get: () => null };
 const treasureRunState = ref(createTreasureRunState());
 bossTreasureRunBridge.get = () => treasureRunState.value;
@@ -518,6 +517,7 @@ const {
   resetDeckAfterStageEnd,
   touchGrid,
   removeDeckLetterInstancesByRaws,
+  shiftDeckCardsBackByUids,
   removeDeckCardsForSubmittedWord,
   removeDeckCardByUid,
   remapTileFromRawLetter,
@@ -1407,11 +1407,7 @@ function removeDeckLettersByRawsWithTreasureNotify(raws) {
 
 const treasureSlotsLayoutClass = computed(() => {
   const count = ctrlEarly.displayOwnedTreasures.value.length;
-  const fiveAtFour =
-    count === 4 && presetUsesFiveSlotLayoutAtFour(runPresetId.value)
-      ? "treasure-slots--layout-five-at-four"
-      : "";
-  return resolveTreasureSlotsLayoutClass(treasureInventoryCtrl.filledCount.value, count, fiveAtFour);
+  return resolveTreasureSlotsLayoutClass(treasureInventoryCtrl.filledCount.value, count);
 });
 
 const flatGrid = computed(() => grid.value.flat());

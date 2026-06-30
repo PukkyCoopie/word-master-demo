@@ -100,6 +100,7 @@ export function buildGamePanelAssemblySections(d) {
       removeDeckCardsForSubmittedWord: g.removeDeckCardsForSubmittedWord,
       removeDeckCardsForSubmittedWordAndNotify: g.removeDeckCardsForSubmittedWordAndNotify,
       removeDeckLetterInstancesByRaws: g.removeDeckLetterInstancesByRaws,
+      shiftDeckCardsBackByUids: g.shiftDeckCardsBackByUids,
       removeDeckLettersByRawsWithTreasureNotify: g.removeDeckLettersByRawsWithTreasureNotify,
       appendShopDeckEntries: g.appendShopDeckEntries,
       appendShopDeckEntriesAndNotify: g.appendShopDeckEntriesAndNotify,

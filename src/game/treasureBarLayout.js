@@ -1,11 +1,11 @@
 /** 宝藏栏最多展示的槽位数（超出槽位的宝藏仍保留，由展开按钮代播动效） */
-export const TREASURE_BAR_VISIBLE_MAX = 40;
+export const TREASURE_BAR_VISIBLE_MAX = 15;
 
-/** 已拥有宝藏数超过此阈值时启用叠放模式（>9 即 10 个起叠放） */
-export const TREASURE_BAR_STACK_FILL_THRESHOLD = 9;
+/** 已拥有宝藏数超过此阈值时启用叠放模式（>7 即 8 个起叠放） */
+export const TREASURE_BAR_STACK_FILL_THRESHOLD = 7;
 
 /** 叠放卡面尺寸参考：与非叠放「该行均分 N 槽」一致 */
-export const TREASURE_BAR_STACK_REFERENCE_SLOT_COUNT = 10;
+export const TREASURE_BAR_STACK_REFERENCE_SLOT_COUNT = 8;
 
 /** 非叠放宝藏栏槽间距（rpx），同 `.treasure-slots` gap */
 export const TREASURE_BAR_SLOT_GAP_RPX = 8;
@@ -39,7 +39,7 @@ export function countFilledTreasureSlots(slots) {
  *
  * @param {object} opts
  * @param {number} opts.containerWidthPx 栏内容区宽（已扣 padding）
- * @param {number} [opts.referenceSlotCount=10]
+ * @param {number} [opts.referenceSlotCount=8]
  * @param {number} [opts.slotGapPx=0]
  */
 export function computeStackCardSizePx({

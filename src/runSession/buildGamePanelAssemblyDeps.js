@@ -95,6 +95,7 @@ export function collectGamePanelAssemblySections(ctx) {
       removeDeckCardsForSubmittedWord: game.removeDeckCardsForSubmittedWord,
       removeDeckCardsForSubmittedWordAndNotify: game.removeDeckCardsForSubmittedWordAndNotify,
       removeDeckLetterInstancesByRaws: game.removeDeckLetterInstancesByRaws,
+      shiftDeckCardsBackByUids: game.shiftDeckCardsBackByUids,
       removeDeckLettersByRawsWithTreasureNotify: game.removeDeckLettersByRawsWithTreasureNotify,
       appendShopDeckEntries: game.appendShopDeckEntries,
       appendShopDeckEntriesAndNotify: treasure.appendShopDeckEntriesAndNotify,

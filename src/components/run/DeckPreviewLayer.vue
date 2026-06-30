@@ -73,7 +73,7 @@ const deckPortalStyle = computed(() => sv(overlayStack.deckPortalStackStyle));
                     <span class="deck-stack-count" aria-hidden="true">{{ stack.count }}</span>
                     <div v-if="!stack.isGhost" class="deck-stack-pile" aria-hidden="true">
                       <div
-                        v-for="(entry, idx) in stack.entries"
+                        v-for="(entry, idx) in deck.deckStackPileVisibleEntries(stack)"
                         :key="deck.deckEntryKey(entry, idx)"
                         class="deck-stack-pile-cell"
                         :class="{ 'deck-stack-pile-cell--dimmed': entry.dimmed }"

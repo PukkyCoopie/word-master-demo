@@ -1221,6 +1221,12 @@ textarea::-moz-placeholder {
 	background: #8a939c;
 	font-weight: 700;
 }
+/* 商店免费刷新（小票） */
+.score-popup-bubble--reroll {
+	background: var(--btn-green);
+	color: #f9f6f2;
+	font-weight: 700;
+}
 /* Boss 条带钥匙解除：灰色提示气泡 */
 .score-popup-bubble--boss-neutral {
 	background: #8a939c;

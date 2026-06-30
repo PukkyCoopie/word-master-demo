@@ -1,6 +1,20 @@
 import { NORMAL_BOSS_SLUGS, SHOWDOWN_BOSS_SLUGS } from "./bossBlindDefinitions.js";
 import { parseMajorFromLevelId } from "../vouchers/voucherRuntime.js";
 import { hashSeed32, mulberry32 } from "./runRng.js";
+import { ENDLESS_MILESTONE_BOSS_CHAPTER_INTERVAL } from "./endlessMilestoneShop.js";
+
+/**
+ * 将任意章序号映射到 0–8 Boss 槽位（无尽 9+ 按 8 章循环；8/16/24… 为终局池）。
+ * @param {number} chapter
+ * @returns {number} -1 表示无效
+ */
+export function normalizeBossChapterSlot(chapter) {
+  const ch = Math.floor(Number(chapter));
+  if (!Number.isFinite(ch) || ch < 0) return -1;
+  if (ch <= ENDLESS_MILESTONE_BOSS_CHAPTER_INTERVAL) return ch;
+  const mod = ch % ENDLESS_MILESTONE_BOSS_CHAPTER_INTERVAL;
+  return mod === 0 ? ENDLESS_MILESTONE_BOSS_CHAPTER_INTERVAL : mod;
+}
 
 /**
  * @param {readonly string[]} pool
@@ -21,20 +35,20 @@ function shuffledBossPool(pool, runSeed, poolKey) {
 
 /**
  * 本局各章 Boss：对池子洗牌后按章序号依次取用，同局内不重复（0–7 普通池各 1 个，8 终局池）。
- * 第 0 章在开局即占位；通常不可达，卷轴券回退至 0-3 时使用该位。
- * @param {number} chapter 0..8
+ * 第 0 章在开局即占位；无尽 9+ 章按 {@link normalizeBossChapterSlot} 循环映射。
+ * @param {number} chapter
  * @param {number} runSeed
  * @returns {string}
  */
 function pickBossForChapterDeterministic(chapter, runSeed) {
-  const ch = Math.floor(Number(chapter));
-  if (!Number.isFinite(ch) || ch < 0 || ch > 8) return "";
-  if (ch === 8) {
+  const slot = normalizeBossChapterSlot(chapter);
+  if (slot < 0) return "";
+  if (slot === ENDLESS_MILESTONE_BOSS_CHAPTER_INTERVAL) {
     const order = shuffledBossPool(SHOWDOWN_BOSS_SLUGS, runSeed, "showdown");
     return order[0] ?? "";
   }
   const order = shuffledBossPool(NORMAL_BOSS_SLUGS, runSeed, "normal");
-  return order[ch % order.length] ?? order[0] ?? "";
+  return order[slot % order.length] ?? order[0] ?? "";
 }
 
 /**
@@ -44,9 +58,10 @@ function pickBossForChapterDeterministic(chapter, runSeed) {
  */
 function usedBossSlugsInRunExcludingChapter(chapter, runSeed) {
   const used = new Set();
-  const skip = Math.floor(Number(chapter));
-  for (let c = 0; c <= 8; c++) {
-    if (c === skip) continue;
+  const skipSlot = normalizeBossChapterSlot(chapter);
+  for (let c = 0; c <= ENDLESS_MILESTONE_BOSS_CHAPTER_INTERVAL; c++) {
+    const slot = normalizeBossChapterSlot(c);
+    if (slot === skipSlot) continue;
     const slug = pickBossForChapterDeterministic(c, runSeed);
     if (slug) used.add(slug);
   }
@@ -61,17 +76,20 @@ function usedBossSlugsInRunExcludingChapter(chapter, runSeed) {
  * @returns {string}
  */
 function pickBossForChapterReroll(chapter, runSeed, rerollNonce) {
-  const ch = Math.floor(Number(chapter));
-  if (!Number.isFinite(ch) || ch < 0 || ch > 8) return "";
-  const pool = ch === 8 ? [...SHOWDOWN_BOSS_SLUGS] : [...NORMAL_BOSS_SLUGS];
+  const slot = normalizeBossChapterSlot(chapter);
+  if (slot < 0) return "";
+  const pool =
+    slot === ENDLESS_MILESTONE_BOSS_CHAPTER_INTERVAL
+      ? [...SHOWDOWN_BOSS_SLUGS]
+      : [...NORMAL_BOSS_SLUGS];
   if (!pool.length) return "";
-  const current = pickBossForChapterDeterministic(ch, runSeed);
-  const usedElsewhere = usedBossSlugsInRunExcludingChapter(ch, runSeed);
+  const current = pickBossForChapterDeterministic(chapter, runSeed);
+  const usedElsewhere = usedBossSlugsInRunExcludingChapter(chapter, runSeed);
   let candidates = pool.filter((s) => !usedElsewhere.has(s) && s !== current);
   if (!candidates.length) candidates = pool.filter((s) => s !== current);
   if (!candidates.length) candidates = pool.filter((s) => !usedElsewhere.has(s));
   if (!candidates.length) candidates = [...pool];
-  const seed = hashSeed32(runSeed, "boss-reroll", ch, Math.max(0, Math.floor(Number(rerollNonce) || 0)));
+  const seed = hashSeed32(runSeed, "boss-reroll", slot, Math.max(0, Math.floor(Number(rerollNonce) || 0)));
   const rnd = mulberry32(seed);
   const idx = Math.floor(rnd() * candidates.length);
   return candidates[idx] ?? candidates[0] ?? "";

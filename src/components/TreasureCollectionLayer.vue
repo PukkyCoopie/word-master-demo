@@ -133,6 +133,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import TreasureSlot from "./TreasureSlot.vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { useTreasureGridReorder } from "../composables/useTreasureGridReorder.js";
+import { readTreasureKeyOrderCopy } from "../composables/useTreasureSlotReorder.js";
 import { usePanelScrollbar } from "../composables/usePanelScrollbar.js";
 import { countFilledTreasureSlots } from "../game/treasureBarLayout.js";
 import {
@@ -342,7 +343,7 @@ const {
   keyOrder: props.keyOrderBag.ref,
   canDrag: () => props.open,
   onCommit: (preview) => {
-    props.onReorderCommit?.(preview, [...props.keyOrderBag.ref.value]);
+    props.onReorderCommit?.(preview, readTreasureKeyOrderCopy(props.keyOrderBag));
   },
   getSlotElement: (i) => cellRefs.value[i] ?? null,
   getOverlayContainer: () => innerRef.value,

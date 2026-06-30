@@ -217,6 +217,7 @@ function wireGamePanelControllersEarly(d) {
     showShop: d.showShop,
     showRunEnd,
     runWalletFloor: shopPhase.runWalletFloor,
+    expireSpellBonusShopVoucherIfEnteringBoss: shopPhase.expireSpellBonusShopVoucherIfEnteringBoss,
   });
 
   treasureInventoryCtrl = useTreasureInventoryController({

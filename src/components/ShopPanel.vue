@@ -452,22 +452,22 @@ const props = defineProps({
     default: null,
   },
   ownedVoucherIds: { type: Array, default: () => [] },
-  /** 动态长度（默认 5；装备裁剪配饰时可扩栏）：(Treasure | null)[] */
+  /** 动态长度（默认 6；装备裁剪配饰时可扩栏）：(Treasure | null)[] */
   ownedTreasures: { type: Array, required: true },
   /** 与 ownedTreasures 同索引：null=无充能皮、inactive=未就绪、active=就绪（仅 footer 已拥有格） */
   treasureChargeBySlot: {
     type: Array,
-    default: () => [null, null, null, null, null],
+    default: () => [null, null, null, null, null, null],
   },
   /** 与 ownedTreasures 同索引：0~1 充能进度（仅 footer 已拥有格） */
   treasureChargeProgressBySlot: {
     type: Array,
-    default: () => [0, 0, 0, 0, 0],
+    default: () => [0, 0, 0, 0, 0, 0],
   },
   /** 与 ownedTreasures 同索引：效果已永久耗尽（仅压暗，无充能角标） */
   treasureEffectDepletedBySlot: {
     type: Array,
-    default: () => [false, false, false, false, false],
+    default: () => [false, false, false, false, false, false],
   },
   shopRerollCost: { type: Number, default: 5 },
   canShopReroll: { type: Boolean, default: false },

@@ -1,4 +1,4 @@
-import { computed, ref, watch } from "vue";
+import { computed, markRaw, ref, watch } from "vue";
 import { useTreasureSlotReorder } from "../../composables/useTreasureSlotReorder.js";
 import { readTreasureAccessoryIds } from "../../accessories/accessoryState.js";
 import {
@@ -189,7 +189,8 @@ export function useTreasureRunController(options) {
   }
 
   const gameOwnedKeyOrder = ref(ownedTreasures.value.map((_, i) => `g-slot-${i}`));
-  const gameOwnedKeyOrderBag = { ref: gameOwnedKeyOrder };
+  /** markRaw：经 sessionReactive 传给子组件时，避免嵌套 ref 被解包成普通数组 */
+  const gameOwnedKeyOrderBag = markRaw({ ref: gameOwnedKeyOrder });
 
   watch(
     ownedTreasures,

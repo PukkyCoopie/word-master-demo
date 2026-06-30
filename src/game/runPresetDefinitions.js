@@ -58,8 +58,8 @@ const PRESETS = [
     id: "preset_04",
     emoji: "🪝",
     name: "挂钩",
-    description: describe(handDelta("+1"), "宝藏栏位"),
-    effects: { treasureSlotDelta: 1 },
+    description: describe(handDelta("+2"), "宝藏栏位"),
+    effects: { treasureSlotDelta: 2 },
   },
   {
     id: "preset_05",
@@ -121,7 +121,6 @@ const PRESETS = [
     effects: {
       wordLengthJudgmentBonus: 1,
       treasureSlotDelta: -1,
-      treasureSlotsUseFiveSlotLayoutAtFour: true,
     },
   },
 ];

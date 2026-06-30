@@ -171,6 +171,7 @@ export function createGridDropAnim(deps) {
           const tid = tile?.id != null && tile.id !== "" ? String(tile.id) : "";
           const stagger = gridTileEntranceDelay(row, col);
           gsapLib.killTweensOf(el);
+          gsapLib.set(el, { x: 0, scale: 1, force3D: true });
           const dDrop = GRID_DROP_DURATION;
           const dFlip = GRID_FLIP_DURATION;
           const flipDelay = gridTileEntranceDelay(row, col, 0.65);

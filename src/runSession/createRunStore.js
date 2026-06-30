@@ -35,7 +35,7 @@ export function createRunStore(props) {
     return runRng.value.next();
   }
 
-  const ownedTreasures = ref([null, null, null, null, null]);
+  const ownedTreasures = ref([null, null, null, null, null, null]);
   const levelIndex = ref(RUN_START_LEVEL_INDEX);
   const isEndlessRun = ref(false);
   const money = ref(0);

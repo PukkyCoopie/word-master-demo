@@ -1,6 +1,6 @@
 import {
   TREASURE_BAR_SLOT_GAP_RPX,
-  TREASURE_BAR_STACK_FILL_THRESHOLD,
+  TREASURE_BAR_STACK_REFERENCE_SLOT_COUNT,
 } from "./treasureBarLayout.js";
 
 /** 宝藏全览弹窗固定高度（rpx，原 640 的 150%） */
@@ -26,14 +26,14 @@ export const TREASURE_BAR_CTN_HORIZONTAL_PAD_RPX = 8;
 export const TREASURE_COLLECTION_CELL_SIZE_RPX = 96;
 
 /**
- * 宝藏栏 9 槽非叠放均分时的参考格边长（rpx，设计稿写死）。
- * floor((734 - 8×8) / 9) = 74
+ * 宝藏栏叠放参考 8 槽均分时的参考格边长（rpx，设计稿写死）。
+ * floor((734 - 7×8) / 8) = 84
  */
 const TREASURE_BAR_REFERENCE_CELL_MIN_RPX = Math.floor(
   (GAME_LOGIC_WIDTH_RPX
     - TREASURE_BAR_CTN_HORIZONTAL_PAD_RPX * 2
-    - (TREASURE_BAR_STACK_FILL_THRESHOLD - 1) * TREASURE_BAR_SLOT_GAP_RPX)
-  / TREASURE_BAR_STACK_FILL_THRESHOLD,
+    - (TREASURE_BAR_STACK_REFERENCE_SLOT_COUNT - 1) * TREASURE_BAR_SLOT_GAP_RPX)
+  / TREASURE_BAR_STACK_REFERENCE_SLOT_COUNT,
 );
 
 /**

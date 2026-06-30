@@ -333,6 +333,14 @@ export function useShopPhaseController(options) {
     shopVoucherBonusShelf.value = null;
   }
 
+  /** 离店进入 Boss 小关前：促销追加券失效（Boss 前最后一次进店仍可使用） */
+  function expireSpellBonusShopVoucherIfEnteringBoss() {
+    const nextAfterShop = getNextLevelDefAfterShop();
+    if (parseLevelSubFromId(nextAfterShop?.id) === 3) {
+      clearShopVoucherBonusShelf();
+    }
+  }
+
   function hasSpellBonusShopVoucher() {
     return shopVoucherBonusShelf.value?.kind === "offer";
   }
@@ -635,10 +643,6 @@ export function useShopPhaseController(options) {
 
   function refreshShopVoucherShelfForCurrentVisit() {
     const levelId = getCurrentLevelId() ?? "1-1";
-    const nextAfterShop = getNextLevelDefAfterShop();
-    if (parseLevelSubFromId(nextAfterShop?.id) === 3) {
-      clearShopVoucherBonusShelf();
-    }
     const shelfGen = getVoucherShelfGeneration(levelId);
     if (shopVoucherShelfGeneration.value !== shelfGen) {
       shopVoucherShelfGeneration.value = shelfGen;
@@ -942,6 +946,7 @@ export function useShopPhaseController(options) {
     makeEmptyPackSlot,
     makeEmptyVoucherSlot,
     clearShopVoucherBonusShelf,
+    expireSpellBonusShopVoucherIfEnteringBoss,
     runOwnedTreasuresOnShopEnterFx,
     getOwnedUpgradeLevelByGroup,
     nextOfferInstanceId,

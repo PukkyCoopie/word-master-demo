@@ -5,7 +5,7 @@ import { ACCESSORY_CROP } from "./accessoryCatalog.js";
 import { readTreasureAccessoryIds } from "./accessoryState.js";
 
 /** 无裁剪配饰时的默认已拥有宝藏栏位数 */
-export const BASE_TREASURE_SLOT_COUNT = 5;
+export const BASE_TREASURE_SLOT_COUNT = 6;
 
 /**
  * @param {readonly string[]} keys

@@ -1803,6 +1803,62 @@ export function useGameState(gameOpts = {}) {
   }
 
   /**
+   * 法术「生长」：将指定牌张在字母库顺序中后移 1 位（与下一枚交换）。
+   * @param {number[]} uids
+   * @returns {boolean}
+   */
+  function shiftDeckCardsBackByUids(uids) {
+    const ids = [
+      ...new Set(
+        (Array.isArray(uids) ? uids : [])
+          .map((u) => Math.floor(Number(u)))
+          .filter((u) => Number.isFinite(u)),
+      ),
+    ];
+    if (!ids.length) return false;
+
+    const snap = [...initialDeckSnapshot.value];
+    /** @type {number[]} */
+    const snapIndices = ids
+      .map((uid) =>
+        snap.findIndex(
+          (c) =>
+            c &&
+            typeof c === "object" &&
+            /** @type {{ _dcUid?: number }} */ (c)._dcUid === uid,
+        ),
+      )
+      .filter((i) => i >= 0 && i < snap.length - 1)
+      .sort((a, b) => b - a);
+    if (!snapIndices.length) return false;
+
+    for (const si of snapIndices) {
+      const tmp = snap[si];
+      snap[si] = snap[si + 1];
+      snap[si + 1] = tmp;
+    }
+    initialDeckSnapshot.value = snap;
+
+    const d = [...deck.value];
+    for (const uid of ids) {
+      const card = snap.find(
+        (c) =>
+          c &&
+          typeof c === "object" &&
+          /** @type {{ _dcUid?: number }} */ (c)._dcUid === uid,
+      );
+      if (!card) continue;
+      const di = d.indexOf(card);
+      if (di < 0 || di >= d.length - 1) continue;
+      const tmp = d[di];
+      d[di] = d[di + 1];
+      d[di + 1] = tmp;
+    }
+    deck.value = d;
+    return true;
+  }
+
+  /**
    * 从字母库 multiset 移除指定 `_dcUid` 的牌张；同步抽牌堆。
    * @param {number} uid
    * @param {{ clearGrid?: boolean }} [options] `clearGrid` 默认 true；拼词消耗中的格应传 false，由 `applySubmitRefill` 处理棋盘
@@ -2257,6 +2313,8 @@ export function useGameState(gameOpts = {}) {
     releaseManacleBossTopRow,
 
     removeDeckLetterInstancesByRaws,
+
+    shiftDeckCardsBackByUids,
 
     removeDeckCardsForSubmittedWord,
 

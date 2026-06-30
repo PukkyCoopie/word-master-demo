@@ -83,6 +83,9 @@ let lastWordDragPresentations = null;
 const gridTileRefs = ref([]);
 const wordSlotRefs = /** @type {(HTMLElement | undefined)[]} */ ([]);
 
+/** 计分追加 S 弹出动画期间：缩放仍按原词长，弹出完成后随完整词长缩小 */
+const submitScoringAppendScaleLocked = ref(false);
+
 /** 计分动画中报纸等追加的临时词槽字母（不参与拼词/字母库） */
 const submitScoringAppendPresentations = ref(/** @type {object[]} */ ([]));
 
@@ -100,6 +103,10 @@ function setSubmitScoringAppendPresentations(nextTiles) {
 
 function setSubmitScoringAppendPresentation(tile) {
   setSubmitScoringAppendPresentations(tile ? [tile] : []);
+}
+
+function setSubmitScoringAppendScaleLocked(locked) {
+  submitScoringAppendScaleLocked.value = locked === true;
 }
 
 /** 词槽布局 ↔ 飞字动画桥（updateSlotPositions 定义后写入） */
@@ -758,11 +765,12 @@ function resolveWordSlotLayoutCount() {
   return baseCount;
 }
 
-/** 计分追加 S 期间：缩放仍按原词长，仅位移挤开，避免已有字母块缩小 */
+/** 计分追加 S 期间：pop 动画阶段缩放仍按原词长；弹出完成后按完整词长（含 S）缩小 */
 function resolveWordSlotScaleSlotCount() {
   const appendLen = submitScoringAppendPresentations.value.length;
   if (
     appendLen > 0 &&
+    submitScoringAppendScaleLocked.value &&
     !tileDragActive.value &&
     wordDragReturnAnimSlot.value == null
   ) {
@@ -1343,6 +1351,7 @@ function disposeSlotRaf() {
     displayWordSlotPresentations,
     setSubmitScoringAppendPresentation,
     setSubmitScoringAppendPresentations,
+    setSubmitScoringAppendScaleLocked,
     setGridTileRef,
     getGridTileElByIndex,
     setWordSlotRef,

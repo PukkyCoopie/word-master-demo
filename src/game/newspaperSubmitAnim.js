@@ -48,6 +48,7 @@ export async function runNewspaperAppendSequence({
 
   const preLen = getSeedLengthTableLenBeforeAppend(detailed);
 
+  callbacks.setSubmitScoringAppendScaleLocked?.(true);
   callbacks.setSubmitScoringAppendPresentations?.([]);
   await nextTick();
 
@@ -84,6 +85,8 @@ export async function runNewspaperAppendSequence({
     }
   }
 
+  callbacks.setSubmitScoringAppendScaleLocked?.(false);
+  callbacks.ensureSlotRafRunning?.();
   await scoringSleep(NEWSPAPER_POST_APPEND_GAP_MS, sp);
 }
 
@@ -98,7 +101,7 @@ function playNewspaperAppendSlotPop(slotEl, gsapLib, sp) {
   return new Promise((resolve) => {
     const tl = gsapLib.timeline({
       onComplete: () => {
-        gsapLib.set(slotEl, { scale: 1, opacity: 1, transformOrigin: "50% 50%" });
+        gsapLib.set(slotEl, { clearProps: "scale,opacity,transform" });
         resolve();
       },
     });

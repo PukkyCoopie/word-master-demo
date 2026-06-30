@@ -581,6 +581,7 @@ function resolveSpellTargetTile(ctx, p) {
  *   markTileAsWildcard: (tile: Record<string, unknown>) => void,
  *   touchGrid: () => void,
  *   removeDeckLetterInstancesByRaws: (raws: string[]) => void,
+ *   shiftDeckCardsBackByUids?: (uids: number[]) => boolean,
  *   removeDeckCardByUid: (uid: number) => boolean,
  *   appendShopDeckEntries: (entries: { raw: string, materialId?: string | null, accessoryId?: string | null, treasureAccessoryId?: string | null }[]) => object[],
  *   remapTileFromRawLetter: (row: number, col: number, raw: string, keepTileId?: boolean) => void,
@@ -777,6 +778,15 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
         g[p.row][p.col] = b;
         g[p.row + 1][p.col] = a;
       }
+      /** @type {number[]} */
+      const deckUids = [];
+      for (const p of ordered) {
+        const gp = resolveSpellTargetsToGridPositions([p], g, ROWS, COLS);
+        if (gp.length > 0) continue;
+        const uid = Math.floor(Number(p?.deckCardUid));
+        if (Number.isFinite(uid)) deckUids.push(uid);
+      }
+      if (deckUids.length) ctx.shiftDeckCardsBackByUids?.(deckUids);
       break;
     }
     case "delete_back": {

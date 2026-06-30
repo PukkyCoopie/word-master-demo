@@ -45,13 +45,26 @@ export function deckStackMaterialAnimateEnabled(stackExpanded, materialTileCount
 }
 
 export function deckStackPileCellStyle(stack, idx) {
-  const n = Math.max(1, stack?.entries?.length ?? 1);
+  const entries = deckStackPileVisibleEntries(stack);
+  const n = Math.max(1, entries.length);
   const rotDeg = deckStackPileRotationDeg(n, idx);
   return {
     zIndex: String(idx),
     transform: `rotate(${rotDeg}deg)`,
     transformOrigin: "50% 50%",
   };
+}
+
+/**
+ * 抽牌堆已空时仅展示顶面一张，避免整摞 grid 牌旋转叠放悬空。
+ * @param {{ entries?: unknown[], inDrawPile?: number } | null | undefined} stack
+ */
+export function deckStackPileVisibleEntries(stack) {
+  const entries = Array.isArray(stack?.entries) ? stack.entries : [];
+  if (entries.length <= 1) return entries;
+  const inDraw = Math.max(0, Math.floor(Number(stack?.inDrawPile) || 0));
+  if (inDraw > 0) return entries;
+  return [entries[entries.length - 1]];
 }
 
 /** 展开列表中单块：已上场过的牌张 resting 透明度（与 `.deck-expand-tile-hit--dimmed` 一致） */
