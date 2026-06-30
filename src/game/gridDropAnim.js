@@ -15,6 +15,7 @@ export const GRID_FLIP_DURATION = 0.46;
  * @property {(kind: string) => void} [triggerHaptic]
  * @property {number} rows
  * @property {number} cols
+ * @property {() => number} [getPlayableTopRow] 镣铐等：首行可玩格索引（默认 0）
  * @property {typeof gsap} [gsapLib]
  */
 
@@ -32,11 +33,20 @@ export function createGridDropAnim(deps) {
     triggerHaptic = () => {},
     rows: ROWS,
     cols: COLS,
+    getPlayableTopRow = () => 0,
     gsapLib = gsap,
   } = deps;
 
+  function resolvePlayableTopRow() {
+    const top = Math.floor(Number(getPlayableTopRow()) || 0);
+    return Math.max(0, Math.min(top, ROWS - 1));
+  }
+
   function gridTileEntranceDelay(row, col, colMul = 1) {
-    return gridTileEntranceDelayKey(row, col, ROWS, COLS, colMul);
+    const topRow = resolvePlayableTopRow();
+    const playableRows = ROWS - topRow;
+    const playableRow = Math.max(0, row - topRow);
+    return gridTileEntranceDelayKey(playableRow, col, playableRows, COLS, colMul);
   }
 
   function isGridCellEmptyForDropAnim(cell) {
@@ -56,8 +66,11 @@ export function createGridDropAnim(deps) {
 
   /** @returns {number} 相对落点格向上的偏移行数（乘 stepY 为 GSAP y0） */
   function gridRefillNewTileDropOffsetRows(row, col) {
-    if (gridColumnHasEmptyAbove(row, col)) return ROWS + row + 2;
-    return row + 2;
+    const topRow = resolvePlayableTopRow();
+    const playableRow = Math.max(0, row - topRow);
+    const playableRows = ROWS - topRow;
+    if (gridColumnHasEmptyAbove(row, col)) return playableRows + row + 2;
+    return playableRow + 2;
   }
 
   /** 补牌前按 tile.id 记录视口矩形（须与 `snapshotGridCellsByTileId()` 同一时刻调用，保证 FLIP 一致） */
@@ -76,10 +89,13 @@ export function createGridDropAnim(deps) {
   }
 
   function measureGridTileStepY() {
-    const e0 = getGridTileElByIndex(0);
-    const e4 = getGridTileElByIndex(COLS);
-    if (e0 && e4) {
-      const dy = e4.getBoundingClientRect().top - e0.getBoundingClientRect().top;
+    const topRow = resolvePlayableTopRow();
+    const i0 = topRow * COLS;
+    const i1 = i0 + COLS;
+    const e0 = getGridTileElByIndex(i0);
+    const e1 = getGridTileElByIndex(i1);
+    if (e0 && e1) {
+      const dy = e1.getBoundingClientRect().top - e0.getBoundingClientRect().top;
       return Math.max(48, dy);
     }
     return 72;
@@ -207,9 +223,11 @@ export function createGridDropAnim(deps) {
             }
           } else {
             newDropCount += 1;
+            const topRow = resolvePlayableTopRow();
+            const playableRow = Math.max(0, row - topRow);
             const dropOffsetRows = gridRefillNewTileDropOffsetRows(row, col);
             const y0 = -dropOffsetRows * stepY;
-            const dropFromAboveGrid = dropOffsetRows > row + 2;
+            const dropFromAboveGrid = dropOffsetRows > playableRow + 2;
             gsapLib.set(el, {
               x: 0,
               y: y0,
@@ -234,11 +252,19 @@ export function createGridDropAnim(deps) {
     });
   }
 
+  /** 首次入场：相对可玩区顶行的向上偏移行数（× stepY 为初始 y） */
+  function gridIntroDropOffsetRows(row) {
+    const topRow = resolvePlayableTopRow();
+    const playableRow = Math.max(0, row - topRow);
+    return playableRow + 2.2;
+  }
+
   return {
     captureGridRectsByTileId,
     measureGridTileStepY,
     measureGridTileStepX,
     gridRefillNewTileDropOffsetRows,
+    gridIntroDropOffsetRows,
     gridTileEntranceDelay,
     runGridDropAnimation,
   };

@@ -37,6 +37,14 @@ npm run android:phone
 
 **前提**：手机 USB 调试已开并已连接；本机有 adb（Android SDK platform-tools）。
 
+**本机 adb 路径（Windows，PATH 里通常没有）**：
+
+```
+C:\Users\2020\AppData\Local\Android\Sdk\platform-tools\adb.exe
+```
+
+Agent / 脚本应用 `scripts/lib/resolve-adb.mjs` 的 `resolveAdb()`，勿只跑裸 `adb`。
+
 实现：`scripts/android-phone.mjs`（内部编译走 `npm run cap:apk`）。
 
 APK 输出：`android/app/build/outputs/apk/debug/word_master_debug_<版本>.apk`

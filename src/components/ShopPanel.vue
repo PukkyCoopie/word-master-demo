@@ -1,9 +1,7 @@
 <template>
   <div class="shop-panel">
     <div class="shop-header-panel">
-      <TileLetterShowcase class="shop-logo" aria-label="商店" content-align="start" :rows="shopTitleRows" />
-
-      <div class="shop-header-right-col">
+      <div class="shop-header-info-col">
         <div
           ref="shopWalletBoxRef"
           class="header-box header-box-split header-box-wallet"
@@ -31,6 +29,8 @@
           <span class="header-next-level-id">{{ nextLevelId || "—" }}</span>
         </div>
       </div>
+
+      <TileLetterShowcase class="shop-logo" aria-label="商店" content-align="start" :rows="shopTitleRows" />
     </div>
 
     <ResultArea
@@ -1176,7 +1176,7 @@ defineExpose({
   min-width: 0;
 }
 
-.shop-header-right-col {
+.shop-header-info-col {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -1184,7 +1184,7 @@ defineExpose({
   gap: calc(6 * var(--rpx));
 }
 
-.shop-header-right-col .header-box {
+.shop-header-info-col .header-box {
   flex: 0 0 auto;
   width: 100%;
 }

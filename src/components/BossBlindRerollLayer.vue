@@ -10,7 +10,6 @@
       :aria-labelledby="titleId"
     >
       <div class="treasure-detail-header-panel boss-blind-reroll-stagger">
-        <div class="treasure-detail-header-logo-sizer" aria-hidden="true"></div>
         <div
           class="header-box header-box-split header-box-wallet treasure-detail-wallet"
           title="当前钱包余额"
@@ -22,6 +21,7 @@
             <span class="header-wallet-amount">{{ formatWallet(walletAmount) }}</span>
           </span>
         </div>
+        <div class="treasure-detail-header-logo-sizer" aria-hidden="true"></div>
       </div>
 
       <div class="treasure-detail-body">

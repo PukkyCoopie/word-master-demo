@@ -102,7 +102,7 @@
 	--tile-lucky-char-outline: rgba(70, 28, 88, 0.62);
 	--radius: calc(8 * var(--rpx));
 	--shadow: 0 calc(2 * var(--rpx)) calc(8 * var(--rpx)) rgba(0, 0, 0, 0.08);
-	/* 无 filter 叠层：Boss 削弱压暗、按钮 hover/active、宝藏栏变暗 */
+	/* 无 filter 叠层：Boss 无效化压暗、按钮 hover/active、宝藏栏变暗 */
 	--overlay-debuff: rgba(58, 54, 50, 0.3);
 	--overlay-debuff-light: rgba(58, 54, 50, 0.24);
 	--overlay-hover-bright: rgba(255, 255, 255, 0.08);
@@ -1266,7 +1266,7 @@ textarea::-moz-placeholder {
 	letter-spacing: 0.02em;
 }
 
-/* word-slot 记分高光与占位（削弱格见 .letter-tile-boss-debuff ::before 叠层） */
+/* word-slot 记分高光与占位（无效化格见 .letter-tile-boss-debuff ::before 叠层） */
 .word-slots .word-slot-tile.word-slot-scoring-highlight:not(:has(.letter-tile-boss-debuff)) {
 	box-shadow: var(--shadow), var(--tile-scoring-highlight-shadow);
 	z-index: 5;
@@ -1774,7 +1774,7 @@ textarea::-moz-placeholder {
 	z-index: 2;
 }
 
-/* 记分高光：削弱格整块槽位略提亮，仍明显偏暗 */
+/* 记分高光：无效化格整块槽位略提亮，仍明显偏暗 */
 .word-slots .word-slot-tile.word-slot-scoring-highlight.word-slot-tile--boss-debuff {
 	box-shadow: var(--shadow), var(--tile-scoring-highlight-shadow);
 	z-index: 5;
@@ -4588,7 +4588,8 @@ html.has-rarity-tier-merge .shop-treasure-frame .letter-gem.gem-common:not(.shop
 .treasure-detail-fly-clone-root {
 	pointer-events: none;
 	overflow: visible;
-	visibility: hidden;
+	contain: layout style;
+	transform: translateZ(0);
 }
 
 .treasure-detail-stack--collection-locked {
@@ -4660,10 +4661,6 @@ html.has-rarity-tier-merge .shop-treasure-frame .letter-gem.gem-common:not(.shop
 	box-shadow: none;
 }
 
-.treasure-detail-backdrop--boot .treasure-detail-header-panel {
-	opacity: 0;
-}
-
 .treasure-detail-backdrop--boot .treasure-detail-stagger-el {
 	opacity: 0;
 }
@@ -4686,16 +4683,26 @@ html.has-rarity-tier-merge .shop-treasure-frame .letter-gem.gem-common:not(.shop
 	opacity: 0;
 }
 
-/* 顶栏与 ShopPanel .shop-header-panel 同款 padding / gap / 左右分布 */
+/* 与 InRunShopPhase .shop-portal-root 同 padding，使钱包与背后 ShopPanel 像素对齐 */
 .treasure-detail-header-panel {
 	flex-shrink: 0;
 	width: 100%;
 	box-sizing: border-box;
-	padding: calc(14 * var(--rpx)) calc(14 * var(--rpx));
+	padding: calc(14 * var(--rpx));
 	display: flex;
 	align-items: flex-start;
 	justify-content: space-between;
 	gap: calc(12 * var(--rpx));
+}
+
+.treasure-detail-header-panel .header-box {
+	flex: 1;
+	min-width: 0;
+}
+
+.treasure-detail-header-panel .treasure-detail-wallet {
+	opacity: 0;
+	pointer-events: none;
 }
 
 /*
@@ -4710,11 +4717,6 @@ html.has-rarity-tier-merge .shop-treasure-frame .letter-gem.gem-common:not(.shop
 	overflow: hidden;
 	visibility: hidden;
 	pointer-events: none;
-}
-
-.treasure-detail-header-panel .header-box {
-	flex: 1;
-	min-width: 0;
 }
 
 .treasure-detail-body {
@@ -4768,14 +4770,6 @@ html.has-rarity-tier-merge .shop-treasure-frame .letter-gem.gem-common:not(.shop
 	min-height: calc(40 * var(--rpx) * 1.25);
 	min-width: 0;
 	width: 100%;
-}
-
-.treasure-detail-backdrop .header-split-label {
-	font-size: calc(24 * var(--rpx));
-}
-
-.treasure-detail-backdrop .header-wallet-marks {
-	font-size: calc(28 * var(--rpx));
 }
 
 .treasure-detail-icon-column .shop-treasure-price {

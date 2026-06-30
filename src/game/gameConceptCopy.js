@@ -225,8 +225,8 @@ export const GAME_TERM_CONCEPT_BY_LABEL = Object.freeze({
     title: "配饰",
     effectDescription: "可以镶嵌在宝藏或字母块上，提供一些额外效果",
   }),
-  削弱: Object.freeze({
-    title: "削弱",
+  无效: Object.freeze({
+    title: "无效",
     effectDescription: "会跳过计分，且增益不会生效",
   }),
 });

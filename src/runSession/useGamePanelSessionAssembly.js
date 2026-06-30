@@ -3,6 +3,7 @@ import gsap from "gsap";
 import { DECK_PREVIEW_KEY } from "../components/run/deckPreviewKey.js";
 import { coerceRunSeedNumeric } from "../game/runRng.js";
 import { createGridDropAnim } from "../game/gridDropAnim.js";
+import { MANACLE_PLAYABLE_TOP_ROW } from "../game/bossMechanicsContext.js";
 import { syncTileStateToDeckCard } from "../game/deckCardSync.js";
 import { recordWordSubmit } from "../game/runMatchStats.js";
 import { buildSettlementSnapshot } from "../game/buildSettlementSnapshot.js";
@@ -676,6 +677,7 @@ const gridDropAnim = createGridDropAnim({
   triggerHaptic,
   rows: ROWS,
   cols: COLS,
+  getPlayableTopRow: () => (isManacleBossGrid.value ? MANACLE_PLAYABLE_TOP_ROW : 0),
 });
 
 runLifecycle.bindGridDropAnim(gridDropAnim);

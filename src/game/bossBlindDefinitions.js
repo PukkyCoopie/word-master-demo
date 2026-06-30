@@ -12,7 +12,7 @@ export const BOSS_BY_SLUG = Object.freeze({
     slug: "the_hook",
     nameZh: "倒钩",
     scoreBaseMult: 2,
-    uiDescription: "每次拼词后，场上随机四格被削弱",
+    uiDescription: "每次拼词后，场上随机四格变为无效",
     kind: "normal",
   },
   the_ox: {
@@ -82,21 +82,21 @@ export const BOSS_BY_SLUG = Object.freeze({
     slug: "the_plant",
     nameZh: "枯枝",
     scoreBaseMult: 2,
-    uiDescription: "所有稀有字母被削弱",
+    uiDescription: "所有稀有字母变为无效",
     kind: "normal",
   },
   the_vowel: {
     slug: "the_vowel",
     nameZh: "口罩",
     scoreBaseMult: 2,
-    uiDescription: "所有元音字母被削弱",
+    uiDescription: "所有元音字母变为无效",
     kind: "normal",
   },
   the_consonant: {
     slug: "the_consonant",
     nameZh: "乌鸦",
     scoreBaseMult: 2,
-    uiDescription: "所有辅音字母被削弱",
+    uiDescription: "所有辅音字母变为无效",
     kind: "normal",
   },
   the_serpent: {
@@ -110,7 +110,7 @@ export const BOSS_BY_SLUG = Object.freeze({
     slug: "the_pillar",
     nameZh: "立柱",
     scoreBaseMult: 2,
-    uiDescription: "前两小关使用过的字母会被削弱",
+    uiDescription: "前两小关使用过的字母会变为无效",
     kind: "normal",
   },
   the_needle: {
@@ -152,7 +152,7 @@ export const BOSS_BY_SLUG = Object.freeze({
     slug: "verdant_leaf",
     nameZh: "绿叶",
     scoreBaseMult: 2,
-    uiDescription: "在你卖出一个宝藏前，所有卡牌都是削弱状态",
+    uiDescription: "在你卖出一个宝藏前，所有字母块均为无效状态",
     kind: "showdown",
   },
   violet_vessel: {

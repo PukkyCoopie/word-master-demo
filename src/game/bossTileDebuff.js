@@ -9,7 +9,7 @@ import {
  * @typedef {{ pillarUsedDeckUids?: Set<number>, verdantTreasureSold?: boolean, ownedSlotTreasureIds?: (string | null | undefined)[], treasureRun?: import('../treasures/treasureRunState.js').TreasureRunState | null }} BossTileDebuffContext
  */
 
-/** Boss 削弱格：拼词槽内与棋盘上的一切块能力（材质、配饰、棋盘光环等）均不生效。 */
+/** Boss 无效化格：拼词槽内与棋盘上的一切块能力（材质、配饰、棋盘光环等）均不生效。 */
 /** @param {{ bossTileDebuffed?: boolean } | null | undefined} tile */
 export function isBossTileDebuffed(tile) {
   return tile?.bossTileDebuffed === true;
@@ -21,7 +21,7 @@ export function isUndeformedWildcardGridTile(tile) {
   return isUndeformedWildcardLetter(tile.letter);
 }
 
-/** 棋盘上仍为 `?` 的万能块不受此类 Boss 削弱；变形入词后再按字母/牌张身份判定。 */
+/** 棋盘上仍为 `?` 的万能块不受此类 Boss 无效化；变形入词后再按字母/牌张身份判定。 */
 const UNDEF_WILDCARD_EXEMPT_DEBUFF_SLUGS = new Set([
   "the_plant",
   "the_vowel",
@@ -29,12 +29,12 @@ const UNDEF_WILDCARD_EXEMPT_DEBUFF_SLUGS = new Set([
   "the_pillar",
 ]);
 
-/** 持续光环类削弱（钥匙解除后按规则清除） */
+/** 持续光环类无效化（钥匙解除后按规则清除） */
 export const CONTINUOUS_BOSS_DEBUFF_SLUGS = Object.freeze(
   new Set(["the_plant", "the_vowel", "the_consonant", "the_pillar", "verdant_leaf"]),
 );
 
-/** 扳机类削弱：倒钩随机标记；钥匙解除后全盘清除 */
+/** 扳机类无效化：倒钩随机标记；钥匙解除后全盘清除 */
 export const TRIGGER_BOSS_DEBUFF_SLUGS = Object.freeze(new Set(["the_hook"]));
 
 /** @param {string} slug */
@@ -50,7 +50,7 @@ export function gridTileRawLowerForBoss(tile) {
 }
 
 /**
- * 按 Boss 规则刷新单格 `bossTileDebuffed`（倒钩等随机削弱不在此处理）。
+ * 按 Boss 规则刷新单格 `bossTileDebuffed`（倒钩等随机无效化不在此处理）。
  * @param {Record<string, unknown>} tile
  * @param {string} slug
  * @param {BossTileDebuffContext} [ctx]
@@ -105,8 +105,8 @@ export function applyBossTileDebuffState(tile, slug, ctx = {}) {
 }
 
 /**
- * 词槽/飞字/详情等展示层：按当前展示字母与稀有度判定 Boss 削弱；
- * 保留格上已有削弱（如倒钩随机标记），并与变形后字母类判定合并。
+ * 词槽/飞字/详情等展示层：按当前展示字母与稀有度判定 Boss 无效化；
+ * 保留格上已有无效化（如倒钩随机标记），并与变形后字母类判定合并。
  * @param {Record<string, unknown>} tile
  * @param {string} slug
  * @param {BossTileDebuffContext} [ctx]
@@ -139,7 +139,7 @@ export function clearTriggerBossDebuffsOnGrid(grid, rows = 4, cols = 4) {
 }
 
 /**
- * 钥匙解除 Boss 后：清除格上削弱（倒钩全盘清除；持续类按规则清除）。
+ * 钥匙解除 Boss 后：清除格上无效化（倒钩全盘清除；持续类按规则清除）。
  * @param {Record<string, unknown>[][] | null | undefined} grid
  * @param {string} activeBossSlug
  * @param {BossTileDebuffContext} [ctx]

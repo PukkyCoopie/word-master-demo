@@ -6,7 +6,7 @@
  * 1. 将 id 加入 `GRID_PRESENCE_SCORE_MATERIAL_IDS`
  * 2. 在 `GRID_PRESENCE_SCORE_MULT_BY_ID` 写入预览/结算乘数
  * 3. 在 `buildGridPresencePostLetterSteps` / `previewGridPresenceMultProduct` 中自动按格数与重播配饰次数叠乘（本模块负责排序与步列表）
- * Boss 削弱格（`bossTileDebuffed`）不参与棋盘光环统计。
+ * Boss 无效化格（`bossTileDebuffed`）不参与棋盘光环统计。
  */
 
 import { isBossTileDebuffed } from "./bossTileDebuff.js";

@@ -1530,6 +1530,7 @@ const ctrlLate = wireGamePanelControllers({
   normalizeExclusiveTileAccessoryPair,
   lengthLevelsByLength,
   lengthUpgradeObservatoryExtra,
+  spellCountsByLength,
   getWordLengthScoreForTableLen,
   getLengthMultiplier,
   scaleLengthContributionForBoss,

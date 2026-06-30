@@ -456,7 +456,7 @@ export function useGameState(gameOpts = {}) {
     };
   }
 
-  /** 新入盘或改字母后，按当前 Boss 刷新格上削弱标记 */
+  /** 新入盘或改字母后，按当前 Boss 刷新格上无效化标记 */
   function stampBossTileDebuffIfNeeded(tile) {
     if (!tile?.letter || String(tile.letter).trim() === "") return;
     applyBossTileDebuffState(tile, bossSlugForMechanics(), getBossTileDebuffContext());

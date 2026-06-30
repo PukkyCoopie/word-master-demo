@@ -941,7 +941,7 @@ const showTreasureAccessoryRegion = computed(
 );
 
 const bossDebuffConceptPanel = computed(() =>
-  props.payload?.bossTileDebuffed === true ? getGameTermConceptPanel("削弱") : null,
+  props.payload?.bossTileDebuffed === true ? getGameTermConceptPanel("无效") : null,
 );
 </script>
 

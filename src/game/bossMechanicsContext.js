@@ -9,6 +9,14 @@ export function isManacleBossGrid(slug) {
   return slug === "the_manacle";
 }
 
+/** 镣铐顶行封锁；下落/ stagger 按可玩区计时的首行索引（其余 Boss 为 0）。 */
+export const MANACLE_PLAYABLE_TOP_ROW = 1;
+
+/** @param {string} slug @returns {number} */
+export function getPlayableTopRowForBoss(slug) {
+  return isManacleBossGrid(slug) ? MANACLE_PLAYABLE_TOP_ROW : 0;
+}
+
 /** @param {string} slug */
 export function isAmberBossMaskActive(slug) {
   return slug === "amber_acorn";
@@ -82,7 +90,7 @@ export function evaluateOxBossHit(judgedLen, counts) {
 }
 
 /**
- * 牛 Boss：当前选词是否将触发「最常拼写长度 → 资金归零」。
+ * 公牛 Boss：当前选词是否将触发「最常拼写长度 → 资金归零」。
  * @param {Object} p
  * @param {boolean} p.dictionaryReady
  * @param {string} p.slug

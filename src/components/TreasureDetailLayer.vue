@@ -15,9 +15,8 @@
       :aria-labelledby="isDeckOffer ? undefined : titleId"
       @click.self="onBackdropSelfClick"
     >
-      <!-- 与 ShopPanel.shop-header-panel 同款：左上占位宽度对齐 SHOP 招牌；右上钱包仅在商店内打开详情时显示 -->
+      <!-- 顶栏 padding 对齐 InRunShopPhase .shop-portal-root（14rpx），非 ShopPanel .shop-header-panel -->
       <div class="treasure-detail-header-panel" @click.self="onBackdropSelfClick">
-        <div class="treasure-detail-header-logo-sizer" aria-hidden="true"></div>
         <div
           v-if="showHeaderWallet"
           ref="walletBoxRef"
@@ -31,6 +30,7 @@
             ><span class="header-wallet-amount">{{ formatWallet(walletAmount) }}</span>
           </span>
         </div>
+        <div class="treasure-detail-header-logo-sizer" aria-hidden="true"></div>
       </div>
 
       <div class="treasure-detail-body" @click.self="onBackdropSelfClick">
@@ -807,19 +807,21 @@
         :total="previewNavTotal"
         @step="onPreviewNavStep"
       />
-
-      <!-- 挂在 backdrop 内；position:fixed 相对视口，GSAP 写 left/top/width/height -->
-      <div
-        v-if="originRect && flyCloneActive"
-        ref="flyCloneRef"
-        class="treasure-detail-fly-clone-root"
-        :class="{
-          'shop-deck-offer-product-stack': isDeckOffer,
-          'treasure-detail-fly-clone-root--voucher-stack': isVoucherOffer && voucherDetailStacked,
-        }"
-        :style="collectionLockedFlyCloneStyle"
-        aria-hidden="true"
-      >
+    </div>
+  </Teleport>
+  <!-- 飞克隆 Teleport 到视口根，避免 backdrop 首帧大量子树 layout/paint 牵连 fixed 克隆（真机首次打开 + 宝藏多时易闪） -->
+  <Teleport defer to="#game-view-portal">
+    <div
+      v-if="originRect && flyCloneActive"
+      ref="flyCloneRef"
+      class="treasure-detail-fly-clone-root"
+      :class="{
+        'shop-deck-offer-product-stack': isDeckOffer,
+        'treasure-detail-fly-clone-root--voucher-stack': isVoucherOffer && voucherDetailStacked,
+      }"
+      :style="flyCloneFrozenLayout ?? undefined"
+      aria-hidden="true"
+    >
         <template v-if="isDeckOffer">
           <LetterTile
             variant="grid"
@@ -990,14 +992,13 @@
           </div>
         </div>
       </div>
-    </div>
   </Teleport>
 </template>
 
 <script setup>
 import gsap from "gsap";
 import { portalScrimGsapVars } from "../game/portalScrimBleed.js";
-import { computed, nextTick, onBeforeUpdate, onMounted, onUnmounted, ref, useId, watch } from "vue";
+import { computed, nextTick, onBeforeUpdate, onMounted, onUnmounted, ref, shallowRef, useId, watch } from "vue";
 import { EASE_TRANSFORM } from "../constants.js";
 import {
   getTreasureAccessoryChipVisual,
@@ -1271,6 +1272,21 @@ function staggerEnterOpacityForEl(_el) {
   return 1;
 }
 
+/** boot 期间 stagger 由 CSS 压 opacity；动画结束勿清 opacity，避免落地前闪一下 */
+function staggerEnterClearProps() {
+  return "transform";
+}
+
+/** @param {HTMLElement[]} staggerEls */
+function releaseStaggerOpacityInline(staggerEls) {
+  if (isCollectionLockedPreview.value) return;
+  for (const el of staggerEls) {
+    if (el instanceof HTMLElement) {
+      gsap.set(el, { clearProps: "opacity" });
+    }
+  }
+}
+
 /** @param {HTMLElement | null | undefined} iconColumn */
 function revealIconColumnAfterEnter(iconColumn) {
   if (!(iconColumn instanceof HTMLElement)) return;
@@ -1298,7 +1314,7 @@ function revealStaggerTargetsInstant(staggerEls) {
     gsap.set(el, {
       opacity: 1,
       y: 0,
-      clearProps: isCollectionLockedPreview.value ? "transform" : "opacity,transform",
+      clearProps: isCollectionLockedPreview.value ? "transform" : staggerEnterClearProps(),
     });
   }
 }
@@ -1993,6 +2009,53 @@ const accessoryPanelRef = ref(null);
 const actionsRef = ref(null);
 const titleGroupRef = ref(null);
 
+/** @returns {HTMLElement | null} */
+function headerWalletEl() {
+  const el = walletBoxRef.value;
+  return el instanceof HTMLElement ? el : null;
+}
+
+function prepareHeaderWalletHidden() {
+  if (!showHeaderWallet.value) return;
+  const wallet = headerWalletEl();
+  if (!wallet) return;
+  gsap.killTweensOf(wallet);
+  gsap.set(wallet, { opacity: 0, pointerEvents: "none" });
+}
+
+/** @param {number} [delaySec] */
+function runHeaderWalletEnterAnimation(delaySec = 0.04) {
+  if (!showHeaderWallet.value) return;
+  const wallet = headerWalletEl();
+  if (!wallet) return;
+  gsap.to(wallet, {
+    opacity: 1,
+    pointerEvents: "auto",
+    duration: 0.24,
+    delay: delaySec,
+    ease: EASE_TRANSFORM,
+    overwrite: "auto",
+  });
+}
+
+/** @param {gsap.core.Timeline} tl @param {number} [at] */
+function appendHeaderWalletCloseTween(tl, at = 0) {
+  if (!showHeaderWallet.value) return;
+  const wallet = headerWalletEl();
+  if (!wallet) return;
+  gsap.killTweensOf(wallet);
+  tl.to(
+    wallet,
+    {
+      opacity: 0,
+      pointerEvents: "none",
+      duration: 0.18,
+      ease: EASE_TRANSFORM,
+    },
+    at,
+  );
+}
+
 const closing = ref(false);
 const bootMask = ref(true);
 /** @type {Promise<void> | null} */
@@ -2103,38 +2166,80 @@ const flyCloneActive = ref(validOrigin(props.originRect));
 const initialEnterDone = ref(false);
 const previewNavRef = ref(null);
 
-/** 首帧即落在起点，避免未定位前露在错误位置；显隐由 CSS visibility + RAF 内 GSAP 接管 */
-const flyCloneStyle = computed(() => {
+/** 飞入克隆布局：开局写入一次，避免 bootMask 等响应式更新与 GSAP 抢 inline style（WebView 闪帧） */
+const flyCloneFrozenLayout = shallowRef(null);
+
+function freezeFlyCloneLayoutFromOrigin() {
   const r = props.originRect;
   if (!validOrigin(r)) {
-    return {
-      position: "fixed",
-      left: "-9999px",
-      top: "0",
-      width: "1px",
-      height: "1px",
-      zIndex: 9999,
-      boxSizing: "border-box",
-      margin: "0",
-      pointerEvents: "none",
-    };
+    flyCloneFrozenLayout.value = null;
+    return;
   }
-  return {
+  /** @type {Record<string, string>} */
+  const style = {
     position: "fixed",
     left: `${r.left}px`,
     top: `${r.top}px`,
     width: `${r.width}px`,
     height: `${r.height}px`,
-    zIndex: 9999,
+    zIndex: "9999",
     boxSizing: "border-box",
     margin: "0",
+    pointerEvents: "none",
+    visibility: "visible",
   };
-});
+  style.opacity = String(
+    isCollectionLockedPreview.value ? COLLECTION_LOCKED_PREVIEW_OPACITY : 1,
+  );
+  flyCloneFrozenLayout.value = style;
+}
 
-const collectionLockedFlyCloneStyle = computed(() => ({
-  ...flyCloneStyle.value,
-  ...(collectionLockedVisualStyle.value ?? {}),
-}));
+if (validOrigin(props.originRect)) {
+  freezeFlyCloneLayoutFromOrigin();
+}
+
+function clearFlyCloneFrozenLayout() {
+  flyCloneFrozenLayout.value = null;
+}
+
+/** 等待 Teleport/v-if 挂载后再写 GSAP，避免首帧 clone 不存在 */
+async function revealFlyCloneAtOriginWhenReady() {
+  if (!validOrigin(props.originRect)) return;
+  freezeFlyCloneLayoutFromOrigin();
+  if (!flyCloneActive.value) {
+    flyCloneActive.value = true;
+  }
+  let clone = flyCloneRef.value;
+  for (let i = 0; i < 5 && !clone; i += 1) {
+    await nextTick();
+    clone = flyCloneRef.value;
+  }
+  if (!clone) {
+    return;
+  }
+  revealFlyCloneAtOriginEarly();
+}
+
+/** 遮罩淡入与字体/测量等待期间：克隆立刻钉在起点并可见，避免货架商品被盖住而飞行层尚未出现 */
+function revealFlyCloneAtOriginEarly() {
+  if (!validOrigin(props.originRect)) return;
+  freezeFlyCloneLayoutFromOrigin();
+  const clone = flyCloneRef.value;
+  if (!clone) return;
+  const r = props.originRect;
+  gsap.killTweensOf(clone);
+  gsap.set(clone, {
+    clearProps: "transform",
+    visibility: "visible",
+    opacity: collectionLockedEnterOpacity(),
+    left: r.left,
+    top: r.top,
+    width: r.width,
+    height: r.height,
+    margin: "0",
+    pointerEvents: "none",
+  });
+}
 
 /**
  * @param {HTMLElement} backdrop
@@ -2157,6 +2262,9 @@ function applyEnterInitialHide(backdrop, staggerEls, targetVisual, resetBackdrop
   if (targetVisual) {
     preparePreviewFlyTargetHidden(targetVisual);
   }
+  if (resetBackdrop) {
+    prepareHeaderWalletHidden();
+  }
 }
 
 function runEnterAnimation() {
@@ -2176,12 +2284,16 @@ function runEnterAnimation() {
     targetVisual,
     iconColumnRef.value,
     flyCloneRef.value,
+    headerWalletEl(),
     ...staggerEls,
     ...(previewNavRef.value?.getAnimTargets?.() ?? []),
   ].filter(Boolean));
 
   bootMask.value = true;
   applyEnterInitialHide(backdrop, staggerEls, targetVisual);
+
+  void revealFlyCloneAtOriginWhenReady();
+  runHeaderWalletEnterAnimation();
 
   /* 遮罩与测量解耦：立刻从透明匀缓加深，避免等字体/RAF 后再起 tween 像闪一下 */
   gsap.fromTo(
@@ -2196,12 +2308,7 @@ function runEnterAnimation() {
 
   void nextTick()
     .then(() => (document.fonts?.ready != null ? document.fonts.ready : Promise.resolve()))
-    .then(
-      () =>
-        new Promise((r) => {
-          requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)));
-        }),
-    )
+    .then(() => new Promise((r) => requestAnimationFrame(r)))
     .then(() => {
       const backdropLive = backdropRef.value;
       const targetVisualLive = targetVisualRef.value;
@@ -2220,6 +2327,7 @@ function runEnterAnimation() {
       let cloneLive = flyCloneRef.value;
       if (originOk && !cloneLive) {
         flyCloneActive.value = true;
+        freezeFlyCloneLayoutFromOrigin();
       }
       if (originOk && !cloneLive) {
         return new Promise((r) => requestAnimationFrame(r)).then(() => {
@@ -2278,6 +2386,8 @@ function continueEnterAfterMeasure(ctx) {
   }
 
   if (hasFly && flyFrom && flyTo && cloneLive) {
+    freezeFlyCloneLayoutFromOrigin();
+
     gsap.killTweensOf(cloneLive);
     gsap.set(cloneLive, { clearProps: "transform" });
     gsap.set(cloneLive, {
@@ -2290,11 +2400,14 @@ function continueEnterAfterMeasure(ctx) {
       margin: "0",
       pointerEvents: "none",
     });
-    bootMask.value = false;
+    /* 飞行动画期间保持 boot：详情子树首帧 layout 不抢绘制，落地后再解除 */
 
     enterTl = gsap.timeline();
 
     const flyDuration = 0.36;
+    /** 背景文案/按钮：飞行中后期错峰入场（早于落地，但不抢首帧克隆） */
+    const flyStaggerStart = 0.14;
+    const flyPreviewNavStart = 0.26;
 
     enterTl.to(
       cloneLive,
@@ -2310,22 +2423,24 @@ function continueEnterAfterMeasure(ctx) {
     );
 
     if (props.previewNavTotal > 1) {
-      previewNavRef.value?.appendEnterAnimation?.(enterTl, 0.3);
+      previewNavRef.value?.appendEnterAnimation?.(enterTl, flyPreviewNavStart);
     }
 
     enterTl.add(
-      () => preRevealPreviewFlyTargetUnderClone(targetVisualLive, 1),
+      () => {
+        preRevealPreviewFlyTargetUnderClone(targetVisualLive, 1);
+      },
       Math.max(0, flyDuration - PREVIEW_FLY_COMMIT_LEAD_SEC),
     );
     enterTl.add(
       () => {
+        bootMask.value = false;
         commitPreviewFlyCloneSwap({
           targetEl: targetVisualLive,
           flyCloneEl: flyCloneRef.value,
           onDeactivateClone: () => {
-            requestAnimationFrame(() => {
-              flyCloneActive.value = false;
-            });
+            flyCloneActive.value = false;
+            clearFlyCloneFrozenLayout();
           },
           targetClearProps: previewFlyTargetClearProps(),
           targetOpacity: 1,
@@ -2343,12 +2458,13 @@ function continueEnterAfterMeasure(ctx) {
         duration: 0.18,
         stagger: 0.038,
         ease: EASE_TRANSFORM,
-        clearProps: isCollectionLockedPreview.value ? "transform" : "opacity,transform",
+        clearProps: isCollectionLockedPreview.value ? "transform" : staggerEnterClearProps(),
       },
-      0.12,
+      flyStaggerStart,
     );
     enterTl.eventCallback("onComplete", () => {
       initialEnterDone.value = true;
+      releaseStaggerOpacityInline(staggerLive);
     });
     return;
   }
@@ -2396,12 +2512,13 @@ function continueEnterAfterMeasure(ctx) {
       duration: 0.18,
       stagger: 0.038,
       ease: EASE_TRANSFORM,
-      clearProps: isCollectionLockedPreview.value ? "transform" : "opacity,transform",
+      clearProps: isCollectionLockedPreview.value ? "transform" : staggerEnterClearProps(),
     },
     0.05,
   );
   enterTl.eventCallback("onComplete", () => {
     initialEnterDone.value = true;
+    releaseStaggerOpacityInline(staggerLive);
   });
 }
 
@@ -2451,7 +2568,7 @@ function runContentEnterAnimation() {
       duration: 0.18,
       stagger: 0.038,
       ease: EASE_TRANSFORM,
-      clearProps: isCollectionLockedPreview.value ? "transform" : "opacity,transform",
+      clearProps: isCollectionLockedPreview.value ? "transform" : staggerEnterClearProps(),
     },
     0.05,
   );
@@ -2466,6 +2583,7 @@ function dismissFlyClone() {
   const clone = flyCloneRef.value;
   if (clone) gsap.killTweensOf(clone);
   flyCloneActive.value = false;
+  clearFlyCloneFrozenLayout();
 }
 
 function runCloseAnimation(shouldEmit, options = {}) {
@@ -2492,6 +2610,7 @@ function runCloseAnimation(shouldEmit, options = {}) {
     backdrop,
     targetVisual,
     clone,
+    headerWalletEl(),
     ...staggerEls,
     ...(previewNavRef.value?.getAnimTargets?.() ?? []),
   ].filter(Boolean));
@@ -2511,6 +2630,8 @@ function runCloseAnimation(shouldEmit, options = {}) {
     });
 
     previewNavRef.value?.appendCloseAnimation?.(tl, 0);
+
+    appendHeaderWalletCloseTween(tl, 0);
 
     if (backdrop) {
       tl.to(
@@ -2652,6 +2773,9 @@ onMounted(() => {
   armBackdropSelfCloseGuard();
   document.addEventListener("keydown", onDocumentKeydown);
   schedulePreviewLayerPresent(280);
+  if (validOrigin(props.originRect)) {
+    freezeFlyCloneLayoutFromOrigin();
+  }
   void nextTick(() => {
     const backdrop = backdropRef.value;
     const targetVisual = targetVisualRef.value;

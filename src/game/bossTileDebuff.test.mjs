@@ -8,7 +8,7 @@ import {
 
 const ctx = Object.freeze({ ownedSlotTreasureIds: [] });
 
-test("未变形万能块在棋盘上不受元音/辅音/稀有/立柱类 Boss 削弱", () => {
+test("未变形万能块在棋盘上不受元音/辅音/稀有/立柱类 Boss 无效化", () => {
   const tile = {
     letter: "?",
     rarity: "rare",
@@ -27,7 +27,7 @@ test("未变形万能块在棋盘上不受元音/辅音/稀有/立柱类 Boss �
   }
 });
 
-test("未变形万能块仍受绿叶 Boss 全局削弱", () => {
+test("未变形万能块仍受绿叶 Boss 全局无效化", () => {
   const tile = {
     letter: "?",
     isWildcard: true,
@@ -38,7 +38,7 @@ test("未变形万能块仍受绿叶 Boss 全局削弱", () => {
   assert.equal(tile.bossTileDebuffed, true);
 });
 
-test("词槽展示：万能块变形为元音后受口罩 Boss 削弱", () => {
+test("词槽展示：万能块变形为元音后受口罩 Boss 无效化", () => {
   const tile = {
     letter: "a",
     rarity: "common",
@@ -52,7 +52,7 @@ test("词槽展示：万能块变形为元音后受口罩 Boss 削弱", () => {
   );
 });
 
-test("词槽展示：保留倒钩等格上已有削弱", () => {
+test("词槽展示：保留倒钩等格上已有无效化", () => {
   const tile = {
     letter: "b",
     rarity: "common",

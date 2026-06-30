@@ -346,7 +346,7 @@ export function useWordSlotPresentation(options) {
     return pres;
   }
 
-  /** 词槽展示用：按展示字母重算 Boss 削弱（万能块变形入词后生效），并保留倒钩等格上已有标记 */
+  /** 词槽展示用：按展示字母重算 Boss 无效化（万能块变形入词后生效），并保留倒钩等格上已有标记 */
   function normalizeWordSlotPresentationTile(tile) {
     if (!tile || typeof tile !== "object") return tile;
     const bossTileDebuffed = resolvePresentationBossTileDebuffed(

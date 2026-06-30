@@ -122,6 +122,9 @@ export function useRunLifecycleController(options) {
   if (gridDropAnim) {
     runGridDropAnimationImpl = gridDropAnim.runGridDropAnimation;
     measureGridTileStepYImpl = gridDropAnim.measureGridTileStepY;
+    if (typeof gridDropAnim.gridIntroDropOffsetRows === "function") {
+      gridIntroDropOffsetRowsImpl = gridDropAnim.gridIntroDropOffsetRows;
+    }
   }
   const { transitionBusy } = phase;
   const {
@@ -193,6 +196,7 @@ export function useRunLifecycleController(options) {
 
   let runGridDropAnimationImpl = async (_tiles, _opts) => {};
   let measureGridTileStepYImpl = () => 48;
+  let gridIntroDropOffsetRowsImpl = (row) => row + 2.2;
 
   function ownedSlotTreasureIdListEarly() {
     return ownedTreasures.value.map((s) => s?.treasureId ?? null);
@@ -384,7 +388,7 @@ export function useRunLifecycleController(options) {
       if (!el) continue;
       const row = Math.floor(i / COLS);
       gsap.killTweensOf(el);
-      gsap.set(el, { x: 0, y: -(row + 2.2) * stepY, opacity: 0.55 });
+      gsap.set(el, { x: 0, y: -gridIntroDropOffsetRowsImpl(row) * stepY, opacity: 0.55 });
     }
     if (gridIntroDoneRef) gridIntroDoneRef.value = true;
     await new Promise((r) => requestAnimationFrame(r));
@@ -653,6 +657,9 @@ export function useRunLifecycleController(options) {
   function bindGridDropAnim(gda) {
     runGridDropAnimationImpl = gda.runGridDropAnimation;
     measureGridTileStepYImpl = gda.measureGridTileStepY;
+    if (typeof gda.gridIntroDropOffsetRows === "function") {
+      gridIntroDropOffsetRowsImpl = gda.gridIntroDropOffsetRows;
+    }
   }
 
   /**

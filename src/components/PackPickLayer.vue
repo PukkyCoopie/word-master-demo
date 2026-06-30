@@ -13,7 +13,6 @@
       :aria-labelledby="titleId"
     >
       <div class="pack-pick-header-panel pack-pick-enter-stagger">
-        <div class="treasure-detail-header-logo-sizer" aria-hidden="true"></div>
         <div
           class="header-box header-box-split header-box-wallet treasure-detail-wallet"
           title="当前钱包余额"
@@ -25,6 +24,7 @@
             <span class="header-wallet-amount">{{ formatWallet(walletAmount) }}</span>
           </span>
         </div>
+        <div class="treasure-detail-header-logo-sizer" aria-hidden="true"></div>
       </div>
 
       <div class="pack-pick-body">
@@ -36,7 +36,7 @@
           </div>
 
           <div
-            class="pack-pick-offers-panel"
+            class="pack-pick-offers-panel pack-pick-enter-stagger"
             :class="{ 'pack-pick-offers-panel--wide': isWideOfferRow }"
           >
             <div class="pack-pick-grid" role="list" aria-label="包内物品">
@@ -193,6 +193,11 @@ let disallowOverlayResume = false;
 
 const PACK_PICK_SCRIM_TRANSPARENT = "rgba(42, 38, 48, 0)";
 
+/** 离场时长（原 0.22 / 0.12 / 0.028，略放慢以便看清容器收起） */
+const PACK_PICK_CLOSE_BACKDROP_DURATION = 0.2;
+const PACK_PICK_CLOSE_STAGGER_DURATION = 0.11;
+const PACK_PICK_CLOSE_STAGGER_GAP = 0.026;
+
 /** @type {Map<string, HTMLElement | null>} */
 const cellRoots = new Map();
 
@@ -319,7 +324,7 @@ function playClose(options = {}) {
         backdrop,
         {
           ...portalScrimGsapVars(PACK_PICK_SCRIM_TRANSPARENT),
-          duration: 0.22,
+          duration: PACK_PICK_CLOSE_BACKDROP_DURATION,
           ease: EASE_TRANSFORM,
         },
         0,
@@ -333,8 +338,8 @@ function playClose(options = {}) {
         {
           opacity: 0,
           y: 5,
-          duration: 0.12,
-          stagger: 0.028,
+          duration: PACK_PICK_CLOSE_STAGGER_DURATION,
+          stagger: PACK_PICK_CLOSE_STAGGER_GAP,
           ease: EASE_TRANSFORM,
         },
         0,
