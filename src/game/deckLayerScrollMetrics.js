@@ -1,4 +1,4 @@
-/** 牌库自定义滚动条（较细；内容区可直接滚，不需宝藏全览同款粗轨） */
+/** 字母库自定义滚动条（较细；内容区可直接滚，不需宝藏全览同款粗轨） */
 export const DECK_LAYER_SCROLLBAR_TRACK_RPX = 8;
 export const DECK_LAYER_SCROLLBAR_GAP_RPX = 4;
 export const DECK_LAYER_SCROLLBAR_MIN_THUMB_RPX = 28;

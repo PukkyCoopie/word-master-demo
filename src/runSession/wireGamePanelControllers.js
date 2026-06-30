@@ -470,7 +470,7 @@ function wireGamePanelControllersEarly(d) {
 }
 
 /**
- * GamePanel controller 实例化（late：词槽 / 释义 / 详情 / 暂停 / Boss / 牌库预览 / 结算区）。
+ * GamePanel controller 实例化（late：词槽 / 释义 / 详情 / 暂停 / Boss / 字母库预览 / 结算区）。
  * @param {object} d
  */
 function wireGamePanelControllersLate(d) {

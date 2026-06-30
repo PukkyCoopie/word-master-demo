@@ -57,7 +57,7 @@ function readDeckLayerRpx() {
 }
 
 /**
- * 牌库浮层：scroll/expand/enter anim + 堆叠展开 FLIP（S.2 / 任务 6.4）。
+ * 字母库浮层：scroll/expand/enter anim + 堆叠展开 FLIP（S.2 / 任务 6.4）。
  *
  * @param {DeckPreviewLayerDeps} deps
  */

@@ -359,7 +359,7 @@
         @expand-click="onShopTreasureBarExpandClick"
       />
 
-      <div class="shop-footer-actions" role="group" aria-label="选项、信息与牌库">
+      <div class="shop-footer-actions" role="group" aria-label="选项、信息与字母库">
         <button
           type="button"
           class="deck-btn shop-footer-action-btn shop-footer-action-btn--options"
@@ -387,7 +387,7 @@
           @click="emit('view-deck')"
         >
           <i class="ri-stack-line deck-btn-icon" aria-hidden="true"></i>
-          <span>查看牌库</span>
+          <span>查看字母库</span>
         </button>
       </div>
     </div>

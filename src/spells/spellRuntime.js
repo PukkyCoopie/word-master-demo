@@ -272,7 +272,7 @@ function bumpTileRarityOne(tile, rarityLevelsByRarity) {
 }
 
 /**
- * 将法术目标（棋盘格或仅牌库牌张 proxy）改为新 raw 字母。
+ * 将法术目标（棋盘格或仅字母库牌张 proxy）改为新 raw 字母。
  * 须走 `tileAt` 解析目标，勿用 `p.row`/`p.col`——候选格多为 deckOnly，无棋盘坐标。
  *
  * @param {Record<string, unknown>} tile

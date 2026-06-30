@@ -145,7 +145,7 @@ async function clickShopPauseContinue(page) {
 
 /** @param {import('playwright').Page} page */
 async function clickShopDeckPreview(page) {
-  const deckBtn = page.locator(".shop-footer-actions button").filter({ hasText: "查看牌库" }).first();
+  const deckBtn = page.locator(".shop-footer-actions button").filter({ hasText: "查看字母库" }).first();
   if (!(await deckBtn.isVisible({ timeout: 2000 }).catch(() => false))) {
     return { ok: false, skipped: true, reason: "deck-btn-missing" };
   }

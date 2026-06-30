@@ -1,4 +1,4 @@
-/** 牌库 stack：最上层（idx = n-1）为 0°，往下依次略偏；张数越多每层转角越小 */
+/** 字母库 stack：最上层（idx = n-1）为 0°，往下依次略偏；张数越多每层转角越小 */
 export function deckStackPileRotationDeg(count, idx) {
   const n = Math.max(1, Math.round(Number(count)) || 1);
   if (n <= 1) return 0;
@@ -7,7 +7,7 @@ export function deckStackPileRotationDeg(count, idx) {
   return (idx - (n - 1)) * step;
 }
 
-/** 牌库 stack 展开后允许材质 canvas 逐帧动画的材质块上限（含） */
+/** 字母库 stack 展开后允许材质 canvas 逐帧动画的材质块上限（含） */
 export const DECK_STACK_MATERIAL_ANIM_MAX = 5;
 
 /**
@@ -34,7 +34,7 @@ export function countDeckStackMaterialTiles(stack, resolveEntryTileProps) {
 }
 
 /**
- * 牌库 stack 展开预览时是否启用材质动画（超过 {@link DECK_STACK_MATERIAL_ANIM_MAX} 则静帧）。
+ * 字母库 stack 展开预览时是否启用材质动画（超过 {@link DECK_STACK_MATERIAL_ANIM_MAX} 则静帧）。
  *
  * @param {boolean} stackExpanded
  * @param {number} materialTileCount

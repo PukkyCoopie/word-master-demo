@@ -2,7 +2,7 @@ const WILDCARD_MATERIAL_ID = "wildcard";
 
 import { normalizeExclusiveTileAccessoryPair } from "../accessories/accessoryState.js";
 
-/** 棋盘/牌库展示：字母显示串 -> 小写 raw（q 表示 Qu） */
+/** 棋盘/字母库展示：字母显示串 -> 小写 raw（q 表示 Qu） */
 function tileLetterToRawLowerForDeck(letter) {
   const L = String(letter ?? "").trim().toLowerCase();
   if (!L) return "";

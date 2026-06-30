@@ -90,7 +90,7 @@ export function highestRarityAmongTiles(tiles) {
 }
 
 /**
- * 词典整词 → 牌库逐字母移除序列（`Qu` 一格计两字母时，以整词为准如 qua → q,u,a）。
+ * 词典整词 → 字母库逐字母移除序列（`Qu` 一格计两字母时，以整词为准如 qua → q,u,a）。
  * @param {string | null | undefined} resolvedWord
  * @param {{ letter?: string }[]} [tiles] 无整词时回退为各格 letter 拼接后拆字
  * @returns {string[]}

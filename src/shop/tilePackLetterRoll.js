@@ -1,12 +1,12 @@
 /**
- * 全局字母加权随机：按初始牌库张数线性映射权重，最高（E）与最低（史诗/传说）比为 2:1。
+ * 全局字母加权随机：按初始字母库张数线性映射权重，最高（E）与最低（史诗/传说）比为 2:1。
  * 用于字母包、单卡字母商品、法术变字母、宝藏进关赠字母等一切「掷出随机字母」场景。
  */
 import { allLetterRaws, getInitialDeckLetterCount } from "../game/initialDeckLetterCounts.js";
 
-/** 字母权重下界（对应牌库最少张数） */
+/** 字母权重下界（对应字母库最少张数） */
 export const TILE_PACK_LETTER_WEIGHT_MIN = 1;
-/** 字母权重上界（对应牌库最多张数，如 E=9） */
+/** 字母权重上界（对应字母库最多张数，如 E=9） */
 export const TILE_PACK_LETTER_WEIGHT_MAX = 2;
 
 const DECK_COUNT_MIN = 1;

@@ -145,7 +145,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-delete-back-2-fill",
       pickCount: 2,
       shopPrice: 3,
-      description: "选择2个字母块，从牌库中将其移除",
+      description: "选择2个字母块，从字母库中将其移除",
     },
     {
       id: "file_copy",
@@ -229,7 +229,7 @@ function buildSpellDefinitions() {
       pickMode: "confirm_all",
       tags: SPECTRAL,
       shopPrice: 4,
-      description: "从下列字母中随机移除1个，将3个带有增强效果的元音字母加入你的牌库",
+      description: "从下列字母中随机移除1个，将3个带有增强效果的元音字母加入你的字母库",
     },
     {
       id: "grim",
@@ -239,7 +239,7 @@ function buildSpellDefinitions() {
       pickMode: "confirm_all",
       tags: SPECTRAL,
       shopPrice: 4,
-      description: "从下列字母中随机移除1个，将2个带有增强效果的E加入你的牌库",
+      description: "从下列字母中随机移除1个，将2个带有增强效果的E加入你的字母库",
     },
     {
       id: "incantation",
@@ -249,7 +249,7 @@ function buildSpellDefinitions() {
       pickMode: "confirm_all",
       tags: SPECTRAL,
       shopPrice: 4,
-      description: "从下列字母中随机移除1个，将4个带有增强效果的辅音字母加入你的牌库",
+      description: "从下列字母中随机移除1个，将4个带有增强效果的辅音字母加入你的字母库",
     },
     {
       id: "talisman",

@@ -60,7 +60,7 @@ function countLegendaryInDeck(deck) {
 }
 
 /**
- * 小关开局：记录牌库中传说字母块数量，供「用尽传说字母」解锁判定。
+ * 小关开局：记录字母库中传说字母块数量，供「用尽传说字母」解锁判定。
  * @param {import('./treasureRunState.js').TreasureRunState} rs
  * @param {unknown[]} deck
  */
@@ -70,7 +70,7 @@ export function beginLevelLegendaryDeckTracking(rs, deck) {
 }
 
 /**
- * 小关结束或牌库变化后：若开局有传说字母且当前牌库已无传说，则解锁银行宝藏前置。
+ * 小关结束或字母库变化后：若开局有传说字母且当前字母库已无传说，则解锁银行宝藏前置。
  * @param {import('./treasureRunState.js').TreasureRunState} rs
  * @param {unknown[]} deck
  */
@@ -193,7 +193,7 @@ export function noteTreasureRunUpgradeUsed(rs, count = 1) {
 }
 
 /**
- * 记录本局主动加入牌库的字母块稀有度（商店购入、法术、宝藏追加等；初始牌库不计）。
+ * 记录本局主动加入字母库的字母块稀有度（商店购入、法术、宝藏追加等；初始字母库不计）。
  * @param {import('./treasureRunState.js').TreasureRunState} rs
  * @param {readonly unknown[]} cards
  */

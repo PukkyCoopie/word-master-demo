@@ -17,7 +17,7 @@ export default {
   price: 10,
   rarity: "legendary",
   shopEligible: false,
-  description: describe("每当你从牌库中移除1张元音字母，获得", mult("x0.5"), "倍率"),
+  description: describe("每当你从字母库中移除1张元音字母，获得", mult("x0.5"), "倍率"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

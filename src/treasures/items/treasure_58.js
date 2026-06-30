@@ -8,7 +8,7 @@ export default {
   price: 6,
   rarity: "rare",
   description: describe(
-    "如果每关拼写的第一个单词只有3个字母，从牌库中移除这3个字母并获得",
+    "如果每关拼写的第一个单词只有3个字母，从字母库中移除这3个字母并获得",
     money("3"),
   ),
 };

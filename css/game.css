@@ -1417,7 +1417,7 @@ textarea::-moz-placeholder {
 .word-slots .word-slot-tile .letter-gem.gem-epic  { background: #9b59b6; }
 .word-slots .word-slot-tile .letter-gem.gem-legendary { background: #e67e22; }
 
-/* ----- 底部栏：左右按钮组各120rpx，中间为 grid + 牌库按钮 ----- */
+/* ----- 底部栏：左右按钮组各120rpx，中间为 grid + 字母库按钮 ----- */
 .letter-grid-area {
 	display: flex;
 	flex-direction: column;
@@ -5911,7 +5911,7 @@ html.swap-confirm-button-side .confirm-actions-row {
 	border-radius: calc(8 * var(--rpx));
 }
 
-/* 包内/商店字母块飞入牌库：与详情层 fly-clone 一致，内块铺满正方形容器 */
+/* 包内/商店字母块飞入字母库：与详情层 fly-clone 一致，内块铺满正方形容器 */
 .pack-tile-purchase-fly-clone--deck-tile {
 	display: flex;
 	align-items: stretch;

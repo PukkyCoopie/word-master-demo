@@ -4,7 +4,7 @@ import { reactive } from "vue";
 export const OVERLAY_VIEW_KEY = Symbol("word_master_overlay_view");
 
 /**
- * GamePanel provide 的浮层视图上下文（牌库层、详情/暂停/信息模态等）。
+ * GamePanel provide 的浮层视图上下文（字母库层、详情/暂停/信息模态等）。
  * @typedef {Record<string, unknown>} OverlayViewContext
  */
 

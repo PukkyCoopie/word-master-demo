@@ -334,7 +334,7 @@ export function setMaterialReglAnimated(materialId, canvas, animated) {
   applyReglSubscriberAnimated(sub, animated, materialHubControlsFor(materialId));
 }
 
-/** 补绘容器内尚未成功贴图的材质 canvas（如牌库大量静态万能块）。 */
+/** 补绘容器内尚未成功贴图的材质 canvas（如字母库大量静态万能块）。 */
 export function repaintUnpaintedMaterialCanvasesIn(root) {
   if (!(root instanceof HTMLElement)) return;
   for (const [materialId, subs] of subscribersByMaterial) {

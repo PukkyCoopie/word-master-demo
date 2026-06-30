@@ -7,9 +7,9 @@ const MOVE_BASE_S = 0.46;
 const MOVE_DIST_REF_PX = 720;
 /** 距离附加时长上限 */
 const MOVE_DIST_EXTRA_MAX_S = 0.26;
-/** 抵达牌库：scale 1 → 1.2 */
+/** 抵达字母库：scale 1 → 1.2 */
 const POP_UP_S = 0.12;
-/** 牌库上方：scale 1.2 → 0 */
+/** 字母库上方：scale 1.2 → 0 */
 const POP_DOWN_S = 0.14;
 const POP_UP_EASE = "back.out(1.6)";
 const POP_DOWN_EASE = "power2.in";
@@ -26,7 +26,7 @@ export function deckTileFlyMoveDuration(distPx) {
 }
 
 /**
- * 飞行末段 scale：使固定尺寸飞入盒在牌库按钮处的视觉边长与目标一致。
+ * 飞行末段 scale：使固定尺寸飞入盒在字母库按钮处的视觉边长与目标一致。
  * @param {{ width: number, height: number }} flyBox
  * @param {DOMRect | { width: number, height: number }} toRect
  */
@@ -52,7 +52,7 @@ export function resolveDeckTileFlyStartScale(flyBox, rawRect, exactFromRect) {
 }
 
 /**
- * 字母块飞入牌库：位移 expo.out；scale startScale→moveEndScale→moveEnd×1.2→0。
+ * 字母块飞入字母库：位移 expo.out；scale startScale→moveEndScale→moveEnd×1.2→0。
  * @param {HTMLElement} flyEl
  * @param {number} dx
  * @param {number} dy

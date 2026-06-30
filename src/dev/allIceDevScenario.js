@@ -43,7 +43,7 @@ export function applyIceMaterialToAllGridTiles(grid, rows, cols) {
 }
 
 /**
- * 牌库 multiset / 抽牌堆：非万能牌张写入碎冰材质（补牌后仍为碎冰）。
+ * 字母库 multiset / 抽牌堆：非万能牌张写入碎冰材质（补牌后仍为碎冰）。
  * @param {readonly unknown[] | null | undefined} cards
  */
 export function applyIceMaterialToAllDeckCards(cards) {

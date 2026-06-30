@@ -63,7 +63,7 @@ const props = defineProps({
   hideLetter: { type: Boolean, default: false },
   /** 不渲染左下角稀有度 gem（如预设描述预览万能块） */
   hideRarityGem: { type: Boolean, default: false },
-  /** regl 材质 canvas 是否逐帧动画；牌库未展开 stack 传 false 只绘一帧 */
+  /** regl 材质 canvas 是否逐帧动画；字母库未展开 stack 传 false 只绘一帧 */
   materialAnimate: { type: Boolean, default: true },
 });
 

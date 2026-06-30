@@ -142,7 +142,7 @@ function sumSubmitScoringWordLetterCountBonus(originalTiles, slots, partialCtx, 
  * @param {number} basketballWordsSubmitted 本关已成功提交前的计数（与 bump 前一致；第 5/10/… 手为 active）
  * @param {number} remainingRemovals 提交时剩余移除次数
  * @param {Record<string, number> | null} spellCountsByLength 本轮各长度已拼次数
- * @param {number} remainingDeckCount 提交时牌库剩余字母数
+ * @param {number} remainingDeckCount 提交时字母库剩余字母数
  * @param {boolean} isLastSubmitChance 本手是否消耗本关内最后一次出牌机会
  * @param {number} baseLetterScoreSum 本词字母分（不含 post-letter 宝藏）
  * @param {number} lengthTableLen 与计分词长表一致的等效词长（含优惠券判定加成；与 `letterParts.length` 可不同）
@@ -430,7 +430,7 @@ const LUCKY_MATERIAL_MONEY_CHANCE = 1 / 12;
  * @param {number} [basketballWordsSubmitted=0] 充能类计数（提交本词前；与篮球 `getBasketballChargeVisualState` 一致）
  * @param {number} [remainingRemovals=0] 提交本词时剩余移除次数
  * @param {Record<string, number> | null} [spellCountsByLength=null] 本轮各长度已拼次数
- * @param {number} [remainingDeckCount=0] 提交本词时牌库剩余字母数
+ * @param {number} [remainingDeckCount=0] 提交本词时字母库剩余字母数
  * @param {boolean} [isLastSubmitChance=false] 本手是否消耗本关内最后一次出牌机会
  * @param {Record<string, number> | null} [rarityLevelsByRarity=null] 各字母稀有度等级（common/rare/epic/legendary）
  * @param {readonly { treasureId: null, slotIndex: number, multMul: number, scoreFxGridTileIndex: number, accessoryTriggered?: boolean }[] | null} [gridPresencePostLetterSteps=null] 棋盘光环类字后倍率步（见 `gridOnlyMaterialScoring.js` 的 `buildGridPresencePostLetterSteps`）

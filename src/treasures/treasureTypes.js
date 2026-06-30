@@ -57,7 +57,7 @@
  * @property {unknown[][]} [grid] 提交时棋盘二维数组（行优先索引用 `r * gridCols + c`）
  * @property {number} [gridRows]
  * @property {number} [gridCols]
- * @property {readonly unknown[]} [fullDeck] 本局完整牌库 multiset
+ * @property {readonly unknown[]} [fullDeck] 本局完整字母库 multiset
  * @property {Record<string, number> | null} [rarityLevelsByRarity] 各字母稀有度等级
  * @property {(word: string) => { pos?: string } | null | undefined} [getWordDefinition]
  * @property {number[]} [letterReplayCounts] 各字母 replay 次数（提交计分与字后步共用）
@@ -111,7 +111,7 @@
  * @property {number} [handFinalScore] 本词最终得分（与 `currentScore` 相加即提交后累计分）
  * @property {(n: number) => void} [addRemainingWords] 增加拼写次数
  * @property {(raws: string[]) => void} [removeDeckLettersByRaws]
- * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（菜刀等） 从牌库移除字母
+ * @property {(resolvedWord?: string) => void} [removeDeckCardsForSubmittedWord] 先移除本词提交格绑定的牌张，再按整词补删字母（菜刀等） 从字母库移除字母
  * @property {() => number} [rng]
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
  * @property {() => string | null} [pickRandomInRunSpellId]
@@ -264,7 +264,7 @@
  * @property {(ctx: TreasurePackSkippedContext) => void | Promise<void>} [onPackSkipped] 跳过组合包
  * @property {(ctx: TreasureSoldContext) => void | Promise<void>} [onTreasureSold] 卖出宝藏
  * @property {(ctx: TreasureShopLeaveContext) => void | Promise<void>} [onShopLeave] 离开商店进入下一关前
- * @property {(ctx: TreasureDeckCardsRemovedContext) => void | Promise<void>} [onDeckCardsRemoved] 从牌库永久移除牌张后
+ * @property {(ctx: TreasureDeckCardsRemovedContext) => void | Promise<void>} [onDeckCardsRemoved] 从字母库永久移除牌张后
  * @property {(ctx: TreasureIceBreakContext) => void | Promise<void>} [onIceMaterialBreak] 碎冰块碎裂（`iceShatterTreasureFxHandled` 为 true 时 GamePanel 已入银行并播宝藏槽动效，钩子勿重复）
  * @property {(ctx: TreasureLogicContext) => number} [getSubmitLengthBonus] 等效词长加成（直尺券之外）
  * @property {(ctx: TreasureLogicContext) => number} [getHandsPerLevelDelta] 每小关开局拼写次数增减（在 `resetLevel` 建盘前计入，无动效）
@@ -287,7 +287,7 @@
  * @property {() => string | null} [rollRandomBigram]
  * @property {() => number} [rng]
  * @property {number} [money] 当前钱包（动态简介用）
- * @property {readonly unknown[]} [fullDeck] 本局完整牌库 multiset（动态简介用）
+ * @property {readonly unknown[]} [fullDeck] 本局完整字母库 multiset（动态简介用）
  * @property {(string | null | undefined)[]} [ownedSlotTreasureIds] 当前宝藏槽位（含空槽）
  * @property {object[]} [ownedTreasureInstances] 当前已拥有宝藏实例（动态简介用）
  */
@@ -312,7 +312,7 @@
  * @property {number} [judgedWordLength] 判定词长（券/预设/宝藏加成与减益后的等效词长表长度）
  * @property {(len: number, opts?: { observatoryBoost?: boolean }) => void} [bumpWordLengthLevel]
  * @property {(len: number) => Promise<void>} [runSingleInRunLengthUpgradeFx] 局内播放「单一词长 +1」升级动画并应用升级
- * @property {(uid: number, options?: { clearGrid?: boolean }) => boolean} [removeDeckCardByUid] 从牌库永久移除指定牌张
+ * @property {(uid: number, options?: { clearGrid?: boolean }) => boolean} [removeDeckCardByUid] 从字母库永久移除指定牌张
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleOnlyFx]
  * @property {(treasureId: string) => Promise<void>} [playOwnedTreasureWobbleOnlyFx]
@@ -357,7 +357,7 @@
  * @property {number} [remainingRemovals] 小关结束时剩余丢弃次数
  * @property {number} [currentScore] 小关结束时累计分
  * @property {number} [targetScore] 小关目标分
- * @property {readonly unknown[]} [fullDeck] 完整牌库 multiset
+ * @property {readonly unknown[]} [fullDeck] 完整字母库 multiset
  * @property {object[]} [ownedTreasureInstances] 已拥有宝藏实例
  * @property {number} [hookSlotIndex] 本次 hook 对应的栏位下标（面具镜像时为面具槽）
  * @property {'self' | 'blueprint'} [hookSource] 本次贡献来自实体宝藏或面具镜像

@@ -314,7 +314,7 @@ export function rollPackOfferStock(ctx) {
         name,
         emoji: "",
         iconClass: "ri-gift-2-line",
-        description: `从${poolSize}个字母块中选择${px}个并加入牌库`,
+        description: `从${poolSize}个字母块中选择${px}个并加入字母库`,
       };
     }
 

@@ -128,7 +128,7 @@ scheduleOverlayDismiss(240);      // 收起收尾
 | 预览层展开完成 | `overlayPresentLight` | `TreasureDetailLayer` / `TileDetailLayer` `onMounted` |
 | 过关 / 胜负 / 成就 | `milestone` / `success`/`warning` / `celebrate` | 结算、RunEnd、成就 Toast |
 
-商店/牌库等大浮层：`GamePanel` 内 `showShop` / `showDeckLayer` 等 watch → `scheduleOverlayPresent` / `scheduleOverlayDismiss`。
+商店/字母库等大浮层：`GamePanel` 内 `showShop` / `showDeckLayer` 等 watch → `scheduleOverlayPresent` / `scheduleOverlayDismiss`。
 
 ---
 

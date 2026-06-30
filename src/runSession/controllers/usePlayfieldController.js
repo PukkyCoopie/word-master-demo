@@ -83,7 +83,7 @@ let lastWordDragPresentations = null;
 const gridTileRefs = ref([]);
 const wordSlotRefs = /** @type {(HTMLElement | undefined)[]} */ ([]);
 
-/** 计分动画中报纸等追加的临时词槽字母（不参与拼词/牌库） */
+/** 计分动画中报纸等追加的临时词槽字母（不参与拼词/字母库） */
 const submitScoringAppendPresentations = ref(/** @type {object[]} */ ([]));
 
 /** 提交词槽离场后至补牌前：槽内字母仍挂在 selectedOrder，但须保持隐藏（防 slot RAF 清 GSAP opacity） */

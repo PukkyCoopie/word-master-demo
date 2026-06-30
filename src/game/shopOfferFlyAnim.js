@@ -126,7 +126,7 @@ export async function animateTreasureFrameFly(fromFrameEl, toTarget, opts = {}) 
 }
 
 /**
- * 字母块飞入牌库：位移 expo.out；scale 初值→1→1.2→0（见 deckTileFlyToDeckAnim.js）。
+ * 字母块飞入字母库：位移 expo.out；scale 初值→1→1.2→0（见 deckTileFlyToDeckAnim.js）。
  * @param {unknown} fromEl
  * @param {unknown} toTarget
  * @param {{ flyLiveElement?: boolean; deckTileFly?: boolean; skipInitialRaf?: boolean; fromRect?: { left: number, top: number, width: number, height: number } | null; exactFromRect?: boolean }} [options]
@@ -207,10 +207,10 @@ export async function animatePackTileFlyToDeck(fromEl, toTarget, options = {}) {
 }
 
 /**
- * 牌包/商店字母选项飞入牌库：用完整 LetterTile（材质 Regl、配饰、角标）而非 DOM clone。
+ * 牌包/商店字母选项飞入字母库：用完整 LetterTile（材质 Regl、配饰、角标）而非 DOM clone。
  * @param {Record<string, unknown>} offer deckLetter / deckTile 选项
  * @param {unknown} fromEl 起点 DOM（取 rect）
- * @param {unknown} toTarget 牌库按钮
+ * @param {unknown} toTarget 字母库按钮
  * @param {{ keepSourceHidden?: boolean; fromRect?: { left: number, top: number, width: number, height: number } | null; priceStruck?: boolean }} [opts]
  */
 export async function animatePackDeckOfferFlyToDeck(offer, fromEl, toTarget, opts = {}) {

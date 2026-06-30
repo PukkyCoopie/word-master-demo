@@ -128,7 +128,7 @@ export function createGamePanelDevCommands(deps) {
     await deps.resetLevelAfterTreasurePrep(levelDef);
     await deps.nextTick();
     await finishScreenshotDevGridVisual();
-    console.log("[DEV] 全碎冰测试局：棋盘与牌库牌张均已设为碎冰块。");
+    console.log("[DEV] 全碎冰测试局：棋盘与字母库牌张均已设为碎冰块。");
   }
 
   function applyCeruleanBellDevRunStart() {

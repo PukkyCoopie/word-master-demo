@@ -44,7 +44,7 @@ const deckPortalStyle = computed(() => sv(overlayStack.deckPortalStackStyle));
           }"
         >
           <div class="deck-layer-title deck-layer-enter-stagger">
-            <span class="deck-layer-title-main">牌库</span>
+            <span class="deck-layer-title-main">字母库</span>
             <span class="deck-layer-title-count"> ({{ deck.deckLayerRemainingCount }}/{{ deck.deckLayerTotalCount }})</span>
           </div>
           <div

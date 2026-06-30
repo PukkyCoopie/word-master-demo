@@ -770,7 +770,9 @@ export function useTreasureRunController(options) {
       parseLevelSubFromId(levelId) === 3 &&
       hooks.isBossLevelEnterRestrictionSlug(mechSlug)
     ) {
-      await hooks.notifyBossRestrictionTreasures(mechSlug);
+      hooks.scheduleAfterGridTilesSettled(async () => {
+        await hooks.notifyBossRestrictionTreasures(mechSlug);
+      });
     }
     if (opts.discardPendingAfterGridSettled) {
       hooks.clearPendingAfterGridTilesSettled?.();

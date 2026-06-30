@@ -1,5 +1,5 @@
 /**
- * 初始牌库各字母张数（与 `useGameState` 的 `buildInitialDeckCards` 一致）。
+ * 初始字母库各字母张数（与 `useGameState` 的 `buildInitialDeckCards` 一致）。
  */
 import { RARITY_BY_LETTER } from "../composables/useScoring.js";
 

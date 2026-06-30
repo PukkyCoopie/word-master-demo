@@ -16,7 +16,7 @@
           <section class="developer-options-section">
             <h3 class="developer-options-section-title">转换</h3>
             <p class="developer-options-hint">
-              将牌库中
+              将字母库中
               <select v-model="convertScope" class="developer-options-select" aria-label="转换范围">
                 <option v-for="opt in scopeOptions" :key="opt.value" :value="opt.value">
                   {{ opt.label }}
@@ -548,7 +548,7 @@ function onConvertClick() {
 function reportConvertResult(result) {
   if (!result?.converted) {
     convertResultText.value =
-      result?.eligible > 0 ? "未选中任何牌张。" : "牌库中没有符合条件的字母块。";
+      result?.eligible > 0 ? "未选中任何牌张。" : "字母库中没有符合条件的字母块。";
     return;
   }
   if (result.accessoryMode) {

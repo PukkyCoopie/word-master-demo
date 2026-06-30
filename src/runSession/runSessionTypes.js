@@ -58,7 +58,7 @@
 // ---------------------------------------------------------------------------
 
 /**
- * 棋盘 / 牌库 / 选字（`useGameState` 返回值形状）。
+ * 棋盘 / 字母库 / 选字（`useGameState` 返回值形状）。
  * @typedef {ReturnType<typeof import('../composables/useGameState.js').useGameState>} GridStore
  */
 

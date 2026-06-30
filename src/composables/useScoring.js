@@ -579,10 +579,11 @@ export function isUndeformedWildcardLetter(letter) {
   return String(letter ?? "").trim() === "?";
 }
 
-/** 未变形万能块不展示左下稀有度宝石（含显式 `hideRarityGem`）。 */
+/** 未变形万能块、镣铐等 Boss 顶行空禁位不展示左下稀有度宝石（含显式 `hideRarityGem`）。 */
 export function shouldHideRarityGemForTile(props) {
   if (!props || typeof props !== "object") return false;
   if (props.hideRarityGem === true) return true;
+  if (props.bossGridBlocked === true && !String(props.letter ?? "").trim()) return true;
   return isUndeformedWildcardLetter(props.letter);
 }
 

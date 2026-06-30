@@ -286,7 +286,7 @@ export function createPlayfieldWordAux(deps) {
 
   const markButtonTitle = computed(() => {
     if (showMarkSendArrow.value) return "按标记顺序将已标记字母送入拼词";
-    return "标记当前拼词中的字母（仅本关提示，不进牌库）";
+    return "标记当前拼词中的字母（仅本关提示，不进字母库）";
   });
 
   const showSwapWordButton = computed(() => gameSettings.swapButtonMode !== "hidden");

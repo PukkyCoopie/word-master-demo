@@ -2720,7 +2720,7 @@ function consumeDeckOfferTileVisual() {
   }
 }
 
-/** 包内字母加入牌库：tile 已从预览移除，与飞行动画同时执行其余离场 */
+/** 包内字母加入字母库：tile 已从预览移除，与飞行动画同时执行其余离场 */
 function beginDeckFlyParallelClose() {
   previewNavRef.value?.instantEnterHide?.();
   consumeDeckOfferTileVisual();
@@ -2823,7 +2823,7 @@ onUnmounted(() => {
 
 defineExpose({
   getEmojiEl: () => emojiRef.value,
-  /** 购买飞入槽位 / 牌库：字母块为 tile + 价签整列 */
+  /** 购买飞入槽位 / 字母库：字母块为 tile + 价签整列 */
   getFlyFrameEl: () =>
     isDeckOffer.value
       ? refToFlyFrameEl(deckOfferStackRef.value)

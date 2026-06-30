@@ -1,7 +1,7 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
 
-/** 从候选中随机移除牌库字母的 confirm_all 法术 */
+/** 从候选中随机移除字母库字母的 confirm_all 法术 */
 export const SPELL_RANDOM_DECK_REMOVE_IDS = Object.freeze(["familiar", "grim", "incantation"]);
 
 /** 从候选中随机挑选 1 个生效的 confirm_all 法术（含移除类） */

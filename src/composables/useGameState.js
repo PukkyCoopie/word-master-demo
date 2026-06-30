@@ -43,7 +43,7 @@ import { applyLetterQModeToGrid, resolveLetterFromRaw } from "../settings/letter
 
 const VOWEL_LETTERS = new Set(["a", "e", "i", "o", "u"]);
 
-/** 棋盘/牌库展示：字母显示串 → 小写 raw（q 表示 Qu） */
+/** 棋盘/字母库展示：字母显示串 → 小写 raw（q 表示 Qu） */
 function tileLetterToRawLowerForDeck(letter) {
   const L = String(letter ?? "").trim().toLowerCase();
   if (!L) return "";
@@ -52,7 +52,7 @@ function tileLetterToRawLowerForDeck(letter) {
 
 const WILDCARD_STACK_RAW = "?";
 
-/** 牌库堆叠分组用：通配符单独成摞，其余走字母 raw（含 q→Qu） */
+/** 字母库堆叠分组用：通配符单独成摞，其余走字母 raw（含 q→Qu） */
 function tileRawForDeckStack(tile) {
   if (!tile?.letter) return "";
   if (tile.isWildcard === true) return WILDCARD_STACK_RAW;
@@ -88,7 +88,7 @@ function defaultRng() {
 }
 
 /**
- * 牌库 multiset 中一枚「牌张」的稳定引用；材质/稀有度/万能等跨小关保存在此对象上，
+ * 字母库 multiset 中一枚「牌张」的稳定引用；材质/稀有度/万能等跨小关保存在此对象上，
  * 棋盘格 `tile._deckCard` 指向同一引用。
  * @param {string} raw0 小写；`q` 表示 Qu。
  */
@@ -108,7 +108,7 @@ function createDeckCard(raw0) {
     isWildcard: false,
     accessoryId: /** @type {string | null} */ (null),
     treasureAccessoryId: /** @type {string | null} */ (null),
-    /** 曾离开抽牌堆上场（在棋盘消耗后亦不再回库）；牌库预览用半透明展示 */
+    /** 曾离开抽牌堆上场（在棋盘消耗后亦不再回库）；字母库预览用半透明展示 */
     everLeftDrawPile: false,
   };
 }
@@ -232,7 +232,7 @@ function emptyTile(idGen) {
     /** 青铃锁：该格被 Boss 强制选入词槽后不可点回棋盘 */
     ceruleanBellLocked: false,
 
-    /** 玩家本关内标记（不进牌库、不写回牌张） */
+    /** 玩家本关内标记（不进字母库、不写回牌张） */
     playerMarked: false,
 
     /** 标记批次（同一次点「标记」或「对调刷新」共用一批） */
@@ -431,11 +431,11 @@ export function useGameState(gameOpts = {}) {
   const initialDeckSnapshot = ref(initialCards);
   const deck = ref([...initialCards]);
   shuffleArrayInPlace(deck.value, getRng);
-  /** 本局已从 multiset 抽空、牌库 UI 仍保留 ghost 堆的字母 raw（如 `q` 表示 Qu） */
+  /** 本局已从 multiset 抽空、字母库 UI 仍保留 ghost 堆的字母 raw（如 `q` 表示 Qu） */
   const depletedDeckStackRaws = ref(/** @type {Set<string>} */ (new Set()));
   /** 本局曾出现过的字母堆 raw；抽空后仍占位展示 ghost */
   const runSeenDeckStackRaws = ref(/** @type {Set<string>} */ (new Set()));
-  /** 小关结束进商店后：牌库预览将全部牌张视为在抽牌堆（忽略棋盘占位与半透明） */
+  /** 小关结束进商店后：字母库预览将全部牌张视为在抽牌堆（忽略棋盘占位与半透明） */
   const deckPreviewAllInDrawPile = ref(false);
 
   /** 当前小关 Boss slug（x-3 / 8-3）；非 Boss 小关为空串） */
@@ -564,7 +564,7 @@ export function useGameState(gameOpts = {}) {
   }
 
   /**
-   * 牌库界面：按字母 raw 分堆；`entries` 为本局 multiset 中**该字母每一枚牌张**（含场上、抽牌堆、已消耗离堆）。
+   * 字母库界面：按字母 raw 分堆；`entries` 为本局 multiset 中**该字母每一枚牌张**（含场上、抽牌堆、已消耗离堆）。
    * `dimmed`：曾上场（`everLeftDrawPile`）——半透明。`count` 为全集张数；`inDrawPile` 为仍在抽牌堆可抽的张数。
    */
   const deckStacksView = computed(() => {
@@ -1221,7 +1221,7 @@ export function useGameState(gameOpts = {}) {
     ceruleanBellSlotIndex.value = Math.max(0, selectedOrder.value.length - 1);
   }
 
-  /** 游蛇 Boss：每次拼词/丢弃后仅从牌库补入的字母数（不按空位数全额补牌） */
+  /** 游蛇 Boss：每次拼词/丢弃后仅从字母库补入的字母数（不按空位数全额补牌） */
   const SERPENT_BOSS_REFILL_COUNT = 3;
 
   function isSerpentLimitedRefillActive(skipNewFromDeck = false) {
@@ -1243,7 +1243,7 @@ export function useGameState(gameOpts = {}) {
     return slot;
   }
 
-  /** 游蛇：重力落定后仅从牌库补 SERPENT_BOSS_REFILL_COUNT 枚，每枚落在所在列最下方空位 */
+  /** 游蛇：重力落定后仅从字母库补 SERPENT_BOSS_REFILL_COUNT 枚，每枚落在所在列最下方空位 */
   function applySerpentRefillFromDeck() {
     if (bossSlugForMechanics() !== "the_serpent") return;
     const g = grid.value;
@@ -1273,7 +1273,7 @@ export function useGameState(gameOpts = {}) {
 
   /**
    * 下落补牌、清空选字；不修改分数与 lastWordInfo。出牌次数在点击提交时扣减，或由 finalizeSubmitAfterAnimation 扣减。
-   * @param {{ skipNewFromDeck?: boolean }} [options] skipNewFromDeck：本关已结束（通关或用尽出牌仍未达标）时 true，已有字母下落到底部，顶部用 null 占位（不补牌库、不生成空字母块）。
+   * @param {{ skipNewFromDeck?: boolean }} [options] skipNewFromDeck：本关已结束（通关或用尽出牌仍未达标）时 true，已有字母下落到底部，顶部用 null 占位（不补字母库、不生成空字母块）。
    */
   function applySubmitRefill(options = {}) {
     const skipNewFromDeck = options.skipNewFromDeck === true;
@@ -1633,7 +1633,7 @@ export function useGameState(gameOpts = {}) {
   }
 
   /**
-   * 小关结束进商店时调用：本局 multiset 全部牌张回到抽牌堆，牌库浮层预览全部为「在库」状态。
+   * 小关结束进商店时调用：本局 multiset 全部牌张回到抽牌堆，字母库浮层预览全部为「在库」状态。
    * 棋盘等仍保持本关结束态（进商店时主界面不展示）；点「下一关」时 resetLevel 会再整盘重建。
    * 会把格上材质/稀有度等写回牌张，以便下一小关仍生效。
    * 以 `initialDeckSnapshot` 为准（含菜刀/法术等本局永久移除），不再按开局模板补回张数。
@@ -1661,7 +1661,7 @@ export function useGameState(gameOpts = {}) {
   }
 
   /**
-   * 进入下一小关：重洗牌库与棋盘，重置分数与出牌/移除次数（保留本局累计拼出次数）。
+   * 进入下一小关：重洗字母库与棋盘，重置分数与出牌/移除次数（保留本局累计拼出次数）。
    * @param {{ id: string }} levelDef
    * @param {{ remainingWords?: number, remainingRemovals?: number, targetScore?: number, bossSlug?: string, postGridBuild?: (g: unknown[][]) => void }} [runOpts]
    */
@@ -1747,7 +1747,7 @@ export function useGameState(gameOpts = {}) {
   }
 
   /**
-   * 从牌库与初始快照中各删去一枚对应字母（法术「删除」）。
+   * 从字母库与初始快照中各删去一枚对应字母（法术「删除」）。
    * @param {string[]} raws 小写；`q` 表示 Qu。
    */
   function removeDeckLetterInstancesByRaws(raws) {
@@ -1803,7 +1803,7 @@ export function useGameState(gameOpts = {}) {
   }
 
   /**
-   * 从牌库 multiset 移除指定 `_dcUid` 的牌张；同步抽牌堆。
+   * 从字母库 multiset 移除指定 `_dcUid` 的牌张；同步抽牌堆。
    * @param {number} uid
    * @param {{ clearGrid?: boolean }} [options] `clearGrid` 默认 true；拼词消耗中的格应传 false，由 `applySubmitRefill` 处理棋盘
    * @returns {boolean}
@@ -1841,7 +1841,7 @@ export function useGameState(gameOpts = {}) {
   }
 
   /**
-   * 将棋盘一格替换为牌库中某 raw 的新字母块（保留格位 id，可选保留配饰）。
+   * 将棋盘一格替换为字母库中某 raw 的新字母块（保留格位 id，可选保留配饰）。
    * @param {boolean} [keepTileId=true]
    */
   function remapTileFromRawLetter(row, col, raw, keepTileId = true) {
@@ -2182,10 +2182,10 @@ export function useGameState(gameOpts = {}) {
 
     deckCount,
 
-    /** 当前牌库抽牌堆：牌张对象 multiset（`raw` 小写，`q` 表示 Qu） */
+    /** 当前字母库抽牌堆：牌张对象 multiset（`raw` 小写，`q` 表示 Qu） */
     deck,
 
-    /** 本局完整牌库 multiset（含场上绑定 + 抽牌堆）；法术候选从此全集随机抽 */
+    /** 本局完整字母库 multiset（含场上绑定 + 抽牌堆）；法术候选从此全集随机抽 */
     initialDeckSnapshot,
 
     deckStacksView,

@@ -685,7 +685,7 @@ ports.uiFx.xxx
 
 - 新增 `src/runSession/ports/createPlayfieldPorts.js`（61 键，对应 assembly `grid` 分域）
 - `createGamePanelPorts` 挂载 `ports.playfield`；`buildGamePanelAssemblySource` / `buildGamePanelAssemblyDeps` 移除 grid 平铺
-- `useGamePanelSessionAssembly` 改经 `ports.playfield` 注入棋盘/牌库/选词能力
+- `useGamePanelSessionAssembly` 改经 `ports.playfield` 注入棋盘/字母库/选词能力
 - `GamePanel.vue` **3,466 行**（不变）；`npm test` 181/181；`npm run build` ✅
 
 **落地（R4.3 treasures，2026-06-25）**：

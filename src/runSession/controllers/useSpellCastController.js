@@ -65,7 +65,7 @@ export function createSpellCastStateRefs() {
 }
 
 /**
- * 法术选格 session、confirm/cancel、棋盘/牌库交互（任务 6.2）。
+ * 法术选格 session、confirm/cancel、棋盘/字母库交互（任务 6.2）。
  *
  * @param {object} options
  * @returns {SpellCastController}
@@ -737,7 +737,7 @@ function filterDeckCardsForSpellPool(pool, spellId) {
   return cards.filter((c) => !deckCardHasAnyAccessoryMark(c));
 }
 
-/** 10 格候选：从本局完整牌库 multiset 均匀随机抽牌张 */
+/** 10 格候选：从本局完整字母库 multiset 均匀随机抽牌张 */
 function buildSpellOfferSlots(rng = Math.random, spellId = "") {
   const pool = filterDeckCardsForSpellPool(initialDeckSnapshot.value, spellId);
   return buildSpellOfferSlotsFromPool(pool, buildSpellOfferSnapshotFromDeckCard, rng);
@@ -1292,7 +1292,7 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
       ? offerSlotAnimIxs
       : confirmSelectionSlotIndices;
   const animOrderedForLayer = usePickSequenceAnim ? targets : resolvedOrdered;
-  /** 候选格上播缩小→换图→回弹（含仅改牌库、候选数与棋盘目标数不一致、以及蛋糕等材质法术） */
+  /** 候选格上播缩小→换图→回弹（含仅改字母库、候选数与棋盘目标数不一致、以及蛋糕等材质法术） */
   const useOfferSlotConfirmPath =
     offerSlotAnimIxs.length > 0 &&
     (sid === "delete_back" ||

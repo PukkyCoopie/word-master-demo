@@ -10,7 +10,7 @@ export default {
   rarity: "epic",
   description: describe(
     mult("x1.5"),
-    "倍率；如果你的完整牌库中有至少10个具有增益的字母块，此效果翻倍",
+    "倍率；如果你的完整字母库中有至少10个具有增益的字母块，此效果翻倍",
   ),
 };
 
@@ -22,7 +22,7 @@ export const treasureHooks = {
     const n = Math.max(0, countDeckCardsWithEnhancement(deck));
     return describe(
       mult("x1.5"),
-      "倍率；如果你的完整牌库中有至少10个具有增益的字母块，此效果翻倍",
+      "倍率；如果你的完整字母库中有至少10个具有增益的字母块，此效果翻倍",
       `（当前${n}/${MIN_ENHANCED}）`,
     );
   },

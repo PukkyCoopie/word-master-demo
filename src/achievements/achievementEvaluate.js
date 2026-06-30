@@ -23,7 +23,7 @@ import { checkOneWordPerLevelWin } from "./achievementRunState.js";
  * @property {number} [ownedVoucherCount]
  * @property {number} [maxLengthLevel]
  * @property {number} [maxRarityLevel]
- * @property {number} [deckSize] 完整牌库 multiset 张数；仅在永久增删牌张后传入
+ * @property {number} [deckSize] 完整字母库 multiset 张数；仅在永久增删牌张后传入
  * @property {import('../game/runMatchStats.js').RunMatchStats} [runMatchStats]
  * @property {import('./achievementRunState.js').AchievementRunState} [achievementRun]
  * @property {readonly string[]} [completedLevelIds]

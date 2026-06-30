@@ -1,6 +1,6 @@
 /**
- * 牌库牌张是否具「增益」（书包等）：材质、配饰、或计分板/回形针等写入牌张的持久平面分/倍率。
- * 玩家本关标记（`playerMarked` 折角）仅棋盘提示、不进牌库 multiset，不在此统计。
+ * 字母库牌张是否具「增益」（书包等）：材质、配饰、或计分板/回形针等写入牌张的持久平面分/倍率。
+ * 玩家本关标记（`playerMarked` 折角）仅棋盘提示、不进字母库 multiset，不在此统计。
  */
 
 import { entityHasAccessory } from "../accessories/accessoryState.js";

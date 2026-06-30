@@ -26,29 +26,29 @@ function buildUnlockPrerequisitePlainText(pre) {
 
   switch (type) {
     case "deckLegendaryMin":
-      return `在牌库中拥有${min || 8}个传说字母`;
+      return `在字母库中拥有${min || 8}个传说字母`;
     case "levelAllLegendaryDeckExhausted":
-      return "在一个关卡中用尽了牌库中所有的传说字母";
+      return "在一个关卡中用尽了字母库中所有的传说字母";
     case "runIceMaterialShattered":
       return "使一个碎冰块碎裂";
     case "everTwoTreasuresWithAccessory":
       return "同时拥有2个装备了配饰的宝藏";
     case "deckEpicMin":
-      return `在牌库中拥有${min || 16}个史诗字母`;
+      return `在字母库中拥有${min || 16}个史诗字母`;
     case "deckRareHalf":
-      return "牌库中一半或以上的字母都是稀有字母";
+      return "字母库中一半或以上的字母都是稀有字母";
     case "deckAllCommon":
-      return "牌库中所有字母都是普通字母";
+      return "字母库中所有字母都是普通字母";
     case "deckIceMin":
-      return `在牌库中拥有${min || 5}个碎冰块`;
+      return `在字母库中拥有${min || 5}个碎冰块`;
     case "deckLuckyMin":
-      return `在牌库中拥有${min || 2}个幸运块`;
+      return `在字母库中拥有${min || 2}个幸运块`;
     case "deckFireMin":
-      return `在牌库中拥有${min || 2}个火焰块`;
+      return `在字母库中拥有${min || 2}个火焰块`;
     case "deckRarityKindsMin":
-      return `向牌库中添加至少${min || 3}种不同稀有度的字母块`;
+      return `向字母库中添加至少${min || 3}种不同稀有度的字母块`;
     case "deckGoldCoinAccessory":
-      return "牌库中有带硬币配饰的黄金块";
+      return "字母库中有带硬币配饰的黄金块";
     case "endlessMode":
       return "进入无尽模式";
     case "allCommonBossWin":

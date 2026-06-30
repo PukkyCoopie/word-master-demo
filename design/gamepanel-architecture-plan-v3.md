@@ -143,7 +143,7 @@
 # 旧计分链（应 0 命中）
 runSubmitScoringSequence|submitBossToothTapeCuePlayed|collapseSubmitTranslation
 
-# 牌库 inline（应 0 命中于 GamePanel）
+# 字母库 inline（应 0 命中于 GamePanel）
 deckExpandFlipTl|deckPortalZ|showDeckLayer\.value
 
 # 层 ref 双写（GamePanel 内不应再声明 layer ref，应走 runOverlayHostRef）
@@ -175,8 +175,8 @@ submitWordLegacy
 ### Phase E：浮层聚合
 
 - [x] 删除 `GamePanel.vue` 中与 `usePackPickController` 重复的开包编排（~380 行）
-- [x] 牌库 UI 唯一路径：`RunOverlayHost → DeckPreviewLayer`（`DECK_PREVIEW_KEY` + `RUN_SESSION_KEY`）
-- [x] `GamePanel` 内牌库开关统一走 `deckPreview.openDeckLayer` / `closeDeckLayer`（不再散落写 `showDeckLayer.value`）
+- [x] 字母库 UI 唯一路径：`RunOverlayHost → DeckPreviewLayer`（`DECK_PREVIEW_KEY` + `RUN_SESSION_KEY`）
+- [x] `GamePanel` 内字母库开关统一走 `deckPreview.openDeckLayer` / `closeDeckLayer`（不再散落写 `showDeckLayer.value`）
 - [x] 修复 `playSubmitWordLetterRemoveAndRewardLeave` 中 `moneyAmount` 读取损坏
 - [x] `GamePanel.vue` 内无 `deckExpandFlipTl` / `deckPortalZ` 等悬空 deck 动画引用
 - [x] `useSpellCastController` 接入：`spellSession`、packPick `grant.runSpellPreviewChain`、删除 ~1,160 行 inline 法术编排
@@ -372,9 +372,9 @@ submitWordLegacy
 **原则**：仅删 grep 确认 **0 调用方** 的块；删前跑 build + test。候选见 §16。
 
 1. [x] 跑 §16 grep 清单：**G1 后宝藏 inline 0 命中**；F2/F3 复查 0 命中；**发现并修复 G1 误删** `shopOffers` / `packOffers` / `lastReplayableSpellId` / `spellCastHistory` / `spellTargetSession` / `ownedUpgrades` / `shopUpgradeAnimating` / `shopOverlayLayersSuppressed` / `UPGRADE_*` / `makeEmptyShopSlot` 等 ref 与 helper（引用仍在、声明被删，运行时 ReferenceError）。
-2. [x] 删除已无 template 消费者的旧 helper：`buildDeckExpandPreviewNav`（牌库 preview nav 已由 `useDeckPreviewLayer.js` 唯一持有）。
+2. [x] 删除已无 template 消费者的旧 helper：`buildDeckExpandPreviewNav`（字母库 preview nav 已由 `useDeckPreviewLayer.js` 唯一持有）。
 3. [x] 修复 `InRunShopPhase.vue` viewContext 字段名与 `buildViewContext()` 不一致（`shopTutorialTargetTreasureId` / `nextLevelId`；`shop.runWalletFloor` 补入 `shopSession`）。
-4. [x] 合并重复 preview-nav helper：**不合并**；`buildWordSlotPreviewNav` 仍由壳层 playfield 回调使用（与 `useDeckPreviewLayer` 牌库 nav 职责分离）。
+4. [x] 合并重复 preview-nav helper：**不合并**；`buildWordSlotPreviewNav` 仍由壳层 playfield 回调使用（与 `useDeckPreviewLayer` 字母库 nav 职责分离）。
 5. [x] 复查 GamePanel `<style>` 段：整段删除（~498 行）；模板仅 `game-container` + 7 宿主，样式已在子组件 / 全局 CSS 唯一持有。
 6. [ ] 建立 E4 外部备份（§8 表 E4.1 / E4.2+F3 / E4.3 行仍「待用户建」）。
 7. [x] 更新 `game-panel-boundary.mdc` 行数基线 → 10,347（v3.6.18）。
@@ -576,7 +576,7 @@ function buildTreasurePoolSnapshot|function grantCopyOfRandomOwnedTreasure
 # 首词教程（F3 已完成，复查）
 firstWordTutorialLayerOpen|isFirstWordTutorialBlockingInput = \(\)
 
-# 牌库 / 词槽 / 顶栏 CSS（E4.3 后应 0 命中于 GamePanel <style>）
+# 字母库 / 词槽 / 顶栏 CSS（E4.3 后应 0 命中于 GamePanel <style>）
 \.deck-layer|\.word-slots-wrap|\.action-count-delta|\.header-box-level-title
 
 # 开发者 / 暂停（G3.5 后应 0 命中于 GamePanel template）
@@ -887,7 +887,7 @@ useSpellCastController\(|usePackPickController\(
 | `flushAchievementUnlocks` | 1657～1664 | inject `tryUnlockAchievements` |
 | `noteRunMoneySpent` | 1666～1669 | 商店消费成就 |
 | `buildSubmitAchievementSnapshot` | 1676～1688 | 提交快照 |
-| `getFullDeckMultisetSize` | 1690～1693 | 牌库 multiset 规模 |
+| `getFullDeckMultisetSize` | 1690～1693 | 字母库 multiset 规模 |
 | `flushDeckMultisetAchievements` | 1696～1698 | 大道至简 / 包罗万象 |
 | `flushSubmitAchievements` | 1701～1706 | 提交后 flush |
 | `noteCollectionDiscovery` | 1708～1712 | 发现项 + career |
@@ -1027,7 +1027,7 @@ function showScoreBubble|function wobbleGameTreasureSlot|function scheduleMultMu
 | v3.3 | 2026-06-24 | 以恢复后的完整 `GamePanel.vue` 为主线继续拆分 |
 | v3.4 | 2026-06-24 | 重写为干净 UTF-8 版；补入编码事故复盘、防再犯规则和当前真实进度 |
 | v3.5 | 2026-06-24 | Phase E1：packPick 双写清理；验证 build；建立 E1 备份 |
-| v3.5.1 | 2026-06-24 | Phase E2：牌库开关收口 + 宝藏58离场动效 bug 修复；E2 备份 |
+| v3.5.1 | 2026-06-24 | Phase E2：字母库开关收口 + 宝藏58离场动效 bug 修复；E2 备份 |
 | v3.6 | 2026-06-24 | Phase E3：`useSpellCastController` 接入；Phase F1：`useRunLifecycleController` 接入；GamePanel 约 13,897 行 |
 | v3.6.1 | 2026-06-24 | 修复关机中断遗留的 `runEndFlow` 双写构建错误；接入 `buildSettlementSnapshot.js`；`buildSettlementSnapshot.test.mjs` 通过；GamePanel 约 12,759 行 |
 | v3.6.2 | 2026-06-24 | 抽出 `usePauseOverlayController.js`，收口暂停 / 开发者选项层 glue；`npm run build` 与相关测试通过；建立 E4-prep 外部备份；GamePanel 约 12,735 行 |
@@ -1046,7 +1046,7 @@ function showScoreBubble|function wobbleGameTreasureSlot|function scheduleMultMu
 | v3.6.15 | 2026-06-24 | **F2 落地**：新建 `useRunEndFlowController.js`；`RunEndFlowHost` inject `session.ui.runEnd`，删 9 props；GamePanel 约 11,249 行；下一项 **G1** |
 | v3.6.16 | 2026-06-24 | **G1 落地**：接入 `useTreasureRunController`（`sharedTreasureDetail`）；`treasureSession = treasureRun`；删 inline 宝藏详情/重排/充能/落位/关卡 hook/提交上下文；`npm test` 167/167、`npm run build` 通过；GamePanel 约 10,811 行；下一项 **G2 / E4.3** |
 | v3.6.17 | 2026-06-25 | **E4.3 部分落地**：恢复 G1 切片误删的商店/法术 ref 与 `makeEmptyShopSlot`；删死代码 `buildDeckExpandPreviewNav`；修复 `InRunShopPhase` viewContext 字段名 + `shopSession.runWalletFloor`；`npm test` 167/167、`npm run build` 通过；GamePanel 约 10,845 行 |
-| v3.6.18 | 2026-06-25 | **E4.3 CSS 清理**：删除 GamePanel 整段无消费者 `<style scoped>`（~498 行，牌库/词槽/顶栏/confetti 样式已在 run 子组件与 `game.deck-layer.css`）；`npm test` 167/167、`npm run build` 通过；GamePanel 约 10,347 行；更新 `game-panel-boundary.mdc` 基线；**下一项 G2** |
+| v3.6.18 | 2026-06-25 | **E4.3 CSS 清理**：删除 GamePanel 整段无消费者 `<style scoped>`（~498 行，字母库/词槽/顶栏/confetti 样式已在 run 子组件与 `game.deck-layer.css`）；`npm test` 167/167、`npm run build` 通过；GamePanel 约 10,347 行；更新 `game-panel-boundary.mdc` 基线；**下一项 G2** |
 | v3.6.19 | 2026-06-25 | **G2 审计落盘**：§11 G2 细化为 G2.1～G2.4 可勾选子任务；新增 §20 shopSession/viewContext 字段映射、§21 双写删除清单、§22 装配顺序与 lazy selection bridge；RunSession 表补 `shop` 行；§10 债务表更新 shop 行号区间；**代码接线仍为下一执行项** |
 | v3.6.20 | 2026-06-25 | **G2 落地**：`useShopPhaseController` 接线（外部 `showShop`、`shopSelectionBridge`、`initShopViewContext`）；删 inline `shopSession` 与 §21 双写；`npm test` 167/167、`npm run build` 通过；GamePanel 约 9,783 行；下一项 **G3 / Phase H smoke** |
 | v3.6.21 | 2026-06-25 | **G3 计划落盘**：§10 债务表按 G2 后重审计；§11 增 G3.1～G3.6 可勾选子任务；新增 **§23** 行数热力图 / realistic 预期 / G3 grep；新增 **§24** Phase H smoke 映射；修正 §1.1 行数不一致；§16/§20 标记 G2 已完成；`npm test` 167/167 复核 |

@@ -29,8 +29,8 @@
  * @property {boolean} chapterNoVerbUnlocked 曾完成一整大关且未拼写过动词
  * @property {Set<string>} levelVowelsUsedThisLevel 本小关内已出现的元音字母 a–u
  * @property {boolean} levelAllFiveVowelsUnlocked 本小关内曾用齐五种元音（解锁用，跨局保留）
- * @property {boolean} levelAllLegendaryDeckExhaustedUnlocked 曾在一个小关内用尽牌库中所有传说字母
- * @property {number} levelStartLegendaryInDeckCount 本小关开局牌库中传说字母块数量（追踪用尽解锁）
+ * @property {boolean} levelAllLegendaryDeckExhaustedUnlocked 曾在一个小关内用尽字母库中所有传说字母
+ * @property {number} levelStartLegendaryInDeckCount 本小关开局字母库中传说字母块数量（追踪用尽解锁）
  * @property {boolean} runIceMaterialShattered 本局曾使碎冰块碎裂
  * @property {boolean} everTwoTreasuresWithAccessoryUnlocked 曾同时拥有 2 个装备了配饰的宝藏（卖出不影响）
  * @property {boolean} levelFirstFullWordDiscardDone 本小关是否已因首次弃完整词升级过长度
@@ -40,7 +40,7 @@
  * @property {boolean} soldBlueprintTreasure98 本局是否卖出过面具（98）
  * @property {number} runSpellsCastCount 本局已释放法术次数
  * @property {number} runUpgradesUsedCount 本局已使用升级次数
- * @property {Set<string>} runDeckAddedRarities 本局主动加入牌库的字母块已覆盖的稀有度（初始牌库不计）
+ * @property {Set<string>} runDeckAddedRarities 本局主动加入字母库的字母块已覆盖的稀有度（初始字母库不计）
  * @property {number} runLettersDiscardedTotal 本局累计弃掉字母块数
  * @property {boolean} shopUpgradesFree 商店升级/升级包免费（宝藏 110）
  * @property {string | null} lastSpellIdBeforeShopLeave 离店前最后一次释放的法术 id（宝藏 117）

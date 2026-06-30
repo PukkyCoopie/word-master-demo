@@ -18,7 +18,7 @@ function buildInboxDescription(ctx) {
   const m = getMultMulBank(ctx.treasureRun, ID);
   const shown = Number.isInteger(m) ? String(m) : m.toFixed(2).replace(/\.?0+$/, "");
   return describe(
-    "每当一个字母被加入你的牌库，获得",
+    "每当一个字母被加入你的字母库，获得",
     mult("x0.25"),
     "倍率",
     "（当前",
@@ -32,7 +32,7 @@ export default {
   price: 7,
   rarity: "common",
   description: describe(
-    "每当一个字母被加入你的牌库，获得",
+    "每当一个字母被加入你的字母库，获得",
     mult("x0.25"),
     "倍率",
     "（当前",

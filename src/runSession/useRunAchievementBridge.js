@@ -123,7 +123,7 @@ export function useRunAchievementBridge(deps) {
     return Array.isArray(snap) ? snap.filter((c) => c && typeof c === "object").length : 0;
   }
 
-  /** 牌库 multiset 永久增删后检查「大道至简 / 包罗万象」等成就 */
+  /** 字母库 multiset 永久增删后检查「大道至简 / 包罗万象」等成就 */
   function flushDeckMultisetAchievements() {
     flushAchievementUnlocks({ deckSize: getFullDeckMultisetSize() });
   }

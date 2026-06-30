@@ -72,7 +72,7 @@ const BUNDLE_EFFECTS = {
   spell: { normal: "从3张法术卡中选择1张并使用", jumbo: "从5张法术卡中选择1张并使用", mega: "从5张法术卡中选择至多2张并使用" },
   upgrade: { normal: "从3张升级卡中选择1张并使用", jumbo: "从5张升级卡中选择1张并使用", mega: "从5张升级卡中选择至多2张并使用" },
   treasure: { normal: "从2个宝藏中选择1个并获取", jumbo: "从4个宝藏中选择1个并获取", mega: "从4个宝藏中选择至多2个并获取" },
-  tile: { normal: "从3个字母块中选择1个并加入牌库", jumbo: "从5个字母块中选择1个并加入牌库", mega: "从5个字母块中选择至多2个并加入牌库" },
+  tile: { normal: "从3个字母块中选择1个并加入字母库", jumbo: "从5个字母块中选择1个并加入字母库", mega: "从5个字母块中选择至多2个并加入字母库" },
 };
 
 async function loadShopTreasures() {
@@ -204,7 +204,7 @@ async function main() {
     name: "字母块",
     emoji: "",
     type: "字母块",
-    effect: "随机字母块加入牌库（二级打字机后可能带材质/配饰）",
+    effect: "随机字母块加入字母库（二级打字机后可能带材质/配饰）",
     price: SHOP_SINGLE_ROW_PRICES.deckTilePlain,
     note: `需优惠券「打字机」；无增益 $${SHOP_SINGLE_ROW_PRICES.deckTilePlain}、有增益 $${SHOP_SINGLE_ROW_PRICES.deckTile}（万能块 $${SHOP_WILDCARD_TILE_PRICE}）；亦可出现在字母包`,
   });

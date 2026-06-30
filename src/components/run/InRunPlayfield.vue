@@ -444,13 +444,13 @@ defineExpose({
             ref="deckBtnRef"
             type="button"
             class="deck-btn deck-btn--grid-row"
-            title="牌库"
-            aria-label="牌库"
+            title="字母库"
+            aria-label="字母库"
             :disabled="pfRunFlowOverlayOpen || pfBlockingInput"
             @click="onDeckBtnClick"
           >
             <i class="ri-stack-line deck-btn-icon" aria-hidden="true"></i>
-            <span class="deck-btn-label">牌库</span>
+            <span class="deck-btn-label">字母库</span>
             <span class="deck-btn-count">{{ pv.deckCount }}</span>
           </button>
           <div

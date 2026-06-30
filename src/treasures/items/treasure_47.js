@@ -4,7 +4,7 @@ import { describe, score } from "../treasureDescription.js";
 export default {
   price: 5,
   rarity: "common",
-  description: describe("你的牌库中每剩余一个字母，", score("+2"), "分数"),
+  description: describe("你的字母库中每剩余一个字母，", score("+2"), "分数"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

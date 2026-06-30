@@ -17,7 +17,7 @@
 | namespace / 模块 | 创建位置 | 主要输入 | 主要消费者 | 当前删除目标 |
 |---|---|---|---|---|
 | `phase` | `GamePanel.vue` | `transitionBusy`、`showShop`、overlay open flags | `GamePanel` 壳层、后续 controller 门禁 | scattered phase / busy 判断 |
-| `overlayStack` | `GamePanel.vue` | portal z-index、present/dismiss 节奏、**全局 dictFatal/toast** | `RunOverlayHost.vue`、`RunGlobalOverlays.vue`、牌库浮层 | E4.1 已完成；deck / pause z glue 已收口 |
+| `overlayStack` | `GamePanel.vue` | portal z-index、present/dismiss 节奏、**全局 dictFatal/toast** | `RunOverlayHost.vue`、`RunGlobalOverlays.vue`、字母库浮层 | E4.1 已完成；deck / pause z glue 已收口 |
 | `pauseOverlay` | `GamePanel.vue` + **`useDeveloperOptionsBridge.js`** | pause / developer open state、dev cheat handler | `RunOverlayHost.vue`、Android back | **G3.5 已完成**：Host 仅 inject；无 template props |
 | `save` | `GamePanel.vue` | run/grid/UI 状态、hydrate 入口 | autosave / restore | 旧 save watch 和 save context |
 | `playfield` | `GamePanel.vue` | grid、selection、DOM getter、detail helper | `InRunPlayfield.vue` | 旧主战场模板和 playfield glue |

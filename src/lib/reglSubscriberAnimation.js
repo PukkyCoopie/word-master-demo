@@ -7,7 +7,7 @@ import { isMaterialProfilerEnabled, recordMaterialHubProfile } from "./reglMater
 
 /**
  * regl 材质展示 canvas 的「逐帧 / 单帧」订阅控制。
- * 未展开牌库 stack 等场景只需绘制一帧并保留，避免大量 canvas 共用 RAF。
+ * 未展开字母库 stack 等场景只需绘制一帧并保留，避免大量 canvas 共用 RAF。
  */
 
 /** @typedef {{ animated?: boolean, viewportVisible?: boolean, frameFrozen?: boolean, _displayFrameReady?: boolean, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number, fixedCssWidth?: number, fixedCssHeight?: number, _disposeReglBindings?: (() => void) | null }} ReglDisplaySubscriber */

@@ -10,7 +10,7 @@ export const LETTER_Q_MODE_OPTIONS = [
 ];
 
 /**
- * 小写 raw（q 表示 Q/Qu 块）→ 棋盘/牌库展示字母串。
+ * 小写 raw（q 表示 Q/Qu 块）→ 棋盘/字母库展示字母串。
  * @param {unknown} raw
  * @param {LetterQMode} [mode]
  * @returns {string}

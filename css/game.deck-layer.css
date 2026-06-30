@@ -1,11 +1,11 @@
-/* 牌库堆叠格：展开列表中单块包一层以接右键/长按 */
+/* 字母库堆叠格：展开列表中单块包一层以接右键/长按 */
 .deck-expand-tile-hit {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* ----- 牌库浮层 ----- */
+/* ----- 字母库浮层 ----- */
 .deck-layer {
   position: absolute;
   inset: 0;
@@ -26,7 +26,7 @@
 
 .deck-layer-inner {
   --deck-layer-tile-size: calc(72 * var(--rpx));
-  /* 牌库 tile 小于棋盘格：配饰角标随 --slot-scale 与局内同比例（见 game.css .grid-tile .tile-accessory-chip） */
+  /* 字母库 tile 小于棋盘格：配饰角标随 --slot-scale 与局内同比例（见 game.css .grid-tile .tile-accessory-chip） */
   --slot-scale: calc(var(--deck-layer-tile-size) / var(--letter-grid-cell-size));
   /* 底部：padding-bottom + gap + 确定/返回按钮占位，供 stack 展开层对齐 */
   --deck-layer-confirm-slot: calc(122 * var(--rpx));
@@ -136,7 +136,7 @@
   justify-content: center;
   padding: 0;
 }
-/* 牌库：按字母分堆；同中心旋转叠放；与展开区共用 --deck-layer-tile-size */
+/* 字母库：按字母分堆；同中心旋转叠放；与展开区共用 --deck-layer-tile-size */
 .deck-layer-stacks {
   --deck-stack-size: var(--deck-layer-tile-size);
   --deck-tile-size: var(--deck-layer-tile-size);
@@ -261,7 +261,7 @@
 .deck-layer-stacks .deck-stack-pile-tile .tile-treasure-accessory-chip .treasure-accessory-chip-icon {
   font-size: calc(14 * var(--rpx) * var(--slot-scale, 1));
 }
-/* 牌库视图统一字号：覆盖材质块在 game.css 里的固定 42*rpx */
+/* 字母库视图统一字号：覆盖材质块在 game.css 里的固定 42*rpx */
 .deck-layer-stacks .deck-stack-pile-tile.tile-material-gold .letter-tile-char,
 .deck-layer-stacks .deck-stack-pile-tile.tile-material-steel .letter-tile-char,
 .deck-layer-stacks .deck-stack-pile-tile.tile-material-ice .letter-tile-char,
@@ -393,7 +393,7 @@
   background: #e67e22;
 }
 
-/* 牌库展开：滑块合并档时与棋盘 letter-gem 一致 */
+/* 字母库展开：滑块合并档时与棋盘 letter-gem 一致 */
 html.has-rarity-tier-merge .deck-stack-expand-tiles .deck-expand-face-tile .letter-gem.gem-common,
 html.has-rarity-tier-merge .deck-stack-expand-tiles .deck-expand-face-tile .letter-gem.gem-rare {
   background: var(--rarity-gem-merge-low);

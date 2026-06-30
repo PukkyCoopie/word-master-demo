@@ -354,7 +354,7 @@ registerGameTestHarness|__GAME_TEST__
 
 | 步骤 | 迁出 / 接模块目标 | GP 内符号（当前副本） | 实际 live 路径 | 约 −行 | smoke | 状态 |
 |---|---|---|---|---:|---|---|
-| S6g.1 | `shopOfferFlyAnim.js` | `animatePackTileFlyToDeck` | `useSpellCastController` → `shopOfferFlyAnim.js`（已直引） | ~90 | §8 spell 入牌库 | ✅ |
+| S6g.1 | `shopOfferFlyAnim.js` | `animatePackTileFlyToDeck` | `useSpellCastController` → `shopOfferFlyAnim.js`（已直引） | ~90 | §8 spell 入字母库 | ✅ |
 | S6g.2 | `gridDropAnim.js`（`createGridDropAnim`） | `runGridDropAnimation` | assembly `createGridDropAnim` + lifecycle bind | ~230 | §1 补牌、§3 提交 | ✅ |
 | S6g.3 | `shopOfferFlyAnim.js` | `animateTreasureFrameFly` | GP / packPick → `shopOfferFlyAnim.js` | ~105 | §4 购宝、§8 pack | ✅ |
 | S6g.4 | `shopWalletGainAnim.js` | `playWalletHeaderGainAnim` | 结算 `createShopWalletGainAnim`（商店仍用 controller 内 factory） | ~65 | §9～10 结算 | ✅ |

@@ -9,7 +9,7 @@ export default {
   price: 6,
   rarity: "rare",
   description: describe(
-    "每个关卡的第一次丢弃如果仅弃掉了1个字母，从牌库中移除它并获得",
+    "每个关卡的第一次丢弃如果仅弃掉了1个字母，从字母库中移除它并获得",
     money("3"),
   ),
 };

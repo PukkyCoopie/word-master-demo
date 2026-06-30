@@ -3,7 +3,7 @@
 /** @typedef {import('./playfieldPortTypes.js').PlayfieldPortBinding} PlayfieldPortBinding */
 
 /**
- * 棋盘/牌库域 assembly 端口（R4.2）。
+ * 棋盘/字母库域 assembly 端口（R4.2）。
  * @param {PlayfieldPortBinding} binding
  */
 export function createPlayfieldPorts(binding) {

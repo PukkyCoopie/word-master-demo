@@ -94,11 +94,11 @@ export function buildDeckTileOfferDisplay(letterDisp, mods) {
   if (bAcc) descParts.push(`「${getAccessoryTitle(bAcc) || bAcc}」`);
   const description = isWildcard
     ? descParts.length
-      ? `${descParts.join("、")}的万能块加入牌库`
-      : "万能块加入牌库"
+      ? `${descParts.join("、")}的万能块加入字母库`
+      : "万能块加入字母库"
     : descParts.length
-      ? `${descParts.join("、")}的「${letterDisp}」加入牌库`
-      : `「${letterDisp}」加入牌库${mods.rarityLabel ? `（${mods.rarityLabel}）` : ""}`;
+      ? `${descParts.join("、")}的「${letterDisp}」加入字母库`
+      : `「${letterDisp}」加入字母库${mods.rarityLabel ? `（${mods.rarityLabel}）` : ""}`;
   return { name, description };
 }
 

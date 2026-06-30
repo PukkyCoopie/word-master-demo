@@ -7,7 +7,7 @@ const ID = "131";
 export default {
   price: 7,
   rarity: "rare",
-  description: describe("关卡完成时，你完整牌库中的每个C使你获得", money("1")),
+  description: describe("关卡完成时，你完整字母库中的每个C使你获得", money("1")),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

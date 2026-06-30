@@ -32,7 +32,7 @@ function deckCardToSpec(card) {
 export default {
   price: 6,
   rarity: "epic",
-  description: describe("在每个关卡的第一次拼写中，将第一个具有增强效果的字母复制并洗入你的牌库"),
+  description: describe("在每个关卡的第一次拼写中，将第一个具有增强效果的字母复制并洗入你的字母库"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
