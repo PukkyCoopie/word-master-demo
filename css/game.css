@@ -1464,16 +1464,21 @@ textarea::-moz-placeholder {
 }
 .grid-deck-aux-row .deck-btn--grid-row {
 	flex: 0 0 auto;
-	width: calc(180 * var(--rpx));
-	min-width: calc(180 * var(--rpx));
-	max-width: calc(180 * var(--rpx));
+	width: calc(210 * var(--rpx));
+	min-width: calc(210 * var(--rpx));
+	max-width: calc(210 * var(--rpx));
 	height: var(--grid-deck-aux-btn-size);
 	padding: calc(10 * var(--rpx));
 	box-sizing: border-box;
 	flex-direction: row;
 	justify-content: center;
 	align-items: center;
-	gap: calc(8 * var(--rpx));
+	gap: calc(6 * var(--rpx));
+}
+.deck-btn-label,
+.deck-btn-count {
+	white-space: nowrap;
+	flex-shrink: 0;
 }
 .deck-btn-count {
 	opacity: 0.9;

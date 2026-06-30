@@ -230,14 +230,6 @@ const IMMOLATE_SPELL_REWARD = 15;
 /** 星星未命中：wobble +「没有！」气泡结束后再留一拍，再关预览层 */
 const STAR_SPELL_MISS_POST_FX_HOLD_MS = 300;
 
-/** @param {NonNullable<typeof spellTargetSession.value>} s */
-function isStarPreviewOnlySession(s) {
-  if (s.pickMode !== "preview_only") return false;
-  const eff = String(s.effectiveSpellId ?? "");
-  const pur = String(s.purchasedSpellId ?? "");
-  return eff === "star" || pur === "star";
-}
-
 /** 火柴：候选格 stagger 放大→缩没（与「删除」同款）→ 法术图标弹出 $15 气泡 */
 async function playImmolateConfirmFxOnOfferSlots(
   slotIndices,
@@ -321,9 +313,9 @@ async function playStarSpellAccessoryGrantFx(outcome) {
 }
 
 /**
- * 商店购买星星：先判定，失败则在详情预览层反馈后再关闭；成功则先关层再播宝藏动效。
+ * 星星直接结算：在详情预览层判定；失败则预览区反馈后关闭，成功则先关层再播宝藏动效。
  */
-async function fulfillStarSpellShopPurchase() {
+async function fulfillStarSpellDirectSettle() {
   const ctx = buildSpellRuntimeContext();
   const outcome = resolveStarSpellOutcome(ctx, runRandom);
   const layer = dom.getTreasureDetailLayer();
@@ -341,31 +333,7 @@ async function fulfillStarSpellShopPurchase() {
   }
   noteSpellCastForReplay("star");
   callbacks.scheduleRunAutoSave();
-}
-
-/**
- * 法术操作层（对局内 preview_only）确认星星：失败在弹层反馈后关闭；成功先关层再播宝藏动效。
- * @param {NonNullable<typeof spellTargetSession.value>} s
- */
-async function fulfillStarSpellPreviewConfirm(s) {
-  const ctx = buildSpellRuntimeContext();
-  const outcome = resolveStarSpellOutcome(ctx, runRandom);
-  const layer = dom.getSpellTargetLayer();
-  const starVisual = layer?.getSpellVisualEl?.() ?? layer?.getSpellIconEl?.();
-
-  if (!outcome.ok) {
-    await playStarSpellMissFxOnVisual(starVisual);
-    noteSpellCastForReplay(s.purchasedSpellId);
-    await dismissSpellTargetLayer({ confirmed: true, skipped: false });
-    callbacks.scheduleRunAutoSave();
-    return;
-  }
-
-  noteSpellCastForReplay(s.purchasedSpellId);
-  await dismissSpellTargetLayer({ confirmed: true, skipped: false });
-  await nextTick();
-  await playStarSpellAccessoryGrantFx(outcome);
-  callbacks.scheduleRunAutoSave();
+  return { confirmed: true, skipped: false };
 }
 
 /**
@@ -997,6 +965,8 @@ async function fulfillSpellGrantDetailCast() {
       pending.offerDeckSource,
       pending.overrides,
     );
+  } else if (pending.purchasedSpellId === "star") {
+    result = await fulfillStarSpellDirectSettle();
   } else {
     result = await runSpellPreviewChainAfterDetailClose(() =>
       runSpellCastAfterDetailPreview(
@@ -1060,13 +1030,8 @@ async function applyInstantSpellWithoutPreview(purchasedSpellId, context, offerD
     if (outcome.ok) {
       await playStarSpellAccessoryGrantFx(outcome);
     } else {
-      const spellLayer = dom.getSpellTargetLayer();
       const detailLayer = dom.getTreasureDetailLayer();
-      const starVisual =
-        spellLayer?.getSpellVisualEl?.() ??
-        spellLayer?.getSpellIconEl?.() ??
-        detailLayer?.getTargetVisualEl?.() ??
-        detailLayer?.getFlyFrameEl?.();
+      const starVisual = detailLayer?.getTargetVisualEl?.() ?? detailLayer?.getFlyFrameEl?.();
       await playStarSpellMissFxOnVisual(starVisual);
     }
     noteSpellCastForReplay(pid);
@@ -1222,11 +1187,6 @@ async function onSpellTargetConfirm(ordered, selectionSlotIndices) {
   const s = spellTargetSession.value;
   if (!s) return;
   if (s.confirmDisabled === true) return;
-
-  if (isStarPreviewOnlySession(s)) {
-    await fulfillStarSpellPreviewConfirm(s);
-    return;
-  }
 
   const offerSlotsList = Array.isArray(s.offerSlots) ? s.offerSlots : [];
   let confirmSelectionSlotIndices = selectionSlotIndices;
@@ -1518,7 +1478,7 @@ function getSpellGrantDetailPendingPurchasedSpellId() {
     runSpellPreviewChain,
     runSpellPreviewChainAfterDetailClose,
     runInRunSpellGrant,
-    fulfillStarSpellShopPurchase,
+    fulfillStarSpellShopPurchase: fulfillStarSpellDirectSettle,
     fulfillSpellGrantDetailCast,
     onSpellTargetConfirm,
     onSpellTargetCancel,

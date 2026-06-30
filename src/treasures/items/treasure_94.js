@@ -1,4 +1,5 @@
 import { describe, mult, rarity } from "../treasureDescription.js";
+import { isTreasureHookBlueprintMirror } from "../../game/treasureBlueprintMirror.js";
 import {
   getActiveRotatingRarityMultStep,
   rollNextRotatingRarityMultIndex,
@@ -70,7 +71,7 @@ export const treasureHooks = {
     if (rs.rotatingRarityMultIndex == null) rollNextRotatingRarityMultIndex(rs, ctx.rng ?? Math.random);
   },
   async onLevelComplete(ctx) {
-    if (ctx.hookSource === "blueprint") return;
+    if (isTreasureHookBlueprintMirror(ctx)) return;
     const rs = ctx.treasureRun;
     if (!rs) return;
     rollNextRotatingRarityMultIndex(rs, ctx.rng ?? Math.random);

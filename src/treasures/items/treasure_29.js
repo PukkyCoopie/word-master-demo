@@ -1,4 +1,5 @@
 import { describe, mult, prob, riskText } from "../treasureDescription.js";
+import { isTreasureHookBlueprintMirror } from "../../game/treasureBlueprintMirror.js";
 import { rollProbabilityFailsSkip } from "../treasureProbability.js";
 
 const ID = "29";
@@ -28,6 +29,7 @@ export const treasureHooks = {
     return { multAdd: 50 };
   },
   async onLevelComplete(ctx) {
+    if (isTreasureHookBlueprintMirror(ctx)) return;
     const rng = ctx.rng ?? Math.random;
     if (rollProbabilityFailsSkip(1, 5, rng, ctx.ownedSlotTreasureIds)) return;
     if (ctx.treasureRun) {

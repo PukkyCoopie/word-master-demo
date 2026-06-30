@@ -240,6 +240,7 @@ import {
 } from "../dev/maskBubbleBlueprintScenario.js";
 import { isCeruleanBellDevScenario } from "../dev/ceruleanBellDevScenario.js";
 import { isPagerDevScenario } from "../dev/pagerDevScenario.js";
+import { isEctoplasmDevScenario } from "../dev/ectoplasmDevScenario.js";
 import {
   applyPromoGameplayGridMaterials,
   applyPromoGameplayTileBonuses,
@@ -429,6 +430,8 @@ const allIceDevScenarioActive = ref(isAllIceDevScenario());
 const ceruleanBellDevScenarioActive = ref(isCeruleanBellDevScenario());
 /** 开发：开局槽位 1 为寻呼机（`?dev=pager` 或控制台命令） */
 const pagerDevScenarioActive = ref(isPagerDevScenario());
+/** 开发：开局 5 宝藏各带随机非裁剪配饰（`?dev=ectoplasm`，烛台调试） */
+const ectoplasmDevScenarioActive = ref(isEctoplasmDevScenario());
 /** 开发：宣传图预设 1 的棋盘材质/加成（`setupScreenshotPreset(1)`） */
 const promoScreenshotDevPresetActive = ref(0);
 
@@ -916,7 +919,12 @@ function getInRunDeckFlyTargetEl() {
 /** @type {ReturnType<typeof useRunEndFlowController> | null} */
 let runEndCtrlSlot = null;
 /** @type {() => void | Promise<void>} */
-let runEndEnterEndlessImpl = async () => {};
+let runEndEnterEndlessSlot = async () => {};
+
+/** 稳定转发，供 assembly 注册；重绑 slot 后仍生效 */
+function invokeRunEndEnterEndless() {
+  return runEndEnterEndlessSlot();
+}
 
 async function openRunEnd(outcome, opts = {}) {
   return runEndCtrlSlot.openRunEnd(outcome, opts);
@@ -1807,7 +1815,7 @@ const { ports: gamePanelPorts } = setupGamePanelAssembly(
       runRandom,
       runRng,
       runEndCtrlSlot,
-      runEndEnterEndlessImpl,
+      runEndEnterEndlessImpl: invokeRunEndEnterEndless,
       runEndFlowHostRef,
       levelIndex,
       money,
@@ -1981,7 +1989,7 @@ runAutoSaveBridge.tryFlush = (opts) => runSaveBridge?.tryFlush?.(opts);
   devCommandsRef,
   devCommandsOptions: buildGamePanelDevCommandsOptions({
     maskBubbleDevScenarioActive, allIceDevScenarioActive, ceruleanBellDevScenarioActive,
-    pagerDevScenarioActive, promoScreenshotDevPresetActive, ownedTreasures, transitionBusy,
+    pagerDevScenarioActive, ectoplasmDevScenarioActive, promoScreenshotDevPresetActive, ownedTreasures, transitionBusy,
     showShop, showSettlement, showRunEnd, showPauseOptions, showDeveloperOptions, levelIndex,
     pendingBossSlugOverride: ctrlEarly.pendingBossSlugOverride,
     gridIntroDone, gridRefillAnimating, gridTileRefs,
@@ -2227,7 +2235,7 @@ async function enterEndlessModeAfterWin() {
   });
 }
 
-runEndEnterEndlessImpl = enterEndlessModeAfterWin;
+runEndEnterEndlessSlot = enterEndlessModeAfterWin;
 
 function treasureGemClass(rarity) {
   return treasureGemClassForRarity(rarity);
@@ -2296,6 +2304,8 @@ function buildGamePanelBootstrapSource() {
     applyMaskBubbleOwnedTreasures: () => devCommandsRef.current?.applyMaskBubbleDevRunStart(),
     isPagerDevScenarioActive: () => pagerDevScenarioActive.value,
     applyPagerOwnedTreasure: () => devCommandsRef.current?.applyPagerDevRunStart(),
+    isEctoplasmDevScenarioActive: () => ectoplasmDevScenarioActive.value,
+    applyEctoplasmDevOwnedTreasures: () => devCommandsRef.current?.applyEctoplasmDevRunStart(),
     isCeruleanBellDevScenarioActive: () => ceruleanBellDevScenarioActive.value,
     applyCeruleanBellDevRunStart: () => devCommandsRef.current?.applyCeruleanBellDevRunStart(),
     getGamePanelAlive,

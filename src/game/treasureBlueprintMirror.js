@@ -137,3 +137,17 @@ export function resolvePostLetterAnimSlotIndex(ownedSlotTreasureIds, treasureId,
   if (source === "blueprint") return Math.max(0, Math.floor(Number(hookSlotIndex) || 0));
   return resolvePhysicalTreasureSlotIndex(ownedSlotTreasureIds, treasureId, hookSlotIndex);
 }
+
+/** 本次 hook 来自面具/绵羊 blueprint 镜像（只复现增益，不触发成长/状态写入）。 */
+export function isTreasureHookBlueprintMirror(ctx) {
+  return ctx?.hookSource === "blueprint";
+}
+
+/**
+ * 关卡结算等 hook 动效槽：优先用 hook 贡献槽位（蓝图时为面具/绵羊槽）。
+ * @param {{ hookSlotIndex?: number }} ctx
+ */
+export function resolveTreasureHookAnimSlotIndex(ctx) {
+  const ix = Math.floor(Number(ctx?.hookSlotIndex));
+  return Number.isFinite(ix) && ix >= 0 ? ix : undefined;
+}

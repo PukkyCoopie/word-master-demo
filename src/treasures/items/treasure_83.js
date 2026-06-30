@@ -1,4 +1,5 @@
 import { describe, money } from "../treasureDescription.js";
+import { isTreasureHookBlueprintMirror } from "../../game/treasureBlueprintMirror.js";
 import {
   dictionaryPosMatchesTreasureLevelKey,
   getTreasureLevelPosLabelZh,
@@ -36,6 +37,7 @@ export const treasureHooks = {
     ensureLevelPosTarget(rs, ctx.rng ?? Math.random);
   },
   onLevelComplete(ctx) {
+    if (isTreasureHookBlueprintMirror(ctx)) return;
     const rs = ctx.treasureRun;
     if (!rs) return;
     rs.levelPosTargetKey = rollTreasureLevelPosKey(ctx.rng ?? Math.random);

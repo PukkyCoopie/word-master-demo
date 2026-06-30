@@ -1,5 +1,5 @@
 import { describe } from "../treasureDescription.js";
-import { getScoreAddBank } from "../treasureBankHelpers.js";
+import { canMutateTreasureBankFromCtx, getScoreAddBank } from "../treasureBankHelpers.js";
 import { ensureTreasureBank } from "../treasureRunState.js";
 
 const ID = "137";
@@ -32,6 +32,7 @@ export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription: buildBatteryDescription,
   onLevelComplete(ctx) {
+    if (!canMutateTreasureBankFromCtx(ctx, ID)) return;
     const rs = ctx.treasureRun;
     if (!rs) return;
     const target = Math.max(0, Math.floor(Number(ctx.targetScore) || 0));
@@ -49,8 +50,10 @@ export const treasureHooks = {
     if (!rs || rs.level137BonusApplied) return null;
     const stored = Math.max(0, Math.floor(getScoreAddBank(rs, ID)));
     if (stored <= 0) return null;
-    rs.level137BonusApplied = true;
-    ensureTreasureBank(rs, ID).scoreAdd = 0;
+    if (canMutateTreasureBankFromCtx(ctx, ID)) {
+      rs.level137BonusApplied = true;
+      ensureTreasureBank(rs, ID).scoreAdd = 0;
+    }
     return { finalScoreAdd: stored };
   },
 };

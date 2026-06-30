@@ -8,6 +8,7 @@ import {
   CHAPTER_1_BOSS_LEVEL_INDEX,
 } from "./ceruleanBellDevScenario.js";
 import { applyPagerOwnedTreasure } from "./pagerDevScenario.js";
+import { applyEctoplasmDevOwnedTreasures } from "./ectoplasmDevScenario.js";
 import {
   applyPromoGameplayOwnedTreasures,
   buildPromoSuperPackPickSession,
@@ -144,6 +145,24 @@ export function createGamePanelDevCommands(deps) {
     await deps.nextTick();
     await finishScreenshotDevGridVisual();
     console.log("[DEV] 寻呼机测试局：槽位 1 已装备寻呼机。提交单词触发翻译测验。");
+  }
+
+  async function startEctoplasmDevTest() {
+    deps.refs.ectoplasmDevScenarioActive.value = true;
+    const summary = applyEctoplasmDevOwnedTreasures(
+      deps.refs.ownedTreasures,
+      deps.buildOwnedTreasureSlot,
+      deps.runRandom,
+    );
+    const levelDef = deps.getCurrentLevel() ?? deps.getRunLevelAtIndex(deps.refs.levelIndex.value);
+    await deps.resetLevelAfterTreasurePrep(levelDef);
+    await deps.nextTick();
+    await finishScreenshotDevGridVisual();
+    console.log(
+      "[DEV] 烛台测试局：已装备 5 个带随机非裁剪配饰的宝藏。",
+      summary.treasureIds,
+      summary.accessoryIds,
+    );
   }
 
   /**
@@ -372,6 +391,7 @@ export function createGamePanelDevCommands(deps) {
     dev.startAllIceDevTest = () => startAllIceDevTest();
     dev.startCeruleanBellDevTest = () => startCeruleanBellDevTest();
     dev.startPagerDevTest = () => startPagerDevTest();
+    dev.startEctoplasmDevTest = () => startEctoplasmDevTest();
     dev.jumpToLevel = (levelIdOrIndex, opts) => jumpToLevelDev(levelIdOrIndex, opts);
     dev.jumpToBossShop = (bossSlug, chapterOrLevelId) =>
       jumpToBossShopDev(bossSlug, chapterOrLevelId);
@@ -404,6 +424,7 @@ export function createGamePanelDevCommands(deps) {
     startMaskBubbleBlueprintDevTest,
     startAllIceDevTest,
     startPagerDevTest,
+    startEctoplasmDevTest,
     startCeruleanBellDevTest,
     jumpToLevelDev,
     jumpToBossShopDev,
@@ -415,6 +436,13 @@ export function createGamePanelDevCommands(deps) {
     },
     applyPagerDevRunStart() {
       applyPagerOwnedTreasure(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
+    },
+    applyEctoplasmDevRunStart() {
+      return applyEctoplasmDevOwnedTreasures(
+        deps.refs.ownedTreasures,
+        deps.buildOwnedTreasureSlot,
+        deps.runRandom,
+      );
     },
     debugSetScoreCardValues,
     debugClearScoreCardValues,

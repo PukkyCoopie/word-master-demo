@@ -214,35 +214,55 @@ export function usePackPickController(options) {
     }
   }
 
-  async function maybeAutoClosePackPickSession() {
+  /** 选满后先关包层再跑宝藏钩子，避免包 session 未清导致商店整页不可点（如 135 再施法）。 */
+  async function finalizeCompletedPackPickSession() {
     const sess = packPickSession.value;
     if (!sess) return;
     const claimed = sess.claimedKeys ?? [];
-    if (claimed.length >= packPickRequiredPicks(sess)) {
-      const owned = callbacks.ownedSlotTreasureIdList();
-      await notifyOwnedTreasuresOnPackClaimed(owned, {
-        ownedSlotTreasureIds: owned,
-        treasureRun: treasureRunState.value,
-        rng: runRandom,
-        findOwnedTreasureSlotIndex: callbacks.findOwnedTreasureSlotIndex,
-        requestInRunSpellGrant: async (opts = {}) => {
-          const spellId =
-            opts.spellId ??
-            (typeof callbacks.pickRandomInRunSpellId === "function"
-              ? callbacks.pickRandomInRunSpellId()
-              : null);
-          if (!spellId) return;
-          const grantCtx = getPackPickGrantContext();
-          await grant.runInRunSpellGrant(spellId, {
-            cdShopLeaveReplay: grantCtx !== "inRun",
-          });
-        },
-      });
-      await dismissPackPickLayer();
+    if (claimed.length < packPickRequiredPicks(sess)) return;
+
+    const owned = callbacks.ownedSlotTreasureIdList();
+    await dismissPackPickLayer();
+    packPickOverlaySuppressed.value = false;
+    resolvePackPickFlow();
+    await notifyOwnedTreasuresOnPackClaimed(owned, {
+      ownedSlotTreasureIds: owned,
+      treasureRun: treasureRunState.value,
+      rng: runRandom,
+      findOwnedTreasureSlotIndex: callbacks.findOwnedTreasureSlotIndex,
+      requestInRunSpellGrant: async (opts = {}) => {
+        const spellId =
+          opts.spellId ??
+          (typeof callbacks.pickRandomInRunSpellId === "function"
+            ? callbacks.pickRandomInRunSpellId()
+            : null);
+        if (!spellId) return;
+        const grantCtx = getPackPickGrantContext();
+        await grant.runInRunSpellGrant(spellId, {
+          cdShopLeaveReplay: grantCtx !== "inRun",
+        });
+      },
+    });
+    callbacks.scheduleRunAutoSave();
+  }
+
+  async function maybeAutoClosePackPickSession() {
+    await finalizeCompletedPackPickSession();
+  }
+
+  /** 包内领取流程结束后的 UI 兜底：未选满则恢复包层，已选满则确保关包。 */
+  async function recoverPackPickUiAfterInnerClaim() {
+    const sess = packPickSession.value;
+    if (!sess) {
       packPickOverlaySuppressed.value = false;
-      resolvePackPickFlow();
-      callbacks.scheduleRunAutoSave();
+      return;
     }
+    const claimed = sess.claimedKeys ?? [];
+    if (claimed.length >= packPickRequiredPicks(sess)) {
+      await finalizeCompletedPackPickSession();
+      return;
+    }
+    ensurePackPickOverlayVisible();
   }
 
   async function fulfillSpellAfterPackPayment(t, { restoreLayersAfter = false } = {}) {
@@ -251,8 +271,12 @@ export function usePackPickController(options) {
     const grantCtx = getPackPickGrantContext();
     packPickOverlaySuppressed.value = true;
     await nextTick();
-    await grant.runInRunSpellGrant(spellId, {
-      cdShopLeaveReplay: grantCtx !== "inRun",
+    const context = grantCtx !== "inRun" ? "shop" : "inRun";
+    const offerDeckSource = grantCtx !== "inRun" ? "fullDeck" : "remainingDeck";
+    // 包内详情已展示过；普通法术直接即时释法或开操作层。
+    // 重播/骰子仍走 runSpellPreviewChain 原分支（展示将要释放的法术详情）。
+    await grant.runSpellPreviewChain(spellId, context, offerDeckSource, {
+      afterDetailUseShopCastLogic: grantCtx !== "inRun",
     });
     if (restoreLayersAfter) {
       ensurePackPickOverlayVisible();
@@ -431,6 +455,11 @@ export function usePackPickController(options) {
       triggerHaptic("selection");
     } finally {
       packPickBusy.value = false;
+      try {
+        await recoverPackPickUiAfterInnerClaim();
+      } catch {
+        packPickOverlaySuppressed.value = false;
+      }
       callbacks.scheduleRunAutoSave();
     }
   }

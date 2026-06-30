@@ -1,4 +1,6 @@
 import { describe, money, prob } from "../treasureDescription.js";
+import { resolveTreasureHookAnimSlotIndex } from "../../game/treasureBlueprintMirror.js";
+import { canMutateTreasureBankFromCtx } from "../treasureBankHelpers.js";
 import { ensureTreasureBank } from "../treasureRunState.js";
 import { rollProbabilitySuccess } from "../treasureProbability.js";
 import { SCORING_STEP_BEAT_MS } from "../../game/scoreBubbleFx.js";
@@ -47,13 +49,22 @@ export const treasureHooks = {
   async onLevelComplete(ctx) {
     const rs = ctx.treasureRun;
     if (!rs) return;
+    const slotIndex = resolveTreasureHookAnimSlotIndex(ctx);
     const payout = currentPayout(rs);
     const rnd = typeof ctx.rng === "function" ? ctx.rng : Math.random;
-    const willUpgrade = rollProbabilitySuccess(1, 2, rnd, ctx.ownedSlotTreasureIds);
-    await ctx.playOwnedTreasureMoneyFx?.(ID, payout, { awaitOutro: !willUpgrade });
+    const canGrow = canMutateTreasureBankFromCtx(ctx, ID);
+    const willUpgrade = canGrow && rollProbabilitySuccess(1, 2, rnd, ctx.ownedSlotTreasureIds);
+    await ctx.playOwnedTreasureMoneyFx?.(ID, payout, {
+      awaitOutro: !willUpgrade,
+      ...(slotIndex != null ? { slotIndex } : {}),
+    });
     if (!willUpgrade) return;
     ensureTreasureBank(rs, ID).scoreAdd = payout + 1;
     await animSleep(UPGRADE_CHAIN_DELAY_MS);
-    await ctx.playOwnedTreasureBubbleFx?.(ID, "提升", "upgrade");
+    if (slotIndex != null && ctx.playOwnedTreasureBubbleFxAtSlot) {
+      await ctx.playOwnedTreasureBubbleFxAtSlot(slotIndex, "提升", "upgrade");
+    } else {
+      await ctx.playOwnedTreasureBubbleFx?.(ID, "提升", "upgrade");
+    }
   },
 };

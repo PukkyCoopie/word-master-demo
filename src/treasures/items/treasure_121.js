@@ -1,4 +1,5 @@
 import { describe, money } from "../treasureDescription.js";
+import { resolveTreasureHookAnimSlotIndex } from "../../game/treasureBlueprintMirror.js";
 
 const ID = "121";
 
@@ -12,6 +13,7 @@ export default {
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   async onLevelComplete(ctx) {
-    await ctx.playOwnedTreasureMoneyFx?.(ID, 4);
+    const slotIndex = resolveTreasureHookAnimSlotIndex(ctx);
+    await ctx.playOwnedTreasureMoneyFx?.(ID, 4, slotIndex != null ? { slotIndex } : {});
   },
 };

@@ -57,6 +57,9 @@ export async function startGamePanelNewRun(deps) {
   if (deps.isPagerDevScenarioActive()) {
     deps.applyPagerOwnedTreasure();
   }
+  if (deps.isEctoplasmDevScenarioActive()) {
+    deps.applyEctoplasmDevOwnedTreasures();
+  }
   if (deps.isCeruleanBellDevScenarioActive()) {
     deps.applyCeruleanBellDevRunStart();
   }

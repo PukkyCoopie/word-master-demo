@@ -36,6 +36,8 @@ export function buildGamePanelBootstrapDeps(d) {
     applyMaskBubbleOwnedTreasures: d.applyMaskBubbleOwnedTreasures,
     isPagerDevScenarioActive: d.isPagerDevScenarioActive,
     applyPagerOwnedTreasure: d.applyPagerOwnedTreasure,
+    isEctoplasmDevScenarioActive: d.isEctoplasmDevScenarioActive,
+    applyEctoplasmDevOwnedTreasures: d.applyEctoplasmDevOwnedTreasures,
     isCeruleanBellDevScenarioActive: d.isCeruleanBellDevScenarioActive,
     applyCeruleanBellDevRunStart: d.applyCeruleanBellDevRunStart,
     getGamePanelAlive: d.getGamePanelAlive,

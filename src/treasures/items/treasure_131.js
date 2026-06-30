@@ -1,4 +1,5 @@
 import { describe, money } from "../treasureDescription.js";
+import { resolveTreasureHookAnimSlotIndex } from "../../game/treasureBlueprintMirror.js";
 import { deckCardRaw } from "../../game/deckCardSync.js";
 
 const ID = "131";
@@ -20,6 +21,7 @@ export const treasureHooks = {
       if (String(deckCardRaw(card)).toUpperCase() === "C") count += 1;
     }
     if (count <= 0) return;
-    await ctx.playOwnedTreasureMoneyFx?.(ID, count);
+    const slotIndex = resolveTreasureHookAnimSlotIndex(ctx);
+    await ctx.playOwnedTreasureMoneyFx?.(ID, count, slotIndex != null ? { slotIndex } : {});
   },
 };

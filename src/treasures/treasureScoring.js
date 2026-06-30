@@ -24,6 +24,10 @@ import {
 } from "../game/tileIntrinsicGains.js";
 import { collectPerLetterMoneyCuesByLetter } from "./collectPerLetterMoneyCues.js";
 import { bumpRunLuckyTriggerCount } from "./treasureRunState.js";
+import {
+  appendPostLetterContributionBoostSteps,
+  productAllPerLetterContributionBoostMult,
+} from "./treasureContributionBoost.js";
 
 /** 新宝藏接入后请同步 `treasureCatalog.js` 的 implemented 字段；具体效果写在对应 `items/treasure_*.js`（本文件不出现具体 treasureId）。 */
 /** 拼词中公式区预览用 `useScoring` 的 `computeWordScore`（无宝藏）；提交结算用 `computeWordScoreDetailedForSubmit`（棋盘光环类材质倍率由 `gridOnlyMaterialScoring.js` 的 `buildGridPresencePostLetterSteps` 提供字后乘法步；冰为入词格逐字 ×2.5，见 `iceMaterialScoring.js`）。 */
@@ -236,18 +240,29 @@ function buildPostLetterTreasureSteps(
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     const animSi = resolvePostLetterAnimSlotIndex(slots, tid, si, source);
     const plural = hooks?.collectPostLetterSteps?.(hookCtxBase);
+    let contributedThisHook = false;
     if (Array.isArray(plural) && plural.length > 0) {
       for (const step of plural) {
         if (step && !isNoOpPostLetterTreasureStep(step)) {
           steps.push({ treasureId: tid, slotIndex: animSi, ...step });
+          contributedThisHook = true;
         }
       }
     } else {
       const step = hooks?.buildPostLetterStep?.(hookCtxBase);
       if (step && !isNoOpPostLetterTreasureStep(step)) {
         steps.push({ treasureId: tid, slotIndex: animSi, ...step });
+        contributedThisHook = true;
       }
     }
+    appendPostLetterContributionBoostSteps(
+      steps,
+      hookCtxBase,
+      slots,
+      tid,
+      animSi,
+      contributedThisHook,
+    );
     lastSlotIndex = si;
   }
   if (lastSlotIndex >= 0) {
@@ -267,7 +282,12 @@ function buildFinalScoreTreasureSteps(slots, hookCtx) {
   for (const { slotIndex: si, treasureId: tid, source } of iterTreasureHookContributions(slots)) {
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     const animSi = resolvePostLetterAnimSlotIndex(slots, tid, si, source);
-    const step = hooks?.buildFinalScoreStep?.(hookCtx);
+    const step = hooks?.buildFinalScoreStep?.({
+      ...hookCtx,
+      ownedSlotTreasureIds: slots,
+      hookSlotIndex: si,
+      hookSource: source,
+    });
     const add = Math.round(Number(step?.finalScoreAdd) || 0);
     if (add > 0) {
       steps.push({ treasureId: tid, slotIndex: animSi, finalScoreAdd: add });
@@ -612,6 +632,14 @@ export function computeWordScoreDetailedForSubmit(
     const step = hooks?.buildPostLetterReplayStep?.(replayCtx);
     if (step && !isNoOpPostLetterTreasureStep(step)) {
       postLetterTreasureSteps.push({ treasureId: tid, slotIndex: si, ...step });
+      appendPostLetterContributionBoostSteps(
+        postLetterTreasureSteps,
+        replayCtx,
+        slots,
+        tid,
+        si,
+        true,
+      );
     }
   }
 
@@ -720,10 +748,18 @@ export function computeWordScoreDetailedForSubmit(
   const scoreSumForSubmit =
     base.scoreSum + postLetterScoreAdd + tileAccessoryPerLetter.scoreAdd;
 
+  const perLetterContributionBoostMultProduct = productAllPerLetterContributionBoostMult(
+    baseHookCtx,
+    slots,
+    base.letterParts,
+    scoringVisitCountsByLetter,
+  );
+
   const multPipelineBase =
     multBeforePostLetterTreasures *
     letterRarityTreasureMultMulProduct *
-    tileAccessoryPerLetter.multMulProduct;
+    tileAccessoryPerLetter.multMulProduct *
+    perLetterContributionBoostMultProduct;
 
   const multTotal =
     applyPostLetterMultPipeline(multPipelineBase, postLetterTreasureSteps) +

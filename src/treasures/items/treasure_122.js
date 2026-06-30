@@ -1,4 +1,5 @@
 import { describe, handDelta, riskText } from "../treasureDescription.js";
+import { canMutateTreasureBankFromCtx } from "../treasureBankHelpers.js";
 import { ensureTreasureBank } from "../treasureRunState.js";
 
 const ID = "122";
@@ -67,6 +68,7 @@ export const treasureHooks = {
     return levelsRemainingFromRun(ctx.treasureRun) <= 0;
   },
   onLevelComplete(ctx) {
+    if (!canMutateTreasureBankFromCtx(ctx, ID)) return;
     const rs = ctx.treasureRun;
     if (!rs) return;
     const left = levelsRemainingFromRun(rs);

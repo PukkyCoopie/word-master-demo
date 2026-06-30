@@ -1450,6 +1450,10 @@ defineExpose({
   padding: calc(12 * var(--rpx)) calc(10 * var(--rpx));
 }
 
+.shop-footer-action-btn > span {
+  white-space: nowrap;
+}
+
 .shop-footer-action-btn--options {
   background: var(--btn-yellow);
   color: #776e65;

@@ -30,6 +30,10 @@ import {
   iterTreasureHookContributions,
   shouldTreasureRunAccumulationMutate,
 } from "./treasureBlueprintMirror.js";
+import {
+  collectAfterTreasureContributionBoostStep,
+  isMeaningfulTreasureBoostStep,
+} from "../treasures/treasureContributionBoost.js";
 import { snapshotMaxIntrinsicGainsFromTile } from "./tileIntrinsicGains.js";
 import {
   getWordLengthScoreForTableLen,
@@ -257,6 +261,48 @@ async function runLetterRarityTreasureMultStep(part, slotEl, cfg, speed = 1) {
     pulseFormulaPanelNum(getResultMultNumEl());
     scheduleSmallPlusBubbleOutro(bubbleEl, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+  }
+  refs.scoringTreasureBarIndex.value = null;
+  return true;
+}
+
+/** 持有奖杯时：目标宝藏自身贡献（分/倍率/倍率倍数）后、配饰前，于该宝藏槽再 wobble + 倍率乘法气泡 */
+async function runAfterTreasureContributionBoostAnim(treasureId, slotIndex, speed = 1) {
+  const ownedSlotIds = refs.ownedTreasures.value.map((s) => s?.treasureId ?? null);
+  const boost = collectAfterTreasureContributionBoostStep(
+    {
+      ownedSlotTreasureIds: ownedSlotIds,
+      treasureRun: refs.treasureRunState.value,
+    },
+    ownedSlotIds,
+    { treasureId: String(treasureId ?? ""), slotIndex },
+  );
+  if (!isMeaningfulTreasureBoostStep(boost)) return false;
+  const multMul = Number(boost.multMul) || 0;
+  const sp = Math.max(0.01, Number(speed) || 1);
+  const ti =
+    typeof slotIndex === "number" && slotIndex >= 0
+      ? slotIndex
+      : callbacks.findFirstOwnedTreasureSlotIndex(treasureId);
+  refs.scoringTreasureBarIndex.value = ti >= 0 ? ti : null;
+  await nextTick();
+  await new Promise((r) => requestAnimationFrame(r));
+  const tel = ti >= 0 ? getOwnedTreasureBarFxEl(ti) : null;
+  if (tel) {
+    if (multMul >= 2) callbacks.triggerHaptic("scoreTotal");
+    wobbleScoreSlot(tel, sp);
+    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+    refs.animMultTotal.value = Math.round(refs.animMultTotal.value * multMul);
+    await nextTick();
+    const bubbleX = showMultMultiplyBubble(tel, multMul, sp);
+    pulseFormulaMultMultiplyBurst(getResultMultNumEl());
+    scheduleMultMultiplyBubbleOutro(bubbleX, sp);
+    await scoringSleep(SCORING_STEP_BEAT_MS + 120, sp);
+  } else {
+    await scoringSleep(SCORING_TREASURE_FALLBACK_MS, sp);
+    refs.animMultTotal.value = Math.round(refs.animMultTotal.value * multMul);
+    await nextTick();
+    pulseFormulaMultMultiplyBurst(getResultMultNumEl());
   }
   refs.scoringTreasureBarIndex.value = null;
   return true;
@@ -691,6 +737,9 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
         if (telBank) wobbleScoreSlot(telBank, sp);
         await scoringSleep(SCORING_STEP_BEAT_MS, sp);
         refs.scoringTreasureBarIndex.value = null;
+        if (row.treasureId) {
+          await runAfterTreasureContributionBoostAnim(row.treasureId, row.si, sp);
+        }
       }
       continue;
     }
@@ -725,6 +774,9 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     scheduleSmallPlusBubbleOutro(bubbleS, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
     refs.scoringTreasureBarIndex.value = null;
+    if (row.treasureId && rowDelta > 0) {
+      await runAfterTreasureContributionBoostAnim(row.treasureId, row.si, sp);
+    }
   }
 
   if (await runTileTreasureAccessoryDropScoreBurst(tile, slotEl, sp)) {
@@ -746,7 +798,10 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
       source,
       tile,
     );
-    if (didTreasureScore) wordSlotIntrinsicWobblePlayed = true;
+    if (didTreasureScore) {
+      wordSlotIntrinsicWobblePlayed = true;
+      await runAfterTreasureContributionBoostAnim(tid, si, sp);
+    }
   }
   if (await runPerLetterTreasureMoneyCues(detailed, i, luckyVisitIndex, slotEl, sp)) {
     wordSlotIntrinsicWobblePlayed = true;
@@ -825,6 +880,9 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     scheduleSmallPlusBubbleOutro(bubbleM, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
     refs.scoringTreasureBarIndex.value = null;
+    if (row.treasureId && row.delta > 0) {
+      await runAfterTreasureContributionBoostAnim(row.treasureId, row.si, sp);
+    }
   }
 
   if (
@@ -856,7 +914,10 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
       realTile,
       tile,
     );
-    if (didTreasureMult) wordSlotIntrinsicWobblePlayed = true;
+    if (didTreasureMult) {
+      wordSlotIntrinsicWobblePlayed = true;
+      await runAfterTreasureContributionBoostAnim(tid, si, sp);
+    }
   }
 
   const ctxLetterRarityMult = {
@@ -879,7 +940,10 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
       matchesPart: animCfg.matchesPart,
       active: true,
     }, sp);
-    if (didRarity) wordSlotIntrinsicWobblePlayed = true;
+    if (didRarity) {
+      wordSlotIntrinsicWobblePlayed = true;
+      await runAfterTreasureContributionBoostAnim(tid, si, sp);
+    }
   }
 
   if (await runIceMaterialMultBurst(tile, slotEl, sp)) {
@@ -905,7 +969,10 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
       matchesPart: animCfg.matchesPart,
       active: true,
     }, sp);
-    if (didRarity) wordSlotIntrinsicWobblePlayed = true;
+    if (didRarity) {
+      wordSlotIntrinsicWobblePlayed = true;
+      await runAfterTreasureContributionBoostAnim(tid, si, sp);
+    }
   }
 
   if (luckyRoll?.moneyAdd > 0) {

@@ -131,6 +131,8 @@ export function registerDevConsole(deps) {
         "  或 URL ?dev=ceruleanBell 新开一局自动启用",
         "  __WM_DEV__.startPagerDevTest() — 进关后：槽位 1 为寻呼机",
         "  或 URL ?dev=pager 新开一局自动启用",
+        "  __WM_DEV__.startEctoplasmDevTest() — 进关后：5 个宝藏各带随机非裁剪配饰（烛台调试）",
+        "  或 URL ?dev=ectoplasm 新开一局自动启用",
         "  __WM_DEV__.startVolcanoKiteDevTest() — 进关后：[风筝×2][火山][风筝×2]",
         "  或 URL ?dev=volcanoKite 新开一局自动启用",
         "  __WM_DEV__.randomizeGridTileMaterials() — 局内：为棋盘无材质格各随机加一种材质",

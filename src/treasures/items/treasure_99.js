@@ -1,6 +1,8 @@
 import { describe, mult } from "../treasureDescription.js";
+import { isTreasureHookBlueprintMirror } from "../../game/treasureBlueprintMirror.js";
 import {
   addMultMulBank,
+  canMutateTreasureBankFromCtx,
   formatMultMulBankGainLabel,
   getMultMulBank,
   patchCurrentBankDescription,
@@ -27,6 +29,7 @@ export const treasureHooks = {
     return m > 1 ? { multMul: m } : null;
   },
   onLevelComplete(ctx) {
+    if (isTreasureHookBlueprintMirror(ctx) || !canMutateTreasureBankFromCtx(ctx, ID)) return;
     if (!ctx.treasureRun) return;
     ensureTreasureBank(ctx.treasureRun, ID).multMul = 1;
   },

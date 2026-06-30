@@ -1155,6 +1155,14 @@ playfieldController.initViewContext({
   openPauseOptions,
 });
 
+/** spellCast 早于 packPick 装配，经可变桥接回填真实包层恢复逻辑 */
+const packPickSpellBridge = {
+  ensurePackPickOverlayVisible() {},
+  shouldRestorePackPickOverlayAfterSpellConfirm() {
+    return false;
+  },
+};
+
 const spellCastController = useSpellCastController({
   state: {
     lastReplayableSpellId,
@@ -1214,10 +1222,7 @@ const spellCastController = useSpellCastController({
     isCouponDropSpellBlockedByBonusVoucher: () => shopPhase.isCouponDropSpellBlockedByBonusVoucher(),
     getShopPanel: () => shopPanelRef.value,
   },
-  packPick: {
-    ensurePackPickOverlayVisible,
-    shouldRestorePackPickOverlayAfterSpellConfirm,
-  },
+  packPick: packPickSpellBridge,
   fx: {
     wobbleGameTreasureSlot,
     showScoreBubble,
@@ -1261,7 +1266,8 @@ const spellSession = spellCastController;
 
 const packPickController = usePackPickController({
   gates: { shopOverlayLayersSuppressed },
-  getPackPickLayer: () => runOverlayHostRef.value?.packPickLayerRef ?? null,
+  getPackPickLayer: () =>
+    resolveRunOverlayChildLayer(runOverlayHostRef.value?.packPickLayerRef),
   getTreasureDetailLayer: () =>
     resolveRunOverlayChildLayer(runOverlayHostRef.value?.treasureDetailLayerRef),
   treasureDetail,
@@ -1310,6 +1316,11 @@ const packPickController = usePackPickController({
     pickRandomInRunSpellId: () => pickRandomInRunSpellId(runRandom, [...IN_RUN_RANDOM_SPELL_EXCLUDE]),
   },
 });
+
+packPickSpellBridge.ensurePackPickOverlayVisible = () =>
+  packPickController.ensurePackPickOverlayVisible();
+packPickSpellBridge.shouldRestorePackPickOverlayAfterSpellConfirm = () =>
+  packPickController.shouldRestorePackPickOverlayAfterSpellConfirm();
 
 const packPickSessionRef = packPickController.packPickSession;
 const packPickBusyRef = packPickController.packPickBusy;

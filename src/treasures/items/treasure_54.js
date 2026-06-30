@@ -1,4 +1,5 @@
 import { describe, mult, prob, riskBlock, riskText } from "../treasureDescription.js";
+import { isTreasureHookBlueprintMirror } from "../../game/treasureBlueprintMirror.js";
 import { rollProbabilityFailsSkip } from "../treasureProbability.js";
 
 const ID = "54";
@@ -29,6 +30,7 @@ export const treasureHooks = {
     return { multMul: 5 };
   },
   async onLevelComplete(ctx) {
+    if (isTreasureHookBlueprintMirror(ctx)) return;
     const rng = ctx.rng ?? Math.random;
     if (rollProbabilityFailsSkip(1, ERUPTION_PROB_DENOMINATOR, rng, ctx.ownedSlotTreasureIds)) return;
     if (ctx.treasureRun) ctx.treasureRun.probabilityEffectTriggered = true;

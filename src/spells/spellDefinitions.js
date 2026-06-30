@@ -127,7 +127,6 @@ function buildSpellDefinitions() {
       name: "星星",
       iconClass: "ri-star-fill",
       pickCount: 0,
-      pickMode: "preview_only",
       shopPrice: 3,
       description: buildStarSpellRandomTreasureAccessoryDescription(),
     },

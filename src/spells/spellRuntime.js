@@ -18,7 +18,12 @@ import { applyRandomUpgradePick, rollRandomUpgradePicks } from "../shop/randomUp
 import { SHOP_TILE_PACK_MATERIAL_IDS } from "../shop/shopPackEconomy.js";
 import { spellHasTag } from "./spellTags.js";
 import { SPELL_TAG_SPECTRAL } from "./spellTags.js";
-import { addTreasureAccessory, normalizeExclusiveTileAccessoryPair, writeEntityAccessory } from "../accessories/accessoryState.js";
+import {
+  addTreasureAccessory,
+  normalizeExclusiveTileAccessoryPair,
+  treasureHasAccessory,
+  writeEntityAccessory,
+} from "../accessories/accessoryState.js";
 import {
   buildOwnedTreasureSlot,
   computeOwnedTreasureSellRefund,
@@ -970,9 +975,11 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
     }
     case "ectoplasm": {
       const slots = ctx.ownedTreasures.value;
+      /** @type {number[]} */
       const ixList = [];
       for (let i = 0; i < slots.length; i++) {
-        if (slots[i] != null) ixList.push(i);
+        const s = slots[i];
+        if (s != null && !treasureHasAccessory(s, TREASURE_ACCESSORY_CROP)) ixList.push(i);
       }
       if (ixList.length === 0) break;
       const ix = ixList[Math.floor(rngU(rng) * ixList.length)];
@@ -985,8 +992,8 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
         ctx.ownedTreasures.value = nextSlots;
         ctx.onAccessoryAcquired?.(TREASURE_ACCESSORY_CROP);
         spellFx = { kind: "treasure_accessory", slotIndex: ix };
+        ctx.setRunWordLengthJudgmentPenalty?.(1);
       }
-      ctx.setRunWordLengthJudgmentPenalty?.(1);
       break;
     }
     case "immolate": {
