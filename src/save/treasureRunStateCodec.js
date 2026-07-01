@@ -47,7 +47,7 @@ export function serializeTreasureRunState(state) {
     runLuckyTriggerCount: Math.max(0, Math.floor(Number(state.runLuckyTriggerCount) || 0)),
     levelBossRestrictionSuppressed: !!state.levelBossRestrictionSuppressed,
     level137BonusApplied: !!state.level137BonusApplied,
-    level139FaxCopyDone: !!state.level139FaxCopyDone,
+    level139FaxCopyContributions: [...(state.level139FaxCopyContributions ?? [])],
   };
 }
 
@@ -111,6 +111,10 @@ export function deserializeTreasureRunState(raw) {
   base.runLuckyTriggerCount = Math.max(0, Math.floor(Number(o.runLuckyTriggerCount) || 0));
   base.levelBossRestrictionSuppressed = !!o.levelBossRestrictionSuppressed;
   base.level137BonusApplied = !!o.level137BonusApplied;
-  base.level139FaxCopyDone = !!o.level139FaxCopyDone;
+  if (Array.isArray(o.level139FaxCopyContributions)) {
+    base.level139FaxCopyContributions = new Set(o.level139FaxCopyContributions.map(String));
+  } else if (o.level139FaxCopyDone) {
+    base.level139FaxCopyContributions = new Set(["__legacy_done__"]);
+  }
   return base;
 }

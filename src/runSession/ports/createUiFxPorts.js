@@ -22,5 +22,6 @@ export function createUiFxPorts(binding) {
     formatMoneyBubbleLabel: binding.formatMoneyBubbleLabel,
     clearAllTreasureSlotWobbleFront: binding.clearAllTreasureSlotWobbleFront,
     wobbleGameTreasureSlot: binding.wobbleGameTreasureSlot,
+    scoreBubbleAnchorRect: binding.scoreBubbleAnchorRect,
   });
 }

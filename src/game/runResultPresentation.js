@@ -2,11 +2,14 @@
  * 结果区展示用纯逻辑（不含 submit 计分流程）。
  */
 
+import { resolveScoreNumericPresentation } from "../utils/scoreNumericFormat.js";
+
 /** UI 数字统一按整数显示（内部可保留小数，展示时四舍五入） */
 export function formatResultNum(n) {
+  if (typeof n === "string") return resolveScoreNumericPresentation(n).text;
   const x = Number(n);
   if (!Number.isFinite(x)) return "0";
-  return Math.round(x).toLocaleString();
+  return resolveScoreNumericPresentation(Math.round(x)).text;
 }
 
 /** 倍率面板：整数优先，必要时一位小数 */

@@ -125,15 +125,12 @@ function syncFormulaBoxMaxWidth() {
 
   if (formulaBoxMaxWidthPx.value !== next) {
     formulaBoxMaxWidthPx.value = next;
+    nextTick(() => refitAllFitNums());
   }
-  nextTick(() => refitAllFitNums());
 }
 
 function scheduleLayoutSync() {
-  nextTick(() => {
-    syncFormulaBoxMaxWidth();
-    refitAllFitNums();
-  });
+  nextTick(() => syncFormulaBoxMaxWidth());
 }
 
 onMounted(() => {
@@ -147,11 +144,6 @@ onMounted(() => {
 
 watch(
   () => props.showTotalBar,
-  () => scheduleLayoutSync(),
-);
-
-watch(
-  () => [props.scoreText, props.multText, props.totalText],
   () => scheduleLayoutSync(),
 );
 

@@ -1,6 +1,7 @@
 import { describe } from "../treasureDescription.js";
 import { canMutateTreasureBankFromCtx, getScoreAddBank } from "../treasureBankHelpers.js";
 import { ensureTreasureBank } from "../treasureRunState.js";
+import { parseScore, scoreExcess } from "../../utils/scoreInteger.js";
 
 const ID = "137";
 
@@ -35,10 +36,8 @@ export const treasureHooks = {
     if (!canMutateTreasureBankFromCtx(ctx, ID)) return;
     const rs = ctx.treasureRun;
     if (!rs) return;
-    const target = Math.max(0, Math.floor(Number(ctx.targetScore) || 0));
-    const score = Math.max(0, Math.floor(Number(ctx.currentScore) || 0));
-    const excess = Math.max(0, score - target);
-    const stored = Math.floor(excess / 2);
+    const excess = scoreExcess(ctx.currentScore, ctx.targetScore);
+    const stored = Number(parseScore(excess) / 2n);
     ensureTreasureBank(rs, ID).scoreAdd = stored;
     rs.level137BonusApplied = false;
     if (stored > 0) {

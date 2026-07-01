@@ -1,21 +1,17 @@
-import { nextTick, onMounted, onUnmounted, ref, unref, watch } from "vue";
+import { nextTick, onMounted, ref, unref, watch } from "vue";
+import { parseScore } from "../utils/scoreInteger.js";
 import {
-  formatScoreIntegerLocale,
-  formatScoreScientificNotation,
-  SCORE_SCI_NOTATION_MAX_DECIMALS,
-  SCORE_SCI_NOTATION_MIN_DECIMALS,
+  resolveScoreNumericPresentation,
+  scoreNumericPresentationKey,
 } from "../utils/scoreNumericFormat.js";
-
-/** 单行缩放下限；达到后若仍放不下则折为最多两行 */
-const MIN_FONT_SCALE = 0.5;
 
 /**
  * @typedef {object} FitNumericDisplayOptions
- * @property {boolean} [singleLine] 为 true 时不折行，缩至最小字号后直接用科学计数法
+ * @property {boolean} [singleLine] 为 true 时不折行，8 位及以上直出科学计数法
  */
 
 /**
- * 在固定宽度容器内自适应数字展示：先 locale 整数 → 缩小/两行 → 仍溢出则科学计数法（默认字号单行）。
+ * 固定宽容器内数字展示：按数量级选 locale / 科学计数法及字号比例，不测量 DOM 宽度。
  *
  * @param {import('vue').Ref<HTMLElement | null>} wrapRef
  * @param {import('vue').Ref<HTMLElement | null>} textRef
@@ -27,10 +23,8 @@ export function useFitNumericDisplay(wrapRef, textRef, valueSource, options = {}
   const displayText = ref("0");
   const wrapped = ref(false);
   const scientific = ref(false);
-  /** @type {ResizeObserver | null} */
-  let resizeObserver = null;
-  let lastValue = null;
-  let lastContainerWidth = 0;
+  let lastPresentationKey = "";
+  let cachedBaseFontSize = 0;
 
   function resetTextInline(textEl) {
     textEl.style.fontSize = "";
@@ -41,179 +35,63 @@ export function useFitNumericDisplay(wrapRef, textRef, valueSource, options = {}
     textEl.style.overflow = "";
   }
 
-  function applyWrapMeasureStyles(textEl) {
-    textEl.style.display = "-webkit-box";
-    textEl.style.webkitBoxOrient = "vertical";
-    textEl.style.webkitLineClamp = "2";
-    textEl.style.overflow = "hidden";
-  }
-
-  function applyTextForMeasure(textEl, text) {
-    textEl.textContent = text;
-  }
-
-  /** 清除内联字号后读取 CSS 基准字号，避免上次 refit 留下的 inline fontSize 被当作基准。 */
-  function readBaseFontSize(textEl) {
+  function readBaseFontSize(textEl, force = false) {
+    if (!force && cachedBaseFontSize > 0) return cachedBaseFontSize;
     resetTextInline(textEl);
-    return parseFloat(getComputedStyle(textEl).fontSize) || 0;
+    cachedBaseFontSize = parseFloat(getComputedStyle(textEl).fontSize) || 0;
+    return cachedBaseFontSize;
   }
 
   /**
    * @param {HTMLElement} textEl
+   * @param {import("../utils/scoreNumericFormat.js").ScoreNumericPresentation} presentation
    * @param {number} baseFontSize
-   * @param {number} minFontSize
-   * @param {number} containerWidth
-   * @param {number} containerHeight
    */
-  function localeTextFits(textEl, text, baseFontSize, minFontSize, containerWidth, containerHeight) {
+  function applyPresentation(textEl, presentation, baseFontSize) {
+    displayText.value = presentation.text;
+    wrapped.value = presentation.wrapped;
+    scientific.value = presentation.scientific;
+    textEl.textContent = presentation.text;
     resetTextInline(textEl);
-    applyTextForMeasure(textEl, text);
-
-    if (textEl.scrollWidth <= containerWidth) {
-      const actualFontSize = parseFloat(getComputedStyle(textEl).fontSize) || baseFontSize;
-      return { mode: "single-base", fontSize: actualFontSize };
-    }
-
-    let lo = minFontSize;
-    let hi = baseFontSize;
-    let best = minFontSize;
-
-    while (lo <= hi) {
-      const mid = (lo + hi) / 2;
-      textEl.style.fontSize = `${mid}px`;
-      if (textEl.scrollWidth <= containerWidth) {
-        best = mid;
-        lo = mid + 0.25;
-      } else {
-        hi = mid - 0.25;
-      }
-    }
-
-    textEl.style.fontSize = `${best}px`;
-    if (textEl.scrollWidth <= containerWidth) {
-      return { mode: "single-shrink", fontSize: best };
-    }
-
-    if (singleLine) {
-      return null;
-    }
-
-    textEl.style.fontSize = `${minFontSize}px`;
-    textEl.style.whiteSpace = "normal";
-    applyWrapMeasureStyles(textEl);
-    const wrappedOverflow =
-      textEl.scrollWidth > containerWidth + 1 || textEl.scrollHeight > containerHeight + 1;
-    if (!wrappedOverflow) {
-      return { mode: "wrap", fontSize: minFontSize };
-    }
-
-    return null;
-  }
-
-  /**
-   * @param {HTMLElement} textEl
-   * @param {number} value
-   * @param {number} baseFontSize
-   * @param {number} containerWidth
-   */
-  function pickScientificText(textEl, value, baseFontSize, containerWidth) {
-    resetTextInline(textEl);
-    textEl.style.fontSize = `${baseFontSize}px`;
-
-    for (let dp = SCORE_SCI_NOTATION_MAX_DECIMALS; dp >= SCORE_SCI_NOTATION_MIN_DECIMALS; dp--) {
-      const text = formatScoreScientificNotation(value, dp);
-      applyTextForMeasure(textEl, text);
-      if (textEl.scrollWidth <= containerWidth) {
-        return { text, decimalPlaces: dp, fontSize: baseFontSize };
-      }
-    }
-
-    const fallbackText = formatScoreScientificNotation(value, SCORE_SCI_NOTATION_MIN_DECIMALS);
-    applyTextForMeasure(textEl, fallbackText);
-    let fontSize = baseFontSize;
-    const minFontSize = baseFontSize * MIN_FONT_SCALE;
-    if (textEl.scrollWidth > containerWidth) {
-      let lo = minFontSize;
-      let hi = baseFontSize;
-      let best = minFontSize;
-      while (lo <= hi) {
-        const mid = (lo + hi) / 2;
-        textEl.style.fontSize = `${mid}px`;
-        if (textEl.scrollWidth <= containerWidth) {
-          best = mid;
-          lo = mid + 0.25;
-        } else {
-          hi = mid - 0.25;
-        }
-      }
-      fontSize = best;
-    }
-    return {
-      text: fallbackText,
-      decimalPlaces: SCORE_SCI_NOTATION_MIN_DECIMALS,
-      fontSize,
-    };
-  }
-
-  function applyPresentation(textEl, text, mode, fontSize) {
-    applyTextForMeasure(textEl, text);
-    displayText.value = text;
-    wrapped.value = mode === "wrap";
-    scientific.value = mode === "scientific" || mode === "scientific-shrink";
-    resetTextInline(textEl);
-    textEl.style.fontSize = `${fontSize}px`;
-    if (mode === "wrap") {
+    const px = baseFontSize * presentation.fontScale;
+    textEl.style.fontSize = px >= baseFontSize - 0.01 ? "" : `${px}px`;
+    if (presentation.wrapped) {
       textEl.style.whiteSpace = "normal";
+      textEl.style.display = "-webkit-box";
+      textEl.style.webkitBoxOrient = "vertical";
+      textEl.style.webkitLineClamp = "2";
+      textEl.style.overflow = "hidden";
     }
   }
 
   function refit(options = {}) {
     const force = options.force === true;
-    const wrap = wrapRef.value;
     const textEl = textRef.value;
-    if (!wrap || !textEl) return;
+    if (!textEl) return;
 
-    const containerWidth = wrap.clientWidth;
-    const containerHeight = wrap.clientHeight;
-    if (containerWidth <= 0) return;
+    const raw = parseScore(unref(valueSource));
 
-    const raw = Math.round(Number(unref(valueSource)) || 0);
-    if (!force && raw === lastValue && containerWidth === lastContainerWidth) return;
-    lastValue = raw;
-    lastContainerWidth = containerWidth;
-
-    if (raw === 0) {
+    if (raw === 0n) {
+      const zeroKey = "0|1|0|0|0";
+      if (!force && lastPresentationKey === zeroKey) return;
+      lastPresentationKey = zeroKey;
       displayText.value = "0";
       wrapped.value = false;
       scientific.value = false;
       resetTextInline(textEl);
-      textEl.style.fontSize = "";
-      applyTextForMeasure(textEl, "0");
+      textEl.textContent = "0";
       return;
     }
 
-    const baseFontSize = readBaseFontSize(textEl);
+    const presentation = resolveScoreNumericPresentation(raw, { singleLine });
+    const key = scoreNumericPresentationKey(presentation);
+    if (!force && key === lastPresentationKey) return;
+    lastPresentationKey = key;
+
+    const baseFontSize = readBaseFontSize(textEl, force);
     if (!baseFontSize) return;
 
-    const minFontSize = baseFontSize * MIN_FONT_SCALE;
-    const localeText = formatScoreIntegerLocale(raw);
-    const localeFit = localeTextFits(
-      textEl,
-      localeText,
-      baseFontSize,
-      minFontSize,
-      containerWidth,
-      containerHeight,
-    );
-
-    if (localeFit) {
-      applyPresentation(textEl, localeText, localeFit.mode, localeFit.fontSize);
-      return;
-    }
-
-    const sci = pickScientificText(textEl, raw, baseFontSize, containerWidth);
-    const sciMode = sci.fontSize < baseFontSize - 0.25 ? "scientific-shrink" : "scientific";
-    applyPresentation(textEl, sci.text, sciMode, sci.fontSize);
+    applyPresentation(textEl, presentation, baseFontSize);
   }
 
   function scheduleRefit(options = {}) {
@@ -221,24 +99,16 @@ export function useFitNumericDisplay(wrapRef, textRef, valueSource, options = {}
   }
 
   function forceRefit() {
+    cachedBaseFontSize = 0;
+    lastPresentationKey = "";
     scheduleRefit({ force: true });
   }
 
   onMounted(() => {
-    scheduleRefit();
-    const wrap = wrapRef.value;
-    if (wrap && typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(() => scheduleRefit());
-      resizeObserver.observe(wrap);
-    }
+    scheduleRefit({ force: true });
   });
 
-  onUnmounted(() => {
-    resizeObserver?.disconnect();
-    resizeObserver = null;
-  });
-
-  watch(() => unref(valueSource), scheduleRefit);
+  watch(() => unref(valueSource), () => scheduleRefit());
 
   return { displayText, wrapped, scientific, refit: forceRefit };
 }

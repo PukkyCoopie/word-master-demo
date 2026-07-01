@@ -260,9 +260,13 @@ export function createScoreBubbleFx(deps) {
   }
 
   /** 宝藏槽上方 ×n 气泡：比 +倍率 更夸张的弹出与回弹 */
-  function showMultMultiplyBubble(slotEl, factor, speed = 1) {
+  function showMultMultiplyBubble(slotEl, factor, speed = 1, anchorRect = null) {
     const s = Math.max(0.01, Number(speed) || 1);
-    const rect = slotEl.getBoundingClientRect();
+    const node = refToDom(slotEl) ?? (slotEl instanceof HTMLElement ? slotEl : null);
+    const rect =
+      anchorRect ??
+      (node && typeof node.getBoundingClientRect === "function" ? node.getBoundingClientRect() : null);
+    if (!rect || rect.width < 1 || rect.height < 1) return null;
     const div = document.createElement("div");
     div.className = "mult-popup-bubble mult-popup-bubble--multiply-burst";
     div.textContent = `×${formatMultMultiplyLabel(factor)}`;
@@ -347,10 +351,11 @@ export function createScoreBubbleFx(deps) {
    * @param {string} kind
    * @param {number} [speed]
    * @param {number} [bubbleZIndex]
+   * @param {DOMRect | { left: number, top: number, width: number, height: number } | null} [anchorRect]
    */
-  function showScoreBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
+  function showScoreBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350, anchorRect = null) {
     const s = Math.max(0.01, Number(speed) || 1);
-    const rect = scoreBubbleAnchorRect(slotEl);
+    const rect = anchorRect ?? scoreBubbleAnchorRect(slotEl);
     if (!rect) return null;
     const displayText = normalizeScoreBubbleDisplayText(text, kind);
     const div = document.createElement("div");

@@ -430,6 +430,7 @@ export function useGamePanelSessionAssembly(input) {
     pulseFormulaPanelNum,
     scheduleMultMultiplyBubbleOutro,
     scheduleSmallPlusBubbleOutro,
+    scoreBubbleAnchorRect,
     showMultMultiplyBubble,
     showScoreBubble,
     triggerAccessoryChipRipple,
@@ -848,6 +849,7 @@ const submitController = useSubmitWordController({
     scheduleMultMultiplyBubbleOutro,
     formatMoneyBubbleLabel,
     clearAllTreasureSlotWobbleFront,
+    scoreBubbleAnchorRect,
   },
   scoringAnimCallbacks: {
     findFirstOwnedTreasureSlotIndex,

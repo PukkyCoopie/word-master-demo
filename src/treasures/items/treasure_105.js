@@ -8,4 +8,4 @@ export default {
   description: describe("复制最左边的宝藏的效果"),
 };
 
-/** 效果由 `treasureBlueprintMirror.js` 镜像左侧槽位 */
+/** 效果由 `treasureBlueprintMirror.js` 镜像整条栏最左侧宝藏（与槽位无关） */

@@ -3,16 +3,23 @@
  * Ante 9–16 为 Collection 列表值；Ante 17+ 用 Wiki 公式自 Ante 8 底分推算。
  */
 
-/** Ante 9 … 16 的 base chip requirement（普通难度） */
+import {
+  normalizeScore,
+  parseScore,
+  roundBigIntToTwoSignificantDigits,
+  scientificPartsToBigIntTwoSig,
+} from "../utils/scoreInteger.js";
+
+/** Ante 9 … 16 的 base chip requirement（普通难度；≥10¹³ 用字符串保精度） */
 export const WIKI_ENDLESS_ANTE_BASE_CHIPS = Object.freeze([
   110_000,
   560_000,
   7_200_000,
   300_000_000,
   47_000_000_000,
-  2.9e13,
-  7.7e16,
-  8.6e20,
+  "29000000000000",
+  "77000000000000000",
+  "860000000000000000000",
 ]);
 
 /** 与 `levelTargetScore.WIKI_ANTE_BASE_CHIPS[7]`（Ante 8）一致 */
@@ -33,21 +40,28 @@ export function roundToTwoSignificantDigits(n) {
 /**
  * Wiki：Ante≥9 时 Chip = Ante8 × (1.6 + (0.75·(ante−8))^(1+0.2·(ante−8)))^(ante−8)，再取两位有效数字
  * @param {number} ante 9+
- * @returns {number}
+ * @returns {import('../utils/scoreInteger.js').ScoreValue}
  */
 export function computeEndlessAnteBaseChipsFormula(ante) {
   const a = Math.max(9, Math.floor(Number(ante)) || 9);
   const d = a - 8;
   const inner = 1.6 + 0.75 * d ** (1 + 0.2 * d);
-  return roundToTwoSignificantDigits(ANTE8_BASE * inner ** d);
+  const raw = ANTE8_BASE * inner ** d;
+  if (Number.isFinite(raw) && raw <= Number.MAX_SAFE_INTEGER) {
+    return normalizeScore(roundBigIntToTwoSignificantDigits(parseScore(roundToTwoSignificantDigits(raw))));
+  }
+  const log10 = Math.log10(ANTE8_BASE) + d * Math.log10(inner);
+  const exp = Math.floor(log10);
+  const mantissa = 10 ** (log10 - exp);
+  return normalizeScore(scientificPartsToBigIntTwoSig(mantissa, exp));
 }
 
 /**
  * @param {number} chapter Ante / 大关序号（1…∞）
- * @returns {number}
+ * @returns {import('../utils/scoreInteger.js').ScoreValue}
  */
 export function getEndlessChapterBaseB(chapter) {
   const ante = Math.max(9, Math.floor(Number(chapter)) || 9);
-  if (ante <= 16) return WIKI_ENDLESS_ANTE_BASE_CHIPS[ante - 9];
+  if (ante <= 16) return normalizeScore(parseScore(WIKI_ENDLESS_ANTE_BASE_CHIPS[ante - 9]));
   return computeEndlessAnteBaseChipsFormula(ante);
 }

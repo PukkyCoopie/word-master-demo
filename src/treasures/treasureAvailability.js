@@ -4,11 +4,23 @@
 
 import { getTreasureDef } from "./treasureRegistry.js";
 
+/** @typedef {Object} TreasurePoolDerivedStats
+ * @property {Record<string, number>} deckLetterRarityCounts
+ * @property {Record<string, number>} deckMaterialCounts
+ * @property {boolean} deckHalfOrMoreRare
+ * @property {boolean} deckAllCommon
+ * @property {boolean} deckHasGoldCoinAccessory
+ * @property {number} ownedLegendaryCount
+ * @property {number} ownedEpicCount
+ * @property {boolean} allOwnedTreasuresHaveAccessory
+ */
+
 /** @typedef {Object} TreasurePoolSnapshot
  * @property {unknown[]} [deck]
  * @property {boolean} [isEndlessRun]
  * @property {import('./treasureRunState.js').TreasureRunState} [runState]
- * @property {readonly (null | { treasureAccessoryId?: string | null })[]} [ownedTreasureSlots]
+ * @property {readonly (null | { treasureAccessoryId?: string | null, treasureId?: string | null })[]} [ownedTreasureSlots]
+ * @property {TreasurePoolDerivedStats} [derivedStats]
  */
 
 /** @param {unknown[]} deck @param {string} rarity */
@@ -31,57 +43,95 @@ function countDeckMaterial(deck, materialId) {
   return n;
 }
 
-/** @param {unknown[]} deck */
-function deckHasGoldWithCoinAccessory(deck) {
-  for (const c of deck ?? []) {
-    if (!c || typeof c !== "object") continue;
-    const card = /** @type {{ materialId?: string, accessoryId?: string }} */ (c);
-    if (card.materialId === "gold" && card.accessoryId === "coin") return true;
-  }
-  return false;
-}
+/**
+ * 单次扫描牌库/已拥有槽位，供 filterTreasureDefsForPool 批量复用（避免每个宝藏定义重复扫 deck）。
+ * @param {TreasurePoolSnapshot} snap
+ * @returns {TreasurePoolDerivedStats}
+ */
+export function attachTreasurePoolDerivedStats(snap) {
+  if (snap.derivedStats) return snap.derivedStats;
 
-/** @param {unknown[]} deck */
-function deckAllCommon(deck) {
-  const list = deck ?? [];
-  if (!list.length) return false;
-  for (const c of list) {
-    if (!c || typeof c !== "object") return false;
-    if (/** @type {{ rarity?: string }} */ (c).rarity !== "common") return false;
-  }
-  return true;
-}
+  const deck = snap.deck ?? [];
+  /** @type {Record<string, number>} */
+  const deckLetterRarityCounts = { common: 0, rare: 0, epic: 0, legendary: 0 };
+  /** @type {Record<string, number>} */
+  const deckMaterialCounts = {};
+  let deckRare = 0;
+  let deckAllCommon = deck.length > 0;
+  let deckHasGoldCoinAccessory = false;
 
-/** @param {unknown[]} deck */
-function deckHalfOrMoreRare(deck) {
-  const list = deck ?? [];
-  if (!list.length) return false;
-  let rare = 0;
-  for (const c of list) {
-    if (c && typeof c === "object" && /** @type {{ rarity?: string }} */ (c).rarity === "rare") rare += 1;
+  for (const c of deck) {
+    if (!c || typeof c !== "object") {
+      deckAllCommon = false;
+      continue;
+    }
+    const card = /** @type {{ rarity?: string, materialId?: string, accessoryId?: string }} */ (c);
+    const rarity = card.rarity;
+    if (rarity && Object.hasOwn(deckLetterRarityCounts, rarity)) {
+      deckLetterRarityCounts[rarity] += 1;
+    }
+    if (rarity === "rare") deckRare += 1;
+    if (rarity !== "common") deckAllCommon = false;
+    const materialId = card.materialId;
+    if (materialId) {
+      deckMaterialCounts[materialId] = (deckMaterialCounts[materialId] ?? 0) + 1;
+    }
+    if (card.materialId === "gold" && card.accessoryId === "coin") {
+      deckHasGoldCoinAccessory = true;
+    }
   }
-  return rare * 2 >= list.length;
-}
 
-/** @param {readonly (null | { treasureId?: string | null })[]} [ownedTreasureSlots] */
-function countOwnedTreasuresByRarity(ownedTreasureSlots, rarity) {
-  let n = 0;
-  for (const s of ownedTreasureSlots ?? []) {
-    if (!s?.treasureId) continue;
+  const owned = snap.ownedTreasureSlots ?? [];
+  let ownedLegendaryCount = 0;
+  let ownedEpicCount = 0;
+  let allOwnedTreasuresHaveAccessory = owned.length > 0;
+  for (const s of owned) {
+    if (!s?.treasureId) {
+      allOwnedTreasuresHaveAccessory = false;
+      continue;
+    }
     const def = getTreasureDef(String(s.treasureId));
-    if (def?.rarity === rarity) n += 1;
+    if (def?.rarity === "legendary") ownedLegendaryCount += 1;
+    if (def?.rarity === "epic") ownedEpicCount += 1;
+    if (String(s.treasureAccessoryId ?? "").trim() === "") {
+      allOwnedTreasuresHaveAccessory = false;
+    }
   }
-  return n;
+  if (!owned.length) allOwnedTreasuresHaveAccessory = false;
+
+  snap.derivedStats = {
+    deckLetterRarityCounts,
+    deckMaterialCounts,
+    deckHalfOrMoreRare: deck.length > 0 && deckRare * 2 >= deck.length,
+    deckAllCommon,
+    deckHasGoldCoinAccessory,
+    ownedLegendaryCount,
+    ownedEpicCount,
+    allOwnedTreasuresHaveAccessory,
+  };
+  return snap.derivedStats;
 }
 
-/** @param {readonly (null | { treasureId?: string | null })[]} [ownedTreasureSlots] */
-function countOwnedLegendaryTreasures(ownedTreasureSlots) {
-  return countOwnedTreasuresByRarity(ownedTreasureSlots, "legendary");
+/**
+ * @param {TreasurePoolSnapshot} snap
+ * @param {TreasurePoolDerivedStats} derived
+ * @param {string} rarity
+ */
+function deckLetterRarityCountFromDerived(snap, derived, rarity) {
+  const fromDerived = derived.deckLetterRarityCounts?.[rarity];
+  if (typeof fromDerived === "number") return fromDerived;
+  return countDeckByLetterRarity(snap.deck ?? [], rarity);
 }
 
-/** @param {readonly (null | { treasureId?: string | null })[]} [ownedTreasureSlots] */
-function countOwnedEpicTreasures(ownedTreasureSlots) {
-  return countOwnedTreasuresByRarity(ownedTreasureSlots, "epic");
+/**
+ * @param {TreasurePoolSnapshot} snap
+ * @param {TreasurePoolDerivedStats} derived
+ * @param {string} materialId
+ */
+function deckMaterialCountFromDerived(snap, derived, materialId) {
+  const fromDerived = derived.deckMaterialCounts?.[materialId];
+  if (typeof fromDerived === "number") return fromDerived;
+  return countDeckMaterial(snap.deck ?? [], materialId);
 }
 
 /**
@@ -91,34 +141,31 @@ function countOwnedEpicTreasures(ownedTreasureSlots) {
 export function isTreasureUnlocked(def, snap) {
   const pre = def.unlockPrerequisite;
   if (!pre || typeof pre !== "object") return true;
+  const derived = snap.derivedStats ?? attachTreasurePoolDerivedStats(snap);
   const deck = snap.deck ?? [];
   const rs = snap.runState;
 
   switch (pre.type) {
     case "deckLegendaryMin":
-      return countDeckByLetterRarity(deck, "legendary") >= Math.max(0, Number(pre.min) || 0);
+      return deckLetterRarityCountFromDerived(snap, derived, "legendary") >= Math.max(0, Number(pre.min) || 0);
     case "deckEpicMin":
-      return countDeckByLetterRarity(deck, "epic") >= Math.max(0, Number(pre.min) || 0);
+      return deckLetterRarityCountFromDerived(snap, derived, "epic") >= Math.max(0, Number(pre.min) || 0);
     case "deckRareHalf":
-      return deckHalfOrMoreRare(deck);
+      return derived.deckHalfOrMoreRare;
     case "deckAllCommon":
-      return deckAllCommon(deck);
+      return derived.deckAllCommon;
     case "deckIceMin":
-      return countDeckMaterial(deck, "ice") >= Math.max(0, Number(pre.min) || 0);
+      return deckMaterialCountFromDerived(snap, derived, "ice") >= Math.max(0, Number(pre.min) || 0);
     case "deckLuckyMin":
-      return countDeckMaterial(deck, "lucky") >= Math.max(0, Number(pre.min) || 0);
+      return deckMaterialCountFromDerived(snap, derived, "lucky") >= Math.max(0, Number(pre.min) || 0);
     case "deckFireMin":
-      return countDeckMaterial(deck, "fire") >= Math.max(0, Number(pre.min) || 0);
+      return deckMaterialCountFromDerived(snap, derived, "fire") >= Math.max(0, Number(pre.min) || 0);
     case "ownedLegendaryMin":
-      return countOwnedLegendaryTreasures(snap.ownedTreasureSlots) >= Math.max(0, Number(pre.min) || 0);
+      return derived.ownedLegendaryCount >= Math.max(0, Number(pre.min) || 0);
     case "ownedEpicMinOrLegendaryMin": {
       const epicMin = Math.max(0, Math.floor(Number(pre.epicMin) || 0));
       const legendaryMin = Math.max(0, Math.floor(Number(pre.legendaryMin) || 0));
-      const owned = snap.ownedTreasureSlots;
-      return (
-        countOwnedEpicTreasures(owned) >= epicMin ||
-        countOwnedLegendaryTreasures(owned) >= legendaryMin
-      );
+      return derived.ownedEpicCount >= epicMin || derived.ownedLegendaryCount >= legendaryMin;
     }
     case "deckRarityKindsMin": {
       const added = rs?.runDeckAddedRarities;
@@ -126,7 +173,7 @@ export function isTreasureUnlocked(def, snap) {
       return kinds >= Math.max(0, Number(pre.min) || 0);
     }
     case "deckGoldCoinAccessory":
-      return deckHasGoldWithCoinAccessory(deck);
+      return derived.deckHasGoldCoinAccessory;
     case "endlessMode":
       return snap.isEndlessRun === true;
     case "allCommonBossWin":
@@ -149,11 +196,8 @@ export function isTreasureUnlocked(def, snap) {
       return rs?.everDiscardedFullWord === true;
     case "discardWordLen7OrSoldBlueprint98":
       return rs?.everDiscardedWordLen7Plus === true || rs?.soldBlueprintTreasure98 === true;
-    case "allOwnedTreasuresHaveAccessory": {
-      const owned = snap.ownedTreasureSlots;
-      if (!Array.isArray(owned) || !owned.length) return false;
-      return owned.every((s) => s && String(s.treasureAccessoryId ?? "").trim() !== "");
-    }
+    case "allOwnedTreasuresHaveAccessory":
+      return derived.allOwnedTreasuresHaveAccessory;
     case "everTwoTreasuresWithAccessory":
       return rs?.everTwoTreasuresWithAccessoryUnlocked === true;
     case "levelAllLegendaryDeckExhausted":
@@ -190,6 +234,7 @@ export function meetsTreasurePoolPrerequisite(def, snap) {
  * @param {TreasurePoolSnapshot} snap
  */
 export function filterTreasureDefsForPool(defs, snap) {
+  attachTreasurePoolDerivedStats(snap);
   return defs.filter((d) => isTreasureUnlocked(d, snap) && meetsTreasurePoolPrerequisite(d, snap));
 }
 

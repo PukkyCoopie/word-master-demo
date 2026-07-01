@@ -51,6 +51,13 @@ import { isNewspaperTempTile } from "../treasures/items/treasure_140.js";
 import { findGridCellByTileId } from "./gridTileCellLookup.js";
 import { resolveSubmittedWordForHooks } from "./resolvedWordTileMapping.js";
 import { resolveGridEffectTriggerCount } from "./gridEffectTriggerCount.js";
+import {
+  addScore,
+  interpolateScore,
+  scoreGte,
+  scoreIsPositive,
+  subtractScore,
+} from "../utils/scoreInteger.js";
 
 /** 记分步间等待、气泡延迟等统一再 ×0.7（比上一版缩短 30%） */
 export const SCORING_GAP_SCALE = 0.7;
@@ -112,6 +119,7 @@ export function createSubmitScoringAnimController(deps) {
     scheduleMultMultiplyBubbleOutro,
     formatMoneyBubbleLabel,
     clearAllTreasureSlotWobbleFront,
+    scoreBubbleAnchorRect,
   } = fx;
 
   const getResultScoreNumEl = () => getDom.getResultScoreNumEl();
@@ -119,6 +127,17 @@ export function createSubmitScoringAnimController(deps) {
   const getResultTotalEl = () => getDom.getResultTotalEl();
   const getOwnedTreasureBarFxEl = (i) => getDom.getOwnedTreasureBarFxEl(i);
   const getGridTileElByIndex = (i) => getDom.getGridTileElByIndex(i);
+
+  /** @type {DOMRect | null} 当前逐字计分步内词槽气泡锚点（同字母多泡复用，避免每泡 measure） */
+  let scoringWordSlotBubbleAnchor = null;
+
+  function showWordSlotBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
+    return showScoreBubble(slotEl, text, kind, speed, bubbleZIndex, scoringWordSlotBubbleAnchor);
+  }
+
+  function showWordSlotMultMultiplyBubble(slotEl, factor, speed = 1) {
+    return showMultMultiplyBubble(slotEl, factor, speed, scoringWordSlotBubbleAnchor);
+  }
 
 async function expandSubmitTranslation() {
   if (!SHOW_SUBMIT_TRANSLATION) return;
@@ -207,13 +226,17 @@ async function runLetterScoringSkipStep(slotEl, speed = 1, slotIndex = -1) {
     refs.scoringLetterIndex.value = slotIndex;
     await nextTick();
     await new Promise((r) => requestAnimationFrame(r));
+    scoringWordSlotBubbleAnchor = scoreBubbleAnchorRect(slotEl);
   }
   wobbleScoreSlot(slotEl, sp);
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-  const bubble = showScoreBubble(slotEl, "跳过", "skip", sp);
+  const bubble = showWordSlotBubble(slotEl, "跳过", "skip", sp);
   scheduleSmallPlusBubbleOutro(bubble, sp);
   await scoringSleep(SCORING_STEP_BEAT_MS, sp);
-  if (slotIndex >= 0) refs.scoringLetterIndex.value = -1;
+  if (slotIndex >= 0) {
+    refs.scoringLetterIndex.value = -1;
+    scoringWordSlotBubbleAnchor = null;
+  }
   await scoringSleep(SCORING_LETTER_GAP_MS, sp);
 }
 
@@ -249,15 +272,15 @@ async function runLetterRarityTreasureMultStep(part, slotEl, cfg, speed = 1) {
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
   if (multMul > 1) {
     refs.animMultTotal.value = Math.round(refs.animMultTotal.value * multMul);
+    const bubbleEl = showWordSlotMultMultiplyBubble(slotEl, multMul, sp);
     await nextTick();
-    const bubbleEl = showMultMultiplyBubble(slotEl, multMul, sp);
     pulseFormulaMultMultiplyBurst(getResultMultNumEl());
     scheduleMultMultiplyBubbleOutro(bubbleEl, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS + 120, sp);
   } else {
     refs.animMultTotal.value += multDelta;
+    const bubbleEl = showWordSlotBubble(slotEl, cfg.bubbleLabel, "mult", sp);
     await nextTick();
-    const bubbleEl = showScoreBubble(slotEl, cfg.bubbleLabel, "mult", sp);
     pulseFormulaPanelNum(getResultMultNumEl());
     scheduleSmallPlusBubbleOutro(bubbleEl, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
@@ -351,8 +374,8 @@ async function runLetterTreasureScoreBurst(
   }
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
   refs.animScoreSum.value += amount;
+  const bubbleS = showWordSlotBubble(slotEl, bubbleText, "score", sp);
   await nextTick();
-  const bubbleS = showScoreBubble(slotEl, bubbleText, "score", sp);
   pulseFormulaPanelNum(getResultScoreNumEl());
   scheduleSmallPlusBubbleOutro(bubbleS, sp);
   await scoringSleep(SCORING_STEP_BEAT_MS, sp);
@@ -403,8 +426,8 @@ async function runLetterTreasureMultBurst(
   }
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
   refs.animMultTotal.value += amount;
+  const bubbleM = showWordSlotBubble(slotEl, bubbleText, "mult", sp);
   await nextTick();
-  const bubbleM = showScoreBubble(slotEl, bubbleText, "mult", sp);
   pulseFormulaPanelNum(getResultMultNumEl());
   scheduleSmallPlusBubbleOutro(bubbleM, sp);
   await scoringSleep(SCORING_STEP_BEAT_MS, sp);
@@ -496,13 +519,13 @@ async function runTileTreasureAccessoryDropScoreBurst(tile, slotEl, speed = 1) {
   triggerAccessoryChipRipple(slotEl, sp, true);
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
   refs.animScoreSum.value += TILE_TREASURE_ACCESSORY_DROP_SCORE_ADD;
-  await nextTick();
-  const bubble = showScoreBubble(
+  const bubble = showWordSlotBubble(
     slotEl,
     `+${TILE_TREASURE_ACCESSORY_DROP_SCORE_ADD}`,
     "score",
     sp,
   );
+  await nextTick();
   pulseFormulaPanelNum(getResultScoreNumEl());
   scheduleSmallPlusBubbleOutro(bubble, sp);
   await scoringSleep(SCORING_STEP_BEAT_MS, sp);
@@ -517,8 +540,8 @@ async function runTileTreasureAccessoryFireMultBurst(tile, slotEl, speed = 1) {
   triggerAccessoryChipRipple(slotEl, sp, true);
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
   refs.animMultTotal.value += TILE_TREASURE_ACCESSORY_FIRE_MULT_ADD;
+  const bubble = showWordSlotBubble(slotEl, `+${TILE_TREASURE_ACCESSORY_FIRE_MULT_ADD}`, "mult", sp);
   await nextTick();
-  const bubble = showScoreBubble(slotEl, `+${TILE_TREASURE_ACCESSORY_FIRE_MULT_ADD}`, "mult", sp);
   pulseFormulaPanelNum(getResultMultNumEl());
   scheduleSmallPlusBubbleOutro(bubble, sp);
   await scoringSleep(SCORING_STEP_BEAT_MS, sp);
@@ -533,9 +556,9 @@ async function runIceMaterialMultBurst(tile, slotEl, speed = 1) {
   wobbleScoreSlot(slotEl, sp);
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
   refs.animMultTotal.value = Math.round(refs.animMultTotal.value * multMul);
+  const bubbleX = showWordSlotMultMultiplyBubble(slotEl, multMul, sp);
   await nextTick();
   callbacks.triggerHaptic("scoreTotal");
-  const bubbleX = showMultMultiplyBubble(slotEl, multMul, sp);
   pulseFormulaMultMultiplyBurst(getResultMultNumEl());
   scheduleMultMultiplyBubbleOutro(bubbleX, sp);
   await scoringSleep(SCORING_STEP_BEAT_MS + 120, sp);
@@ -552,10 +575,12 @@ async function runLuckyMaterialMultAddBurst(tile, slotEl, luckyRoll, speed = 1, 
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
   if (!deferFormulaUpdate) {
     refs.animMultTotal.value += multAdd;
-    await nextTick();
   }
-  const bubbleM = showScoreBubble(slotEl, `+${Math.round(multAdd)}`, "mult", sp);
-  if (!deferFormulaUpdate) pulseFormulaPanelNum(getResultMultNumEl());
+  const bubbleM = showWordSlotBubble(slotEl, `+${Math.round(multAdd)}`, "mult", sp);
+  if (!deferFormulaUpdate) {
+    await nextTick();
+    pulseFormulaPanelNum(getResultMultNumEl());
+  }
   scheduleSmallPlusBubbleOutro(bubbleM, sp);
   await scoringSleep(SCORING_STEP_BEAT_MS, sp);
   return true;
@@ -570,8 +595,8 @@ async function runTileTreasureAccessoryWrenchMultBurst(tile, slotEl, speed = 1) 
   triggerAccessoryChipRipple(slotEl, sp, true);
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
   refs.animMultTotal.value = Math.round(refs.animMultTotal.value * multMul);
+  const bubbleX = showWordSlotMultMultiplyBubble(slotEl, multMul, sp);
   await nextTick();
-  const bubbleX = showMultMultiplyBubble(slotEl, multMul, sp);
   pulseFormulaMultMultiplyBurst(getResultMultNumEl());
   scheduleMultMultiplyBubbleOutro(bubbleX, sp);
   await scoringSleep(SCORING_STEP_BEAT_MS + 120, sp);
@@ -585,7 +610,7 @@ async function runLetterAccessoryCoinMoneyBurst(tile, slotEl, speed = 1) {
   wobbleScoreSlot(slotEl, sp);
   triggerAccessoryChipRipple(slotEl, sp);
   await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-  const bubble = showScoreBubble(
+  const bubble = showWordSlotBubble(
     slotEl,
     formatMoneyBubbleLabel(COIN_ACCESSORY_SCORE_BONUS_DOLLARS),
     "money",
@@ -619,7 +644,7 @@ async function runPerLetterTreasureMoneyCues(detailed, letterIndex, luckyVisitIn
     }
     wobbleScoreSlot(slotEl, sp);
     await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-    const bubble = showScoreBubble(slotEl, formatMoneyBubbleLabel(moneyAmt), "money", sp);
+    const bubble = showWordSlotBubble(slotEl, formatMoneyBubbleLabel(moneyAmt), "money", sp);
     scheduleSmallPlusBubbleOutro(bubble, sp);
     refs.money.value += moneyAmt;
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
@@ -650,6 +675,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   refs.scoringLetterIndex.value = i;
   await nextTick();
   await new Promise((r) => requestAnimationFrame(r));
+  scoringWordSlotBubbleAnchor = scoreBubbleAnchorRect(slotEl);
 
   if (callbacks.bossSlugForMechanics() === "the_tooth" && detailed.bossSoftViolation !== true && luckyVisitIndex === 0) {
     if (getDom.getBossTapeStrip()?.tryPlaySubmitToothCue()) {
@@ -658,7 +684,7 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     wobbleScoreSlot(slotEl, sp);
     await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
     refs.money.value = callbacks.applyWalletDeltaClamped(refs.money.value, -1, refs.runWalletFloor.value);
-    const bubbleTooth = showScoreBubble(slotEl, "-$1", "money", sp);
+    const bubbleTooth = showWordSlotBubble(slotEl, "-$1", "money", sp);
     scheduleSmallPlusBubbleOutro(bubbleTooth, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS * 0.55, sp);
   }
@@ -768,8 +794,8 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     }
     await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
     refs.animScoreSum.value += stepScore;
+    const bubbleS = showWordSlotBubble(slotEl, `+${Math.round(stepScore)}`, "score", sp);
     await nextTick();
-    const bubbleS = showScoreBubble(slotEl, `+${Math.round(stepScore)}`, "score", sp);
     pulseFormulaPanelNum(getResultScoreNumEl());
     scheduleSmallPlusBubbleOutro(bubbleS, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
@@ -874,8 +900,8 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     }
     await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
     refs.animMultTotal.value += stepMult;
+    const bubbleM = showWordSlotBubble(slotEl, mb, "mult", sp);
     await nextTick();
-    const bubbleM = showScoreBubble(slotEl, mb, "mult", sp);
     pulseFormulaPanelNum(getResultMultNumEl());
     scheduleSmallPlusBubbleOutro(bubbleM, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
@@ -981,13 +1007,14 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
       await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
       wordSlotIntrinsicWobblePlayed = true;
     }
-    const bubbleLuckyMoney = showScoreBubble(slotEl, formatMoneyBubbleLabel(luckyRoll.moneyAdd), "money", sp);
+    const bubbleLuckyMoney = showWordSlotBubble(slotEl, formatMoneyBubbleLabel(luckyRoll.moneyAdd), "money", sp);
     scheduleSmallPlusBubbleOutro(bubbleLuckyMoney, sp);
     refs.money.value += luckyRoll.moneyAdd;
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
   }
 
   refs.scoringLetterIndex.value = -1;
+  scoringWordSlotBubbleAnchor = null;
   await scoringSleep(SCORING_LETTER_GAP_MS, sp);
 }
 
@@ -1567,12 +1594,14 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   refs.suppressResultWordLengthUntilScoringEnd.value = true;
   await sleep(200);
   const formulaFinalScore =
-    Number.isFinite(Number(detailed.formulaFinalScore))
-      ? Math.round(Number(detailed.formulaFinalScore))
-      : Math.round(Number(detailed.finalScore) || 0) -
-        (detailed.finalScoreTreasureSteps ?? []).reduce(
-          (s, st) => s + Math.max(0, Math.round(Number(st?.finalScoreAdd) || 0)),
-          0,
+    detailed.formulaFinalScore != null
+      ? detailed.formulaFinalScore
+      : subtractScore(
+          detailed.finalScore,
+          (detailed.finalScoreTreasureSteps ?? []).reduce(
+            (s, st) => addScore(s, Math.max(0, Math.round(Number(st?.finalScoreAdd) || 0))),
+            0,
+          ),
         );
   refs.animResultTotal.value = formulaFinalScore;
   refs.hideResultWordLengthBeforeTotal.value = false;
@@ -1603,7 +1632,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     if (tel) {
       wobbleScoreSlot(tel, spFinal);
       await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, spFinal);
-      refs.animResultTotal.value += add;
+      refs.animResultTotal.value = addScore(refs.animResultTotal.value, add);
       await nextTick();
       const bubbleFinal = showScoreBubble(tel, `+${add}`, "final-total", spFinal);
       pulseFill(getResultTotalEl());
@@ -1611,7 +1640,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       await scoringSleep(SCORING_STEP_BEAT_MS, spFinal);
     } else {
       await scoringSleep(SCORING_TREASURE_FALLBACK_MS, spFinal);
-      refs.animResultTotal.value += add;
+      refs.animResultTotal.value = addScore(refs.animResultTotal.value, add);
       await nextTick();
       pulseFill(getResultTotalEl());
     }
@@ -1667,10 +1696,10 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   }
 
   const startRound = refs.currentScore.value;
-  const endRound = startRound + detailed.finalScore;
-  const willClearLevelThisSubmit = endRound >= refs.targetScore.value;
+  const endRound = addScore(startRound, detailed.finalScore);
+  const willClearLevelThisSubmit = scoreGte(endRound, refs.targetScore.value);
 
-  if (detailed.bossSoftViolation !== true && Math.round(Number(detailed.finalScore) || 0) > 0) {
+  if (detailed.bossSoftViolation !== true && scoreIsPositive(detailed.finalScore)) {
     registerClearWinVipDiamondRarityPostScoreFx(
       submitPostScoreClearFx,
       persistedSubmitTiles,
@@ -1737,7 +1766,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     if (hasFinalScoreTreasureSteps) {
       await scoringSleep(FINAL_SCORE_HOLD_BEFORE_HEADER_ROLL_MS, 1);
     }
-    const handScore = Math.round(Number(detailed.finalScore) || 0);
+    const handScore = detailed.finalScore;
     const scoreRollSteps = 26;
     const scoreRollStepMs = Math.round(520 / scoreRollSteps);
     const easeFn = gsapLib.parseEase(EASE_TRANSFORM);
@@ -1753,8 +1782,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     refs.roundScoreOverride.value = startRound;
     for (let step = 0; step <= scoreRollSteps; step++) {
       const t = easeFn(step / scoreRollSteps);
-      refs.animResultTotal.value = Math.round(handScore * (1 - t));
-      refs.roundScoreOverride.value = Math.round(startRound + (endRound - startRound) * t);
+      refs.animResultTotal.value = interpolateScore(handScore, 0, 1 - t);
+      refs.roundScoreOverride.value = interpolateScore(startRound, endRound, t);
       if (step < scoreRollSteps) {
         await scoringSleep(scoreRollStepMs, 1);
       }

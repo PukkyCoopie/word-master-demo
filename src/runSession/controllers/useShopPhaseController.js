@@ -9,7 +9,7 @@ import {
   resolveTreasureWalletFloor,
   sumTreasureShopAccessoryChanceMult,
 } from "../../treasures/treasureRegistry.js";
-import { filterTreasureDefsForPool } from "../../treasures/treasureAvailability.js";
+import { filterTreasureDefsForPool, attachTreasurePoolDerivedStats } from "../../treasures/treasureAvailability.js";
 import {
   addShopShelfTreasureIdsToExclude,
 } from "../../treasures/shopTreasureRoll.js";
@@ -60,6 +60,14 @@ import { shouldGuaranteeEndlessMilestoneLegendaryShop } from "../../game/endless
 /** @typedef {import('../runSessionTypes.js').ShopStore} ShopStore */
 
 const shopVoucherShelfEmpty = Object.freeze({ kind: "empty", emptySlotId: 0 });
+
+/** 模块级常量：避免每次刷新重复 filter 全表 */
+const IMPLEMENTED_TREASURE_GRANT_DEFS = Object.freeze(
+  TREASURE_DEFINITIONS.filter((t) => IMPLEMENTED_TREASURE_ID_SET.has(t.treasureId)),
+);
+const SHOP_ELIGIBLE_IMPLEMENTED_DEFS = Object.freeze(
+  IMPLEMENTED_TREASURE_GRANT_DEFS.filter((t) => t.shopEligible !== false),
+);
 
 /**
  * @typedef {Object} ShopPhaseControllerOptions
@@ -254,18 +262,53 @@ export function useShopPhaseController(options) {
     return s;
   });
 
-  const shopTreasurePool = computed(() => {
-    const base = filterTreasureDefsForPool(
-      TREASURE_DEFINITIONS.filter(
-        (t) => IMPLEMENTED_TREASURE_ID_SET.has(t.treasureId) && t.shopEligible !== false,
+  /** @type {{ snap: import('../../treasures/treasureAvailability.js').TreasurePoolSnapshot, pool: object[], eligibility: import('../../spells/spellPoolEligibility.js').SpellPoolEligibilityCounts } | null} */
+  let shopRollScratch = null;
+
+  function buildTreasurePoolSnapshotForRoll() {
+    const snap = buildTreasurePoolSnapshot();
+    attachTreasurePoolDerivedStats(snap);
+    return snap;
+  }
+
+  function resolveShopTreasurePoolFromSnap(snap) {
+    const base = filterTreasureDefsForPool(SHOP_ELIGIBLE_IMPLEMENTED_DEFS, snap);
+    return expandShopTreasurePoolForRun(base, ownedSlotTreasureIdList(), snap);
+  }
+
+  function beginShopRollScratch() {
+    const snap = buildTreasurePoolSnapshotForRoll();
+    let ownedFilled = 0;
+    let emptySlots = 0;
+    for (const slot of ownedTreasures.value) {
+      if (slot == null) emptySlots += 1;
+      else ownedFilled += 1;
+    }
+    shopRollScratch = {
+      snap,
+      pool: resolveShopTreasurePoolFromSnap(snap),
+      eligibility: buildSpellPoolEligibilityCounts(
+        IMPLEMENTED_TREASURE_GRANT_DEFS,
+        snap,
+        ownedTreasureIdSet.value,
+        ownedFilled,
+        emptySlots,
       ),
-      buildTreasurePoolSnapshot(),
-    );
-    return expandShopTreasurePoolForRun(
-      base,
-      ownedSlotTreasureIdList(),
-      buildTreasurePoolSnapshot(),
-    );
+    };
+    return shopRollScratch;
+  }
+
+  function getShopRollScratch() {
+    return shopRollScratch ?? beginShopRollScratch();
+  }
+
+  function clearShopRollScratch() {
+    shopRollScratch = null;
+  }
+
+  const shopTreasurePool = computed(() => {
+    const snap = buildTreasurePoolSnapshotForRoll();
+    return resolveShopTreasurePoolFromSnap(snap);
   });
 
   const runWalletFloor = computed(() => resolveTreasureWalletFloor(ownedSlotTreasureIdList()));
@@ -349,16 +392,23 @@ export function useShopPhaseController(options) {
     return hasSpellBonusShopVoucher() ? ["coupon_drop"] : [];
   }
 
-  function buildSpellPoolEligibilityCountsForRun() {
-    const grantDefs = TREASURE_DEFINITIONS.filter((t) =>
-      IMPLEMENTED_TREASURE_ID_SET.has(t.treasureId),
-    );
+  function buildSpellPoolEligibilityCountsForRun(snap = null) {
+    if (shopRollScratch && (!snap || snap === shopRollScratch.snap)) {
+      return shopRollScratch.eligibility;
+    }
+    const poolSnap = snap ?? buildTreasurePoolSnapshotForRoll();
+    let ownedFilled = 0;
+    let emptySlots = 0;
+    for (const slot of ownedTreasures.value) {
+      if (slot == null) emptySlots += 1;
+      else ownedFilled += 1;
+    }
     return buildSpellPoolEligibilityCounts(
-      grantDefs,
-      buildTreasurePoolSnapshot(),
+      IMPLEMENTED_TREASURE_GRANT_DEFS,
+      poolSnap,
       ownedTreasureIdSet.value,
-      ownedTreasures.value.filter(Boolean).length,
-      ownedTreasures.value.filter((s) => s == null).length,
+      ownedFilled,
+      emptySlots,
     );
   }
 
@@ -408,11 +458,12 @@ export function useShopPhaseController(options) {
     return { ok: true };
   }
 
-  function buildShopRandomCardPrerequisiteRollOpts() {
+  function buildShopRandomCardPrerequisiteRollOpts(snap = null) {
     const career = readNormalizedSlotCareer();
+    const poolSnap = snap ?? buildTreasurePoolSnapshotForRoll();
     return {
       prerequisiteTreasureRollContext: {
-        snap: buildTreasurePoolSnapshot(),
+        snap: poolSnap,
         shopAppearedPrerequisiteTreasureIds: career.shopAppearedPrerequisiteTreasureIds ?? [],
         shopPrerequisiteTreasureSingleCardAppearanceCounts:
           career.shopPrerequisiteTreasureSingleCardAppearanceCounts ?? {},
@@ -548,6 +599,7 @@ export function useShopPhaseController(options) {
   }
 
   function buildShopRandomCardRollCtx(sessionExcludeTreasureIds = null) {
+    const scratch = getShopRollScratch();
     const ownedIds = ownedSlotTreasureIdList();
     const honeBase = getShopAccessoryChanceMultiplier(ownedVoucherIds.value);
     const honeMult = honeBase * sumTreasureShopAccessoryChanceMult(ownedIds);
@@ -559,15 +611,15 @@ export function useShopPhaseController(options) {
       sessionExcludeTreasureIds: sessionExcludeTreasureIds ?? undefined,
       lastReplayableSpellId: lastReplayableSpellId.value,
       spellCastHistory: spellCastHistory.value,
-      shopTreasurePool: shopTreasurePool.value,
+      shopTreasurePool: scratch.pool,
       ownedVoucherIds: ownedVoucherIds.value,
       honeAccessoryMult: honeMult,
       allowOwnedTreasuresInShop: shopAllowsOwnedTreasureDuplicates(ownedIds),
       guaranteeShopTreasureGainAccessory: shopGuaranteesTreasureGainAccessory(ownedIds),
       runDifficultyIndex: runDifficultyIndex.value,
       excludeSpellIds: spellPoolExcludeIdsWhenBonusVoucherActive(),
-      spellPoolEligibilityCounts: buildSpellPoolEligibilityCountsForRun(),
-      ...buildShopRandomCardPrerequisiteRollOpts(),
+      spellPoolEligibilityCounts: scratch.eligibility,
+      ...buildShopRandomCardPrerequisiteRollOpts(scratch.snap),
     };
   }
 
@@ -597,6 +649,7 @@ export function useShopPhaseController(options) {
   }
 
   function rollPackStock(rng = Math.random, sessionExcludeTreasureIds = null) {
+    const scratch = getShopRollScratch();
     const guarantee = balatroFirstShopPackConsumed.value === false;
     const rows = rollPackOfferStock({
       rng,
@@ -605,10 +658,10 @@ export function useShopPhaseController(options) {
       ownedTreasureIdSet: ownedTreasureIdSet.value,
       sessionExcludeTreasureIds: sessionExcludeTreasureIds ?? undefined,
       emptyTreasureSlots: ownedTreasures.value.filter((s) => s == null).length,
-      spellPoolEligibilityCounts: buildSpellPoolEligibilityCountsForRun(),
+      spellPoolEligibilityCounts: scratch.eligibility,
       lastReplayableSpellId: lastReplayableSpellId.value,
       spellCastHistory: spellCastHistory.value,
-      shopTreasurePool: shopTreasurePool.value,
+      shopTreasurePool: scratch.pool,
       guaranteeBalatroFirstShopBuffoonSlot: guarantee,
       ownedVoucherIds: ownedVoucherIds.value,
       spellCountsByLength: spellCountsByLength.value,
@@ -625,16 +678,21 @@ export function useShopPhaseController(options) {
   }
 
   function rollShopVisitStock(rng = Math.random) {
-    const sessionExcludeTreasureIds = new Set();
-    const guaranteeTreasure = firstShopTreasureConsumed.value === false;
-    const guaranteeMilestoneLegendary = shouldGuaranteeEndlessMilestoneLegendaryShopVisit();
-    const shop = rollShopStock(rng, sessionExcludeTreasureIds, {
-      guaranteeFirstShopTreasureSlot: guaranteeTreasure,
-      guaranteeEndlessMilestoneLegendarySlot: guaranteeMilestoneLegendary,
-    });
-    if (guaranteeTreasure) firstShopTreasureConsumed.value = true;
-    const pack = rollPackStock(rng, sessionExcludeTreasureIds);
-    return { shop, pack };
+    beginShopRollScratch();
+    try {
+      const sessionExcludeTreasureIds = new Set();
+      const guaranteeTreasure = firstShopTreasureConsumed.value === false;
+      const guaranteeMilestoneLegendary = shouldGuaranteeEndlessMilestoneLegendaryShopVisit();
+      const shop = rollShopStock(rng, sessionExcludeTreasureIds, {
+        guaranteeFirstShopTreasureSlot: guaranteeTreasure,
+        guaranteeEndlessMilestoneLegendarySlot: guaranteeMilestoneLegendary,
+      });
+      if (guaranteeTreasure) firstShopTreasureConsumed.value = true;
+      const pack = rollPackStock(rng, sessionExcludeTreasureIds);
+      return { shop, pack };
+    } finally {
+      clearShopRollScratch();
+    }
   }
 
   function shopVisitStockMissingFromSave() {
@@ -786,7 +844,12 @@ export function useShopPhaseController(options) {
     const sessionExclude = new Set();
     addShopShelfTreasureIdsToExclude(sessionExclude, shopOffers.value);
     addShopShelfTreasureIdsToExclude(sessionExclude, packOffers.value);
-    shopOffers.value = rollShopStock(runRandom, sessionExclude);
+    beginShopRollScratch();
+    try {
+      shopOffers.value = rollShopStock(runRandom, sessionExclude);
+    } finally {
+      clearShopRollScratch();
+    }
     await onAfterStockReroll?.();
     void notifyOwnedTreasuresOnShopReroll(ownedSlotTreasureIdList(), {
       treasureRun: treasureRunState.value,

@@ -100,15 +100,13 @@ export function buildSpellPoolEligibilityCounts(
     pool.filter((t) => t && !owned.has(t.treasureId)).length;
 
   const anyPool = filterTreasureDefsForSpellGrantPool(grantDefs, snap, null);
-  const epicPool = filterTreasureDefsForSpellGrantPool(grantDefs, snap, "epic");
-  const legPool = filterTreasureDefsForSpellGrantPool(grantDefs, snap, "legendary");
 
   return {
     ownedTreasureCount: Math.max(0, Math.floor(Number(ownedTreasureCount) || 0)),
     emptyTreasureSlots: empty,
     grantableAnyTreasureCount: countUnowned(anyPool),
-    grantableEpicTreasureCount: countUnowned(epicPool),
-    grantableLegendaryTreasureCount: countUnowned(legPool),
+    grantableEpicTreasureCount: countUnowned(anyPool.filter((t) => t.rarity === "epic")),
+    grantableLegendaryTreasureCount: countUnowned(anyPool.filter((t) => t.rarity === "legendary")),
   };
 }
 

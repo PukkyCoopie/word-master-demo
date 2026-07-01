@@ -64,8 +64,8 @@ defineProps({
   rewardDollarMarks: { type: String, default: "" },
   walletHeaderShown: { type: Number, default: 0 },
   walletAmountText: { type: String, required: true },
-  targetScoreValue: { type: Number, default: 0 },
-  roundScoreValue: { type: Number, default: 0 },
+  targetScoreValue: { type: [Number, String], default: 0 },
+  roundScoreValue: { type: [Number, String], default: 0 },
   firstWordTutorialActive: { type: Boolean, default: false },
 });
 

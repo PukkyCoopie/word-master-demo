@@ -1,6 +1,7 @@
 import { computed, ref, watch, nextTick } from "vue";
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../../constants.js";
+import { scoreIsPositive } from "../../utils/scoreInteger.js";
 import {
   formatResultNum,
   formatMultDisplay,
@@ -90,7 +91,7 @@ export function useRunResultPresentation(options) {
   const formatNum = formatResultNum;
 
   const showResultTotalBar = computed(
-    () => options.scoringAnimating.value && Math.round(animResultTotal.value) > 0,
+    () => options.scoringAnimating.value && scoreIsPositive(animResultTotal.value),
   );
   const resultTotalShown = computed(() =>
     showResultTotalBar.value ? formatNum(animResultTotal.value) : "",

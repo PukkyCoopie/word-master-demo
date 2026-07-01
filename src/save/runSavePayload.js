@@ -45,8 +45,8 @@
  * @property {string[]} [runSeenDeckStackRaws]
  * @property {boolean} deckPreviewAllInDrawPile
  * @property {number} deckCardUidSeq
- * @property {number} currentScore
- * @property {number} targetScore
+ * @property {number | string} currentScore
+ * @property {number | string} targetScore
  * @property {number} remainingWords
  * @property {number} remainingRemovals
  * @property {string} activeBossSlug

@@ -54,12 +54,22 @@ export function buildPrerequisiteWeightMultiplierGetter(
   shopAppearedPrerequisiteTreasureIds,
   singleCardAppearanceCounts,
 ) {
-  return (treasureId) =>
-    getPrerequisiteShopWeightMultiplier(
-      treasureId,
-      shopAppearedPrerequisiteTreasureIds,
-      singleCardAppearanceCounts,
+  const appeared = new Set([...(shopAppearedPrerequisiteTreasureIds ?? [])].map(String));
+  const counts = singleCardAppearanceCounts ?? {};
+  return (treasureId) => {
+    const id = String(treasureId ?? "").trim();
+    if (!id || !treasureHasUnlockPrerequisite(id)) return 1;
+    if (!appeared.has(id)) return 1;
+
+    const singleCardN = Math.max(0, Math.floor(Number(counts[id]) || 0));
+    /** 牌包等非单卡区首次展示时单卡计数为 0，仍按「已展示 1 次」计 100% 加成 */
+    const effectiveDisplays = Math.max(1, singleCardN);
+    const boost = Math.max(
+      PREREQUISITE_WEIGHT_BOOST_FLOOR,
+      1 / 2 ** (effectiveDisplays - 1),
     );
+    return 1 + boost;
+  };
 }
 
 /**

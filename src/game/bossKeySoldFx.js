@@ -11,6 +11,11 @@ import {
   playShopStylePopupBubbleEnter,
 } from "./popupBubbleFx.js";
 import { getAnimationSpeedScale } from "../settings/animationSpeed.js";
+import {
+  compareScore,
+  interpolateScore,
+  scoreLt,
+} from "../utils/scoreInteger.js";
 
 /** 通关分被 Boss 抬高、钥匙解除后应回落到默认 Boss 倍率（2×）的 slug */
 export const BOSS_SCORE_MULT_RELIEF_SLUGS = Object.freeze(
@@ -20,7 +25,7 @@ export const BOSS_SCORE_MULT_RELIEF_SLUGS = Object.freeze(
 /**
  * @param {string} levelId
  * @param {number} difficultyIndex
- * @returns {number}
+ * @returns {import('../utils/scoreInteger.js').ScoreValue}
  */
 export function resolveBossTargetScoreAfterKeySold(levelId, difficultyIndex) {
   return resolveLevelTargetScoreForDifficulty(levelId, "", difficultyIndex);
@@ -70,20 +75,25 @@ function wobbleScoreTargetCard(el) {
 }
 
 /**
- * @param {import('vue').Ref<number>} targetScoreRef
- * @param {number} toValue
+ * @param {import('vue').Ref<import('../utils/scoreInteger.js').ScoreValue>} targetScoreRef
+ * @param {import('../utils/scoreInteger.js').ScoreValue} toValue
  */
 async function tweenTargetScoreDown(targetScoreRef, toValue) {
-  const state = { v: Number(targetScoreRef.value) || 0 };
-  const goal = Math.max(0, Math.round(Number(toValue) || 0));
+  const start = targetScoreRef.value;
+  const goal = toValue;
+  if (compareScore(start, goal) <= 0) {
+    targetScoreRef.value = goal;
+    return;
+  }
+  const state = { t: 0 };
   const s = Math.max(0.01, getAnimationSpeedScale());
   await new Promise((resolve) => {
     gsap.to(state, {
-      v: goal,
+      t: 1,
       duration: 0.5 / s,
       ease: "expo.out",
       onUpdate: () => {
-        targetScoreRef.value = Math.max(0, Math.round(state.v));
+        targetScoreRef.value = interpolateScore(start, goal, state.t);
       },
       onComplete: resolve,
     });
@@ -132,11 +142,11 @@ export async function runBossKeySoldEffects(deps) {
 
   if (BOSS_SCORE_MULT_RELIEF_SLUGS.has(slug)) {
     const normalTarget = resolveBossTargetScoreAfterKeySold(deps.levelId, deps.difficultyIndex);
-    const current = Math.max(0, Math.floor(Number(deps.targetScore.value) || 0));
-    if (normalTarget < current) {
+    const current = deps.targetScore.value;
+    if (scoreLt(normalTarget, current)) {
       wobbleScoreTargetCard(deps.getTargetScoreCardEl?.());
       await tweenTargetScoreDown(deps.targetScore, normalTarget);
-    } else if (normalTarget !== current) {
+    } else if (compareScore(normalTarget, current) !== 0) {
       deps.targetScore.value = normalTarget;
     }
   }

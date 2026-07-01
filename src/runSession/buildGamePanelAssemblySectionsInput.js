@@ -308,6 +308,7 @@ export function buildGamePanelAssemblySectionsInput(d) {
     formatMoneyBubbleLabel: d.formatMoneyBubbleLabel,
     clearAllTreasureSlotWobbleFront: d.clearAllTreasureSlotWobbleFront,
     wobbleGameTreasureSlot: d.wobbleGameTreasureSlot,
+    scoreBubbleAnchorRect: d.scoreBubbleAnchorRect,
   },
   };
 }

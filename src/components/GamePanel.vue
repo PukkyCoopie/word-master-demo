@@ -1914,6 +1914,7 @@ const { ports: gamePanelPorts } = setupGamePanelAssembly(
       scheduleMultMultiplyBubbleOutro: ctrlEarly.scheduleMultMultiplyBubbleOutro,
       formatMoneyBubbleLabel,
       clearAllTreasureSlotWobbleFront: ctrlEarly.clearAllTreasureSlotWobbleFront,
+      scoreBubbleAnchorRect,
       wobbleGameTreasureSlot,
     },
   }),

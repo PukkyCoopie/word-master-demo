@@ -7,6 +7,7 @@
 
 import { BOSS_SCORE_BASE_MULT_DEFAULT, getBossScoreBaseMult } from "./bossBlindDefinitions.js";
 import { getEndlessChapterBaseB } from "./endlessAnteScore.js";
+import { multiplyScoreRound, normalizeScore, parseScore } from "../utils/scoreInteger.js";
 
 /** Ante 1..8 的 base chip requirement（List of Antes，普通难度） */
 export const WIKI_ANTE_BASE_CHIPS = Object.freeze([300, 800, 2000, 5000, 11000, 20000, 35000, 50000]);
@@ -34,13 +35,18 @@ export const BLIND_MULT_BOSS_DEFAULT = BOSS_SCORE_BASE_MULT_DEFAULT;
 /**
  * @param {number} chapter 1..8（= Ante level）
  * @param {ScoreTableTier} [scoreTableTier='normal']
- * @returns {number} 该 Ante 的 base chip requirement
+ * @returns {import('../utils/scoreInteger.js').ScoreValue}
  */
 export function getChapterBaseB(chapter, scoreTableTier = "normal") {
   const n = Math.floor(Number(chapter)) || 0;
   if (n <= 0) return WIKI_ANTE0_BASE_CHIPS;
   if (n <= 8) {
-    const tier = scoreTableTier === "purple" ? WIKI_PURPLE_ANTE_BASE_CHIPS : scoreTableTier === "green" ? WIKI_GREEN_ANTE_BASE_CHIPS : WIKI_ANTE_BASE_CHIPS;
+    const tier =
+      scoreTableTier === "purple"
+        ? WIKI_PURPLE_ANTE_BASE_CHIPS
+        : scoreTableTier === "green"
+          ? WIKI_GREEN_ANTE_BASE_CHIPS
+          : WIKI_ANTE_BASE_CHIPS;
     return tier[n - 1];
   }
   const normalEndless = getEndlessChapterBaseB(n);
@@ -49,7 +55,7 @@ export function getChapterBaseB(chapter, scoreTableTier = "normal") {
   const tierAnte8 =
     scoreTableTier === "purple" ? WIKI_PURPLE_ANTE_BASE_CHIPS[7] : WIKI_GREEN_ANTE_BASE_CHIPS[7];
   const ratio = tierAnte8 / normalAnte8;
-  return Math.round(normalEndless * ratio);
+  return multiplyScoreRound(normalEndless, ratio, 1);
 }
 
 /**
@@ -67,20 +73,20 @@ export function parseLevelId(levelId) {
  * @param {number} chapter 1..8
  * @param {number} blindMult 相对章底的倍数（1 / 1.5 / 2 / 4 / 6…）
  * @param {ScoreTableTier} [scoreTableTier='normal']
- * @returns {number}
+ * @returns {import('../utils/scoreInteger.js').ScoreValue}
  */
 export function computeTargetScoreForChapter(chapter, blindMult, scoreTableTier = "normal") {
   const base = getChapterBaseB(chapter, scoreTableTier);
   const m = Number(blindMult);
   if (!Number.isFinite(m) || m <= 0) return base;
-  return Math.round(base * m);
+  return multiplyScoreRound(base, m, 1);
 }
 
 /**
  * @param {string} levelId
  * @param {number} [bossScoreBaseMult=2] Boss 关倍数；非 Boss 小关忽略
  * @param {ScoreTableTier} [scoreTableTier='normal']
- * @returns {number}
+ * @returns {import('../utils/scoreInteger.js').ScoreValue}
  */
 export function computeTargetScoreForLevel(levelId, bossScoreBaseMult = BLIND_MULT_BOSS_DEFAULT, scoreTableTier = "normal") {
   const { chapter, sub } = parseLevelId(levelId);
@@ -101,7 +107,7 @@ export const TEMP_OVERRIDE_TARGET_BY_LEVEL_ID = Object.freeze({});
  * @param {string} levelId
  * @param {string} [bossSlugForSub3=""] x-3 关的 Boss slug；非第三小关忽略
  * @param {ScoreTableTier} [scoreTableTier='normal']
- * @returns {number}
+ * @returns {import('../utils/scoreInteger.js').ScoreValue}
  */
 export function resolveLevelTargetScore(levelId, bossSlugForSub3 = "", scoreTableTier = "normal") {
   const id = String(levelId ?? "");

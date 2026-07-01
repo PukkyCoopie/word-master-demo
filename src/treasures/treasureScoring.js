@@ -13,6 +13,7 @@ import {
   sumLetterRarityMultAddFromSlots,
   sumLetterRarityMultDeltaForLetterPart,
 } from "./treasureReplaySubmitAggregate.js";
+import { addScore, multiplyScoreRound } from "../utils/scoreInteger.js";
 import {
   accumulateTileTreasureAccessoryPerLetter,
   buildTreasureAccessoryPostLetterStepForSlot,
@@ -300,11 +301,12 @@ function buildFinalScoreTreasureSteps(slots, hookCtx) {
  * @param {{ finalScoreAdd?: number }[]} steps
  */
 function sumFinalScoreAdd(steps) {
-  let s = 0;
+  let s = 0n;
   for (const st of steps ?? []) {
-    s += Math.max(0, Math.round(Number(st.finalScoreAdd) || 0));
+    const add = Math.max(0, Math.round(Number(st?.finalScoreAdd) || 0));
+    if (add > 0) s += BigInt(add);
   }
-  return s;
+  return s === 0n ? 0 : addScore(0, s);
 }
 
 /**
@@ -352,11 +354,11 @@ export function recomputeSubmitDetailedAfterPagerStep(detailed) {
     (hasPostLetterMultMul ? 0 : luckyAdd);
   const scoreSum = Number(detailed.scoreSum) || 0;
   const treasureMultiplier = Number(detailed.treasureMultiplier) || 1;
-  const formulaFinalScore = Math.round(scoreSum * multTotal * treasureMultiplier);
+  const formulaFinalScore = multiplyScoreRound(scoreSum, multTotal, treasureMultiplier);
   const finalScoreBonus = sumFinalScoreAdd(detailed.finalScoreTreasureSteps ?? []);
   detailed.multTotal = multTotal;
   detailed.formulaFinalScore = formulaFinalScore;
-  detailed.finalScore = formulaFinalScore + finalScoreBonus;
+  detailed.finalScore = addScore(formulaFinalScore, finalScoreBonus);
   detailed.hasPostLetterMultMul = !!hasPostLetterMultMul;
 }
 
@@ -764,13 +766,13 @@ export function computeWordScoreDetailedForSubmit(
   const multTotal =
     applyPostLetterMultPipeline(multPipelineBase, postLetterTreasureSteps) +
     (hasPostLetterMultMul ? 0 : luckyMaterialMultAddTotal);
-  const formulaFinalScore = Math.round(scoreSumForSubmit * multTotal * base.treasureMultiplier);
+  const formulaFinalScore = multiplyScoreRound(scoreSumForSubmit, multTotal, base.treasureMultiplier);
   const finalScoreTreasureSteps =
     submitOptions?.skipFinalScoreTreasureSteps === true
       ? []
       : buildFinalScoreTreasureSteps(slots, baseHookCtx);
   const finalScoreBonus = sumFinalScoreAdd(finalScoreTreasureSteps);
-  const finalScore = formulaFinalScore + finalScoreBonus;
+  const finalScore = addScore(formulaFinalScore, finalScoreBonus);
 
   return {
     ...base,

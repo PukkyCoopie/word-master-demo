@@ -52,6 +52,39 @@ test("iterTreasureHookContributions [面具][泡泡] 产出 blueprint + self", (
   assert.equal(countTreasureHookContributionPaths(slots, "80"), 2);
 });
 
+test("iterTreasureHookContributions [绵羊][工具] 镜像栏最左工具", () => {
+  const slots = ["105", "106", null];
+  assert.equal(getBlueprintMirroredTreasureId(slots, 0), "106");
+  assert.deepEqual(
+    iterTreasureHookContributions(slots)
+      .filter((e) => e.treasureId === "106")
+      .map((e) => [e.slotIndex, e.source]),
+    [
+      [0, "blueprint"],
+      [1, "self"],
+    ],
+  );
+});
+
+test("iterTreasureHookContributions [工具][绵羊] 仍镜像栏最左工具", () => {
+  const slots = ["106", "105", null];
+  assert.equal(getBlueprintMirroredTreasureId(slots, 1), "106");
+  assert.equal(countTreasureHookContributionPaths(slots, "106"), 2);
+});
+
+test("iterTreasureHookContributions [小号][工具][绵羊] 镜像栏最小小号", () => {
+  const slots = ["93", "106", "105"];
+  assert.equal(getBlueprintMirroredTreasureId(slots, 2), "93");
+  assert.equal(countTreasureHookContributionPaths(slots, "93"), 2);
+  assert.equal(countTreasureHookContributionPaths(slots, "106"), 1);
+});
+
+test("iterTreasureHookContributions [面具][工具][绵羊] 跳过面具镜像工具", () => {
+  const slots = ["98", "106", "105"];
+  assert.equal(getBlueprintMirroredTreasureId(slots, 2), "106");
+  assert.equal(countTreasureHookContributionPaths(slots, "106"), 3);
+});
+
 test("isTreasureHookContributionActive 槽位清空后 self / blueprint 均无效", () => {
   const before = ["29", "54", null];
   assert.equal(

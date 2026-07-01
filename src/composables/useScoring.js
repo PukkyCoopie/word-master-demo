@@ -12,6 +12,7 @@ import {
 } from "../game/resolvedWordTileMapping.js";
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { resolveScoringLetterRarity } from "../game/treasureRarityTierMerge.js";
+import { multiplyScoreRound } from "../utils/scoreInteger.js";
 
 export const RARITY_BY_LETTER = {
 
@@ -489,7 +490,7 @@ export function computeWordScoreDetailed(
   const scoreSumAdj = wordLengthScoreEffective + letterScoreSum;
   const multTotalAdj = lengthMultiplierEffective + letterMultSum;
 
-  const finalScore = Math.round(scoreSumAdj * multTotalAdj * treasureMultiplier);
+  const finalScore = multiplyScoreRound(scoreSumAdj, multTotalAdj, treasureMultiplier);
 
   return {
 

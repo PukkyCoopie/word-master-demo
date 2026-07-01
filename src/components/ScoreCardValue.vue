@@ -18,7 +18,7 @@ import { ref, toRef } from "vue";
 import { useFitNumericDisplay } from "../composables/useFitNumericDisplay.js";
 
 const props = defineProps({
-  value: { type: Number, default: 0 },
+  value: { type: [Number, String], default: 0 },
 });
 
 const wrapRef = ref(null);

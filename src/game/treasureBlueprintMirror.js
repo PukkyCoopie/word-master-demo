@@ -1,9 +1,29 @@
-/** 面具（98）复制右侧槽位；绵羊（105）复制左侧槽位 */
+/** 面具（98）复制右侧槽位；绵羊（105）复制整条栏最左侧可复制的宝藏（跳过面具/绵羊） */
 
 export const BLUEPRINT_RIGHT_TREASURE_ID = "98";
 /** @deprecated 与 `BLUEPRINT_RIGHT_TREASURE_ID` 相同 */
 export const BLUEPRINT_TREASURE_ID = BLUEPRINT_RIGHT_TREASURE_ID;
 export const BLUEPRINT_LEFT_TREASURE_ID = "105";
+
+/** @param {string | null | undefined} id */
+function isBlueprintMirrorTreasureId(id) {
+  return id === BLUEPRINT_RIGHT_TREASURE_ID || id === BLUEPRINT_LEFT_TREASURE_ID;
+}
+
+/**
+ * 整条宝藏栏最左侧、可作为复制目标的宝藏 id（跳过空位与面具/绵羊 blueprint 本体）。
+ * @param {(string | null | undefined)[]} slots
+ * @returns {string | null}
+ */
+export function getLeftmostCopyableTreasureId(slots) {
+  for (let i = 0; i < (slots ?? []).length; i += 1) {
+    const tid = slots[i];
+    if (tid == null || tid === "") continue;
+    if (isBlueprintMirrorTreasureId(tid)) continue;
+    return String(tid);
+  }
+  return null;
+}
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds */
 export function ownedHasBlueprint(ownedSlotTreasureIds) {
@@ -22,13 +42,11 @@ export function getBlueprintMirroredTreasureId(ownedSlotTreasureIds, slotIndex) 
   const tid = slots[slotIndex];
   if (tid === BLUEPRINT_RIGHT_TREASURE_ID) {
     const right = slots[slotIndex + 1];
-    if (!right || right === BLUEPRINT_RIGHT_TREASURE_ID || right === BLUEPRINT_LEFT_TREASURE_ID) return null;
+    if (!right || isBlueprintMirrorTreasureId(right)) return null;
     return String(right);
   }
   if (tid === BLUEPRINT_LEFT_TREASURE_ID) {
-    const left = slots[slotIndex - 1];
-    if (!left || left === BLUEPRINT_RIGHT_TREASURE_ID || left === BLUEPRINT_LEFT_TREASURE_ID) return null;
-    return String(left);
+    return getLeftmostCopyableTreasureId(slots);
   }
   return null;
 }
@@ -57,7 +75,10 @@ export function iterTreasureHookContributions(ownedSlotTreasureIds) {
  */
 export async function forEachTreasureHookContribution(ownedSlotTreasureIds, visit) {
   for (const entry of iterTreasureHookContributions(ownedSlotTreasureIds)) {
-    await visit(entry);
+    const result = visit(entry);
+    if (result != null && typeof /** @type {Promise<unknown>} */ (result).then === "function") {
+      await result;
+    }
   }
 }
 

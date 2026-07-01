@@ -18,6 +18,7 @@ import { buildPagerQuizOptions } from "../../game/pagerQuizOptions.js";
 import { resolveSubmitWordInput } from "../../game/submitWordPipeline.js";
 import { createSubmitScoringAnimController } from "../../game/submitScoringAnim.js";
 import { resolveWordLengthJudgmentBonus } from "../../game/wordLengthJudgmentBonus.js";
+import { compareScore, scoreGte, scoreLt } from "../../utils/scoreInteger.js";
 import {
   getBaseScoreForRarity,
   getWordLetterCount,
@@ -438,7 +439,7 @@ export function useSubmitWordController(options) {
         );
       }
 
-      if (gridApi.currentScore.value >= gridApi.targetScore.value) {
+      if (scoreGte(gridApi.currentScore.value, gridApi.targetScore.value)) {
         const isFinalStandardWin =
           !run.isEndlessRun.value && isStandardRunFinalLevelIndex(run.levelIndex.value);
         if (isFinalStandardWin) {
@@ -449,7 +450,7 @@ export function useSubmitWordController(options) {
         } else {
           await callbacks.openStageSettlement();
         }
-      } else if (gridApi.remainingWords.value <= 0 && gridApi.currentScore.value < gridApi.targetScore.value) {
+      } else if (gridApi.remainingWords.value <= 0 && scoreLt(gridApi.currentScore.value, gridApi.targetScore.value)) {
         await callbacks.openRunEnd("fail");
       }
     } catch (e) {
@@ -461,7 +462,7 @@ export function useSubmitWordController(options) {
       if (isGamePaused()) releaseAllGamePause();
       if (submitChanceConsumed) {
         gridApi.remainingWords.value += 1;
-        if (gridApi.currentScore.value !== scoreBeforeHand) {
+        if (compareScore(gridApi.currentScore.value, scoreBeforeHand) !== 0) {
           gridApi.currentScore.value = scoreBeforeHand;
         }
       }

@@ -1,14 +1,13 @@
 import { nextTick, onMounted, ref, unref, watch } from "vue";
+import { parseScore } from "../utils/scoreInteger.js";
 import {
-  formatScoreIntegerLocale,
-  formatScoreScientificNotation,
-  SCORE_SCI_NOTATION_MAX_DECIMALS,
+  resolveScoreNumericPresentation,
+  scoreNumericPresentationKey,
+  shouldLockScoreResultBoxWidth,
 } from "../utils/scoreNumericFormat.js";
 
-const MIN_FONT_SCALE = 0.5;
-
 /**
- * result-box 数字：正常字号 → 盒子随内容撑宽（至 max）→ 缩字至 50% → 原始字号科学计数法。
+ * result-box 数字：按数量级展示，不测量 DOM 宽度。
  *
  * @param {import('vue').Ref<HTMLElement | null>} boxRef
  * @param {import('vue').Ref<HTMLElement | null>} textRef
@@ -18,8 +17,8 @@ const MIN_FONT_SCALE = 0.5;
 export function useResultBoxNumericDisplay(boxRef, textRef, valueSource, maxBoxWidthSource) {
   const displayText = ref("0");
   const scientific = ref(false);
-  let lastValue = null;
-  let lastMaxBoxWidth = 0;
+  let lastPresentationKey = "";
+  let cachedBaseFontSize = 0;
 
   function resetTextInline(textEl) {
     textEl.style.fontSize = "";
@@ -27,75 +26,27 @@ export function useResultBoxNumericDisplay(boxRef, textRef, valueSource, maxBoxW
     textEl.style.display = "";
   }
 
-  function applyTextForMeasure(textEl, text) {
-    textEl.textContent = text;
-  }
-
-  function measureTextWidth(textEl, text, fontSize) {
-    resetTextInline(textEl);
-    textEl.style.fontSize = `${fontSize}px`;
-    applyTextForMeasure(textEl, text);
-    return textEl.scrollWidth;
-  }
-
-  function shrinkFontToFit(textEl, text, baseFontSize, minFontSize, maxWidth) {
-    let lo = minFontSize;
-    let hi = baseFontSize;
-    let best = null;
-
-    while (lo <= hi) {
-      const mid = (lo + hi) / 2;
-      textEl.style.fontSize = `${mid}px`;
-      applyTextForMeasure(textEl, text);
-      if (textEl.scrollWidth <= maxWidth) {
-        best = mid;
-        lo = mid + 0.25;
-      } else {
-        hi = mid - 0.25;
-      }
-    }
-
-    return best;
-  }
-
-  function pickScientificAtBaseFont(textEl, value, baseFontSize, maxWidth) {
-    let lo = 0;
-    let hi = SCORE_SCI_NOTATION_MAX_DECIMALS;
-    let bestDp = 0;
-    let bestText = formatScoreScientificNotation(value, 0);
-
-    while (lo <= hi) {
-      const mid = Math.floor((lo + hi) / 2);
-      const text = formatScoreScientificNotation(value, mid);
-      if (measureTextWidth(textEl, text, baseFontSize) <= maxWidth) {
-        bestDp = mid;
-        bestText = text;
-        lo = mid + 1;
-      } else {
-        hi = mid - 1;
-      }
-    }
-
-    return { text: bestText, fontSize: baseFontSize, decimalPlaces: bestDp };
-  }
-
   function syncBoxWidth(lockedToMax) {
     const box = boxRef.value;
     if (!box) return;
     const maxBoxW = Number(unref(maxBoxWidthSource)) || 0;
-    if (lockedToMax && maxBoxW > 0) {
-      box.style.width = `${maxBoxW}px`;
-    } else {
-      box.style.width = "";
-    }
+    const nextWidth = lockedToMax && maxBoxW > 0 ? `${maxBoxW}px` : "";
+    if (box.style.width === nextWidth) return;
+    box.style.width = nextWidth;
   }
 
-  function applyPresentation(textEl, text, fontSize, isScientific) {
-    applyTextForMeasure(textEl, text);
-    displayText.value = text;
-    scientific.value = isScientific;
+  /**
+   * @param {HTMLElement} textEl
+   * @param {import("../utils/scoreNumericFormat.js").ScoreNumericPresentation} presentation
+   * @param {number} baseFontSize
+   */
+  function applyPresentation(textEl, presentation, baseFontSize) {
+    displayText.value = presentation.text;
+    scientific.value = presentation.scientific;
+    textEl.textContent = presentation.text;
     resetTextInline(textEl);
-    textEl.style.fontSize = `${fontSize}px`;
+    const px = baseFontSize * presentation.fontScale;
+    textEl.style.fontSize = px >= baseFontSize - 0.01 ? "" : `${px}px`;
   }
 
   function refit(options = {}) {
@@ -107,58 +58,38 @@ export function useResultBoxNumericDisplay(boxRef, textRef, valueSource, maxBoxW
     const maxBoxW = Number(unref(maxBoxWidthSource)) || 0;
     if (maxBoxW <= 0) return;
 
-    const raw = Math.round(Number(unref(valueSource)) || 0);
-    if (!force && raw === lastValue && maxBoxW === lastMaxBoxWidth) return;
-    lastValue = raw;
-    lastMaxBoxWidth = maxBoxW;
+    const raw = parseScore(unref(valueSource));
 
-    if (raw === 0) {
+    if (raw === 0n) {
+      const zeroKey = "0|1|0|0|0";
+      if (!force && lastPresentationKey === zeroKey) return;
+      lastPresentationKey = zeroKey;
       displayText.value = "0";
       scientific.value = false;
       resetTextInline(textEl);
-      textEl.style.fontSize = "";
-      applyTextForMeasure(textEl, "0");
+      textEl.textContent = "0";
       syncBoxWidth(false);
       return;
     }
 
-    resetTextInline(textEl);
-    const baseFontSize = parseFloat(getComputedStyle(textEl).fontSize);
+    const presentation = resolveScoreNumericPresentation(raw, { singleLine: true });
+    const boxLocked = shouldLockScoreResultBoxWidth(raw, presentation);
+    const key = scoreNumericPresentationKey(presentation, boxLocked);
+    if (!force && key === lastPresentationKey) return;
+    lastPresentationKey = key;
+
+    const baseFontSize =
+      force || cachedBaseFontSize <= 0
+        ? (() => {
+            resetTextInline(textEl);
+            cachedBaseFontSize = parseFloat(getComputedStyle(textEl).fontSize) || 0;
+            return cachedBaseFontSize;
+          })()
+        : cachedBaseFontSize;
     if (!baseFontSize) return;
 
-    const minFontSize = baseFontSize * MIN_FONT_SCALE;
-    const localeText = formatScoreIntegerLocale(raw);
-    const textNaturalW = measureTextWidth(textEl, localeText, baseFontSize);
-
-    const labelEl = box.querySelector(".result-label");
-    const labelW = labelEl instanceof HTMLElement ? labelEl.scrollWidth : 0;
-    const boxStyle = getComputedStyle(box);
-    const padL = parseFloat(boxStyle.paddingLeft) || 0;
-    const padR = parseFloat(boxStyle.paddingRight) || 0;
-    const minBoxW = parseFloat(boxStyle.minWidth) || 0;
-
-    const contentInnerW = Math.max(labelW, textNaturalW);
-    const neededBoxW = contentInnerW + padL + padR;
-    const atMaxBoxWidth = neededBoxW > maxBoxW;
-    const effectiveBoxW = Math.min(Math.max(neededBoxW, minBoxW), maxBoxW);
-    const numAreaW = Math.max(0, effectiveBoxW - padL - padR);
-
-    if (textNaturalW <= numAreaW) {
-      syncBoxWidth(false);
-      applyPresentation(textEl, localeText, baseFontSize, false);
-      return;
-    }
-
-    const shrunk = shrinkFontToFit(textEl, localeText, baseFontSize, minFontSize, numAreaW);
-    if (shrunk != null) {
-      syncBoxWidth(true);
-      applyPresentation(textEl, localeText, shrunk, false);
-      return;
-    }
-
-    syncBoxWidth(true);
-    const sci = pickScientificAtBaseFont(textEl, raw, baseFontSize, numAreaW);
-    applyPresentation(textEl, sci.text, sci.fontSize, true);
+    syncBoxWidth(boxLocked);
+    applyPresentation(textEl, presentation, baseFontSize);
   }
 
   function scheduleRefit(options = {}) {
@@ -166,17 +97,19 @@ export function useResultBoxNumericDisplay(boxRef, textRef, valueSource, maxBoxW
   }
 
   function forceRefit() {
+    cachedBaseFontSize = 0;
+    lastPresentationKey = "";
     scheduleRefit({ force: true });
   }
 
   onMounted(() => {
-    scheduleRefit();
+    scheduleRefit({ force: true });
   });
 
-  watch(boxRef, () => scheduleRefit({ force: true }));
+  watch(boxRef, () => forceRefit());
 
-  watch(() => unref(valueSource), forceRefit);
-  watch(() => unref(maxBoxWidthSource), forceRefit);
+  watch(() => unref(valueSource), () => scheduleRefit());
+  watch(() => unref(maxBoxWidthSource), () => forceRefit());
 
   return { displayText, scientific, refit: forceRefit };
 }

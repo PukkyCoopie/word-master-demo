@@ -40,6 +40,15 @@ import { VOWEL_DECK_COUNT } from "../game/initialDeckLetterCounts.js";
 import { gameSettings, getLetterQMode } from "../settings/gameSettings.js";
 import { formatTileLetterDisplay } from "../settings/letterCase.js";
 import { applyLetterQModeToGrid, resolveLetterFromRaw } from "../settings/letterQ.js";
+import {
+  addScore,
+  deserializeScore,
+  multiplyScoreRound,
+  normalizeScore,
+  parseScore,
+  serializeScore,
+} from "../utils/scoreInteger.js";
+import { compactGridColumnsToBottom } from "../game/gridColumnCompact.js";
 
 const VOWEL_LETTERS = new Set(["a", "e", "i", "o", "u"]);
 
@@ -852,6 +861,7 @@ export function useGameState(gameOpts = {}) {
       rows.push(row);
     }
 
+    compactGridColumnsToBottom(rows, { manacle });
     return rows;
   }
 
@@ -916,7 +926,11 @@ export function useGameState(gameOpts = {}) {
     return {
       ...base,
       multTotal: base.multTotal * mul,
-      finalScore: Math.round(base.rawLetterScore * base.multTotal * mul * (base.treasureMultiplier || 1)),
+      finalScore: multiplyScoreRound(
+        base.rawLetterScore,
+        base.multTotal * mul,
+        base.treasureMultiplier || 1,
+      ),
     };
 
   });
@@ -1407,7 +1421,7 @@ export function useGameState(gameOpts = {}) {
     const skipScoreAdd = options.skipScoreAdd === true;
     const payload = buildLastWordPayload(getDefinition, tilesSnapshot);
     lastWordInfo.value = payload;
-    if (!skipScoreAdd) currentScore.value += payload.scoreInfo.finalScore;
+    if (!skipScoreAdd) currentScore.value = addScore(currentScore.value, payload.scoreInfo.finalScore);
     remainingWords.value = Math.max(0, remainingWords.value - 1);
     applySubmitRefill();
     return lastWordInfo.value;
@@ -1695,8 +1709,8 @@ export function useGameState(gameOpts = {}) {
     const tsOpt = runOpts.targetScore;
     const lid = levelDef?.id ?? "1-1";
     const ts =
-      tsOpt != null && Number.isFinite(Number(tsOpt))
-        ? Number(tsOpt)
+      tsOpt != null
+        ? deserializeScore(tsOpt)
         : resolveLevelTargetScore(lid, bossSlugForMechanics());
     const snap = initialDeckSnapshot.value.filter((c) => c && typeof c === "object");
     for (const c of snap) {
@@ -1717,7 +1731,7 @@ export function useGameState(gameOpts = {}) {
     remainingWords.value = bh;
     remainingRemovals.value = br;
     currentScore.value = 0;
-    targetScore.value = Number.isFinite(ts) ? ts : 300;
+    targetScore.value = parseScore(ts) > 0n ? normalizeScore(parseScore(ts)) : 300;
     selectedOrder.value = [];
     clearCeruleanBellFlagsOnGrid();
     lastWordInfo.value = null;
@@ -2079,8 +2093,8 @@ export function useGameState(gameOpts = {}) {
       runSeenDeckStackRaws: [...runSeenDeckStackRaws.value],
       deckPreviewAllInDrawPile: deckPreviewAllInDrawPile.value === true,
       deckCardUidSeq: getDeckCardUidSeq(),
-      currentScore: currentScore.value,
-      targetScore: targetScore.value,
+      currentScore: serializeScore(currentScore.value),
+      targetScore: serializeScore(targetScore.value),
       remainingWords: remainingWords.value,
       remainingRemovals: remainingRemovals.value,
       activeBossSlug: activeBossSlug.value,
@@ -2132,8 +2146,8 @@ export function useGameState(gameOpts = {}) {
     );
     seedRunSeenDeckStackRawsFromCards(cards);
     deckPreviewAllInDrawPile.value = state.deckPreviewAllInDrawPile === true;
-    currentScore.value = Math.max(0, Math.floor(Number(state.currentScore) || 0));
-    targetScore.value = Math.max(0, Math.floor(Number(state.targetScore) || 0));
+    currentScore.value = deserializeScore(state.currentScore);
+    targetScore.value = deserializeScore(state.targetScore);
     remainingWords.value = Math.max(0, Math.floor(Number(state.remainingWords) || 0));
     remainingRemovals.value = Math.max(0, Math.floor(Number(state.remainingRemovals) || 0));
     activeBossSlug.value = String(state.activeBossSlug ?? "");
@@ -2198,6 +2212,7 @@ export function useGameState(gameOpts = {}) {
       }
       nextGrid.push(row);
     }
+    compactGridColumnsToBottom(nextGrid, { manacle: activeBossSlug.value === "the_manacle" });
     grid.value = nextGrid;
     triggerRef(grid);
     reconcileCeruleanBellStateAfterHydrate();
