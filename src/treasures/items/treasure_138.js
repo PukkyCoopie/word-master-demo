@@ -6,8 +6,8 @@ const ID = "138";
 
 /** @type {Readonly<Record<string, number>>} */
 const MULT_BY_RARITY = Object.freeze({
-  epic: 1.25,
-  legendary: 1.75,
+  epic: 1.5,
+  legendary: 2,
 });
 
 /** @param {string} treasureId */
@@ -63,9 +63,9 @@ export default {
     "和",
     rarity("传说"),
     "宝藏分别提供",
-    mult("x1.25"),
+    mult("x1.5"),
     "/",
-    mult("x1.75"),
+    mult("x2"),
   ),
 };
 

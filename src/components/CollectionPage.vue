@@ -151,6 +151,7 @@ import {
   buildCollectionTreasurePreview,
   buildTileDetailPayloadFromCollectionSnapshot,
   collectionFlyOriginRectFromEl,
+  collectionShelfFlyOriginRectFromEl,
 } from "../collection/collectionPreview.js";
 import CollectionIconSegmentControl from "./CollectionIconSegmentControl.vue";
 import CollectionTreasureGrid from "./collection/CollectionTreasureGrid.vue";
@@ -425,7 +426,10 @@ function openCollectionTreasurePreview(
   closeCollectionTileDetail();
   collectionTreasureDetail.value = {
     treasure,
-    originRect: collectionFlyOriginRectFromEl(originEl),
+    originRect:
+      shelfPriceKind === "offer"
+        ? collectionShelfFlyOriginRectFromEl(originEl)
+        : collectionFlyOriginRectFromEl(originEl),
     shelfPriceKind,
     previewNav,
     previewNavKind,

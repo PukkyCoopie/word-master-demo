@@ -363,7 +363,8 @@
  * @property {object[]} [ownedTreasureInstances] 已拥有宝藏实例
  * @property {number} [hookSlotIndex] 本次 hook 对应的栏位下标（面具镜像时为面具槽）
  * @property {'self' | 'blueprint'} [hookSource] 本次贡献来自实体宝藏或面具镜像
- * @property {(treasureId: string, amount: number) => void} [bumpOwnedTreasureSellRefundBonusById] 提高已拥有实例的额外售出额（叠在 floor(购入价/2) 之上，不参与 /2）
+ * @property {(slotIndex: number, amount: number) => void} [bumpOwnedTreasureSellRefundBonusAtSlot] 按栏位下标提高额外售出额（同 id 多槽时逐槽加价）
+ * @property {(treasureId: string, amount: number) => void} [bumpOwnedTreasureSellRefundBonusById] 提高已拥有实例的额外售出额（叠在 floor(购入价/2) 之上，不参与 /2；仅命中第一个同 id 槽位）
  * @property {(volcanoSlotIndex: number) => Promise<void>} [playVolcanoEruptionAtSlot] 火山喷发：剧烈 wobble + 按距离摧毁其他宝藏 + 棋盘字母格转火焰
  */
 

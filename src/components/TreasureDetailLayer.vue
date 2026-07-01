@@ -818,6 +818,7 @@
       :class="{
         'shop-deck-offer-product-stack': isDeckOffer,
         'treasure-detail-fly-clone-root--voucher-stack': isVoucherOffer && voucherDetailStacked,
+        'treasure-detail-fly-clone-root--shelf-visual': collectionShelfFlyIncludesPrice,
       }"
       :style="flyCloneFrozenLayout ?? undefined"
       aria-hidden="true"
@@ -1329,10 +1330,18 @@ const detailShelfPriceText = computed(() => {
 
 const showDetailShelfPrice = computed(() => {
   if (props.showShelfPrice === false) return false;
-  if (isCollectionPreviewMode.value) return false;
+  if (isCollectionPreviewMode.value) return props.shelfPriceKind === "offer";
   if (props.shelfPriceKind === "sell") return true;
   return props.mode !== "voucher-owned";
 });
+
+/** 收藏图鉴货架预览：飞入克隆与详情价签列同宽同高 */
+const collectionShelfFlyIncludesPrice = computed(
+  () =>
+    isCollectionPreviewMode.value &&
+    props.shelfPriceKind === "offer" &&
+    props.showShelfPrice !== false,
+);
 
 const offerPriceDisplayed = computed(() => {
   const base = Math.max(0, Math.floor(Number(props.treasure?.price) || 0));
@@ -2149,6 +2158,14 @@ function resolveDetailFlyFrameRect() {
   return null;
 }
 
+/** 收藏货架预览：详情 shop-treasure-visual（icon + 价签） */
+function resolveCollectionShelfFlyTargetRect() {
+  const visual = targetVisualRef.value;
+  const r = visual?.getBoundingClientRect?.();
+  if (r && r.width > 2 && r.height > 2) return rectToFlyBox(r);
+  return resolveDetailFlyFrameRect();
+}
+
 /** 货架字母块飞入：tile + 价签整列 */
 function resolveDeckOfferFlyTargetRect() {
   const stack = refToFlyFrameEl(deckOfferStackRef.value);
@@ -2382,7 +2399,11 @@ function continueEnterAfterMeasure(ctx) {
 
   if (hasFly && flyFrom) {
     void backdropLive.offsetHeight;
-    flyTo = isDeckOffer.value ? resolveDeckOfferFlyTargetRect() : resolveDetailFlyFrameRect();
+    flyTo = isDeckOffer.value
+      ? resolveDeckOfferFlyTargetRect()
+      : collectionShelfFlyIncludesPrice.value
+        ? resolveCollectionShelfFlyTargetRect()
+        : resolveDetailFlyFrameRect();
   }
 
   if (hasFly && flyFrom && flyTo && cloneLive) {

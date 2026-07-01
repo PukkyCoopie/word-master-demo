@@ -13,7 +13,8 @@ import { normalizeStoredTileLetter } from "../settings/letterQ.js";
 let previewOfferInstanceSeq = 0;
 
 /**
- * 飞入详情起点：与 ShopPanel.shopOfferFlyOriginEl 一致（icon 框，非整列价签）。
+ * 飞入详情起点（仅 icon 框）：与 ShopPanel.shopOfferFlyOriginEl 一致。
+ * 收藏货架标价预览请用 collectionShelfFlyOriginRectFromEl。
  * @param {HTMLElement | null | undefined} root
  * @returns {HTMLElement | null}
  */
@@ -27,6 +28,24 @@ export function collectionFlyOriginEl(root) {
  */
 export function collectionFlyOriginRectFromEl(el) {
   return offerFlyOriginRectFromEl(el);
+}
+
+/**
+ * 收藏货架格飞入：icon 框 + 底部价签整列（与详情 shop-treasure-visual 对齐）。
+ * @param {HTMLElement | null | undefined} el
+ * @returns {{ left: number, top: number, width: number, height: number } | null}
+ */
+export function collectionShelfFlyOriginRectFromEl(el) {
+  const root = el instanceof HTMLElement ? el : null;
+  if (!root) return null;
+  const visual =
+    root.querySelector(".shop-treasure-visual") ??
+    (root.classList.contains("shop-treasure-visual") ? root : null);
+  const node = visual ?? resolveOfferFlyOriginEl(root);
+  if (!node || typeof node.getBoundingClientRect !== "function") return null;
+  const r = node.getBoundingClientRect();
+  if (r.width < 2 || r.height < 2) return null;
+  return { left: r.left, top: r.top, width: r.width, height: r.height };
 }
 
 /**

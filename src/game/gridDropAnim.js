@@ -1,6 +1,11 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM, EASE_GRID_GRAVITY_Y, EASE_GRID_LINEAR } from "../constants.js";
 import { gridTileEntranceDelayKey } from "./gridOnlyMaterialScoring.js";
+import {
+  gridIntroDropOffsetRows as gridIntroDropOffsetRowsPure,
+  gridRefillNewTileDropOffsetRows as gridRefillNewTileDropOffsetRowsPure,
+  isGridDropFromAboveGrid,
+} from "./gridDropOffset.js";
 
 /** 下落时长略长，便于看出加速过程 */
 export const GRID_DROP_DURATION = 0.52;
@@ -64,13 +69,9 @@ export function createGridDropAnim(deps) {
     return false;
   }
 
-  /** @returns {number} 相对落点格向上的偏移行数（乘 stepY 为 GSAP y0） */
+  /** @returns {number} 相对落点格向上的偏移行数（乘 stepY 为 GSAP y0）；按完整棋盘行计，镣铐顶行封锁时仍从网格外落入 */
   function gridRefillNewTileDropOffsetRows(row, col) {
-    const topRow = resolvePlayableTopRow();
-    const playableRow = Math.max(0, row - topRow);
-    const playableRows = ROWS - topRow;
-    if (gridColumnHasEmptyAbove(row, col)) return playableRows + row + 2;
-    return playableRow + 2;
+    return gridRefillNewTileDropOffsetRowsPure(row, gridColumnHasEmptyAbove(row, col), ROWS);
   }
 
   /** 补牌前按 tile.id 记录视口矩形（须与 `snapshotGridCellsByTileId()` 同一时刻调用，保证 FLIP 一致） */
@@ -163,7 +164,7 @@ export function createGridDropAnim(deps) {
           const row = Math.floor(i / COLS);
           const col = i % COLS;
           const tile = grid[row][col];
-          if (tile == null) continue;
+          if (tile == null || tile.bossGridBlocked) continue;
           const el = getGridTileElByIndex(i);
           if (!el) continue;
           if (!getGridTileRef(i)) fallbackNodeCount += 1;
@@ -224,11 +225,9 @@ export function createGridDropAnim(deps) {
             }
           } else {
             newDropCount += 1;
-            const topRow = resolvePlayableTopRow();
-            const playableRow = Math.max(0, row - topRow);
             const dropOffsetRows = gridRefillNewTileDropOffsetRows(row, col);
             const y0 = -dropOffsetRows * stepY;
-            const dropFromAboveGrid = dropOffsetRows > playableRow + 2;
+            const dropFromAboveGrid = isGridDropFromAboveGrid(dropOffsetRows, row);
             gsapLib.set(el, {
               x: 0,
               y: y0,
@@ -253,11 +252,9 @@ export function createGridDropAnim(deps) {
     });
   }
 
-  /** 首次入场：相对可玩区顶行的向上偏移行数（× stepY 为初始 y） */
+  /** 首次入场：相对完整棋盘顶行的向上偏移行数（× stepY 为初始 y）；stagger 仍按可玩区 */
   function gridIntroDropOffsetRows(row) {
-    const topRow = resolvePlayableTopRow();
-    const playableRow = Math.max(0, row - topRow);
-    return playableRow + 2.2;
+    return gridIntroDropOffsetRowsPure(row);
   }
 
   return {

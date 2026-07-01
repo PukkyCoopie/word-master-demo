@@ -9,7 +9,7 @@ export function isManacleBossGrid(slug) {
   return slug === "the_manacle";
 }
 
-/** 镣铐顶行封锁；下落/ stagger 按可玩区计时的首行索引（其余 Boss 为 0）。 */
+/** 镣铐顶行封锁；入场 stagger 按可玩区计时的首行索引（下落偏移仍按完整棋盘行；其余 Boss 为 0）。 */
 export const MANACLE_PLAYABLE_TOP_ROW = 1;
 
 /** @param {string} slug @returns {number} */

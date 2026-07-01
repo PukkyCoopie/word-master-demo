@@ -12,11 +12,11 @@ export default {
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   async onLevelComplete(ctx) {
-    const instances = ctx.ownedTreasureInstances ?? [];
-    for (const inst of instances) {
-      const tid = String(inst?.treasureId ?? "");
+    const slotIds = ctx.ownedSlotTreasureIds ?? [];
+    for (let i = 0; i < slotIds.length; i += 1) {
+      const tid = String(slotIds[i] ?? "");
       if (!tid || tid === ID) continue;
-      ctx.bumpOwnedTreasureSellRefundBonusById?.(tid, 1);
+      ctx.bumpOwnedTreasureSellRefundBonusAtSlot?.(i, 1);
     }
     await ctx.wobbleOwnedTreasureById?.(ID);
   },

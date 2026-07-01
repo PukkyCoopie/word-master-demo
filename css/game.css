@@ -4603,6 +4603,34 @@ html.has-rarity-tier-merge .shop-treasure-frame .letter-gem.gem-common:not(.shop
 	transform: translateZ(0);
 }
 
+/* 收藏货架预览飞入：icon + 价签同列（与 shop-treasure-visual 对齐） */
+.treasure-detail-fly-clone-root--shelf-visual {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	box-sizing: border-box;
+}
+
+.treasure-detail-fly-clone-root--shelf-visual .shop-treasure-frame.shop-treasure-frame--detail {
+	width: 100%;
+	height: auto;
+	aspect-ratio: 1;
+	max-width: 100%;
+	flex-shrink: 0;
+}
+
+.treasure-detail-fly-clone-root--shelf-visual .shop-treasure-price {
+	width: 100%;
+	min-width: 0;
+	flex-shrink: 0;
+	box-sizing: border-box;
+}
+
+.treasure-detail-fly-clone-root--shelf-visual .voucher-detail-stamp-stack {
+	width: 100%;
+	flex-shrink: 0;
+}
+
 .treasure-detail-stack--collection-locked {
 	opacity: var(--collection-locked-opacity, 0.75);
 }

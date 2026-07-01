@@ -384,10 +384,14 @@ export function useRunLifecycleController(options) {
     await nextTick();
     const stepY = measureGridTileStepYImpl();
     const tileRefs = gridTileRefsRef?.value ?? [];
+    const g = gridState.value;
     for (let i = 0; i < ROWS * COLS; i++) {
       const el = tileRefs[i];
       if (!el) continue;
       const row = Math.floor(i / COLS);
+      const col = i % COLS;
+      const tile = g[row]?.[col];
+      if (!tile || tile.bossGridBlocked) continue;
       gsap.killTweensOf(el);
       gsap.set(el, { x: 0, y: -gridIntroDropOffsetRowsImpl(row) * stepY, opacity: 0.55 });
     }

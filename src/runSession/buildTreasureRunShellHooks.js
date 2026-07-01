@@ -64,6 +64,18 @@ export function buildTreasureRunShellHooks(d) {
       };
     },
     buildTreasureLevelCompleteContextExtras() {
+      /** @param {number} slotIndex @param {number} amount */
+      const bumpOwnedTreasureSellRefundBonusAtSlot = (slotIndex, amount) => {
+        const ix = Math.floor(Number(slotIndex));
+        const add = Math.floor(Number(amount) || 0);
+        if (!Number.isFinite(ix) || ix < 0 || add <= 0) return;
+        const cur = d.getOwnedTreasureSlot(ix);
+        if (!cur) return;
+        d.setOwnedTreasureSlot(ix, {
+          ...cur,
+          sellPriceBonus: Math.max(0, Math.floor(Number(cur.sellPriceBonus) || 0) + add),
+        });
+      };
       return {
         destroyTreasureSlotById: d.destroyOwnedTreasureWithFx,
         destroyBombBlastAtSlot: d.destroyBombBlastAtSlot,
@@ -81,18 +93,14 @@ export function buildTreasureRunShellHooks(d) {
         addMoney: (n) => {
           d.addMoney(Math.max(0, Math.floor(Number(n) || 0)));
         },
+        bumpOwnedTreasureSellRefundBonusAtSlot,
         bumpOwnedTreasureSellRefundBonusById: (treasureId, amount) => {
           const tid = String(treasureId ?? "");
           const add = Math.floor(Number(amount) || 0);
           if (!tid || add <= 0) return;
           const ix = d.findOwnedTreasureSlotIndex(tid);
           if (ix < 0) return;
-          const cur = d.getOwnedTreasureSlot(ix);
-          if (!cur) return;
-          d.setOwnedTreasureSlot(ix, {
-            ...cur,
-            sellPriceBonus: Math.max(0, Math.floor(Number(cur.sellPriceBonus) || 0) + add),
-          });
+          bumpOwnedTreasureSellRefundBonusAtSlot(ix, add);
         },
       };
     },
