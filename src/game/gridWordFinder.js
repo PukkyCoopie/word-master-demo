@@ -41,10 +41,25 @@ export function wordMatchesMultiset(word, ms) {
 /**
  * @param {string} word
  * @param {GridCell[]} picked
+ * @param {{ anchor?: GridCell | null }} [opts]
  * @returns {GridCell[] | null}
  */
-export function assignCellsToWord(word, picked) {
+export function assignCellsToWord(word, picked, opts = {}) {
+  const anchor = opts.anchor ?? null;
   const w = String(word).toLowerCase();
+  if (!w.length) return null;
+
+  if (anchor) {
+    const ch0 = w[0];
+    if (!anchor.isWildcard && anchor.letter.toLowerCase() !== ch0 && !(anchor.letter.toLowerCase() === "qu" && ch0 === "q")) {
+      return null;
+    }
+    const restPool = picked.filter((c) => !(c.row === anchor.row && c.col === anchor.col));
+    const restPath = assignCellsToWord(w.slice(1), restPool);
+    if (!restPath) return null;
+    return [anchor, ...restPath];
+  }
+
   const pool = picked.map((c, i) => ({ ...c, _i: i }));
   /** @type {GridCell[]} */
   const path = [];
@@ -67,6 +82,15 @@ export function assignCellsToWord(word, picked) {
     path.push(cell);
   }
   return path.length === w.length ? path : null;
+}
+
+/**
+ * @param {GridCell[]} path
+ * @returns {number}
+ */
+export function countDebuffedLettersInPath(path) {
+  if (!Array.isArray(path)) return 0;
+  return path.filter((c) => c?.bossDebuffed === true).length;
 }
 
 const MIN_WORD_LEN = 3;

@@ -1,25 +1,26 @@
 ﻿<template>
   <div class="game-container">
     <Teleport defer to="#game-view-portal-frame">
-      <InRunShopPhase v-if="showShop" ref="shopPanelRef" />
+      <InRunShopPhase v-if="runSessionHostsReady && showShop" ref="shopPanelRef" />
     </Teleport>
 
     <RunOverlayHost
+      v-if="runSessionHostsReady"
       ref="runOverlayHostRef"
     />
 
     <InRunPlayfield
-      v-if="!showShop"
+      v-if="runSessionHostsReady && !showShop"
       ref="gamePanelPlayfieldRef"
     />
 
-    <RunEndFlowHost ref="runEndFlowHostRef" />
+    <RunEndFlowHost v-if="runSessionHostsReady" ref="runEndFlowHostRef" />
 
     <StageSettlementLayer
       ref="settlementLayerRef"
     />
 
-    <FirstWordTutorialHost ref="firstWordTutorialLayerRef" />
+    <FirstWordTutorialHost v-if="runSessionHostsReady" ref="firstWordTutorialLayerRef" />
   </div>
 </template>
 
@@ -27,11 +28,12 @@
 /**
  * 动画约定：位移/尺寸/缩放/旋转统一 EASE_TRANSFORM（expo.out），见 src/constants.js 与 .cursor/rules/animation-easing.mdc
  */
-import { computed, inject, provide, ref, unref, watch, watchEffect, onMounted, onUnmounted, nextTick } from "vue";
+import { computed, inject, onBeforeMount, provide, ref, unref, watch, watchEffect, onMounted, onUnmounted, nextTick } from "vue";
 import { useViewportLayoutMode } from "../composables/useViewportLayoutMode.js";
 import { wireGamePanelControllers } from "../runSession/wireGamePanelControllers.js";
 import {
   RUN_SESSION_KEY,
+  isRunSessionReadyForHosts,
   mountRunSessionNamespaces,
   useRunSession,
 } from "../runSession/useRunSession.js";
@@ -79,7 +81,6 @@ import {
 import {
   TREASURE_DEFINITIONS,
   notifyOwnedTreasuresOnIceBreak,
-  treasureBypassesNoSellForSelfDestruct,
 } from "../treasures/treasureRegistry.js";
 
 import { createSubmitWordResolver } from "../game/submitWordPipeline.js";
@@ -152,6 +153,7 @@ import { deckCardRaw, syncTileStateToDeckCard } from "../game/deckCardSync.js";
 import {
   runSpellTileAppearanceAnim,
   runDetachedTileShrinkReplacePop,
+  cloneSpellTileSnapshot,
 } from "../game/spellTileAppearanceAnim.js";
 
 import { pickRandomInRunSpellId, IN_RUN_RANDOM_SPELL_EXCLUDE } from "../spells/spellInRunPool.js";
@@ -241,6 +243,10 @@ import { isCeruleanBellDevScenario } from "../dev/ceruleanBellDevScenario.js";
 import { isPagerDevScenario } from "../dev/pagerDevScenario.js";
 import { isEctoplasmDevScenario } from "../dev/ectoplasmDevScenario.js";
 import {
+  isMouthQuProblemDevScenario,
+  applyProblemQuRowToGrid,
+} from "../dev/mouthQuProblemDevScenario.js";
+import {
   applyPromoGameplayGridMaterials,
   applyPromoGameplayTileBonuses,
 } from "../dev/screenshotPresetScenario.js";
@@ -255,6 +261,7 @@ const {
   loadDictionary,
   resolveWordPattern,
   resolveWordPatternWithMouthSubstitutions,
+  resolveWordSlotPatternWithMouthSubstitutions,
   getCandidateWordsByLength,
   dictionaryReady,
   error: dictError,
@@ -263,6 +270,7 @@ const {
 const submitWordResolver = createSubmitWordResolver({
   resolveWordPattern,
   resolveWordPatternWithMouthSubstitutions,
+  resolveWordSlotPatternWithMouthSubstitutions,
 });
 const dictFatalError = computed(() => !!dictError.value && !dictionaryReady.value);
 const dictFatalMessage = computed(() => formatDictionaryLoadErrorForPlayer(dictError.value));
@@ -315,6 +323,9 @@ const { portalFullscreenTarget } = useViewportLayoutMode();
 
 const emit = defineEmits(["request-restart", "exit-to-menu"]);
 const session = useRunSession(props, emit);
+provide(RUN_SESSION_KEY, session);
+/** inject 依赖子树须等 assembly + settlement 接线完成后再挂载 */
+const runSessionHostsReady = ref(false);
 /** @type {ReturnType<typeof createPhaseStore> | null} */
 let phaseStore = null;
 
@@ -431,6 +442,8 @@ const ceruleanBellDevScenarioActive = ref(isCeruleanBellDevScenario());
 const pagerDevScenarioActive = ref(isPagerDevScenario());
 /** 开发：开局 5 宝藏各带随机非裁剪配饰（`?dev=ectoplasm`，烛台调试） */
 const ectoplasmDevScenarioActive = ref(isEctoplasmDevScenario());
+/** 开发：Qu+嘴+试管 problem 替换测试（`?dev=mouthQuProblem` 或控制台命令） */
+const mouthQuProblemDevScenarioActive = ref(isMouthQuProblemDevScenario());
 /** 开发：宣传图预设 1 的棋盘材质/加成（`setupScreenshotPreset(1)`） */
 const promoScreenshotDevPresetActive = ref(0);
 
@@ -494,6 +507,7 @@ const {
   deckStacksView,
   remainingWords,
   remainingRemovals,
+  hintRemaining,
   currentScore,
   targetScore,
   activeBossSlug,
@@ -582,9 +596,9 @@ async function mutateRandomNonWildcardLetterTileToWildcard() {
   }
   if (!candidates.length) return;
   const { row, col } = candidates[Math.floor(runRandom() * candidates.length)];
-  const oldSnap = cloneGridTileSnapshot(g[row][col]);
-  const draft = cloneGridTileSnapshot(g[row][col]);
-  if (!oldSnap || !draft) return;
+  const oldSnap = cloneSpellTileSnapshot(g[row][col]);
+  const draft = cloneSpellTileSnapshot(g[row][col]);
+  if (!oldSnap || !draft || typeof oldSnap !== "object" || typeof draft !== "object") return;
   markTileAsWildcard(draft);
   draft.letter = "?";
   draft.isWildcard = true;
@@ -865,6 +879,7 @@ function scheduleStaggeredTileRemoveHaptics(count, staggerSec) {
 /** 升级序列进度：仅最后一步允许通过事件提前解锁点击 */
 const spellReferencePreview = ref(/** @type {object | null} */ (null));
 const deckBtnRef = ref(null);
+const hintBtnRef = ref(null);
 
 function treasureOriginRectFromEl(el) {
   return offerFlyOriginRectFromEl(el);
@@ -979,6 +994,8 @@ function buildSubmitAfterLettersContext(tiles, detailed) {
       ownedSlotTreasureIdList,
       resolveRealSubmitTileForWordSlot,
       touchGrid,
+      patchGridPlaceholderFreezeFromTile: (tile) =>
+        playfieldActionsRef.current?.patchGridPlaceholderFreezeFromTile?.(tile),
       playSubmitTileEnhancementStripLeave,
       getWordSlotRefs: getWordSlotRefsFromPlayfield,
       getSelectedGridTileElsInOrder,
@@ -1054,6 +1071,7 @@ const ctrlEarly = wireGamePanelControllers({
   ownedTreasures,
   initialDeckSnapshot,
   remainingRemovals,
+  hintRemaining,
   treasureRunState,
   triggerHaptic,
   gameTreasureSlotRefs,
@@ -1075,8 +1093,10 @@ const ctrlEarly = wireGamePanelControllers({
   bossMechanicsBridge,
   maskBubbleDevScenarioActive,
   allIceDevScenarioActive,
+  mouthQuProblemDevScenarioActive,
   promoScreenshotDevPresetActive,
   applyRandomBLettersToGrid,
+  applyProblemQuRowToGrid,
   applyIceMaterialToAllGridTiles,
   applyIceMaterialToAllDeckCards,
   applyPromoGameplayGridMaterials,
@@ -1395,6 +1415,7 @@ watchEffect(() => {
   letterGridWrapRef.value = resolvePlayfieldExposeDom(playfield?.letterGridWrapRef);
   letterGridRef.value = resolvePlayfieldExposeDom(playfield?.letterGridRef);
   deckBtnRef.value = resolvePlayfieldExposeDom(playfield?.deckBtnRef);
+  hintBtnRef.value = resolvePlayfieldExposeDom(playfield?.hintBtnRef);
   submitBookmarkRef.value = resolvePlayfieldExposeDom(playfield?.submitBookmarkRef);
   submitBtnRef.value = resolvePlayfieldExposeDom(playfield?.submitBtnRef);
 });
@@ -1477,6 +1498,8 @@ const ctrlLate = wireGamePanelControllers({
   bossSlugForMechanics,
   getBossTileDebuffContext,
   firstWordTutorialActive,
+  firstWordTutorialCtrlSlot,
+  getSaveSlotIndex: () => props.saveSlotIndex,
   dictionaryReady,
   ownedTreasureHookFxBridge,
   getWordDefinition,
@@ -1500,6 +1523,7 @@ const ctrlLate = wireGamePanelControllers({
   runAutoSave: runAutoSaveBridge,
   abandonStandardWinRunProgressIfNeeded,
   emitExitToMenu: () => emit("exit-to-menu"),
+  openRunEnd,
   showShop,
   showInfoLayer,
   devTreasurePickerItems,
@@ -1602,6 +1626,8 @@ function buildRunPhaseMachineInput() {
     remainingWords: remainingWords.value,
     firstWordTutorialBlocking: firstWordTutorialCtrlSlot.ctrl?.blocking?.value ?? false,
     firstWordTutorialPhase: firstWordTutorialCtrlSlot.ctrl?.phase?.value ?? null,
+    firstWordTutorialRetryHintSubmitReady:
+      firstWordTutorialCtrlSlot.ctrl?.retryHintSubmitReady?.value ?? false,
     isFirstWordTutorialBlockingInput: isFirstWordTutorialBlockingInput(),
     flyingLettersCount: playfieldFlyingLettersCount(),
     flyingBackBatchesCount: playfieldFlyingBackBatchesCount(),
@@ -1624,7 +1650,6 @@ function mountGamePanelSessionNamespaces(extraNamespaces = {}) {
 }
 
 mountGamePanelSessionNamespaces();
-provide(RUN_SESSION_KEY, session);
 
 const canSubmit = computed(() => {
   return phaseStore.canSubmitWord();
@@ -1733,6 +1758,7 @@ const { ports: gamePanelPorts } = setupGamePanelAssembly(
       appendShopDeckEntries,
       remainingRemovals,
       remainingWords,
+      hintRemaining,
       basketballWordsSubmitted,
       dictFatalError,
       dictionaryReady,
@@ -1757,6 +1783,7 @@ const { ports: gamePanelPorts } = setupGamePanelAssembly(
       flyingLetters,
       flyingBackBatches,
       deckBtnRef,
+      hintBtnRef,
       deckPreview,
       getInRunDeckFlyTargetEl,
       refreshBossTileDebuffOnTile,
@@ -1986,7 +2013,8 @@ runAutoSaveBridge.tryFlush = (opts) => runSaveBridge?.tryFlush?.(opts);
   devCommandsRef,
   devCommandsOptions: buildGamePanelDevCommandsOptions({
     maskBubbleDevScenarioActive, allIceDevScenarioActive, ceruleanBellDevScenarioActive,
-    pagerDevScenarioActive, ectoplasmDevScenarioActive, promoScreenshotDevPresetActive, ownedTreasures, transitionBusy,
+    pagerDevScenarioActive, ectoplasmDevScenarioActive, mouthQuProblemDevScenarioActive,
+    promoScreenshotDevPresetActive, ownedTreasures, transitionBusy,
     showShop, showSettlement, showRunEnd, showPauseOptions, showDeveloperOptions, levelIndex,
     pendingBossSlugOverride: ctrlEarly.pendingBossSlugOverride,
     gridIntroDone, gridRefillAnimating, gridTileRefs,
@@ -2098,7 +2126,6 @@ wireGamePanelFxFromDeps({
   wobbleGameTreasureSlot, wobbleScoreSlot, showScoreBubble, scheduleSmallPlusBubbleOutro,
   formatMoneyBubbleLabel, bumpOverlayZ, scoringLetterGapMs: SCORING_LETTER_GAP_MS,
   treasureDestroyFxRef, treasureLevelCompleteFxRef, ownedTreasureHasNoSellAccessory,
-  treasureBypassesNoSellForSelfDestruct,
   isTreasureBarSlotVisible, ownedTreasures, grid, ROWS, COLS, getGridTileElByIndex, touchGrid,
   scoreBubbleAnchorRect,
   clearOwnedTreasureSlotLeaveGapAtIndex: (ix) =>
@@ -2167,6 +2194,13 @@ const {
 });
 
 openStageSettlementSlot = openStageSettlement;
+
+onBeforeMount(() => {
+  if (!isRunSessionReadyForHosts(session)) {
+    throw new Error("GamePanel: RunSession incomplete before host mount");
+  }
+  runSessionHostsReady.value = true;
+});
 
 const runAutoSave = {
   scheduleAutoSave: () => runSaveBridge.scheduleAutoSave(),
@@ -2303,6 +2337,9 @@ function buildGamePanelBootstrapSource() {
     applyPagerOwnedTreasure: () => devCommandsRef.current?.applyPagerDevRunStart(),
     isEctoplasmDevScenarioActive: () => ectoplasmDevScenarioActive.value,
     applyEctoplasmDevOwnedTreasures: () => devCommandsRef.current?.applyEctoplasmDevRunStart(),
+    isMouthQuProblemDevScenarioActive: () => mouthQuProblemDevScenarioActive.value,
+    applyMouthQuProblemOwnedTreasures: () =>
+      devCommandsRef.current?.applyMouthQuProblemDevRunStart(),
     isCeruleanBellDevScenarioActive: () => ceruleanBellDevScenarioActive.value,
     applyCeruleanBellDevRunStart: () => devCommandsRef.current?.applyCeruleanBellDevRunStart(),
     getGamePanelAlive,

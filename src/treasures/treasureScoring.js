@@ -1,4 +1,9 @@
 import { computeWordScoreDetailed, getWordLetterCount } from "../composables/useScoring.js";
+import {
+  applyDisabledTreasureSlots,
+  isTreasureIdDisabledForSubmit,
+  normalizeDisabledTreasureSlotIndices,
+} from "../game/bossMechanicsContext.js";
 import { isBossTileDebuffed } from "../game/bossTileDebuff.js";
 import { tileHasRewindAccessory } from "../accessories/accessoryScoring.js";
 import { TREASURE_HOOKS_BY_ID } from "./treasureRegistry.js";
@@ -478,14 +483,9 @@ export function computeWordScoreDetailedForSubmit(
   submitOptions = {},
 ) {
   const rawSlots = ownedSlotTreasureIds ?? [];
-  const dis = submitOptions?.disabledTreasureSlotIndices;
-  const disabledSet =
-    dis instanceof Set
-      ? dis
-      : Array.isArray(dis)
-        ? new Set(dis.map((x) => Math.floor(Number(x))).filter((i) => i >= 0))
-        : null;
-  const slots = rawSlots.map((tid, si) => (disabledSet?.has(si) ? null : tid));
+  const disabledSet = normalizeDisabledTreasureSlotIndices(submitOptions?.disabledTreasureSlotIndices);
+  const slots = applyDisabledTreasureSlots(rawSlots, disabledSet);
+  const paperclipDisabledForSubmit = isTreasureIdDisabledForSubmit(rawSlots, disabledSet, "76");
   const bossFlintQuarter = submitOptions?.bossFlintQuarter === true;
   const rnd = typeof submitOptions?.rng === "function" ? submitOptions.rng : Math.random;
 
@@ -516,8 +516,13 @@ export function computeWordScoreDetailedForSubmit(
   const scoringWordLetterCount =
     getWordLetterCount(tiles, submitOptions?.resolvedWord ?? null) +
     submitScoringWordLetterCountBonus;
+  const scoringTilesForBaseScore = paperclipDisabledForSubmit
+    ? scoringTiles.map((t) =>
+        t && typeof t === "object" ? { ...t, letterMultBonus: 0 } : t,
+      )
+    : scoringTiles;
   const base = computeWordScoreDetailed(
-    scoringTiles,
+    scoringTilesForBaseScore,
     1,
     lengthLevelsByLength,
     rarityLevelsByRarity,
@@ -795,5 +800,6 @@ export function computeWordScoreDetailedForSubmit(
     submitScoringTiles: scoringTiles,
     submitScoringAppendedTiles: appended,
     submitScoringWordLetterCountBonus,
+    disabledTreasureSlotIndices: disabledSet ? [...disabledSet] : [],
   };
 }

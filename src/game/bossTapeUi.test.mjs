@@ -19,7 +19,7 @@ test("buildBossTapeSubLine: club required key", () => {
       { slug: "the_club", uiDescription: "fallback" },
       { clubRequiredKey: "n" },
     ),
-    "本关要求：名词",
+    "只能拼写名词",
   );
 });
 

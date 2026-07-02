@@ -241,24 +241,35 @@
   box-sizing: border-box;
   overflow: visible;
 }
-.deck-layer-stacks .deck-stack-pile-tile .tile-accessory-chip {
+/* 配饰角标：须 position:absolute 脱离 .grid-tile flex 居中；不依赖 game.css 分 chunk 加载顺序 */
+.deck-layer-stacks .deck-stack-pile-tile .tile-accessory-chip,
+.deck-layer-stacks .deck-stack-pile-tile .tile-treasure-accessory-chip,
+.deck-stack-expand-tiles .deck-expand-face-tile .tile-accessory-chip,
+.deck-stack-expand-tiles .deck-expand-face-tile .tile-treasure-accessory-chip {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: none;
+  box-shadow: none;
+  pointer-events: none;
+  left: auto;
+  top: auto;
   right: calc(3 * var(--rpx) * var(--slot-scale, 1));
   bottom: calc(3 * var(--rpx) * var(--slot-scale, 1));
   width: calc(28 * var(--rpx) * var(--slot-scale, 1));
   height: calc(28 * var(--rpx) * var(--slot-scale, 1));
   border-radius: calc(6 * var(--rpx) * var(--slot-scale, 1));
 }
-.deck-layer-stacks .deck-stack-pile-tile .tile-accessory-chip-icon {
+.deck-layer-stacks .deck-stack-pile-tile .tile-accessory-chip-icon,
+.deck-stack-expand-tiles .deck-expand-face-tile .tile-accessory-chip-icon {
   font-size: calc(14 * var(--rpx) * var(--slot-scale, 1));
 }
-.deck-layer-stacks .deck-stack-pile-tile .tile-treasure-accessory-chip {
-  right: calc(3 * var(--rpx) * var(--slot-scale, 1));
-  bottom: calc(3 * var(--rpx) * var(--slot-scale, 1));
-  width: calc(28 * var(--rpx) * var(--slot-scale, 1));
-  height: calc(28 * var(--rpx) * var(--slot-scale, 1));
-  border-radius: calc(6 * var(--rpx) * var(--slot-scale, 1));
-}
-.deck-layer-stacks .deck-stack-pile-tile .tile-treasure-accessory-chip .treasure-accessory-chip-icon {
+.deck-layer-stacks .deck-stack-pile-tile .tile-treasure-accessory-chip .treasure-accessory-chip-icon,
+.deck-stack-expand-tiles .deck-expand-face-tile .tile-treasure-accessory-chip .treasure-accessory-chip-icon {
   font-size: calc(14 * var(--rpx) * var(--slot-scale, 1));
 }
 /* 字母库视图统一字号：覆盖材质块在 game.css 里的固定 42*rpx */
@@ -343,26 +354,6 @@
   cursor: pointer;
   box-sizing: border-box;
   overflow: visible;
-}
-.deck-stack-expand-tiles .deck-expand-face-tile .tile-accessory-chip {
-  right: calc(3 * var(--rpx) * var(--slot-scale, 1));
-  bottom: calc(3 * var(--rpx) * var(--slot-scale, 1));
-  width: calc(28 * var(--rpx) * var(--slot-scale, 1));
-  height: calc(28 * var(--rpx) * var(--slot-scale, 1));
-  border-radius: calc(6 * var(--rpx) * var(--slot-scale, 1));
-}
-.deck-stack-expand-tiles .deck-expand-face-tile .tile-accessory-chip-icon {
-  font-size: calc(14 * var(--rpx) * var(--slot-scale, 1));
-}
-.deck-stack-expand-tiles .deck-expand-face-tile .tile-treasure-accessory-chip {
-  right: calc(3 * var(--rpx) * var(--slot-scale, 1));
-  bottom: calc(3 * var(--rpx) * var(--slot-scale, 1));
-  width: calc(28 * var(--rpx) * var(--slot-scale, 1));
-  height: calc(28 * var(--rpx) * var(--slot-scale, 1));
-  border-radius: calc(6 * var(--rpx) * var(--slot-scale, 1));
-}
-.deck-stack-expand-tiles .deck-expand-face-tile .tile-treasure-accessory-chip .treasure-accessory-chip-icon {
-  font-size: calc(14 * var(--rpx) * var(--slot-scale, 1));
 }
 .deck-stack-expand-tiles .deck-expand-face-tile.tile-material-gold .letter-tile-char,
 .deck-stack-expand-tiles .deck-expand-face-tile.tile-material-steel .letter-tile-char,

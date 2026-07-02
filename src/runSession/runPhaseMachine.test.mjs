@@ -123,6 +123,26 @@ test("canSubmitWord mirrors GamePanel gates", () => {
     ),
     false,
   );
+  assert.equal(
+    canSubmitWord(
+      baseInput({
+        remainingWords: 0,
+        firstWordTutorialPhase: "retryHint",
+        firstWordTutorialRetryHintSubmitReady: false,
+      }),
+    ),
+    false,
+  );
+  assert.equal(
+    canSubmitWord(
+      baseInput({
+        remainingWords: 0,
+        firstWordTutorialPhase: "retryHint",
+        firstWordTutorialRetryHintSubmitReady: true,
+      }),
+    ),
+    true,
+  );
 });
 
 test("canOpenShop and canPause", () => {

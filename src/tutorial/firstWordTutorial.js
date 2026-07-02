@@ -12,6 +12,21 @@ import { localHasSaveData } from "../save/cloudSave/cloudSaveBundle.js";
 import { CLOUD_ARCHIVE_NAME } from "../save/cloudSave/cloudSaveConstants.js";
 import { cloudSaveGetArchiveList } from "../save/cloudSave/cloudSaveApi.js";
 import { localSaveHasNoRunProgress, isSlotFreshForFirstWordTutorial } from "../save/localSaveRunProgress.js";
+import {
+  TUTORIAL_GAME_LETTER_PLACEMENTS,
+  buildTutorialGameHintPick,
+  resolveCasualTutorialExperience,
+  shouldApplyTutorialGameRefillAfterPlay,
+  shouldShowWordDefinitionDuringTutorial,
+} from "./firstWordTutorialCasualFlow.js";
+
+export {
+  TUTORIAL_GAME_LETTER_PLACEMENTS,
+  buildTutorialGameHintPick,
+  resolveCasualTutorialExperience,
+  shouldApplyTutorialGameRefillAfterPlay,
+  shouldShowWordDefinitionDuringTutorial,
+} from "./firstWordTutorialCasualFlow.js";
 
 /** @typedef {{ row: number, col: number, letter: string }} TutorialLetterPlacement */
 
@@ -26,6 +41,27 @@ export const TUTORIAL_LETTER_PLACEMENTS = Object.freeze([
 /** 选字顺序（拼 play） */
 /** @type {readonly TutorialLetterPlacement[]} */
 export const TUTORIAL_SELECT_ORDER = Object.freeze([...TUTORIAL_LETTER_PLACEMENTS]);
+
+/**
+ * @param {Record<string, unknown>[][]} grid
+ * @param {() => void} [touchGrid]
+ * @param {Record<string, number> | null} [rarityLevelsByRarity]
+ */
+export function applyTutorialGameLettersAfterPlaySubmit(grid, touchGrid, rarityLevelsByRarity = null) {
+  if (!Array.isArray(grid)) return;
+  for (const { row, col, letter } of TUTORIAL_GAME_LETTER_PLACEMENTS) {
+    const tile = grid[row]?.[col];
+    if (!tile || tile.bossGridBlocked) continue;
+    tile.letter = resolveLetterFromRaw(letter);
+    tile.isWildcard = false;
+    tile.selected = false;
+    const rarity = getRarityForLetter(letter);
+    tile.rarity = rarity;
+    tile.baseScore = getBaseScoreForRarity(rarity, rarityLevelsByRarity);
+    syncTileStateToDeckCard(tile);
+  }
+  touchGrid?.();
+}
 
 let pendingTutorialAutoStart = false;
 let tutorialAutoStartAttempted = false;

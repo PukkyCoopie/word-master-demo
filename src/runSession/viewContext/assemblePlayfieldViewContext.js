@@ -49,6 +49,13 @@ export function assemblePlayfieldViewContext(extras, pf) {
     canSwapWordSelection: pf.canSwapWordSelection,
     swapWordButtonTitle: pf.swapWordButtonTitle,
     onSwapWordSelectionClick: pf.onSwapWordSelectionClick,
+    showHintButtonInRun: pf.showHintButtonInRun,
+    hintButtonMuted: pf.hintButtonMuted,
+    hintWordAlreadyActive: pf.hintWordAlreadyActive,
+    hintButtonDimmed: pf.hintButtonDimmed,
+    canUseHintButton: pf.canUseHintButton,
+    hintButtonTitle: pf.hintButtonTitle,
+    onHintButtonClick: pf.onHintButtonClick,
     flyingLetters: pf.flyingLetters,
     flyingBackBatches: pf.flyingBackBatches,
   };

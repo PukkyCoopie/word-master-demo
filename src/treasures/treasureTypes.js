@@ -166,6 +166,7 @@
  * @property {object[]} [submittedScoringTiles]
  * @property {(slotIndex: number, scoringTile?: object | null) => object | null} [resolveSubmitTileAtIndex]
  * @property {() => void} [touchGrid]
+ * @property {(tile: object) => void} [patchGridPlaceholderFreezeFromTile]
  * @property {() => HTMLElement[]} [getWordSlotEls]
  * @property {() => HTMLElement[]} [getGridTileElsInOrder]
  * @property {(opts: SubmitWordEnhancementStripLeaveOpts) => Promise<void>} [playSubmitTileEnhancementStripLeave]
@@ -277,7 +278,6 @@
  * @property {() => number} [getWalletFloor] 本局钱包可降至的最低余额（默认 0；如信用卡为 -20）
  * @property {() => { text?: string, kind?: string } | null | undefined} [resolveSelfDestructBubble] 自毁移除时气泡文案与样式 kind（默认「摧毁！」/`destroy`）
  * @property {() => { text?: string, kind?: string } | null | undefined} [resolveVolcanoEruptionBubble] 火山喷发时气泡文案与样式
- * @property {true} [bypassNoSellForSelfDestruct] 自毁时不受禁售配饰的「禁止摧毁」限制（卖出仍禁）
  */
 
 /**

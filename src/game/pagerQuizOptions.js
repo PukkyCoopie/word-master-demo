@@ -4,6 +4,7 @@ import {
   getDictionaryWordCount,
   isAbbrevOnlyWord,
 } from "../composables/useDictionary.js";
+import { normalizeTranslationSnippetForDisplay } from "../dictionary/translationPosPrefix.js";
 
 const SAME_LEN_SAMPLE = 120;
 const ADJ_LEN_SAMPLE = 60;
@@ -179,7 +180,7 @@ function isAbbrevTranslation(text) {
  * @param {{ allowAbbrev?: boolean }} [opts]
  */
 function finalizePagerQuizLabel(candidate, opts = {}) {
-  const raw = stripParentheticalContent(candidate);
+  const raw = normalizeTranslationSnippetForDisplay(stripParentheticalContent(candidate));
   if (!raw) return "";
   if (isInflectionVariantLabel(raw)) return "";
   if (!opts.allowAbbrev && isAbbrevTranslation(raw)) return "";

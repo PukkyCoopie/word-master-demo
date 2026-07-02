@@ -31,5 +31,6 @@ export function resolveBombBlastDestroySlotIndices(ownedSlots, bombSlotIndex, is
     return [];
   }
   if (ownedSlots[bombIx] == null) return [];
+  if (isSlotNoSell?.(bombIx)) return [];
   return [...resolveBombAdjacentVictimSlotIndices(ownedSlots, bombIx, isSlotNoSell), bombIx];
 }

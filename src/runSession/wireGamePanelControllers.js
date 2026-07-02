@@ -133,8 +133,10 @@ function wireGamePanelControllersEarly(d) {
     dev: {
       maskBubbleDevScenarioActive: d.maskBubbleDevScenarioActive,
       allIceDevScenarioActive: d.allIceDevScenarioActive,
+      mouthQuProblemDevScenarioActive: d.mouthQuProblemDevScenarioActive,
       promoScreenshotDevPresetActive: d.promoScreenshotDevPresetActive,
       applyRandomBLettersToGrid: d.applyRandomBLettersToGrid,
+      applyProblemQuRowToGrid: d.applyProblemQuRowToGrid,
       applyIceMaterialToAllGridTiles: d.applyIceMaterialToAllGridTiles,
       applyIceMaterialToAllDeckCards: d.applyIceMaterialToAllDeckCards,
       applyPromoGameplayGridMaterials: d.applyPromoGameplayGridMaterials,
@@ -492,6 +494,8 @@ function wireGamePanelControllersLate(d) {
 
   const wordDefinitionCtrl = useWordDefinitionController({
     firstWordTutorialActive: d.firstWordTutorialActive,
+    getFirstWordTutorialPhase: () => d.firstWordTutorialCtrlSlot?.ctrl?.phase?.value ?? null,
+    getSaveSlotIndex: d.getSaveSlotIndex,
     dictionaryReady: d.dictionaryReady,
     resolvedWordForSubmit: d.resolvedWordForSubmit,
     effectiveWordForSubmit: d.effectiveWordForSubmit,
@@ -548,6 +552,7 @@ function wireGamePanelControllersLate(d) {
       d.abandonStandardWinRunProgressIfNeeded();
     },
     emitExitToMenu: () => d.emitExitToMenu(),
+    openRunEnd: d.openRunEnd,
   });
 
   const pauseOverlaySession = {
@@ -568,6 +573,7 @@ function wireGamePanelControllersLate(d) {
     onPauseNewRun: pauseOverlay.onPauseNewRun,
     onPauseSettings: pauseOverlay.onPauseSettings,
     onPauseMainMenu: pauseOverlay.onPauseMainMenu,
+    onPauseEndGame: pauseOverlay.onPauseEndGame,
   };
 
   const bossMechanicsCtrl = useBossMechanicsController({

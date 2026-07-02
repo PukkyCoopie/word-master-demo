@@ -10,6 +10,7 @@ import {
   SCORING_BUBBLE_POP_DELAY_MS,
   SCORING_STEP_BEAT_MS,
   PLUS_BUBBLE_OUTRO_SCALE,
+  PLUS_BUBBLE_ENTER_DURATION_S,
 } from "./scoreBubbleFx.js";
 import { scoringSleep } from "./submitScoringTiming.js";
 import { schedulePopupBubbleDismiss } from "./popupBubbleFx.js";
@@ -21,6 +22,15 @@ const TOOLBOX_REMOVE_BEFORE_MONEY_MS = 0;
 const TOOLBOX_REMOVE_BUBBLE_OUTRO_DELAY_S = 0.2;
 const TOOLBOX_REMOVE_BUBBLE_OUTRO_DURATION_S = 0.24;
 const ICE_MATERIAL_SELF_DESTRUCT_CHANCE = 0.25;
+
+/** 海绵擦除：总时长略长于记分气泡入场（0.14s），对齐 wobble+bubble 体感 */
+const SPONGE_ERASE_SHRINK_S = PLUS_BUBBLE_ENTER_DURATION_S * 0.55;
+const SPONGE_ERASE_YIELD_S = 0.02;
+const SPONGE_ERASE_POP_IN_S = PLUS_BUBBLE_ENTER_DURATION_S * 0.62;
+const SPONGE_ERASE_POP_SETTLE_S = PLUS_BUBBLE_ENTER_DURATION_S * 0.45;
+const SPONGE_ERASE_POP_PEAK = 1.06;
+const SPONGE_ERASE_LETTER_STAGGER_S = 0.04;
+const SPONGE_ERASE_LETTER_GAP_MS = 44;
 
 /** @param {HTMLElement | null | undefined} slotWrapper */
 function resolveWordSlotLeaveAnimEl(slotWrapper) {
@@ -249,6 +259,45 @@ export function createSubmitTileLeaveAnim(deps) {
     }
   }
 
+  /** @param {HTMLElement | null | undefined} el @param {number} delay @param {() => void | Promise<void>} [onMidShrink] */
+  async function animateSpongeErasePop(el, delay, onMidShrink) {
+    if (!(el instanceof HTMLElement)) {
+      await onMidShrink?.();
+      return;
+    }
+    gsapLib.killTweensOf(el);
+    gsapLib.set(el, { transformOrigin: "50% 50%", rotation: 0 });
+    if (delay > 0) {
+      await new Promise((resolve) => {
+        gsapLib.delayedCall(delay, resolve);
+      });
+    }
+    await new Promise((resolve) => {
+      gsapLib.to(el, {
+        scale: 0,
+        duration: SPONGE_ERASE_SHRINK_S,
+        ease: "power3.in",
+        onComplete: resolve,
+      });
+    });
+    await Promise.resolve(onMidShrink?.());
+    await new Promise((resolve) => {
+      const tl = gsapLib.timeline({
+        onComplete: () => {
+          gsapLib.set(el, { clearProps: "scale,rotation" });
+          resolve();
+        },
+      });
+      tl.to({}, { duration: SPONGE_ERASE_YIELD_S });
+      tl.to(el, {
+        scale: SPONGE_ERASE_POP_PEAK,
+        duration: SPONGE_ERASE_POP_IN_S,
+        ease: "back.out(1.42)",
+      });
+      tl.to(el, { scale: 1, duration: SPONGE_ERASE_POP_SETTLE_S, ease: "power3.out" });
+    });
+  }
+
   /** @param {import('../treasures/treasureTypes.js').SubmitWordEnhancementStripLeaveOpts} opts */
   async function playSubmitTileEnhancementStripLeave(opts) {
     const indices = Array.isArray(opts?.indices) ? opts.indices : [];
@@ -268,25 +317,25 @@ export function createSubmitTileLeaveAnim(deps) {
         continue;
       }
 
-      const delay = ki * 0.1;
+      const delay = ki * SPONGE_ERASE_LETTER_STAGGER_S;
       await new Promise((r) => requestAnimationFrame(r));
       const bubbleAnchor = wordAnimEl ?? slotEl ?? gridEl;
       const bubble = showScoreBubble(bubbleAnchor, "擦除", "sponge-erase", sp);
       let stripped = false;
-      const onMidStrip = () => {
+      const onMidStrip = async () => {
         if (stripped) return;
         stripped = true;
         stripAt?.(i);
         touchGrid();
+        await nextTick();
       };
 
       await Promise.all([
-        runDetachedTileShrinkReplacePop({ el: wordAnimEl, delay, onMidReplace: onMidStrip }),
-        runDetachedTileShrinkReplacePop({ el: gridEl, delay: delay + 0.02 }),
+        animateSpongeErasePop(wordAnimEl, delay, onMidStrip),
+        animateSpongeErasePop(gridEl, delay + 0.015),
       ]);
-      await nextTick();
       scheduleSmallPlusBubbleOutro(bubble, sp);
-      if (ki < indices.length - 1) await sleep(90);
+      if (ki < indices.length - 1) await sleep(SPONGE_ERASE_LETTER_GAP_MS);
     }
   }
 

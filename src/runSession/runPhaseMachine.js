@@ -26,6 +26,7 @@
  * @property {number} [remainingWords]
  * @property {boolean} [firstWordTutorialBlocking]
  * @property {string} [firstWordTutorialPhase]
+ * @property {boolean} [firstWordTutorialRetryHintSubmitReady]
  * @property {boolean} [isFirstWordTutorialBlockingInput]
  * @property {number} [flyingLettersCount]
  * @property {number} [flyingBackBatchesCount]
@@ -109,18 +110,23 @@ export function canSubmitWord(input) {
   if (
     input.firstWordTutorialBlocking &&
     input.firstWordTutorialPhase !== "submit" &&
-    input.firstWordTutorialPhase !== "retry"
+    input.firstWordTutorialPhase !== "retry" &&
+    input.firstWordTutorialPhase !== "retryHint"
   ) {
     return false;
   }
   const tutorialRetry = input.firstWordTutorialPhase === "retry";
+  const tutorialRetryHint = input.firstWordTutorialPhase === "retryHint";
+  if (tutorialRetryHint && !input.firstWordTutorialRetryHintSubmitReady) {
+    return false;
+  }
   return (
     !input.showShop &&
     !isRunFlowOverlayOpen(input) &&
     !input.transitionBusy &&
     input.dictionaryReady !== false &&
     input.resolvedWordForSubmitReady === true &&
-    ((input.remainingWords ?? 0) > 0 || tutorialRetry) &&
+    ((input.remainingWords ?? 0) > 0 || tutorialRetry || tutorialRetryHint) &&
     !input.scoringAnimating &&
     !input.submitWordBusy &&
     !input.gridRefillAnimating

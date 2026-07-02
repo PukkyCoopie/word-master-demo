@@ -46,6 +46,16 @@ export function getPresetWordLengthJudgmentBonus(presetId) {
 }
 
 /** @param {string | null | undefined} presetId */
+export function getPresetHintsPerLevelDelta(presetId) {
+  return Math.floor(Number(getRunPresetEffects(presetId).hintsPerLevelDelta) || 0);
+}
+
+/** @param {string | null | undefined} presetId */
+export function getPresetHintLengthWeightShift(presetId) {
+  return Math.max(0, Math.floor(Number(getRunPresetEffects(presetId).hintLengthWeightShift) || 0));
+}
+
+/** @param {string | null | undefined} presetId */
 export function getPresetSettlementMode(presetId) {
   return getRunPresetEffects(presetId).settlementMode ?? "default";
 }

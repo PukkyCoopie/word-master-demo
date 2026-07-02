@@ -22,6 +22,7 @@ import { resetFirstWordTutorialCompleted } from "../../profile/playerProfile.js"
  * @property {() => Element | null | undefined} getWordSlotsWrap
  * @property {() => Element | null | undefined} getSubmitBtn
  * @property {() => Element | null | undefined} getSubmitBookmark
+ * @property {() => Element | null | undefined} getHintBtn
  * @property {() => Element | null | undefined} getRunHeaderScoresRef
  * @property {() => Element | null | undefined} getShopTreasureOfferEl
  */
@@ -29,6 +30,7 @@ import { resetFirstWordTutorialCompleted } from "../../profile/playerProfile.js"
 /**
  * @param {object} options
  * @param {() => number} options.getSaveSlotIndex
+ * @param {() => string | null | undefined} [options.getRunPresetId]
  * @param {() => boolean} options.getFirstWordTutorialEnabled
  * @param {() => number} options.getRunDifficultyIndex
  * @param {() => number} options.getLevelIndex
@@ -51,11 +53,13 @@ import { resetFirstWordTutorialCompleted } from "../../profile/playerProfile.js"
  * @param {() => { flyingLetters: unknown[] }} options.getPlayfieldFlySnapshot
  * @param {FirstWordTutorialDomGetters} options.dom
  * @param {() => import('vue').ComponentPublicInstance | null | undefined} options.getLayerHost
+ * @param {() => boolean} [options.getHintWordAlreadyActive]
  * @param {ReturnType<typeof useFirstWordTutorial>} [options.tutorial] 已创建的 composable（供 playfield 提前接线）
  */
 export function useFirstWordTutorialController(options) {
   const {
     getSaveSlotIndex,
+    getRunPresetId,
     getFirstWordTutorialEnabled,
     getRunDifficultyIndex,
     getLevelIndex,
@@ -77,10 +81,11 @@ export function useFirstWordTutorialController(options) {
     bumpOverlayZ,
     getPlayfieldFlySnapshot,
     dom,
+    getHintWordAlreadyActive,
     tutorial: tutorialOverride,
   } = options;
 
-  const tutorial = tutorialOverride ?? useFirstWordTutorial(getSaveSlotIndex);
+  const tutorial = tutorialOverride ?? useFirstWordTutorial(getSaveSlotIndex, getRunPresetId);
 
   const layerOpen = tutorial.layerOpen;
   const phase = tutorial.phase;
@@ -103,7 +108,9 @@ export function useFirstWordTutorialController(options) {
 
   const gridGlow = computed(
     () =>
-      phase.value === "retry" && !scoringAnimating.value && !gridRefillAnimating.value,
+      (phase.value === "retry" || phase.value === "retryHint") &&
+      !scoringAnimating.value &&
+      !gridRefillAnimating.value,
   );
 
   /** retry 阶段：拼出有效词即可点亮提交区（不必等 canSubmit 其它门禁） */
@@ -115,8 +122,18 @@ export function useFirstWordTutorialController(options) {
       resolvedWordForSubmit.value != null,
   );
 
+  /** retryHint 阶段：提示已填入且拼出有效词后可提交 */
+  const retryHintSubmitReady = computed(
+    () =>
+      phase.value === "retryHint" &&
+      !scoringAnimating.value &&
+      !gridRefillAnimating.value &&
+      getHintWordAlreadyActive?.() === true &&
+      resolvedWordForSubmit.value != null,
+  );
+
   const submitHighlightReady = computed(
-    () => phase.value === "submit" || retrySubmitReady.value,
+    () => phase.value === "submit" || retrySubmitReady.value || retryHintSubmitReady.value,
   );
 
   const stackZ = computed(() => {
@@ -160,9 +177,13 @@ export function useFirstWordTutorialController(options) {
     const frame = dom.getPortalFrameEl();
     if (!frame) return;
     const deckRect = measureElementRectInFrame(dom.getDeckBtn(), frame);
-    skipButtonRect.value =
-      deckRect && deckRect.width > 0 && deckRect.height > 0 ? deckRect : null;
     const p = phase.value;
+    if (p === "retryHint") {
+      skipButtonRect.value = null;
+    } else {
+      skipButtonRect.value =
+        deckRect && deckRect.width > 0 && deckRect.height > 0 ? deckRect : null;
+    }
     if (p === "fading") {
       holes.value = [];
       arrowTarget.value = null;
@@ -216,6 +237,41 @@ export function useFirstWordTutorialController(options) {
         { key: "letter-grid", el: dom.getLetterGridWrap() },
         { key: "word-slots", el: dom.getWordSlotsWrap() },
       ];
+      if (submitReady) {
+        items.push({ key: "submit", el: submitEl });
+      }
+      const measured = measureKeyedTutorialHoles(items, frame);
+      holes.value = measured;
+      if (submitReady) {
+        const submitRect = measureElementRectInFrame(submitEl, frame);
+        arrowTarget.value = submitRect
+          ? inflateRectForTutorialHole(submitRect)
+          : measured.find((h) => h.key === "submit") ?? null;
+      } else {
+        arrowTarget.value = null;
+      }
+      return;
+    }
+    if (p === "retryHint") {
+      if (scoringAnimating.value || gridRefillAnimating.value) {
+        holes.value = [];
+        arrowTarget.value = null;
+        return;
+      }
+      const hintActive = getHintWordAlreadyActive?.() === true;
+      const submitReady = retryHintSubmitReady.value;
+      const submitEl = dom.getSubmitBtn() ?? dom.getSubmitBookmark();
+      if (!hintActive) {
+        const measured = measureKeyedTutorialHoles(
+          [{ key: "hint-btn", el: dom.getHintBtn?.() }],
+          frame,
+        );
+        holes.value = measured;
+        arrowTarget.value = measured[0] ?? null;
+        return;
+      }
+      /** @type {{ key: string, el: Element | null | undefined }[]} */
+      const items = [{ key: "word-slots", el: dom.getWordSlotsWrap() }];
       if (submitReady) {
         items.push({ key: "submit", el: submitEl });
       }
@@ -367,8 +423,13 @@ export function useFirstWordTutorialController(options) {
     baseStackZ.value = 0;
   });
 
+  function shouldRefreshRetrySpotlight() {
+    const p = phase.value;
+    return (p === "retry" || p === "retryHint") && layerOpen.value;
+  }
+
   watch(resolvedWordForSubmit, () => {
-    if (phase.value === "retry" && layerOpen.value) {
+    if (shouldRefreshRetrySpotlight()) {
       scheduleSpotlightUpdate();
     }
   }, { flush: "post" });
@@ -376,7 +437,7 @@ export function useFirstWordTutorialController(options) {
   watch(
     () => getSelectedOrderLength(),
     () => {
-      if (phase.value === "retry" && layerOpen.value) {
+      if (shouldRefreshRetrySpotlight()) {
         scheduleSpotlightUpdate();
       }
     },
@@ -392,9 +453,10 @@ export function useFirstWordTutorialController(options) {
       getPlayfieldFlySnapshot().flyingLetters.length,
       scoringAnimating.value,
       gridRefillAnimating.value,
+      getHintWordAlreadyActive?.(),
     ],
     () => {
-      if (phase.value === "retry" && layerOpen.value) {
+      if (shouldRefreshRetrySpotlight()) {
         scheduleSpotlightUpdate();
       }
     },
@@ -409,6 +471,7 @@ export function useFirstWordTutorialController(options) {
       gridRefillAnimating.value,
       showShop.value,
       retrySubmitReady.value,
+      retryHintSubmitReady.value,
       canSubmit.value,
     ],
     () => {
@@ -436,6 +499,7 @@ export function useFirstWordTutorialController(options) {
     arrowTarget,
     gridGlow,
     retrySubmitReady,
+    retryHintSubmitReady,
     submitHighlightReady,
     stackZ,
     treasureDetailStackZFloor,

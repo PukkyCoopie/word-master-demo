@@ -732,10 +732,10 @@
           <div
             ref="actionsRef"
             class="treasure-detail-actions confirm-actions-row treasure-detail-stagger-el"
-            :class="{ 'treasure-detail-actions--spell-grant': mode === 'offer' && spellGrantFlow }"
+            :class="{ 'treasure-detail-actions--spell-grant': isRunShopCommerceDetail && spellGrantFlow }"
           >
             <HoldConfirmButton
-              v-if="mode === 'offer' && !isCollectionPreviewMode && spellGrantFlow"
+              v-if="isRunShopCommerceDetail && spellGrantFlow"
               variant="use"
               label="使用"
               hold-label="按住以使用"
@@ -745,7 +745,7 @@
               @confirm="emit('purchase')"
             />
             <HoldSkipButton
-              v-if="mode === 'offer' && !isCollectionPreviewMode && spellGrantFlow"
+              v-if="isRunShopCommerceDetail && spellGrantFlow"
               variant="danger"
               label="跳过"
               hold-label="按住以跳过"
@@ -754,7 +754,7 @@
               @skip="requestClose"
             />
             <HoldConfirmButton
-              v-else-if="mode === 'offer' && !isCollectionPreviewMode"
+              v-else-if="isRunShopCommerceDetail"
               variant="buy"
               label="购买"
               hold-label="按住以购买"
@@ -790,7 +790,7 @@
               <HoldPeerProgress :active="offerPeerHoldActive" :progress="offerPeerHoldProgress" />
             </button>
             <HoldSkipButton
-              v-if="!(mode === 'offer' && !isCollectionPreviewMode && spellGrantFlow)"
+              v-if="!(isRunShopCommerceDetail && spellGrantFlow)"
               variant="next"
               label="返回"
               hold-label="按住以返回"
@@ -818,7 +818,7 @@
       :class="{
         'shop-deck-offer-product-stack': isDeckOffer,
         'treasure-detail-fly-clone-root--voucher-stack': isVoucherOffer && voucherDetailStacked,
-        'treasure-detail-fly-clone-root--shelf-visual': collectionShelfFlyIncludesPrice,
+        'treasure-detail-fly-clone-root--shelf-visual': flyCloneUsesShelfPriceLayout && !isDeckOffer,
       }"
       :style="flyCloneFrozenLayout ?? undefined"
       aria-hidden="true"
@@ -829,7 +829,11 @@
             class="shop-shelf-letter-tile"
             v-bind="deckOfferLetterTileBind"
           />
-          <div v-if="showDetailShelfPrice" class="shop-treasure-price" aria-hidden="true">
+          <div
+            v-if="showDetailShelfPrice"
+            class="shop-treasure-price"
+            aria-hidden="true"
+          >
             <div
               class="shop-treasure-price-inner"
               :class="[
@@ -981,7 +985,10 @@
             ></i>
           </template>
         </div>
-        <div v-if="!isDeckOffer && showDetailShelfPrice" class="shop-treasure-price">
+        <div
+          v-if="!isDeckOffer && showDetailShelfPrice"
+          class="shop-treasure-price"
+        >
           <div
             class="shop-treasure-price-inner"
             :class="[
@@ -1016,7 +1023,6 @@ import {
 import { normalizeTreasureDescription } from "../treasures/treasureDescription.js";
 import { ownedTreasureHasNoSellAccessory } from "../game/runDifficultyRuntime.js";
 import { buildNoSellAccessoryDescriptionSegments } from "../game/gameConceptCopy.js";
-import { treasureBypassesNoSellForSelfDestruct } from "../treasures/treasureRegistry.js";
 import { resolveTreasureIntroducedVersion } from "../treasures/treasureCatalog.js";
 import { getTileAccessoryChipVisual } from "../game/tileAccessories.js";
 import { getTileMaterialEffectDescription, getTileAccessoryEffectDescription } from "../game/tileDetailDescriptions.js";
@@ -1147,7 +1153,7 @@ const props = defineProps({
     default: null,
     validator: (v) => v == null || v === "offer" || v === "sell",
   },
-  /** false=纯预览不展示右上角价签（开局说明、收藏等）；undefined=按 mode 推断 */
+  /** false=纯说明预览：不展示价签、顶栏钱包与购买按钮（开局说明等）；undefined=按 mode 推断 */
   showShelfPrice: { type: Boolean, default: undefined },
   /** 同组预览翻页：0-based 下标 */
   previewNavIndex: { type: Number, default: 0 },
@@ -1343,6 +1349,13 @@ const collectionShelfFlyIncludesPrice = computed(
     props.showShelfPrice !== false,
 );
 
+/** 飞入克隆沿用货架底栏价签（与 origin 整列测量一致） */
+const flyCloneUsesShelfPriceLayout = computed(() => {
+  if (!showDetailShelfPrice.value) return false;
+  if (collectionShelfFlyIncludesPrice.value) return true;
+  return props.mode === "offer" || props.mode === "pack-inner";
+});
+
 const offerPriceDisplayed = computed(() => {
   const base = Math.max(0, Math.floor(Number(props.treasure?.price) || 0));
   if (isCollectionPreviewMode.value || props.shelfPriceKind === "offer" || props.mode === "pack-inner") {
@@ -1388,10 +1401,15 @@ const voucherSaleDiscountAmount = computed(() =>
   ),
 );
 
+/** 局内商店购买/包内/卖出：顶栏钱包与购买区；纯说明预览（show-shelf-price=false）不展示 */
+const isRunShopCommerceDetail = computed(() => {
+  if (props.showShelfPrice === false) return false;
+  return props.mode === "offer" || props.mode === "owned-shop" || props.mode === "pack-inner";
+});
+
 const showVoucherSalePanel = computed(
   () =>
-    props.mode === "offer" &&
-    !isCollectionPreviewMode.value &&
+    isRunShopCommerceDetail.value &&
     voucherSaleDiscountAmount.value > 0,
 );
 
@@ -1406,23 +1424,16 @@ const presetSaleDiscountAmount = computed(() =>
 );
 
 const showPresetSalePanel = computed(
-  () =>
-    props.mode === "offer" &&
-    !isCollectionPreviewMode.value &&
-    presetSaleDiscountAmount.value > 0,
+  () => isRunShopCommerceDetail.value && presetSaleDiscountAmount.value > 0,
 );
 
 const showRandomSalePanel = computed(
-  () =>
-    props.mode === "offer" &&
-    !isCollectionPreviewMode.value &&
-    randomSaleDiscountAmount.value > 0,
+  () => isRunShopCommerceDetail.value && randomSaleDiscountAmount.value > 0,
 );
 
 const showSpellGrantedVoucherPanel = computed(
   () =>
-    props.mode === "offer" &&
-    !isCollectionPreviewMode.value &&
+    isRunShopCommerceDetail.value &&
     isVoucherOffer.value &&
     props.treasure?.spellGranted === true,
 );
@@ -1449,9 +1460,7 @@ const sellBlockedByNoSell = computed(
 const sellEnabled = computed(() => isOwnedMode.value && !sellBlockedByNoSell.value);
 
 /** 局内棋盘打开宝藏详情（owned-game）不重复显示余额，与主界面顶栏一致 */
-const showHeaderWallet = computed(
-  () => props.mode === "offer" || props.mode === "owned-shop" || props.mode === "pack-inner",
-);
+const showHeaderWallet = computed(() => isRunShopCommerceDetail.value);
 
 const isDeckOffer = computed(
   () => props.treasure?.offerType === "deckTile" || props.treasure?.offerType === "deckLetter",
@@ -1526,9 +1535,7 @@ const treasureAccessoryPanels = computed(() =>
     .map((id) => {
       let body =
         id === ACCESSORY_NO_SELL
-          ? buildNoSellAccessoryDescriptionSegments(
-              treasureBypassesNoSellForSelfDestruct(detailTreasureId.value),
-            )
+          ? buildNoSellAccessoryDescriptionSegments()
           : getTreasureAccessoryPanelDescription(id);
       if (isOwnedMode.value && id === ACCESSORY_HOURGLASS) {
         const statusSegments = buildHourglassOwnedAccessoryStatusSegments(props.treasure);
@@ -1633,9 +1640,7 @@ const deckOfferTreasureAccessoryDesc = computed(() => {
   const accessoryId = deckOfferTreasureAccessoryIdNorm.value || null;
   if (!accessoryId) return "";
   if (accessoryId === ACCESSORY_NO_SELL) {
-    return buildNoSellAccessoryDescriptionSegments(
-      treasureBypassesNoSellForSelfDestruct(detailTreasureId.value),
-    );
+    return buildNoSellAccessoryDescriptionSegments();
   }
   return getTreasureAccessoryPanelDescription(accessoryId);
 });
@@ -2401,7 +2406,7 @@ function continueEnterAfterMeasure(ctx) {
     void backdropLive.offsetHeight;
     flyTo = isDeckOffer.value
       ? resolveDeckOfferFlyTargetRect()
-      : collectionShelfFlyIncludesPrice.value
+      : flyCloneUsesShelfPriceLayout.value
         ? resolveCollectionShelfFlyTargetRect()
         : resolveDetailFlyFrameRect();
   }

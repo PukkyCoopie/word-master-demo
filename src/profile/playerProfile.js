@@ -5,13 +5,14 @@ import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import { hasMeaningfulRunProgress } from "../save/runSaveMeaningfulProgress.js";
 
 const STORAGE_KEY = "word_master_player_profile_v1";
-const PROFILE_SCHEMA_VERSION = 5;
+const PROFILE_SCHEMA_VERSION = 6;
 const DISPLAY_NAME_MAX = 16;
 
 /** @typedef {Object} SlotProfile
  * @property {string} displayName
  * @property {boolean} initialized
  * @property {boolean} firstWordTutorialCompleted
+ * @property {import('./slotExperienceMode.js').SlotExperienceMode | null} [experienceMode]
  */
 
 /** @type {boolean} */
@@ -28,12 +29,19 @@ export const playerProfile = reactive({
   activeSaveSlotIndex: 0,
 });
 
+/** @param {unknown} raw @returns {import('./slotExperienceMode.js').SlotExperienceMode | null} */
+function normalizeExperienceModeField(raw) {
+  if (raw === "classic" || raw === "casual") return raw;
+  return null;
+}
+
 /** @returns {SlotProfile} */
 function createDefaultSlotProfile() {
   return {
     displayName: "Player",
     initialized: false,
     firstWordTutorialCompleted: false,
+    experienceMode: null,
   };
 }
 
@@ -46,6 +54,7 @@ function normalizeSlotProfile(raw) {
   }
   prof.initialized = raw.initialized === true;
   prof.firstWordTutorialCompleted = raw.firstWordTutorialCompleted === true;
+  prof.experienceMode = normalizeExperienceModeField(raw.experienceMode);
   return prof;
 }
 
@@ -105,6 +114,9 @@ export function setActiveSaveSlotIndex(index) {
     syncReactiveFromSlot(next);
   }
   persistPlayerProfile();
+  void import("./slotExperienceMode.js").then((m) => {
+    m.syncWordHintModeFromSlotExperience(next);
+  });
 }
 
 export function loadPlayerProfile() {
@@ -162,6 +174,7 @@ export function persistPlayerProfile() {
           displayName: prof.displayName,
           initialized: prof.initialized,
           firstWordTutorialCompleted: prof.firstWordTutorialCompleted === true,
+          experienceMode: prof.experienceMode ?? null,
         })),
       }),
     );
@@ -233,6 +246,12 @@ export function repairSlotProfilesAfterLoad() {
     syncReactiveFromSlot(getActiveSaveSlotIndex());
     persistPlayerProfile();
   }
+  void import("./slotExperienceMode.js").then((m) => {
+    for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
+      m.backfillSlotExperienceModeIfNeeded(i);
+    }
+    m.syncWordHintModeFromSlotExperience(getActiveSaveSlotIndex());
+  });
 }
 
 /**

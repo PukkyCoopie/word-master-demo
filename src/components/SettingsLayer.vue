@@ -97,26 +97,18 @@
                   />
                 </div>
 
-                <label class="settings-row">
+                <div class="settings-row settings-row--segment">
                   <span class="settings-row-label-group">
-                    <span class="settings-row-label">对调确认按钮位置</span>
-                    <SettingsHelpButton help-id="confirmButtonSide" aria-label="对调确认按钮位置说明" />
+                    <span class="settings-row-label">确认按钮位置</span>
+                    <SettingsHelpButton help-id="confirmButtonSide" aria-label="确认按钮位置说明" />
                   </span>
-                  <button
-                    type="button"
-                    class="settings-toggle"
-                    role="switch"
-                    :aria-checked="swapConfirmButtonSideEnabled"
-                    @click="onToggleSwapConfirmButtonSide"
-                  >
-                    <span
-                      class="settings-toggle-track"
-                      :class="{ 'settings-toggle-track--on': swapConfirmButtonSideEnabled }"
-                    >
-                      <span class="settings-toggle-thumb" />
-                    </span>
-                  </button>
-                </label>
+                  <SettingsSegmentControl
+                    :options="CONFIRM_BUTTON_SIDE_OPTIONS"
+                    :model-value="confirmButtonSide"
+                    aria-label="确认按钮位置"
+                    @update:model-value="onConfirmButtonSideChange"
+                  />
+                </div>
               </div>
             </section>
             <section
@@ -143,9 +135,22 @@
                 </label>
 
                 <div class="settings-row settings-row--segment">
+                  <span class="settings-row-label">字母Q</span>
+                  <SettingsSegmentControl
+                    :options="LETTER_Q_MODE_OPTIONS"
+                    :model-value="letterQMode"
+                    aria-label="字母Q"
+                    @update:model-value="onLetterQModeChange"
+                  />
+                </div>
+
+                <div class="settings-row settings-row--segment">
                   <span class="settings-row-label-group">
                     <span class="settings-row-label">释义</span>
-                    <span class="settings-row-label-icon-chip" aria-hidden="true">
+                    <span
+                      class="settings-row-label-btn-chip settings-row-label-btn-chip--definition"
+                      aria-hidden="true"
+                    >
                       <i class="ri-translate-2" />
                     </span>
                   </span>
@@ -158,12 +163,20 @@
                 </div>
 
                 <div class="settings-row settings-row--segment">
-                  <span class="settings-row-label">字母Q</span>
+                  <span class="settings-row-label-group">
+                    <span class="settings-row-label">提示</span>
+                    <span
+                      class="settings-row-label-btn-chip settings-row-label-btn-chip--hint"
+                      aria-hidden="true"
+                    >
+                      <i class="ri-lightbulb-line" />
+                    </span>
+                  </span>
                   <SettingsSegmentControl
-                    :options="LETTER_Q_MODE_OPTIONS"
-                    :model-value="letterQMode"
-                    aria-label="字母Q"
-                    @update:model-value="onLetterQModeChange"
+                    :options="WORD_HINT_MODE_OPTIONS"
+                    :model-value="wordHintMode"
+                    aria-label="提示"
+                    @update:model-value="onWordHintModeChange"
                   />
                 </div>
               </div>
@@ -180,6 +193,12 @@
                 <label class="settings-row">
                   <span class="settings-row-label-group">
                     <span class="settings-row-label">标记按钮</span>
+                    <span
+                      class="settings-row-label-btn-chip settings-row-label-btn-chip--mark"
+                      aria-hidden="true"
+                    >
+                      <i class="ri-bookmark-line" />
+                    </span>
                     <SettingsHelpButton help-id="mark" aria-label="标记按钮说明" />
                   </span>
                   <button
@@ -204,6 +223,12 @@
                 >
                   <span class="settings-row-label-group">
                     <span class="settings-row-label">对调按钮</span>
+                    <span
+                      class="settings-row-label-btn-chip settings-row-label-btn-chip--swap"
+                      aria-hidden="true"
+                    >
+                      <i class="ri-arrow-up-down-line" />
+                    </span>
                     <SettingsHelpButton help-id="swap" aria-label="对调按钮说明" />
                   </span>
                   <div class="settings-cycle" role="group" aria-label="对调按钮范围">
@@ -375,10 +400,13 @@ import {
   WORD_DEFINITION_MODE_OPTIONS,
   setHighRiskSpellConfirm,
   getHighRiskSpellConfirmEnabled,
-  setSwapConfirmButtonSide,
-  getSwapConfirmButtonSideEnabled,
+  CONFIRM_BUTTON_SIDE_OPTIONS,
+  getConfirmButtonSide,
+  setConfirmButtonSide,
   getDevSuppressAchievementsAndLeaderboards,
   setDevSuppressAchievementsAndLeaderboards,
+  WORD_HINT_MODE_OPTIONS,
+  setWordHintMode,
 } from "../settings/gameSettings.js";
 import { isHapticsAvailable, previewHaptic, scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 import SegmentTabControl from "./SegmentTabControl.vue";
@@ -472,6 +500,7 @@ function onOpenMaterialBench() {
 const allowAbbrev = computed(() => gameSettings.allowSpellingAbbreviations === true);
 const wordDefinitionMode = computed(() => gameSettings.wordDefinitionMode);
 const markButtonEnabled = computed(() => gameSettings.markButtonEnabled === true);
+const wordHintMode = computed(() => gameSettings.wordHintMode);
 const markOnSwap = computed(() => gameSettings.markOnSwap === true);
 const markOnSwapSettingEnabled = computed(
   () => markButtonEnabled.value && gameSettings.swapButtonMode !== "hidden",
@@ -488,7 +517,7 @@ const letterQMode = computed(() => gameSettings.letterQMode);
 const hapticsAvailable = isHapticsAvailable();
 const hapticsEnabled = computed(() => gameSettings.hapticsEnabled !== false);
 const highRiskSpellConfirmEnabled = computed(() => getHighRiskSpellConfirmEnabled());
-const swapConfirmButtonSideEnabled = computed(() => getSwapConfirmButtonSideEnabled());
+const confirmButtonSide = computed(() => getConfirmButtonSide());
 const devSuppressAchievementsEnabled = computed(() => getDevSuppressAchievementsAndLeaderboards());
 
 function onToggleHaptics() {
@@ -551,6 +580,12 @@ function onSwapModeNext() {
   if (hapticsAvailable) triggerHaptic("tabSwitch");
 }
 
+/** @param {string} mode */
+function onWordHintModeChange(mode) {
+  setWordHintMode(/** @type {import('../settings/wordHintMode.js').WordHintMode} */ (mode));
+  settingsChangeTap();
+}
+
 function onToggleMarkButton() {
   setMarkButtonEnabled(!markButtonEnabled.value);
   settingsChangeTap();
@@ -567,9 +602,9 @@ function onToggleHighRiskSpellConfirm() {
   settingsChangeTap();
 }
 
-function onToggleSwapConfirmButtonSide() {
-  setSwapConfirmButtonSide(!swapConfirmButtonSideEnabled.value);
-  settingsChangeTap();
+/** @param {string} side */
+function onConfirmButtonSideChange(side) {
+  setConfirmButtonSide(/** @type {import('../settings/gameSettings.js').ConfirmButtonSide} */ (side));
 }
 
 function onToggleDevSuppressAchievements() {
@@ -753,7 +788,7 @@ function onWordDefinitionModeChange(mode) {
   color: var(--text-muted, #7a7468);
 }
 
-.settings-row-label-icon-chip {
+.settings-row-label-btn-chip {
   flex-shrink: 0;
   margin-left: calc(8 * var(--rpx));
   display: inline-flex;
@@ -762,13 +797,30 @@ function onWordDefinitionModeChange(mode) {
   width: calc(36 * var(--rpx));
   height: calc(36 * var(--rpx));
   border-radius: calc(8 * var(--rpx));
-  background: var(--text-dark, #3c3a32);
-  color: var(--card-bright, #eee4da);
+  color: #fff;
 }
 
-.settings-row-label-icon-chip i {
+.settings-row-label-btn-chip i {
   font-size: calc(22 * var(--rpx));
   line-height: 1;
+  color: #fff;
+}
+
+/* 与局内 word-definition-btn / action-aux-btn / hint-action-bookmark 同色 */
+.settings-row-label-btn-chip--definition {
+  background: #9b59b6;
+}
+
+.settings-row-label-btn-chip--hint {
+  background: #f0a928;
+}
+
+.settings-row-label-btn-chip--mark {
+  background: #5b9bd5;
+}
+
+.settings-row-label-btn-chip--swap {
+  background: #9b59b6;
 }
 
 .settings-row--disabled {

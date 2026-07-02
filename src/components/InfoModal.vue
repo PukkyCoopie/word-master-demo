@@ -314,6 +314,7 @@
       v-if="presetVoucherDetail"
       :treasure="presetVoucherDetail"
       mode="offer"
+      :show-shelf-price="false"
       :wallet-amount="0"
       @close="presetVoucherDetail = null"
     />

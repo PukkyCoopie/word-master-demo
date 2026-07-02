@@ -8,7 +8,7 @@ const DICT_DIR = new URL("data/dictionary/", PROJECT);
 export function backupDictionary(stamp = defaultStamp()) {
   const backupRoot = new URL(`data/dictionary/backup/${stamp}/`, PROJECT);
   fs.mkdirSync(backupRoot, { recursive: true });
-  const files = ["dict.json", "word_filtered.csv", "word.csv", "ecdict.csv"];
+  const files = ["dict.json", "word_filtered.csv", "word.csv", "ecdict.csv", "supplement_words.csv"];
   const copied = [];
   for (const name of files) {
     const src = new URL(name, DICT_DIR);

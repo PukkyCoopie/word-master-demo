@@ -435,7 +435,6 @@ import { isSingleDigitLabel } from "./detailLayerFormatters.js";
 import { buildPackDeckOfferLetterTileProps } from "../game/packDeckOfferVisual.js";
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { runVoucherShelfEnterPopAnim } from "../game/voucherShelfEnterAnim.js";
-import { resolveOfferFlyOriginEl } from "../game/offerFlyOrigin.js";
 
 const props = defineProps({
   walletAmount: { type: Number, default: 0 },
@@ -1001,28 +1000,23 @@ function gemClassForTreasureRarity(rarity) {
   return "gem-rare";
 }
 
-/** 飞入详情：起点用 icon 框，不用含价签的整列 shop-treasure-visual */
-function shopOfferFlyOriginEl(root) {
-  return resolveOfferFlyOriginEl(root) ?? root;
-}
-
+/** 飞入详情：起点用整列 shop-treasure-visual（icon + 底栏价签），与详情飞入克隆布局一致 */
 function onSelectOffer(slot, e) {
   if (!canSelectShopSingleOffer(slot)) return;
   const root = e.currentTarget;
-  const originEl = isDeckShopOffer(slot) ? root : shopOfferFlyOriginEl(root);
-  emit("select-offer", { treasure: slot, originEl });
+  emit("select-offer", { treasure: slot, originEl: root });
 }
 
 function onSelectPackOffer(slot, e) {
   if (!canSelectShopPackOffer()) return;
   const root = e.currentTarget;
-  emit("select-pack-offer", { treasure: slot, originEl: shopOfferFlyOriginEl(root) });
+  emit("select-pack-offer", { treasure: slot, originEl: root });
 }
 
 function onSelectVoucher(slot, e) {
   if (!canSelectShopVoucherOffer()) return;
   const root = e.currentTarget;
-  emit("select-voucher", { treasure: slot, originEl: shopOfferFlyOriginEl(root) });
+  emit("select-voucher", { treasure: slot, originEl: root });
 }
 
 function onSelectOwned(index, treasure, e) {

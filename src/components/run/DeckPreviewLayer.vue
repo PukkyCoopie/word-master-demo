@@ -1,5 +1,4 @@
 <script setup>
-import "../../../css/game.deck-layer.css";
 import { computed, inject, reactive } from "vue";
 import { RUN_SESSION_KEY } from "../../runSession/useRunSession.js";
 import { sessionReactive, sessionUnref as sv } from "../../runSession/sessionUnref.js";

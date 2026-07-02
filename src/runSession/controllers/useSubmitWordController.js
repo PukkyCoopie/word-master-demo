@@ -167,7 +167,7 @@ export function useSubmitWordController(options) {
       return;
     }
 
-    if (ui.firstWordTutorialPhase.value === "retry") {
+    if (ui.firstWordTutorialPhase.value === "retry" || ui.firstWordTutorialPhase.value === "retryHint") {
       firstWordTutorial.onSecondWordSubmitted();
     } else if (ui.firstWordTutorialPhase.value === "submit") {
       firstWordTutorial.onFirstWordSubmitted();
@@ -346,6 +346,7 @@ export function useSubmitWordController(options) {
         });
         callbacks.maybeReportTapTapBestSingleWordScore(detailed.finalScore);
         if (!submitViolated) {
+          callbacks.tryConsumeHintOnSuccessfulSubmit?.(resolvedWord);
           callbacks.noteCollectionWordSubmitted({
             word: resolvedWord,
             score: detailed.finalScore,
@@ -372,6 +373,7 @@ export function useSubmitWordController(options) {
       flashSubmitCountDelta();
       gridApi.remainingWords.value = Math.max(0, gridApi.remainingWords.value - 1);
       submitChanceConsumed = true;
+      callbacks.notifyWordSubmitStarted?.();
       seedAnimFormulaFromSubmitDetailed(detailed);
       scoringAnimating.value = true;
       ui.wordDefinitionHiddenForWordLeave.value = true;

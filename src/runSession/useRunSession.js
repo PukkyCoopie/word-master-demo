@@ -18,6 +18,19 @@ export function mountRunSessionNamespaces(session, namespaces) {
   return session;
 }
 
+/** @param {import('./runSessionTypes.js').RunSession | null | undefined} session */
+export function isRunSessionReadyForHosts(session) {
+  return Boolean(
+    session?.treasures &&
+      session.spell &&
+      session.packPick &&
+      session.shop &&
+      session.lifecycle &&
+      session.overlayStack?.buildViewContext &&
+      session.pauseOverlay,
+  );
+}
+
 /**
  * RunSession 组装点（逐步挂载各命名空间，见 architecture plan §2.3）。
  *

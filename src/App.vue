@@ -86,6 +86,10 @@
         @cancel="onRunStartQuickCancel"
         @dismiss="onRunStartQuickDismiss"
       />
+      <ExperienceModeChoiceLayer
+        :open="experienceModeDialogOpen"
+        @confirm="onExperienceModeChoiceConfirm"
+      />
       <SettingsLayer :open="showSettings" @close="closeSettings" />
       <AboutLayer
         :open="showAbout"
@@ -157,6 +161,7 @@ import CollectionPage from "./components/CollectionPage.vue";
 import GamePanel from "./components/GamePanel.vue";
 import RunStartDialog from "./components/RunStartDialog.vue";
 import RunStartQuickConfirmLayer from "./components/RunStartQuickConfirmLayer.vue";
+import ExperienceModeChoiceLayer from "./components/ExperienceModeChoiceLayer.vue";
 import SettingsLayer from "./components/SettingsLayer.vue";
 import AboutLayer from "./components/AboutLayer.vue";
 import PrivacyConsentLayer from "./components/PrivacyConsentLayer.vue";
@@ -224,6 +229,10 @@ import {
   isFirstWordTutorialCompleted,
 } from "./profile/playerProfile.js";
 import {
+  applySlotExperienceMode,
+  shouldShowExperienceModeChoice,
+} from "./profile/slotExperienceMode.js";
+import {
   clearSlot,
   clearSlotRunProgress,
   flushSaveStorageSync,
@@ -273,7 +282,7 @@ import {
   applyFreshUnlockCareerDefaults,
   collectFreshUnlocksFromWin,
 } from "./game/runStartFreshUnlock.js";
-import { applyRunDiscoveryLogToCareer, reconcileCollectionDiscoveriesToCareer } from "./game/runCollectionDiscoveries.js";
+import { reconcileCollectionDiscoveriesToCareer } from "./game/runCollectionDiscoveries.js";
 import { createEmptySlotCareerStats, SAVE_SLOT_COUNT } from "./save/runSaveSchema.js";
 import { ACHIEVEMENT_DEFINITIONS, getAchievementDef } from "./achievements/achievementDefinitions.js";
 import { createAchievementToastQueue } from "./achievements/achievementToastQueue.js";
@@ -301,7 +310,10 @@ import {
   hasTutorialAutoStartAttempted,
   shouldAutoStartFirstWordTutorial,
 } from "./tutorial/firstWordTutorial.js";
-import { shouldStartNewRunAtSlot } from "./save/localSaveRunProgress.js";
+import {
+  discardIncompleteFirstWordTutorialRunProgress,
+  shouldStartNewRunAtSlot,
+} from "./save/localSaveRunProgress.js";
 
 useScale();
 const { isDesktopLayout } = useWebLayoutMode();
@@ -379,6 +391,10 @@ const runStartQuickConfirm = ref({
   confirmLabel: "",
   cancelLabel: "",
 });
+const experienceModeDialogOpen = ref(false);
+const experienceModeDialogSlotIx = ref(0);
+/** @type {import('vue').Ref<{ mode: 'menu' | 'restart', prefillSeed: string } | null>} */
+const pendingExperienceModeStart = ref(null);
 const IRIS_COLOR = "#5a8fb8";
 const COLLECTION_IRIS_COLOR = "#7b68a8";
 /** 与 IrisTransition revealMs 默认一致：收藏页首屏入场延后到 iris 揭开之后 */
@@ -470,15 +486,13 @@ provide("patchActiveSlotCareer", (mutator) => {
   persistCollectionCareer(sessionSaveSlotIndex.value, mutator);
 });
 
-provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyIndex, runDiscoveryLog }) => {
+provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyIndex }) => {
   const ix = sessionSaveSlotIndex.value;
   const careerBefore = normalizeSlotCareerStats(getSlotCareer(ix) ?? createEmptySlotCareerStats());
-  const hadDiscoveryLog = Array.isArray(runDiscoveryLog?.entries) && runDiscoveryLog.entries.length > 0;
   /** @type {ReturnType<typeof collectFreshUnlocksFromWin> | null} */
   let freshUnlocks = null;
 
   mutateSlotCareer(ix, (career) => {
-    if (hadDiscoveryLog) applyRunDiscoveryLogToCareer(career, runDiscoveryLog);
     mergeRunMatchStatsIntoCareer(career, stats, outcome);
     if (shouldMarkTapTapEngagementAutoPending(career, outcome, runDifficultyIndex)) {
       markTapTapEngagementAutoPending(career);
@@ -511,7 +525,6 @@ provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyInde
   }
   flushSaveStorageSync();
   bumpSaveUi();
-  if (hadDiscoveryLog) bumpCollectionUi();
 });
 
 function openSettings() {
@@ -708,7 +721,7 @@ function reconcileCareerAchievementsForCollection(slotIndex) {
   }
 }
 
-/** 打开收藏 / 退菜单：把 payload 内本局发现 log 补写入生涯（幂等）。 */
+/** 打开收藏 / 退菜单：把 payload 内本局发现 log 补写入生涯（幂等，即时解锁失败时的兜底）。 */
 function reconcileCollectionDiscoveriesForSlot(slotIndex) {
   const payload = getSlotPayload(slotIndex);
   let changed = false;
@@ -1063,6 +1076,10 @@ function pruneAbandonedFreshRunForSlot(slotIx) {
   if (pruneAbandonedFreshRun(slotIx)) bumpSaveUi();
 }
 
+function discardIncompleteFirstWordTutorialRunForSlot(slotIx) {
+  if (discardIncompleteFirstWordTutorialRunProgress(slotIx)) bumpSaveUi();
+}
+
 function closeRunStartQuickConfirm() {
   runStartQuickConfirm.value = {
     ...runStartQuickConfirm.value,
@@ -1117,6 +1134,7 @@ function buildDefaultNewRunOptions(slotIx) {
 
 async function startDirectNewRun(slotIx, mode = "menu") {
   if (transitionBusy.value) return;
+  discardIncompleteFirstWordTutorialRunForSlot(slotIx);
   const { presetId, difficultyIndex, seedNumeric, seedDisplay } = buildDefaultNewRunOptions(slotIx);
   sessionRunPresetId.value = presetId;
   sessionRunDifficultyIndex.value = difficultyIndex;
@@ -1156,12 +1174,45 @@ function openRunStartDialogFlow({ mode, slotIx, prefillSeed = "" }) {
   showRunStartDialog.value = true;
 }
 
+function shouldPromptExperienceModeChoice(slotIx) {
+  if (!shouldShowExperienceModeChoice(slotIx)) return false;
+  if (hasContinuableRun(slotIx)) return false;
+  return true;
+}
+
+function openExperienceModeChoice(slotIx, resume) {
+  experienceModeDialogSlotIx.value = slotIx;
+  pendingExperienceModeStart.value = resume;
+  experienceModeDialogOpen.value = true;
+}
+
+function closeExperienceModeChoice() {
+  experienceModeDialogOpen.value = false;
+  pendingExperienceModeStart.value = null;
+}
+
+/** @param {'classic' | 'casual'} choice */
+function onExperienceModeChoiceConfirm(choice) {
+  const slotIx = experienceModeDialogSlotIx.value;
+  const resume = pendingExperienceModeStart.value;
+  applySlotExperienceMode(slotIx, choice);
+  closeExperienceModeChoice();
+  if (!resume) return;
+  openRunStartFlow(resume);
+}
+
 function openRunStartFlow({ mode, prefillSeed = "" }) {
   if (transitionBusy.value) return;
   const slotIx =
     mode === "restart" ? sessionSaveSlotIndex.value : getActiveSaveSlotIndex();
 
+  discardIncompleteFirstWordTutorialRunForSlot(slotIx);
   pruneAbandonedFreshRunForSlot(slotIx);
+
+  if (mode === "menu" && shouldPromptExperienceModeChoice(slotIx)) {
+    openExperienceModeChoice(slotIx, { mode, prefillSeed });
+    return;
+  }
 
   if (shouldUseRunStartDialog(slotIx)) {
     openRunStartDialogFlow({ mode, slotIx, prefillSeed });
@@ -1314,8 +1365,8 @@ async function onGameExitToMenu() {
   await irisFxRef.value?.play({
     onCovered: () => {
       screen.value = "menu";
+      discardIncompleteFirstWordTutorialRunForSlot(slotIx);
       pruneAbandonedFreshRunForSlot(slotIx);
-      bumpSaveUi();
     },
   });
   transitionBusy.value = false;

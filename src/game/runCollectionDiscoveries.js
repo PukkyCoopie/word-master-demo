@@ -78,7 +78,7 @@ export function sortRunDiscoveryEntries(entries) {
 /**
  * @param {RunDiscoveryLog} log
  * @param {{ treasureId?: string, spellId?: string, upgradeId?: string, voucherId?: string, materialId?: string, accessoryId?: string }} payload
- * @returns {boolean} 是否新增或升级了本局待结算条目
+ * @returns {boolean} 是否新增了本局统计条目（供结算「新发现」展示，不用于解锁收藏）
  */
 export function appendRunDiscovery(log, payload) {
   if (!log || typeof log !== "object") return false;
@@ -181,7 +181,8 @@ export function appendRunDiscovery(log, payload) {
 }
 
 /**
- * 对局结算：将本局 runDiscoveryLog 写入生涯收藏（此前对局内仅记 log，不提前解锁图鉴）。
+ * 将 runDiscoveryLog 写入生涯收藏（幂等）。对局内发现应经 recordCollectionDiscovery 即时解锁；
+ * 本函数仅用于读档/退菜单时的补记，不再作为结算依据。
  *
  * @param {import('../save/runSaveSchema.js').SlotCareerStats} career
  * @param {RunDiscoveryLog | null | undefined} log

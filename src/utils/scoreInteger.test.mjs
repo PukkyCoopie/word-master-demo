@@ -5,10 +5,12 @@ import {
   compareScore,
   deserializeScore,
   multiplyScoreRound,
+  interpolateScore,
   normalizeScore,
   parseScore,
   roundBigIntToTwoSignificantDigits,
   scoreGte,
+  scoreGt,
   scoreLt,
   serializeScore,
   subtractScore,
@@ -50,5 +52,12 @@ assert.equal(roundBigIntToTwoSignificantDigits(98765n), 99000n);
 
 assert.equal(subtractScore(100, 30), 70);
 assert.equal(subtractScore(30, 100), 0);
+
+{
+  const handScore = 500;
+  assert.equal(interpolateScore(handScore, 0, 0), handScore);
+  assert.ok(scoreLt(interpolateScore(handScore, 0, 1), handScore));
+  assert.ok(scoreGt(interpolateScore(handScore, 0, 0.25), interpolateScore(handScore, 0, 0.75)));
+}
 
 console.log("scoreInteger.test.mjs ok");

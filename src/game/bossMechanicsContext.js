@@ -3,6 +3,9 @@ import {
   evaluateBossSoftWordViolation,
   getEndingLetterRarityForResolvedWord,
 } from "./bossWordViolation.js";
+import { resolveUniqueMostSpellLength } from "./spellLengthCounts.js";
+
+export { resolveUniqueMostSpellLength };
 
 /** @param {string} slug */
 export function isManacleBossGrid(slug) {
@@ -48,35 +51,48 @@ export function pickCrimsonDisabledTreasureSlotIndex(ownedTreasures, rng) {
 }
 
 /**
- * 整局各词长拼写次数中唯一最多者的词长；并列最多或无记录时返回 null。
- * @param {Record<string | number, number> | Map<number, number> | null | undefined} counts
- * @returns {number | null}
+ * @param {Set<number> | readonly number[] | null | undefined} dis
+ * @returns {Set<number> | null}
  */
-export function resolveUniqueMostSpellLength(counts) {
-  if (!counts) return null;
-  /** @type {[number, number][]} */
-  const entries =
-    counts instanceof Map
-      ? [...counts.entries()]
-      : Object.entries(counts).map(([k, v]) => [Math.floor(Number(k) || 0), Math.floor(Number(v) || 0)]);
-
-  let bestN = 0;
-  let bestLen = /** @type {number | null} */ (null);
-  let tied = false;
-  for (const [len, n] of entries) {
-    const L = Math.max(0, Math.floor(Number(len) || 0));
-    const c = Math.max(0, Math.floor(Number(n) || 0));
-    if (L <= 0 || c <= 0) continue;
-    if (c > bestN) {
-      bestN = c;
-      bestLen = L;
-      tied = false;
-    } else if (c === bestN) {
-      tied = true;
-    }
+export function normalizeDisabledTreasureSlotIndices(dis) {
+  if (dis instanceof Set) return dis.size ? dis : null;
+  if (Array.isArray(dis)) {
+    const set = new Set(dis.map((x) => Math.floor(Number(x))).filter((i) => i >= 0));
+    return set.size ? set : null;
   }
-  if (bestLen == null || tied) return null;
-  return bestLen;
+  return null;
+}
+
+/**
+ * 本手计分 / 动效：将禁用槽位上的宝藏 id 置空，与 `computeWordScoreDetailedForSubmit` 一致。
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {Set<number> | readonly number[] | null | undefined} disabledSlotIndices
+ * @returns {(string | null)[]}
+ */
+export function applyDisabledTreasureSlots(ownedSlotTreasureIds, disabledSlotIndices) {
+  const raw = ownedSlotTreasureIds ?? [];
+  const disabledSet = normalizeDisabledTreasureSlotIndices(disabledSlotIndices);
+  if (!disabledSet) return raw.map((tid) => (tid == null || tid === "" ? null : String(tid)));
+  return raw.map((tid, si) =>
+    disabledSet.has(si) ? null : tid == null || tid === "" ? null : String(tid),
+  );
+}
+
+/**
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {Set<number> | readonly number[] | null | undefined} disabledSlotIndices
+ * @param {string} treasureId
+ */
+export function isTreasureIdDisabledForSubmit(ownedSlotTreasureIds, disabledSlotIndices, treasureId) {
+  const tid = String(treasureId ?? "").trim();
+  if (!tid) return false;
+  const disabledSet = normalizeDisabledTreasureSlotIndices(disabledSlotIndices);
+  if (!disabledSet) return false;
+  const slots = ownedSlotTreasureIds ?? [];
+  for (const si of disabledSet) {
+    if (String(slots[si] ?? "") === tid) return true;
+  }
+  return false;
 }
 
 /**

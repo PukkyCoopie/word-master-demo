@@ -128,6 +128,7 @@ defineExpose({
       :charge-progress="treasureDetailChargeProgress"
       :effect-depleted="treasureDetailEffectDepleted"
       :mode="treasureDetailMode"
+      :show-shelf-price="activeTreasureDetail.showShelfPrice"
       :wallet-amount="ov.walletHeaderShown"
       :sell-refund="treasureSellRefund"
       :can-buy-offer="ov.treasureCanBuyOffer"
@@ -261,7 +262,9 @@ defineExpose({
     <Teleport defer to="#game-view-portal-frame">
       <PauseOptionsLayer
         :open="ov.showPauseOptions"
+        :show-end-game="runIsEndlessRun"
         :portal-stack-style="pausePortalStyle"
+        @end-game="pauseOverlay.onPauseEndGame()"
         @continue="ov.onPauseContinue"
         @new-run="ov.onPauseNewRun"
         @settings="ov.onPauseSettings"

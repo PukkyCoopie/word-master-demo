@@ -21,7 +21,6 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
-  bypassNoSellForSelfDestruct: true,
   resolveSelfDestructBubble() {
     return { text: "爆炸！", kind: "bomb-blast" };
   },
@@ -32,14 +31,15 @@ export const treasureHooks = {
     if (isTreasureHookBlueprintMirror(ctx)) return;
     const rng = ctx.rng ?? Math.random;
     if (rollProbabilityFailsSkip(1, 5, rng, ctx.ownedSlotTreasureIds)) return;
-    if (ctx.treasureRun) {
-      ctx.treasureRun.treasure29SelfDestructed = true;
-      ctx.treasureRun.probabilityEffectTriggered = true;
-    }
     const bombSlotIndex =
       typeof ctx.hookSlotIndex === "number" && ctx.hookSlotIndex >= 0
         ? ctx.hookSlotIndex
         : (ctx.findOwnedTreasureSlotIndex?.(ID) ?? -1);
+    if (bombSlotIndex >= 0 && ctx.isOwnedTreasureSlotNoSell?.(bombSlotIndex)) return;
+    if (ctx.treasureRun) {
+      ctx.treasureRun.treasure29SelfDestructed = true;
+      ctx.treasureRun.probabilityEffectTriggered = true;
+    }
     if (ctx.destroyBombBlastAtSlot && bombSlotIndex >= 0) {
       await ctx.destroyBombBlastAtSlot(bombSlotIndex);
       return;

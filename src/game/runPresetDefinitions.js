@@ -1,4 +1,4 @@
-import { describe, discardDelta, entityInline, handDelta, money } from "../treasures/treasureDescription.js";
+import { describe, discardDelta, entityInline, handDelta, hintDelta, money } from "../treasures/treasureDescription.js";
 
 /** @typedef {'default' | 'convertRemainsNoInterest'} RunPresetSettlementMode */
 
@@ -11,6 +11,8 @@ import { describe, discardDelta, entityInline, handDelta, money } from "../treas
  * @property {number} [startMoneyBonus]
  * @property {number} [startWildcardCount]
  * @property {number} [wordLengthJudgmentBonus]
+ * @property {number} [hintsPerLevelDelta]
+ * @property {number} [hintLengthWeightShift]
  * @property {RunPresetSettlementMode} [settlementMode]
  * @property {boolean} [treasureSlotsUseFiveSlotLayoutAtFour]
  * @property {{ upgrade?: number, spell?: number, letter?: number }} [shopFlatDiscount]
@@ -38,8 +40,19 @@ const PRESETS = [
     id: "preset_02",
     emoji: "♻️",
     name: "回收",
-    description: describe("每关", discardDelta("+1"), "丢弃次数"),
-    effects: { removalsPerLevelDelta: 1 },
+    description: describe("每关", discardDelta("+2"), "丢弃次数"),
+    effects: { removalsPerLevelDelta: 2 },
+  },
+  {
+    id: "preset_11",
+    emoji: "🎉",
+    name: "礼花筒",
+    description: [
+      ...describe("每关", hintDelta("+2"), "提示次数"),
+      { type: "br" },
+      ...describe("且增强提示的质量"),
+    ],
+    effects: { hintsPerLevelDelta: 2, hintLengthWeightShift: 1 },
   },
   {
     id: "preset_03",

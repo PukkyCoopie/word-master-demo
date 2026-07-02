@@ -12,9 +12,10 @@ import {
 import { resolveLetterFromRaw } from "../../settings/letterQ.js";
 import {
   advanceResolvedReadPosPastTile,
-  patternAlignsWithResolvedWord,
   resolveWildcardTileFromResolved,
 } from "../../game/resolvedWordTileMapping.js";
+import { isQuModeSubmitQFamilyTile, submitPartsAlignWithResolved } from "../../game/quSlotSubmitPattern.js";
+import { getLetterQMode } from "../../settings/gameSettings.js";
 import {
   getBaseScoreForRarity,
   getRarityForLetter,
@@ -56,22 +57,25 @@ export function buildTilePresentationIndex(
   extraTile,
   listEffectiveTilesForSubmit,
   ownedSlotTreasureIds,
+  alignParts = null,
 ) {
   /** @type {Map<string, { letter: string, rarity: string, vowelGhostPrev: string | null, vowelGhostNext: string | null }>} */
   const byId = new Map();
   const upGhost = (ch) => (ch ? resolveLetterFromRaw(ch) : null);
-  if (!res || !effWord || !patternAlignsWithResolvedWord(effWord, res)) return byId;
+  const partsForAlign = alignParts ?? {
+    word: effWord,
+    vowelAltMask: [],
+    quSlotMask: [],
+  };
+  if (!res || !effWord || !submitPartsAlignWithResolved(partsForAlign, res, ownedSlotTreasureIds())) {
+    return byId;
+  }
 
   const owned = ownedSlotTreasureIds();
   const vowelTreasure = hasVowelNeighborSubstitute(owned);
-  let patternPos = 0;
   let readPos = 0;
   for (const tile of listEffectiveTilesForSubmit(extraTile)) {
     if (!tile?.id) continue;
-    const frag = String(tile?.letter ?? "").toLowerCase();
-    const patternStart = patternPos;
-    patternPos += frag.length;
-
     let letter = tile.letter;
     let rarity = tile.rarity;
     let vowelGhostPrev = null;
@@ -79,19 +83,24 @@ export function buildTilePresentationIndex(
 
     if (vowelTreasure && !isWildcardMaterialTile(tile)) {
       const card = tile._deckCard;
+      const frag = String(tile?.letter ?? "").toLowerCase();
       const natural =
         card && typeof card === "object"
           ? deckCardRaw(card)
           : frag.replace(/^qu/, "q").charAt(0);
       const naturalCh = natural.charAt(0) === "q" ? "q" : natural.charAt(0);
       if (isLetterSubstitutableForMouth(naturalCh, owned)) {
-        const resolvedCh = res[patternStart];
+        const resolvedCh = res[readPos];
         if (resolvedCh >= "a" && resolvedCh <= "z") {
           const shift = vowelDisplayShiftForResolved(naturalCh, resolvedCh, owned);
           const ghosts = vowelGhostSlotsForDisplay(naturalCh, shift, owned);
           vowelGhostPrev = upGhost(ghosts?.prev ?? null);
           vowelGhostNext = upGhost(ghosts?.next ?? null);
-          if (resolvedCh !== naturalCh) {
+          const isQuPair =
+            isQuModeSubmitQFamilyTile(tile, getLetterQMode()) &&
+            resolvedCh === "q" &&
+            res[readPos + 1] === "u";
+          if (!isQuPair && resolvedCh !== naturalCh) {
             letter = resolveLetterFromRaw(resolvedCh);
             rarity = getRarityForLetter(resolvedCh);
           }
@@ -99,7 +108,7 @@ export function buildTilePresentationIndex(
       }
     }
 
-    if (isWildcardMaterialTile(tile) && frag === "?") {
+    if (isWildcardMaterialTile(tile) && String(tile?.letter ?? "").toLowerCase() === "?") {
       const hit = resolveWildcardTileFromResolved(tile, res, readPos);
       if (hit.letter) {
         letter = hit.letter;
@@ -107,7 +116,7 @@ export function buildTilePresentationIndex(
       }
       readPos = hit.nextReadPos;
     } else {
-      readPos += frag.length;
+      readPos = advanceResolvedReadPosPastTile(tile, res, readPos);
     }
 
     byId.set(tile.id, { letter, rarity, vowelGhostPrev, vowelGhostNext });
@@ -232,33 +241,35 @@ export function useWordSlotPresentation(options) {
   /** 已选词各格元音展示偏移（O(词长) 一次，供 ghost 批量查表） */
   const vowelDisplayShiftBySelectedTileId = computed(() => {
     const res = resolvedWordForSubmit.value;
-    const eff = effectiveWordForSubmit.value;
+    const parts = effectiveWordPartsForSubmit.value;
+    const eff = parts?.word ?? effectiveWordForSubmit.value;
     const owned = ownedSlotTreasureIds();
     /** @type {Map<string, number>} */
     const m = new Map();
-    if (!res || !eff || !patternAlignsWithResolvedWord(eff, res) || !hasVowelNeighborSubstitute(owned)) return m;
-    let patternPos = 0;
+    if (
+      !res ||
+      !eff ||
+      !submitPartsAlignWithResolved(parts, res, owned) ||
+      !hasVowelNeighborSubstitute(owned)
+    ) {
+      return m;
+    }
     let readPos = 0;
     for (const t of effectiveFormulaTiles.value) {
-      const frag = String(t?.letter ?? "").toLowerCase();
       const card = t._deckCard;
+      const frag = String(t?.letter ?? "").toLowerCase();
       const natural =
         card && typeof card === "object"
           ? deckCardRaw(card)
           : frag.replace(/^qu/, "q").charAt(0);
       const naturalCh = natural.charAt(0) === "q" ? "q" : natural.charAt(0);
       if (t?.id != null && isLetterSubstitutableForMouth(naturalCh, owned)) {
-        const resolvedCh = res[patternPos];
+        const resolvedCh = res[readPos];
         if (resolvedCh) {
           m.set(t.id, vowelDisplayShiftForResolved(naturalCh, resolvedCh, owned));
         }
       }
-      if (isWildcardMaterialTile(t) && frag === "?") {
-        readPos = advanceResolvedReadPosPastTile(t, res, readPos);
-      } else {
-        readPos += frag.length;
-      }
-      patternPos += frag.length;
+      readPos = advanceResolvedReadPosPastTile(t, res, readPos);
     }
     return m;
   });
@@ -309,12 +320,16 @@ export function useWordSlotPresentation(options) {
    * @param {object | null | undefined} [extraTile]
    */
   function tilePresentationInResolvedWord(tile, res, effWord, extraTile = null) {
+    const parts = buildEffectiveWordPartsForSubmit(
+      extraTile ? { appendTile: extraTile } : undefined,
+    );
     const indexed = buildTilePresentationIndex(
       res,
       effWord,
       extraTile,
       listEffectiveTilesForSubmit,
       ownedSlotTreasureIds,
+      parts,
     );
     const hit = tile?.id != null ? indexed.get(tile.id) : null;
     if (hit) return hit;
@@ -340,7 +355,7 @@ export function useWordSlotPresentation(options) {
     const parts = buildEffectiveWordPartsForSubmit();
     const res = resolveWordFromEffectiveParts(parts);
     const eff = parts.word;
-    if (!res || !patternAlignsWithResolvedWord(eff, res)) return null;
+    if (!res || !submitPartsAlignWithResolved(parts, res, ownedSlotTreasureIds())) return null;
     const pres = tilePresentationInResolvedWord(tile, res, eff);
     if (String(pres.letter ?? "").trim() === "?") return null;
     return pres;
@@ -369,13 +384,21 @@ export function useWordSlotPresentation(options) {
     const batches = getPlayfieldFlySnapshot().flyingBackBatches;
     const minSlot = batches.length > 0 ? Math.min(...batches.map((b) => b.slotIndex)) : orderTiles.length;
     const res = resolvedWordForSubmit.value;
-    const eff = effectiveWordForSubmit.value;
+    const parts = effectiveWordPartsForSubmit.value;
+    const eff = parts?.word ?? effectiveWordForSubmit.value;
     const owned = ownedSlotTreasureIds();
     const presById =
-      res && patternAlignsWithResolvedWord(eff, res)
-        ? buildTilePresentationIndex(res, eff, null, listEffectiveTilesForSubmit, ownedSlotTreasureIds)
+      res && submitPartsAlignWithResolved(parts, res, owned)
+        ? buildTilePresentationIndex(
+            res,
+            eff,
+            null,
+            listEffectiveTilesForSubmit,
+            ownedSlotTreasureIds,
+            parts,
+          )
         : null;
-    if (!res || !patternAlignsWithResolvedWord(eff, res)) {
+    if (!res || !submitPartsAlignWithResolved(parts, res, owned)) {
       return orderTiles.map((tile) => {
         const g = vowelGhostForTile(tile);
         return normalizeWordSlotPresentationTile({

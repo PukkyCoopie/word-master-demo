@@ -60,6 +60,9 @@ export async function startGamePanelNewRun(deps) {
   if (deps.isEctoplasmDevScenarioActive()) {
     deps.applyEctoplasmDevOwnedTreasures();
   }
+  if (deps.isMouthQuProblemDevScenarioActive()) {
+    deps.applyMouthQuProblemOwnedTreasures();
+  }
   if (deps.isCeruleanBellDevScenarioActive()) {
     deps.applyCeruleanBellDevRunStart();
   }

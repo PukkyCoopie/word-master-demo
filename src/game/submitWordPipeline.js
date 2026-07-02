@@ -7,6 +7,12 @@ import {
 import { isBossEffectsSuppressedByTreasures } from "./treasureBossSuppress.js";
 import { getWordLetterCount } from "../composables/useScoring.js";
 import {
+  isQuModeSubmitQFamilyTile,
+  patternHasQuSlots,
+  submitPatternCharFromTile,
+} from "./quSlotSubmitPattern.js";
+import { getLetterQMode } from "../settings/gameSettings.js";
+import {
   hasTestTubeAllVowelsForMouth,
   hasVowelNeighborSubstitute,
   isLetterSubstitutableForMouth,
@@ -72,21 +78,34 @@ export function listEffectiveTilesForSubmit(snap) {
 
 /**
  * @param {SubmitSelectionSnapshot & { ownedSlotTreasureIds?: (string | null | undefined)[] }} snap
- * @returns {{ word: string, vowelAltMask: boolean[] }}
+ * @returns {{ word: string, vowelAltMask: boolean[], quSlotMask: boolean[] }}
  */
 export function buildEffectiveWordPartsForSubmit(snap) {
   /** @type {string[]} */
   const chars = [];
   /** @type {boolean[]} */
   const vowelAltMask = [];
+  /** @type {boolean[]} */
+  const quSlotMask = [];
   const owned = snap.ownedSlotTreasureIds ?? [];
   const vowelTreasure = hasVowelNeighborSubstitute(owned);
+  const letterQMode = getLetterQMode();
 
   const pushFromTile = (tile) => {
     if (!tile?.letter) return;
     const card = tile._deckCard;
     const natural =
       card && typeof card === "object" ? deckCardRaw(card) : String(tile.letter).toLowerCase();
+    if (isQuModeSubmitQFamilyTile(tile, letterQMode)) {
+      const ch = submitPatternCharFromTile(tile, letterQMode);
+      if (!ch) return;
+      chars.push(ch);
+      vowelAltMask.push(
+        vowelTreasure && ch !== "?" && isLetterSubstitutableForMouth(natural, owned),
+      );
+      quSlotMask.push(true);
+      return;
+    }
     const frag = String(tile.letter ?? "").toLowerCase();
     for (const ch of frag) {
       if (!ch) continue;
@@ -94,6 +113,7 @@ export function buildEffectiveWordPartsForSubmit(snap) {
       vowelAltMask.push(
         vowelTreasure && ch !== "?" && isLetterSubstitutableForMouth(natural, owned),
       );
+      quSlotMask.push(false);
     }
   };
 
@@ -113,11 +133,12 @@ export function buildEffectiveWordPartsForSubmit(snap) {
       for (const ch of frag) {
         chars.push(ch);
         vowelAltMask.push(false);
+        quSlotMask.push(false);
       }
     }
   }
   if (snap.appendTile) pushFromTile(snap.appendTile);
-  return { word: chars.join(""), vowelAltMask };
+  return { word: chars.join(""), vowelAltMask, quSlotMask };
 }
 
 /**
@@ -140,6 +161,7 @@ export function buildBossWildcardResolveContext(ctx) {
     clubRequiredKey: ctx.clubRequiredKey ?? "",
     ownedSlotTreasureIds: ctx.ownedSlotTreasureIds,
     getWordDefinition: ctx.getWordDefinition,
+    getJudgedLengthTableLen,
     tiles,
     getJudgedWordLen(resolvedWord) {
       return getJudgedLengthTableLen(getWordLetterCount(tiles, resolvedWord));
@@ -181,7 +203,11 @@ export function previewBossSoftWordViolation(ctx) {
 
 /**
  * 带同帧 memo 的整词解析器（嘴邻位 / 万能 / Boss 合规路径）。
- * @param {{ resolveWordPattern: Function, resolveWordPatternWithMouthSubstitutions: Function }} deps
+ * @param {{
+ *   resolveWordPattern: Function,
+ *   resolveWordPatternWithMouthSubstitutions: Function,
+ *   resolveWordSlotPatternWithMouthSubstitutions?: Function,
+ * }} deps
  */
 export function createSubmitWordResolver(deps) {
   let vowelResolveMemoKey = "";
@@ -194,12 +220,12 @@ export function createSubmitWordResolver(deps) {
   }
 
   /**
-   * @param {{ word: string, vowelAltMask: boolean[] }} parts
+   * @param {{ word: string, vowelAltMask: boolean[], quSlotMask?: boolean[] }} parts
    * @param {{ ownedSlotTreasureIds?: (string | null | undefined)[], rarityLevelsByRarity?: Record<string, number> | null, bossResolveContext?: import("./bossWordViolation.js").BossWildcardResolveContext | null }} ctx
    * @returns {string | null}
    */
   function resolveWordFromEffectiveParts(parts, ctx) {
-    const { word, vowelAltMask } = parts;
+    const { word, vowelAltMask, quSlotMask = [] } = parts;
     const rl = ctx.rarityLevelsByRarity ?? null;
     const bossCtx = ctx.bossResolveContext ?? null;
     const owned = ctx.ownedSlotTreasureIds ?? [];
@@ -207,14 +233,38 @@ export function createSubmitWordResolver(deps) {
       ? `${bossCtx.slug}|${bossCtx.mouthLockedLength}|${bossCtx.clubRequiredKey}`
       : "";
     const maskBits = vowelAltMask.map((b) => (b ? "1" : "0")).join("");
-    const memoKey = `${word}\0${maskBits}\0${hasTestTubeAllVowelsForMouth(owned) ? "1" : "0"}\0${bossKey}`;
+    const quBits = quSlotMask.map((b) => (b ? "1" : "0")).join("");
+    const memoKey = `${word}\0${maskBits}\0${quBits}\0${hasTestTubeAllVowelsForMouth(owned) ? "1" : "0"}\0${bossKey}\0${getLetterQMode()}`;
     if (memoKey === vowelResolveMemoKey) return vowelResolveMemoResult ?? null;
 
     let result;
+    const useQuSlots = patternHasQuSlots(quSlotMask);
     if (hasVowelNeighborSubstitute(owned) && vowelAltMask.some(Boolean)) {
-      result = deps.resolveWordPatternWithMouthSubstitutions(
+      if (useQuSlots && typeof deps.resolveWordSlotPatternWithMouthSubstitutions === "function") {
+        result = deps.resolveWordSlotPatternWithMouthSubstitutions(
+          word,
+          vowelAltMask,
+          quSlotMask,
+          "?",
+          rl,
+          bossCtx,
+          owned,
+        );
+      } else {
+        result = deps.resolveWordPatternWithMouthSubstitutions(
+          word,
+          vowelAltMask,
+          "?",
+          rl,
+          bossCtx,
+          owned,
+        );
+      }
+    } else if (useQuSlots && typeof deps.resolveWordSlotPatternWithMouthSubstitutions === "function") {
+      result = deps.resolveWordSlotPatternWithMouthSubstitutions(
         word,
         vowelAltMask,
+        quSlotMask,
         "?",
         rl,
         bossCtx,

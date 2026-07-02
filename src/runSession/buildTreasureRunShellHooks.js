@@ -80,6 +80,8 @@ export function buildTreasureRunShellHooks(d) {
         destroyTreasureSlotById: d.destroyOwnedTreasureWithFx,
         destroyBombBlastAtSlot: d.destroyBombBlastAtSlot,
         playVolcanoEruptionAtSlot: d.playVolcanoEruptionAtSlot,
+        isOwnedTreasureSlotNoSell: (slotIndex) =>
+          ownedTreasureHasNoSellAccessory(d.getOwnedTreasureSlot(slotIndex)),
         playOwnedTreasureMoneyFx: (treasureId, amount, fxOpts = {}) =>
           d.playOwnedTreasureMoneyFx(treasureId, amount, {
             awaitOutro: true,

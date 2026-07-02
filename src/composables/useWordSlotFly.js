@@ -25,6 +25,7 @@ export const MIDDLE_MAX_W = 722;
  * @property {() => void} refreshSlotLayoutRpx
  * @property {() => void} ensureSlotRafRunning
  * @property {(deltaMs?: number | boolean) => void} updateSlotPositions
+ * @property {(item: object) => void} [commitFlyInSlotPosition]
  * @property {() => number} [getSubmitWordLeaveHiddenCount]
  */
 
@@ -47,6 +48,7 @@ export function useWordSlotFly(options) {
     refreshSlotLayoutRpx,
     ensureSlotRafRunning,
     updateSlotPositions,
+    commitFlyInSlotPosition,
     getSubmitWordLeaveHiddenCount,
   } = options;
 
@@ -152,6 +154,7 @@ export function useWordSlotFly(options) {
       for (let i = flyInPendingComplete.length - 1; i >= 0; i -= 1) {
         const item = flyInPendingComplete[i];
         if (item.targetSlotIndex !== selectedOrder.value.length) continue;
+        commitFlyInSlotPosition?.(item);
         selectTile(item.pendingRow, item.pendingCol);
         clearGridTileGsapAfterDrop(getGridTileElByIndex(item.pendingRow * COLS + item.pendingCol));
         if (item.ceruleanBell) finalizeCeruleanBellSlotIndex();
@@ -160,6 +163,7 @@ export function useWordSlotFly(options) {
       }
     }
     syncFlyingInTargets();
+    ensureSlotRafRunning();
     if (fwt.phase.value === "retry") {
       callbacks.scheduleTutorialSpotlightUpdate();
     }

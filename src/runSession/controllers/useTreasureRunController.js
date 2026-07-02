@@ -16,6 +16,7 @@ import {
   stepPreviewNavGroup,
 } from "../../preview/previewGroupNav.js";
 import { ensureBigramTargetPair, rollRandomBigramFromDictionary } from "../../game/treasureBigramRoll.js";
+import { applyDisabledTreasureSlots } from "../../game/bossMechanicsContext.js";
 import { getPresetTreasureSlotDelta } from "../../game/runPresetRuntime.js";
 import {
   applyTreasureAcquireImmediateEffects,
@@ -815,15 +816,26 @@ export function useTreasureRunController(options) {
    * @param {string} resolvedWord
    * @param {number} judgedLenTable
    * @param {number} scoreBeforeHand
+   * @param {Set<number> | readonly number[] | null | undefined} [disabledTreasureSlotIndices]
    */
-  async function runPendingInRunGrantsAfterSubmit(tiles, resolvedWord, judgedLenTable, scoreBeforeHand) {
+  async function runPendingInRunGrantsAfterSubmit(
+    tiles,
+    resolvedWord,
+    judgedLenTable,
+    scoreBeforeHand,
+    disabledTreasureSlotIndices = null,
+  ) {
+    const ownedIds = applyDisabledTreasureSlots(
+      ownedSlotTreasureIdList(),
+      disabledTreasureSlotIndices,
+    );
     /** @type {import('../../treasures/treasureTypes.js').SubmitWordLeaveFxRunner[]} */
     const submitWordLeaveFx = [];
     /** @type {(() => Promise<void>)[]} */
     const submitAfterWordLeaveFx = [];
     /** @type {(() => Promise<void>)[]} */
     const submitPostScoreClearFx = [];
-    await notifyOwnedTreasuresSuccessfulWordSubmit(ownedSlotTreasureIdList(), {
+    await notifyOwnedTreasuresSuccessfulWordSubmit(ownedIds, {
       ...buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand),
       registerSubmitWordLeaveFx: (runner) => {
         if (typeof runner === "function") submitWordLeaveFx.push(runner);

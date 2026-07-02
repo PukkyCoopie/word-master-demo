@@ -52,6 +52,11 @@ import { findGridCellByTileId } from "./gridTileCellLookup.js";
 import { resolveSubmittedWordForHooks } from "./resolvedWordTileMapping.js";
 import { resolveGridEffectTriggerCount } from "./gridEffectTriggerCount.js";
 import {
+  applyDisabledTreasureSlots,
+  isTreasureIdDisabledForSubmit,
+  normalizeDisabledTreasureSlotIndices,
+} from "./bossMechanicsContext.js";
+import {
   addScore,
   interpolateScore,
   scoreGte,
@@ -130,6 +135,18 @@ export function createSubmitScoringAnimController(deps) {
 
   /** @type {DOMRect | null} 当前逐字计分步内词槽气泡锚点（同字母多泡复用，避免每泡 measure） */
   let scoringWordSlotBubbleAnchor = null;
+  /** @type {Set<number> | null} 本手计分禁用宝藏槽（绯红之心等），与 detailed 对齐 */
+  let activeSubmitDisabledTreasureSlotIndices = null;
+
+  function resolveOwnedSlotIdsForSubmitScoring() {
+    const raw = refs.ownedTreasures.value.map((s) => s?.treasureId ?? null);
+    return applyDisabledTreasureSlots(raw, activeSubmitDisabledTreasureSlotIndices);
+  }
+
+  function isPaperclipDisabledForActiveSubmit() {
+    const raw = refs.ownedTreasures.value.map((s) => s?.treasureId ?? null);
+    return isTreasureIdDisabledForSubmit(raw, activeSubmitDisabledTreasureSlotIndices, "76");
+  }
 
   function showWordSlotBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
     return showScoreBubble(slotEl, text, kind, speed, bubbleZIndex, scoringWordSlotBubbleAnchor);
@@ -291,7 +308,7 @@ async function runLetterRarityTreasureMultStep(part, slotEl, cfg, speed = 1) {
 
 /** 持有奖杯时：目标宝藏自身贡献（分/倍率/倍率倍数）后、配饰前，于该宝藏槽再 wobble + 倍率乘法气泡 */
 async function runAfterTreasureContributionBoostAnim(treasureId, slotIndex, speed = 1) {
-  const ownedSlotIds = refs.ownedTreasures.value.map((s) => s?.treasureId ?? null);
+  const ownedSlotIds = resolveOwnedSlotIdsForSubmitScoring();
   const boost = collectAfterTreasureContributionBoostStep(
     {
       ownedSlotTreasureIds: ownedSlotIds,
@@ -450,7 +467,7 @@ async function runSlotPerLetterTreasureScoreStep(
   const tid = String(effectiveTreasureId ?? "");
   if (!tid || !slotEl) return false;
   const hooks = TREASURE_HOOKS_BY_ID.get(tid);
-  const ownedSlotIds = refs.ownedTreasures.value.map((s) => s?.treasureId ?? null);
+  const ownedSlotIds = resolveOwnedSlotIdsForSubmitScoring();
   const ctx = {
     ownedSlotTreasureIds: ownedSlotIds,
     treasureRun: refs.treasureRunState.value,
@@ -498,7 +515,7 @@ async function runSlotPerLetterTreasureMultStep(
 ) {
   const tid = String(effectiveTreasureId ?? "");
   if (!tid || !slotEl) return false;
-  const ctx = { ownedSlotTreasureIds: refs.ownedTreasures.value.map((s) => s?.treasureId ?? null) };
+  const ctx = { ownedSlotTreasureIds: resolveOwnedSlotIdsForSubmitScoring() };
   const cue = TREASURE_HOOKS_BY_ID.get(tid)?.getPerLetterMultCue?.(ctx, part, letterIndex);
   if (!cue?.delta) return false;
   return runLetterTreasureMultBurst(
@@ -690,14 +707,16 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   }
 
   const realTile = callbacks.resolveRealSubmitTileForWordSlot(i, tile);
-  const { sb: liveTileScoreBonus, mb: liveTileMultBonus } = realTile
+  const paperclipDisabled = isPaperclipDisabledForActiveSubmit();
+  const { sb: liveTileScoreBonus, mb: rawTileMultBonus } = realTile
     ? snapshotMaxIntrinsicGainsFromTile(realTile)
     : {
         sb: Math.max(0, Math.floor(Number(part.tileScoreBonus) || 0)),
         mb: Math.max(0, Math.round(Number(part.tileLetterMultBonus) || 0)),
       };
+  const liveTileMultBonus = paperclipDisabled ? 0 : rawTileMultBonus;
 
-  const ownedSlotIds = refs.ownedTreasures.value.map((s) => s?.treasureId ?? null);
+  const ownedSlotIds = resolveOwnedSlotIdsForSubmitScoring();
   const ctxScoreMerge = {
     ownedSlotTreasureIds: ownedSlotIds,
     treasureRun: refs.treasureRunState.value,
@@ -1146,7 +1165,7 @@ function registerClearWinLengthUpgradePostScoreFx(fxQueue, judgedLen) {
 }
 
 /**
- * 折臂 Boss：单词消散后于 result-area 播词长降级动效。
+ * 胳膊 Boss：单词消散后于 result-area 播词长降级动效。
  * @param {(() => Promise<void>)[]} fxQueue
  * @param {number} judgedLen
  */
@@ -1375,6 +1394,9 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   refs.scoringTreasureBarIndex.value = null;
   getDom.getBossTapeStrip()?.resetSubmitToothCue();
   let iceShatterCount = 0;
+  activeSubmitDisabledTreasureSlotIndices = normalizeDisabledTreasureSlotIndices(
+    detailed?.disabledTreasureSlotIndices,
+  );
   try {
   refs.hideResultWordLengthBeforeTotal.value = false;
   refs.suppressResultWordLengthUntilScoringEnd.value = false;
@@ -1473,7 +1495,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
 
     if (detailed.bossSoftViolation !== true) {
       await callbacks.notifySubmitAfterLettersBeforePostSteps(
-        callbacks.ownedSlotTreasureIdList(),
+        resolveOwnedSlotIdsForSubmitScoring(),
         callbacks.buildSubmitAfterLettersContext(tiles, detailed),
       );
       if (callbacks.deferredWordSubmitPayload) {
@@ -1689,6 +1711,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       grantWord,
       lenTb,
       refs.currentScore.value,
+      activeSubmitDisabledTreasureSlotIndices,
     );
     submitWordLeaveFx = pending.submitWordLeaveFx;
     submitPostScoreClearFx.push(...pending.submitPostScoreClearFx);
@@ -1744,6 +1767,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   };
   const leaveDuration = 0.28;
   const leaveStagger = submitWordLeaveStagger(leaveSlotCount);
+  callbacks.beginSubmitWordLeaveHide?.(leaveSlotCount);
   const leavePromise = (async () => {
     if (submitWordLeaveFx.length > 0) {
       for (const fx of submitWordLeaveFx) {
@@ -1782,7 +1806,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     refs.roundScoreOverride.value = startRound;
     for (let step = 0; step <= scoreRollSteps; step++) {
       const t = easeFn(step / scoreRollSteps);
-      refs.animResultTotal.value = interpolateScore(handScore, 0, 1 - t);
+      refs.animResultTotal.value = interpolateScore(handScore, 0, t);
       refs.roundScoreOverride.value = interpolateScore(startRound, endRound, t);
       if (step < scoreRollSteps) {
         await scoringSleep(scoreRollStepMs, 1);
@@ -1794,7 +1818,6 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
 
   await leavePromise;
 
-  callbacks.beginSubmitWordLeaveHide?.(leaveSlotCount);
   await nextTick();
 
   if (submitAfterWordLeaveFx.length > 0) {
@@ -1849,9 +1872,11 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   refs.suppressResultWordLengthUntilScoringEnd.value = false;
   await nextTick();
   callbacks.updateSlotPositions(true);
+  callbacks.refreshWordHintAfterGridStable?.();
   callbacks.scheduleRunAutoSave();
   return iceShatterCount;
   } finally {
+    activeSubmitDisabledTreasureSlotIndices = null;
     callbacks.submitUpgradeFxRegistrarState.current = null;
     callbacks.setSubmitScoringAppendPresentation?.(null);
     callbacks.setSubmitScoringAppendPresentations?.([]);

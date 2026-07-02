@@ -17,6 +17,7 @@ import { computed, ref } from "vue";
  * @param {() => void} [options.openSettings]
  * @param {() => void} [options.beforeMainMenuExit]
  * @param {() => void} [options.emitExitToMenu]
+ * @param {(outcome: 'fail' | 'win', opts?: object) => void | Promise<void>} [options.openRunEnd]
  */
 export function usePauseOverlayController(options) {
   const showPauseOptions = ref(false);
@@ -99,6 +100,11 @@ export function usePauseOverlayController(options) {
     options.emitExitToMenu?.();
   }
 
+  async function onPauseEndGame() {
+    closePauseOptions();
+    await options.openRunEnd?.("fail");
+  }
+
   return {
     showPauseOptions,
     showDeveloperOptions,
@@ -115,5 +121,6 @@ export function usePauseOverlayController(options) {
     onPauseNewRun,
     onPauseSettings,
     onPauseMainMenu,
+    onPauseEndGame,
   };
 }

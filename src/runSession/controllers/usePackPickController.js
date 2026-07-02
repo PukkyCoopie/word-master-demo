@@ -11,7 +11,7 @@ import { readTreasureAccessoryIds } from "../../accessories/accessoryState.js";
 import { animatePackDeckOfferFlyToDeck } from "../../game/shopOfferFlyAnim.js";
 import { packDeckOfferFlyOriginRectFromEl } from "../../game/offerFlyOrigin.js";
 import { createPreviewNavGroupFromItems } from "../../preview/previewGroupNav.js";
-import { triggerHaptic } from "../../platform/haptics.js";
+import { scheduleOverlayPresent, triggerHaptic } from "../../platform/haptics.js";
 
 /** @typedef {import('../runSessionTypes.js').PackPickController} PackPickController */
 
@@ -194,37 +194,72 @@ export function usePackPickController(options) {
     if (packPickBusy.value || packPickSkipBusy.value) return;
     packPickSkipBusy.value = true;
     try {
-      const owned = callbacks.ownedSlotTreasureIdList();
+      const sess = packPickSession.value;
+      const claimed = sess?.claimedKeys ?? [];
+      const fullyClaimed =
+        !!sess && claimed.length >= packPickRequiredPicks(sess);
+      if (fullyClaimed) {
+        pendingPackClaimedOwned = callbacks.ownedSlotTreasureIdList();
+        pendingPackClaimedGrantContext = getPackPickGrantContext();
+      }
       if (treasureDetail.value) {
         await nextTick();
         await callbacks.dismissTreasureDetailOnBack();
       }
       await dismissPackPickLayer();
       packPickOverlaySuppressed.value = false;
+      shopOverlayLayersSuppressed.value = false;
       await nextTick();
       await new Promise((r) => requestAnimationFrame(r));
-      await notifyOwnedTreasuresOnPackSkipped(owned, {
-        treasureRun: treasureRunState.value,
-        playOwnedTreasureMultDeltaFx: callbacks.playOwnedTreasureMultDeltaFx,
-      });
-      resolvePackPickFlow();
+      if (fullyClaimed) {
+        resolvePackPickFlow();
+        await runPendingPackClaimedTreasureHooks();
+      } else {
+        const owned = callbacks.ownedSlotTreasureIdList();
+        await notifyOwnedTreasuresOnPackSkipped(owned, {
+          treasureRun: treasureRunState.value,
+          playOwnedTreasureMultDeltaFx: callbacks.playOwnedTreasureMultDeltaFx,
+        });
+        resolvePackPickFlow();
+      }
       callbacks.scheduleRunAutoSave();
     } finally {
       packPickSkipBusy.value = false;
     }
   }
 
-  /** 选满后先关包层再跑宝藏钩子，避免包 session 未清导致商店整页不可点（如 135 再施法）。 */
-  async function finalizeCompletedPackPickSession() {
-    const sess = packPickSession.value;
-    if (!sess) return;
-    const claimed = sess.claimedKeys ?? [];
-    if (claimed.length < packPickRequiredPicks(sess)) return;
+  /** @type {string[] | null} */
+  let pendingPackClaimedOwned = null;
+  /** @type {'shop' | 'inRun' | null} */
+  let pendingPackClaimedGrantContext = null;
 
-    const owned = callbacks.ownedSlotTreasureIdList();
+  /** 选满后先关包层；宝藏 onPackClaimed（如 135 随机法术）延后到 packPickBusy 结束后再跑，避免浮层被 suppress 且商店整页不可点。 */
+  async function dismissCompletedPackPickSessionIfReady() {
+    const sess = packPickSession.value;
+    if (!sess) return false;
+    const claimed = sess.claimedKeys ?? [];
+    if (claimed.length < packPickRequiredPicks(sess)) return false;
+
+    pendingPackClaimedOwned = callbacks.ownedSlotTreasureIdList();
+    pendingPackClaimedGrantContext = getPackPickGrantContext();
     await dismissPackPickLayer();
     packPickOverlaySuppressed.value = false;
+    shopOverlayLayersSuppressed.value = false;
     resolvePackPickFlow();
+    return true;
+  }
+
+  async function runPendingPackClaimedTreasureHooks() {
+    const owned = pendingPackClaimedOwned;
+    const grantCtx = pendingPackClaimedGrantContext ?? "shop";
+    pendingPackClaimedOwned = null;
+    pendingPackClaimedGrantContext = null;
+    if (!owned) return;
+    shopOverlayLayersSuppressed.value = false;
+    packPickOverlaySuppressed.value = false;
+    await nextTick();
+    await new Promise((r) => requestAnimationFrame(r));
+    scheduleOverlayPresent(280);
     await notifyOwnedTreasuresOnPackClaimed(owned, {
       ownedSlotTreasureIds: owned,
       treasureRun: treasureRunState.value,
@@ -237,17 +272,25 @@ export function usePackPickController(options) {
             ? callbacks.pickRandomInRunSpellId()
             : null);
         if (!spellId) return;
-        const grantCtx = getPackPickGrantContext();
+        shopOverlayLayersSuppressed.value = false;
+        packPickOverlaySuppressed.value = false;
         await grant.runInRunSpellGrant(spellId, {
           cdShopLeaveReplay: grantCtx !== "inRun",
+          treasureSlotIndex: opts.treasureSlotIndex,
         });
       },
     });
     callbacks.scheduleRunAutoSave();
   }
 
+  async function finalizeCompletedPackPickSession() {
+    if (await dismissCompletedPackPickSessionIfReady()) {
+      await runPendingPackClaimedTreasureHooks();
+    }
+  }
+
   async function maybeAutoClosePackPickSession() {
-    await finalizeCompletedPackPickSession();
+    await dismissCompletedPackPickSessionIfReady();
   }
 
   /** 包内领取流程结束后的 UI 兜底：未选满则恢复包层，已选满则确保关包。 */
@@ -259,7 +302,7 @@ export function usePackPickController(options) {
     }
     const claimed = sess.claimedKeys ?? [];
     if (claimed.length >= packPickRequiredPicks(sess)) {
-      await finalizeCompletedPackPickSession();
+      await dismissCompletedPackPickSessionIfReady();
       return;
     }
     ensurePackPickOverlayVisible();
@@ -455,10 +498,25 @@ export function usePackPickController(options) {
       triggerHaptic("selection");
     } finally {
       packPickBusy.value = false;
+      shopOverlayLayersSuppressed.value = false;
+      packPickOverlaySuppressed.value = false;
       try {
         await recoverPackPickUiAfterInnerClaim();
-      } catch {
+      } catch (e) {
+        shopOverlayLayersSuppressed.value = false;
         packPickOverlaySuppressed.value = false;
+        if (import.meta.env.DEV) {
+          console.error("[pack-pick] recoverPackPickUiAfterInnerClaim failed", e);
+        }
+      }
+      try {
+        await runPendingPackClaimedTreasureHooks();
+      } catch (e) {
+        shopOverlayLayersSuppressed.value = false;
+        packPickOverlaySuppressed.value = false;
+        if (import.meta.env.DEV) {
+          console.error("[pack-pick] runPendingPackClaimedTreasureHooks failed", e);
+        }
       }
       callbacks.scheduleRunAutoSave();
     }

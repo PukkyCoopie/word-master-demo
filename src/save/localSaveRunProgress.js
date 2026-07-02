@@ -1,6 +1,12 @@
 import { hasMeaningfulRunProgress } from "./runSaveMeaningfulProgress.js";
 import { createEmptySlotCareerStats, SAVE_SLOT_COUNT } from "./runSaveSchema.js";
-import { getSlotCareer, getSlotPayload, hasContinuableRun } from "./runSaveStorage.js";
+import {
+  clearSlotRunProgress,
+  getSlotCareer,
+  getSlotPayload,
+  hasAbandonedFreshRun,
+  hasContinuableRun,
+} from "./runSaveStorage.js";
 import { normalizeSlotCareerStats } from "./slotCareerStats.js";
 import { isFirstWordTutorialCompleted } from "../profile/playerProfile.js";
 
@@ -34,4 +40,15 @@ export function isSlotFreshForFirstWordTutorial(slotIndex) {
 /** @param {number} slotIndex */
 export function shouldStartNewRunAtSlot(slotIndex) {
   return isSlotFreshForFirstWordTutorial(slotIndex);
+}
+
+/**
+ * 首词教程未完成时丢弃局内存档，使下次「开始游戏」可重新开教程局。
+ * @param {number} slotIndex
+ * @returns {boolean} 是否清除了进度
+ */
+export function discardIncompleteFirstWordTutorialRunProgress(slotIndex) {
+  if (isFirstWordTutorialCompleted(slotIndex)) return false;
+  if (!hasContinuableRun(slotIndex) && !hasAbandonedFreshRun(slotIndex)) return false;
+  return clearSlotRunProgress(slotIndex);
 }

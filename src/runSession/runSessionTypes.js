@@ -232,6 +232,7 @@
  * @property {(slotIndex: number) => boolean} isSlotOutOfFlow
  * @property {(displayIndex: number) => string} wordSlotPlaceholderKey
  * @property {(tile: object) => object | null} gridPlaceholderFrozenPresentation
+ * @property {(tile: object) => void} patchGridPlaceholderFreezeFromTile
  * @property {() => void} syncGridPlaceholderFreezeCaptures
  * @property {(deltaMs?: number | boolean) => void} updateSlotPositions
  * @property {() => void} ensureSlotRafRunning

@@ -38,7 +38,14 @@ import {
   buildMouthSubstituteTriosForPattern,
   candidateMatchesMouthSubstitutePattern,
   hasTestTubeAllVowelsForMouth,
+  resolveWordPatternWithVowelSubstitutions,
 } from "../game/vowelNeighborSubstitute.js";
+import {
+  buildMouthTriosForSlotPattern,
+  candidateMatchesMouthSlotPattern,
+  countQuSlotsInMask,
+  slotPatternAlignsWithCandidate,
+} from "../game/quSlotSubmitPattern.js";
 import {
   buildSlotIndexByLength,
   matchWordIdsForMouthPattern,
@@ -57,24 +64,11 @@ const posTagsByWord = shallowRef(/** @type {Map<string, Set<string>> | null} */ 
 /** 关闭「允许拼写缩写」时需排除的纯 abbr 词（建索引时预计算） */
 const abbrOnlyWordSet = shallowRef(/** @type {Set<string> | null} */ (null));
 
-/** 视为「正常词性」的 token；含 abbr 但同时含其一则关闭缩写开关时仍可拼写 */
-const NORMAL_POS_TOKENS = new Set([
-  "n",
-  "v",
-  "vi",
-  "vt",
-  "adj",
-  "adv",
-  "prep",
-  "conj",
-  "pron",
-  "num",
-  "art",
-  "interj",
-  "aux",
-  "det",
-  "a",
-]);
+import {
+  buildAbbrOnlyWordSetFromPosTags,
+  NORMAL_POS_TOKENS,
+  wordHasNormalPosInIndex,
+} from "../dictionary/dictionaryLexical.js";
 
 let defsLoadToken = 0;
 
@@ -127,21 +121,7 @@ function commitDictionaryIndexes(indexes) {
 
 /** @param {Map<string, Set<string>> | null | undefined} posTagsMap */
 function buildAbbrOnlyWordSet(posTagsMap) {
-  if (!(posTagsMap instanceof Map)) return null;
-  /** @type {Set<string>} */
-  const only = new Set();
-  for (const [w, tags] of posTagsMap) {
-    if (!tags?.has("abbr")) continue;
-    let hasNormal = false;
-    for (const token of tags) {
-      if (NORMAL_POS_TOKENS.has(token)) {
-        hasNormal = true;
-        break;
-      }
-    }
-    if (!hasNormal) only.add(w);
-  }
-  return only;
+  return buildAbbrOnlyWordSetFromPosTags(posTagsMap);
 }
 
 /**
@@ -887,6 +867,86 @@ function resolveMixedMouthWildcardPattern(
 }
 
 /**
+ * Qu 槽 + 嘴邻位：pattern 长度 = 词槽数，候选词长度可 +qu 槽数。
+ * @param {string} raw
+ * @param {boolean[]} vowelAltMask
+ * @param {boolean[]} quSlotMask
+ * @param {string} wildcardChar
+ * @param {Record<string, number> | null | undefined} rarityLevelsByRarity
+ * @param {import("../game/bossWordViolation.js").BossWildcardResolveContext | null | undefined} bossResolveContext
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @returns {string | null}
+ */
+function resolveMixedMouthQuSlotPattern(
+  raw,
+  vowelAltMask,
+  quSlotMask,
+  wildcardChar,
+  rarityLevelsByRarity,
+  bossResolveContext,
+  ownedSlotTreasureIds,
+) {
+  const mouthTrios = buildMouthTriosForSlotPattern(raw, vowelAltMask, ownedSlotTreasureIds);
+  const quExtra = countQuSlotsInMask(quSlotMask);
+  const minLen = raw.length;
+  const maxLen = raw.length + quExtra;
+  const byLength = wordsByLength.value;
+  if (!(byLength instanceof Map)) return null;
+
+  /** @type {string[]} */
+  const candidates = [];
+  for (let len = minLen; len <= maxLen; len += 1) {
+    const bucket = byLength.get(len);
+    if (!Array.isArray(bucket)) continue;
+    for (const w of bucket) {
+      if (candidateMatchesMouthSlotPattern(raw, w, quSlotMask, mouthTrios, wildcardChar)) {
+        candidates.push(w);
+      }
+    }
+  }
+  if (candidates.length === 0) return null;
+  return pickBestWildcardFromCandidatesLinear(
+    candidates,
+    raw,
+    wildcardChar,
+    rarityLevelsByRarity,
+    bossResolveContext,
+    (candidate) =>
+      candidateMatchesMouthSlotPattern(raw, candidate, quSlotMask, mouthTrios, wildcardChar),
+  );
+}
+
+/**
+ * @param {string} patternStr
+ * @param {boolean[]} quSlotMask
+ * @param {(import("../game/vowelNeighborSubstitute.js").LetterSubstituteTrio | null)[]} mouthTrios
+ * @param {string} wildcardChar
+ * @returns {string | null}
+ */
+function resolveExactSlotPatternFromSet(patternStr, quSlotMask, mouthTrios, wildcardChar) {
+  const raw = String(patternStr ?? "").toLowerCase().trim();
+  if (!raw) return null;
+  const set = wordSet.value;
+  if (!(set instanceof Set)) return null;
+  if (set.has(raw) && isWordAllowedByAbbrevSetting(raw)) return raw;
+
+  const byLength = wordsByLength.value;
+  if (!(byLength instanceof Map)) return null;
+  const quExtra = countQuSlotsInMask(quSlotMask);
+  for (let len = raw.length; len <= raw.length + quExtra; len += 1) {
+    const bucket = byLength.get(len);
+    if (!Array.isArray(bucket)) continue;
+    for (const w of bucket) {
+      const matches = mouthTrios?.length
+        ? candidateMatchesMouthSlotPattern(raw, w, quSlotMask, mouthTrios, wildcardChar)
+        : slotPatternAlignsWithCandidate(raw, w, quSlotMask, wildcardChar);
+      if (matches && isWordAllowedByAbbrevSetting(w)) return w;
+    }
+  }
+  return null;
+}
+
+/**
  * 带通配符 `?` 的匹配：例如 `c?t` 可匹配 `cat` / `cut`。
  * 多个命中时：Boss 整词软规则合规词优先；其中取各万能位「稀有度奖励分×稀有度倍率（含升级）」之和最大者。
  * 若无合规词则回退至全体候选的稀有度最优。无命中返回 null。
@@ -983,6 +1043,68 @@ export function resolveWordPatternWithMouthSubstitutions(
   const best = resolveMixedMouthWildcardPattern(
     raw,
     vowelAltMask,
+    wildcardChar,
+    rarityLevelsByRarity,
+    bossResolveContext,
+    ownedSlotTreasureIds,
+  );
+  rememberMouthResolvePatternCache(cacheKey, best);
+  return best;
+}
+
+/**
+ * Qu 槽 + 嘴邻位统一解析（pattern 1 字/槽，Qu 块可匹配整词中 1 或 2 字母）。
+ * @param {string} pattern
+ * @param {boolean[]} vowelAltMask
+ * @param {boolean[]} quSlotMask
+ * @param {string} [wildcardChar]
+ * @param {Record<string, number> | null | undefined} [rarityLevelsByRarity]
+ * @param {import("../game/bossWordViolation.js").BossWildcardResolveContext | null | undefined} [bossResolveContext]
+ * @param {(string | null | undefined)[]} [ownedSlotTreasureIds]
+ * @returns {string | null}
+ */
+export function resolveWordSlotPatternWithMouthSubstitutions(
+  pattern,
+  vowelAltMask,
+  quSlotMask,
+  wildcardChar = "?",
+  rarityLevelsByRarity = null,
+  bossResolveContext = null,
+  ownedSlotTreasureIds = [],
+) {
+  const raw = String(pattern ?? "").toLowerCase().trim();
+  if (!raw) return null;
+  const set = wordSet.value;
+  if (!(set instanceof Set)) return null;
+
+  const mouthTrios = buildMouthTriosForSlotPattern(raw, vowelAltMask, ownedSlotTreasureIds);
+  const exactHit = resolveExactSlotPatternFromSet(raw, quSlotMask, mouthTrios, wildcardChar);
+  if (exactHit) return exactHit;
+
+  if (mouthPatternHasSubstitutableFixedPositions(raw, vowelAltMask, wildcardChar)) {
+    const resolveExact = (p) =>
+      resolveExactSlotPatternFromSet(p, quSlotMask, mouthTrios, wildcardChar);
+    const hammingHit = resolveWordPatternWithVowelSubstitutions(
+      raw,
+      vowelAltMask,
+      resolveExact,
+      ownedSlotTreasureIds,
+    );
+    if (hammingHit) return hammingHit;
+  }
+
+  const maskBits = vowelAltMask.map((b) => (b ? "1" : "0")).join("");
+  const quBits = quSlotMask.map((b) => (b ? "1" : "0")).join("");
+  const tubeFlag = hasTestTubeAllVowelsForMouth(ownedSlotTreasureIds) ? "1" : "0";
+  const rarityKey = buildRarityLevelsKey(rarityLevelsByRarity);
+  const bossKey = buildBossWildcardResolveCacheKey(bossResolveContext);
+  const cacheKey = `mouthQu\0${raw}\0${maskBits}\0${quBits}\0${tubeFlag}\0${wildcardChar}\0${rarityKey}\0${bossKey}\0${getLetterQMode()}`;
+  if (mouthResolvePatternCache.has(cacheKey)) return mouthResolvePatternCache.get(cacheKey) ?? null;
+
+  const best = resolveMixedMouthQuSlotPattern(
+    raw,
+    vowelAltMask,
+    quSlotMask,
     wildcardChar,
     rarityLevelsByRarity,
     bossResolveContext,
@@ -1091,8 +1213,9 @@ export function useDictionary() {
     isValidWord,
     isValidWordPattern,
     resolveWordPattern,
-    resolveWordPatternWithMouthSubstitutions,
-    getWordDefinition,
+  resolveWordPatternWithMouthSubstitutions,
+  resolveWordSlotPatternWithMouthSubstitutions,
+  getWordDefinition,
     getCandidateWordsByLength,
   };
 }
@@ -1123,6 +1246,11 @@ export function isAbbrevOnlyWord(word) {
     if (NORMAL_POS_TOKENS.has(token)) return false;
   }
   return true;
+}
+
+/** 释义中含正常词性（n/v/adj 等，非仅 abbr） */
+export function wordHasNormalPos(word) {
+  return wordHasNormalPosInIndex(posTagsByWord.value, wordInfoMap.value, word);
 }
 
 export function getDictionaryWordCount() {

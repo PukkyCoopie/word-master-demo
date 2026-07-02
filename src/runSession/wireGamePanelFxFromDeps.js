@@ -27,7 +27,6 @@ export function wireGamePanelFxFromDeps(d) {
       treasureDestroyFxRef: d.treasureDestroyFxRef,
       findOwnedTreasureSlotIndex: d.findOwnedTreasureSlotIndex,
       ownedTreasureHasNoSellAccessory: d.ownedTreasureHasNoSellAccessory,
-      treasureBypassesNoSellForSelfDestruct: d.treasureBypassesNoSellForSelfDestruct,
       isTreasureBarSlotVisible: d.isTreasureBarSlotVisible,
       treasureInventoryCtrl: d.treasureInventoryCtrl,
       ownedTreasures: d.ownedTreasures,

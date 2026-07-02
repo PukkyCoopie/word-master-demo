@@ -2,6 +2,9 @@ import { reactive } from "vue";
 import { inferDefaultDisplayLayoutMode } from "../composables/viewportSize.js";
 import { normalizeTreasureCollectionGroupBy } from "../collection/collectionTreasureSort.js";
 import { RUN_SAVES_STORAGE_KEY } from "../save/runSaveSchema.js";
+import { normalizeWordHintMode, WORD_HINT_MODE_OPTIONS } from "./wordHintMode.js";
+
+export { WORD_HINT_MODE_OPTIONS, normalizeWordHintMode };
 
 const STORAGE_KEY = "word_master_game_settings_v1";
 
@@ -152,13 +155,14 @@ function applyNewPlayerWordDefinitionDefault() {
   gameSettings.wordDefinitionMode = "button";
 }
 
-/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; animationSpeedTier: AnimationSpeedTier; materialAnimationEnabled: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean; devSuppressAchievementsAndLeaderboards: boolean; collectionTreasureGroupView: boolean; collectionTreasureGroupBy: import('../collection/collectionTreasureSort.js').TreasureCollectionGroupBy }} */
+/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; wordHintMode: import('./wordHintMode.js').WordHintMode; animationSpeedTier: AnimationSpeedTier; materialAnimationEnabled: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean; devSuppressAchievementsAndLeaderboards: boolean; collectionTreasureGroupView: boolean; collectionTreasureGroupBy: import('../collection/collectionTreasureSort.js').TreasureCollectionGroupBy }} */
 export const gameSettings = reactive({
   allowSpellingAbbreviations: false,
   uiScalePercent: UI_SCALE_DEFAULT,
   markButtonEnabled: true,
   swapButtonMode: "hidden",
   markOnSwap: false,
+  wordHintMode: "autoSelect",
   animationSpeedTier: "normal",
   materialAnimationEnabled: true,
   hapticsEnabled: true,
@@ -209,6 +213,9 @@ export function loadGameSettings() {
     }
     if (typeof parsed.markOnSwap === "boolean") {
       gameSettings.markOnSwap = parsed.markOnSwap;
+    }
+    if (parsed.wordHintMode != null) {
+      gameSettings.wordHintMode = normalizeWordHintMode(parsed.wordHintMode);
     }
     if (typeof parsed.markButtonEnabled === "boolean") {
       gameSettings.markButtonEnabled = parsed.markButtonEnabled;
@@ -293,6 +300,7 @@ export function persistGameSettings() {
         markButtonEnabled: gameSettings.markButtonEnabled,
         swapButtonMode: gameSettings.swapButtonMode,
         markOnSwap: gameSettings.markOnSwap,
+        wordHintMode: gameSettings.wordHintMode,
         animationSpeedTier: gameSettings.animationSpeedTier,
         materialAnimationEnabled: gameSettings.materialAnimationEnabled,
         hapticsEnabled: gameSettings.hapticsEnabled,
@@ -389,6 +397,17 @@ export function setMarkOnSwap(enabled) {
   persistGameSettings();
 }
 
+/** @returns {import('./wordHintMode.js').WordHintMode} */
+export function getWordHintMode() {
+  return normalizeWordHintMode(gameSettings.wordHintMode);
+}
+
+/** @param {import('./wordHintMode.js').WordHintMode} mode */
+export function setWordHintMode(mode) {
+  gameSettings.wordHintMode = normalizeWordHintMode(mode);
+  persistGameSettings();
+}
+
 /** @returns {AnimationSpeedTier} */
 export function getAnimationSpeedTier() {
   return normalizeAnimationSpeedTier(gameSettings.animationSpeedTier);
@@ -477,6 +496,14 @@ export function setHighRiskSpellConfirm(enabled) {
   persistGameSettings();
 }
 
+/** @typedef {'left' | 'right'} ConfirmButtonSide */
+
+/** @type {readonly { id: ConfirmButtonSide; label: string }[]} */
+export const CONFIRM_BUTTON_SIDE_OPTIONS = [
+  { id: "left", label: "左侧" },
+  { id: "right", label: "右侧" },
+];
+
 /** @returns {boolean} */
 export function getSwapConfirmButtonSideEnabled() {
   return gameSettings.swapConfirmButtonSide === true;
@@ -485,6 +512,17 @@ export function getSwapConfirmButtonSideEnabled() {
 /** @param {boolean} enabled */
 export function setSwapConfirmButtonSide(enabled) {
   gameSettings.swapConfirmButtonSide = Boolean(enabled);
+  persistGameSettings();
+}
+
+/** @returns {ConfirmButtonSide} */
+export function getConfirmButtonSide() {
+  return gameSettings.swapConfirmButtonSide === true ? "right" : "left";
+}
+
+/** @param {ConfirmButtonSide} side */
+export function setConfirmButtonSide(side) {
+  gameSettings.swapConfirmButtonSide = side === "right";
   persistGameSettings();
 }
 

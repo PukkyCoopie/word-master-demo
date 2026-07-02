@@ -45,6 +45,10 @@ function stripSubmitTileAt(ctx, index, scoringTile) {
   if (deckCard && typeof deckCard === "object" && !targets.includes(deckCard)) {
     stripEnhancementsFromTileOrDeckCard(deckCard);
   }
+  const gridTile = real ?? scoringTile;
+  if (gridTile && typeof gridTile === "object") {
+    ctx.patchGridPlaceholderFreezeFromTile?.(gridTile);
+  }
 }
 
 /** @type {import('../treasureTypes.js').TreasureDef} */

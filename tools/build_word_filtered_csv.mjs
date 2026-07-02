@@ -19,7 +19,13 @@ import readline from "node:readline";
  * - drop only when all inference paths fail.
  * - handle translation wrapped in quotes and containing commas.
  * - handle multi-pos / multi-sense entries where translation is split by "\n" or "\\n".
+ * - when pos is known but a gloss line lacks a leading "x." prefix, inject it (scheme A).
  */
+
+import {
+	materializeTranslationWithPosPrefix,
+	normalizePosToken,
+} from "./dictionary_pos_prefix.mjs";
 
 const PROJECT = new URL("../", import.meta.url); // tools/ -> project root
 const INPUT = new URL("data/dictionary/word.csv", PROJECT);
@@ -73,32 +79,6 @@ function csvEscape(s) {
 		return `"${s.replace(/"/g, '""')}"`;
 	}
 	return s;
-}
-
-const POS_TOKEN_MAP = new Map([
-	["n", "n"],
-	["v", "v"],
-	["vi", "vi"],
-	["vt", "vt"],
-	["adj", "adj"],
-	["a", "adj"], // ECDICT 常用 a. 表示 adjective
-	["adv", "adv"],
-	["prep", "prep"],
-	["conj", "conj"],
-	["pron", "pron"],
-	["num", "num"],
-	["art", "art"],
-	["interj", "interj"],
-	["aux", "aux"],
-	["abbr", "abbr"],
-	["det", "det"],
-	["int", "interj"],
-]);
-
-/** 已知词性映射到统一缩写；未收录的按原样保留（小写、去尾点） */
-function normalizePosToken(raw) {
-	const t = raw.toLowerCase().replace(/\.$/, "");
-	return POS_TOKEN_MAP.get(t) ?? t;
 }
 
 /** 从释义中推断词性：凡以「字母+点」开头的均视为词性，无论是否在映射表中 */
@@ -202,7 +182,8 @@ async function main() {
 			continue;
 		}
 
-		outStream.write(`${word},${csvEscape(pos)},${csvEscape(translation)}\n`);
+		const translationOut = materializeTranslationWithPosPrefix(translation, pos);
+		outStream.write(`${word},${csvEscape(pos)},${csvEscape(translationOut)}\n`);
 		kept += 1;
 	}
 

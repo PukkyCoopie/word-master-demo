@@ -31,7 +31,7 @@ export const BOSS_BY_SLUG = Object.freeze({
   },
   the_arm: {
     slug: "the_arm",
-    nameZh: "折臂",
+    nameZh: "胳膊",
     scoreBaseMult: 2,
     uiDescription: "成功计分后，本词的词长等级降低一级",
     kind: "normal",

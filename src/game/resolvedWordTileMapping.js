@@ -1,5 +1,6 @@
 import { getLetterQMode } from "../settings/gameSettings.js";
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
+import { slotPatternAlignsWithResolvedWord } from "./quSlotSubmitPattern.js";
 
 /** 与 {@link import("../composables/useScoring.js").isWildcardMaterialTile} 一致，避免循环依赖。 */
 export function isWildcardQuestionTile(tile) {
@@ -88,15 +89,24 @@ export function candidateMatchesWildcardPattern(
 }
 
 /**
- * 拼词 pattern（槽位串）与已解析整词是否对齐（等长或 Qu 万能槽位对齐）。
+ * 拼词 pattern（槽位串）与已解析整词是否对齐（等长、Qu 槽位可变宽、或 Qu 万能槽位对齐）。
  * @param {string} pattern
  * @param {string | null | undefined} resolved
  * @param {string} [wildcardChar]
+ * @param {boolean[] | null | undefined} [quSlotMask]
  */
-export function patternAlignsWithResolvedWord(pattern, resolved, wildcardChar = "?") {
+export function patternAlignsWithResolvedWord(
+  pattern,
+  resolved,
+  wildcardChar = "?",
+  quSlotMask = null,
+) {
   const p = String(pattern ?? "");
   const r = String(resolved ?? "").toLowerCase();
   if (!p || !r) return false;
+  if (quSlotMask?.some(Boolean)) {
+    return slotPatternAlignsWithResolvedWord(p, r, quSlotMask, wildcardChar);
+  }
   if (p.length === r.length) return true;
   return candidateMatchesWildcardPattern(p, r, wildcardChar, "qu");
 }

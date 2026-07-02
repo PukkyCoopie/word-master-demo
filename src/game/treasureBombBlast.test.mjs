@@ -33,3 +33,9 @@ test("炸弹爆炸：禁售配饰保护邻槽", () => {
   assert.deepEqual(resolveBombAdjacentVictimSlotIndices(slots, 1, noSell), []);
   assert.deepEqual(resolveBombBlastDestroySlotIndices(slots, 1, noSell), [1]);
 });
+
+test("炸弹爆炸：禁售配饰保护炸弹本体时整次爆炸取消", () => {
+  const slots = [{ treasureId: "1" }, { treasureId: "29" }, { treasureId: "2" }];
+  const bombNoSell = (ix) => ix === 1;
+  assert.deepEqual(resolveBombBlastDestroySlotIndices(slots, 1, bombNoSell), []);
+});

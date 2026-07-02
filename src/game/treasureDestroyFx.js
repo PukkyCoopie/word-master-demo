@@ -10,7 +10,6 @@ import { resolveBombAdjacentVictimSlotIndices, resolveBombBlastDestroySlotIndice
  * @param {{
  *   findOwnedTreasureSlotIndex: (treasureId: string) => number,
  *   ownedTreasureHasNoSellAccessory: (slot: object | null | undefined) => boolean,
- *   treasureBypassesNoSellForSelfDestruct: (treasureId: string) => boolean,
  *   isTreasureBarSlotVisible: (slotIndex: number) => boolean,
  *   getOwnedTreasureSlotEl: (slotIndex: number) => HTMLElement | null,
  *   getOwnedTreasures: () => (object | null)[],
@@ -98,10 +97,7 @@ export function createTreasureDestroyFx(deps) {
     const owned = deps.getOwnedTreasures();
     const slot = owned[ix];
     const tid = String(treasureId ?? slot?.treasureId ?? "");
-    const slotTid = String(slot?.treasureId ?? "");
-    const selfDestructDespiteNoSell =
-      tid && slotTid && tid === slotTid && deps.treasureBypassesNoSellForSelfDestruct(tid);
-    if (deps.ownedTreasureHasNoSellAccessory(slot) && !selfDestructDespiteNoSell) return;
+    if (deps.ownedTreasureHasNoSellAccessory(slot)) return;
     if (!deps.isTreasureBarSlotVisible(ix)) {
       deps.removeAndCompactOwnedTreasureAtIndex(ix);
       deps.scheduleRunAutoSave();

@@ -2,7 +2,7 @@ import { isDeveloperModeEnabled } from "../dev/developerMode.js";
 import { RUN_PRESET_DEFINITIONS } from "./runPresetDefinitions.js";
 import { normalizeRunPresetId } from "./runPresetDefinitions.js";
 
-export const INITIAL_UNLOCKED_PRESET_COUNT = 2;
+export const INITIAL_UNLOCKED_PRESET_COUNT = 3;
 
 /**
  * @param {string} presetId

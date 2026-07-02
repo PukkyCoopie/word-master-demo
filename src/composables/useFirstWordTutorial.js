@@ -8,15 +8,17 @@ import {
   markFirstWordTutorialCompleted,
   getActiveSaveSlotIndex,
 } from "../profile/playerProfile.js";
+import { isCasualTutorialExperienceForSlot } from "../profile/slotExperienceMode.js";
 
 /**
- * @typedef {'idle' | 'select' | 'submit' | 'scoring' | 'scoreIntro' | 'retry' | 'awaitShop' | 'shopIntro' | 'shopComplete' | 'fading' | 'done'} FirstWordTutorialPhase
+ * @typedef {'idle' | 'select' | 'submit' | 'scoring' | 'scoreIntro' | 'retry' | 'retryHint' | 'awaitShop' | 'shopIntro' | 'shopComplete' | 'fading' | 'done'} FirstWordTutorialPhase
  */
 
 /**
  * @param {() => number} [resolveSaveSlotIndex]
+ * @param {() => string | null | undefined} [resolveRunPresetId]
  */
-export function useFirstWordTutorial(resolveSaveSlotIndex) {
+export function useFirstWordTutorial(resolveSaveSlotIndex, resolveRunPresetId) {
   function resolveSlotIndex() {
     const ix = resolveSaveSlotIndex?.();
     return typeof ix === "number" && Number.isFinite(ix) ? ix : getActiveSaveSlotIndex();
@@ -35,6 +37,7 @@ export function useFirstWordTutorial(resolveSaveSlotIndex) {
       phase.value === "submit" ||
       phase.value === "scoreIntro" ||
       phase.value === "retry" ||
+      phase.value === "retryHint" ||
       phase.value === "shopIntro" ||
       phase.value === "shopComplete",
   );
@@ -52,7 +55,8 @@ export function useFirstWordTutorial(resolveSaveSlotIndex) {
     () =>
       phase.value === "select" ||
       phase.value === "submit" ||
-      phase.value === "scoreIntro",
+      phase.value === "scoreIntro" ||
+      phase.value === "retryHint",
   );
 
   const submitHighlightReady = computed(() => phase.value === "submit");
@@ -62,6 +66,7 @@ export function useFirstWordTutorial(resolveSaveSlotIndex) {
       phase.value === "select" ||
       phase.value === "scoreIntro" ||
       phase.value === "retry" ||
+      phase.value === "retryHint" ||
       phase.value === "shopIntro" ||
       phase.value === "shopComplete",
   );
@@ -74,6 +79,7 @@ export function useFirstWordTutorial(resolveSaveSlotIndex) {
     if (phase.value === "select") return "拼写你的第一个单词";
     if (phase.value === "scoreIntro") return "达到分数要求即可过关";
     if (phase.value === "retry") return "试着再拼一个单词";
+    if (phase.value === "retryHint") return "点击提示按钮拼出第二个单词";
     if (phase.value === "shopIntro") return "购买一个宝藏";
     if (phase.value === "shopComplete") return "教程结束，开始游戏吧！";
     return "";
@@ -118,11 +124,16 @@ export function useFirstWordTutorial(resolveSaveSlotIndex) {
 
   function onScoreIntroContinue() {
     if (phase.value !== "scoreIntro") return;
-    phase.value = "retry";
+    phase.value = isCasualTutorialExperienceForSlot(
+      resolveSlotIndex(),
+      resolveRunPresetId?.(),
+    )
+      ? "retryHint"
+      : "retry";
   }
 
   function onSecondWordSubmitted() {
-    if (phase.value !== "retry") return;
+    if (phase.value !== "retry" && phase.value !== "retryHint") return;
     phase.value = "awaitShop";
   }
 

@@ -103,6 +103,7 @@ const gameTreasureBarRowRef = ref(null);
 const letterGridWrapRef = ref(null);
 const letterGridRef = ref(null);
 const deckBtnRef = ref(null);
+const hintBtnRef = ref(null);
 const submitBookmarkRef = ref(null);
 const submitBtnRef = ref(null);
 
@@ -118,6 +119,7 @@ defineExpose({
   letterGridWrapRef,
   letterGridRef,
   deckBtnRef,
+  hintBtnRef,
   submitBookmarkRef,
   submitBtnRef,
 });
@@ -440,6 +442,23 @@ defineExpose({
           </div>
         </div>
         <div class="grid-deck-aux-row">
+          <button
+            v-if="pv.showHintButtonInRun"
+            ref="hintBtnRef"
+            type="button"
+            class="hint-action-bookmark"
+            :class="{ 'hint-action-bookmark--muted': pv.hintButtonDimmed }"
+            :title="pv.hintButtonTitle"
+            :aria-label="pv.hintButtonTitle"
+            @click="pv.onHintButtonClick"
+          >
+            <span class="hint-action-bookmark__icon" aria-hidden="true">
+              <i class="ri-lightbulb-line"></i>
+            </span>
+            <span class="hint-action-bookmark__count action-label-yellow" aria-hidden="true">{{
+              pv.hintRemaining
+            }}</span>
+          </button>
           <button
             ref="deckBtnRef"
             type="button"

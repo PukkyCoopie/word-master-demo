@@ -22,6 +22,9 @@ function buildRunEndDiscoveryNav(item, allItems, kind) {
   );
 }
 
+/** 结算发现项预览：只读说明，不展示价签/钱包/购买 */
+const RUN_END_TREASURE_PREVIEW_FLAGS = Object.freeze({ showShelfPrice: false });
+
 /**
  * @param {object} params
  * @param {import('./runCollectionDiscoveries.js').RunDiscoveryLog | null | undefined} params.runDiscoveryLog
@@ -43,6 +46,7 @@ export function handleRunEndDiscoverySelect(params) {
       treasure,
       originRect,
       previewNav: buildRunEndDiscoveryNav(item, allItems, "run-end-treasure"),
+      ...RUN_END_TREASURE_PREVIEW_FLAGS,
     });
     return;
   }
@@ -54,6 +58,7 @@ export function handleRunEndDiscoverySelect(params) {
       treasure,
       originRect,
       previewNav: buildRunEndDiscoveryNav(item, allItems, "run-end-treasure"),
+      ...RUN_END_TREASURE_PREVIEW_FLAGS,
     });
     return;
   }
@@ -65,6 +70,7 @@ export function handleRunEndDiscoverySelect(params) {
       treasure,
       originRect,
       previewNav: buildRunEndDiscoveryNav(item, allItems, "run-end-treasure"),
+      ...RUN_END_TREASURE_PREVIEW_FLAGS,
     });
     return;
   }
@@ -79,6 +85,7 @@ export function handleRunEndDiscoverySelect(params) {
       treasure,
       originRect,
       previewNav: buildRunEndDiscoveryNav(item, allItems, "run-end-treasure"),
+      ...RUN_END_TREASURE_PREVIEW_FLAGS,
     });
     return;
   }

@@ -64,7 +64,6 @@ export function wireTreasureDestroyFx(deps) {
     treasureDestroyFxRef,
     findOwnedTreasureSlotIndex,
     ownedTreasureHasNoSellAccessory,
-    treasureBypassesNoSellForSelfDestruct,
     isTreasureBarSlotVisible,
     treasureInventoryCtrl,
     ownedTreasures,
@@ -85,7 +84,6 @@ export function wireTreasureDestroyFx(deps) {
   treasureDestroyFxRef.current = createTreasureDestroyFx({
     findOwnedTreasureSlotIndex,
     ownedTreasureHasNoSellAccessory,
-    treasureBypassesNoSellForSelfDestruct,
     isTreasureBarSlotVisible,
     getOwnedTreasureSlotEl: treasureInventoryCtrl.getSlotElement,
     getOwnedTreasures: () => ownedTreasures.value,

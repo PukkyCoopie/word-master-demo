@@ -1,6 +1,8 @@
 import { computed, ref, watch } from "vue";
 import { buildWordDefinitionPreview } from "../../dictionary/parseTranslationLines.js";
 import { gameSettings } from "../../settings/gameSettings.js";
+import { getSlotExperienceMode } from "../../profile/slotExperienceMode.js";
+import { shouldShowWordDefinitionDuringTutorial } from "../../tutorial/firstWordTutorialCasualFlow.js";
 import {
   notifyOwnedTreasuresOnWordDefinitionOpenAttempt,
   resolveWordDefinitionTriggerMode,
@@ -11,6 +13,8 @@ import {
  *
  * @param {Object} options
  * @param {import('vue').Ref<boolean>} options.firstWordTutorialActive
+ * @param {() => string | null | undefined} [options.getFirstWordTutorialPhase]
+ * @param {() => number} [options.getSaveSlotIndex]
  * @param {import('vue').Ref<boolean> | import('vue').ComputedRef<boolean>} options.dictionaryReady
  * @param {import('vue').ComputedRef<string | null>} options.resolvedWordForSubmit
  * @param {import('vue').ComputedRef<string>} options.effectiveWordForSubmit
@@ -29,9 +33,16 @@ export function useWordDefinitionController(options) {
     return mode === "off" || mode === "button" || mode === "definition" ? mode : "definition";
   });
 
+  function allowWordDefinitionDuringTutorial() {
+    if (!options.firstWordTutorialActive.value) return true;
+    const phase = options.getFirstWordTutorialPhase?.() ?? null;
+    const slotIx = options.getSaveSlotIndex?.() ?? 0;
+    return shouldShowWordDefinitionDuringTutorial(phase, getSlotExperienceMode(slotIx));
+  }
+
   const wordDefinitionZoneVisible = computed(
     () =>
-      !options.firstWordTutorialActive.value &&
+      allowWordDefinitionDuringTutorial() &&
       wordDefinitionDisplayMode.value !== "off" &&
       options.dictionaryReady.value &&
       options.effectiveWordForSubmit.value.length > 0,
@@ -66,7 +77,7 @@ export function useWordDefinitionController(options) {
   const wordDefinitionExtraCount = computed(() => wordDefinitionPreviewBundle.value.extraCount);
 
   const layerOpenForPlayfield = computed(
-    () => wordDefinitionLayerOpen.value && !options.firstWordTutorialActive.value,
+    () => wordDefinitionLayerOpen.value && allowWordDefinitionDuringTutorial(),
   );
 
   function openWordDefinitionLayer() {

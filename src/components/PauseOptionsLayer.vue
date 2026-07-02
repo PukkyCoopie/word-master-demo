@@ -6,60 +6,91 @@
       :style="portalStackStyle"
       role="dialog"
       aria-modal="true"
-      :aria-labelledby="titleId"
+      :aria-labelledby="showEndGameConfirm ? confirmTitleId : titleId"
       @click.self="onBackdropSelfClick"
     >
       <div class="pause-options-card" @click.stop>
-        <h2 :id="titleId" class="pause-options-title">选项</h2>
+        <template v-if="showEndGameConfirm">
+          <h2 :id="confirmTitleId" class="pause-options-title">是否结束游戏？</h2>
+          <div class="pause-options-actions">
+            <button
+              type="button"
+              class="pause-options-btn pause-options-btn--end-game"
+              @click="confirmEndGame"
+            >
+              确定
+            </button>
+            <button type="button" class="pause-options-btn pause-options-btn--secondary" @click="cancelEndGame">
+              取消
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <h2 :id="titleId" class="pause-options-title">选项</h2>
 
-        <div class="pause-options-actions">
-          <button type="button" class="pause-options-btn pause-options-btn--primary" @click="$emit('continue')">
-            继续游戏
-          </button>
-          <button type="button" class="pause-options-btn pause-options-btn--new-run" @click="$emit('new-run')">
-            开始新的一局
-          </button>
-          <button type="button" class="pause-options-btn pause-options-btn--settings" @click="$emit('settings')">
-            设置
-          </button>
-          <button
-            v-if="showDeveloperEntry"
-            type="button"
-            class="pause-options-btn pause-options-btn--dev"
-            @click="$emit('developer-options')"
-          >
-            开发者选项
-          </button>
-          <button type="button" class="pause-options-btn pause-options-btn--secondary" @click="$emit('main-menu')">
-            返回主菜单
-          </button>
-        </div>
+          <div class="pause-options-actions">
+            <button
+              v-if="showEndGame"
+              type="button"
+              class="pause-options-btn pause-options-btn--end-game"
+              @click="requestEndGame"
+            >
+              结束游戏
+            </button>
+            <button type="button" class="pause-options-btn pause-options-btn--primary" @click="$emit('continue')">
+              继续游戏
+            </button>
+            <button type="button" class="pause-options-btn pause-options-btn--new-run" @click="$emit('new-run')">
+              开始新的一局
+            </button>
+            <button type="button" class="pause-options-btn pause-options-btn--settings" @click="$emit('settings')">
+              设置
+            </button>
+            <button
+              v-if="showDeveloperEntry"
+              type="button"
+              class="pause-options-btn pause-options-btn--dev"
+              @click="$emit('developer-options')"
+            >
+              开发者选项
+            </button>
+            <button type="button" class="pause-options-btn pause-options-btn--secondary" @click="$emit('main-menu')">
+              返回主菜单
+            </button>
+          </div>
+        </template>
       </div>
     </div>
   </Transition>
 </template>
 
 <script setup>
-import { computed, inject, watch } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 import { scheduleOverlayDismiss, scheduleOverlayPresent } from "../platform/haptics.js";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
+  showEndGame: { type: Boolean, default: false },
   portalStackStyle: { type: Object, default: () => ({}) },
 });
 
-const emit = defineEmits(["continue", "new-run", "settings", "developer-options", "main-menu"]);
+const emit = defineEmits(["continue", "end-game", "new-run", "settings", "developer-options", "main-menu"]);
 
 const developerModeEnabled = inject("developerModeEnabled", null);
 const showDeveloperEntry = computed(() => developerModeEnabled?.value === true);
 
 const titleId = "pause-options-title";
+const confirmTitleId = "pause-options-end-game-confirm-title";
+const showEndGameConfirm = ref(false);
 const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
 
 watch(
   () => props.open,
   (isOpen, wasOpen) => {
+    if (!isOpen) {
+      showEndGameConfirm.value = false;
+    }
     if (isOpen) {
       backdropSelfCloseGuard.arm();
       scheduleOverlayPresent(280);
@@ -69,7 +100,23 @@ watch(
   },
 );
 
+function requestEndGame() {
+  showEndGameConfirm.value = true;
+}
+
+function confirmEndGame() {
+  emit("end-game");
+}
+
+function cancelEndGame() {
+  showEndGameConfirm.value = false;
+}
+
 function onBackdropSelfClick() {
+  if (showEndGameConfirm.value) {
+    cancelEndGame();
+    return;
+  }
   backdropSelfCloseGuard.onBackdropSelfClick(() => emit("continue"));
 }
 </script>
@@ -133,6 +180,10 @@ function onBackdropSelfClick() {
   pointer-events: none;
   background: transparent;
   transition: background 0.12s ease;
+}
+
+.pause-options-btn--end-game {
+  background: #c44a4a;
 }
 
 .pause-options-btn--primary {

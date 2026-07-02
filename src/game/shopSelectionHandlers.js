@@ -1,5 +1,9 @@
 import { createPreviewNavGroupFromItems } from "../preview/previewGroupNav.js";
-import { offerFlyOriginRectFromEl, packDeckOfferFlyOriginRectFromEl } from "./offerFlyOrigin.js";
+import {
+  offerFlyOriginRectFromEl,
+  shopShelfFlyOriginRectFromEl,
+  packDeckOfferFlyOriginRectFromEl,
+} from "./offerFlyOrigin.js";
 
 /**
  * @typedef {Object} ShopSelectionHandlersDeps
@@ -54,7 +58,7 @@ export function createShopSelectionHandlers(deps) {
       treasure: payload.treasure,
       originRect: deckOffer
         ? packDeckOfferFlyOriginRectFromEl(root)
-        : offerFlyOriginRectFromEl(root),
+        : shopShelfFlyOriginRectFromEl(root),
       previewNav: createPreviewNavGroupFromItems(
         shopOffers.value,
         (o) => o.offerInstanceId === payload.treasure.offerInstanceId,
@@ -71,7 +75,7 @@ export function createShopSelectionHandlers(deps) {
     presentTreasureDetail({
       kind: "offer",
       treasure: payload.treasure,
-      originRect: offerFlyOriginRectFromEl(root),
+      originRect: shopShelfFlyOriginRectFromEl(root),
       previewNav: createPreviewNavGroupFromItems(
         buildShopVoucherPreviewNavItems(),
         (o) => o.offerInstanceId === payload.treasure.offerInstanceId,
@@ -87,7 +91,7 @@ export function createShopSelectionHandlers(deps) {
     presentTreasureDetail({
       kind: "offer",
       treasure: payload.treasure,
-      originRect: offerFlyOriginRectFromEl(root),
+      originRect: shopShelfFlyOriginRectFromEl(root),
       previewNav: createPreviewNavGroupFromItems(
         packOffers.value,
         (o) => o.offerInstanceId === payload.treasure.offerInstanceId,

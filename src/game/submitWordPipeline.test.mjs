@@ -41,6 +41,7 @@ test("buildEffectiveWordPartsForSubmit: joins letters and vowel mask", () => {
   });
   assert.equal(parts.word, "c");
   assert.deepEqual(parts.vowelAltMask, [false]);
+  assert.deepEqual(parts.quSlotMask, [false]);
 });
 
 test("resolveSubmitWordInput: empty and invalid", () => {

@@ -22,8 +22,13 @@ import { runLengthDowngradeShopLikeFx } from "../utils/runLengthDowngradeShopLik
 import { runInGameRarityUpgradeShopLikeFx } from "../utils/runInGameRarityUpgradeShopLikeFx.js";
 import { runClearWinLengthUpgradeShopLikeFx } from "../utils/runClearWinLengthUpgradeShopLikeFx.js";
 import { resolvePresentationBossTileDebuffed } from "../game/bossTileDebuff.js";
-import { triggerHaptic } from "../platform/haptics.js";
+import { scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
+import { pickRandomInRunSpellId, IN_RUN_RANDOM_SPELL_EXCLUDE } from "../spells/spellInRunPool.js";
+import { buildSpellPoolExcludeIds } from "../spells/spellPoolEligibility.js";
 import { useFirstWordTutorialController } from "./controllers/useFirstWordTutorialController.js";
+import { shouldApplyTutorialGameRefillAfterPlay } from "../tutorial/firstWordTutorialCasualFlow.js";
+import { applyTutorialGameLettersAfterPlaySubmit } from "../tutorial/firstWordTutorial.js";
+import { getSlotExperienceMode } from "../profile/slotExperienceMode.js";
 import { useWordSlotPresentation } from "./controllers/useWordSlotPresentation.js";
 import { usePlayfieldController } from "./controllers/usePlayfieldController.js";
 import { useGridDiscardController } from "./controllers/useGridDiscardController.js";
@@ -102,6 +107,7 @@ export function useGamePanelSessionAssembly(input) {
     ceruleanBellSlotIndex,
     deck,
     deckBtnRef,
+    hintBtnRef,
     deckCount,
     deckPreview,
     dictFatalError,
@@ -132,6 +138,7 @@ export function useGamePanelSessionAssembly(input) {
     refreshGridTileBaseScoresFromLevels,
     remainingRemovals,
     remainingWords,
+    hintRemaining,
     remapTileFromRawLetter,
     removeDeckCardByUid,
     removeDeckCardByUidAndNotify,
@@ -513,6 +520,7 @@ async function onPlayfieldCeruleanBellNewGridLock(marked) {
 
 const firstWordTutorialCtrl = useFirstWordTutorialController({
   getSaveSlotIndex: () => props.saveSlotIndex,
+  getRunPresetId: () => runPresetId.value,
   getFirstWordTutorialEnabled: () => props.firstWordTutorial,
   getRunDifficultyIndex: () => runDifficultyIndex.value,
   getLevelIndex: () => levelIndex.value,
@@ -541,9 +549,11 @@ const firstWordTutorialCtrl = useFirstWordTutorialController({
     getWordSlotsWrap: () => wordSlotsWrapRef.value,
     getSubmitBtn: () => submitBtnRef.value,
     getSubmitBookmark: () => submitBookmarkRef.value,
+    getHintBtn: () => hintBtnRef.value,
     getRunHeaderScoresRef: () => gamePanelPlayfieldRef.value?.runHeaderBarRef?.scoresHeaderRef,
     getShopTreasureOfferEl: () => shopPanelRef.value?.getFirstGuaranteedTreasureOfferEl?.(),
   },
+  getHintWordAlreadyActive: () => playfieldBridge.ctrl?.hintWordAlreadyActive?.value === true,
   getLayerHost: () => firstWordTutorialLayerRef.value,
 });
 
@@ -561,6 +571,20 @@ const isShopTutorialBlockedShopInteraction = firstWordTutorialCtrl.isShopTutoria
 const firstWordTutorialGridGlow = firstWordTutorialCtrl.gridGlow;
 const firstWordTutorialSubmitHighlightReady = firstWordTutorialCtrl.submitHighlightReady;
 const firstWordTutorialTreasureDetailStackZFloor = firstWordTutorialCtrl.treasureDetailStackZFloor;
+
+/** casual 教程：play 提交补牌后强制落下 GAME */
+function applySubmitRefillForTutorial(options = {}) {
+  applySubmitRefill(options);
+  if (
+    shouldApplyTutorialGameRefillAfterPlay(
+      firstWordTutorialPhase.value,
+      getSlotExperienceMode(props.saveSlotIndex),
+      runPresetId.value,
+    )
+  ) {
+    applyTutorialGameLettersAfterPlaySubmit(grid.value, touchGrid, rarityLevelsByRarity.value);
+  }
+}
 
 const wordSlotPresentation =
   injectedWordSlotPresentation ??
@@ -598,8 +622,17 @@ const playfieldController = usePlayfieldController({
     touchGrid,
     ensureCeruleanBellMarkedOnGrid,
     findCeruleanBellLockedTileOnGrid,
+    hintRemaining,
     ROWS,
     COLS,
+  },
+  hint: {
+    buildBossWildcardResolveContext: () => bossMechanicsCtrl.buildBossWildcardResolveContext(),
+    rarityLevelsByRarity,
+    runPresetId,
+    spellCountsByLength,
+    judgedLengthTableLenForRun,
+    lengthLevelsByLength,
   },
   dom: {
     getLetterGridRef: () => letterGridRef.value,
@@ -613,6 +646,7 @@ const playfieldController = usePlayfieldController({
     scoringAnimating,
     gridRefillAnimating,
     dictFatalError,
+    dictionaryReady,
     suppressTilePrimaryClick,
     wordSelectionSwapBusy,
   },
@@ -900,11 +934,13 @@ const submitController = useSubmitWordController({
     snapshotGridCellsByTileId,
     runSlotAndGridLeaveAnimation: discardController.runSlotAndGridLeaveAnimation,
     setLastWordFromSubmit,
-    applySubmitRefill,
+    applySubmitRefill: applySubmitRefillForTutorial,
     applyHookBossAfterSubmit,
     tryCeruleanBellFlyInAfterGridStable: playfieldController.tryCeruleanBellFlyInAfterGridStable,
     updateSlotPositions: playfieldController.updateSlotPositions,
     ensureSlotRafRunning: playfieldController.ensureSlotRafRunning,
+    refreshWordHintAfterGridStable: playfieldController.refreshWordHintAfterGridStable,
+    notifyWordSubmitStarted: playfieldController.notifyWordSubmitStarted,
     beginSubmitWordLeaveHide: playfieldController.beginSubmitWordLeaveHide,
     endSubmitWordLeaveHide: playfieldController.endSubmitWordLeaveHide,
     clearWordSlotGsapAfterSubmitLeave: playfieldController.clearWordSlotGsapAfterSubmitLeave,
@@ -1035,6 +1071,9 @@ const submitController = useSubmitWordController({
     openRunEnd,
     openStageSettlement,
     getWordDefinition,
+    tryConsumeHintOnSuccessfulSubmit: (word) =>
+      playfieldController.tryConsumeHintOnSuccessfulSubmit(word),
+    notifyWordSubmitStarted: () => playfieldController.notifyWordSubmitStarted(),
     parseTranslationLines,
     setSettlementSnapshot(snapshot) {
       settlementSnapshot.value = snapshot;
@@ -1141,6 +1180,7 @@ playfieldController.initViewContext({
     showDeckLayer.value = true;
   },
   remainingWords,
+  hintRemaining,
   submitDeltaKey,
   canRemove: discardController.canRemove,
   discardBtnOverLimit: discardController.discardBtnOverLimit,
@@ -1319,7 +1359,12 @@ const packPickController = usePackPickController({
     treasureOriginRectFromEl,
     runTreasurePackOpenPrecursor,
     findOwnedTreasureSlotIndex,
-    pickRandomInRunSpellId: () => pickRandomInRunSpellId(runRandom, [...IN_RUN_RANDOM_SPELL_EXCLUDE]),
+    pickRandomInRunSpellId: () =>
+      pickRandomInRunSpellId(runRandom, [
+        ...IN_RUN_RANDOM_SPELL_EXCLUDE,
+        ...shopPhase.spellPoolExcludeIdsWhenBonusVoucherActive(),
+        ...buildSpellPoolExcludeIds(shopPhase.buildSpellPoolEligibilityCountsForRun()),
+      ]),
   },
 });
 

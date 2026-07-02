@@ -97,6 +97,12 @@ import { parseProbabilityFraction } from "./treasureProbability.js";
  */
 
 /**
+ * @typedef {Object} TreasureDescHintDelta
+ * @property {'hintDelta'} type
+ * @property {string} v  如 "+2"
+ */
+
+/**
  * @typedef {Object} TreasureDescEntityInline
  * @property {'entityInline'} type
  * @property {'voucher' | 'wildcardTile' | 'treasureSlot'} kind
@@ -104,7 +110,7 @@ import { parseProbabilityFraction } from "./treasureProbability.js";
  */
 
 /**
- * @typedef {TreasureDescText | TreasureDescRarity | TreasureDescMult | TreasureDescScore | TreasureDescMoney | TreasureDescProb | TreasureDescBreak | TreasureDescGain | TreasureDescConcept | TreasureDescGainBlock | TreasureDescRiskBlock | TreasureDescRiskText | TreasureDescStruckText | TreasureDescHandDelta | TreasureDescDiscardDelta | TreasureDescEntityInline} TreasureDescSegment
+ * @typedef {TreasureDescText | TreasureDescRarity | TreasureDescMult | TreasureDescScore | TreasureDescMoney | TreasureDescProb | TreasureDescBreak | TreasureDescGain | TreasureDescConcept | TreasureDescGainBlock | TreasureDescRiskBlock | TreasureDescRiskText | TreasureDescStruckText | TreasureDescHandDelta | TreasureDescDiscardDelta | TreasureDescHintDelta | TreasureDescEntityInline} TreasureDescSegment
  * 导出类型供 JSDoc 引用（treasureTypes.js）
  */
 
@@ -197,6 +203,11 @@ export function handDelta(v) {
 /** @param {string} v 如 "+1" / "-1" */
 export function discardDelta(v) {
   return /** @type {TreasureDescDiscardDelta} */ ({ type: "discardDelta", v: String(v ?? "").trim() });
+}
+
+/** @param {string} v 如 "+2" */
+export function hintDelta(v) {
+  return /** @type {TreasureDescHintDelta} */ ({ type: "hintDelta", v: String(v ?? "").trim() });
 }
 
 /**

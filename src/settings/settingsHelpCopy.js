@@ -27,7 +27,7 @@ export const SETTINGS_HELP_COPY = Object.freeze({
   },
   confirmButtonSide: {
     title: "",
-    paragraphs: ["确定按钮默认在左侧，开启此项后，将改为显示在右侧。"],
+    paragraphs: ["横向确认/取消条中，确定按钮显示在左侧或右侧。"],
     demoVariant: "",
   },
 });

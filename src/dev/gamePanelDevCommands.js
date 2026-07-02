@@ -8,6 +8,10 @@ import {
   CHAPTER_1_BOSS_LEVEL_INDEX,
 } from "./ceruleanBellDevScenario.js";
 import { applyPagerOwnedTreasure } from "./pagerDevScenario.js";
+import {
+  applyMouthQuProblemOwnedTreasures,
+  applyProblemQuRowToGrid,
+} from "./mouthQuProblemDevScenario.js";
 import { applyEctoplasmDevOwnedTreasures } from "./ectoplasmDevScenario.js";
 import {
   applyPromoGameplayOwnedTreasures,
@@ -145,6 +149,22 @@ export function createGamePanelDevCommands(deps) {
     await deps.nextTick();
     await finishScreenshotDevGridVisual();
     console.log("[DEV] 寻呼机测试局：槽位 1 已装备寻呼机。提交单词触发翻译测验。");
+  }
+
+  async function startMouthQuProblemDevTest() {
+    deps.refs.mouthQuProblemDevScenarioActive.value = true;
+    applyMouthQuProblemOwnedTreasures(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
+    const levelDef = deps.getCurrentLevel() ?? deps.getRunLevelAtIndex(deps.refs.levelIndex.value);
+    await deps.resetLevelAfterTreasurePrep(levelDef);
+    await deps.nextTick();
+    if (typeof deps.getGrid === "function") {
+      applyProblemQuRowToGrid(deps.getGrid(), deps.ROWS, deps.COLS);
+      deps.touchGrid?.();
+    }
+    await finishScreenshotDevGridVisual();
+    console.log(
+      "[DEV] Qu+嘴+试管测试：设置 Qu 模式，槽位 [嘴][试管]，首行 problem（Qu→p）。按顺序选格拼词后应解析为 problem。",
+    );
   }
 
   async function startEctoplasmDevTest() {
@@ -391,6 +411,7 @@ export function createGamePanelDevCommands(deps) {
     dev.startAllIceDevTest = () => startAllIceDevTest();
     dev.startCeruleanBellDevTest = () => startCeruleanBellDevTest();
     dev.startPagerDevTest = () => startPagerDevTest();
+    dev.startMouthQuProblemDevTest = () => startMouthQuProblemDevTest();
     dev.startEctoplasmDevTest = () => startEctoplasmDevTest();
     dev.jumpToLevel = (levelIdOrIndex, opts) => jumpToLevelDev(levelIdOrIndex, opts);
     dev.jumpToBossShop = (bossSlug, chapterOrLevelId) =>
@@ -424,6 +445,7 @@ export function createGamePanelDevCommands(deps) {
     startMaskBubbleBlueprintDevTest,
     startAllIceDevTest,
     startPagerDevTest,
+    startMouthQuProblemDevTest,
     startEctoplasmDevTest,
     startCeruleanBellDevTest,
     jumpToLevelDev,
@@ -436,6 +458,9 @@ export function createGamePanelDevCommands(deps) {
     },
     applyPagerDevRunStart() {
       applyPagerOwnedTreasure(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
+    },
+    applyMouthQuProblemDevRunStart() {
+      applyMouthQuProblemOwnedTreasures(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
     },
     applyEctoplasmDevRunStart() {
       return applyEctoplasmDevOwnedTreasures(

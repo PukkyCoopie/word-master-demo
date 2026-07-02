@@ -32,7 +32,7 @@ export function buildBossTapeSubLine(bossDef, opts = {}) {
   const mouthLockedLength = opts.mouthLockedLength;
   if (bossDef.slug === "the_club" && clubRequiredKey) {
     const opt = BOSS_CLUB_POS_OPTIONS.find((o) => o.key === clubRequiredKey);
-    return opt ? `本关要求：${opt.labelZh}` : bossDef.uiDescription;
+    return opt ? `只能拼写${opt.labelZh}` : bossDef.uiDescription;
   }
   if (bossDef.slug === "the_mouth") {
     const base = bossDef.uiDescription;

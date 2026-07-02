@@ -54,6 +54,7 @@ async function main() {
 
 	runNode("build_word_filtered_csv.mjs", "Rebuild word_filtered.csv (improved POS inference)");
 	runNode("merge_supplement_words.mjs", "Merge supplemental words");
+	runNode("materialize_word_filtered_pos_prefix.mjs", "Inject POS prefixes into gloss lines (scheme A)");
 	runNode("build_dict.mjs", "Build dict.json");
 
 	spotCheck();

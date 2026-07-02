@@ -7,6 +7,8 @@ import {
   isFlintBossActive,
   resolveUniqueMostSpellLength,
   evaluateOxBossViolationPreview,
+  applyDisabledTreasureSlots,
+  isTreasureIdDisabledForSubmit,
 } from "./bossMechanicsContext.js";
 
 test("resolveUniqueMostSpellLength: unique winner", () => {
@@ -57,6 +59,17 @@ test("pickCrimsonDisabledTreasureSlotIndex returns filled index", () => {
     () => 0,
   );
   assert.equal(ix, 0);
+});
+
+test("applyDisabledTreasureSlots nulls disabled indices only", () => {
+  assert.deepEqual(applyDisabledTreasureSlots(["50", "76", "1"], new Set([1])), ["50", null, "1"]);
+  assert.deepEqual(applyDisabledTreasureSlots(["50", "76"], null), ["50", "76"]);
+});
+
+test("isTreasureIdDisabledForSubmit matches slot treasure id", () => {
+  const slots = ["50", "76", "1"];
+  assert.equal(isTreasureIdDisabledForSubmit(slots, new Set([1]), "76"), true);
+  assert.equal(isTreasureIdDisabledForSubmit(slots, new Set([1]), "50"), false);
 });
 
 test("pickHookBossDebuffTargets caps at four", () => {

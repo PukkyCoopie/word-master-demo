@@ -23,6 +23,11 @@
         >{{ seg.v }}</span
       >
       <span
+        v-else-if="seg.type === 'hintDelta'"
+        class="preset-desc-chip preset-desc-chip--hint"
+        >{{ seg.v }}</span
+      >
+      <span
         v-else-if="seg.type === 'money'"
         class="td-desc-chip td-desc-money"
         :class="{ 'td-desc-money--debt': isDebtMoneyChipValue(seg.v) }"
@@ -161,6 +166,10 @@ function onEntityClick(seg, ev) {
 
 .preset-desc-chip--discard {
   background: #a84642;
+}
+
+.preset-desc-chip--hint {
+  background: #f0a928;
 }
 
 .preset-desc-rich-text :deep(.td-desc-money) {

@@ -4,6 +4,7 @@
  *   ownedSlotTreasureIdList: () => string[],
  *   resolveRealSubmitTileForWordSlot: (index: number, scoringTile?: object | null) => object | null,
  *   touchGrid: () => void,
+ *   patchGridPlaceholderFreezeFromTile: (tile: object) => void,
  *   playSubmitTileEnhancementStripLeave: (opts: object) => Promise<void>,
  *   getWordSlotRefs: () => (HTMLElement | undefined)[],
  *   getSelectedGridTileElsInOrder: () => HTMLElement[],
@@ -21,6 +22,7 @@ export function buildSubmitAfterLettersContext(deps, tiles, detailed) {
     resolveSubmitTileAtIndex: (index, scoringTile) =>
       deps.resolveRealSubmitTileForWordSlot(index, scoringTile),
     touchGrid: deps.touchGrid,
+    patchGridPlaceholderFreezeFromTile: deps.patchGridPlaceholderFreezeFromTile,
     playSubmitTileEnhancementStripLeave: deps.playSubmitTileEnhancementStripLeave,
     getWordSlotEls: () => {
       const refs = deps.getWordSlotRefs?.() ?? [];

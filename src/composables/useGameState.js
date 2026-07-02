@@ -729,6 +729,9 @@ export function useGameState(gameOpts = {}) {
   /** 每小关默认弃牌（移除补牌）次数 */
   const remainingRemovals = ref(3);
 
+  /** 每小关剩余拼词提示次数 */
+  const hintRemaining = ref(1);
+
   const currentScore = ref(0);
 
   const targetScore = ref(
@@ -1677,7 +1680,7 @@ export function useGameState(gameOpts = {}) {
   /**
    * 进入下一小关：重洗字母库与棋盘，重置分数与出牌/移除次数（保留本局累计拼出次数）。
    * @param {{ id: string }} levelDef
-   * @param {{ remainingWords?: number, remainingRemovals?: number, targetScore?: number, bossSlug?: string, postGridBuild?: (g: unknown[][]) => void }} [runOpts]
+   * @param {{ remainingWords?: number, remainingRemovals?: number, targetScore?: number, bossSlug?: string, hintRemaining?: number, postGridBuild?: (g: unknown[][]) => void }} [runOpts]
    */
   /**
    * 进关前向 multiset 追加牌张（如鬼牌）；`resetLevel` 会复制该快照。
@@ -1730,6 +1733,10 @@ export function useGameState(gameOpts = {}) {
         : 3;
     remainingWords.value = bh;
     remainingRemovals.value = br;
+    hintRemaining.value =
+      runOpts?.hintRemaining != null && Number.isFinite(Number(runOpts.hintRemaining))
+        ? Math.max(0, Math.floor(Number(runOpts.hintRemaining)))
+        : 1;
     currentScore.value = 0;
     targetScore.value = parseScore(ts) > 0n ? normalizeScore(parseScore(ts)) : 300;
     selectedOrder.value = [];
@@ -2097,6 +2104,7 @@ export function useGameState(gameOpts = {}) {
       targetScore: serializeScore(targetScore.value),
       remainingWords: remainingWords.value,
       remainingRemovals: remainingRemovals.value,
+      hintRemaining: hintRemaining.value,
       activeBossSlug: activeBossSlug.value,
       ceruleanBellSlotIndex: ceruleanBellSlotIndex.value,
       ceruleanBellLockedTileId:
@@ -2150,6 +2158,10 @@ export function useGameState(gameOpts = {}) {
     targetScore.value = deserializeScore(state.targetScore);
     remainingWords.value = Math.max(0, Math.floor(Number(state.remainingWords) || 0));
     remainingRemovals.value = Math.max(0, Math.floor(Number(state.remainingRemovals) || 0));
+    hintRemaining.value =
+      state.hintRemaining != null
+        ? Math.max(0, Math.floor(Number(state.hintRemaining) || 0))
+        : 1;
     activeBossSlug.value = String(state.activeBossSlug ?? "");
     ceruleanBellSlotIndex.value =
       state.ceruleanBellSlotIndex != null ? Math.floor(Number(state.ceruleanBellSlotIndex)) : null;
@@ -2264,6 +2276,8 @@ export function useGameState(gameOpts = {}) {
     remainingWords,
 
     remainingRemovals,
+
+    hintRemaining,
 
     currentScore,
 

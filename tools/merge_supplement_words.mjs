@@ -6,6 +6,8 @@ import readline from "node:readline";
  * Skips words already present (case-insensitive). Supplement rows must have word,pos,translation.
  */
 
+import { materializeTranslationWithPosPrefix } from "./dictionary_pos_prefix.mjs";
+
 const PROJECT = new URL("../", import.meta.url);
 const FILTERED = new URL("data/dictionary/word_filtered.csv", PROJECT);
 const SUPPLEMENT = new URL("data/dictionary/supplement_words.csv", PROJECT);
@@ -143,7 +145,8 @@ async function main() {
 	toAppend.sort((a, b) => a[0].localeCompare(b[0]));
 	const out = fs.createWriteStream(FILTERED, { flags: "a", encoding: "utf8" });
 	for (const [word, pos, translation] of toAppend) {
-		out.write(`${word},${csvEscape(pos)},${csvEscape(translation)}\n`);
+		const translationOut = materializeTranslationWithPosPrefix(translation, pos);
+		out.write(`${word},${csvEscape(pos)},${csvEscape(translationOut)}\n`);
 	}
 	await new Promise((resolve) => out.end(resolve));
 	console.log(

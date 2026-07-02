@@ -28,6 +28,7 @@ import {
   getPresetHandsPerLevelDelta,
   getPresetRemovalsPerLevelDelta,
 } from "../../game/runPresetRuntime.js";
+import { resolveHintMaxPerLevel } from "../../game/wordHintLimits.js";
 import { getDifficultyRemovalsDelta, resolveLevelTargetScoreForDifficulty } from "../../game/runDifficultyRuntime.js";
 import {
   sumTreasureHandsPerLevelDelta,
@@ -84,8 +85,10 @@ import { requestCloudSync } from "../../save/cloudSave/cloudSaveSync.js";
  * @property {{
  *   maskBubbleDevScenarioActive: import('vue').Ref<boolean>,
  *   allIceDevScenarioActive: import('vue').Ref<boolean>,
+ *   mouthQuProblemDevScenarioActive: import('vue').Ref<boolean>,
  *   promoScreenshotDevPresetActive: import('vue').Ref<number>,
  *   applyRandomBLettersToGrid: (g: object[], rows: number, cols: number, rng: () => number, n: number) => void,
+ *   applyProblemQuRowToGrid: (g: object[][], rows: number, cols: number) => void,
  *   applyIceMaterialToAllGridTiles: (g: object[], rows: number, cols: number) => void,
  *   applyIceMaterialToAllDeckCards: (deck: object[]) => void,
  *   applyPromoGameplayGridMaterials: (g: object[], rows: number, cols: number, rng: () => number) => void,
@@ -287,10 +290,14 @@ export function useRunLifecycleController(options) {
       remainingRemovals: rem,
       targetScore: ts,
       bossSlug: slug,
+      hintRemaining: resolveHintMaxPerLevel(runPresetId.value),
       postGridBuild: (g) => {
         applyBossPostGridBuild(g, mechSlug);
         if (dev.maskBubbleDevScenarioActive.value) {
           dev.applyRandomBLettersToGrid(g, ROWS, COLS, runRandom, 2);
+        }
+        if (dev.mouthQuProblemDevScenarioActive.value) {
+          dev.applyProblemQuRowToGrid(g, ROWS, COLS);
         }
         if (dev.allIceDevScenarioActive.value) {
           dev.applyIceMaterialToAllGridTiles(g, ROWS, COLS);
