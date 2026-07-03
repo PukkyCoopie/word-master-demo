@@ -25,7 +25,7 @@ const deckPortalStyle = computed(() => sv(overlayStack.deckPortalStackStyle));
   <Teleport defer to="#game-view-portal-frame">
     <Transition name="deck-layer">
       <div
-        v-show="deck.showDeckLayer"
+        v-if="deck.showDeckLayer"
         class="deck-layer portal-overlay-fill"
         :class="{
           'portal-overlay--shop-upgrade-suppressed': phase.shopOverlayLayersSuppressed,

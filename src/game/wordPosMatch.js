@@ -2,7 +2,7 @@
  * 宝藏 / Boss 用词性判定（与词典 `pos` 字段宽松匹配）。
  */
 
-import { BOSS_CLUB_POS_OPTIONS, dictionaryPosMatchesClubKey } from "./bossWordViolation.js";
+import { BOSS_CLUB_POS_OPTIONS, dictionaryPosMatchesClubKey } from "./bossClubPos.js";
 
 /** 词性 $4 宝藏可随机到的目标（不含副词） */
 export const TREASURE_LEVEL_POS_OPTIONS = BOSS_CLUB_POS_OPTIONS;
@@ -17,12 +17,17 @@ export function getTreasureLevelPosLabelZh(key) {
 
 /**
  * @param {() => number} [rng]
+ * @param {TreasureLevelPosKey | string | null | undefined} [excludeKey] 若提供则不会 roll 到该词性
  * @returns {TreasureLevelPosKey}
  */
-export function rollTreasureLevelPosKey(rng = Math.random) {
-  const list = TREASURE_LEVEL_POS_OPTIONS;
-  const i = Math.floor(rng() * list.length);
-  return /** @type {TreasureLevelPosKey} */ (list[Math.max(0, Math.min(list.length - 1, i))].key);
+export function rollTreasureLevelPosKey(rng = Math.random, excludeKey = undefined) {
+  const list =
+    excludeKey != null && excludeKey !== ""
+      ? TREASURE_LEVEL_POS_OPTIONS.filter((o) => o.key !== excludeKey)
+      : TREASURE_LEVEL_POS_OPTIONS;
+  const pool = list.length ? list : TREASURE_LEVEL_POS_OPTIONS;
+  const i = Math.floor(rng() * pool.length);
+  return /** @type {TreasureLevelPosKey} */ (pool[Math.max(0, Math.min(pool.length - 1, i))].key);
 }
 
 /**

@@ -2,7 +2,7 @@
   <Teleport defer to="#game-view-portal-frame">
     <Transition name="treasure-collection-layer">
       <div
-        v-show="open"
+        v-if="open"
         class="treasure-collection-layer portal-overlay-fill"
         :style="portalStackStyle"
         @click.self="emit('close')"

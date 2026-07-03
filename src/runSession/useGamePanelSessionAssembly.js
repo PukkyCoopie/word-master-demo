@@ -13,7 +13,11 @@ import { getUpgradeTreasureIdForRarityKey } from "../collection/collectionUpgrad
 import { noteTreasureRunUpgradeUsed } from "../treasures/treasureRunTracking.js";
 import { isLengthObservatoryBoosted } from "../vouchers/voucherRuntime.js";
 import { parseTranslationLines } from "../dictionary/parseTranslationLines.js";
-import { notifySubmitAfterLettersBeforePostSteps } from "../treasures/treasureRegistry.js";
+import { notifySubmitAfterLettersBeforePostSteps, notifyPerLetterPostScoringMaterialFx } from "../treasures/treasureRegistry.js";
+import {
+  resolveWordSlotShrinkPopEl,
+  runGridTileMaterialChangeAtCell,
+} from "../game/gridTileIgniteFx.js";
 import { animateTreasureFrameFly } from "../game/shopOfferFlyAnim.js";
 import { handleRunEndDiscoverySelect as handleRunEndDiscoverySelectPreview } from "../game/runEndDiscoveryPreview.js";
 import { requestCloudSync } from "../save/cloudSave/cloudSaveSync.js";
@@ -917,6 +921,30 @@ const submitController = useSubmitWordController({
       typeof resolveRealSubmitTileForWordSlot === "function"
         ? resolveRealSubmitTileForWordSlot
         : resolveRealSubmitTileForScoring,
+    patchGridPlaceholderFreezeFromTile: playfieldController.patchGridPlaceholderFreezeFromTile,
+    submitRng: runRandom,
+    playGridTileMaterialChangeForSubmitWordSlot: async (letterIndex, onMidApply) => {
+      const order = selectedOrder.value;
+      const pos = order[letterIndex];
+      if (!pos || typeof pos.row !== "number" || typeof pos.col !== "number") {
+        onMidApply?.();
+        playfieldController.touchGrid?.();
+        return;
+      }
+      const wordSlotEl = resolveWordSlotShrinkPopEl(
+        playfieldController.getWordSlotElement?.(letterIndex) ?? null,
+      );
+      await runGridTileMaterialChangeAtCell(
+        {
+          getGridTileEl: (r, c) => getGridTileElByIndex(r * COLS + c),
+          getWordSlotShrinkPopElForGridCell: () => wordSlotEl,
+          touchGrid: () => playfieldController.touchGrid?.(),
+        },
+        pos.row,
+        pos.col,
+        onMidApply,
+      );
+    },
     buildSubmitAfterLettersContext,
     flushDeferredWordSubmitRecord,
     notifySubmitAfterLettersBeforePostSteps,

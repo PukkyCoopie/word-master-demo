@@ -302,6 +302,7 @@ export function useSubmitWordController(options) {
           getWordDefinition: callbacks.getWordDefinition,
           gridTiles: gridTilesForTreasures,
           remainingGridTiles: remainingGridTilesForTreasures,
+          submitExcludedGridPositionKeys: submitExcludedGridKeys,
           grid: gSubmit,
           gridRows: gridApi.ROWS,
           gridCols: gridApi.COLS,

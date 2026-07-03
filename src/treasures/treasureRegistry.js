@@ -194,6 +194,36 @@ export async function notifySubmitAfterLettersBeforePostSteps(ownedSlotTreasureI
   });
 }
 
+/**
+ * 逐字母计分动画：该 visit 全部分/倍率步结束后（如蜂蜜换黄金材质）。
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {import('./treasureTypes.js').TreasurePerLetterPostScoringMaterialFxContext} ctx
+ * @param {{ letter?: string, rarity?: string }} part
+ * @param {number} letterIndex
+ * @param {object | null | undefined} scoringTile
+ */
+export async function notifyPerLetterPostScoringMaterialFx(
+  ownedSlotTreasureIds,
+  ctx,
+  part,
+  letterIndex,
+  scoringTile,
+) {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {
+    const fn = TREASURE_HOOKS_BY_ID.get(tid)?.runPerLetterPostScoringMaterialFx;
+    return fn
+      ? Promise.resolve(
+          fn(
+            withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source }),
+            part,
+            letterIndex,
+            scoringTile,
+          ),
+        )
+      : undefined;
+  });
+}
+
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureDiscardContext} ctx */
 export async function notifyOwnedTreasuresOnDiscardBatch(ownedSlotTreasureIds, ctx) {
   await forEachTreasureHookContribution(ownedSlotTreasureIds, ({ treasureId: tid, slotIndex, source }) => {

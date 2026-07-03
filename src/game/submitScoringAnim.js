@@ -1,6 +1,6 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import { TREASURE_HOOKS_BY_ID } from "../treasures/treasureRegistry.js";
+import { TREASURE_HOOKS_BY_ID, notifyPerLetterPostScoringMaterialFx } from "../treasures/treasureRegistry.js";
 import { isIceMaterialPostLetterStep, ICE_MATERIAL_SCORE_MULT_MUL } from "./iceMaterialScoring.js";
 import { isLuckyMaterialPostLetterStep } from "./luckyMaterialScoring.js";
 import {
@@ -1030,6 +1030,25 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     scheduleSmallPlusBubbleOutro(bubbleLuckyMoney, sp);
     refs.money.value += luckyRoll.moneyAdd;
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+  }
+
+  if (detailed.bossSoftViolation !== true) {
+    await notifyPerLetterPostScoringMaterialFx(
+      ownedSlotIds,
+      {
+        ownedSlotTreasureIds: ownedSlotIds,
+        rng: callbacks.submitRng ?? Math.random,
+        scoringVisitIndex: luckyVisitIndex,
+        resolveSubmitTileAtIndex: (ix, st) => callbacks.resolveRealSubmitTileForWordSlot(ix, st),
+        patchGridPlaceholderFreezeFromTile: callbacks.patchGridPlaceholderFreezeFromTile,
+        playGridTileMaterialChangeForSubmitWordSlot:
+          callbacks.playGridTileMaterialChangeForSubmitWordSlot,
+        touchGrid: callbacks.touchGrid,
+      },
+      part,
+      i,
+      tile,
+    );
   }
 
   refs.scoringLetterIndex.value = -1;

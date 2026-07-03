@@ -40,7 +40,7 @@ export const treasureHooks = {
     if (isTreasureHookBlueprintMirror(ctx)) return;
     const rs = ctx.treasureRun;
     if (!rs) return;
-    rs.levelPosTargetKey = rollTreasureLevelPosKey(ctx.rng ?? Math.random);
+    rs.levelPosTargetKey = rollTreasureLevelPosKey(ctx.rng ?? Math.random, rs.levelPosTargetKey);
   },
   async onSuccessfulWordSubmit(ctx) {
     const rs = ctx.treasureRun;

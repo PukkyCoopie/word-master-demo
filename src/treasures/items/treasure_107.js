@@ -10,11 +10,13 @@ function collectJkGridCells(ctx) {
   const rows = Math.max(0, Math.floor(Number(ctx.gridRows) || 0));
   const cols = Math.max(0, Math.floor(Number(ctx.gridCols) || 0));
   if (!Array.isArray(grid) || rows <= 0 || cols <= 0) return [];
+  const excluded = ctx.submitExcludedGridPositionKeys;
 
   /** @type {{ index: number, tile: object }[]} */
   const cells = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
+      if (excluded?.has(`${r},${c}`)) continue;
       const t = grid[r]?.[c];
       if (!t?.letter) continue;
       if (t.bossTileDebuffed === true) continue;

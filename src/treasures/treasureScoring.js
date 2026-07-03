@@ -69,20 +69,6 @@ function applyPrepareSubmitScoringBanks(tiles, slots, treasureRun) {
   }
 }
 
-/** @param {Array} tiles @param {(string | null | undefined)[]} slots @param {import('./treasureRunState.js').TreasureRunState | null | undefined} treasureRun @param {() => number} rng */
-function applyPreprocessSubmitScoringTiles(tiles, slots, treasureRun, rng) {
-  const hookCtx = {
-    tiles,
-    ownedSlotTreasureIds: slots,
-    treasureRun: treasureRun ?? undefined,
-    rng,
-  };
-  for (const { treasureId: tid, source } of iterTreasureHookContributions(slots)) {
-    if (source === "blueprint") continue;
-    TREASURE_HOOKS_BY_ID.get(tid)?.preprocessSubmitScoringTiles?.(hookCtx);
-  }
-}
-
 /**
  * @param {Array} originalTiles
  * @param {(string | null | undefined)[]} slots
@@ -160,7 +146,7 @@ function sumSubmitScoringWordLetterCountBonus(originalTiles, slots, partialCtx, 
  * @param {number} [money]
  * @param {object[] | null} [ownedTreasureInstances]
  * @param {string} [resolvedWord]
- * @param {{ gridTiles?: readonly object[], remainingGridTiles?: readonly object[], getWordDefinition?: (word: string) => object | null | undefined, treasureRun?: import('./treasureRunState.js').TreasureRunState, money?: number, ownedTreasureInstances?: object[], resolvedWord?: string | null }} [submitOptions]
+ * @param {{ gridTiles?: readonly object[], remainingGridTiles?: readonly object[], submitExcludedGridPositionKeys?: Set<string>, getWordDefinition?: (word: string) => object | null | undefined, treasureRun?: import('./treasureRunState.js').TreasureRunState, money?: number, ownedTreasureInstances?: object[], resolvedWord?: string | null }} [submitOptions]
  * @param {Record<string, number> | null} [rarityLevelsByRarity]
  * @param {(string | null | undefined)[] | null} [ownedSlotTreasureAccessoryIds=null] 与槽位同索引的配饰 id
  * @param {number[] | null} [letterReplayCounts=null] 各字母 replay 次数（与 `aggregateReplaySubmitAdjustments` 一致）
@@ -216,6 +202,7 @@ function buildPostLetterTreasureSteps(
     resolvedWord: resolvedWord ? String(resolvedWord) : undefined,
     gridTiles: submitOptions?.gridTiles ?? undefined,
     remainingGridTiles: submitOptions?.remainingGridTiles ?? undefined,
+    submitExcludedGridPositionKeys: submitOptions?.submitExcludedGridPositionKeys ?? undefined,
     grid: submitOptions?.grid ?? undefined,
     gridRows: submitOptions?.gridRows ?? undefined,
     gridCols: submitOptions?.gridCols ?? undefined,
@@ -490,9 +477,6 @@ export function computeWordScoreDetailedForSubmit(
   const rnd = typeof submitOptions?.rng === "function" ? submitOptions.rng : Math.random;
 
   const lengthUpgradeExtra = submitOptions?.lengthUpgradeObservatoryExtra ?? null;
-  if (submitOptions?.skipPrepareSubmitScoringBank !== true) {
-    applyPreprocessSubmitScoringTiles(tiles, slots, submitOptions?.treasureRun ?? null, rnd);
-  }
   const partialHookCtx = {
     resolvedWord:
       submitOptions?.resolvedWord != null ? String(submitOptions.resolvedWord) : undefined,
@@ -564,6 +548,7 @@ export function computeWordScoreDetailedForSubmit(
       submitOptions?.resolvedWord != null ? String(submitOptions.resolvedWord) : undefined,
     gridTiles: submitOptions?.gridTiles ?? undefined,
     remainingGridTiles: submitOptions?.remainingGridTiles ?? undefined,
+    submitExcludedGridPositionKeys: submitOptions?.submitExcludedGridPositionKeys ?? undefined,
     grid: submitOptions?.grid ?? undefined,
     gridRows: submitOptions?.gridRows ?? undefined,
     gridCols: submitOptions?.gridCols ?? undefined,

@@ -57,3 +57,23 @@ export async function runGridTileIgniteAtCell(deps, row, col, onMidApply, sp = 1
     },
   });
 }
+
+/**
+ * 单格缩小 → `onMidApply`（换材质等）→ 回弹；无气泡（法术/蜂蜜等材质切换）。
+ * @param {GridTileIgniteFxDeps} deps
+ * @param {number} row
+ * @param {number} col
+ * @param {() => void} [onMidApply]
+ */
+export async function runGridTileMaterialChangeAtCell(deps, row, col, onMidApply) {
+  const wordSlotEl = deps.getWordSlotShrinkPopElForGridCell?.(row, col);
+  await animateGridTileMaterialChangeAtCell({
+    row,
+    col,
+    getTileEl: deps.getGridTileEl,
+    touchGrid: deps.touchGrid,
+    delay: 0,
+    onMidApply,
+    companionEls: wordSlotEl ? [wordSlotEl] : [],
+  });
+}
