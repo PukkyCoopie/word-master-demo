@@ -1,4 +1,5 @@
 import { describe } from "../treasureDescription.js";
+import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
 const ID = "87";
 
@@ -14,7 +15,7 @@ export const treasureHooks = {
   async onLevelEnter(ctx) {
     const grant = ctx.grantRandomOwnedTreasureWithPopAnim ?? ctx.grantRandomOwnedTreasure;
     if (typeof grant !== "function") return;
-    await ctx.wobbleOwnedTreasureById?.(ID);
+    await wobbleTreasureHookContributor(ctx, ID);
     await grant(2);
   },
 };

@@ -45,10 +45,13 @@ export function createGamePanelBootstrapSource(d) {
     applyMouthQuProblemOwnedTreasures: d.applyMouthQuProblemOwnedTreasures,
     isCeruleanBellDevScenarioActive: d.isCeruleanBellDevScenarioActive,
     applyCeruleanBellDevRunStart: d.applyCeruleanBellDevRunStart,
+    isNoSellGoldBombCometDevScenarioActive: d.isNoSellGoldBombCometDevScenarioActive,
+    applyNoSellGoldBombCometOwnedTreasures: d.applyNoSellGoldBombCometOwnedTreasures,
     getGamePanelAlive: d.getGamePanelAlive,
     getLevelIndex: d.getLevelIndex,
     resetLevelAfterTreasurePrep: d.resetLevelAfterTreasurePrep,
     runNewRunGridIntro: d.runNewRunGridIntro,
     tryCeruleanBellFlyInAfterGridStable: d.tryCeruleanBellFlyInAfterGridStable,
+    syncEndlessLeaderboardChapterBaseline: d.syncEndlessLeaderboardChapterBaseline,
   };
 }

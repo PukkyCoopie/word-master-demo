@@ -88,30 +88,49 @@ const ACCESSORY_BUILDERS = new Map([
 ]);
 
 /**
+ * @param {HTMLElement} rootEl
+ * @param {"score" | "mult"} kind
+ * @param {number} value
+ */
+function upsertImperativeAugmentPill(rootEl, kind, value) {
+  const cls = kind === "score" ? "tile-bonus-pill--score" : "tile-bonus-pill--mult";
+  let pill = rootEl.querySelector(`.tile-bonus-pill.${cls}`);
+  if (value > 0) {
+    if (!(pill instanceof HTMLElement)) {
+      pill = document.createElement("span");
+      pill.className = `tile-bonus-pill ${cls}`;
+      pill.setAttribute("aria-hidden", "true");
+      rootEl.appendChild(pill);
+    }
+    pill.textContent = `+${value}`;
+    return;
+  }
+  if (pill instanceof HTMLElement) pill.remove();
+}
+
+/**
+ * 与 Vue LetterTile 角标同步：创建/更新/移除 `.tile-bonus-pill`（计分写回角标后立即刷新词槽 DOM）。
  * @param {HTMLElement | null | undefined} rootEl
  * @param {{ tileScoreBonus?: number; tileMultBonus?: number; letterMultBonus?: number }} item
  */
-export function appendImperativeAugmentBadges(rootEl, item) {
-  if (!rootEl || !item) return;
+export function syncImperativeAugmentBadges(rootEl, item) {
+  if (!(rootEl instanceof HTMLElement) || !item) return;
   const score = Math.max(0, Math.round(Number(item.tileScoreBonus) || 0));
   const mult = Math.max(
     0,
     Math.round(Number(item.tileMultBonus ?? item.letterMultBonus) || 0),
   );
-  if (score > 0) {
-    const pill = document.createElement("span");
-    pill.className = "tile-bonus-pill tile-bonus-pill--score";
-    pill.setAttribute("aria-hidden", "true");
-    pill.textContent = `+${score}`;
-    rootEl.appendChild(pill);
-  }
-  if (mult > 0) {
-    const pill = document.createElement("span");
-    pill.className = "tile-bonus-pill tile-bonus-pill--mult";
-    pill.setAttribute("aria-hidden", "true");
-    pill.textContent = `+${mult}`;
-    rootEl.appendChild(pill);
-  }
+  upsertImperativeAugmentPill(rootEl, "score", score);
+  upsertImperativeAugmentPill(rootEl, "mult", mult);
+}
+
+/**
+ * @param {HTMLElement | null | undefined} rootEl
+ * @param {{ tileScoreBonus?: number; tileMultBonus?: number; letterMultBonus?: number }} item
+ */
+export function appendImperativeAugmentBadges(rootEl, item) {
+  if (!(rootEl instanceof HTMLElement) || !item) return;
+  syncImperativeAugmentBadges(rootEl, item);
 }
 
 /**

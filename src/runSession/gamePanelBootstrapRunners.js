@@ -1,9 +1,10 @@
 import gsap from "gsap";
 import { normalizeRunSavePhase } from "../save/runSaveSchema.js";
 import { normalizeRunPresetId } from "../game/runPresetDefinitions.js";
+import { getRunLevelAtIndex } from "../levelDefinitions.js";
 import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
 import { ensureBigramTargetPair } from "../game/treasureBigramRoll.js";
-import { getRunLevelAtIndex } from "../levelDefinitions.js";
+import { resolveSavedIsEndlessRun } from "../save/runSaveEndless.js";
 
 /**
  * 读档 / 新局启动（从 GamePanel 迁出）。
@@ -37,6 +38,12 @@ export async function startGamePanelFromRestoredSave(deps, restored) {
     deps.refreshShopVoucherShelfForCurrentVisit();
     deps.applyShopVisitStockRoll();
   }
+  if (resolveSavedIsEndlessRun(restored)) {
+    const levelId = getRunLevelAtIndex(
+      Math.max(0, Math.floor(Number(restored.levelIndex) || 0)),
+    ).id;
+    deps.syncEndlessLeaderboardChapterBaseline?.(levelId);
+  }
   deps.scheduleRunAutoSave();
   deps.flushAchievementUnlocks();
 }
@@ -65,6 +72,9 @@ export async function startGamePanelNewRun(deps) {
   }
   if (deps.isCeruleanBellDevScenarioActive()) {
     deps.applyCeruleanBellDevRunStart();
+  }
+  if (deps.isNoSellGoldBombCometDevScenarioActive()) {
+    deps.applyNoSellGoldBombCometOwnedTreasures();
   }
   deps.registerMaskBubbleDevConsoleHook();
   deps.setSlotRafLastTime(performance.now());

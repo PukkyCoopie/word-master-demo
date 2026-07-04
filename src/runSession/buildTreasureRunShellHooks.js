@@ -107,7 +107,13 @@ export function buildTreasureRunShellHooks(d) {
         },
       };
     },
-    buildTreasureSubmitSuccessContextExtras(tiles, resolvedWord, judgedLenTable, scoreBeforeHand) {
+    buildTreasureSubmitSuccessContextExtras(
+      tiles,
+      resolvedWord,
+      judgedLenTable,
+      scoreBeforeHand,
+      handFinalScore,
+    ) {
       return {
         pickRandomInRunSpellId: () => d.pickRandomInRunSpellIdForRun(),
         requestInRunSpellGrant: async ({ spellId, treasureSlotIndex, treasureId } = {}) => {
@@ -159,6 +165,7 @@ export function buildTreasureRunShellHooks(d) {
         rollRandomBigram: d.rollRandomBigramForTreasure,
         targetScore: d.getTargetScore(),
         currentScore: scoreBeforeHand,
+        handFinalScore,
         remainingWordsAfterSubmit: d.getRemainingWords(),
         submittedLetters: tiles.map((t) => ({
           letter: t?.letter ?? "",

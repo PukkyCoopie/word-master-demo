@@ -7,6 +7,8 @@ import { normalizeRunSaveMoney, normalizeRunSavePhase } from "./runSaveSchema.js
 import { cloneSaveData } from "./saveDataClone.js";
 import { hydrateOwnedTreasureSlots } from "../treasures/ownedTreasureSlot.js";
 import { deserializeRunDiscoveryLog } from "../game/runCollectionDiscoveries.js";
+import { reconcilePackPickClaimedTreasures } from "./packPickSessionReconcile.js";
+import { resolveSavedIsEndlessRun } from "./runSaveEndless.js";
 
 /**
  * @param {import('./runSavePayload.js').RunSavePayload} payload
@@ -21,7 +23,7 @@ export function hydrateRunSave(payload, ctx) {
   }
 
   if (ctx.levelIndexRef) ctx.levelIndexRef.value = Math.max(0, Math.floor(Number(payload.levelIndex) || 0));
-  if (ctx.isEndlessRunRef) ctx.isEndlessRunRef.value = payload.isEndlessRun === true;
+  if (ctx.isEndlessRunRef) ctx.isEndlessRunRef.value = resolveSavedIsEndlessRun(payload);
   if (ctx.glyphShopSkipLevelAdvanceRef) {
     ctx.glyphShopSkipLevelAdvanceRef.value = payload.glyphShopSkipLevelAdvance === true;
   }
@@ -110,7 +112,11 @@ export function hydrateRunSave(payload, ctx) {
     ctx.shopVoucherShelfGenerationRef.value = Math.floor(Number(payload.shopVoucherShelfGeneration) || -1);
   }
   if (ctx.packPickSessionRef) {
-    ctx.packPickSessionRef.value = payload.packPickSession ? cloneSaveData(payload.packPickSession) : null;
+    const ownedForReconcile = ctx.ownedTreasuresRef?.value ?? hydrateOwnedTreasureSlots(payload.ownedTreasures ?? []);
+    const session = payload.packPickSession ? cloneSaveData(payload.packPickSession) : null;
+    ctx.packPickSessionRef.value = session
+      ? reconcilePackPickClaimedTreasures(session, ownedForReconcile)
+      : null;
   }
   if (ctx.bossRerollSessionRef) {
     ctx.bossRerollSessionRef.value = payload.bossRerollSession

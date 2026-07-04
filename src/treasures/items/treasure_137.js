@@ -1,5 +1,5 @@
 import { describe } from "../treasureDescription.js";
-import { canMutateTreasureBankFromCtx, getScoreAddBank } from "../treasureBankHelpers.js";
+import { canMutateTreasureBankFromCtx, getScoreAddBank, wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 import { ensureTreasureBank } from "../treasureRunState.js";
 import { parseScore, scoreExcess } from "../../utils/scoreInteger.js";
 
@@ -41,7 +41,7 @@ export const treasureHooks = {
     ensureTreasureBank(rs, ID).scoreAdd = stored;
     rs.level137BonusApplied = false;
     if (stored > 0) {
-      return ctx.wobbleOwnedTreasureById?.(ID);
+      return wobbleTreasureHookContributor(ctx, ID);
     }
   },
   buildFinalScoreStep(ctx) {

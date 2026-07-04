@@ -7,10 +7,12 @@
  *   flyingLettersCount?: number,
  *   flyingBackBatchesCount?: number,
  *   submitWordBusy?: boolean,
+ *   packPickBusy?: boolean,
  * }} snapshot
  * @returns {{ ok: true } | { ok: false, reason: string }}
  */
 export function canSaveNow(snapshot) {
+  if (snapshot?.packPickBusy) return { ok: false, reason: "开包领取中" };
   if (!snapshot?.idle) {
     if (snapshot?.scoringAnimating) return { ok: false, reason: "记分动画进行中" };
     if (snapshot?.gridRefillAnimating) return { ok: false, reason: "棋盘补牌中" };

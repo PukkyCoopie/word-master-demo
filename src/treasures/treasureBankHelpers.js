@@ -154,6 +154,31 @@ export async function bankScoreAddGain(ctx, treasureId, delta) {
 }
 
 /**
+ * 按 hook 贡献槽 wobble：实体宝藏 wobble 真实槽；面具/绵羊 blueprint 镜像 wobble 面具/绵羊槽。
+ * @param {{
+ *   ownedSlotTreasureIds?: (string | null | undefined)[],
+ *   hookSlotIndex?: number,
+ *   hookSource?: 'self' | 'blueprint',
+ *   wobbleOwnedTreasureAtSlot?: (slotIndex: number) => Promise<void>,
+ *   playOwnedTreasureWobbleOnlyFx?: (treasureId: string) => Promise<void>,
+ *   wobbleOwnedTreasureById?: (treasureId: string) => Promise<void>,
+ * }} ctx
+ * @param {string} treasureId
+ */
+export async function wobbleTreasureHookContributor(ctx, treasureId) {
+  const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
+  if (slotIx != null && ctx.wobbleOwnedTreasureAtSlot) {
+    await ctx.wobbleOwnedTreasureAtSlot(slotIx);
+    return;
+  }
+  if (typeof ctx.playOwnedTreasureWobbleOnlyFx === "function") {
+    await ctx.playOwnedTreasureWobbleOnlyFx(treasureId);
+    return;
+  }
+  await ctx.wobbleOwnedTreasureById?.(treasureId);
+}
+
+/**
  * 倍率银行累加后的获得动效（+n 文案气泡，不含再次乘算）。
  * @param {{ wobbleOwnedTreasureById?: (id: string) => Promise<void>, playOwnedTreasureBubbleFx?: (id: string, text: string, kind?: string) => Promise<void> }} ctx
  * @param {string} treasureId

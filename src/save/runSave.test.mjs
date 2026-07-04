@@ -117,6 +117,10 @@ test("canSaveNow blocks during animation", () => {
   assert.equal(canSaveNow({ idle: true }).ok, true);
 });
 
+test("canSaveNow blocks during pack pick grant", () => {
+  assert.equal(canSaveNow({ idle: true, packPickBusy: true }).ok, false);
+});
+
 test("run auto save flushes when idle", () => {
   let saved = 0;
   let idle = false;

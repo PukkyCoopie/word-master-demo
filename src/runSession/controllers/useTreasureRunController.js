@@ -123,7 +123,7 @@ import { getOwnedTreasureSlotBonusFromVouchers, parseLevelSubFromId } from "../.
  *   notifyBossRestrictionTreasures: (slug?: string) => Promise<void>,
  *   addRemainingRemovalsClamped: (n: number) => void,
  *   openRunEndDiscoveryTreasurePreview: (item: object, originRect: object | null, nav: object) => void,
- *   buildTreasureSubmitSuccessContextExtras: (tiles: object[], resolvedWord: string, judgedLenTable: number, scoreBeforeHand: number) => object,
+ *   buildTreasureSubmitSuccessContextExtras: (tiles: object[], resolvedWord: string, judgedLenTable: number, scoreBeforeHand: number, handFinalScore: number) => object,
  *   buildTreasureLevelEnterEffectContextExtras: (levelId: string) => object,
  *   buildTreasureLevelCompleteContextExtras: () => object,
  *   playOwnedTreasureMoneyFx: (...args: unknown[]) => unknown,
@@ -795,8 +795,15 @@ export function useTreasureRunController(options) {
    * @param {string} resolvedWord
    * @param {number} judgedLenTable
    * @param {number} scoreBeforeHand
+   * @param {number} handFinalScore
    */
-  function buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand) {
+  function buildTreasureSubmitSuccessContext(
+    tiles,
+    resolvedWord,
+    judgedLenTable,
+    scoreBeforeHand,
+    handFinalScore,
+  ) {
     const owned = ownedTreasures.value.filter(Boolean);
     return {
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
@@ -815,7 +822,13 @@ export function useTreasureRunController(options) {
         collection.flushDeckMultisetAchievements();
       },
       ...hooks.ownedTreasureHookFxBridge(),
-      ...hooks.buildTreasureSubmitSuccessContextExtras(tiles, resolvedWord, judgedLenTable, scoreBeforeHand),
+      ...hooks.buildTreasureSubmitSuccessContextExtras(
+        tiles,
+        resolvedWord,
+        judgedLenTable,
+        scoreBeforeHand,
+        handFinalScore,
+      ),
     };
   }
 
@@ -824,6 +837,7 @@ export function useTreasureRunController(options) {
    * @param {string} resolvedWord
    * @param {number} judgedLenTable
    * @param {number} scoreBeforeHand
+   * @param {number} handFinalScore
    * @param {Set<number> | readonly number[] | null | undefined} [disabledTreasureSlotIndices]
    */
   async function runPendingInRunGrantsAfterSubmit(
@@ -831,6 +845,7 @@ export function useTreasureRunController(options) {
     resolvedWord,
     judgedLenTable,
     scoreBeforeHand,
+    handFinalScore,
     disabledTreasureSlotIndices = null,
   ) {
     const ownedIds = applyDisabledTreasureSlots(
@@ -844,7 +859,13 @@ export function useTreasureRunController(options) {
     /** @type {(() => Promise<void>)[]} */
     const submitPostScoreClearFx = [];
     await notifyOwnedTreasuresSuccessfulWordSubmit(ownedIds, {
-      ...buildTreasureSubmitSuccessContext(tiles, resolvedWord, judgedLenTable, scoreBeforeHand),
+      ...buildTreasureSubmitSuccessContext(
+        tiles,
+        resolvedWord,
+        judgedLenTable,
+        scoreBeforeHand,
+        handFinalScore,
+      ),
       registerSubmitWordLeaveFx: (runner) => {
         if (typeof runner === "function") submitWordLeaveFx.push(runner);
       },

@@ -1,5 +1,6 @@
 import { describe } from "../treasureDescription.js";
 import { rollJokerLevelEnterDeckCardSpec } from "../../game/jokerLevelEnterCard.js";
+import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
 const ID = "96";
 
@@ -25,7 +26,7 @@ export const treasureHooks = {
   },
   async onLevelEnter(ctx) {
     if (ctx.treasureRun?.jokerForcedDrawUid != null) {
-      await ctx.wobbleOwnedTreasureById?.(ID);
+      await wobbleTreasureHookContributor(ctx, ID);
     }
   },
 };

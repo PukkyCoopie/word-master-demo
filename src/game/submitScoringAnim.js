@@ -41,6 +41,7 @@ import {
   isMeaningfulTreasureBoostStep,
 } from "../treasures/treasureContributionBoost.js";
 import { snapshotMaxIntrinsicGainsFromTile } from "./tileIntrinsicGains.js";
+import { syncImperativeAugmentBadges } from "../utils/tileImperativeChrome.js";
 import {
   getWordLengthScoreForTableLen,
   scaleLengthContributionForBoss,
@@ -156,6 +157,29 @@ export function createSubmitScoringAnimController(deps) {
   function isPaperclipDisabledForActiveSubmit() {
     const raw = refs.ownedTreasures.value.map((s) => s?.treasureId ?? null);
     return isTreasureIdDisabledForSubmit(raw, activeSubmitDisabledTreasureSlotIndices, "76");
+  }
+
+  /** @param {HTMLElement | null | undefined} slotEl */
+  function resolveWordSlotContentEl(slotEl) {
+    if (!(slotEl instanceof HTMLElement)) return null;
+    if (slotEl.classList.contains("word-slot-content")) return slotEl;
+    const nested = slotEl.querySelector(".word-slot-content");
+    return nested instanceof HTMLElement ? nested : slotEl;
+  }
+
+  /** 计分板/回形针/泡泡写回 tile 角标后：刷新占位冻结快照 + 词槽 pill DOM（冻结快照否则仍显示旧 +0）。 */
+  async function refreshWordSlotIntrinsicBadgesAfterPersist(realTile, slotEl) {
+    if (!realTile || typeof realTile !== "object") return;
+    if (typeof callbacks.patchGridPlaceholderFreezeFromTile === "function") {
+      callbacks.patchGridPlaceholderFreezeFromTile(realTile);
+    } else {
+      callbacks.touchGrid();
+    }
+    await nextTick();
+    const contentEl = resolveWordSlotContentEl(slotEl);
+    if (!contentEl) return;
+    const { sb, mb } = snapshotMaxIntrinsicGainsFromTile(realTile);
+    syncImperativeAugmentBadges(contentEl, { tileScoreBonus: sb, tileMultBonus: mb });
   }
 
   function showWordSlotBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350) {
@@ -382,8 +406,7 @@ async function runLetterTreasureScoreBurst(
       delta: amount,
     });
     if (did) {
-      callbacks.touchGrid();
-      await nextTick();
+      await refreshWordSlotIntrinsicBadgesAfterPersist(persistCtx.realTile, slotEl);
       slotPillAug = { scorePill: true };
     }
   }
@@ -434,8 +457,7 @@ async function runLetterTreasureMultBurst(
       delta: amount,
     });
     if (did) {
-      callbacks.touchGrid();
-      await nextTick();
+      await refreshWordSlotIntrinsicBadgesAfterPersist(persistCtx.realTile, slotEl);
       slotPillAug = { multPill: true };
     }
   }
@@ -769,28 +791,32 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     const rowHooks = row.treasureId ? TREASURE_HOOKS_BY_ID.get(row.treasureId) : null;
     const rowDelta = Math.max(0, Math.floor(Number(row.delta) || 0));
     const bankOnlyTreasureCue = !!rowHooks?.perLetterScoreCueDepositsTreasureBank;
-    const wordScoreDelta = bankOnlyTreasureCue ? 0 : rowDelta;
+    /** 泡泡等：逐字仍入宝藏银行，但 `persistTileAfterPerLetterTreasureCue` 的 +Δ 须与词槽同拍展示 */
+    const wordScoreDelta =
+      bankOnlyTreasureCue && !rowHooks?.persistTileAfterPerLetterTreasureCue ? 0 : rowDelta;
     const stepScore = (beatIdx === 0 ? baseLetterScore : 0) + wordScoreDelta;
+    let rowDidPersistScore = false;
 
     if (row.treasureId && rowDelta > 0) {
-      let touchedGrid = false;
       if (realTile) {
-        const didPersist = persistTileIntrinsicTreasureCue({
+        rowDidPersistScore = persistTileIntrinsicTreasureCue({
           treasureId: row.treasureId,
           realTile,
           scoringTile: tile,
           band: "score",
           delta: rowDelta,
         });
-        if (didPersist) touchedGrid = true;
+        if (rowDidPersistScore) {
+          await refreshWordSlotIntrinsicBadgesAfterPersist(realTile, slotEl);
+        } else {
+          await nextTick();
+        }
       }
       if (bankOnlyTreasureCue) {
         if (shouldTreasureRunAccumulationMutate(ownedSlotIds, row.si, row.treasureId, row.source)) {
           addScoreAddBank(refs.treasureRunState.value, row.treasureId, rowDelta);
         }
       }
-      if (touchedGrid) callbacks.touchGrid();
-      await nextTick();
     }
 
     if (stepScore <= 0) {
@@ -820,10 +846,11 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     }
 
     const scorePillAug =
-      beatIdx === 0 &&
-      (liveTileScoreBonus > 0 ||
-        (part.materialScoreBonus ?? 0) > 0 ||
-        mergedIntrinsicScoreAdd > 0);
+      rowDidPersistScore ||
+      (beatIdx === 0 &&
+        (liveTileScoreBonus > 0 ||
+          (part.materialScoreBonus ?? 0) > 0 ||
+          mergedIntrinsicScoreAdd > 0));
     const slotTl = createWobbleScoreSlotTimeline(
       slotEl,
       scorePillAug ? { scorePill: true } : undefined,
@@ -904,16 +931,18 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     if (stepMult <= 0) continue;
 
     wordSlotIntrinsicWobblePlayed = true;
+    let rowDidPersistMult = false;
     if (realTile && row.treasureId && row.delta > 0) {
-      persistTileIntrinsicTreasureCue({
+      rowDidPersistMult = persistTileIntrinsicTreasureCue({
         treasureId: row.treasureId,
         realTile,
         scoringTile: tile,
         band: "mult",
         delta: row.delta,
       });
-      callbacks.touchGrid();
-      await nextTick();
+      if (rowDidPersistMult) {
+        await refreshWordSlotIntrinsicBadgesAfterPersist(realTile, slotEl);
+      }
     }
 
     if (row.si >= 0) {
@@ -926,10 +955,11 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
 
     const mb = `+${Math.round(stepMult)}`;
     const multPillAug =
-      beatIdx === 0 &&
-      (liveTileMultBonus > 0 ||
-        (Number(part.materialMultBonus) || 0) !== 0 ||
-        mergedIntrinsicMultAdd > 0);
+      rowDidPersistMult ||
+      (beatIdx === 0 &&
+        (liveTileMultBonus > 0 ||
+          (Number(part.materialMultBonus) || 0) !== 0 ||
+          mergedIntrinsicMultAdd > 0));
     const slotTlM = createWobbleScoreSlotTimeline(
       slotEl,
       multPillAug ? { multPill: true } : undefined,
@@ -1748,6 +1778,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       grantWord,
       lenTb,
       refs.currentScore.value,
+      detailed.finalScore,
       activeSubmitDisabledTreasureSlotIndices,
     );
     submitWordLeaveFx = pending.submitWordLeaveFx;

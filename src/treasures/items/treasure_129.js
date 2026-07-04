@@ -2,6 +2,7 @@ import { describe, materialConcept, mult } from "../treasureDescription.js";
 import { syncTileStateToDeckCard } from "../../game/deckCardSync.js";
 import { applyFireMaterialToTile } from "../../game/tileMaterialApply.js";
 import { collectFireworkIgniteTargets, isNoMaterialLetterTile } from "../../game/fireworkIgniteTargets.js";
+import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
 const ID = "129";
 const FIREWORK_IGNITE_MULT_BONUS = 10;
@@ -34,7 +35,7 @@ export const treasureHooks = {
     const grid = ctx.getGrid?.();
     const targets = collectFireworkIgniteTargets(grid);
     if (!targets.length) return;
-    await ctx.wobbleOwnedTreasureById?.(ID);
+    await wobbleTreasureHookContributor(ctx, ID);
     let changed = false;
     for (const { row, col } of targets) {
       const above = grid?.[row]?.[col];

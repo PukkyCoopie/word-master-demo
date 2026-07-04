@@ -1,5 +1,6 @@
 import { getTileMaterialBlockTitle, getTileMaterialEffectDescription } from "../../game/gameConceptCopy.js";
 import { describe, materialConcept } from "../treasureDescription.js";
+import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
 const ID = "77";
 const WILDCARD_MATERIAL_ID = "wildcard";
@@ -29,10 +30,7 @@ export const treasureHooks = {
       distinct.add(mid);
     }
     if (distinct.size < MIN_DISTINCT_MATERIALS) return;
-    const wobbleTask =
-      typeof ctx.playOwnedTreasureWobbleOnlyFx === "function"
-        ? ctx.playOwnedTreasureWobbleOnlyFx(ID)
-        : Promise.resolve(ctx.wobbleOwnedTreasureById?.(ID));
+    const wobbleTask = wobbleTreasureHookContributor(ctx, ID);
     const mutateTask = Promise.resolve(ctx.mutateRandomNonWildcardLetterTileToWildcard?.());
     await Promise.all([wobbleTask, mutateTask]);
   },

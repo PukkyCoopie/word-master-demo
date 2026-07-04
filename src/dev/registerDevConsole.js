@@ -135,6 +135,8 @@ export function registerDevConsole(deps) {
         "  或 URL ?dev=mouthQuProblem 新开一局自动启用",
         "  __WM_DEV__.startEctoplasmDevTest() — 进关后：5 个宝藏各带随机非裁剪配饰（烛台调试）",
         "  或 URL ?dev=ectoplasm 新开一局自动启用",
+        "  __WM_DEV__.startNoSellGoldBombCometDevTest() — 进关后：[禁售金牌][禁售炸弹][禁售彗星]",
+        "  或 URL ?dev=noSellGoldBombComet 新开一局自动启用",
         "  __WM_DEV__.startVolcanoKiteDevTest() — 进关后：[风筝×2][火山][风筝×2]",
         "  或 URL ?dev=volcanoKite 新开一局自动启用",
         "  __WM_DEV__.randomizeGridTileMaterials() — 局内：为棋盘无材质格各随机加一种材质",
@@ -213,6 +215,11 @@ export function registerDevConsole(deps) {
     startVolcanoKiteDevTest: () => {
       console.warn(
         "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startVolcanoKiteDevTest()。",
+      );
+    },
+    startNoSellGoldBombCometDevTest: () => {
+      console.warn(
+        "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startNoSellGoldBombCometDevTest()。",
       );
     },
     jumpToLevel: (levelIdOrIndex, opts) => {

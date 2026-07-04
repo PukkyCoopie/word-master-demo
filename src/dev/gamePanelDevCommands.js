@@ -13,6 +13,7 @@ import {
   applyProblemQuRowToGrid,
 } from "./mouthQuProblemDevScenario.js";
 import { applyEctoplasmDevOwnedTreasures } from "./ectoplasmDevScenario.js";
+import { applyNoSellGoldBombCometOwnedTreasures } from "./noSellGoldBombCometDevScenario.js";
 import {
   applyPromoGameplayOwnedTreasures,
   buildPromoSuperPackPickSession,
@@ -33,6 +34,7 @@ import {
  *     allIceDevScenarioActive: import('vue').Ref<boolean>,
  *     ceruleanBellDevScenarioActive: import('vue').Ref<boolean>,
  *     pagerDevScenarioActive: import('vue').Ref<boolean>,
+ *     noSellGoldBombCometDevScenarioActive: import('vue').Ref<boolean>,
  *     promoScreenshotDevPresetActive: import('vue').Ref<number>,
  *     ownedTreasures: import('vue').Ref<(object | null)[]>,
  *     transitionBusy: import('vue').Ref<boolean>,
@@ -182,6 +184,18 @@ export function createGamePanelDevCommands(deps) {
       "[DEV] 烛台测试局：已装备 5 个带随机非裁剪配饰的宝藏。",
       summary.treasureIds,
       summary.accessoryIds,
+    );
+  }
+
+  async function startNoSellGoldBombCometDevTest() {
+    deps.refs.noSellGoldBombCometDevScenarioActive.value = true;
+    applyNoSellGoldBombCometOwnedTreasures(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
+    const levelDef = deps.getCurrentLevel() ?? deps.getRunLevelAtIndex(deps.refs.levelIndex.value);
+    await deps.resetLevelAfterTreasurePrep(levelDef);
+    await deps.nextTick();
+    await finishScreenshotDevGridVisual();
+    console.log(
+      "[DEV] 禁售金牌+炸弹+彗星测试局：槽位 [🥇][💣][☄️]，各带禁售配饰。",
     );
   }
 
@@ -413,6 +427,7 @@ export function createGamePanelDevCommands(deps) {
     dev.startPagerDevTest = () => startPagerDevTest();
     dev.startMouthQuProblemDevTest = () => startMouthQuProblemDevTest();
     dev.startEctoplasmDevTest = () => startEctoplasmDevTest();
+    dev.startNoSellGoldBombCometDevTest = () => startNoSellGoldBombCometDevTest();
     dev.jumpToLevel = (levelIdOrIndex, opts) => jumpToLevelDev(levelIdOrIndex, opts);
     dev.jumpToBossShop = (bossSlug, chapterOrLevelId) =>
       jumpToBossShopDev(bossSlug, chapterOrLevelId);
@@ -447,6 +462,7 @@ export function createGamePanelDevCommands(deps) {
     startPagerDevTest,
     startMouthQuProblemDevTest,
     startEctoplasmDevTest,
+    startNoSellGoldBombCometDevTest,
     startCeruleanBellDevTest,
     jumpToLevelDev,
     jumpToBossShopDev,
@@ -468,6 +484,9 @@ export function createGamePanelDevCommands(deps) {
         deps.buildOwnedTreasureSlot,
         deps.runRandom,
       );
+    },
+    applyNoSellGoldBombCometDevRunStart() {
+      applyNoSellGoldBombCometOwnedTreasures(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
     },
     debugSetScoreCardValues,
     debugClearScoreCardValues,

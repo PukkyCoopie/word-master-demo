@@ -561,7 +561,7 @@ function wireGamePanelControllersLate(d) {
     requestNewRun: () => d.requestNewRun?.(),
     openSettings: () => d.openSettings?.(),
     beforeMainMenuExit: () => {
-      d.runAutoSave.tryFlush({ force: true });
+      d.runAutoSave.flushRunSaveNow?.();
       d.abandonStandardWinRunProgressIfNeeded();
     },
     emitExitToMenu: () => d.emitExitToMenu(),

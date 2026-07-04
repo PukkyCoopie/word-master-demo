@@ -1,5 +1,6 @@
 import { describe } from "../treasureDescription.js";
 import { deckCardRaw } from "../../game/deckCardSync.js";
+import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
 const ID = "139";
 
@@ -69,7 +70,7 @@ export const treasureHooks = {
     rs.level139FaxCopyContributions.add(key);
     ctx.appendDeckCardSpecToRunDeck?.(deckCardToSpec(sourceCard));
     await Promise.all([
-      ctx.wobbleOwnedTreasureById?.(ID),
+      wobbleTreasureHookContributor(ctx, ID),
       ctx.playWordSlotCopyFxAtIndex?.(sourceIndex),
     ]);
   },

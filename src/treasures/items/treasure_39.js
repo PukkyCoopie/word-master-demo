@@ -1,5 +1,6 @@
 import { concept, describe, prob } from "../treasureDescription.js";
 import { rollProbabilitySuccess } from "../treasureProbability.js";
+import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
 const ID = "39";
 
@@ -19,12 +20,7 @@ export const treasureHooks = {
     if (len < 3 || len > 16) return;
     const slotIx = Math.max(0, Math.floor(Number(ctx.hookSlotIndex) || 0));
     const runCue = async () => {
-      const wobbleTask =
-        typeof ctx.wobbleOwnedTreasureAtSlot === "function"
-          ? ctx.wobbleOwnedTreasureAtSlot(slotIx)
-          : typeof ctx.playOwnedTreasureWobbleOnlyFx === "function"
-            ? ctx.playOwnedTreasureWobbleOnlyFx(ID)
-            : Promise.resolve(ctx.wobbleOwnedTreasureById?.(ID));
+      const wobbleTask = wobbleTreasureHookContributor(ctx, ID);
       const bubbleTask =
         typeof ctx.playOwnedTreasureBubbleOnlyFxAtSlot === "function"
           ? ctx.playOwnedTreasureBubbleOnlyFxAtSlot(slotIx, "升级", "upgrade")

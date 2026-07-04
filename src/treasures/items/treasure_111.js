@@ -1,4 +1,5 @@
 import { concept, describe } from "../treasureDescription.js";
+import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
 const ID = "111";
 const UPGRADE_FX_DELAY_MS = 300;
@@ -24,10 +25,7 @@ export const treasureHooks = {
     const len = Math.max(0, Math.round(Number(ctx.judgedWordLength ?? chars.length) || 0));
     if (len < 3 || len > 16) return;
 
-    const wobbleTask =
-      typeof ctx.playOwnedTreasureWobbleOnlyFx === "function"
-        ? ctx.playOwnedTreasureWobbleOnlyFx(ID)
-        : Promise.resolve(ctx.wobbleOwnedTreasureById?.(ID));
+    const wobbleTask = wobbleTreasureHookContributor(ctx, ID);
     const bubbleTask =
       typeof ctx.playOwnedTreasureBubbleOnlyFx === "function"
         ? ctx.playOwnedTreasureBubbleOnlyFx(ID, "升级", "upgrade")

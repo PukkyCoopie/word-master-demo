@@ -1370,6 +1370,8 @@ async function onGameExitToMenu() {
       screen.value = "menu";
       discardIncompleteFirstWordTutorialRunForSlot(slotIx);
       pruneAbandonedFreshRunForSlot(slotIx);
+      flushSaveStorageSync();
+      bumpSaveUi();
     },
   });
   transitionBusy.value = false;

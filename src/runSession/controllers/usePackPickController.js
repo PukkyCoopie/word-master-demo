@@ -357,7 +357,7 @@ export function usePackPickController(options) {
   async function fulfillTreasureAfterPackPayment(t, fromEl) {
     const slotsLenBefore = ownedTreasures.value.length;
     const ix = callbacks.findTreasurePlacementIndex(t);
-    if (ix < 0) return;
+    if (ix < 0) return false;
     initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
     callbacks.applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
     const slotsExpanded = ownedTreasures.value.length > slotsLenBefore;
@@ -384,6 +384,7 @@ export function usePackPickController(options) {
       grantTreasure();
       await callbacks.playTreasureGrantPopAtSlotIndex(ix);
     }
+    return true;
   }
 
   async function fulfillPackInnerPurchase(
@@ -396,18 +397,17 @@ export function usePackPickController(options) {
       priceStruck = false,
     } = {},
   ) {
-    if (!t) return;
+    if (!t) return true;
     if (t.offerType === "spell") {
       await fulfillSpellAfterPackPayment(t, { restoreLayersAfter });
-      return;
+      return true;
     }
     if (t.offerType === "upgrade") {
       await fulfillUpgradeAfterPackPayment(t, { restoreLayersAfter });
-      return;
+      return true;
     }
     if (t.offerType === "treasure") {
-      await fulfillTreasureAfterPackPayment(t, flyEl ?? null);
-      return;
+      return (await fulfillTreasureAfterPackPayment(t, flyEl ?? null)) === true;
     }
     if (t.offerType === "deckTile" || t.offerType === "deckLetter") {
       const raw = String(t.deckLetterRaw ?? "e").toLowerCase();
@@ -436,6 +436,7 @@ export function usePackPickController(options) {
         },
       ]);
     }
+    return true;
   }
 
   async function onPackInnerClaim() {
@@ -466,13 +467,17 @@ export function usePackPickController(options) {
       const flyEl = layer?.getFlyFrameEl?.() ?? null;
       const isTreasureOffer = t.offerType === "treasure";
       if (isTreasureOffer) {
-        sess.claimedKeys = [...claimed, key];
         const closePromise = layer?.playClose?.() ?? Promise.resolve();
-        await Promise.all([
+        const grantOk = await Promise.all([
           closePromise,
           fulfillPackInnerPurchase(t, flyEl, { restoreLayersAfter: willNeedMorePicks }),
-        ]);
+        ]).then((results) => results[1] === true);
         treasureDetail.value = null;
+        if (!grantOk) {
+          callbacks.showToast("宝藏领取失败");
+          return;
+        }
+        sess.claimedKeys = [...claimed, key];
       } else if (isDeckOffer) {
         /** @type {{ left: number, top: number, width: number, height: number } | null} */
         let fromRect = null;

@@ -1,4 +1,5 @@
 import { describe, money } from "../treasureDescription.js";
+import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
 const ID = "41";
 
@@ -13,6 +14,6 @@ export default {
 export const treasureHooks = {
   async onLevelComplete(ctx) {
     ctx.bumpOwnedTreasureSellRefundBonusById?.(ID, 3);
-    await ctx.wobbleOwnedTreasureById?.(ID);
+    await wobbleTreasureHookContributor(ctx, ID);
   },
 };

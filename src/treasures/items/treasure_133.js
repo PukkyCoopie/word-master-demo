@@ -1,10 +1,11 @@
 import { describe, money } from "../treasureDescription.js";
+import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
 const ID = "133";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 7,
+  price: 5,
   rarity: "rare",
   description: describe("每个关卡完成时，使你其他宝藏的售价增加", money("1")),
 };
@@ -18,6 +19,6 @@ export const treasureHooks = {
       if (!tid || tid === ID) continue;
       ctx.bumpOwnedTreasureSellRefundBonusAtSlot?.(i, 1);
     }
-    await ctx.wobbleOwnedTreasureById?.(ID);
+    await wobbleTreasureHookContributor(ctx, ID);
   },
 };

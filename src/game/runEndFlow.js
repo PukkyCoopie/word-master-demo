@@ -43,7 +43,7 @@ export function getCompletedLevelIdsForWin(levelIndex) {
  * @param {() => import('./runCollectionDiscoveries.js').RunDiscoveryLog | null | undefined} [deps.getRunDiscoveryLog]
  * @param {() => void} deps.scheduleRunAutoSave
  * @param {(opts?: object) => void} deps.requestCloudSync
- * @param {() => { tryFlush?: (opts?: object) => void }} deps.getSaveBridge
+ * @param {() => { tryFlush?: (opts?: object) => void, flushRunSaveNow?: () => void }} deps.getSaveBridge
  * @param {(slotIndex: number) => void} deps.clearSlotRunProgress
  * @param {number} deps.saveSlotIndex
  * @param {() => void} deps.emitExitToMenu
@@ -117,7 +117,7 @@ export function createRunEndFlow(deps) {
   }
 
   function onRunEndMainMenu() {
-    deps.getSaveBridge()?.tryFlush?.({ force: true });
+    deps.getSaveBridge()?.flushRunSaveNow?.();
     deps.requestCloudSync({ priority: "high" });
     abandonStandardWinRunProgressIfNeeded();
     deps.emitExitToMenu();

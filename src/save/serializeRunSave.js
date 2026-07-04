@@ -9,6 +9,7 @@ import { cloneSaveData } from "./saveDataClone.js";
 import { serializeOwnedTreasureSlots } from "../treasures/ownedTreasureSlot.js";
 import { getTreasureDef } from "../treasures/treasureRegistry.js";
 import { serializeRunDiscoveryLog } from "../game/runCollectionDiscoveries.js";
+import { resolveSavedIsEndlessRun } from "./runSaveEndless.js";
 
 /**
  * @param {Record<string, unknown>} ctx
@@ -102,7 +103,7 @@ export function buildRunSaveMetaFromPayload(payload, levelIndex) {
     seedDisplay: String(payload.runSeedDisplay ?? ""),
     levelId: levelDef?.id ?? "1-1",
     money: normalizeRunSaveMoney(payload.money),
-    isEndlessRun: payload.isEndlessRun === true,
+    isEndlessRun: resolveSavedIsEndlessRun(payload),
     phase: normalizeRunSavePhase(payload.phase),
     ownedTreasureEmojis: emojis.slice(0, 5),
     savedAt: Date.now(),

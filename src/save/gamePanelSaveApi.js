@@ -91,7 +91,8 @@ export function checkGamePanelCanSave(idleCtx) {
     !idleCtx.gridRefillAnimating &&
     (idleCtx.flyingLettersCount ?? 0) === 0 &&
     (idleCtx.flyingBackBatchesCount ?? 0) === 0 &&
-    !idleCtx.submitWordBusy;
+    !idleCtx.submitWordBusy &&
+    !idleCtx.packPickBusy;
   return canSaveNow({
     idle,
     transitionBusy: idleCtx.transitionBusy,
@@ -100,5 +101,6 @@ export function checkGamePanelCanSave(idleCtx) {
     flyingLettersCount: idleCtx.flyingLettersCount,
     flyingBackBatchesCount: idleCtx.flyingBackBatchesCount,
     submitWordBusy: idleCtx.submitWordBusy,
+    packPickBusy: idleCtx.packPickBusy,
   });
 }

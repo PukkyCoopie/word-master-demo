@@ -1,4 +1,5 @@
 import { concept, describe } from "../treasureDescription.js";
+import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
 const ID = "110";
 
@@ -16,6 +17,6 @@ export const treasureHooks = {
     if (!ctx.treasureRun) return;
     ctx.treasureRun.shopUpgradesFree = (ctx.ownedSlotTreasureIds ?? []).includes(ID);
     if (!ctx.treasureRun.shopUpgradesFree) return;
-    await ctx.wobbleOwnedTreasureById?.(ID);
+    await wobbleTreasureHookContributor(ctx, ID);
   },
 };

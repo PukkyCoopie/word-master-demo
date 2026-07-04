@@ -1,6 +1,10 @@
 import { buildGamePanelAndroidBackHandler } from "./buildGamePanelAndroidBackHandler.js";
 import { useGamePanelPlatformController } from "./controllers/useGamePanelPlatformController.js";
 import { createGamePanelDisposer } from "./createGamePanelDisposer.js";
+import {
+  registerRunSaveFlushOnBackground,
+  unregisterRunSaveFlushOnBackground,
+} from "../save/runSaveExitFlush.js";
 
 /**
  * Android back + platform controller + dispose 列表。
@@ -49,13 +53,19 @@ export function wireGamePanelPlatform(d) {
   const platformCtrl = useGamePanelPlatformController({
     onAndroidBack: handleAndroidBack,
     onViewportResize: d.onWordSlotsLayoutResize,
+    onRegister: () => {
+      registerRunSaveFlushOnBackground(() => d.runAutoSave.flushRunSaveNow?.());
+    },
+    onDispose: () => {
+      unregisterRunSaveFlushOnBackground();
+    },
   });
 
   const disposeGamePanel = createGamePanelDisposer([
     () => d.disposeFirstWordTutorial(),
     () => d.resetGamePause(),
     () => platformCtrl.dispose(),
-    () => d.runAutoSave.tryFlush({ force: true }),
+    () => d.runAutoSave.flushRunSaveNow?.(),
     () => d.runAutoSave.cancelPending(),
     () => d.discardController.dispose(),
     () => d.tileDetailCtrl.dispose(),

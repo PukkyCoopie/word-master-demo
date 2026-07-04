@@ -5,6 +5,7 @@ import {
   saveGamePanelToSlot,
 } from "../../save/gamePanelSaveApi.js";
 import { createRunAutoSave } from "../../save/runAutoSave.js";
+import { flushSaveStorageSync } from "../../save/runSaveStorage.js";
 
 /** @typedef {import('../runSessionTypes.js').SaveBridge} SaveBridge */
 /** @typedef {import('../runSessionTypes.js').CanSaveSnapshot} CanSaveSnapshot */
@@ -32,6 +33,7 @@ import { createRunAutoSave } from "../../save/runAutoSave.js";
  *   flyingLetters: import('vue').Ref<unknown[]>,
  *   flyingBackBatches: import('vue').Ref<unknown[]>,
  *   submitWordBusy: import('vue').Ref<boolean>,
+ *   packPickBusy: import('vue').Ref<boolean>,
  * }} anim
  * @property {{
  *   shopOffers: import('vue').Ref<unknown[]>,
@@ -73,6 +75,7 @@ import { createRunAutoSave } from "../../save/runAutoSave.js";
  *   scheduleAutoSave: () => void,
  *   tryFlush: (opts?: { force?: boolean }) => void,
  *   cancelPending: () => void,
+ *   flushRunSaveNow: () => void,
  *   saveCurrentRun: (slotIndex?: number, opts?: { immediate?: boolean }) => ReturnType<typeof saveGamePanelToSlot>,
  *   buildHydrateContext: () => Record<string, unknown>,
  * }}
@@ -178,6 +181,7 @@ export function useRunSaveBridge(options) {
       flyingLettersCount: anim.flyingLetters.value.length,
       flyingBackBatchesCount: anim.flyingBackBatches.value.length,
       submitWordBusy: anim.submitWordBusy.value,
+      packPickBusy: anim.packPickBusy.value,
     };
   }
 
@@ -211,6 +215,7 @@ export function useRunSaveBridge(options) {
       anim.flyingBackBatches.value.length,
       anim.transitionBusy.value,
       anim.submitWordBusy.value,
+      anim.packPickBusy.value,
     ],
     () => {
       runAutoSave.tryFlush();
@@ -219,7 +224,19 @@ export function useRunSaveBridge(options) {
 
   /** @returns {Promise<void>} */
   async function flushAutoSave() {
-    runAutoSave.tryFlush({ force: true });
+    flushRunSaveNow();
+  }
+
+  /** 退菜单 / 切后台：写入当前局内状态并立即落盘（不依赖 pending 标记）。 */
+  function flushRunSaveNow() {
+    if (isAlive()) {
+      if (canSaveNow().ok) {
+        saveCurrentRun(getSaveSlotIndex(), { immediate: true });
+      } else {
+        runAutoSave.tryFlush({ force: true });
+      }
+    }
+    flushSaveStorageSync();
   }
 
   return {
@@ -230,6 +247,7 @@ export function useRunSaveBridge(options) {
     hydrateFromPayload,
     saveCurrentRun,
     flushAutoSave,
+    flushRunSaveNow,
     scheduleAutoSave: () => runAutoSave.scheduleAutoSave(),
     tryFlush: runAutoSave.tryFlush,
     cancelPending: runAutoSave.cancelPending,

@@ -243,6 +243,9 @@ import { isCeruleanBellDevScenario } from "../dev/ceruleanBellDevScenario.js";
 import { isPagerDevScenario } from "../dev/pagerDevScenario.js";
 import { isEctoplasmDevScenario } from "../dev/ectoplasmDevScenario.js";
 import {
+  isNoSellGoldBombCometDevScenario,
+} from "../dev/noSellGoldBombCometDevScenario.js";
+import {
   isMouthQuProblemDevScenario,
   applyProblemQuRowToGrid,
 } from "../dev/mouthQuProblemDevScenario.js";
@@ -442,6 +445,8 @@ const ceruleanBellDevScenarioActive = ref(isCeruleanBellDevScenario());
 const pagerDevScenarioActive = ref(isPagerDevScenario());
 /** 开发：开局 5 宝藏各带随机非裁剪配饰（`?dev=ectoplasm`，烛台调试） */
 const ectoplasmDevScenarioActive = ref(isEctoplasmDevScenario());
+/** 开发：开局禁售金牌+炸弹+彗星（`?dev=noSellGoldBombComet` 或控制台命令） */
+const noSellGoldBombCometDevScenarioActive = ref(isNoSellGoldBombCometDevScenario());
 /** 开发：Qu+嘴+试管 problem 替换测试（`?dev=mouthQuProblem` 或控制台命令） */
 const mouthQuProblemDevScenarioActive = ref(isMouthQuProblemDevScenario());
 /** 开发：宣传图预设 1 的棋盘材质/加成（`setupScreenshotPreset(1)`） */
@@ -1319,6 +1324,13 @@ watch(showShop, async (open, prev) => {
     if (prev) scheduleOverlayDismiss(240);
     shopOverlayLayersSuppressed.value = false;
     packPickOverlaySuppressed.value = false;
+    const sess = packPickSession.value;
+    if (sess) {
+      const claimed = sess.claimedKeys ?? [];
+      if (claimed.length >= packPickRequiredPicks(sess)) {
+        packPickSession.value = null;
+      }
+    }
     return;
   }
   scheduleOverlayPresent(280);
@@ -1460,7 +1472,10 @@ const deckPreviewBridge = { current: null };
 let openPauseOptionsPortal = () => {};
 
 /** assembly 前占位；`wireGamePanelSettlement` 后接 `runSaveBridge` */
-const runAutoSaveBridge = { tryFlush: (_opts) => {} };
+const runAutoSaveBridge = {
+  tryFlush: (_opts) => {},
+  flushRunSaveNow: () => {},
+};
 
 function wireBossMechanicsBridge(bossMechanicsCtrl) {
   bossSlugBridge.fn = () => bossMechanicsCtrl.slug();
@@ -2003,6 +2018,7 @@ Object.assign(shopSelectionBridge, {
 });
 
 runAutoSaveBridge.tryFlush = (opts) => runSaveBridge?.tryFlush?.(opts);
+runAutoSaveBridge.flushRunSaveNow = () => runSaveBridge?.flushRunSaveNow?.();
 
 ({
   packPickController, packPickSession, packPickBusy, packPickSkipBusy, packPickOverlaySuppressed,
@@ -2021,7 +2037,8 @@ runAutoSaveBridge.tryFlush = (opts) => runSaveBridge?.tryFlush?.(opts);
   devCommandsRef,
   devCommandsOptions: buildGamePanelDevCommandsOptions({
     maskBubbleDevScenarioActive, allIceDevScenarioActive, ceruleanBellDevScenarioActive,
-    pagerDevScenarioActive, ectoplasmDevScenarioActive, mouthQuProblemDevScenarioActive,
+    pagerDevScenarioActive, ectoplasmDevScenarioActive, noSellGoldBombCometDevScenarioActive,
+    mouthQuProblemDevScenarioActive,
     promoScreenshotDevPresetActive, ownedTreasures, transitionBusy,
     showShop, showSettlement, showRunEnd, showPauseOptions, showDeveloperOptions, levelIndex,
     pendingBossSlugOverride: ctrlEarly.pendingBossSlugOverride,
@@ -2215,6 +2232,7 @@ const runAutoSave = {
   scheduleAutoSave: () => runSaveBridge.scheduleAutoSave(),
   tryFlush: (...args) => runSaveBridge.tryFlush(...args),
   cancelPending: () => runSaveBridge.cancelPending(),
+  flushRunSaveNow: () => runSaveBridge.flushRunSaveNow(),
 };
 
 const { platformCtrl, disposeGamePanel } = wireGamePanelPlatform({
@@ -2273,6 +2291,7 @@ async function enterEndlessModeAfterWin() {
     isEndlessRun.value = true;
     syncEndlessLeaderboardChapterBaseline(currentLevel.value?.id ?? "");
   });
+  runSaveBridge?.flushRunSaveNow?.();
 }
 
 runEndEnterEndlessSlot = enterEndlessModeAfterWin;
@@ -2346,6 +2365,9 @@ function buildGamePanelBootstrapSource() {
     applyPagerOwnedTreasure: () => devCommandsRef.current?.applyPagerDevRunStart(),
     isEctoplasmDevScenarioActive: () => ectoplasmDevScenarioActive.value,
     applyEctoplasmDevOwnedTreasures: () => devCommandsRef.current?.applyEctoplasmDevRunStart(),
+    isNoSellGoldBombCometDevScenarioActive: () => noSellGoldBombCometDevScenarioActive.value,
+    applyNoSellGoldBombCometOwnedTreasures: () =>
+      devCommandsRef.current?.applyNoSellGoldBombCometDevRunStart(),
     isMouthQuProblemDevScenarioActive: () => mouthQuProblemDevScenarioActive.value,
     applyMouthQuProblemOwnedTreasures: () =>
       devCommandsRef.current?.applyMouthQuProblemDevRunStart(),
@@ -2357,6 +2379,7 @@ function buildGamePanelBootstrapSource() {
     runNewRunGridIntro: runGridIntroAfterReset,
     tryCeruleanBellFlyInAfterGridStable: () =>
       playfieldController.tryCeruleanBellFlyInAfterGridStable(),
+    syncEndlessLeaderboardChapterBaseline,
   });
 }
 

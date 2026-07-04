@@ -1,6 +1,7 @@
 import { describe, materialConcept } from "../treasureDescription.js";
 import { applyPlainMaterialToTile } from "../../game/tileMaterialApply.js";
 import { pickRandomFountainWaterTarget } from "../../game/fountainWaterTargets.js";
+import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
 const ID = "144";
 
@@ -22,7 +23,7 @@ export const treasureHooks = {
       const rng = typeof ctx.rng === "function" ? ctx.rng : Math.random;
       const target = pickRandomFountainWaterTarget(grid, rng);
       if (!target) return;
-      await ctx.wobbleOwnedTreasureById?.(ID);
+      await wobbleTreasureHookContributor(ctx, ID);
       const { row, col } = target;
       await ctx.playGridTileMaterialChangeAtCell?.(row, col, () => {
         const tile = ctx.getGrid?.()?.[row]?.[col];

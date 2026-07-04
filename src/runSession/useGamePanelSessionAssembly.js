@@ -1495,6 +1495,7 @@ const runSaveBridge = useRunSaveBridge({
     flyingLetters: playfieldController.flyingLetters,
     flyingBackBatches: playfieldController.flyingBackBatches,
     submitWordBusy,
+    packPickBusy: packPickBusyRef,
   },
   shop: {
     shopOffers,
