@@ -99,10 +99,15 @@ async function tweenResultValues(model, toScore, toMult, durationS = 0.44) {
  * }} opts
  */
 async function playSwitchToLengthDefault(opts) {
-  const { areaRef, model, lenLabel, level, scoreBefore, multBefore, speed = 1 } = opts;
+  const { areaRef, model, lenLabel, level, scoreBefore, multBefore, speed = 1, compactSequence = false } = opts;
   const s = Math.max(0.01, Number(speed) || 1);
   model.wordlenText.value = lenLabel;
   model.levelShown.value = level;
+  if (compactSequence) {
+    model.scoreValue.value = Math.max(0, Math.round(scoreBefore));
+    model.multValue.value = Math.max(0, Math.round(multBefore));
+    return;
+  }
   const wordlenMainEl = areaRef.value?.getWordlenMainEl?.() ?? null;
   const scoreBoxEl = areaRef.value?.getScoreBoxEl?.() ?? null;
   const multBoxEl = areaRef.value?.getMultBoxEl?.() ?? null;
@@ -131,6 +136,7 @@ async function playSwitchToLengthDefault(opts) {
  *   speed?: number,
  *   isFirstLength?: boolean,
  *   isLastLength?: boolean,
+ *   compactSequence?: boolean,
  * }} opts
  */
 export async function runClearWinLengthUpgradeShopLikeFx(opts) {
@@ -145,6 +151,7 @@ export async function runClearWinLengthUpgradeShopLikeFx(opts) {
     speed = 1,
     isFirstLength = true,
     isLastLength = true,
+    compactSequence = false,
   } = opts;
   const s = Math.max(0.01, Number(speed) || 1);
   const backToNormalMid = isLastLength ? s - (s - 1) * 0.5 : s;
@@ -183,20 +190,23 @@ export async function runClearWinLengthUpgradeShopLikeFx(opts) {
       scoreBefore,
       multBefore,
       speed: s,
+      compactSequence,
     });
   }
 
-  await upgradeAnimSleep(isFirstLength ? UPGRADE_FIRST_LEAD_IN_GAP_MS : UPGRADE_STEP_GAP_MS, s);
+  const leadGap = compactSequence ? 0 : isFirstLength ? UPGRADE_FIRST_LEAD_IN_GAP_MS : UPGRADE_STEP_GAP_MS;
+  const stepGap = compactSequence ? 0 : UPGRADE_STEP_GAP_MS;
+  await upgradeAnimSleep(leadGap, s);
   const levelEl = areaRef.value?.getWordlenLevelEl?.() ?? null;
   await runPanelWobbleAndBubble(levelEl, "+1", "level", s);
   model.levelShown.value = nextLevel;
 
-  await upgradeAnimSleep(UPGRADE_STEP_GAP_MS, s);
+  await upgradeAnimSleep(stepGap, s);
   const scoreBoxEl = areaRef.value?.getScoreBoxEl?.() ?? null;
   await runPanelWobbleAndBubble(scoreBoxEl, `+${scoreAdd}`, "score", s);
   const scoreTweenPromise = tweenResultValues(model, scoreAfter, multBefore, UPGRADE_VALUE_TWEEN_S / s);
 
-  await upgradeAnimSleep(UPGRADE_STEP_GAP_MS, s);
+  await upgradeAnimSleep(stepGap, s);
   const multBoxEl = areaRef.value?.getMultBoxEl?.() ?? null;
   await runPanelWobbleAndBubble(multBoxEl, `+${multAdd}`, "mult", backToNormalMid);
   await scoreTweenPromise;
@@ -204,8 +214,12 @@ export async function runClearWinLengthUpgradeShopLikeFx(opts) {
 
   if (isLastLength) {
     await waitNextTick();
-    await upgradeAnimSleep(UPGRADE_FINAL_HOLD_MS, backToNormalEnd);
-    await tweenResultValues(model, 0, 0, 0.75 / backToNormalEnd);
+    if (compactSequence) {
+      await tweenResultValues(model, 0, 0, 0.32 / backToNormalEnd);
+    } else {
+      await upgradeAnimSleep(UPGRADE_FINAL_HOLD_MS, backToNormalEnd);
+      await tweenResultValues(model, 0, 0, 0.75 / backToNormalEnd);
+    }
     fxActive.value = false;
   }
 }

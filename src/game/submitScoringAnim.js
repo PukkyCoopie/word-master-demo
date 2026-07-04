@@ -9,12 +9,11 @@ import {
   scoringSleep,
 } from "./submitScoringTiming.js";
 import {
-  UPGRADE_ACCESSORY_CUE_DELAY_MS,
   getSubmitScoringTriggeredUpgradeLocalSpeed,
   resetSubmitScoringBeatSpeedSnapshot,
   setSubmitScoringBeatSpeedSnapshot,
-  upgradeAnimSleep,
 } from "./upgradePlaybackTiming.js";
+import { createSubmitAccessoryUpgradeBatch } from "./submitAccessoryUpgradeBatch.js";
 import { persistTileIntrinsicTreasureCue } from "./persistTileIntrinsicTreasureCue.js";
 import { addScoreAddBank } from "../treasures/treasureBankHelpers.js";
 import {
@@ -1194,14 +1193,16 @@ function buildClearWinLengthUpgradeAccessoryEntries() {
 }
 
 /**
- * @param {(() => Promise<void>)[]} fxQueue
+ * @param {ReturnType<typeof createSubmitAccessoryUpgradeBatch>} batch
  * @param {number} judgedLen 本手判定词长（查表用）
+ * @param {(len: number) => { apply?: () => void, payload: object }} buildLengthUpgradeStep
  */
-function registerClearWinLengthUpgradePostScoreFx(fxQueue, judgedLen) {
+function registerClearWinLengthUpgradePostScoreFx(batch, judgedLen, buildLengthUpgradeStep) {
   const len = Math.max(3, Math.min(16, Math.round(Number(judgedLen)) || 0));
   if (len < 3 || len > 16) return;
   for (const { tileId, accessoryTriggered } of buildClearWinLengthUpgradeAccessoryEntries()) {
-    fxQueue.push(() => runClearWinLengthUpgradeAccessoryTileFx(tileId, len, accessoryTriggered));
+    batch.registerCue(() => runClearWinLengthUpgradeAccessoryCueOnly(tileId, accessoryTriggered));
+    batch.registerStep(buildLengthUpgradeStep(len));
   }
 }
 
@@ -1263,16 +1264,28 @@ function resolveClearWinVipDiamondRarityUpgrade(tiles, willClearLevelThisSubmit)
 }
 
 /**
- * 通关当手、首格钻石配饰：登记 post-clear 顶栏稀有度升级动效（字母消散后、结算层前）。
- * @param {(() => Promise<void>)[]} fxQueue
+ * 通关当手、首格钻石配饰：登记 post-clear 顶栏稀有度升级（字母消散后、结算层前）。
+ * @param {ReturnType<typeof createSubmitAccessoryUpgradeBatch>} batch
  * @param {Record<string, unknown>[]} tiles
  * @param {boolean} willClearLevelThisSubmit
+ * @param {{ noteCollectionUpgradeUsed: (id: string) => void, getUpgradeTreasureIdForRarityKey: (rk: string) => string, setRarityLevelWithTreasurePairs: (rk: string, lv: number) => void, refreshGridTileBaseScoresFromLevels: () => void }} cbs
  */
-function registerClearWinVipDiamondRarityPostScoreFx(fxQueue, tiles, willClearLevelThisSubmit) {
+function registerClearWinVipDiamondRarityPostScoreFx(batch, tiles, willClearLevelThisSubmit, cbs) {
   const upgrade = resolveClearWinVipDiamondRarityUpgrade(tiles, willClearLevelThisSubmit);
   if (!upgrade) return;
   const { rk, beforeLevel } = upgrade;
-  fxQueue.push(() => runClearWinVipDiamondRarityPostScoreFx(rk, beforeLevel));
+  batch.registerStep({
+    payload: {
+      upgradeKind: "rarity",
+      rarityKey: rk,
+      beforeLevel,
+    },
+    apply: () => {
+      cbs.noteCollectionUpgradeUsed(cbs.getUpgradeTreasureIdForRarityKey(rk));
+      cbs.setRarityLevelWithTreasurePairs(rk, beforeLevel + 1);
+      cbs.refreshGridTileBaseScoresFromLevels();
+    },
+  });
 }
 
 /**
@@ -1300,35 +1313,10 @@ async function runClearWinVipDiamondSlotCueBeforeLeave(tiles, willClearLevelThis
   })();
   const wobbleDone = wobbleTl ? wobbleTl.then() : Promise.resolve();
   await Promise.all([bubbleTask, wobbleDone]);
-  await upgradeAnimSleep(UPGRADE_ACCESSORY_CUE_DELAY_MS, sp);
 }
 
-/** @param {string} rk @param {number} beforeLevel */
-async function runClearWinVipDiamondRarityPostScoreFx(rk, beforeLevel) {
-  const sp = getSubmitScoringTriggeredUpgradeLocalSpeed();
-  refs.shopOverlayLayersSuppressed.value = true;
-  await nextTick();
-  try {
-    callbacks.noteCollectionUpgradeUsed(callbacks.getUpgradeTreasureIdForRarityKey(rk));
-    callbacks.setRarityLevelWithTreasurePairs(rk, beforeLevel + 1);
-    callbacks.refreshGridTileBaseScoresFromLevels();
-    await callbacks.runInGameRarityUpgradeShopLikeFx({
-      areaRef: getDom.getGameResultAreaRef(),
-      model: refs.lastSubmitRarityFxModel,
-      fxActive: refs.lastSubmitRarityFxActive,
-      waitNextTick: () => nextTick(),
-      rarityKey: rk,
-      beforeLevel,
-      speed: sp,
-    });
-  } finally {
-    refs.shopOverlayLayersSuppressed.value = false;
-    refs.lastSubmitRarityFxActive.value = false;
-  }
-}
-
-/** @param {string} tileId @param {number} len @param {boolean} [accessoryTriggered] */
-async function runClearWinLengthUpgradeAccessoryTileFx(tileId, len, accessoryTriggered = false) {
+/** @param {string} tileId @param {boolean} [accessoryTriggered] */
+async function runClearWinLengthUpgradeAccessoryCueOnly(tileId, accessoryTriggered = false) {
   await nextTick();
   const cell = findGridCellByTileId(refs.grid.value, tileId, ROWS, COLS);
   if (!cell) return;
@@ -1349,27 +1337,6 @@ async function runClearWinLengthUpgradeAccessoryTileFx(tileId, len, accessoryTri
   })();
   const wobbleDone = wobbleTl ? wobbleTl.then() : Promise.resolve();
   await Promise.all([bubbleTask, wobbleDone]);
-  await upgradeAnimSleep(UPGRADE_ACCESSORY_CUE_DELAY_MS, sp);
-
-  const beforeLevel = Math.max(1, Math.round(Number(refs.lengthLevelsByLength.value?.[len])) || 1);
-  const observatoryBoost = callbacks.isLengthObservatoryBoosted(
-    refs.ownedVoucherIds.value,
-    len,
-    refs.spellCountsByLength.value,
-  );
-  callbacks.noteTreasureRunUpgradeUsed(refs.treasureRunState.value);
-  callbacks.noteCollectionUpgradeForWordLen(len);
-  callbacks.bumpWordLengthLevel(len, { observatoryBoost });
-  await callbacks.runClearWinLengthUpgradeShopLikeFx({
-    areaRef: getDom.getGameResultAreaRef(),
-    model: refs.clearWinFxModel,
-    fxActive: refs.clearWinLengthUpgradeFxActive,
-    waitNextTick: () => nextTick(),
-    len,
-    beforeLevel,
-    observatoryBoost,
-    speed: sp,
-  });
 }
 
 /** 通关当手、补牌前：仅黄金材质 wobble + 金币（升级配饰改在计分清空结束后队列执行） */
@@ -1742,8 +1709,37 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   let submitAfterWordLeaveFx = [];
   /** @type {(() => Promise<void>)[]} */
   let submitPostScoreClearFx = [];
+  const accessoryUpgradeBatch = createSubmitAccessoryUpgradeBatch({
+    getLengthLevels: () => refs.lengthLevelsByLength.value,
+    getRarityLevels: () => refs.rarityLevelsByRarity.value,
+    runStaircasePlayback: (steps) => callbacks.runInRunUpgradeStaircasePlayback(steps),
+  });
+  callbacks.submitAccessoryUpgradeBatchState.current = accessoryUpgradeBatch;
   callbacks.submitUpgradeFxRegistrarState.current = (runner) => {
     if (typeof runner === "function") submitPostScoreClearFx.push(runner);
+  };
+  /** @param {number} len */
+  const buildClearWinLengthUpgradeStep = (len) => {
+    const L = Math.max(3, Math.min(16, Math.round(Number(len)) || 0));
+    const observatoryBoost = callbacks.isLengthObservatoryBoosted(
+      refs.ownedVoucherIds.value,
+      L,
+      refs.spellCountsByLength.value,
+    );
+    return {
+      payload: {
+        upgradeKind: "length",
+        lengthMin: L,
+        lengthMax: L,
+        beforeLevel: Math.max(1, Math.round(Number(refs.lengthLevelsByLength.value?.[L])) || 1),
+        isLengthObservatoryBoosted: () => observatoryBoost,
+      },
+      apply: () => {
+        callbacks.noteTreasureRunUpgradeUsed(refs.treasureRunState.value);
+        callbacks.noteCollectionUpgradeForWordLen(L);
+        callbacks.bumpWordLengthLevel(L, { observatoryBoost });
+      },
+    };
   };
   if (detailed.bossSoftViolation !== true) {
     const grantWord = resolveSubmittedWordForHooks(resolvedWord, persistedSubmitTiles);
@@ -1765,9 +1761,10 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
 
   if (detailed.bossSoftViolation !== true && scoreIsPositive(detailed.finalScore)) {
     registerClearWinVipDiamondRarityPostScoreFx(
-      submitPostScoreClearFx,
+      accessoryUpgradeBatch,
       persistedSubmitTiles,
       willClearLevelThisSubmit,
+      callbacks,
     );
     registerArmBossLengthDowngradePostScoreFx(submitPostScoreClearFx, lenTb);
   }
@@ -1876,7 +1873,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   const skipNewFromDeck = willWinThisSubmit || noSubmitsLeft;
 
   if (willWinThisSubmit) {
-    registerClearWinLengthUpgradePostScoreFx(submitPostScoreClearFx, lenTb);
+    registerClearWinLengthUpgradePostScoreFx(accessoryUpgradeBatch, lenTb, buildClearWinLengthUpgradeStep);
     await runClearWinGoldEffectsBeforeRefill();
   }
 
@@ -1901,11 +1898,15 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   await Promise.all([dropPromise, scorePromise]);
 
   callbacks.submitUpgradeFxRegistrarState.current = null;
+  if (accessoryUpgradeBatch.hasContent) {
+    submitPostScoreClearFx.push(() => accessoryUpgradeBatch.flush());
+  }
   if (submitPostScoreClearFx.length > 0) {
     for (const fx of submitPostScoreClearFx) {
       await fx();
     }
   }
+  callbacks.submitAccessoryUpgradeBatchState.current = null;
   resetSubmitScoringBeatSpeedSnapshot();
 
   await collapseTrans;
@@ -1921,6 +1922,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     activeSubmitDisabledTreasureSlotIndices = null;
     resetSubmitScoringBeatSpeedSnapshot();
     callbacks.submitUpgradeFxRegistrarState.current = null;
+    callbacks.submitAccessoryUpgradeBatchState.current = null;
     callbacks.setSubmitScoringAppendPresentation?.(null);
     callbacks.setSubmitScoringAppendPresentations?.([]);
     callbacks.endSubmitWordLeaveHide?.();

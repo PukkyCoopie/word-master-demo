@@ -41,7 +41,7 @@ import { createPhaseStore } from "../runSession/createPhaseStore.js";
 import InRunShopPhase from "./run/InRunShopPhase.vue";
 import RunOverlayHost from "./run/RunOverlayHost.vue";
 import StageSettlementLayer from "./run/StageSettlementLayer.vue";
-import { useGamePanelSessionAssembly } from "../runSession/useGamePanelSessionAssembly.js";
+import { useGamePanelSessionAssembly, submitAccessoryUpgradeBatchState } from "../runSession/useGamePanelSessionAssembly.js";
 import { wireGamePanelFxFromDeps } from "../runSession/wireGamePanelFxFromDeps.js";
 import {
   buildGamePanelAssemblyFromWiring,
@@ -805,6 +805,10 @@ async function runInRunUpgradePlaybackSteps(steps) {
   await inRunUpgradePlaybackRef.current?.runInRunUpgradePlaybackSteps(steps);
 }
 
+async function runInRunUpgradeStaircasePlayback(steps) {
+  await inRunUpgradePlaybackRef.current?.runInRunUpgradeStaircasePlayback(steps);
+}
+
 /** @type {{ current: ReturnType<typeof createTreasureDestroyFx> | null }} */
 const treasureDestroyFxRef = { current: null };
 
@@ -1206,6 +1210,7 @@ const ctrlEarly = wireGamePanelControllers({
     getSpellCountsByLength: () => spellCountsByLength.value,
     bumpWordLengthLevel,
     buildInRunLengthUpgradeStep,
+    submitAccessoryUpgradeBatchState,
     playOwnedTreasureMoneyFx,
     playOwnedTreasureWobbleOnlyFx,
     playSubmitWordLetterRemoveAndRewardLeave,
@@ -1802,6 +1807,7 @@ const { ports: gamePanelPorts } = setupGamePanelAssembly(
       shopSpellRuntimeBridge,
       openShopPackSession,
       runInRunUpgradePlaybackSteps,
+      runInRunUpgradeStaircasePlayback,
       buildInRunLengthUpgradeStep,
       fulfillPackInnerPurchase,
       packPickSession,
@@ -2138,6 +2144,7 @@ wireGamePanelFxFromDeps({
   scheduleRunAutoSave,
   createWobbleScoreSlotTimeline, awaitWobbleScoreSlotTimeline, playOwnedTreasureWobbleOnlyFx,
   hourglassStageFxRef, inRunUpgradePlaybackRef, runResultPresentationCtrl, sleep,
+  submitAccessoryUpgradeBatchState,
   submitTileLeaveFxRef, treasureRunState, getSelectedGridTileElsInOrder,
   getWordSlotRefs: getWordSlotRefsFromPlayfield, runRandom,
   isBossTileDebuffed, removeDeckCardByUidAndNotify, ownedSlotTreasureIdList, ownedTreasureHookFxBridge,

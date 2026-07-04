@@ -846,6 +846,13 @@ export function useTreasureRunController(options) {
       registerSubmitPostScoreClearFx: (runner) => {
         if (typeof runner === "function") submitPostScoreClearFx.push(runner);
       },
+      registerSubmitAccessoryUpgradeCue: (cue) => {
+        hooks.submitAccessoryUpgradeBatchState?.current?.registerCue(cue);
+      },
+      registerSubmitAccessoryUpgradeStep: (step) => {
+        hooks.submitAccessoryUpgradeBatchState?.current?.registerStep(step);
+      },
+      buildInRunLengthUpgradeStep: hooks.buildInRunLengthUpgradeStep,
     });
     return { submitWordLeaveFx, submitAfterWordLeaveFx, submitPostScoreClearFx };
   }

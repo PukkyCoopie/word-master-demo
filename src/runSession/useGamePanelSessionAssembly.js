@@ -43,6 +43,9 @@ import { useRunSaveBridge } from "./controllers/useRunSaveBridge.js";
 import { useRunEndFlowController } from "./controllers/useRunEndFlowController.js";
 import { resolveRunOverlayChildLayer } from "./resolveRunOverlayChildLayer.js";
 
+const submitUpgradeFxRegistrarState = { current: null };
+const submitAccessoryUpgradeBatchState = { current: null };
+
 /** @param {{ ports: { core: import('./ports/createCorePorts.js').CorePort, playfield: import('./ports/createPlayfieldPorts.js').PlayfieldPort, shop: import('./ports/createShopPorts.js').ShopPort, treasures: import('./ports/createTreasurePorts.js').TreasuresPort, run: import('./ports/createRunPorts.js').RunPort, overlay: import('./ports/createOverlayPorts.js').OverlayPort, scoring: import('./ports/createScoringPorts.js').ScoringPort, uiFx: import('./ports/createUiFxPorts.js').UiFxPort }, openStageSettlement: (...args: unknown[]) => unknown, hooks?: import('./runSessionTypes.js').GamePanelSessionAssemblyHooks }} input */
 export function useGamePanelSessionAssembly(input) {
   const { ports, openStageSettlement, hooks = {} } = input;
@@ -85,6 +88,7 @@ export function useGamePanelSessionAssembly(input) {
     playEclipseRarityUpgradeSequence,
     runInRunPackPickFlow,
     runInRunUpgradePlaybackSteps,
+    runInRunUpgradeStaircasePlayback,
     runShopUpgradePlaybackSteps,
     shopInteractionsDisabled,
     shopOffers,
@@ -818,6 +822,7 @@ const discardController = useGridDiscardController({
     ownedTreasureHookFxBridge,
     playOwnedTreasureWobbleOnlyFx,
     buildInRunLengthUpgradeStep,
+    submitAccessoryUpgradeBatchState,
     runInRunUpgradePlaybackSteps,
   },
   submitFx: {
@@ -827,8 +832,6 @@ const discardController = useGridDiscardController({
   },
   sleep,
 });
-
-const submitUpgradeFxRegistrarState = { current: null };
 
 function buildSettlementSnapshotForSubmit() {
   return buildSettlementSnapshot({
@@ -923,6 +926,8 @@ const submitController = useSubmitWordController({
     applyWalletDeltaClamped,
     parseTranslationLines,
     submitUpgradeFxRegistrarState,
+    submitAccessoryUpgradeBatchState,
+    runInRunUpgradeStaircasePlayback,
     getWordDefinition,
     triggerHaptic,
     ownedSlotTreasureIdList,
@@ -1696,3 +1701,5 @@ shopSpellRuntimeBridge._ctx = () => spellCastController.buildSpellRuntimeContext
     openShopPackSession: openShopPackSessionFn,
   };
 }
+
+export { submitUpgradeFxRegistrarState, submitAccessoryUpgradeBatchState };

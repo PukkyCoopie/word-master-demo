@@ -149,6 +149,7 @@ export function wireInRunUpgradePlayback(deps) {
     gameResultAreaRef: runResultPresentationCtrl.gameResultAreaRef,
     waitNextTick: () => nextTick(),
     sleep,
+    getSubmitAccessoryUpgradeBatch: () => deps.submitAccessoryUpgradeBatchState?.current ?? null,
   });
 }
 

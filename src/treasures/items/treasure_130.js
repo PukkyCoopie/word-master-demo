@@ -1,5 +1,6 @@
 import { describe, materialConcept, prob } from "../treasureDescription.js";
 import { rollProbabilitySuccess } from "../treasureProbability.js";
+import { isNoMaterialLetterTile } from "../../game/fireworkIgniteTargets.js";
 import { applyPlainMaterialToTile } from "../../game/tileMaterialApply.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
@@ -28,9 +29,7 @@ export const treasureHooks = {
     const slots = ctx.ownedSlotTreasureIds ?? [];
     const real = ctx.resolveSubmitTileAtIndex?.(letterIndex, scoringTile) ?? null;
     const materialCheck = real ?? scoringTile;
-    if (!materialCheck || typeof materialCheck !== "object") return;
-    if (!String(materialCheck.letter ?? "").trim()) return;
-    if (String(materialCheck.materialId ?? "") === "gold") return;
+    if (!isNoMaterialLetterTile(materialCheck)) return;
 
     const rnd = typeof ctx.rng === "function" ? ctx.rng : Math.random;
     if (!rollProbabilitySuccess(1, 3, rnd, slots)) return;

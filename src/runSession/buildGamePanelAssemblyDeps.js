@@ -125,6 +125,7 @@ export function collectGamePanelAssemblySections(ctx) {
       buildShopOwnedPreviewNavItems: treasure.buildShopOwnedPreviewNavItems,
       canPlaceTreasureOffer: treasure.canPlaceTreasureOffer,
       runInRunUpgradePlaybackSteps: shop.runInRunUpgradePlaybackSteps,
+      runInRunUpgradeStaircasePlayback: shop.runInRunUpgradeStaircasePlayback,
       buildInRunLengthUpgradeStep: shop.buildInRunLengthUpgradeStep,
       fulfillPackInnerPurchase: shop.fulfillPackInnerPurchase,
       packPickSession: shop.packPickSession,

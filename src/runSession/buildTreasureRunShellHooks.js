@@ -182,6 +182,11 @@ export function buildTreasureRunShellHooks(d) {
           d.removeDeckCardsForSubmittedWordAndNotify(tiles, word),
         runSingleInRunLengthUpgradeFx: async (len) => {
           const step = d.buildInRunLengthUpgradeStep(len);
+          const batch = d.submitAccessoryUpgradeBatchState?.current;
+          if (batch) {
+            batch.registerStep(step);
+            return;
+          }
           await d.runInRunUpgradePlaybackSteps([step]);
         },
         bumpWordLengthLevel: (len) => {
@@ -249,5 +254,8 @@ export function buildTreasureRunShellHooks(d) {
       };
     },
     playOwnedTreasureMoneyFx: d.playOwnedTreasureMoneyFx,
+    submitAccessoryUpgradeBatchState: d.submitAccessoryUpgradeBatchState,
+    buildInRunLengthUpgradeStep: d.buildInRunLengthUpgradeStep,
+    runInRunUpgradePlaybackSteps: d.runInRunUpgradePlaybackSteps,
   };
 }

@@ -101,10 +101,15 @@ async function tweenResultValues(model, toScore, toMult, durationS = 0.44) {
  * }} opts
  */
 async function playSwitchToRarityDefault(opts) {
-  const { areaRef, model, line, level, scoreBefore, multBefore, speed = 1 } = opts;
+  const { areaRef, model, line, level, scoreBefore, multBefore, speed = 1, compactSequence = false } = opts;
   const s = Math.max(0.01, Number(speed) || 1);
   model.wordlenText.value = line;
   model.levelShown.value = level;
+  if (compactSequence) {
+    model.scoreValue.value = Math.max(0, Math.round(scoreBefore));
+    model.multValue.value = Math.max(0, Math.round(multBefore));
+    return;
+  }
   const wordlenMainEl = areaRef.value?.getWordlenMainEl?.() ?? null;
   const scoreBoxEl = areaRef.value?.getScoreBoxEl?.() ?? null;
   const multBoxEl = areaRef.value?.getMultBoxEl?.() ?? null;
@@ -132,6 +137,7 @@ async function playSwitchToRarityDefault(opts) {
  *   speed?: number,
  *   isFirstRarity?: boolean,
  *   isLastRarity?: boolean,
+ *   compactSequence?: boolean,
  * }} opts
  */
 export async function runInGameRarityUpgradeShopLikeFx(opts) {
@@ -145,6 +151,7 @@ export async function runInGameRarityUpgradeShopLikeFx(opts) {
     speed = 1,
     isFirstRarity = true,
     isLastRarity = true,
+    compactSequence = false,
   } = opts;
   const s = Math.max(0.01, Number(speed) || 1);
   const backToNormalMid = isLastRarity ? s - (s - 1) * 0.5 : s;
@@ -178,9 +185,11 @@ export async function runInGameRarityUpgradeShopLikeFx(opts) {
     model.scoreValue.value = Math.max(0, Math.round(scoreBefore));
     model.multValue.value = Math.max(0, Math.round(multBefore));
     await waitNextTick();
-    const wordlenMainEl = areaRef.value?.getWordlenMainEl?.() ?? null;
-    popSettle(wordlenMainEl, s);
-    await upgradeAnimSleep(UPGRADE_FIRST_RARITY_INTRO_MS, s);
+    if (!compactSequence) {
+      const wordlenMainEl = areaRef.value?.getWordlenMainEl?.() ?? null;
+      popSettle(wordlenMainEl, s);
+      await upgradeAnimSleep(UPGRADE_FIRST_RARITY_INTRO_MS, s);
+    }
   } else {
     await playSwitchToRarityDefault({
       areaRef,
@@ -190,6 +199,7 @@ export async function runInGameRarityUpgradeShopLikeFx(opts) {
       scoreBefore,
       multBefore,
       speed: s,
+      compactSequence,
     });
   }
 
@@ -197,15 +207,17 @@ export async function runInGameRarityUpgradeShopLikeFx(opts) {
   const scoreBoxEl = areaRef.value?.getScoreBoxEl?.() ?? null;
   const multBoxEl = areaRef.value?.getMultBoxEl?.() ?? null;
 
-  await upgradeAnimSleep(isFirstRarity ? UPGRADE_FIRST_LEAD_IN_GAP_MS : UPGRADE_STEP_GAP_MS, s);
+  const leadGap = compactSequence ? 0 : isFirstRarity ? UPGRADE_FIRST_LEAD_IN_GAP_MS : UPGRADE_STEP_GAP_MS;
+  const stepGap = compactSequence ? 0 : UPGRADE_STEP_GAP_MS;
+  await upgradeAnimSleep(leadGap, s);
   await runPanelWobbleAndBubble(levelEl, "+1", "level", s);
   model.levelShown.value = nextLevel;
 
-  await upgradeAnimSleep(UPGRADE_STEP_GAP_MS, s);
+  await upgradeAnimSleep(stepGap, s);
   const scoreTweenPromise = tweenResultValues(model, scoreAfter, multBefore, UPGRADE_VALUE_TWEEN_S / s);
   await runPanelWobbleAndBubble(scoreBoxEl, `+${scoreAdd}`, "score", s);
 
-  await upgradeAnimSleep(UPGRADE_STEP_GAP_MS, s);
+  await upgradeAnimSleep(stepGap, s);
   if (multDelta > 0) {
     await runPanelWobbleAndBubble(multBoxEl, `+${multDelta}`, "mult", backToNormalMid);
   }
@@ -214,8 +226,12 @@ export async function runInGameRarityUpgradeShopLikeFx(opts) {
 
   if (isLastRarity) {
     await waitNextTick();
-    await upgradeAnimSleep(UPGRADE_FINAL_HOLD_MS, backToNormalEnd);
-    await tweenResultValues(model, 0, 0, 0.75 / backToNormalEnd);
+    if (compactSequence) {
+      await tweenResultValues(model, 0, 0, 0.32 / backToNormalEnd);
+    } else {
+      await upgradeAnimSleep(UPGRADE_FINAL_HOLD_MS, backToNormalEnd);
+      await tweenResultValues(model, 0, 0, 0.75 / backToNormalEnd);
+    }
     fxActive.value = false;
   }
 }

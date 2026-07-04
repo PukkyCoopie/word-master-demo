@@ -1,10 +1,5 @@
 import { concept, describe, prob } from "../treasureDescription.js";
 import { rollProbabilitySuccess } from "../treasureProbability.js";
-import {
-  UPGRADE_ACCESSORY_CUE_DELAY_MS,
-  getSubmitScoringTriggeredUpgradeLocalSpeed,
-  upgradeAnimSleep,
-} from "../../game/upgradePlaybackTiming.js";
 
 const ID = "39";
 
@@ -23,7 +18,7 @@ export const treasureHooks = {
     const len = Math.max(0, Math.round(Number(ctx.judgedWordLength) || 0));
     if (len < 3 || len > 16) return;
     const slotIx = Math.max(0, Math.floor(Number(ctx.hookSlotIndex) || 0));
-    const runFx = async () => {
+    const runCue = async () => {
       const wobbleTask =
         typeof ctx.wobbleOwnedTreasureAtSlot === "function"
           ? ctx.wobbleOwnedTreasureAtSlot(slotIx)
@@ -37,7 +32,20 @@ export const treasureHooks = {
             ? ctx.playOwnedTreasureBubbleOnlyFx(ID, "升级", "upgrade")
             : Promise.resolve(ctx.playOwnedTreasureBubbleFx?.(ID, "升级", "upgrade"));
       await Promise.all([bubbleTask, wobbleTask]);
-      await upgradeAnimSleep(UPGRADE_ACCESSORY_CUE_DELAY_MS, getSubmitScoringTriggeredUpgradeLocalSpeed());
+    };
+    if (typeof ctx.registerSubmitAccessoryUpgradeCue === "function") {
+      ctx.registerSubmitAccessoryUpgradeCue(runCue);
+      const step =
+        typeof ctx.buildInRunLengthUpgradeStep === "function" ? ctx.buildInRunLengthUpgradeStep(len) : null;
+      if (step && typeof ctx.registerSubmitAccessoryUpgradeStep === "function") {
+        ctx.registerSubmitAccessoryUpgradeStep(step);
+        return;
+      }
+      ctx.bumpWordLengthLevel?.(len);
+      return;
+    }
+    const runFx = async () => {
+      await runCue();
       if (typeof ctx.runSingleInRunLengthUpgradeFx === "function") {
         await ctx.runSingleInRunLengthUpgradeFx(len);
         return;

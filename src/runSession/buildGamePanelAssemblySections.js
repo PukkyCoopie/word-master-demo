@@ -152,6 +152,7 @@ export function buildGamePanelAssemblySections(d) {
       playEclipseRarityUpgradeSequence: sp.playEclipseRarityUpgradeSequence,
       runShopUpgradePlaybackSteps: sp.runShopUpgradePlaybackSteps,
       runInRunUpgradePlaybackSteps: sh.runInRunUpgradePlaybackSteps,
+      runInRunUpgradeStaircasePlayback: sh.runInRunUpgradeStaircasePlayback,
       buildEclipseLengthUpgradeSteps: sp.buildEclipseLengthUpgradeSteps,
       buildEclipseRarityUpgradeSteps: sp.buildEclipseRarityUpgradeSteps,
       buildInRunLengthUpgradeStep: sh.buildInRunLengthUpgradeStep,

@@ -44,6 +44,7 @@ export function createShopPorts(binding) {
     playEclipseRarityUpgradeSequence: binding.playEclipseRarityUpgradeSequence,
     runShopUpgradePlaybackSteps: binding.runShopUpgradePlaybackSteps,
     runInRunUpgradePlaybackSteps: binding.runInRunUpgradePlaybackSteps,
+    runInRunUpgradeStaircasePlayback: binding.runInRunUpgradeStaircasePlayback,
     buildEclipseLengthUpgradeSteps: binding.buildEclipseLengthUpgradeSteps,
     buildEclipseRarityUpgradeSteps: binding.buildEclipseRarityUpgradeSteps,
     buildInRunLengthUpgradeStep: binding.buildInRunLengthUpgradeStep,

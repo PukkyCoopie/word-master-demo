@@ -109,6 +109,7 @@ export function buildGamePanelAssemblySectionsInput(d) {
     buildShopOwnedPreviewNavItems: d.buildShopOwnedPreviewNavItems,
     canPlaceTreasureOffer: d.canPlaceTreasureOffer,
     runInRunUpgradePlaybackSteps: d.runInRunUpgradePlaybackSteps,
+    runInRunUpgradeStaircasePlayback: d.runInRunUpgradeStaircasePlayback,
     buildInRunLengthUpgradeStep: d.buildInRunLengthUpgradeStep,
     fulfillPackInnerPurchase: d.fulfillPackInnerPurchase,
     packPickSession: d.packPickSession,

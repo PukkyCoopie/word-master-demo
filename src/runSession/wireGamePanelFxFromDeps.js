@@ -79,6 +79,7 @@ export function wireGamePanelFxFromDeps(d) {
       shopOverlayLayersSuppressed: d.shopOverlayLayersSuppressed,
       nextTick: d.nextTick,
       sleep: d.sleep,
+      submitAccessoryUpgradeBatchState: d.submitAccessoryUpgradeBatchState,
     },
     submitLeave: {
       submitTileLeaveFxRef: d.submitTileLeaveFxRef,
