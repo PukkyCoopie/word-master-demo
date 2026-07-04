@@ -43,6 +43,7 @@ export function buildTreasureRunShellHooks(d) {
         destroyTreasureSlotById: d.destroyOwnedTreasureWithFx,
         destroyOtherTreasureFromSource: d.destroyOtherOwnedTreasureFromSourceFx,
         clearTreasureSlotById: d.clearOwnedTreasureSlotById,
+        clearTreasureSlotLeaveGapById: d.clearOwnedTreasureSlotLeaveGapById,
         grantRandomOwnedTreasure: d.grantRandomOwnedTreasuresInRun,
         grantRandomOwnedTreasureWithPopAnim: d.grantRandomOwnedTreasuresInRunWithPopAnim,
         requestInRunSpellGrant: async (opts = {}) => {

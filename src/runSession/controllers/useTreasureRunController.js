@@ -603,6 +603,14 @@ export function useTreasureRunController(options) {
     if (ix >= 0) removeAndCompactOwnedTreasureAtIndex(ix);
   }
 
+  /** 清空槽位但保留空位（雷管等：触发源不向前压实） */
+  function clearOwnedTreasureSlotLeaveGapById(treasureId) {
+    const tid = String(treasureId ?? "");
+    if (!tid) return;
+    const ix = findOwnedTreasureSlotIndex(tid);
+    if (ix >= 0) removeOwnedTreasureSlotsLeaveGapAtIndices([ix]);
+  }
+
   /** @param {number} slotIndex @param {{ triggerBarCompactAnim?: boolean }} [opts] */
   function removeAndCompactOwnedTreasureAtIndex(slotIndex, opts = {}) {
     const ix = Math.floor(Number(slotIndex));
@@ -968,6 +976,7 @@ export function useTreasureRunController(options) {
     appendShopDeckEntriesAndNotify,
     appendDeckCardSpecToInitialSnapshotAndNotify,
     clearOwnedTreasureSlotById,
+    clearOwnedTreasureSlotLeaveGapById,
     removeAndCompactOwnedTreasureAtIndex,
     clearOwnedTreasureSlotLeaveGapAtIndex,
     removeOwnedTreasureSlotsLeaveGapAtIndices,

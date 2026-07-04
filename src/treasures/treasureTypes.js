@@ -348,7 +348,8 @@
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string) => void} [clearTreasureSlotById]
  * @property {(treasureId: string, slotIndex?: number | null) => Promise<void>} [destroyTreasureSlotById]
- * @property {(sourceTreasureId: string, victimTreasureId: string, victimSlotIndex?: number | null) => Promise<void>} [destroyOtherTreasureFromSource] 来源宝藏 wobble 后，目标 wobble 与「摧毁！」气泡并发，再缩至 0 清空
+ * @property {(sourceTreasureId: string, victimTreasureId: string, victimSlotIndex?: number | null) => Promise<void>} [destroyOtherTreasureFromSource] 来源宝藏 wobble 后，目标 wobble 与「摧毁！」气泡并发，再缩至 0 清空；目标槽留空不压实，仅裁剪配饰导致栏位上限降低时才 reconcile 前移
+ * @property {(treasureId: string) => void} [clearTreasureSlotLeaveGapById] 静默清空槽位但保留空位（同 destroyOtherTreasureFromSource 的栏位语义）
  * @property {(treasureId: string, text: string, kind?: string) => Promise<void>} [playOwnedTreasureBubbleFx]
  * @property {(count?: number) => number} [grantRandomOwnedTreasure] 本关赠送随机宝藏次数，返回实际获得数
  * @property {(count?: number) => Promise<number>} [grantRandomOwnedTreasureWithPopAnim] 同上，新宝藏槽 scale 0→过冲→1 入场

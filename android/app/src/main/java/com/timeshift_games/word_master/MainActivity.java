@@ -2,10 +2,12 @@ package com.timeshift_games.word_master;
 
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.PermissionRequest;
@@ -36,6 +38,7 @@ public class MainActivity extends BridgeActivity {
         }
         registerPlugin(TapTapPlugin.class);
         registerPlugin(UiHapticsPlugin.class);
+        registerPlugin(WordSpeechPlugin.class);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(Color.TRANSPARENT);
@@ -81,13 +84,23 @@ public class MainActivity extends BridgeActivity {
 
     private boolean isWebViewTooOld() {
         int major = resolveWebViewChromeMajor();
+        // major == 0：无法解析时放行，避免误拦（如部分厂商 WebView 包版本号与 Chrome 不对应）
         return major > 0 && major < MIN_WEBVIEW_CHROME_MAJOR;
     }
 
+    /**
+     * 解析当前 WebView 的 Chromium 主版本。
+     * 优先读 User-Agent（各厂商包内实际引擎版本）；仅 Google WebView/Chrome 才回退到包 versionName。
+     */
     private int resolveWebViewChromeMajor() {
+        int fromUserAgent = resolveChromeMajorFromWebViewUserAgent();
+        if (fromUserAgent > 0) {
+            return fromUserAgent;
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            android.content.pm.PackageInfo pkg = WebView.getCurrentWebViewPackage();
-            if (pkg != null && pkg.versionName != null) {
+            PackageInfo pkg = WebView.getCurrentWebViewPackage();
+            if (pkg != null && isGoogleWebViewPackage(pkg.packageName) && pkg.versionName != null) {
                 int major = parseMajorVersion(pkg.versionName);
                 if (major > 0) {
                     return major;
@@ -95,11 +108,28 @@ public class MainActivity extends BridgeActivity {
             }
         }
 
+        return 0;
+    }
+
+    private int resolveChromeMajorFromWebViewUserAgent() {
+        Bridge bridge = getBridge();
+        if (bridge != null && bridge.getWebView() != null) {
+            try {
+                int major = parseChromeMajorFromUserAgent(
+                    bridge.getWebView().getSettings().getUserAgentString()
+                );
+                if (major > 0) {
+                    return major;
+                }
+            } catch (Exception ignored) {
+                // fall through to probe WebView
+            }
+        }
+
         WebView probe = null;
         try {
             probe = new WebView(this);
-            String ua = probe.getSettings().getUserAgentString();
-            return parseChromeMajorFromUserAgent(ua);
+            return parseChromeMajorFromUserAgent(probe.getSettings().getUserAgentString());
         } catch (Exception ignored) {
             return 0;
         } finally {
@@ -107,6 +137,25 @@ public class MainActivity extends BridgeActivity {
                 probe.destroy();
             }
         }
+    }
+
+    private String getCurrentWebViewPackageName() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return null;
+        }
+        PackageInfo pkg = WebView.getCurrentWebViewPackage();
+        return pkg != null ? pkg.packageName : null;
+    }
+
+    /** Google 系 WebView 的包 versionName 与 Chrome 主版本一致；厂商包（如 Honor 12.x）则不是。 */
+    private boolean isGoogleWebViewPackage(String packageName) {
+        return "com.google.android.webview".equals(packageName)
+            || "com.android.chrome".equals(packageName);
+    }
+
+    private boolean isVendorWebViewPackage(String packageName) {
+        return "com.hihonor.webview".equals(packageName)
+            || "com.huawei.webview".equals(packageName);
     }
 
     private int parseMajorVersion(String versionName) {
@@ -178,10 +227,7 @@ public class MainActivity extends BridgeActivity {
 
         new AlertDialog.Builder(this)
             .setTitle("系统组件过旧")
-            .setMessage(
-                "当前 Android System WebView 版本过低，无法运行游戏。"
-                    + "请在应用商店更新「Android System WebView」或 Google Chrome 后重试。"
-            )
+            .setMessage(buildWebViewBlockedMessage())
             .setCancelable(false)
             .setPositiveButton(
                 "去更新",
@@ -197,32 +243,98 @@ public class MainActivity extends BridgeActivity {
             .show();
     }
 
+    private String buildWebViewBlockedMessage() {
+        String provider = getCurrentWebViewPackageName();
+        if ("com.hihonor.webview".equals(provider)) {
+            return "当前 Honor WebView 内核版本过低，无法运行游戏。"
+                + "请在应用市场或「设置 → 应用 → Honor WebView」中检查更新后重试。";
+        }
+        if ("com.huawei.webview".equals(provider)) {
+            return "当前华为 WebView 内核版本过低，无法运行游戏。"
+                + "请在应用市场或「设置 → 应用 → 华为 WebView」中检查更新后重试。";
+        }
+        return "当前系统 WebView 版本过低，无法运行游戏。"
+            + "请在应用商店更新「Android System WebView」、Honor WebView 或 Google Chrome 后重试。";
+    }
+
     private void openWebViewUpdatePage() {
-        String[] packageNames = new String[] {
+        String provider = getCurrentWebViewPackageName();
+
+        // 厂商 WebView 在国行机上通常没有 Play 商店，优先打开系统「应用信息」页
+        if (isVendorWebViewPackage(provider) && openApplicationDetails(provider)) {
+            return;
+        }
+
+        for (String packageName : getWebViewUpdatePackageCandidates(provider)) {
+            if (tryOpenStoreListing(packageName)) {
+                return;
+            }
+        }
+
+        if (provider != null && openApplicationDetails(provider)) {
+            return;
+        }
+    }
+
+    private String[] getWebViewUpdatePackageCandidates(String currentProvider) {
+        String[] fallbacks = new String[] {
+            "com.hihonor.webview",
+            "com.huawei.webview",
             "com.google.android.webview",
             "com.android.chrome",
         };
-        for (String packageName : packageNames) {
+        if (currentProvider == null || currentProvider.isEmpty()) {
+            return fallbacks;
+        }
+        for (String fallback : fallbacks) {
+            if (currentProvider.equals(fallback)) {
+                return fallbacks;
+            }
+        }
+        return new String[] {
+            currentProvider,
+            fallbacks[0],
+            fallbacks[1],
+            fallbacks[2],
+            fallbacks[3],
+        };
+    }
+
+    private boolean openApplicationDetails(String packageName) {
+        if (packageName == null || packageName.isEmpty()) {
+            return false;
+        }
+        try {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.parse("package:" + packageName));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private boolean tryOpenStoreListing(String packageName) {
+        try {
+            Intent marketIntent = new Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("market://details?id=" + packageName)
+            );
+            marketIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(marketIntent);
+            return true;
+        } catch (Exception ignored) {
             try {
-                Intent marketIntent = new Intent(
+                Intent webIntent = new Intent(
                     Intent.ACTION_VIEW,
-                    Uri.parse("market://details?id=" + packageName)
+                    Uri.parse("https://play.google.com/store/apps/details?id=" + packageName)
                 );
-                marketIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(marketIntent);
-                return;
-            } catch (Exception ignored) {
-                try {
-                    Intent webIntent = new Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("https://play.google.com/store/apps/details?id=" + packageName)
-                    );
-                    webIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(webIntent);
-                    return;
-                } catch (Exception ignoredWeb) {
-                    // try next package
-                }
+                webIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(webIntent);
+                return true;
+            } catch (Exception ignoredWeb) {
+                return false;
             }
         }
     }

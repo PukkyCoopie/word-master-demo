@@ -136,13 +136,13 @@ export function createTreasureDestroyFx(deps) {
     const ix = victimIx;
     if (ix < 0) return;
     if (!deps.isTreasureBarSlotVisible(ix)) {
-      deps.removeAndCompactOwnedTreasureAtIndex(ix);
+      deps.removeOwnedTreasureSlotsLeaveGapAtIndices([ix]);
       deps.scheduleRunAutoSave();
       return;
     }
     const el = deps.getOwnedTreasureSlotEl(ix);
     if (!el) {
-      deps.removeAndCompactOwnedTreasureAtIndex(ix);
+      deps.removeOwnedTreasureSlotsLeaveGapAtIndices([ix]);
       deps.scheduleRunAutoSave();
       return;
     }
@@ -151,7 +151,8 @@ export function createTreasureDestroyFx(deps) {
     await deps.waitNextTick();
     const bubble = await wobbleTreasureSlotWithDestroyBubbleConcurrent(ix, el, sp);
     deps.setShopOverlayLayersSuppressed(false);
-    await shrinkTreasureSlotAndClear(ix, el, bubble, sp);
+    await shrinkTreasureSlotElOnly(el, bubble, sp);
+    deps.removeOwnedTreasureSlotsLeaveGapAtIndices([ix], { triggerBarCompactAnim: true });
     deps.scheduleRunAutoSave();
   }
 

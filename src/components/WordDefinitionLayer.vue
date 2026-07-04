@@ -19,6 +19,11 @@
           <div class="word-definition-layer-header">
             <div class="word-definition-layer-title-group">
               <h2 :id="titleId" class="word-definition-layer-word">{{ displayWord }}</h2>
+              <WordSpeechButton
+                v-if="displayWord"
+                class="word-definition-layer-speech"
+                :word="displayWord"
+              />
               <button
                 type="button"
                 class="word-definition-layer-help-btn"
@@ -59,10 +64,10 @@
     </Transition>
   </Teleport>
   <Teleport to="body">
-    <SettingsHelpDialog :open="helpOpen" title="释义说明" @close="closeHelpDialog">
+    <SettingsHelpDialog :open="helpOpen" @close="closeHelpDialog">
       <template #body>
         <p class="settings-help-dialog-text word-definition-help-text">
-          释义来自网络词库，并非100%准确。如有错漏请点击这里反馈：
+          释义来自于网络词库；发音来自于系统功能。均并非100%准确。如有错漏请点击这里反馈：
           <button
             type="button"
             class="word-definition-help-feedback-btn"
@@ -82,9 +87,11 @@ import { computed, ref, watch } from "vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 import { scheduleOverlayDismiss, scheduleOverlayPresent } from "../platform/haptics.js";
+import { stopWordSpeech } from "../platform/wordSpeech.js";
 import { openTapTapFeedbackForum } from "../taptap/tapTapEngagement.js";
 import SettingsHelpDialog from "./settings/SettingsHelpDialog.vue";
 import WordFavoriteButton from "./WordFavoriteButton.vue";
+import WordSpeechButton from "./WordSpeechButton.vue";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -116,6 +123,7 @@ watch(
       scheduleOverlayPresent(280);
     } else {
       helpOpen.value = false;
+      stopWordSpeech();
       if (wasOpen) {
         scheduleOverlayDismiss(240);
       }
@@ -193,9 +201,13 @@ function parsePosPrefix(line) {
 .word-definition-layer-title-group {
   display: flex;
   align-items: center;
-  gap: calc(6 * var(--rpx));
+  gap: calc(8 * var(--rpx));
   min-width: 0;
   flex: 1 1 auto;
+}
+
+.word-definition-layer-speech {
+  flex-shrink: 0;
 }
 
 .word-definition-layer-word {

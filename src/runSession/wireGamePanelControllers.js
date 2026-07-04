@@ -265,6 +265,8 @@ function wireGamePanelControllersEarly(d) {
     triggerTreasureBarCompactAnim: () => treasureInventoryCtrl.triggerCompactAnim(),
     notifyBossRestrictionTreasures: (slug) => treasureBossNotifySlot.fn(slug),
     clearOwnedTreasureSlotById: (...args) => treasureRunHookApi.treasureRunSelf?.clearOwnedTreasureSlotById(...args),
+    clearOwnedTreasureSlotLeaveGapById: (...args) =>
+      treasureRunHookApi.treasureRunSelf?.clearOwnedTreasureSlotLeaveGapById(...args),
     buildRollInRunBundlePackCtx: shopPhase.buildRollInRunBundlePackCtx,
     buildUpgradeAnimPayloadFromOffer: shopPhase.buildUpgradeAnimPayloadFromOffer,
     applyUpgradeFromOffer: shopPhase.applyUpgradeFromOffer,

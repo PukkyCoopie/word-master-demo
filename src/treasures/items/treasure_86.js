@@ -37,7 +37,7 @@ export const treasureHooks = {
     } else if (ctx.destroyTreasureSlotById) {
       await ctx.destroyTreasureSlotById(victimId, victimIx);
     } else {
-      ctx.clearTreasureSlotById?.(victimId);
+      ctx.clearTreasureSlotLeaveGapById?.(victimId) ?? ctx.clearTreasureSlotById?.(victimId);
     }
     await bankMultMulGain(ctx, ID, 0.5);
   },
