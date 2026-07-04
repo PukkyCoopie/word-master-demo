@@ -47,8 +47,11 @@ import { reconcileAchievementsFromPersistedCareer } from "../achievements/achiev
 import { getLevelIndexForId } from "../achievements/achievementCareer.js";
 import { applyFullCollectionUnlockToCareer } from "../dev/unlockFullCollection.js";
 import {
+  COLLECTION_TAB_PREVIEW_REVEAL_PERCENT,
   getCollectionTabProgress,
+  getCollectionTabProgressPercent,
   getCollectionUnlockProgress,
+  isCollectionTabPreviewRevealed,
 } from "../collection/collectionProgress.js";
 
 test("mulberry32 state roundtrip", () => {
@@ -182,6 +185,7 @@ test("collection career normalize defaults", () => {
   assert.deepEqual(career.discoveredAccessoryIds, []);
   assert.deepEqual(career.scoreLeaderboard, []);
   assert.deepEqual(career.lengthLeaderboard, []);
+  assert.deepEqual(career.favoriteWords, []);
 });
 
 test("collection treasure and spell discovery", () => {
@@ -365,6 +369,19 @@ test("collection unlock progress includes achievements tab", () => {
   assert.equal(after.unlocked, before.unlocked + 1);
   assert.equal(after.total, before.total);
   assert.ok(after.total > before.unlocked);
+});
+
+test("collection tab preview reveals remaining entries at 80%", () => {
+  const career = normalizeSlotCareerStats({});
+  const total = getCollectionTabProgress(career, "treasures")?.total ?? 0;
+  assert.ok(total > 0);
+  assert.equal(isCollectionTabPreviewRevealed(career, "treasures"), false);
+
+  const need80 = Math.ceil((total * COLLECTION_TAB_PREVIEW_REVEAL_PERCENT) / 100);
+  career.discoveredTreasureIds = Array.from({ length: need80 }, (_, i) => `preview-test-${i + 1}`);
+  const percent = getCollectionTabProgressPercent(career, "treasures");
+  assert.equal(percent, Math.floor((need80 / total) * 100));
+  assert.equal(isCollectionTabPreviewRevealed(career, "treasures"), percent >= COLLECTION_TAB_PREVIEW_REVEAL_PERCENT);
 });
 
 test("dev unlockFullCollection fills career to 100%", () => {

@@ -20,6 +20,7 @@
           :length-label="entry.lengthLabel"
           :price="entry.price"
           :show-new-mark="entry.showNewMark"
+          :tab-preview-revealed="tabPreviewRevealed"
           @select="$emit('select-upgrade', $event)"
         />
       </div>
@@ -39,6 +40,7 @@ import CollectionShopTreasureCell from "./CollectionShopTreasureCell.vue";
 
 const props = defineProps({
   discoveredUpgradeIds: { type: Array, default: () => [] },
+  tabPreviewRevealed: { type: Boolean, default: false },
   collectionNewKeys: { type: Object, default: () => new Set() },
 });
 

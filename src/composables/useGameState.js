@@ -31,6 +31,7 @@ import { resolveGridEffectTriggerCount } from "../game/gridEffectTriggerCount.js
 import { previewIceMaterialMultProduct } from "../game/iceMaterialScoring.js";
 import { deckCardRaw, syncTileStateToDeckCard } from "../game/deckCardSync.js";
 import { snapshotMaxIntrinsicGainsFromTile, applyIntrinsicGainsToTileAndLinkedCard } from "../game/tileIntrinsicGains.js";
+import { WATER_MATERIAL_SCORE_BONUS } from "../game/tileMaterialApply.js";
 import { getWordLengthJudgmentBonus } from "../vouchers/voucherRuntime.js";
 import { applyBossTileDebuffState } from "../game/bossTileDebuff.js";
 import { vowelDisplayLetter } from "../game/vowelNeighborSubstitute.js";
@@ -359,8 +360,7 @@ const ROWS = 4;
 
 const COLS = 4;
 
-/** 水域材质平面加分（写入 `materialScoreBonus`） */
-const WATER_MATERIAL_SCORE_BONUS = 30;
+/** 火焰材质倍率加成（写入 `materialMultBonus`） */
 const FIRE_MATERIAL_MULT_BONUS = 5;
 
 /**
@@ -731,6 +731,9 @@ export function useGameState(gameOpts = {}) {
 
   /** 每小关剩余拼词提示次数 */
   const hintRemaining = ref(1);
+
+  /** 本关已点提示、尚未因提交扣次的单词（跨主菜单续玩须写入存档） */
+  const pendingHintChargeWord = ref(/** @type {string | null} */ (null));
 
   const currentScore = ref(0);
 
@@ -1737,6 +1740,7 @@ export function useGameState(gameOpts = {}) {
       runOpts?.hintRemaining != null && Number.isFinite(Number(runOpts.hintRemaining))
         ? Math.max(0, Math.floor(Number(runOpts.hintRemaining)))
         : 1;
+    pendingHintChargeWord.value = null;
     currentScore.value = 0;
     targetScore.value = parseScore(ts) > 0n ? normalizeScore(parseScore(ts)) : 300;
     selectedOrder.value = [];
@@ -2105,6 +2109,10 @@ export function useGameState(gameOpts = {}) {
       remainingWords: remainingWords.value,
       remainingRemovals: remainingRemovals.value,
       hintRemaining: hintRemaining.value,
+      pendingHintChargeWord:
+        pendingHintChargeWord.value != null && String(pendingHintChargeWord.value).trim()
+          ? String(pendingHintChargeWord.value).toLowerCase().trim()
+          : null,
       activeBossSlug: activeBossSlug.value,
       ceruleanBellSlotIndex: ceruleanBellSlotIndex.value,
       ceruleanBellLockedTileId:
@@ -2162,6 +2170,10 @@ export function useGameState(gameOpts = {}) {
       state.hintRemaining != null
         ? Math.max(0, Math.floor(Number(state.hintRemaining) || 0))
         : 1;
+    pendingHintChargeWord.value =
+      state.pendingHintChargeWord != null && String(state.pendingHintChargeWord).trim()
+        ? String(state.pendingHintChargeWord).toLowerCase().trim()
+        : null;
     activeBossSlug.value = String(state.activeBossSlug ?? "");
     ceruleanBellSlotIndex.value =
       state.ceruleanBellSlotIndex != null ? Math.floor(Number(state.ceruleanBellSlotIndex)) : null;
@@ -2278,6 +2290,8 @@ export function useGameState(gameOpts = {}) {
     remainingRemovals,
 
     hintRemaining,
+
+    pendingHintChargeWord,
 
     currentScore,
 

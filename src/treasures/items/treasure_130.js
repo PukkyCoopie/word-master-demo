@@ -1,4 +1,4 @@
-import { describe, prob } from "../treasureDescription.js";
+import { describe, materialConcept, prob } from "../treasureDescription.js";
 import { rollProbabilitySuccess } from "../treasureProbability.js";
 import { applyPlainMaterialToTile } from "../../game/tileMaterialApply.js";
 
@@ -6,7 +6,7 @@ import { applyPlainMaterialToTile } from "../../game/tileMaterialApply.js";
 export default {
   price: 5,
   rarity: "rare",
-  description: describe("字母在计分后有", prob("1/2"), "的概率会变为黄金块"),
+  description: describe("字母在计分后有", prob("1/3"), "的概率会变为", materialConcept("gold")),
 };
 
 /**
@@ -33,7 +33,7 @@ export const treasureHooks = {
     if (String(materialCheck.materialId ?? "") === "gold") return;
 
     const rnd = typeof ctx.rng === "function" ? ctx.rng : Math.random;
-    if (!rollProbabilitySuccess(1, 2, rnd, slots)) return;
+    if (!rollProbabilitySuccess(1, 3, rnd, slots)) return;
 
     /** @type {object[]} */
     const targets = [];
@@ -48,6 +48,5 @@ export const treasureHooks = {
       return;
     }
     applyGold();
-    ctx.touchGrid?.();
   },
 };

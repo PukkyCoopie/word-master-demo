@@ -333,4 +333,64 @@ describe("gridWordHint", () => {
     );
     assert.equal(pick?.word, "cat");
   });
+
+  it("万能块主导时用 pattern→resolve 快速路径", () => {
+    /** @type {import('./gridWordFinder.js').GridCell[]} */
+    const cells = [
+      { row: 0, col: 0, letter: "l", isWildcard: false, blocked: false, bossDebuffed: false },
+      { row: 0, col: 1, letter: "p", isWildcard: false, blocked: false, bossDebuffed: false },
+      { row: 0, col: 2, letter: "g", isWildcard: false, blocked: false, bossDebuffed: false },
+      { row: 0, col: 3, letter: "c", isWildcard: false, blocked: false, bossDebuffed: false },
+      { row: 1, col: 0, letter: "l", isWildcard: false, blocked: false, bossDebuffed: false },
+      { row: 1, col: 1, letter: "e", isWildcard: false, blocked: false, bossDebuffed: false },
+      { row: 1, col: 2, letter: "q", isWildcard: false, blocked: false, bossDebuffed: false },
+      { row: 1, col: 3, letter: "x", isWildcard: true, blocked: false, bossDebuffed: false },
+      { row: 2, col: 0, letter: "y", isWildcard: true, blocked: false, bossDebuffed: false },
+      { row: 2, col: 1, letter: "z", isWildcard: true, blocked: false, bossDebuffed: false },
+    ];
+    const gridMs = pickedLetterMultiset(cells);
+    const resolveWordPattern = (pattern) => {
+      if (pattern === "pl?ce") return "place";
+      if (pattern === "???") return "cat";
+      if (pattern === "place") return "place";
+      return null;
+    };
+    const getCandidatesByLength = () => ["zzz", "aaa", "place", "cat"];
+    const pick = pickRandomWordAtLength(
+      cells,
+      5,
+      gridMs,
+      getCandidatesByLength,
+      resolveWordPattern,
+      () => 0,
+      500,
+      { getHintLexicalTierForWord: () => 3 },
+    );
+    assert.equal(pick?.word, "place");
+    assert.equal(pick?.path.length, 5);
+  });
+
+  it("pickRandomCellPath 洗牌不产生 undefined 格", () => {
+    /** @type {import('./gridWordFinder.js').GridCell[]} */
+    const cells = Array.from({ length: 16 }, (_, i) => ({
+      row: Math.floor(i / 4),
+      col: i % 4,
+      letter: "a",
+      isWildcard: i >= 7,
+      blocked: false,
+      bossDebuffed: false,
+    }));
+    for (let t = 0; t < 200; t += 1) {
+      const pick = pickHintWordForGrid(
+        cells,
+        (len) => (len === 5 ? ["place", "apple"] : []),
+        (pattern) => (pattern.includes("?") ? "place" : pattern),
+        Math.random,
+        { getHintLexicalTierForWord: () => 3 },
+      );
+      if (pick?.path) {
+        assert.ok(pick.path.every((c) => c && typeof c.letter === "string"));
+      }
+    }
+  });
 });

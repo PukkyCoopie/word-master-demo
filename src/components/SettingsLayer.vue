@@ -29,14 +29,21 @@
           @update:model-value="setActiveTab"
         />
 
-        <div class="settings-layer-body">
-          <div class="settings-layer-panels">
+        <div class="settings-layer-scroll-outer">
+          <div
+            ref="scrollBodyRef"
+            class="settings-layer-body"
+            :class="{
+              'settings-layer-body--dragging': thumbDragging,
+              'settings-layer-body--scrollable': scrollbarVisible,
+            }"
+            @scroll.passive="onScrollBody"
+          >
+            <div ref="settingsPanelsRef" class="settings-layer-panels">
             <section
+              v-if="activeTab === 'ui'"
               role="tabpanel"
               class="settings-layer-panel"
-              :class="{ 'settings-layer-panel--active': activeTab === 'ui' }"
-              :aria-hidden="activeTab !== 'ui'"
-              :inert="activeTab !== 'ui'"
             >
               <div class="settings-layer-list">
                 <div v-if="showDisplayLayoutModeSetting" class="settings-row settings-row--segment">
@@ -98,10 +105,7 @@
                 </div>
 
                 <div class="settings-row settings-row--segment">
-                  <span class="settings-row-label-group">
-                    <span class="settings-row-label">确认按钮位置</span>
-                    <SettingsHelpButton help-id="confirmButtonSide" aria-label="确认按钮位置说明" />
-                  </span>
+                  <span class="settings-row-label">确认按钮位置</span>
                   <SettingsSegmentControl
                     :options="CONFIRM_BUTTON_SIDE_OPTIONS"
                     :model-value="confirmButtonSide"
@@ -112,11 +116,9 @@
               </div>
             </section>
             <section
+              v-if="activeTab === 'gameplay'"
               role="tabpanel"
               class="settings-layer-panel"
-              :class="{ 'settings-layer-panel--active': activeTab === 'gameplay' }"
-              :aria-hidden="activeTab !== 'gameplay'"
-              :inert="activeTab !== 'gameplay'"
             >
               <div class="settings-layer-list">
                 <label class="settings-row">
@@ -146,24 +148,6 @@
 
                 <div class="settings-row settings-row--segment">
                   <span class="settings-row-label-group">
-                    <span class="settings-row-label">释义</span>
-                    <span
-                      class="settings-row-label-btn-chip settings-row-label-btn-chip--definition"
-                      aria-hidden="true"
-                    >
-                      <i class="ri-translate-2" />
-                    </span>
-                  </span>
-                  <SettingsSegmentControl
-                    :options="WORD_DEFINITION_MODE_OPTIONS"
-                    :model-value="wordDefinitionMode"
-                    aria-label="释义显示"
-                    @update:model-value="onWordDefinitionModeChange"
-                  />
-                </div>
-
-                <div class="settings-row settings-row--segment">
-                  <span class="settings-row-label-group">
                     <span class="settings-row-label">提示</span>
                     <span
                       class="settings-row-label-btn-chip settings-row-label-btn-chip--hint"
@@ -183,11 +167,72 @@
             </section>
 
             <section
+              v-if="activeTab === 'vocabulary'"
               role="tabpanel"
               class="settings-layer-panel"
-              :class="{ 'settings-layer-panel--active': activeTab === 'controls' }"
-              :aria-hidden="activeTab !== 'controls'"
-              :inert="activeTab !== 'controls'"
+            >
+              <div class="settings-layer-list">
+                <SettingsDictionaryScopePanel
+                  :model-value="dictionaryScopeIds"
+                  :scope-options="dictionaryScopePanelOptions"
+                  @toggle="onDictionaryScopeToggle"
+                  @mode-change="onDictionaryScopeModeChange"
+                />
+
+                <div class="settings-row settings-row--segment">
+                  <span class="settings-row-label-group">
+                    <span class="settings-row-label">释义</span>
+                    <span
+                      class="settings-row-label-btn-chip settings-row-label-btn-chip--definition"
+                      aria-hidden="true"
+                    >
+                      <i class="ri-translate-2" />
+                    </span>
+                  </span>
+                  <SettingsSegmentControl
+                    :options="WORD_DEFINITION_MODE_OPTIONS"
+                    :model-value="wordDefinitionMode"
+                    aria-label="释义显示"
+                    @update:model-value="onWordDefinitionModeChange"
+                  />
+                </div>
+
+                <label
+                  class="settings-row"
+                  :class="{ 'settings-row--disabled': !wordFavoriteSettingEnabled }"
+                >
+                  <span class="settings-row-label-group">
+                    <span class="settings-row-label">收藏</span>
+                    <span
+                      class="settings-row-label-btn-chip settings-row-label-btn-chip--favorite"
+                      aria-hidden="true"
+                    >
+                      <i class="ri-star-line" />
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    class="settings-toggle"
+                    role="switch"
+                    :aria-checked="wordFavoriteButtonEnabled"
+                    :disabled="!wordFavoriteSettingEnabled"
+                    @click="onToggleWordFavoriteButton"
+                  >
+                    <span
+                      class="settings-toggle-track"
+                      :class="{ 'settings-toggle-track--on': wordFavoriteButtonEnabled }"
+                    >
+                      <span class="settings-toggle-thumb" />
+                    </span>
+                  </button>
+                </label>
+              </div>
+            </section>
+
+            <section
+              v-if="activeTab === 'controls'"
+              role="tabpanel"
+              class="settings-layer-panel"
             >
               <div class="settings-layer-list">
                 <label class="settings-row">
@@ -321,12 +366,9 @@
             </section>
 
             <section
-              v-if="showDeveloperTab"
+              v-if="showDeveloperTab && activeTab === 'developer'"
               role="tabpanel"
               class="settings-layer-panel"
-              :class="{ 'settings-layer-panel--active': activeTab === 'developer' }"
-              :aria-hidden="activeTab !== 'developer'"
-              :inert="activeTab !== 'developer'"
             >
               <div class="settings-layer-list">
                 <label class="settings-row settings-row--dev-bench">
@@ -361,6 +403,22 @@
                 </div>
               </div>
             </section>
+            </div>
+          </div>
+
+          <div
+            v-show="scrollbarVisible"
+            ref="scrollTrackRef"
+            class="settings-layer-scroll-track"
+            aria-hidden="true"
+            @pointerdown="onTrackPointerDown"
+          >
+            <div
+              class="settings-layer-scroll-thumb"
+              :class="{ 'settings-layer-scroll-thumb--dragging': thumbDragging }"
+              :style="thumbStyle"
+              @pointerdown.stop="onThumbPointerDown"
+            />
           </div>
         </div>
 
@@ -370,14 +428,37 @@
       </div>
     </div>
   </Transition>
+
+  <SettingsHelpDialog
+    :open="scopeChangeConfirmOpen"
+    title="切换词汇范围"
+    :paragraphs="SCOPE_CHANGE_CONFIRM_LINES"
+    @close="onScopeChangeNoticeClose"
+  />
+
+  <Teleport to="body">
+    <div v-if="settingsToastMessage" class="settings-layer-toast">
+      {{ settingsToastMessage }}
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, inject, nextTick, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { Capacitor } from "@capacitor/core";
+import { usePanelScrollbar } from "../composables/usePanelScrollbar.js";
 import { settingsOverlayZ } from "../game/overlayStack.js";
 import SettingsSegmentControl from "./SettingsSegmentControl.vue";
 import SettingsHelpButton from "./settings/SettingsHelpButton.vue";
+import SettingsDictionaryScopePanel from "./settings/SettingsDictionaryScopePanel.vue";
+import SettingsHelpDialog from "./settings/SettingsHelpDialog.vue";
+import { applyDictionaryScopes } from "../composables/useDictionary.js";
+import {
+  DICTIONARY_SCOPE_OPTIONS,
+  toggleDictionaryScopeId,
+  scopeIdsIncludeFull,
+  normalizeDictionaryScopeIds,
+} from "../settings/dictionaryScope.js";
 import { ANIMATION_SPEED_OPTIONS } from "../settings/animationSpeed.js";
 import { isMaterialAnimationSettingSupported } from "../settings/materialAnimationAvailability.js";
 import { LETTER_CASE_OPTIONS } from "../settings/letterCase.js";
@@ -396,6 +477,7 @@ import {
   setMarkOnSwap,
   setMaterialAnimationEnabled,
   setWordDefinitionMode,
+  setWordFavoriteButtonEnabled,
   stepSwapButtonMode,
   WORD_DEFINITION_MODE_OPTIONS,
   setHighRiskSpellConfirm,
@@ -407,6 +489,8 @@ import {
   setDevSuppressAchievementsAndLeaderboards,
   WORD_HINT_MODE_OPTIONS,
   setWordHintMode,
+  getDictionaryScopeIds,
+  setDictionaryScopeIds,
 } from "../settings/gameSettings.js";
 import { isHapticsAvailable, previewHaptic, scheduleOverlayDismiss, scheduleOverlayPresent, triggerHaptic } from "../platform/haptics.js";
 import SegmentTabControl from "./SegmentTabControl.vue";
@@ -427,7 +511,31 @@ const showDisplayLayoutModeSetting = !Capacitor.isNativePlatform();
 
 const stackZ = ref(0);
 const settingsTabsRef = ref(/** @type {import('vue').ComponentPublicInstance | null} */ (null));
+const settingsPanelsRef = ref(/** @type {HTMLElement | null} */ (null));
 const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
+
+const SCOPE_CHANGE_CONFIRM_LINES = Object.freeze(["切换词汇范围后，仅之后提交的词按新范围校验。"]);
+
+const {
+  scrollBodyRef,
+  scrollTrackRef,
+  scrollbarVisible,
+  thumbDragging,
+  thumbStyle,
+  onScrollBody,
+  onThumbPointerDown,
+  onTrackPointerDown,
+  updateScrollbarMetrics,
+  bindResizeObserver,
+} = usePanelScrollbar({ thumbColor: "#8a8580", contentRef: settingsPanelsRef });
+
+function resetSettingsScrollPosition() {
+  if (scrollBodyRef.value) scrollBodyRef.value.scrollTop = 0;
+}
+
+function refreshSettingsScrollbar() {
+  updateScrollbarMetrics();
+}
 
 watch(
   () => props.open,
@@ -436,6 +544,9 @@ watch(
       nextTick(() => {
         stackZ.value = settingsOverlayZ();
         settingsTabsRef.value?.reposition?.({ instant: true });
+        bindResizeObserver();
+        resetSettingsScrollPosition();
+        refreshSettingsScrollbar();
       });
       scheduleOverlayPresent(280);
     } else if (prev) {
@@ -447,10 +558,13 @@ watch(
 
 const titleId = "settings-layer-title";
 
-const SETTINGS_BASE_TAB_IDS = Object.freeze(["ui", "gameplay", "controls"]);
+/** @type {import('vue').Ref<boolean> | null} */
+const isGameSessionActive = inject("isGameSessionActive", null);
+
+const SETTINGS_BASE_TAB_IDS = Object.freeze(["ui", "gameplay", "vocabulary", "controls"]);
 const SETTINGS_DEVELOPER_TAB_ID = "developer";
 
-/** @typedef {'ui' | 'gameplay' | 'controls' | 'developer'} SettingsTabId */
+/** @typedef {'ui' | 'gameplay' | 'vocabulary' | 'controls' | 'developer'} SettingsTabId */
 
 /** @type {import('vue').Ref<SettingsTabId>} */
 const activeTab = ref("ui");
@@ -464,6 +578,7 @@ const settingsTabIds = computed(() =>
 const SETTINGS_TAB_LABELS = Object.freeze({
   ui: "界面",
   gameplay: "游戏性",
+  vocabulary: "学习",
   controls: "操作",
   developer: "开发者",
 });
@@ -480,6 +595,10 @@ function setActiveTab(id) {
   if (activeTab.value === id) return;
   triggerHaptic("tabSwitch");
   activeTab.value = id;
+  nextTick(() => {
+    resetSettingsScrollPosition();
+    refreshSettingsScrollbar();
+  });
 }
 
 watch(showDeveloperTab, (visible) => {
@@ -498,7 +617,129 @@ function onOpenMaterialBench() {
 }
 
 const allowAbbrev = computed(() => gameSettings.allowSpellingAbbreviations === true);
+const dictionaryScopeIds = computed(() => getDictionaryScopeIds());
+const scopeChangeBusy = ref(false);
+const scopeChangeConfirmOpen = ref(false);
+/** @type {import('vue').Ref<string[] | null>} */
+const pendingDictionaryScopeIds = ref(null);
+/** @type {import('vue').Ref<string[]>} */
+const lastCustomDictionaryScopeIds = ref(["cet4"]);
+const settingsToastMessage = ref("");
+/** @type {ReturnType<typeof setTimeout> | null} */
+let settingsToastClearTimer = null;
+
+/** @param {string} msg @param {number} [ms] */
+function showSettingsToast(msg, ms = 2000) {
+  if (settingsToastClearTimer) {
+    clearTimeout(settingsToastClearTimer);
+    settingsToastClearTimer = null;
+  }
+  settingsToastMessage.value = msg;
+  settingsToastClearTimer = setTimeout(() => {
+    settingsToastMessage.value = "";
+    settingsToastClearTimer = null;
+  }, ms);
+}
+
+onBeforeUnmount(() => {
+  if (settingsToastClearTimer) {
+    clearTimeout(settingsToastClearTimer);
+    settingsToastClearTimer = null;
+  }
+});
+
+const dictionaryScopePanelOptions = computed(() =>
+  DICTIONARY_SCOPE_OPTIONS.filter((opt) => opt.id !== "full").map((opt) => ({
+    id: opt.id,
+    label: opt.label,
+  })),
+);
+
+watch(
+  () => props.open,
+  (open) => {
+    if (!open) {
+      scopeChangeConfirmOpen.value = false;
+      pendingDictionaryScopeIds.value = null;
+      return;
+    }
+    if (!scopeIdsIncludeFull(getDictionaryScopeIds())) {
+      lastCustomDictionaryScopeIds.value = getDictionaryScopeIds();
+    }
+    nextTick(refreshSettingsScrollbar);
+  },
+);
+
+/** @param {string[]} next */
+function requestDictionaryScopeChange(next) {
+  if (!next?.length) return;
+  settingsChangeTap();
+  if (isGameSessionActive?.value === true) {
+    pendingDictionaryScopeIds.value = next;
+    scopeChangeConfirmOpen.value = true;
+    return;
+  }
+  void commitDictionaryScopeIds(next);
+}
+
+/** @param {'all' | 'custom'} mode */
+function onDictionaryScopeModeChange(mode) {
+  if (mode === "all") {
+    if (!scopeIdsIncludeFull(dictionaryScopeIds.value)) {
+      lastCustomDictionaryScopeIds.value = dictionaryScopeIds.value;
+    }
+    requestDictionaryScopeChange(["full"]);
+    return;
+  }
+  const next = lastCustomDictionaryScopeIds.value?.length
+    ? lastCustomDictionaryScopeIds.value
+    : ["cet4"];
+  requestDictionaryScopeChange(next);
+  nextTick(refreshSettingsScrollbar);
+}
+
+/** @param {string} scopeId */
+function onDictionaryScopeToggle(scopeId) {
+  const current = dictionaryScopeIds.value;
+  const next = toggleDictionaryScopeId(current, scopeId);
+  if (!next) {
+    const customIds = normalizeDictionaryScopeIds(current).filter((id) => id !== "full");
+    if (customIds.includes(scopeId) && customIds.length <= 1) {
+      showSettingsToast("至少选择一个");
+    }
+    return;
+  }
+  if (!scopeIdsIncludeFull(next)) {
+    lastCustomDictionaryScopeIds.value = next;
+  }
+  requestDictionaryScopeChange(next);
+}
+
+/** @param {string[]} ids */
+async function commitDictionaryScopeIds(ids) {
+  if (scopeChangeBusy.value) return;
+  scopeChangeBusy.value = true;
+  setDictionaryScopeIds(ids);
+  try {
+    await applyDictionaryScopes(ids);
+  } catch {
+    await applyDictionaryScopes(getDictionaryScopeIds());
+  } finally {
+    scopeChangeBusy.value = false;
+  }
+}
+
+function onScopeChangeNoticeClose() {
+  const ids = pendingDictionaryScopeIds.value;
+  scopeChangeConfirmOpen.value = false;
+  pendingDictionaryScopeIds.value = null;
+  if (!ids?.length) return;
+  void commitDictionaryScopeIds(ids);
+}
+
 const wordDefinitionMode = computed(() => gameSettings.wordDefinitionMode);
+const wordFavoriteSettingEnabled = computed(() => wordDefinitionMode.value !== "off");
+const wordFavoriteButtonEnabled = computed(() => gameSettings.wordFavoriteButtonEnabled !== false);
 const markButtonEnabled = computed(() => gameSettings.markButtonEnabled === true);
 const wordHintMode = computed(() => gameSettings.wordHintMode);
 const markOnSwap = computed(() => gameSettings.markOnSwap === true);
@@ -591,6 +832,12 @@ function onToggleMarkButton() {
   settingsChangeTap();
 }
 
+function onToggleWordFavoriteButton() {
+  if (!wordFavoriteSettingEnabled.value) return;
+  setWordFavoriteButtonEnabled(!wordFavoriteButtonEnabled.value);
+  settingsChangeTap();
+}
+
 function onToggleMarkOnSwap() {
   if (!markOnSwapSettingEnabled.value) return;
   setMarkOnSwap(!markOnSwap.value);
@@ -619,7 +866,11 @@ function onToggleAbbrev() {
 
 /** @param {string} mode */
 function onWordDefinitionModeChange(mode) {
-  setWordDefinitionMode(/** @type {import('../settings/gameSettings.js').WordDefinitionMode} */ (mode));
+  const normalized = /** @type {import('../settings/gameSettings.js').WordDefinitionMode} */ (mode);
+  setWordDefinitionMode(normalized);
+  if (normalized === "off") {
+    setWordFavoriteButtonEnabled(false);
+  }
   settingsChangeTap();
 }
 </script>
@@ -647,6 +898,7 @@ function onWordDefinitionModeChange(mode) {
   flex-shrink: 0;
   width: min(var(--menu-actions-width), calc(100% - 40 * var(--rpx)));
   height: min(calc(820 * var(--rpx)), calc(100% - 40 * var(--rpx)));
+  max-height: min(calc(820 * var(--rpx)), calc(100% - 40 * var(--rpx)));
   overflow: hidden;
   background: var(--card-bright);
   border-radius: var(--radius);
@@ -655,10 +907,62 @@ function onWordDefinitionModeChange(mode) {
   box-sizing: border-box;
 }
 
-.settings-layer-body {
+.settings-layer-scroll-outer {
   flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  align-items: stretch;
+  gap: calc(10 * var(--rpx));
+}
+
+.settings-layer-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.settings-layer-body--scrollable {
   overflow-y: auto;
+}
+
+.settings-layer-body--dragging {
+  scroll-behavior: auto;
+}
+
+.settings-layer-body::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-layer-scroll-track {
+  flex-shrink: 0;
+  width: calc(10 * var(--rpx));
+  position: relative;
+  border-radius: calc(6 * var(--rpx));
+  background: rgba(60, 58, 50, 0.08);
+  touch-action: none;
+  user-select: none;
+}
+
+.settings-layer-scroll-thumb {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-radius: calc(6 * var(--rpx));
+  box-shadow: 0 calc(1 * var(--rpx)) calc(3 * var(--rpx)) rgba(0, 0, 0, 0.12);
+  cursor: grab;
+  touch-action: none;
+}
+
+.settings-layer-scroll-thumb--dragging,
+.settings-layer-scroll-thumb:active {
+  cursor: grabbing;
+  filter: brightness(1.06);
 }
 
 .settings-layer-tabs-host :deep(.segment-tab--settings-layer) {
@@ -690,20 +994,11 @@ function onWordDefinitionModeChange(mode) {
 }
 
 .settings-layer-panels {
-  display: grid;
-  /* 操作 tab 最多 5 项 × 80 + 4 间距 × 10，避免切 tab 时内容区高度抖动 */
-  min-height: calc(440 * var(--rpx));
+  min-height: 0;
 }
 
 .settings-layer-panel {
-  grid-area: 1 / 1;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.settings-layer-panel--active {
-  visibility: visible;
-  pointer-events: auto;
+  min-width: 0;
 }
 
 .settings-layer-list {
@@ -813,6 +1108,11 @@ function onWordDefinitionModeChange(mode) {
 
 .settings-row-label-btn-chip--hint {
   background: #f0a928;
+}
+
+.settings-row-label-btn-chip--favorite {
+  background: #f5c518;
+  color: #5c4a10;
 }
 
 .settings-row-label-btn-chip--mark {
@@ -1119,5 +1419,31 @@ function onWordDefinitionModeChange(mode) {
 .settings-layer-leave-to .settings-layer-card {
   opacity: 0;
   transform: scale(0.94) translateY(calc(12 * var(--rpx)));
+}
+
+.settings-layer-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(120 * var(--rpx));
+  transform: translateX(-50%);
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  padding: calc(12 * var(--rpx)) calc(24 * var(--rpx));
+  border-radius: var(--radius);
+  font-size: calc(22 * var(--rpx));
+  pointer-events: none;
+  animation: settings-layer-toast-in 0.32s var(--ease-expo-out, ease-out) both;
+}
+
+@keyframes settings-layer-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(calc(8 * var(--rpx)));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 </style>

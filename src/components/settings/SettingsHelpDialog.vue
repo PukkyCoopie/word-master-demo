@@ -17,14 +17,16 @@
         <SettingsControlDemo v-if="activeDemoVariant" :variant="activeDemoVariant" />
         <h3 v-if="title" :id="titleId" class="settings-help-dialog-title">{{ title }}</h3>
         <div :id="textId" class="settings-help-dialog-body">
-          <p
-            v-for="(line, idx) in paragraphs"
-            :key="idx"
-            class="settings-help-dialog-text"
-            :class="{ 'settings-help-dialog-text--dim': isParagraphDimmed(idx) }"
-          >
-            {{ line }}
-          </p>
+          <slot name="body">
+            <p
+              v-for="(line, idx) in paragraphs"
+              :key="idx"
+              class="settings-help-dialog-text"
+              :class="{ 'settings-help-dialog-text--dim': isParagraphDimmed(idx) }"
+            >
+              {{ line }}
+            </p>
+          </slot>
         </div>
         <button type="button" class="settings-help-dialog-btn" @click="emit('close')">知道了</button>
       </div>
@@ -165,6 +167,16 @@ onUnmounted(() => {
 
 .settings-help-dialog-text + .settings-help-dialog-text {
   margin-top: calc(12 * var(--rpx));
+}
+
+.settings-help-dialog-body :slotted(.settings-help-dialog-text) {
+  margin: 0 auto;
+  max-width: calc(360 * var(--rpx));
+  font-size: calc(24 * var(--rpx));
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--text-dark, #3c3a32);
+  text-wrap: balance;
 }
 
 .settings-help-dialog-text--dim {

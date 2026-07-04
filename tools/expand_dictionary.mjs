@@ -56,6 +56,7 @@ async function main() {
 	runNode("merge_supplement_words.mjs", "Merge supplemental words");
 	runNode("materialize_word_filtered_pos_prefix.mjs", "Inject POS prefixes into gloss lines (scheme A)");
 	runNode("build_dict.mjs", "Build dict.json");
+	runNode("build_dict_scopes.mjs", "Build dictionary scope sidecars");
 
 	spotCheck();
 	console.log("\nDictionary expansion complete.");

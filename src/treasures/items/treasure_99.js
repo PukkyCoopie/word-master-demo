@@ -16,8 +16,8 @@ export const TREASURE_99_E_MULT_GAIN_BUBBLE = formatMultMulBankGainLabel(TRASH_C
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 8,
-  rarity: "epic",
+  price: 7,
+  rarity: "rare",
   description: describe("你每弃掉一个E，获得", mult("x0.25"), "倍率", "，倍率在关卡结束时重置"),
 };
 

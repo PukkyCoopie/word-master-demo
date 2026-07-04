@@ -282,9 +282,8 @@ export function applyReglSubscriberAnimated(sub, animated, hub) {
     hub.paintSubscriberOnce(sub);
     hub.ensureTick();
   } else {
-    if (!sub._displayFrameReady) {
-      hub.paintSubscriberOnce(sub);
-    }
+    // 占位静帧：统一 iTime 重绘一帧再冻结，避免 canvas 空白或仍留动画帧
+    hub.paintSubscriberOnce(sub);
     sub.frameFrozen = true;
   }
   hub.stopTickIfIdle();

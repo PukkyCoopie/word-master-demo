@@ -11,7 +11,7 @@ export const DEFAULT_TREASURE_INTRODUCED_VERSION = "1.0.0";
 export const TREASURE_CATALOG = [
   { treasureId: "1", name: "火花", emoji: "✨", scriptPath: "./items/treasure_1.js", implemented: true },
   { treasureId: "2", name: "铅笔", emoji: "✏️", scriptPath: "./items/treasure_2.js", implemented: true },
-  { treasureId: "3", name: "宝石", emoji: "💎", scriptPath: "./items/treasure_3.js", implemented: true },
+  { treasureId: "3", name: "拖鞋", emoji: "🩴", scriptPath: "./items/treasure_3.js", implemented: true },
   { treasureId: "4", name: "水晶球", emoji: "🔮", scriptPath: "./items/treasure_4.js", implemented: true },
   { treasureId: "5", name: "王冠", emoji: "👑", scriptPath: "./items/treasure_5.js", implemented: true },
   { treasureId: "6", name: "链条", emoji: "⛓️", scriptPath: "./items/treasure_6.js", implemented: true },
@@ -44,7 +44,7 @@ export const TREASURE_CATALOG = [
   { treasureId: "33", name: "向日葵", emoji: "🌻", scriptPath: "./items/treasure_33.js", implemented: true },
   { treasureId: "34", name: "木头", emoji: "🪵", scriptPath: "./items/treasure_34.js", implemented: true },
   { treasureId: "35", name: "蓝莓", emoji: "🫐", scriptPath: "./items/treasure_35.js", implemented: true },
-  { treasureId: "36", name: "标签", emoji: "🏷️", scriptPath: "./items/treasure_36.js", implemented: true },
+  { treasureId: "36", name: "书签", emoji: "🔖", scriptPath: "./items/treasure_36.js", implemented: true },
   { treasureId: "37", name: "摇杆", emoji: "🕹️", scriptPath: "./items/treasure_37.js", implemented: true },
   { treasureId: "38", name: "尺子", emoji: "📏", scriptPath: "./items/treasure_38.js", implemented: true },
   { treasureId: "39", name: "飞机", emoji: "🛫", scriptPath: "./items/treasure_39.js", implemented: true },
@@ -59,7 +59,7 @@ export const TREASURE_CATALOG = [
   { treasureId: "48", name: "匕首", emoji: "🗡️", scriptPath: "./items/treasure_48.js", implemented: true },
   { treasureId: "49", name: "扫帚", emoji: "🧹", scriptPath: "./items/treasure_49.js", implemented: true },
   { treasureId: "50", name: "天平", emoji: "⚖️", scriptPath: "./items/treasure_50.js", implemented: true },
-  { treasureId: "51", name: "卷轴", emoji: "📜", scriptPath: "./items/treasure_51.js", implemented: true },
+  { treasureId: "51", name: "手风琴", emoji: "🪗", scriptPath: "./items/treasure_51.js", implemented: true },
   { treasureId: "52", name: "盆栽", emoji: "🪴", scriptPath: "./items/treasure_52.js", implemented: true },
   { treasureId: "53", name: "自行车", emoji: "🚲", scriptPath: "./items/treasure_53.js", implemented: true },
   { treasureId: "54", name: "火山", emoji: "🌋", scriptPath: "./items/treasure_54.js", implemented: true, introducedVersion: "1.2.0" },
@@ -107,7 +107,7 @@ export const TREASURE_CATALOG = [
   { treasureId: "96", name: "鬼牌", emoji: "🃏", scriptPath: "./items/treasure_96.js", implemented: true },
   { treasureId: "97", name: "滑块", emoji: "🎚️", scriptPath: "./items/treasure_97.js", implemented: true },
   { treasureId: "98", name: "面具", emoji: "🎭", scriptPath: "./items/treasure_98.js", implemented: true },
-  { treasureId: "99", name: "垃圾桶", emoji: "🗑️", scriptPath: "./items/treasure_99.js", implemented: true },
+  { treasureId: "99", name: "滑板", emoji: "🛹", scriptPath: "./items/treasure_99.js", implemented: true },
   { treasureId: "100", name: "字典", emoji: "📕", scriptPath: "./items/treasure_100.js", implemented: true },
   { treasureId: "101", name: "蜡笔", emoji: "🖍️", scriptPath: "./items/treasure_101.js", implemented: true },
   { treasureId: "102", name: "跑步", emoji: "🏃", scriptPath: "./items/treasure_102.js", implemented: true },
@@ -117,7 +117,7 @@ export const TREASURE_CATALOG = [
   { treasureId: "106", name: "工具", emoji: "🛠️", scriptPath: "./items/treasure_106.js", implemented: true },
   { treasureId: "107", name: "钢琴", emoji: "🎹", scriptPath: "./items/treasure_107.js", implemented: true },
   { treasureId: "108", name: "书包", emoji: "🎒", scriptPath: "./items/treasure_108.js", implemented: true },
-  { treasureId: "109", name: "魔杖", emoji: "🪄", scriptPath: "./items/treasure_109.js", implemented: true },
+  { treasureId: "109", name: "石像", emoji: "🗿", scriptPath: "./items/treasure_109.js", implemented: true },
   { treasureId: "110", name: "门票", emoji: "🎟️", scriptPath: "./items/treasure_110.js", implemented: true },
   { treasureId: "111", name: "日历", emoji: "📆", scriptPath: "./items/treasure_111.js", implemented: true },
   { treasureId: "112", name: "钞票", emoji: "💵", scriptPath: "./items/treasure_112.js", implemented: true },
@@ -166,6 +166,8 @@ export const TREASURE_CATALOG = [
   { treasureId: "140", name: "报纸", emoji: "🗞️", scriptPath: "./items/treasure_140.js", implemented: true, introducedVersion: "1.2.0" },
   { treasureId: "141", name: "购物袋", emoji: "🛍️", scriptPath: "./items/treasure_141.js", implemented: true, introducedVersion: "1.2.0" },
   { treasureId: "142", name: "流星", emoji: "🌠", scriptPath: "./items/treasure_142.js", implemented: true, introducedVersion: "1.2.0" },
+  { treasureId: "143", name: "海浪", emoji: "🌊", scriptPath: "./items/treasure_143.js", implemented: true, introducedVersion: "1.2.5" },
+  { treasureId: "144", name: "喷泉", emoji: "⛲", scriptPath: "./items/treasure_144.js", implemented: true, introducedVersion: "1.2.5" },
 ];
 
 export const TREASURE_CATALOG_BY_ID = new Map(TREASURE_CATALOG.map((t) => [t.treasureId, t]));

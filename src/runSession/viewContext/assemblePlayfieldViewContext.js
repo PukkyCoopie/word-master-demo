@@ -12,6 +12,7 @@ export function assemblePlayfieldViewContext(extras, pf) {
     tileDragActive: pf.tileDragActive,
     wordSlotPlaceholderKey: pf.wordSlotPlaceholderKey,
     setWordSlotRef: pf.setWordSlotRef,
+    setWordSlotContentRef: pf.setWordSlotContentRef,
     isSlotOutOfFlow: pf.isSlotOutOfFlow,
     onSlotClick: pf.onSlotClick,
     onWordSlotContextMenu: pf.onWordSlotContextMenu,

@@ -432,7 +432,7 @@ const continueLevelLabel = computed(() => {
   const id = String(props.continueSnapshot?.levelId ?? "1-1");
   return props.continueSnapshot?.isEndlessRun ? `${id}（无尽）` : id;
 });
-const continueMoney = computed(() => Math.max(0, Math.floor(Number(props.continueSnapshot?.money) || 0)));
+const continueMoney = computed(() => Math.floor(Number(props.continueSnapshot?.money) || 0));
 const continueDifficultyIndex = computed(() =>
   normalizeRunDifficultyIndex(props.continueSnapshot?.difficultyIndex ?? 0),
 );

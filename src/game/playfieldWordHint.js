@@ -10,6 +10,7 @@ import {
 import { playWordHintRippleSequence } from "./wordHintRipple.js";
 import { isWordHintAutoSelectMode } from "../settings/wordHintMode.js";
 import { BASE_HINT_MAX_PER_LEVEL } from "./wordHintLimits.js";
+import { shouldChargeHintOnSuccessfulSubmit } from "./hintCharge.js";
 
 export { BASE_HINT_MAX_PER_LEVEL };
 
@@ -19,6 +20,8 @@ export { BASE_HINT_MAX_PER_LEVEL };
  * @property {import('vue').Ref<{ row: number, col: number }[]>} selectedOrder
  * @property {import('vue').Ref<number | null>} ceruleanBellSlotIndex
  * @property {import('vue').Ref<number>} hintRemaining
+ * @property {import('vue').Ref<string | null>} pendingHintChargeWord
+ * @property {() => void} [scheduleRunAutoSave]
  * @property {() => number} getHintMaxThisLevel
  * @property {number} ROWS
  * @property {number} COLS
@@ -103,6 +106,7 @@ export function createPlayfieldWordHint(deps) {
     selectedOrder,
     ceruleanBellSlotIndex,
     hintRemaining,
+    pendingHintChargeWord,
     getHintMaxThisLevel,
     ROWS,
     COLS,
@@ -137,6 +141,7 @@ export function createPlayfieldWordHint(deps) {
     waitForFlyingBackIdle,
     updateSlotPositions,
     flyingLetters,
+    scheduleRunAutoSave,
   } = deps;
 
   /** @type {import('vue').Ref<import('./gridWordFinder.js').WordPick | null>} */
@@ -146,6 +151,18 @@ export function createPlayfieldWordHint(deps) {
   /** 提交计分开始后至下次 grid 稳定刷新前：避免词槽仍匹配旧 hintPick 导致按钮常暗 */
   const hintSubmitLatch = ref(false);
   const hintRipplePlaying = ref(false);
+
+  function markHintPendingCharge(word) {
+    const normalized = String(word ?? "").toLowerCase().trim();
+    pendingHintChargeWord.value = normalized || null;
+    scheduleRunAutoSave?.();
+  }
+
+  function clearHintPendingCharge() {
+    if (pendingHintChargeWord.value == null) return;
+    pendingHintChargeWord.value = null;
+    scheduleRunAutoSave?.();
+  }
 
   function isAutoSelectMode() {
     return isWordHintAutoSelectMode(getWordHintMode());
@@ -178,14 +195,7 @@ export function createPlayfieldWordHint(deps) {
   watch(
     selectedOrder,
     () => {
-      if (!isAutoSelectMode()) return;
       if (selectedOrder.value.length === 0) {
-        hintAppliedViaButton.value = false;
-        hintAppliedWord.value = null;
-        return;
-      }
-      if (!hintAppliedViaButton.value) return;
-      if (!selectionMatchesHintPath()) {
         hintAppliedViaButton.value = false;
         hintAppliedWord.value = null;
       }
@@ -246,6 +256,16 @@ export function createPlayfieldWordHint(deps) {
       refreshWordHintAfterGridStable();
     }
   });
+
+  watch(
+    () => dictionaryReady.value,
+    (ready) => {
+      if (ready && !dictFatalError.value) {
+        refreshWordHintAfterGridStable();
+      }
+    },
+    { flush: "post" },
+  );
 
   watch(
     () => getFirstWordTutorialPhase?.() ?? null,
@@ -315,6 +335,7 @@ export function createPlayfieldWordHint(deps) {
       await playWordHintRippleSequence(pick.path, getGridTileElByIndex, COLS);
       hintAppliedViaButton.value = true;
       hintAppliedWord.value = pick.word;
+      markHintPendingCharge(pick.word);
     } finally {
       hintRipplePlaying.value = false;
     }
@@ -346,6 +367,7 @@ export function createPlayfieldWordHint(deps) {
 
       hintAppliedViaButton.value = true;
       hintAppliedWord.value = pick.word;
+      markHintPendingCharge(pick.word);
     } finally {
       wordSelectionSwapBusy.value = false;
     }
@@ -385,13 +407,17 @@ export function createPlayfieldWordHint(deps) {
    * @param {string} resolvedWord
    */
   function tryConsumeHintOnSuccessfulSubmit(resolvedWord) {
-    const word = String(resolvedWord ?? "").toLowerCase().trim();
-    const applied = String(hintAppliedWord.value ?? "").toLowerCase().trim();
-    if (hintAppliedViaButton.value && applied && word === applied) {
+    const shouldCharge = shouldChargeHintOnSuccessfulSubmit(
+      resolvedWord,
+      { viaButton: hintAppliedViaButton.value, appliedWord: hintAppliedWord.value },
+      pendingHintChargeWord.value,
+    );
+    if (shouldCharge) {
       hintRemaining.value = Math.max(0, hintRemaining.value - 1);
     }
     hintAppliedViaButton.value = false;
     hintAppliedWord.value = null;
+    clearHintPendingCharge();
   }
 
   return {

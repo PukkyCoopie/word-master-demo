@@ -11,13 +11,14 @@ import { resolveHintMaxPerLevel } from "../../game/wordHintLimits.js";
 import { getPresetHintLengthWeightShift } from "../../game/runPresetRuntime.js";
 import { createPlayfieldViewContext } from "../../components/run/playfieldViewKey.js";
 import { assemblePlayfieldViewContext } from "../viewContext/assemblePlayfieldViewContext.js";
+import { resolveWordSlotShrinkPopEl } from "../../game/gridTileIgniteFx.js";
 
 /** @typedef {import("../runSessionTypes.js").PlayfieldController} PlayfieldController */
 /** @typedef {import("../runSessionTypes.js").GridStore} GridStore */
 
 /**
  * @typedef {Object} PlayfieldControllerOptions
- * @property {Pick<GridStore, "grid" | "selectedOrder" | "selectedTiles" | "selectTile" | "removeFromSlot" | "removeSingleTileFromWord" | "insertSelectedTileAt" | "reorderSelectedOrder" | "ceruleanBellSlotIndex" | "finalizeCeruleanBellSlotIndex" | "touchGrid" | "ensureCeruleanBellMarkedOnGrid" | "findCeruleanBellLockedTileOnGrid" | "ROWS" | "COLS" | "hintRemaining">} grid
+ * @property {Pick<GridStore, "grid" | "selectedOrder" | "selectedTiles" | "selectTile" | "removeFromSlot" | "removeSingleTileFromWord" | "insertSelectedTileAt" | "reorderSelectedOrder" | "ceruleanBellSlotIndex" | "finalizeCeruleanBellSlotIndex" | "touchGrid" | "ensureCeruleanBellMarkedOnGrid" | "findCeruleanBellLockedTileOnGrid" | "ROWS" | "COLS" | "hintRemaining" | "pendingHintChargeWord">} grid
  * @property {{ buildBossWildcardResolveContext: () => unknown, rarityLevelsByRarity: import('vue').Ref<Record<string, number>>, runPresetId: import('vue').Ref<string>, spellCountsByLength: import('vue').Ref<Record<string | number, number>>, judgedLengthTableLenForRun: (n: number) => number, lengthLevelsByLength: import('vue').Ref<Record<string | number, number>> }} hint
  * @property {{ getLetterGridRef: () => HTMLElement | null, getLetterGridWrapRef: () => HTMLElement | null, getWordSlotsWrapRef: () => HTMLElement | null, getWordSlotsScaleRootRef: () => HTMLElement | null }} dom
  * @property {{ transitionBusy: import("vue").Ref<boolean>, showShop: import("vue").Ref<boolean>, scoringAnimating: import("vue").Ref<boolean>, gridRefillAnimating: import("vue").Ref<boolean>, dictFatalError: import("vue").Ref<boolean>, dictionaryReady: import("vue").Ref<boolean>, suppressTilePrimaryClick: import("vue").Ref<boolean>, wordSelectionSwapBusy: import("vue").Ref<boolean> }} gates
@@ -25,6 +26,7 @@ import { assemblePlayfieldViewContext } from "../viewContext/assemblePlayfieldVi
  * @property {{ isRunFlowOverlayOpen: () => boolean, isFirstWordTutorialBlockingInput: () => boolean, isGamePaused: () => boolean, bumpOverlayZ: () => number, triggerHaptic: (kind: string) => void, showToast: (msg: string) => void }} ui
  * @property {{ scheduleRunAutoSave: () => void, scheduleTutorialSpotlightUpdate: () => void, onCeruleanBellNewGridLock: (marked: boolean) => Promise<void> }} callbacks
  * @property {{ gridTileLetterForRender: import('vue').Ref<Map<unknown, string>>, gridTileRarityForRender: import('vue').Ref<Map<unknown, string>>, gridTileVowelGhostForRender: import('vue').Ref<Map<unknown, { prev?: string | null, next?: string | null }>> }} render
+ * @property {import('vue').Ref<number>} [submitTilePresentationRevision] 提交计分期间占位/词槽展示修订号（材质切换等）
  * @property {import('vue').Ref<boolean>} firstWordTutorialActive
  * @property {{ openTileDetail: (payload: unknown, origin?: unknown, nav?: unknown) => void, buildTileDetailPayloadFromTile: (tile: object) => unknown, buildWordSlotTileDetailPayload: (i: number) => unknown, buildWordSlotPreviewNav: (i: number) => unknown, canOpenTileDetail: () => boolean, tileOriginRectFromElement: (el: unknown) => unknown, armTileLongPressFromPointer: (e: PointerEvent, openFn: () => void) => void, clearTileLongPressArm: () => void, markTilePrimaryTapConsumed: (pointerId: number) => void, armTilePrimaryTap: (e: PointerEvent, fire: () => void) => void, tryCompleteTilePrimaryTap: (e: PointerEvent) => void, onTilePointerCancel: (e: PointerEvent) => void }} detail
  * @property {{ allowsTileClick: (row: number, col: number) => boolean, onLetterSelected: () => void, phase: import("vue").ComputedRef<string> }} firstWordTutorial
@@ -39,7 +41,20 @@ const GRID_CELL_PLACEHOLDER_OPACITY = 0.26;
  * @returns {PlayfieldController}
  */
 export function usePlayfieldController(options) {
-  const { grid: gridStore, dom, gates, presentation, ui, callbacks, detail, firstWordTutorial: fwt, render, firstWordTutorialActive, hint: hintDeps } = options;
+  const {
+    grid: gridStore,
+    dom,
+    gates,
+    presentation,
+    ui,
+    callbacks,
+    detail,
+    firstWordTutorial: fwt,
+    render,
+    firstWordTutorialActive,
+    hint: hintDeps,
+    submitTilePresentationRevision,
+  } = options;
   const {
     grid,
     selectedOrder,
@@ -55,6 +70,7 @@ export function usePlayfieldController(options) {
     ensureCeruleanBellMarkedOnGrid,
     findCeruleanBellLockedTileOnGrid,
     hintRemaining,
+    pendingHintChargeWord,
     ROWS,
     COLS,
   } = gridStore;
@@ -89,6 +105,9 @@ const gridPlaceholderFreezeByTileId = new Map();
 let lastWordDragPresentations = null;
 const gridTileRefs = ref([]);
 const wordSlotRefs = /** @type {(HTMLElement | undefined)[]} */ ([]);
+const wordSlotContentRefs = /** @type {(HTMLElement | undefined)[]} */ ([]);
+/** 蜂蜜等材质切换 GSAP 期间：对应词槽 RAF 不写 left/top/width/height，避免冲掉 transform */
+const wordSlotMaterialAnimIndex = ref(-1);
 
 /** 计分追加 S 弹出动画期间：缩放仍按原词长，弹出完成后随完整词长缩小 */
 const submitScoringAppendScaleLocked = ref(false);
@@ -223,6 +242,27 @@ function setWordSlotRef(index, el) {
   }
 }
 
+function setWordSlotContentRef(index, el) {
+  const node = refToDom(el);
+  wordSlotContentRefs[index] = node ?? undefined;
+}
+
+/** @param {number} index */
+function getWordSlotContentElement(index) {
+  const byRef = wordSlotContentRefs[index];
+  if (byRef instanceof HTMLElement) return byRef;
+  return resolveWordSlotShrinkPopEl(wordSlotRefs[index] ?? null);
+}
+
+/** @param {number} index */
+function beginWordSlotMaterialAnim(index) {
+  wordSlotMaterialAnimIndex.value = Number.isFinite(Number(index)) ? Math.round(Number(index)) : -1;
+}
+
+function endWordSlotMaterialAnim() {
+  wordSlotMaterialAnimIndex.value = -1;
+}
+
 function getSelectedGridTileElsInOrder() {
   const list = [];
   for (const pos of selectedOrder.value) {
@@ -267,7 +307,6 @@ const wordSlotFly = useWordSlotFly({
   ensureSlotRafRunning: () => slotLayoutBridge.ensureSlotRafRunning(),
   updateSlotPositions: (deltaMs) => slotLayoutBridge.updateSlotPositions(deltaMs),
   commitFlyInSlotPosition,
-  getSubmitWordLeaveHiddenCount: () => submitWordLeaveHiddenCount.value,
 });
 
 const {
@@ -335,24 +374,29 @@ function releaseGridPlaceholderFreeze(tileId) {
   gridPlaceholderFreezeByTileId.delete(String(tileId));
 }
 
-/** 提交占位期间同步冻结快照（如海绵擦除材质/配饰后刷新棋盘外观）。 */
+/** 提交占位期间同步冻结快照，并刷新词槽/棋盘占位展示（如蜂蜜换黄金、海绵擦除增强）。 */
 function patchGridPlaceholderFreezeFromTile(tile) {
   if (!tile?.id) return;
   const frozen = gridPlaceholderFreezeByTileId.get(String(tile.id));
-  if (!frozen) return;
-  const ghost = presentation.vowelGhostForTile(tile, { skipLiveWordResolve: true });
-  frozen.letter = tile.letter;
-  frozen.rarity = tile.rarity;
-  frozen.materialId = tile.materialId ?? null;
-  frozen.accessoryId = tile.accessoryId ?? null;
-  frozen.treasureAccessoryId = tile.treasureAccessoryId ?? null;
-  frozen.tileScoreBonus = Number(tile.tileScoreBonus) || 0;
-  frozen.tileMultBonus = Number(tile.letterMultBonus) || 0;
-  frozen.bossTileDebuffed = tile.bossTileDebuffed === true;
-  frozen.ceruleanBellLocked = tile.ceruleanBellLocked === true;
-  frozen.bossGridBlocked = tile.bossGridBlocked === true;
-  frozen.vowelGhostPrev = ghost?.prev ?? null;
-  frozen.vowelGhostNext = ghost?.next ?? null;
+  if (frozen) {
+    const ghost = presentation.vowelGhostForTile(tile, { skipLiveWordResolve: true });
+    frozen.letter = tile.letter;
+    frozen.rarity = tile.rarity;
+    frozen.materialId = tile.materialId ?? null;
+    frozen.accessoryId = tile.accessoryId ?? null;
+    frozen.treasureAccessoryId = tile.treasureAccessoryId ?? null;
+    frozen.tileScoreBonus = Number(tile.tileScoreBonus) || 0;
+    frozen.tileMultBonus = Number(tile.letterMultBonus) || 0;
+    frozen.bossTileDebuffed = tile.bossTileDebuffed === true;
+    frozen.ceruleanBellLocked = tile.ceruleanBellLocked === true;
+    frozen.bossGridBlocked = tile.bossGridBlocked === true;
+    frozen.vowelGhostPrev = ghost?.prev ?? null;
+    frozen.vowelGhostNext = ghost?.next ?? null;
+  }
+  if (submitTilePresentationRevision) {
+    submitTilePresentationRevision.value += 1;
+  }
+  touchGrid();
 }
 
 function syncGridPlaceholderFreezeCaptures() {
@@ -677,14 +721,17 @@ function updateSlotPositions(deltaMs) {
     if (outOfFlow) {
       continue;
     }
+    const materialAnimLocked = wordSlotMaterialAnimIndex.value === i;
     const cur = slotCurrentPositions[i];
     const tgt = targets[i];
     if (!cur || !tgt) continue;
-    cur.x += (tgt.x - cur.x) * factor;
-    cur.y += (tgt.y - cur.y) * factor;
-    cur.w += (tgt.w - cur.w) * factor;
-    cur.h += (tgt.h - cur.h) * factor;
-    if (el) {
+    if (!materialAnimLocked) {
+      cur.x += (tgt.x - cur.x) * factor;
+      cur.y += (tgt.y - cur.y) * factor;
+      cur.w += (tgt.w - cur.w) * factor;
+      cur.h += (tgt.h - cur.h) * factor;
+    }
+    if (el && !materialAnimLocked) {
       el.style.left = cur.x + "px";
       el.style.top = cur.y + "px";
       el.style.width = cur.w + "px";
@@ -1278,6 +1325,7 @@ function disposeSlotRaf() {
     tileDragActive,
     tileDragSource,
     gridPlaceholderFrozenPresentation,
+    submitTilePresentationRevision,
     gridTileLetterForRender: render.gridTileLetterForRender,
     gridTileRarityForRender: render.gridTileRarityForRender,
     gridTileVowelGhostForRender: render.gridTileVowelGhostForRender,
@@ -1328,6 +1376,7 @@ function disposeSlotRaf() {
     selectedOrder,
     ceruleanBellSlotIndex,
     hintRemaining,
+    pendingHintChargeWord,
     getHintMaxThisLevel: () => resolveHintMaxPerLevel(hintDeps.runPresetId.value),
     ROWS,
     COLS,
@@ -1368,6 +1417,7 @@ function disposeSlotRaf() {
     waitForFlyingBackIdle,
     updateSlotPositions,
     flyingLetters,
+    scheduleRunAutoSave: callbacks.scheduleRunAutoSave,
   });
 
   async function tryCeruleanBellFlyInAfterGridStable() {
@@ -1400,6 +1450,7 @@ function disposeSlotRaf() {
         tileDragActive,
         wordSlotPlaceholderKey,
         setWordSlotRef,
+        setWordSlotContentRef,
         isSlotOutOfFlow,
         onSlotClick,
         onWordSlotContextMenu,
@@ -1478,6 +1529,11 @@ function disposeSlotRaf() {
     setGridTileRef,
     getGridTileElByIndex,
     setWordSlotRef,
+    setWordSlotContentRef,
+    getWordSlotElement: (index) => wordSlotRefs[index] ?? null,
+    getWordSlotContentElement,
+    beginWordSlotMaterialAnim,
+    endWordSlotMaterialAnim,
     clearGridTileGsapAfterDrop,
     clearWordSlotGsapAfterSubmitLeave,
     beginSubmitWordLeaveHide,

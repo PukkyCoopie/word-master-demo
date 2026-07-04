@@ -1,4 +1,15 @@
+import gsap from "gsap";
 import { animateGridTileMaterialChangeAtCell } from "./spellTileAppearanceAnim.js";
+
+/** @param {(HTMLElement | null | undefined)[]} els */
+function prepMaterialChangeAnimEls(els) {
+  for (const el of els) {
+    if (el instanceof HTMLElement) {
+      gsap.killTweensOf(el, "scale,rotation,x,y");
+      gsap.set(el, { transformOrigin: "50% 50%", rotation: 0, x: 0, y: 0 });
+    }
+  }
+}
 
 export { findWordSlotIndexForGridCell } from "./fireworkIgniteTargets.js";
 
@@ -9,15 +20,14 @@ const IGNITE_BUBBLE_Z_INDEX = 380;
  * @property {(row: number, col: number) => HTMLElement | undefined} getGridTileEl
  * @property {(row: number, col: number) => HTMLElement | null | undefined} [getWordSlotShrinkPopElForGridCell]
  * @property {() => void} touchGrid
+ * @property {() => void | Promise<void>} [commitUi]
  * @property {(anchor: unknown, text: string, kind: string, speed?: number, bubbleZIndex?: number) => HTMLElement | null} showScoreBubble
  * @property {(bubble: HTMLElement | null | undefined, speed?: number) => void} scheduleSmallPlusBubbleOutro
  */
 
-/** @param {HTMLElement | null | undefined} slotWrapper */
+/** @param {HTMLElement | null | undefined} slotWrapper `.word-slot-tile` 外包层（与计分 wobble / grid `.grid-tile` 同级缩放） */
 export function resolveWordSlotShrinkPopEl(slotWrapper) {
-  if (!(slotWrapper instanceof HTMLElement)) return null;
-  const inner = slotWrapper.querySelector(".word-slot-content");
-  return inner instanceof HTMLElement ? inner : slotWrapper;
+  return slotWrapper instanceof HTMLElement ? slotWrapper : null;
 }
 
 /** @param {GridTileIgniteFxDeps} deps @param {number} row @param {number} col @param {number} [sp=1] */
@@ -66,7 +76,9 @@ export async function runGridTileIgniteAtCell(deps, row, col, onMidApply, sp = 1
  * @param {() => void} [onMidApply]
  */
 export async function runGridTileMaterialChangeAtCell(deps, row, col, onMidApply) {
+  const gridEl = deps.getGridTileEl(row, col);
   const wordSlotEl = deps.getWordSlotShrinkPopElForGridCell?.(row, col);
+  prepMaterialChangeAnimEls([gridEl, wordSlotEl]);
   await animateGridTileMaterialChangeAtCell({
     row,
     col,
@@ -74,6 +86,7 @@ export async function runGridTileMaterialChangeAtCell(deps, row, col, onMidApply
     touchGrid: deps.touchGrid,
     delay: 0,
     onMidApply,
+    commitUi: deps.commitUi,
     companionEls: wordSlotEl ? [wordSlotEl] : [],
   });
 }

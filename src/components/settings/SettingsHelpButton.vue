@@ -29,7 +29,8 @@ const props = defineProps({
   helpId: {
     type: String,
     required: true,
-    validator: (v) => ["mark", "swap", "markOnSwap", "highRisk", "confirmButtonSide"].includes(String(v)),
+    validator: (v) =>
+      ["mark", "swap", "markOnSwap", "highRisk", "dictionaryScope"].includes(String(v)),
   },
   ariaLabel: { type: String, default: "查看说明" },
 });

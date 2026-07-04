@@ -427,6 +427,7 @@ export function computeWordScoreDetailed(
         rarityBonus: 0,
         tileScoreBonus: 0,
         materialScoreBonus: 0,
+        materialId: null,
         rarity: c.rarity ?? "common",
         rarityMultBonus: 0,
         tileLetterMultBonus: 0,
@@ -462,6 +463,8 @@ export function computeWordScoreDetailed(
       tileScoreBonus,
 
       materialScoreBonus,
+
+      materialId: c.materialId != null ? String(c.materialId) : null,
 
       rarity: actualRarity,
       rarityMultBonus,

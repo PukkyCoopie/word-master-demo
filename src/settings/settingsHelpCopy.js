@@ -1,4 +1,4 @@
-/** @typedef {'mark' | 'swap' | 'markOnSwap' | 'highRisk' | 'confirmButtonSide'} SettingsHelpId */
+/** @typedef {'mark' | 'swap' | 'markOnSwap' | 'highRisk' | 'dictionaryScope'} SettingsHelpId */
 
 /** @type {Record<SettingsHelpId, { title: string; paragraphs: string[]; demoVariant: SettingsHelpId | '' }>} */
 export const SETTINGS_HELP_COPY = Object.freeze({
@@ -25,9 +25,9 @@ export const SETTINGS_HELP_COPY = Object.freeze({
     paragraphs: ["危险操作与跳过需长按以确认，防止误触"],
     demoVariant: "",
   },
-  confirmButtonSide: {
-    title: "",
-    paragraphs: ["横向确认/取消条中，确定按钮显示在左侧或右侧。"],
+  dictionaryScope: {
+    title: "词汇范围",
+    paragraphs: ["词汇范围来源于网络词库，不保证准确性。"],
     demoVariant: "",
   },
 });

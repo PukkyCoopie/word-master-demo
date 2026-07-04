@@ -9,9 +9,11 @@ import { useTreasureInventoryController } from "./controllers/useTreasureInvento
 import { useTreasureRunController } from "./controllers/useTreasureRunController.js";
 import { useWordSlotPresentation } from "./controllers/useWordSlotPresentation.js";
 import { useWordDefinitionController } from "./controllers/useWordDefinitionController.js";
+import { useWordFavoriteController } from "./controllers/useWordFavoriteController.js";
 import { useTileDetailController } from "./controllers/useTileDetailController.js";
 import { usePauseOverlayController } from "./controllers/usePauseOverlayController.js";
 import { useBossMechanicsController } from "./controllers/useBossMechanicsController.js";
+import { ref } from "vue";
 import { useRunResultPresentation } from "./controllers/useRunResultPresentation.js";
 import { useDeckPreviewLayer } from "../composables/useDeckPreviewLayer.js";
 import { pickRandomInRunSpellId, IN_RUN_RANDOM_SPELL_EXCLUDE } from "../spells/spellInRunPool.js";
@@ -505,6 +507,15 @@ function wireGamePanelControllersLate(d) {
     triggerHaptic: d.triggerHaptic,
   });
 
+  const wordFavoriteCtrl = useWordFavoriteController({
+    getSaveSlotIndex: d.getSaveSlotIndex,
+    resolvedWordForSubmit: d.resolvedWordForSubmit,
+    showWordDefinitionTrigger: wordDefinitionCtrl.showWordDefinitionTrigger,
+    wordDefinitionTriggerMode: wordDefinitionCtrl.wordDefinitionTriggerMode,
+    wordDefinitionPreviewLine: wordDefinitionCtrl.wordDefinitionPreviewLine,
+    getDefinitionLines: () => wordDefinitionCtrl.wordDefinitionPreviewLines.value,
+  });
+
   const tileDetailCtrl = useTileDetailController({
     dictFatalError: d.dictFatalError,
     transitionBusy: d.transitionBusy,
@@ -655,6 +666,7 @@ function wireGamePanelControllersLate(d) {
   return {
     gpWordSlotPresentation,
     wordDefinitionCtrl,
+    wordFavoriteCtrl,
     tileDetailCtrl,
     ...pauseOverlay,
     pauseOverlaySession,

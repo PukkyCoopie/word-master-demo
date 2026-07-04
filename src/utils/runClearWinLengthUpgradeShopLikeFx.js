@@ -10,10 +10,16 @@ import {
   getLengthUpgradeStepAdds,
 } from "../composables/useScoring.js";
 import { bubbleAtShopPanel } from "../game/popupBubbleFx.js";
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+import {
+  UPGRADE_FIRST_LEAD_IN_GAP_MS,
+  UPGRADE_FINAL_HOLD_MS,
+  UPGRADE_STEP_GAP_MS,
+  UPGRADE_SWITCH_GAP_MS,
+  UPGRADE_SWITCH_SETTLE_MS,
+  UPGRADE_VALUE_TWEEN_S,
+  UPGRADE_WOBBLE_BUBBLE_MS,
+  upgradeAnimSleep,
+} from "../game/upgradePlaybackTiming.js";
 
 function bubbleAt(targetEl, text, kind) {
   bubbleAtShopPanel(targetEl, text, kind);
@@ -45,7 +51,7 @@ async function runPanelWobbleAndBubble(panelEl, text, kind, speed = 1) {
   if (!panelEl) return;
   const s = Math.max(0.01, Number(speed) || 1);
   wobblePanelLikeScoreSlot(panelEl, 0, s);
-  await sleep(Math.round(145 / s));
+  await upgradeAnimSleep(UPGRADE_WOBBLE_BUBBLE_MS, s);
   bubbleAt(panelEl, text, kind);
 }
 
@@ -102,15 +108,15 @@ async function playSwitchToLengthDefault(opts) {
   const multBoxEl = areaRef.value?.getMultBoxEl?.() ?? null;
   const levelEl = areaRef.value?.getWordlenLevelEl?.() ?? null;
   popSettle(wordlenMainEl, s);
-  await sleep(Math.round(60 / s));
+  await upgradeAnimSleep(UPGRADE_SWITCH_GAP_MS, s);
   popSettle(levelEl, s);
-  await sleep(Math.round(60 / s));
+  await upgradeAnimSleep(UPGRADE_SWITCH_GAP_MS, s);
   model.scoreValue.value = Math.max(0, Math.round(scoreBefore));
   popSettle(scoreBoxEl, s);
-  await sleep(Math.round(60 / s));
+  await upgradeAnimSleep(UPGRADE_SWITCH_GAP_MS, s);
   model.multValue.value = Math.max(0, Math.round(multBefore));
   popSettle(multBoxEl, s);
-  await sleep(Math.round(180 / s));
+  await upgradeAnimSleep(UPGRADE_SWITCH_SETTLE_MS, s);
 }
 
 /**
@@ -180,28 +186,25 @@ export async function runClearWinLengthUpgradeShopLikeFx(opts) {
     });
   }
 
-  const stepGapMs = 200;
-  const firstLengthLeadInGapMs = 160;
-  const valueTweenS = 0.46;
-  await sleep(Math.round((isFirstLength ? firstLengthLeadInGapMs : stepGapMs) / s));
+  await upgradeAnimSleep(isFirstLength ? UPGRADE_FIRST_LEAD_IN_GAP_MS : UPGRADE_STEP_GAP_MS, s);
   const levelEl = areaRef.value?.getWordlenLevelEl?.() ?? null;
   await runPanelWobbleAndBubble(levelEl, "+1", "level", s);
   model.levelShown.value = nextLevel;
 
-  await sleep(Math.round(stepGapMs / s));
+  await upgradeAnimSleep(UPGRADE_STEP_GAP_MS, s);
   const scoreBoxEl = areaRef.value?.getScoreBoxEl?.() ?? null;
   await runPanelWobbleAndBubble(scoreBoxEl, `+${scoreAdd}`, "score", s);
-  const scoreTweenPromise = tweenResultValues(model, scoreAfter, multBefore, valueTweenS / s);
+  const scoreTweenPromise = tweenResultValues(model, scoreAfter, multBefore, UPGRADE_VALUE_TWEEN_S / s);
 
-  await sleep(Math.round(stepGapMs / s));
+  await upgradeAnimSleep(UPGRADE_STEP_GAP_MS, s);
   const multBoxEl = areaRef.value?.getMultBoxEl?.() ?? null;
   await runPanelWobbleAndBubble(multBoxEl, `+${multAdd}`, "mult", backToNormalMid);
   await scoreTweenPromise;
-  await tweenResultValues(model, scoreAfter, multAfter, valueTweenS / backToNormalMid);
+  await tweenResultValues(model, scoreAfter, multAfter, UPGRADE_VALUE_TWEEN_S / backToNormalMid);
 
   if (isLastLength) {
     await waitNextTick();
-    await sleep(Math.round(460 / backToNormalEnd));
+    await upgradeAnimSleep(UPGRADE_FINAL_HOLD_MS, backToNormalEnd);
     await tweenResultValues(model, 0, 0, 0.75 / backToNormalEnd);
     fxActive.value = false;
   }

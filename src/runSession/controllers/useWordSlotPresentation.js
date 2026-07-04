@@ -40,6 +40,7 @@ import { resolveScoringLetterRarity } from "../../game/treasureRarityTierMerge.j
  * @property {() => { flyingLetters: unknown[], flyingBackBatches: { slotIndex: number }[] }} getPlayfieldFlySnapshot
  * @property {() => string} bossSlugForMechanics
  * @property {() => object} getBossTileDebuffContext
+ * @property {import('vue').Ref<number>} [submitTilePresentationRevision]
  */
 
 /**
@@ -200,6 +201,7 @@ export function useWordSlotPresentation(options) {
     getPlayfieldFlySnapshot,
     bossSlugForMechanics,
     getBossTileDebuffContext,
+    submitTilePresentationRevision,
   } = options;
 
   const { grid, selectedTiles, selectedOrder } = gridStore;
@@ -380,6 +382,7 @@ export function useWordSlotPresentation(options) {
    * 飞回截断时仅对齐 minSlot 之前槽位。
    */
   const wordSlotTilePresentations = computed(() => {
+    void submitTilePresentationRevision?.value;
     const orderTiles = selectedTiles.value.map(({ tile }) => tile);
     const batches = getPlayfieldFlySnapshot().flyingBackBatches;
     const minSlot = batches.length > 0 ? Math.min(...batches.map((b) => b.slotIndex)) : orderTiles.length;

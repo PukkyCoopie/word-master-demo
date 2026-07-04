@@ -486,10 +486,21 @@ export async function runDetachedSpellTileAppearanceAnim(opts) {
  *   onMidApply?: () => void,
  *   onPopStart?: () => void,
  *   companionEls?: (HTMLElement | null | undefined)[],
+ *   commitUi?: () => void | Promise<void>,
  * }} opts
  */
 export async function animateGridTileMaterialChangeAtCell(opts) {
-  const { row, col, getTileEl, touchGrid, delay = 0, onMidApply, onPopStart, companionEls = [] } = opts;
+  const {
+    row,
+    col,
+    getTileEl,
+    touchGrid,
+    delay = 0,
+    onMidApply,
+    onPopStart,
+    companionEls = [],
+    commitUi,
+  } = opts;
   const primary = getTileEl(row, col);
   /** @type {HTMLElement[]} */
   const animEls = [];
@@ -500,31 +511,47 @@ export async function animateGridTileMaterialChangeAtCell(opts) {
   if (!animEls.length) {
     onMidApply?.();
     touchGrid();
+    if (commitUi) await commitUi();
     onPopStart?.();
     return;
   }
 
-  return new Promise((resolve) => {
+  await new Promise((resolve) => {
     for (const target of animEls) {
       gsap.set(target, { transformOrigin: "50% 50%", rotation: 0, x: 0, y: 0 });
     }
-    const tl = gsap.timeline({
+    gsap.to(animEls, {
       delay,
+      scale: SHRINK_SCALE,
+      duration: SHRINK,
+      ease: "power3.in",
       onComplete: () => {
-        for (const target of animEls) {
-          gsap.set(target, { clearProps: "scale,rotation,x,y" });
-        }
         resolve();
       },
     });
-    tl.to(animEls, { scale: SHRINK_SCALE, duration: SHRINK, ease: "power3.in" });
-    tl.add(() => {
-      onMidApply?.();
-      touchGrid();
+  });
+
+  onMidApply?.();
+  touchGrid();
+  if (commitUi) {
+    await commitUi();
+  } else {
+    await new Promise((resolve) => {
+      gsap.delayedCall(FRAME_YIELD, resolve);
     });
-    tl.to({}, { duration: FRAME_YIELD });
-    tl.add(() => {
-      onPopStart?.();
+  }
+
+  onPopStart?.();
+
+  await new Promise((resolve) => {
+    const tl = gsap.timeline({
+      onComplete: () => {
+        for (const target of animEls) {
+          gsap.killTweensOf(target);
+          gsap.set(target, { clearProps: "scale,rotation,x,y,transform" });
+        }
+        resolve();
+      },
     });
     tl.to(animEls, { scale: POP_PEAK, duration: POP_IN, ease: "back.out(1.42)" });
     tl.to(animEls, { scale: 1, duration: POP_SETTLE, ease: "power3.out" });

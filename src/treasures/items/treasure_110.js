@@ -1,4 +1,4 @@
-import { describe } from "../treasureDescription.js";
+import { concept, describe } from "../treasureDescription.js";
 
 const ID = "110";
 
@@ -7,7 +7,7 @@ export default {
   price: 8,
   rarity: "rare",
   unlockPrerequisite: { type: "runUpgradesUsedMin", min: 5 },
-  description: describe("商店中的升级卡和升级包免费"),
+  description: describe("商店中的", concept("升级"), "卡和升级包免费"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

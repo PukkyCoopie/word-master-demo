@@ -24,4 +24,10 @@
  * @property {(import('../save/runSavePayload.js').SerializedOwnedTreasureSlot | null)[]} ownedTreasures
  */
 
+/** @typedef {Object} WordFavoriteEntry
+ * @property {string} word
+ * @property {number} favoritedAt
+ * @property {string[]} definitionLines
+ */
+
 export const COLLECTION_LEADERBOARD_MAX = 10;

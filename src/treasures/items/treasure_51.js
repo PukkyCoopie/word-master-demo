@@ -6,14 +6,14 @@ import { wordEndsWithSuffix } from "../../game/wordPosMatch.js";
 export default {
   price: 4,
   rarity: "common",
-  description: describe("如果你拼写的单词以tion结尾，随机释放一个法术"),
+  description: describe("如果你拼写的单词以ion结尾，随机释放一个法术"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   async onSuccessfulWordSubmit(ctx) {
     const word = resolveSubmittedWordForHooks(ctx.resolvedWord, ctx.submittedScoringTiles);
-    if (!wordEndsWithSuffix(word, "tion")) return;
+    if (!wordEndsWithSuffix(word, "ion")) return;
     const slotIx = ctx.findOwnedTreasureSlotIndex?.("51") ?? -1;
     const runGrant = async () => {
       await ctx.requestInRunSpellGrant?.({

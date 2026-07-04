@@ -3,8 +3,12 @@ import { inferDefaultDisplayLayoutMode } from "../composables/viewportSize.js";
 import { normalizeTreasureCollectionGroupBy } from "../collection/collectionTreasureSort.js";
 import { RUN_SAVES_STORAGE_KEY } from "../save/runSaveSchema.js";
 import { normalizeWordHintMode, WORD_HINT_MODE_OPTIONS } from "./wordHintMode.js";
+import {
+	normalizeDictionaryScopeIds,
+	DICTIONARY_SCOPE_OPTIONS,
+} from "./dictionaryScope.js";
 
-export { WORD_HINT_MODE_OPTIONS, normalizeWordHintMode };
+export { WORD_HINT_MODE_OPTIONS, normalizeWordHintMode, DICTIONARY_SCOPE_OPTIONS };
 
 const STORAGE_KEY = "word_master_game_settings_v1";
 
@@ -155,7 +159,7 @@ function applyNewPlayerWordDefinitionDefault() {
   gameSettings.wordDefinitionMode = "button";
 }
 
-/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; wordHintMode: import('./wordHintMode.js').WordHintMode; animationSpeedTier: AnimationSpeedTier; materialAnimationEnabled: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean; devSuppressAchievementsAndLeaderboards: boolean; collectionTreasureGroupView: boolean; collectionTreasureGroupBy: import('../collection/collectionTreasureSort.js').TreasureCollectionGroupBy }} */
+/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; wordHintMode: import('./wordHintMode.js').WordHintMode; animationSpeedTier: AnimationSpeedTier; materialAnimationEnabled: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; wordFavoriteButtonEnabled: boolean; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean; devSuppressAchievementsAndLeaderboards: boolean; collectionTreasureGroupView: boolean; collectionTreasureGroupBy: import('../collection/collectionTreasureSort.js').TreasureCollectionGroupBy; dictionaryScopeIds: import('./dictionaryScopeIds.js').DictionaryScopeId[] }} */
 export const gameSettings = reactive({
   allowSpellingAbbreviations: false,
   uiScalePercent: UI_SCALE_DEFAULT,
@@ -168,6 +172,7 @@ export const gameSettings = reactive({
   hapticsEnabled: true,
   displayLayoutMode: inferDefaultDisplayLayoutMode(),
   wordDefinitionMode: "button",
+  wordFavoriteButtonEnabled: false,
   letterCase: "uppercase",
   letterQMode: "qu",
   highRiskSpellConfirm: true,
@@ -176,6 +181,7 @@ export const gameSettings = reactive({
   devSuppressAchievementsAndLeaderboards: true,
   collectionTreasureGroupView: false,
   collectionTreasureGroupBy: "rarity",
+  dictionaryScopeIds: ["full"],
 });
 
 /**
@@ -191,12 +197,14 @@ export function clampUiScalePercent(value) {
 export function loadGameSettings() {
   let needsWordAuxMigration = false;
   let needsWordDefinitionMigration = false;
+  let needsDictionaryScopeMigration = false;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       if (hasExistingPlayerSaveData()) {
         applyLegacyWordAuxDefaults();
         applyLegacyWordDefinitionDefault();
+        gameSettings.dictionaryScopeIds = ["full"];
         persistGameSettings();
       }
       return;
@@ -239,6 +247,9 @@ export function loadGameSettings() {
     } else {
       needsWordDefinitionMigration = true;
     }
+    if (typeof parsed.wordFavoriteButtonEnabled === "boolean") {
+      gameSettings.wordFavoriteButtonEnabled = parsed.wordFavoriteButtonEnabled;
+    }
     if (parsed.letterCase != null) {
       gameSettings.letterCase = normalizeLetterCase(parsed.letterCase);
     }
@@ -262,6 +273,11 @@ export function loadGameSettings() {
         parsed.collectionTreasureGroupBy,
       );
     }
+    if (Array.isArray(parsed.dictionaryScopeIds)) {
+      gameSettings.dictionaryScopeIds = normalizeDictionaryScopeIds(parsed.dictionaryScopeIds);
+    } else {
+      needsDictionaryScopeMigration = true;
+    }
     if (needsWordAuxMigration) {
       if (hasExistingPlayerSaveData()) {
         gameSettings.markButtonEnabled = true;
@@ -282,7 +298,10 @@ export function loadGameSettings() {
         applyNewPlayerWordDefinitionDefault();
       }
     }
-    if (needsWordAuxMigration || needsWordDefinitionMigration) {
+    if (needsDictionaryScopeMigration) {
+      gameSettings.dictionaryScopeIds = ["full"];
+    }
+    if (needsWordAuxMigration || needsWordDefinitionMigration || needsDictionaryScopeMigration) {
       persistGameSettings();
     }
   } catch {
@@ -306,6 +325,7 @@ export function persistGameSettings() {
         hapticsEnabled: gameSettings.hapticsEnabled,
         displayLayoutMode: gameSettings.displayLayoutMode,
         wordDefinitionMode: gameSettings.wordDefinitionMode,
+        wordFavoriteButtonEnabled: gameSettings.wordFavoriteButtonEnabled,
         letterCase: gameSettings.letterCase,
         letterQMode: gameSettings.letterQMode,
         highRiskSpellConfirm: gameSettings.highRiskSpellConfirm,
@@ -313,6 +333,7 @@ export function persistGameSettings() {
         devSuppressAchievementsAndLeaderboards: gameSettings.devSuppressAchievementsAndLeaderboards,
         collectionTreasureGroupView: gameSettings.collectionTreasureGroupView,
         collectionTreasureGroupBy: gameSettings.collectionTreasureGroupBy,
+        dictionaryScopeIds: normalizeDictionaryScopeIds(gameSettings.dictionaryScopeIds),
       }),
     );
     void import("../save/cloudSave/cloudSaveSync.js").then(({ markCloudSyncDirty }) => {
@@ -463,6 +484,17 @@ export function setWordDefinitionMode(mode) {
   persistGameSettings();
 }
 
+/** @returns {boolean} */
+export function getWordFavoriteButtonEnabled() {
+  return gameSettings.wordFavoriteButtonEnabled !== false;
+}
+
+/** @param {boolean} enabled */
+export function setWordFavoriteButtonEnabled(enabled) {
+  gameSettings.wordFavoriteButtonEnabled = Boolean(enabled);
+  persistGameSettings();
+}
+
 /** @returns {LetterCase} */
 export function getLetterCase() {
   return normalizeLetterCase(gameSettings.letterCase);
@@ -556,6 +588,17 @@ export function getCollectionTreasureGroupBy() {
 /** @param {import('../collection/collectionTreasureSort.js').TreasureCollectionGroupBy} groupBy */
 export function setCollectionTreasureGroupBy(groupBy) {
   gameSettings.collectionTreasureGroupBy = normalizeTreasureCollectionGroupBy(groupBy);
+  persistGameSettings();
+}
+
+/** @returns {import('./dictionaryScopeIds.js').DictionaryScopeId[]} */
+export function getDictionaryScopeIds() {
+  return normalizeDictionaryScopeIds(gameSettings.dictionaryScopeIds);
+}
+
+/** @param {import('./dictionaryScopeIds.js').DictionaryScopeId[]} ids */
+export function setDictionaryScopeIds(ids) {
+  gameSettings.dictionaryScopeIds = normalizeDictionaryScopeIds(ids);
   persistGameSettings();
 }
 

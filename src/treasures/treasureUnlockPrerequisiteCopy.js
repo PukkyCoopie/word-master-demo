@@ -45,6 +45,8 @@ function buildUnlockPrerequisitePlainText(pre) {
       return `在字母库中拥有${min || 2}个幸运块`;
     case "deckFireMin":
       return `在字母库中拥有${min || 2}个火焰块`;
+    case "deckWaterMin":
+      return `在字母库中拥有${min || 2}个水波块`;
     case "deckRarityKindsMin":
       return `向字母库中添加至少${min || 3}种不同稀有度的字母块`;
     case "deckGoldCoinAccessory":

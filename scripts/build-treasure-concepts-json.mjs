@@ -12,7 +12,7 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const USER_BATCH_50 = [
   { batchIndex: 1, text: "$4 common 每当一次丢弃超过3个元音字母时，获得 $5" },
   { batchIndex: 2, text: "$4 common 每拼写一个单词+1倍率；每丢弃一次字母-1倍率；" },
-  { batchIndex: 3, text: "$4 common 如果你拼写的单词以tion结尾，随机释放一个法术" },
+  { batchIndex: 3, text: "$4 common 如果你拼写的单词以ion结尾，随机释放一个法术" },
   { batchIndex: 4, text: "$4 common 如果拼写的是[某种词性]，获得$4（词性每关都会变化）" },
   {
     batchIndex: 5,

@@ -7,7 +7,7 @@ import {
   applyIntrinsicGainsToTileAndLinkedCard,
 } from "./tileIntrinsicGains.js";
 
-const WATER_MATERIAL_SCORE_BONUS = 30;
+export const WATER_MATERIAL_SCORE_BONUS = 40;
 const FIRE_MATERIAL_MULT_BONUS = 5;
 
 /**

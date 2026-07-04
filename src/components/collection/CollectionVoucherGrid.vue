@@ -5,13 +5,21 @@
       :key="pair.pairId"
       type="button"
       class="collection-voucher-cell shop-treasure-product"
-      :class="{ 'collection-voucher-cell--unknown': pair.tier < 1 }"
-      :aria-label="pair.tier < 1 ? '预览未解锁条目' : `预览 ${pair.displayName}`"
+      :class="{
+        'collection-voucher-cell--unknown': pair.tier < 1 && !pair.previewRevealed,
+        'collection-voucher-cell--preview-revealed': pair.tier < 1 && pair.previewRevealed,
+      }"
+      :aria-label="pair.tier < 1 && !pair.previewRevealed ? '预览未解锁条目' : `预览 ${pair.displayName}`"
       @click="onCellClick(pair, $event)"
     >
       <CollectionNewMark :show="pair.showNewMark" />
       <div class="shop-treasure-visual">
         <VoucherStampStack v-if="pair.tier >= 1" :stamps="pair.stamps" />
+        <div v-else-if="pair.previewRevealed" class="voucher-stamp">
+          <div class="voucher-stamp__frame">
+            <span class="shop-treasure-emoji" role="img" :aria-label="pair.previewEmoji">{{ pair.previewEmoji }}</span>
+          </div>
+        </div>
         <div v-else class="voucher-stamp">
           <div class="voucher-stamp__frame voucher-stamp__frame--placeholder collection-voucher-stamp__frame--unknown">
             <span class="collection-voucher-unknown__mark" aria-hidden="true">?</span>
@@ -23,7 +31,9 @@
       </div>
       <p
         class="collection-shop-cell__name"
-        :class="{ 'collection-shop-cell__name--unknown': pair.tier < 1 }"
+        :class="{
+          'collection-shop-cell__name--unknown': pair.tier < 1 && !pair.previewRevealed,
+        }"
       >
         {{ pair.displayName }}
       </p>
@@ -42,6 +52,7 @@ import VoucherStampStack from "../VoucherStampStack.vue";
 
 const props = defineProps({
   discoveredVoucherTiers: { type: Object, default: () => ({}) },
+  tabPreviewRevealed: { type: Boolean, default: false },
   collectionNewKeys: { type: Object, default: () => new Set() },
 });
 
@@ -67,13 +78,23 @@ const entries = computed(() =>
     }
     const price = tier >= 2 ? t2.price : t1.price;
     const top = hasT2 ? t2 : t1;
+    const previewRevealed = tier < 1 && props.tabPreviewRevealed;
     return {
       pairId,
       tier,
       stamps,
-      priceLabel: tier >= 1 ? `$${Math.max(0, Math.floor(Number(price) || 0))}` : "$?",
+      previewRevealed,
+      previewEmoji: t1.emoji,
+      priceLabel:
+        tier >= 1 || previewRevealed
+          ? `$${Math.max(0, Math.floor(Number(tier >= 1 ? price : t1.price) || 0))}`
+          : "$?",
       displayName:
-        tier >= 1 ? formatVoucherDisplayName(top, { pairHasTier2Owned: hasT2 }) : COLLECTION_UNKNOWN_LABEL,
+        tier >= 1
+          ? formatVoucherDisplayName(top, { pairHasTier2Owned: hasT2 })
+          : previewRevealed
+            ? formatVoucherDisplayName(t1, { pairHasTier2Owned: false })
+            : COLLECTION_UNKNOWN_LABEL,
       showNewMark: tier >= 1 && props.collectionNewKeys.has(collectionNewKeyForVoucher(pairId)),
     };
   }),
@@ -113,6 +134,10 @@ function onCellClick(pair, event) {
 
 .collection-voucher-cell--unknown {
   opacity: 0.55;
+}
+
+.collection-voucher-cell--preview-revealed {
+  opacity: 0.75;
 }
 
 .collection-voucher-stamp__frame--unknown {

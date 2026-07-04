@@ -68,6 +68,7 @@ export function createPlayfieldPorts(binding) {
     remainingRemovals: binding.remainingRemovals,
     remainingWords: binding.remainingWords,
     hintRemaining: binding.hintRemaining,
+    pendingHintChargeWord: binding.pendingHintChargeWord,
     basketballWordsSubmitted: binding.basketballWordsSubmitted,
     dictFatalError: binding.dictFatalError,
     dictionaryReady: binding.dictionaryReady,

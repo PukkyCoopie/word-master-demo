@@ -1,4 +1,4 @@
-import { describe, mult } from "../treasureDescription.js";
+import { describe, materialConcept, mult } from "../treasureDescription.js";
 
 /** @param {number} count */
 function formatSlotMult(count) {
@@ -13,7 +13,9 @@ export default {
   rarity: "rare",
   unlockPrerequisite: { type: "deckLuckyMin", min: 2 },
   description: describe(
-    "每当你成功触发一个幸运块的效果，获得",
+    "每当你成功触发一个",
+    materialConcept("lucky"),
+    "的效果，获得",
     mult("x0.5"),
     "倍率（当前",
     mult("x1"),
@@ -27,7 +29,9 @@ export const treasureHooks = {
   patchDescription(ctx) {
     const n = Math.max(0, Math.floor(Number(ctx.treasureRun?.runLuckyTriggerCount) || 0));
     return describe(
-      "每当你成功触发一个幸运块的效果，获得",
+      "每当你成功触发一个",
+      materialConcept("lucky"),
+      "的效果，获得",
       mult("x0.5"),
       "倍率（当前",
       mult(formatSlotMult(n)),

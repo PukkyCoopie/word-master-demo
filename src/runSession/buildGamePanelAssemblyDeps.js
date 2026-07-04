@@ -38,6 +38,7 @@ export function collectGamePanelAssemblySections(ctx) {
       runResultPresentationCtrl: ctrls.runResultPresentationCtrl,
       bossMechanicsCtrl: ctrls.bossMechanicsCtrl,
       wordDefinitionCtrl: ctrls.wordDefinitionCtrl,
+      wordFavoriteCtrl: ctrls.wordFavoriteCtrl,
       shopTransactionCtrl: ctrls.shopTransactionCtrl,
       runLifecycle: ctrls.runLifecycle,
       gpWordSlotPresentation: ctrls.gpWordSlotPresentation,
@@ -104,6 +105,7 @@ export function collectGamePanelAssemblySections(ctx) {
       remainingRemovals: game.remainingRemovals,
       remainingWords: game.remainingWords,
       hintRemaining: game.hintRemaining,
+      pendingHintChargeWord: game.pendingHintChargeWord,
       basketballWordsSubmitted: game.basketballWordsSubmitted,
       dictFatalError: game.dictFatalError,
       dictionaryReady: game.dictionaryReady,
@@ -342,6 +344,7 @@ export function mergeAssemblyCtrlSection(early, late, overlayStackController) {
     runResultPresentationCtrl: late.runResultPresentationCtrl,
     bossMechanicsCtrl: late.bossMechanicsCtrl,
     wordDefinitionCtrl: late.wordDefinitionCtrl,
+    wordFavoriteCtrl: late.wordFavoriteCtrl,
     gpWordSlotPresentation: late.gpWordSlotPresentation,
   };
 }

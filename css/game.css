@@ -277,6 +277,15 @@ textarea::-moz-placeholder {
 	pointer-events: none;
 }
 
+.word-definition-trigger-row {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: calc(8 * var(--rpx));
+	max-width: 100%;
+	pointer-events: auto;
+}
+
 .word-definition-trigger-item {
 	display: inline-flex;
 	max-width: 100%;
@@ -6430,6 +6439,51 @@ html.swap-confirm-button-side .confirm-actions-row {
 	padding: calc(16 * var(--rpx)) calc(22 * var(--rpx));
 	font-size: calc(28 * var(--rpx));
 	font-weight: 700;
+}
+
+/* 收藏页分组标题（宝藏分组、已收藏按日期等） */
+.collection-group {
+	display: flex;
+	flex-direction: column;
+	gap: calc(4 * var(--rpx));
+}
+
+.collection-group-divider {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: calc(10 * var(--rpx));
+	margin: calc(10 * var(--rpx)) 0 calc(6 * var(--rpx));
+}
+
+.collection-group-divider::before,
+.collection-group-divider::after {
+	content: "";
+	flex: 0 1 calc(140 * var(--rpx));
+	width: 38%;
+	max-width: calc(220 * var(--rpx));
+	height: calc(2 * var(--rpx));
+}
+
+.collection-group-divider::before {
+	background: linear-gradient(to right, transparent, rgba(60, 58, 50, 0.2));
+}
+
+.collection-group-divider::after {
+	background: linear-gradient(to left, transparent, rgba(60, 58, 50, 0.2));
+}
+
+.collection-group-divider__label {
+	flex-shrink: 0;
+	font-size: calc(22 * var(--rpx));
+	font-weight: 600;
+	line-height: 1.25;
+	letter-spacing: 0.04em;
+	color: rgba(60, 58, 50, 0.52);
+}
+
+.collection-group:first-child .collection-group-divider {
+	margin-top: 0;
 }
 
 /* Tab / 分段滑块：外层平移 + 内层 CSS scale 按压 */

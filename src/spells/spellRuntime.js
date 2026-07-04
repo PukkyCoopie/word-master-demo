@@ -33,8 +33,7 @@ import { ownedTreasureHasNoSellAccessory } from "../game/runDifficultyRuntime.js
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { allConsonantRaws, allLetterRaws, allVowelRaws } from "../game/initialDeckLetterCounts.js";
 import { pickWeightedLetterRaw } from "../shop/tilePackLetterRoll.js";
-
-const WATER_MATERIAL_SCORE_BONUS = 30;
+import { WATER_MATERIAL_SCORE_BONUS } from "../game/tileMaterialApply.js";
 const FIRE_MATERIAL_MULT_BONUS = 5;
 
 function rngU(rng) {

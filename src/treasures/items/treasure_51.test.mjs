@@ -54,7 +54,7 @@ test("treasure_51：station（末位万能）在字母离场后触发随机释�
   assert.equal(granted, true);
 });
 
-test("treasure_51：pattern 回退 statio? + 已解析末位 n 仍识别 -tion", async () => {
+test("treasure_51：pattern 回退 statio? + 已解析末位 n 仍识别 -ion", async () => {
   let granted = false;
   const tilesResolved = [
     ...STATION_TILES.slice(0, -1),
@@ -74,7 +74,7 @@ test("treasure_51：pattern 回退 statio? + 已解析末位 n 仍识别 -tion",
   assert.equal(granted, true);
 });
 
-test("treasure_51：非 -tion 词不触发", async () => {
+test("treasure_51：非 -ion 词不触发", async () => {
   let granted = false;
   await treasureHooks.onSuccessfulWordSubmit({
     resolvedWord: "train",

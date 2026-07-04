@@ -1,8 +1,12 @@
 import { concept, describe, prob } from "../treasureDescription.js";
 import { rollProbabilitySuccess } from "../treasureProbability.js";
+import {
+  UPGRADE_ACCESSORY_CUE_DELAY_MS,
+  getSubmitScoringTriggeredUpgradeLocalSpeed,
+  upgradeAnimSleep,
+} from "../../game/upgradePlaybackTiming.js";
 
 const ID = "39";
-const UPGRADE_FX_DELAY_MS = 300;
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
@@ -33,7 +37,7 @@ export const treasureHooks = {
             ? ctx.playOwnedTreasureBubbleOnlyFx(ID, "升级", "upgrade")
             : Promise.resolve(ctx.playOwnedTreasureBubbleFx?.(ID, "升级", "upgrade"));
       await Promise.all([bubbleTask, wobbleTask]);
-      await new Promise((resolve) => setTimeout(resolve, UPGRADE_FX_DELAY_MS));
+      await upgradeAnimSleep(UPGRADE_ACCESSORY_CUE_DELAY_MS, getSubmitScoringTriggeredUpgradeLocalSpeed());
       if (typeof ctx.runSingleInRunLengthUpgradeFx === "function") {
         await ctx.runSingleInRunLengthUpgradeFx(len);
         return;

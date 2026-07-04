@@ -18,6 +18,17 @@ export function getAnimationSpeedScale() {
   return ANIMATION_SPEED_OPTIONS.find((o) => o.id === tier)?.scale ?? 1;
 }
 
+/** @returns {boolean} */
+export function prefersReducedMotion() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** @returns {boolean} 是否跳过装饰性动效（bounce、ripple 等） */
+export function shouldSkipDecorativeMotion() {
+  return prefersReducedMotion();
+}
+
 /**
  * 局部速度（如计分渐进加速）× 用户全局倍率。
  * @param {number} [localSpeed]

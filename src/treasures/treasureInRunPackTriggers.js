@@ -33,6 +33,7 @@ function wordMatchesPosRule(ctx, word, match) {
 
 /**
  * 词性匹配后按 1/requiredCount 概率打开对局内组合包（requiredCount 为 1 时每次匹配必开）。
+ * 提交计分流程中会通过 `registerSubmitPostScoreClearFx` 延后至本词总分入库与补牌动画结束后再开包。
  * @param {import('./treasureTypes.js').TreasureSubmitSuccessContext} ctx
  * @param {{ treasureId: string, posKey?: 'n' | 'v' | 'adj', requireAdverb?: boolean, packKind: import('../shop/rollInRunBundlePack.js').InRunBundlePackKind, requiredCount: number }} opts
  */
@@ -47,5 +48,10 @@ export async function tryOpenInRunPackOnPosProgress(ctx, opts) {
     if (!rollProbabilitySuccess(1, required, rng, ctx.ownedSlotTreasureIds)) return;
   }
 
-  await requestInRunPackOpen(ctx, opts);
+  const openPack = () => requestInRunPackOpen(ctx, opts);
+  if (typeof ctx.registerSubmitPostScoreClearFx === "function") {
+    ctx.registerSubmitPostScoreClearFx(openPack);
+    return;
+  }
+  await openPack();
 }

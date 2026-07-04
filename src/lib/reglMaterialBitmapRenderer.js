@@ -213,9 +213,7 @@ function paintBitmapRendererSubscriberFrame(materialId, sub) {
 
 function freezeBitmapRendererSubscriberFrame(materialId, sub) {
   if (sub.frameFrozen) return;
-  if (!sub._displayFrameReady) {
-    paintBitmapRendererSubscriberFrame(materialId, sub);
-  }
+  paintBitmapRendererSubscriberFrame(materialId, sub);
   sub.frameFrozen = true;
 }
 

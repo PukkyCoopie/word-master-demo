@@ -15,7 +15,6 @@ export const treasureHooks = {
     const rs = ctx.treasureRun;
     if (!rs) return;
     rs.shopFreeRerollsRemaining = Math.max(0, Math.floor(Number(rs.shopFreeRerollsRemaining) || 0)) + 1;
-    await ctx.wobbleOwnedTreasureById?.(ID);
     await ctx.playOwnedTreasureBubbleFx?.(ID, "免费刷新", "reroll");
   },
 };

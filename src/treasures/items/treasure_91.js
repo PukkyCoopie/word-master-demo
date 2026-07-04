@@ -1,10 +1,10 @@
-import { describe, money, mult } from "../treasureDescription.js";
+import { describe, money, mult, materialConcept } from "../treasureDescription.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 5,
   rarity: "common",
-  description: describe("黄金块在计分时提供", money("4"), "和", mult("+10"), "倍率"),
+  description: describe(materialConcept("gold"), "在计分时提供", money("4"), "和", mult("+10"), "倍率"),
   poolPrerequisite: { type: "playedAllGoldWord" },
 };
 

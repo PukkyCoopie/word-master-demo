@@ -14,7 +14,7 @@ export default {
   price: 10,
   rarity: "legendary",
   shopEligible: false,
-  description: describe("在离开商店时，重复你释放的上一个法术卡"),
+  description: describe("在离开商店时，重复你释放的上一个法术"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

@@ -75,6 +75,8 @@ const props = defineProps({
   message: { type: String, required: true },
   confirmLabel: { type: String, default: "确定" },
   cancelLabel: { type: String, default: "取消" },
+  /** 嵌在更高 z 浮层（如设置）之上时传入下限 */
+  minZIndex: { type: Number, default: 0 },
 });
 
 const emit = defineEmits(["confirm", "cancel", "dismiss"]);
@@ -88,10 +90,11 @@ const backdropStackStyle = computed(() =>
 );
 
 watch(
-  () => props.open,
-  (isOpen) => {
+  () => [props.open, props.minZIndex],
+  ([isOpen, minZ]) => {
     if (isOpen) {
-      stackZ.value = bumpOverlayZ();
+      const floor = Math.max(0, Math.floor(Number(minZ) || 0));
+      stackZ.value = Math.max(bumpOverlayZ(), floor);
       backdropSelfCloseGuard.arm();
     }
   },

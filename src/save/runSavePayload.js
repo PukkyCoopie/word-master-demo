@@ -50,6 +50,7 @@
  * @property {number} remainingWords
  * @property {number} remainingRemovals
  * @property {number} hintRemaining
+ * @property {string | null} [pendingHintChargeWord]
  * @property {string} activeBossSlug
  * @property {number | null} ceruleanBellSlotIndex
  * @property {string | null} ceruleanBellLockedTileId

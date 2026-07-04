@@ -12,6 +12,7 @@ function tileLetterToRawLowerForDeck(letter) {
 /** @param {unknown} card */
 export function deckCardRaw(card) {
   if (!card || typeof card !== "object") return "";
+  if (/** @type {{ isWildcard?: boolean }} */ (card).isWildcard === true) return "";
   const r = /** @type {{ raw?: string }} */ (card).raw;
   let raw = String(r ?? "").toLowerCase();
   if (raw === "qu") raw = "q";

@@ -17,6 +17,9 @@ export const COLLECTION_UNLOCK_TAB_IDS = Object.freeze(
   new Set(["treasures", "spells", "upgrades", "vouchers", "materials", "accessories", "achievements"]),
 );
 
+/** 单 tab 解锁进度达到该百分比后，列表与详情层预览剩余未解锁条目（仍半透明） */
+export const COLLECTION_TAB_PREVIEW_REVEAL_PERCENT = 80;
+
 const TREASURE_TOTAL = TREASURE_CATALOG.length;
 const SPELL_TOTAL = SPELL_DEFINITIONS.length;
 const VOUCHER_PAIR_TOTAL = VOUCHER_PAIR_ORDER.size;
@@ -113,6 +116,47 @@ export function getCollectionTabProgress(career, tabId) {
         unlocked: countUnlockedAchievements(career),
         total: ACHIEVEMENT_TOTAL,
       };
+    default:
+      return null;
+  }
+}
+
+/**
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats | Record<string, unknown>} career
+ * @param {string} tabId
+ * @returns {number | null}
+ */
+export function getCollectionTabProgressPercent(career, tabId) {
+  const progress = getCollectionTabProgress(career, tabId);
+  if (!progress || progress.total <= 0) return null;
+  if (progress.unlocked >= progress.total) return 100;
+  return Math.floor((progress.unlocked / progress.total) * 100);
+}
+
+/**
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats | Record<string, unknown>} career
+ * @param {string} tabId
+ */
+export function isCollectionTabPreviewRevealed(career, tabId) {
+  const percent = getCollectionTabProgressPercent(career, tabId);
+  if (percent == null) return false;
+  return percent >= COLLECTION_TAB_PREVIEW_REVEAL_PERCENT;
+}
+
+/**
+ * @param {string | null | undefined} previewNavKind
+ * @returns {string | null}
+ */
+export function collectionPreviewNavKindToTabId(previewNavKind) {
+  switch (String(previewNavKind ?? "").trim()) {
+    case "collection-treasure":
+      return "treasures";
+    case "collection-spell":
+      return "spells";
+    case "collection-upgrade":
+      return "upgrades";
+    case "collection-voucher":
+      return "vouchers";
     default:
       return null;
   }

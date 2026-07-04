@@ -10,6 +10,7 @@
       :icon-class="spell.iconClass"
       :price="spell.price"
       :show-new-mark="spell.showNewMark"
+      :tab-preview-revealed="tabPreviewRevealed"
       @select="$emit('select-spell', $event)"
     />
   </div>
@@ -23,6 +24,7 @@ import CollectionShopTreasureCell from "./CollectionShopTreasureCell.vue";
 
 const props = defineProps({
   discoveredSpellIds: { type: Array, default: () => [] },
+  tabPreviewRevealed: { type: Boolean, default: false },
   collectionNewKeys: { type: Object, default: () => new Set() },
 });
 

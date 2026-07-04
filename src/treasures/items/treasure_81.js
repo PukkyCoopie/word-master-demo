@@ -8,7 +8,7 @@ const REQUIRED = 3;
 export default {
   price: 6,
   rarity: "rare",
-  description: describe("每次拼写名词有", prob("1/3"), "概率打开一个宝藏组合包"),
+  description: describe("每当你拼写一个名词后，有", prob("1/3"), "概率打开一个宝藏组合包"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

@@ -1,5 +1,5 @@
 import { handleRunEndDiscoverySelect as handleRunEndDiscoverySelectPreview } from "../game/runEndDiscoveryPreview.js";
-import { runGridTileIgniteAtCell, resolveWordSlotShrinkPopEl } from "../game/gridTileIgniteFx.js";
+import { runGridTileIgniteAtCell, runGridTileMaterialChangeAtCell, resolveWordSlotShrinkPopEl } from "../game/gridTileIgniteFx.js";
 import { findWordSlotIndexForGridCell } from "../game/fireworkIgniteTargets.js";
 import { runWordSlotCopyFxAtIndex } from "../game/wordSlotCopyFx.js";
 import { clampRemainingWordsForBossMechanics, isLengthObservatoryBoosted } from "../vouchers/voucherRuntime.js";
@@ -218,6 +218,23 @@ export function buildTreasureRunShellHooks(d) {
             onMidApply,
           );
         },
+        playGridTileMaterialChangeAtCell: async (row, col, onMidApply) => {
+          await runGridTileMaterialChangeAtCell(
+            {
+              getGridTileEl: (r, c) => d.getGridTileElAtRowCol?.(r, c),
+              getWordSlotShrinkPopElForGridCell: (r, c) => {
+                const ix = findWordSlotIndexForGridCell(d.getSelectedOrder?.() ?? [], r, c);
+                if (ix < 0) return null;
+                return resolveWordSlotShrinkPopEl(d.getWordSlotElAtIndex?.(ix) ?? null);
+              },
+              touchGrid: d.touchGrid,
+            },
+            row,
+            col,
+            onMidApply,
+          );
+        },
+        noteCollectionMaterialAcquired: d.noteCollectionMaterialAcquired,
         playWordSlotCopyFxAtIndex: async (slotIndex) => {
           await runWordSlotCopyFxAtIndex(
             {

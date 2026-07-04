@@ -114,9 +114,6 @@ export function setActiveSaveSlotIndex(index) {
     syncReactiveFromSlot(next);
   }
   persistPlayerProfile();
-  void import("./slotExperienceMode.js").then((m) => {
-    m.syncWordHintModeFromSlotExperience(next);
-  });
 }
 
 export function loadPlayerProfile() {
@@ -250,7 +247,6 @@ export function repairSlotProfilesAfterLoad() {
     for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
       m.backfillSlotExperienceModeIfNeeded(i);
     }
-    m.syncWordHintModeFromSlotExperience(getActiveSaveSlotIndex());
   });
 }
 

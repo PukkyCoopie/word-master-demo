@@ -23,10 +23,14 @@ export function collectionUpgradeGridListName(fullName) {
 
 const COLLECTION_UNKNOWN_ENTER_CLASS_NAMES = Object.freeze([
   "collection-shop-cell--unknown",
+  "collection-shop-cell--preview-revealed",
   "collection-shop-cell--prerequisite-locked",
   "collection-voucher-cell--unknown",
+  "collection-voucher-cell--preview-revealed",
   "collection-material-row--unknown",
+  "collection-material-row--preview-revealed",
   "collection-accessory-row--unknown",
+  "collection-accessory-row--preview-revealed",
 ]);
 
 /**
@@ -44,6 +48,14 @@ export function collectionEnterOpacityForTarget(el) {
   if (!(el instanceof HTMLElement)) return 1;
   if (el.classList.contains("collection-shop-cell--prerequisite-locked")) {
     return COLLECTION_PREREQUISITE_OPACITY;
+  }
+  if (
+    el.classList.contains("collection-shop-cell--preview-revealed") ||
+    el.classList.contains("collection-voucher-cell--preview-revealed") ||
+    el.classList.contains("collection-material-row--preview-revealed") ||
+    el.classList.contains("collection-accessory-row--preview-revealed")
+  ) {
+    return COLLECTION_LOCKED_PREVIEW_OPACITY;
   }
   return isCollectionUnknownEnterTarget(el) ? COLLECTION_UNKNOWN_OPACITY : 1;
 }

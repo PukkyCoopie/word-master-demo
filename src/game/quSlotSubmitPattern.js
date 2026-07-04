@@ -5,12 +5,21 @@ import { getLetterQMode } from "../settings/gameSettings.js";
 import { isQFamilyDisplayLetter } from "../settings/letterQ.js";
 import { letterSubstituteNeighborTrio } from "./vowelNeighborSubstitute.js";
 
+/** 与万能块判定一致：牌张 raw 可能仍为变万能前的 q，不能据此当 Qu 槽。 */
+function isWildcardSubmitTile(tile) {
+  if (tile?.isWildcard === true || tile?.materialId === "wildcard") return true;
+  if (String(tile?.letter ?? "").trim() === "?") return true;
+  const card = tile?._deckCard;
+  return Boolean(card && typeof card === "object" && card.isWildcard === true);
+}
+
 /**
  * @param {object | null | undefined} tile
  * @param {import("../settings/gameSettings.js").LetterQMode} [mode]
  */
 export function isQuModeSubmitQFamilyTile(tile, mode = getLetterQMode()) {
   if (mode !== "qu" || !tile?.letter) return false;
+  if (isWildcardSubmitTile(tile)) return false;
   const card = tile._deckCard;
   if (card && typeof card === "object") {
     return deckCardRaw(card) === "q";
@@ -54,6 +63,12 @@ function letterInMouthTrio(trio, ch) {
   return ch === trio.self || ch === trio.prev || ch === trio.next;
 }
 
+/** Qu 模式：任意万能 `?` 可占整词中的 `qu` 双字（与词典 {@link candidateMatchesWildcardPattern} 一致）。 */
+function advanceCandidateIndexPastWildcard(c, ci, mode) {
+  if (mode === "qu" && c[ci] === "q" && c[ci + 1] === "u") return ci + 2;
+  return ci + 1;
+}
+
 /**
  * 槽位 pattern 与候选整词对齐（无嘴 trio 时按字面 / qu 双字宽）。
  * @param {string} pattern
@@ -76,13 +91,8 @@ export function slotPatternAlignsWithCandidate(
   while (pi < p.length) {
     const isQuSlot = quSlotMask[pi] === true && mode === "qu";
     if (p[pi] === wildcardChar) {
-      if (isQuSlot && c[ci] === "q" && c[ci + 1] === "u") {
-        pi += 1;
-        ci += 2;
-      } else {
-        pi += 1;
-        ci += 1;
-      }
+      pi += 1;
+      ci = advanceCandidateIndexPastWildcard(c, ci, mode);
       continue;
     }
     if (isQuSlot) {
@@ -129,13 +139,8 @@ export function candidateMatchesMouthSlotPattern(
     const isQuSlot = quSlotMask[pi] === true && mode === "qu";
 
     if (p[pi] === wildcardChar) {
-      if (isQuSlot && c[ci] === "q" && c[ci + 1] === "u") {
-        pi += 1;
-        ci += 2;
-      } else {
-        pi += 1;
-        ci += 1;
-      }
+      pi += 1;
+      ci = advanceCandidateIndexPastWildcard(c, ci, mode);
       continue;
     }
 

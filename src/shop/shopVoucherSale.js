@@ -12,7 +12,7 @@ const CLEARANCE_TIER1_ID = "v_clearance_1";
 const CLEARANCE_TIER2_ID = "v_clearance_2";
 
 /**
- * 预设 / 随机减价之后、标签券乘数之前的标价。
+ * 预设 / 随机减价之后、特价标签券乘数之前的标价。
  * @param {number} basePrice
  * @param {object | null | undefined} offer
  * @param {string | null | undefined} presetId
@@ -27,7 +27,7 @@ export function priceBeforeVoucherClearanceDiscount(basePrice, offer, presetId) 
 }
 
 /**
- * 标签券（-25% / -50%）在本件商品上的实际减价金额（元）。
+ * 特价标签券（-25% / -50%）在本件商品上的实际减价金额（元）。
  * @param {number} basePrice
  * @param {object | null | undefined} offer
  * @param {Iterable<string>} ownedVouchers
@@ -49,13 +49,13 @@ function resolveClearanceVoucherDisplayName(ownedVoucherIds) {
   const owned = new Set([...ownedVoucherIds].map(String));
   if (owned.has(CLEARANCE_TIER2_ID)) {
     const def = VOUCHERS_BY_ID.get(CLEARANCE_TIER2_ID);
-    return def ? formatVoucherDisplayName(def, { pairHasTier2Owned: false }) : "标签·二级";
+    return def ? formatVoucherDisplayName(def, { pairHasTier2Owned: false }) : "特价标签·二级";
   }
   if (owned.has(CLEARANCE_TIER1_ID)) {
     const def = VOUCHERS_BY_ID.get(CLEARANCE_TIER1_ID);
-    return def ? formatVoucherDisplayName(def, { pairHasTier2Owned: false }) : "标签";
+    return def ? formatVoucherDisplayName(def, { pairHasTier2Owned: false }) : "特价标签";
   }
-  return "标签";
+  return "特价标签";
 }
 
 /**

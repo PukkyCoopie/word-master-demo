@@ -5,50 +5,62 @@
     appear
   >
     <div
-      v-if="visible && showIconOnlyButton"
-      key="icon"
-      class="word-definition-trigger-item"
+      v-if="visible && (showIconOnlyButton || showPreviewBar)"
+      key="row"
+      class="word-definition-trigger-row"
     >
-      <button
-        type="button"
-        class="word-definition-btn word-definition-btn--icon-only"
-        :aria-label="ariaLabel"
-        @click="emit('open')"
+      <WordFavoriteButton
+        v-if="showFavoriteButton && showPreviewBar"
+        :favorited="favorited"
+        :word="word"
+        size="compact"
+        @toggle="emit('toggle-favorite')"
+      />
+      <div
+        v-if="showIconOnlyButton"
+        class="word-definition-trigger-item"
       >
-        <i class="ri-translate-2 word-definition-btn__icon" aria-hidden="true" />
-      </button>
-    </div>
-    <div
-      v-else-if="visible && showPreviewBar"
-      key="preview"
-      class="word-definition-trigger-item"
-    >
-      <button
-        ref="previewBarRef"
-        type="button"
-        class="word-definition-preview-bar"
-        :style="previewBarStyle"
-        :aria-label="ariaLabel"
-        @click="emit('open')"
-      >
-        <span class="word-definition-preview-icon" aria-hidden="true">
-          <i class="ri-translate-2" />
-        </span>
-        <span class="word-definition-preview-text">{{ previewLine }}</span>
-        <Transition
-          name="word-definition-pill"
-          @after-enter="syncPreviewBarWidth"
-          @after-leave="syncPreviewBarWidth"
+        <button
+          type="button"
+          class="word-definition-btn word-definition-btn--icon-only"
+          :aria-label="ariaLabel"
+          @click="emit('open')"
         >
-          <span v-if="showExtraPill" class="word-definition-extra-pill">+{{ extraCount }}</span>
-        </Transition>
-      </button>
+          <i class="ri-translate-2 word-definition-btn__icon" aria-hidden="true" />
+        </button>
+      </div>
+      <div
+        v-else-if="showPreviewBar"
+        class="word-definition-trigger-item"
+      >
+        <button
+          ref="previewBarRef"
+          type="button"
+          class="word-definition-preview-bar"
+          :style="previewBarStyle"
+          :aria-label="ariaLabel"
+          @click="emit('open')"
+        >
+          <span class="word-definition-preview-icon" aria-hidden="true">
+            <i class="ri-translate-2" />
+          </span>
+          <span class="word-definition-preview-text">{{ previewLine }}</span>
+          <Transition
+            name="word-definition-pill"
+            @after-enter="syncPreviewBarWidth"
+            @after-leave="syncPreviewBarWidth"
+          >
+            <span v-if="showExtraPill" class="word-definition-extra-pill">+{{ extraCount }}</span>
+          </Transition>
+        </button>
+      </div>
     </div>
   </Transition>
 </template>
 
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
+import WordFavoriteButton from "./WordFavoriteButton.vue";
 
 const props = defineProps({
   visible: { type: Boolean, default: true },
@@ -57,9 +69,11 @@ const props = defineProps({
   previewLine: { type: String, default: "" },
   extraCount: { type: Number, default: 0 },
   buttonVisible: { type: Boolean, default: true },
+  showFavoriteButton: { type: Boolean, default: false },
+  favorited: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["open"]);
+const emit = defineEmits(["open", "toggle-favorite"]);
 
 const hasPreviewLine = computed(() => String(props.previewLine ?? "").length > 0);
 
@@ -135,7 +149,7 @@ async function syncPreviewBarWidth() {
 }
 
 watch(
-  () => [props.previewLine, props.extraCount, showPreviewBar.value, showExtraPill.value],
+  () => [props.previewLine, props.extraCount, showPreviewBar.value, showExtraPill.value, props.showFavoriteButton],
   () => {
     void syncPreviewBarWidth();
   },

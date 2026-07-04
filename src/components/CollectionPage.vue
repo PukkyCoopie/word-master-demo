@@ -44,50 +44,60 @@
             v-model:group-view="treasureGroupView"
             v-model:group-by="treasureGroupBy"
             :discovered-treasure-ids="effectiveDiscoveredTreasureIds"
+            :tab-preview-revealed="treasuresTabPreviewRevealed"
             :collection-new-keys="collectionNewKeys"
             @select-treasure="onCollectionTreasureSelect"
           />
           <CollectionSpellGrid
             v-else-if="activeTab === 'spells'"
             :discovered-spell-ids="career.discoveredSpellIds"
+            :tab-preview-revealed="spellsTabPreviewRevealed"
             :collection-new-keys="collectionNewKeys"
             @select-spell="onCollectionSpellSelect"
           />
           <CollectionUpgradeGrid
             v-else-if="activeTab === 'upgrades'"
             :discovered-upgrade-ids="career.discoveredUpgradeIds"
+            :tab-preview-revealed="upgradesTabPreviewRevealed"
             :collection-new-keys="collectionNewKeys"
             @select-upgrade="onCollectionUpgradeSelect"
           />
           <CollectionVoucherGrid
             v-else-if="activeTab === 'vouchers'"
             :discovered-voucher-tiers="career.discoveredVoucherTiers"
+            :tab-preview-revealed="vouchersTabPreviewRevealed"
             :collection-new-keys="collectionNewKeys"
             @select-voucher="onCollectionVoucherSelect"
           />
           <CollectionMaterialGrid
             v-else-if="activeTab === 'materials'"
             :discovered-material-ids="career.discoveredMaterialIds"
+            :tab-preview-revealed="materialsTabPreviewRevealed"
             :collection-new-keys="collectionNewKeys"
           />
           <CollectionAccessoryTable
             v-else-if="activeTab === 'accessories'"
             :discovered-accessory-ids="career.discoveredAccessoryIds"
+            :tab-preview-revealed="accessoriesTabPreviewRevealed"
             :collection-new-keys="collectionNewKeys"
           />
           <CollectionAchievementGrid
             v-else-if="activeTab === 'achievements'"
             :career="career"
             :unlocked-achievement-ids="career.unlockedAchievementIds"
+            :tab-preview-revealed="achievementsTabPreviewRevealed"
             :collection-new-keys="collectionNewKeys"
           />
           <CollectionWordLeaderboardPanel
             v-else-if="activeTab === 'words'"
+            ref="wordLeaderboardPanelRef"
             :score-records="career.scoreLeaderboard"
             :length-records="career.lengthLeaderboard"
+            :favorite-words="career.favoriteWords"
             @select-tile="onLeaderboardTileSelect"
             @select-treasure="onLeaderboardTreasureSelect"
             @sub-tab-change="onWordLeaderboardSubTabChange"
+            @unfavorite="onCollectionWordUnfavorite"
           />
         </div>
       </div>
@@ -121,6 +131,7 @@
       :discovered-voucher-tiers="career.discoveredVoucherTiers"
       :collection-preview-nav-kind="collectionTreasureDetail.previewNavKind"
       :collection-entry-state="collectionTreasureDetail.collectionEntryState ?? 'discovered'"
+      :collection-tab-preview-revealed="collectionDetailTabPreviewRevealed"
       @close="collectionTreasureDetail = null"
       @preview-nav="onCollectionTreasurePreviewNav"
     />
@@ -167,7 +178,8 @@ import {
   playCollectionTabEnter,
   prepareCollectionTabEnter,
 } from "../collection/collectionTabEnterAnim.js";
-import { formatCollectionTabProgressLine } from "../collection/collectionProgress.js";
+import { formatCollectionTabProgressLine, isCollectionTabPreviewRevealed, collectionPreviewNavKindToTabId } from "../collection/collectionProgress.js";
+import { removeWordFavorite } from "../vocabulary/wordFavorites.js";
 import { TREASURE_CATALOG } from "../treasures/treasureCatalog.js";
 import { getTreasureDef } from "../treasures/treasureRegistry.js";
 import { getCollectionTreasureNavIds } from "../collection/collectionTreasureSort.js";
@@ -236,6 +248,7 @@ const TAB_TITLES = Object.freeze(
 
 const activeTab = ref("treasures");
 const tabPanelRef = ref(null);
+const wordLeaderboardPanelRef = ref(null);
 const tabEnterReady = ref(false);
 
 const mutateCollectionCareer = inject("mutateCollectionCareer", null);
@@ -277,6 +290,34 @@ const activeTitleLabel = computed(() => TAB_TITLES[activeTab.value] ?? "收藏")
 const activeProgressLine = computed(() =>
   formatCollectionTabProgressLine(activeTab.value, props.career),
 );
+
+const treasuresTabPreviewRevealed = computed(() =>
+  isCollectionTabPreviewRevealed(props.career, "treasures"),
+);
+const spellsTabPreviewRevealed = computed(() =>
+  isCollectionTabPreviewRevealed(props.career, "spells"),
+);
+const upgradesTabPreviewRevealed = computed(() =>
+  isCollectionTabPreviewRevealed(props.career, "upgrades"),
+);
+const vouchersTabPreviewRevealed = computed(() =>
+  isCollectionTabPreviewRevealed(props.career, "vouchers"),
+);
+const materialsTabPreviewRevealed = computed(() =>
+  isCollectionTabPreviewRevealed(props.career, "materials"),
+);
+const accessoriesTabPreviewRevealed = computed(() =>
+  isCollectionTabPreviewRevealed(props.career, "accessories"),
+);
+const achievementsTabPreviewRevealed = computed(() =>
+  isCollectionTabPreviewRevealed(props.career, "achievements"),
+);
+
+const collectionDetailTabPreviewRevealed = computed(() => {
+  const tabId = collectionPreviewNavKindToTabId(collectionTreasureDetail.value?.previewNavKind);
+  if (!tabId) return false;
+  return isCollectionTabPreviewRevealed(props.career, tabId);
+});
 
 /** @param {number} delta */
 function stepTab(delta) {
@@ -615,11 +656,21 @@ function onLeaderboardTreasureSelect(payload) {
 
 function onWordLeaderboardSubTabChange() {
   scrollBodyRef.value?.scrollTo({ top: 0, behavior: "auto" });
-  updateScrollbarMetrics();
+  void runTabEnterAnimation(0);
+}
+
+/** @param {string} word */
+function onCollectionWordUnfavorite(word) {
+  mutateCollectionCareer?.((career) => {
+    removeWordFavorite(career, word);
+  });
 }
 
 watch(activeTab, async (newTab, oldTab) => {
   if (oldTab && oldTab !== newTab) {
+    if (oldTab === "words") {
+      wordLeaderboardPanelRef.value?.flushPendingUnfavorites?.();
+    }
     onCollectionTabLeave(oldTab);
   }
   onCollectionTabEnter(newTab);

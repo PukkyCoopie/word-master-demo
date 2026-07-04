@@ -3,6 +3,7 @@ import { ACCESSORY_CATALOG } from "../accessories/accessoryCatalog.js";
 import { TILE_MATERIAL_CONCEPT_BY_ID } from "../game/gameConceptCopy.js";
 import { COLLECTION_UPGRADE_TREASURE_IDS } from "./collectionUpgradeCatalog.js";
 import { COLLECTION_LEADERBOARD_MAX } from "./collectionTypes.js";
+import { normalizeWordFavoriteEntries } from "../vocabulary/wordFavorites.js";
 import {
   collectionNewKeyForAccessory,
   collectionNewKeyForMaterial,
@@ -153,6 +154,7 @@ export function normalizeCollectionCareerFields(career, raw) {
     0,
     COLLECTION_LEADERBOARD_MAX,
   );
+  career.favoriteWords = normalizeWordFavoriteEntries(raw.favoriteWords);
   normalizeCollectionNewDiscoveryFields(career, raw);
 }
 

@@ -5,12 +5,15 @@
         v-for="row in rows"
         :key="row.id"
         class="collection-accessory-row"
-        :class="{ 'collection-accessory-row--unknown': !row.discovered }"
+        :class="{
+          'collection-accessory-row--unknown': !row.discovered && !row.previewRevealed,
+          'collection-accessory-row--preview-revealed': !row.discovered && row.previewRevealed,
+        }"
       >
         <td class="collection-accessory-cell collection-accessory-cell--chip">
           <div class="collection-accessory-chip-wrap">
             <CollectionNewMark :show="row.showNewMark" />
-            <template v-if="row.discovered">
+            <template v-if="row.discovered || row.previewRevealed">
               <span
                 v-if="row.scopeClass === 'treasure-accessory-chip'"
                 class="collection-accessory-chip-showcase treasure-accessory-chip"
@@ -42,7 +45,10 @@
           <div class="collection-accessory-text">
             <h3 class="collection-accessory-title">{{ row.title }}</h3>
             <p class="collection-accessory-desc">
-              <TreasureDescSegmentList v-if="row.discovered" :segments="row.segments" />
+              <TreasureDescSegmentList
+                v-if="row.discovered || row.previewRevealed"
+                :segments="row.segments"
+              />
               <span v-else>{{ unknownLabel }}</span>
             </p>
           </div>
@@ -69,6 +75,7 @@ import TreasureDescSegmentList from "../TreasureDescSegmentList.vue";
 
 const props = defineProps({
   discoveredAccessoryIds: { type: Array, default: () => [] },
+  tabPreviewRevealed: { type: Boolean, default: false },
   collectionNewKeys: { type: Object, default: () => new Set() },
 });
 
@@ -103,11 +110,13 @@ function resolveAccessoryTitle(def) {
 const rows = computed(() =>
   Object.values(ACCESSORY_CATALOG).map((def) => {
     const discovered = discoveredSet.value.has(def.id);
+    const previewRevealed = !discovered && props.tabPreviewRevealed;
     const description = resolveAccessoryDescription(def);
     return {
       id: def.id,
       discovered,
-      title: discovered ? resolveAccessoryTitle(def) : COLLECTION_UNKNOWN_LABEL,
+      previewRevealed,
+      title: discovered || previewRevealed ? resolveAccessoryTitle(def) : COLLECTION_UNKNOWN_LABEL,
       chipClass: def.chip.chipClass,
       iconClass: def.chip.iconClass,
       scopeClass:
@@ -136,6 +145,15 @@ const rows = computed(() =>
 
 .collection-accessory-row--unknown {
   opacity: 0.55;
+}
+
+.collection-accessory-row--preview-revealed {
+  opacity: 0.75;
+}
+
+.collection-accessory-row--preview-revealed .collection-accessory-title,
+.collection-accessory-row--preview-revealed .collection-accessory-desc {
+  color: var(--text-dark, #3c3a32);
 }
 
 .collection-accessory-row .collection-accessory-cell--chip {

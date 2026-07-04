@@ -3,12 +3,13 @@ import { resolveTreasureHookAnimSlotIndex } from "../../game/treasureBlueprintMi
 import { deckCardRaw } from "../../game/deckCardSync.js";
 
 const ID = "131";
+const MONEY_PER_C = 2;
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
   price: 7,
   rarity: "rare",
-  description: describe("每个关卡完成时，你完整字母库中的每个C使你获得", money("1")),
+  description: describe("每个关卡完成时，你完整字母库中的每个C使你获得", money(String(MONEY_PER_C))),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
@@ -22,6 +23,6 @@ export const treasureHooks = {
     }
     if (count <= 0) return;
     const slotIndex = resolveTreasureHookAnimSlotIndex(ctx);
-    await ctx.playOwnedTreasureMoneyFx?.(ID, count, slotIndex != null ? { slotIndex } : {});
+    await ctx.playOwnedTreasureMoneyFx?.(ID, count * MONEY_PER_C, slotIndex != null ? { slotIndex } : {});
   },
 };

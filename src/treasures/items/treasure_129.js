@@ -1,4 +1,4 @@
-import { describe, mult } from "../treasureDescription.js";
+import { describe, materialConcept, mult } from "../treasureDescription.js";
 import { syncTileStateToDeckCard } from "../../game/deckCardSync.js";
 import { applyFireMaterialToTile } from "../../game/tileMaterialApply.js";
 import { collectFireworkIgniteTargets, isNoMaterialLetterTile } from "../../game/fireworkIgniteTargets.js";
@@ -16,11 +16,13 @@ export function applyFireworkIgniteToTile(tile) {
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 5,
+  price: 4,
   rarity: "rare",
   unlockPrerequisite: { type: "deckFireMin", min: 2 },
   description: describe(
-    "在每次拼写后，火焰块会引燃上方的无材质字母块并使其获得",
+    "在每次拼写后，",
+    materialConcept("fire"),
+    "会引燃上方的无材质字母块并使其获得",
     mult("+10"),
     "倍率",
   ),

@@ -23,8 +23,13 @@ const wordDefinition = session?.ui?.wordDefinition;
 if (!wordDefinition) {
   throw new Error("InRunPlayfield: session.ui.wordDefinition missing");
 }
+const wordFavorites = session?.ui?.wordFavorites;
+if (!wordFavorites) {
+  throw new Error("InRunPlayfield: session.ui.wordFavorites missing");
+}
 /** session.ui 为 plain object，嵌套 ref/computed 在 template 中须 reactive 解包 */
 const wordDef = reactive(wordDefinition);
+const wordFav = reactive(wordFavorites);
 /** @type {import('./playfieldViewKey.js').PlayfieldViewContext} */
 const pv = session.playfield.buildViewContext();
 provide(PLAYFIELD_VIEW_KEY, pv);
@@ -222,16 +227,33 @@ defineExpose({
             />
             <LetterTile
               v-else-if="entry"
+              :ref="el => pv.setWordSlotContentRef(i, el)"
               variant="wordSlotContent"
               :class="{ 'player-marked': entry.playerMarked === true }"
               :letter="entry.letter"
               :rarity="entry.rarity"
-              :material-id="entry.materialId ?? null"
-              :accessory-id="entry.accessoryId ?? null"
-              :treasure-accessory-id="entry.treasureAccessoryId ?? null"
-              :tile-score-bonus="Number(entry.tileScoreBonus) || 0"
-              :tile-mult-bonus="Number(entry.letterMultBonus) || 0"
-              :material-animate="!pv.isSlotContentHidden(i)"
+              :material-id="
+                pv.gridPlaceholderFrozenPresentation(entry)?.materialId ?? entry.materialId ?? null
+              "
+              :accessory-id="
+                pv.gridPlaceholderFrozenPresentation(entry)?.accessoryId ?? entry.accessoryId ?? null
+              "
+              :treasure-accessory-id="
+                pv.gridPlaceholderFrozenPresentation(entry)?.treasureAccessoryId
+                  ?? entry.treasureAccessoryId
+                  ?? null
+              "
+              :tile-score-bonus="
+                pv.gridPlaceholderFrozenPresentation(entry)?.tileScoreBonus
+                  ?? (Number(entry.tileScoreBonus) || 0)
+              "
+              :tile-mult-bonus="
+                pv.gridPlaceholderFrozenPresentation(entry)?.tileMultBonus
+                  ?? (Number(entry.letterMultBonus) || 0)
+              "
+              :material-animate="
+                !pv.isSlotContentHidden(i) && !pv.gridPlaceholderFrozenPresentation(entry)
+              "
               :content-hidden="pv.isSlotContentHidden(i)"
               :boss-tile-debuffed="!!entry.bossTileDebuffed"
               :cerulean-bell-locked="entry.ceruleanBellLocked === true"
@@ -248,7 +270,10 @@ defineExpose({
             :word="pv.wordDefinitionPreviewWord"
             :preview-line="pv.wordDefinitionPreviewLine"
             :extra-count="pv.wordDefinitionExtraCount"
+            :show-favorite-button="wordFav.showInlineFavoriteButton"
+            :favorited="wordFav.currentWordFavorited"
             @open="pv.openWordDefinitionLayer"
+            @toggle-favorite="wordFav.toggleCurrentWordFavorite()"
           />
         </div>
         <div
@@ -627,6 +652,9 @@ defineExpose({
     :open="wordDef.layerOpenForPlayfield"
     :word="wordDef.wordDefinitionPreviewWord"
     :lines="wordDef.wordDefinitionPreviewLines"
+    :show-favorite-button="wordFav.showLayerFavoriteButton"
+    :favorited="wordFav.currentWordFavorited"
+    @toggle-favorite="wordFav.toggleCurrentWordFavorite()"
     @close="wordDef.closeWordDefinitionLayer()"
   />
 </template>

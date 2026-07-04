@@ -119,7 +119,7 @@
                   'shop-treasure-frame--spell-offer': isSpellOffer,
                   'shop-treasure-frame--voucher-stamp': isVoucherOffer,
                   'shop-treasure-frame--collection-unknown':
-                    isCollectionLockedPreview && !isCollectionLockedTreasurePreview,
+                    isCollectionContentHidden && !isCollectionLockedTreasurePreview,
                   'treasure-detail-frame--charge-inactive':
                     chargeVisualState === 'inactive' && !isCollectionLockedPreview,
                   'treasure-detail-frame--charge-active':
@@ -140,7 +140,7 @@
                     >?</span
                   >
                 </template>
-                <template v-else-if="isCollectionLockedPreview">
+                <template v-else-if="isCollectionContentHidden">
                   <span ref="emojiRef" class="collection-detail-unknown-mark" aria-hidden="true">?</span>
                 </template>
                 <template v-else-if="isUpgradeOffer">
@@ -217,7 +217,7 @@
                   }}</span>
                 </template>
                 <div
-                  v-if="accessoryChipVisuals.length && !isCollectionLockedPreview"
+                  v-if="accessoryChipVisuals.length && !isCollectionContentHidden"
                   class="treasure-accessory-chip-stack treasure-accessory-chip-stack--detail"
                   aria-hidden="true"
                 >
@@ -232,7 +232,7 @@
                   </span>
                 </div>
                 <i
-                  v-if="chargeVisualState != null && !isCollectionLockedPreview"
+                  v-if="chargeVisualState != null && !isCollectionContentHidden"
                   class="treasure-charge-corner-icon treasure-detail-disabled-mark ri-flashlight-fill"
                   aria-hidden="true"
                 ></i>
@@ -754,7 +754,7 @@
               @skip="requestClose"
             />
             <HoldConfirmButton
-              v-else-if="isRunShopCommerceDetail"
+              v-else-if="showShopOfferPurchaseButton"
               variant="buy"
               label="购买"
               hold-label="按住以购买"
@@ -878,7 +878,7 @@
             'shop-treasure-frame--spell-offer': isSpellOffer,
             'shop-treasure-frame--voucher-stamp': isVoucherOffer,
             'shop-treasure-frame--collection-unknown':
-              isCollectionLockedPreview && !isCollectionLockedTreasurePreview,
+              isCollectionContentHidden && !isCollectionLockedTreasurePreview,
             'treasure-detail-frame--charge-inactive':
               chargeVisualState === 'inactive' && !isCollectionLockedPreview,
             'treasure-detail-frame--charge-active':
@@ -898,7 +898,7 @@
               >?</span
             >
           </template>
-          <template v-else-if="isCollectionLockedPreview">
+          <template v-else-if="isCollectionContentHidden">
             <span class="collection-detail-unknown-mark" aria-hidden="true">?</span>
           </template>
           <template v-else-if="isUpgradeOffer">
@@ -979,7 +979,7 @@
               </span>
             </div>
             <i
-              v-if="chargeVisualState != null && !isCollectionLockedPreview"
+              v-if="chargeVisualState != null && !isCollectionContentHidden"
               class="treasure-charge-corner-icon treasure-detail-disabled-mark ri-flashlight-fill"
               aria-hidden="true"
             ></i>
@@ -1177,6 +1177,8 @@ const props = defineProps({
   discoveredVoucherTiers: { type: Object, default: () => ({}) },
   /** collection-treasure | collection-spell | collection-owned-treasure 等 */
   collectionPreviewNavKind: { type: String, default: null },
+  /** 所属 tab 解锁进度 ≥80%：未解锁条目仍半透明但展示真实内容 */
+  collectionTabPreviewRevealed: { type: Boolean, default: false },
 });
 
 const isCollectionPreviewMode = computed(() => props.mode === "collection-preview");
@@ -1240,10 +1242,14 @@ const isCollectionLockedPreview = computed(
   () => isCollectionPreviewMode.value && isCollectionEntryLocked(effectiveCollectionEntryState.value),
 );
 
+const isCollectionContentHidden = computed(
+  () => isCollectionLockedPreview.value && !props.collectionTabPreviewRevealed,
+);
+
 /** 收藏图鉴：未解锁的宝藏（非法术/升级等）仍展示稀有度宝石 */
 const isCollectionLockedTreasurePreview = computed(
   () =>
-    isCollectionLockedPreview.value &&
+    isCollectionContentHidden.value &&
     !isSpellOffer.value &&
     !isUpgradeOffer.value &&
     !isVoucherOffer.value &&
@@ -1327,7 +1333,7 @@ function revealStaggerTargetsInstant(staggerEls) {
 }
 
 const detailShelfPriceText = computed(() => {
-  if (isCollectionLockedPreview.value) return "$?";
+  if (isCollectionContentHidden.value) return "$?";
   if (props.shelfPriceKind === "sell" || (props.shelfPriceKind == null && isOwnedMode.value)) {
     return `$${props.sellRefund}`;
   }
@@ -1388,7 +1394,7 @@ const offerShelfPriceInnerClasses = computed(() => {
   if (props.shelfPriceKind === "sell" || (props.shelfPriceKind == null && isOwnedMode.value)) {
     return {};
   }
-  if (isCollectionLockedPreview.value) return {};
+  if (isCollectionContentHidden.value) return {};
   return offerShelfPriceView.value.innerClasses;
 });
 
@@ -1401,11 +1407,16 @@ const voucherSaleDiscountAmount = computed(() =>
   ),
 );
 
-/** 局内商店购买/包内/卖出：顶栏钱包与购买区；纯说明预览（show-shelf-price=false）不展示 */
+/** 局内商店购买/包内/卖出：顶栏钱包与价签区；纯说明预览（show-shelf-price=false）不展示 */
 const isRunShopCommerceDetail = computed(() => {
   if (props.showShelfPrice === false) return false;
   return props.mode === "offer" || props.mode === "owned-shop" || props.mode === "pack-inner";
 });
+
+/** 商店货架「购买」主按钮；包内领取、已拥有卖出走独立按钮 */
+const showShopOfferPurchaseButton = computed(
+  () => props.mode === "offer" && isRunShopCommerceDetail.value && !props.spellGrantFlow,
+);
 
 const showVoucherSalePanel = computed(
   () =>
@@ -1554,7 +1565,7 @@ const treasureAccessoryPanels = computed(() =>
 );
 
 const showTreasureAccessoryPanels = computed(
-  () => !isDeckOffer.value && !isCollectionLockedPreview.value && treasureAccessoryPanels.value.length > 0,
+  () => !isDeckOffer.value && !isCollectionContentHidden.value && treasureAccessoryPanels.value.length > 0,
 );
 
 const deckOfferRarityKey = computed(() => {
@@ -1674,7 +1685,7 @@ const rarityTagLabel = computed(() => {
 
 /** 保证标题行在首帧即有占位高度，避免 flex 测量时 targetVisual 上移 */
 const displayTreasureName = computed(() => {
-  if (isCollectionLockedPreview.value) return COLLECTION_UNKNOWN_LABEL;
+  if (isCollectionContentHidden.value) return COLLECTION_UNKNOWN_LABEL;
   const n = props.treasure?.name;
   if (n == null || String(n).trim() === "") return "\u00a0";
   return String(n);
@@ -1700,7 +1711,7 @@ const upgradePreviewGainRows = computed(() =>
 );
 
 const showUpgradePreviewGainRows = computed(
-  () => !isCollectionLockedPreview.value && upgradePreviewGainRows.value.length > 0,
+  () => !isCollectionContentHidden.value && upgradePreviewGainRows.value.length > 0,
 );
 
 const showUpgradeRoundingRulesPanel = computed(
@@ -1784,7 +1795,7 @@ const showVoucherTierPanels = computed(() => voucherOwnedTierPanels.value.length
 const showMainVoucherDesc = computed(() => !showVoucherTierPanels.value);
 
 const showTreasureMainDescCard = computed(() => {
-  if (isCollectionLockedPreview.value) return false;
+  if (isCollectionContentHidden.value) return false;
   if (isDeckOffer.value) return showDeckOfferRarityScoreMult.value;
   if (isVoucherOffer.value && showVoucherTierPanels.value) return false;
   if (showSpellReplayTargetRow.value) return true;
@@ -1819,7 +1830,7 @@ const detailKindCaption = computed(() => {
 /** 牌包「升级卡」无宝藏稀有度，描述框不展示价签式稀有度 tag */
 const showDetailRarityTag = computed(
   () =>
-    !isCollectionLockedPreview.value &&
+    !isCollectionContentHidden.value &&
     props.treasure?.offerType !== "upgrade" &&
     props.treasure?.offerType !== "bundlePack" &&
     props.treasure?.offerType !== "voucher",
@@ -1834,7 +1845,7 @@ const spellGainPanelContent = computed(() => {
 
 const showSpellGainPanel = computed(
   () =>
-    !isCollectionLockedPreview.value &&
+    !isCollectionContentHidden.value &&
     Boolean(String(spellGainPanelContent.value?.description ?? "").trim()),
 );
 
@@ -1855,7 +1866,7 @@ function treasureGainDescriptionNonEmpty(desc) {
 }
 
 const collectionUnlockHintPanel = computed(() => {
-  if (!isCollectionPreviewMode.value || !isCollectionLockedPreview.value) return null;
+  if (!isCollectionPreviewMode.value) return null;
   return resolveCollectionUnlockHintPanel(props.treasure);
 });
 
@@ -1863,6 +1874,7 @@ const showCollectionUnlockHintPanel = computed(
   () =>
     isCollectionPreviewMode.value &&
     isCollectionLockedPreview.value &&
+    effectiveCollectionEntryState.value !== "prerequisite-locked" &&
     treasureGainDescriptionNonEmpty(collectionUnlockHintPanel.value?.description),
 );
 
@@ -1927,7 +1939,7 @@ const showCollectionUnlockPrerequisitePanel = computed(() => {
 
 const showTreasureGainPanel = computed(
   () =>
-    !isCollectionLockedPreview.value &&
+    !isCollectionContentHidden.value &&
     Boolean(treasureGainPanelContent.value?.title) &&
     treasureGainDescriptionNonEmpty(treasureGainPanelContent.value?.description),
 );
@@ -1957,7 +1969,7 @@ function descriptionConceptExcludeTitles() {
 }
 
 const descriptionConceptPanels = computed(() => {
-  if (isDeckOffer.value || isCollectionLockedPreview.value) return [];
+  if (isDeckOffer.value || isCollectionContentHidden.value) return [];
   /** @type {unknown[]} */
   const sources = [];
   if (isVoucherOffer.value) {

@@ -8,6 +8,13 @@ import {
   getSubmitScoringTotalBeats,
   scoringSleep,
 } from "./submitScoringTiming.js";
+import {
+  UPGRADE_ACCESSORY_CUE_DELAY_MS,
+  getSubmitScoringTriggeredUpgradeLocalSpeed,
+  resetSubmitScoringBeatSpeedSnapshot,
+  setSubmitScoringBeatSpeedSnapshot,
+  upgradeAnimSleep,
+} from "./upgradePlaybackTiming.js";
 import { persistTileIntrinsicTreasureCue } from "./persistTileIntrinsicTreasureCue.js";
 import { addScoreAddBank } from "../treasures/treasureBankHelpers.js";
 import {
@@ -82,8 +89,6 @@ export const SCORING_BUBBLE_POP_DELAY_MS = Math.round(
 export const FORMULA_TOTAL_HOLD_BEFORE_FINAL_SCORE_MS = Math.round(360 * SCORING_GAP_SCALE);
 /** 最终得分步结束后，再让本手分汇入顶栏 score-value-wrap */
 export const FINAL_SCORE_HOLD_BEFORE_HEADER_ROLL_MS = Math.round(420 * SCORING_GAP_SCALE);
-/** 通关当手：首格佩戴钻石配饰 → 升级该字母稀有度对应的全局等级。 */
-export const CLEAR_WIN_ACCESSORY_UPGRADE_FX_DELAY_MS = 300;
 /** 关卡通关时：棋盘上每个黄金材质字母块 wobble + 金币色 $ 气泡 */
 export const GOLD_MATERIAL_CLEAR_BONUS_DOLLARS = 3;
 /** 字母块钱币配饰：在该字母轮到计分时触发 $3 */
@@ -107,6 +112,12 @@ export { submitWordLeaveStagger } from "./submitWordLeaveStagger.js";
 export function createSubmitScoringAnimController(deps) {
   const { refs, getDom, fx, callbacks, gridDropAnim, submitFx, constants, nextTick, sleep } = deps;
   const gsapLib = deps.gsap ?? gsap;
+
+  function beatSpeed(beatIndex, totalBeats) {
+    const sp = getSubmitScoringBeatSpeed(beatIndex, totalBeats);
+    setSubmitScoringBeatSpeedSnapshot(sp);
+    return sp;
+  }
 
   const { SHOW_SUBMIT_TRANSLATION, ROWS, COLS } = constants;
 
@@ -724,10 +735,21 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   };
   /** @type {{ si: number, delta: number, label?: string, treasureId: string, source: "self" | "blueprint" }[]} */
   const mergedIntrinsicScoreSlots = [];
+  const mergedScoreCueTreasureIds = new Set();
   for (const { slotIndex: si, treasureId: tid, source } of iterTreasureHookContributions(ownedSlotIds)) {
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     if (!hooks?.mergeLetterScoreCueIntoIntrinsicLetterScoreStep) continue;
-    const cue = hooks.getPerLetterScoreCue?.(ctxScoreMerge, part, i);
+    if (hooks?.dedupePerLetterScoreCueByTreasureId && mergedScoreCueTreasureIds.has(tid)) continue;
+    if (hooks?.dedupePerLetterScoreCueByTreasureId) mergedScoreCueTreasureIds.add(tid);
+    const cue = hooks.getPerLetterScoreCue?.(
+      {
+        ...ctxScoreMerge,
+        hookSlotIndex: si,
+        hookSource: source,
+      },
+      part,
+      i,
+    );
     const d = Math.max(0, Math.floor(Number(cue?.delta) || 0));
     if (d <= 0) continue;
     mergedIntrinsicScoreSlots.push({ si, delta: d, label: cue?.label, treasureId: tid, source });
@@ -1223,7 +1245,6 @@ async function runArmBossLengthDowngradePostScoreFx(len) {
 }
 
 /** 与飞机升级：格子上 wobble + 升级气泡后，顶栏播词长升级动效 */
-const CLEAR_WIN_ACCESSORY_UPGRADE_FX_DELAY_MS = 300;
 
 /**
  * 通关当手：首格佩戴钻石配饰 → 升级该字母稀有度对应的全局等级。
@@ -1265,7 +1286,7 @@ async function runClearWinVipDiamondSlotCueBeforeLeave(tiles, willClearLevelThis
   if (!upgrade) return;
   const slotEl = slotTileEls[upgrade.slotIndex] ?? getDom.getWordSlotEl(upgrade.slotIndex);
   if (!(slotEl instanceof HTMLElement)) return;
-  const sp = 1;
+  const sp = getSubmitScoringTriggeredUpgradeLocalSpeed();
   const wobbleTl = createWobbleScoreSlotTimeline(slotEl);
   if (wobbleTl) {
     wobbleTl.timeScale(sp);
@@ -1279,12 +1300,12 @@ async function runClearWinVipDiamondSlotCueBeforeLeave(tiles, willClearLevelThis
   })();
   const wobbleDone = wobbleTl ? wobbleTl.then() : Promise.resolve();
   await Promise.all([bubbleTask, wobbleDone]);
-  await sleep(CLEAR_WIN_ACCESSORY_UPGRADE_FX_DELAY_MS);
+  await upgradeAnimSleep(UPGRADE_ACCESSORY_CUE_DELAY_MS, sp);
 }
 
 /** @param {string} rk @param {number} beforeLevel */
 async function runClearWinVipDiamondRarityPostScoreFx(rk, beforeLevel) {
-  const sp = 1;
+  const sp = getSubmitScoringTriggeredUpgradeLocalSpeed();
   refs.shopOverlayLayersSuppressed.value = true;
   await nextTick();
   try {
@@ -1314,7 +1335,7 @@ async function runClearWinLengthUpgradeAccessoryTileFx(tileId, len, accessoryTri
   const idx = cell.row * COLS + cell.col;
   const el = getGridTileElByIndex(idx);
   if (!el) return;
-  const sp = 1;
+  const sp = getSubmitScoringTriggeredUpgradeLocalSpeed();
   const wobbleTl = createWobbleScoreSlotTimeline(el);
   if (wobbleTl) {
     wobbleTl.timeScale(sp);
@@ -1328,7 +1349,7 @@ async function runClearWinLengthUpgradeAccessoryTileFx(tileId, len, accessoryTri
   })();
   const wobbleDone = wobbleTl ? wobbleTl.then() : Promise.resolve();
   await Promise.all([bubbleTask, wobbleDone]);
-  await sleep(CLEAR_WIN_ACCESSORY_UPGRADE_FX_DELAY_MS);
+  await upgradeAnimSleep(UPGRADE_ACCESSORY_CUE_DELAY_MS, sp);
 
   const beforeLevel = Math.max(1, Math.round(Number(refs.lengthLevelsByLength.value?.[len])) || 1);
   const observatoryBoost = callbacks.isLengthObservatoryBoosted(
@@ -1417,6 +1438,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     detailed?.disabledTreasureSlotIndices,
   );
   try {
+  resetSubmitScoringBeatSpeedSnapshot();
   refs.hideResultWordLengthBeforeTotal.value = false;
   refs.suppressResultWordLengthUntilScoringEnd.value = false;
   const n = detailed.letterParts.length;
@@ -1465,7 +1487,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       fx,
       callbacks,
       nextTick,
-      speed: getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats),
+      speed: beatSpeed(scoringBeat, totalScoringBeats),
       gsap: gsapLib,
     });
     scoringBeat += detailed.submitScoringAppendedTiles?.length ?? 0;
@@ -1478,12 +1500,12 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   } else {
     for (let pass = 0; pass < letterPassCount; pass++) {
       if (pass > 0) {
-        const spCue = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
+        const spCue = beatSpeed(scoringBeat, totalScoringBeats);
         await runExtraLetterScoringPassCue(detailed, pass - 1, spCue);
         scoringBeat += 1;
       }
       for (let i = 0; i < n; i++) {
-        const spLetter = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
+        const spLetter = beatSpeed(scoringBeat, totalScoringBeats);
         if (callbacks.isBossDebuffedSubmitTile(tiles[i])) {
           await runLetterScoringSkipStep(getDom.getWordSlotEl(i), spLetter, i);
           scoringBeat += 1;
@@ -1498,13 +1520,13 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
             const cueIdx = perLetterTreasureReplayCueCursor[i] ?? 0;
             if (cueIdx < letterTreasureReplayCues.length) {
               perLetterTreasureReplayCueCursor[i] = cueIdx + 1;
-              const spTreasureCue = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
+              const spTreasureCue = beatSpeed(scoringBeat, totalScoringBeats);
               await runPerLetterTreasureReplayCue(letterTreasureReplayCues[cueIdx], spTreasureCue);
               scoringBeat += 1;
             } else if (tiles[i]?.accessoryId === TILE_ACCESSORY_REWIND) {
               triggerAccessoryChipRipple(getDom.getWordSlotEl(i), spLetter, true);
             }
-            const spReplay = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
+            const spReplay = beatSpeed(scoringBeat, totalScoringBeats);
             await runSingleLetterScoringStep(tiles[i], i, detailed, spReplay, luckyVisitByLetter[i]++);
             scoringBeat += 1;
           }
@@ -1540,7 +1562,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     const moneyAdd = Number(step.moneyAdd) || 0;
     const hasMultMul = multMul > 0 && multMul !== 1;
     if (multAdd <= 0 && scoreAdd <= 0 && !hasMultMul && moneyAdd <= 0) continue;
-    const spPost = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
+    const spPost = beatSpeed(scoringBeat, totalScoringBeats);
     scoringBeat += 1;
     const ti =
       typeof step.slotIndex === "number" && step.slotIndex >= 0
@@ -1660,7 +1682,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   for (const step of finalScoreSteps) {
     const add = Math.round(Number(step.finalScoreAdd) || 0);
     if (add <= 0) continue;
-    const spFinal = getSubmitScoringBeatSpeed(scoringBeat, totalScoringBeats);
+    const spFinal = beatSpeed(scoringBeat, totalScoringBeats);
     scoringBeat += 1;
     const ti =
       typeof step.slotIndex === "number" && step.slotIndex >= 0
@@ -1884,6 +1906,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       await fx();
     }
   }
+  resetSubmitScoringBeatSpeedSnapshot();
 
   await collapseTrans;
 
@@ -1896,6 +1919,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   return iceShatterCount;
   } finally {
     activeSubmitDisabledTreasureSlotIndices = null;
+    resetSubmitScoringBeatSpeedSnapshot();
     callbacks.submitUpgradeFxRegistrarState.current = null;
     callbacks.setSubmitScoringAppendPresentation?.(null);
     callbacks.setSubmitScoringAppendPresentations?.([]);

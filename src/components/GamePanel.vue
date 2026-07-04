@@ -508,6 +508,7 @@ const {
   remainingWords,
   remainingRemovals,
   hintRemaining,
+  pendingHintChargeWord,
   currentScore,
   targetScore,
   activeBossSlug,
@@ -1299,14 +1300,14 @@ function pickRandomInRunSpellIdForRun() {
   ]);
 }
 
-const shopInteractionsDisabled = computed(
-  () =>
-    shopPhase.shopUpgradeAnimating.value ||
-    packPickBusy.value ||
-    !!packPickSession.value ||
-    !!bossRerollSession.value ||
-    !!ctrlEarly.pagerQuizSession.value,
-);
+const shopInteractionsDisabled = computed(() => {
+  if (shopPhase.shopUpgradeAnimating.value || packPickBusy.value) return true;
+  // 包层/盲选/测验被 suppress 隐藏时，勿仅因 session 残留而锁死整页商店
+  if (packPickSession.value && !packPickOverlaySuppressed.value) return true;
+  if (bossRerollSession.value && !shopOverlayLayersSuppressed.value) return true;
+  if (ctrlEarly.pagerQuizSession.value && !shopOverlayLayersSuppressed.value) return true;
+  return false;
+});
 
 watch(showShop, async (open, prev) => {
   if (!open) {
@@ -1759,6 +1760,7 @@ const { ports: gamePanelPorts } = setupGamePanelAssembly(
       remainingRemovals,
       remainingWords,
       hintRemaining,
+      pendingHintChargeWord,
       basketballWordsSubmitted,
       dictFatalError,
       dictionaryReady,

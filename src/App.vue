@@ -179,10 +179,10 @@ import {
   setCloudSaveAppliedCallback,
 } from "./save/cloudSave/cloudSaveSync.js";
 import { initAppLifecycle, disposeAppLifecycle } from "./platform/appLifecycle.js";
-import { loadGameSettings } from "./settings/gameSettings.js";
+import { loadGameSettings, getDictionaryScopeIds } from "./settings/gameSettings.js";
 import { useScale } from "./composables/useScale";
 import { usePortalFrameSync } from "./composables/usePortalFrameSync.js";
-import { useDictionary } from "./composables/useDictionary";
+import { useDictionary, applyDictionaryScopes } from "./composables/useDictionary";
 import { formatDictionaryLoadErrorForPlayer } from "./dictionary/dictionaryBootErrorCopy.js";
 import { useRemixIconFont } from "./composables/useRemixIconFont.js";
 import { onPrivacyConsentGrantedForAuth, TAP_TAP_AUTH_MENU_ONLY_PHASES, useTapTapAuth } from "./composables/useTapTapAuth.js";
@@ -890,6 +890,8 @@ const showMenu = computed(() => appShellUnlocked.value && screen.value === "menu
 const showCollection = computed(() => appShellUnlocked.value && screen.value === "collection");
 const showGame = computed(() => appShellUnlocked.value && screen.value === "game");
 
+provide("isGameSessionActive", showGame);
+
 const gamePanelFirstWordTutorial = computed(() => {
   if (sessionFirstWordTutorialSuppressed.value) return false;
   if (sessionRunDifficultyIndex.value !== 0) return false;
@@ -1017,6 +1019,7 @@ onMounted(() => {
   setCloudSaveAppliedCallback(onCloudSaveApplied);
   void initAppLifecycle();
   loadDictionary({ shouldAbort: () => !appAlive });
+  void applyDictionaryScopes(getDictionaryScopeIds(), { shouldAbort: () => !appAlive });
   loadRemixIconFont({ shouldAbort: () => !appAlive });
   loadBootImages({ shouldAbort: () => !appAlive });
   void maybeInitProfile();

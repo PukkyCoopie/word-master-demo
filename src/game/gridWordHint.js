@@ -37,6 +37,150 @@ export const EXACT_LENGTH_WEIGHTS = Object.freeze([
 const OTHER_LENGTH_WEIGHT = 10;
 const OTHER_LENGTH_MIN = 8;
 
+/** 万能块较多时改走 pattern→resolve，避免词典随机词几乎全被 resolved!==word 刷掉 */
+const PATTERN_RESOLVE_FAST_MIN_WILDCARDS = 3;
+const PATTERN_RESOLVE_FAST_MIN_WILDCARD_RATIO = 0.35;
+const PATTERN_RESOLVE_MAX_ATTEMPTS = 96;
+
+/**
+ * @param {number} cellCount
+ * @param {ReturnType<typeof pickedLetterMultiset>} gridMs
+ */
+function shouldUsePatternResolveFastPath(cellCount, gridMs) {
+  if (gridMs.wildcards >= PATTERN_RESOLVE_FAST_MIN_WILDCARDS) return true;
+  return gridMs.wildcards / Math.max(1, cellCount) >= PATTERN_RESOLVE_FAST_MIN_WILDCARD_RATIO;
+}
+
+/** @param {GridCell[]} path */
+function buildPatternFromAssignedPath(path) {
+  return path
+    .filter((c) => c?.letter)
+    .map((c) => (c.isWildcard ? "?" : c.letter.toLowerCase()))
+    .join("");
+}
+
+/**
+ * @param {GridCell[]} cells
+ * @param {number} L
+ * @param {() => number} rng
+ * @returns {GridCell[] | null}
+ */
+function pickRandomCellPath(cells, L, rng) {
+  if (L <= 0 || L > cells.length) return null;
+  const indices = cells.map((_, i) => i);
+  for (let i = indices.length - 1; i > 0; i -= 1) {
+    const j = randomIntBelow(rng, i + 1);
+    const tmp = indices[i];
+    indices[i] = indices[j];
+    indices[j] = tmp;
+  }
+  return indices.slice(0, L).map((i) => cells[i]);
+}
+
+/**
+ * @param {GridCell[]} cells
+ * @param {number} L
+ * @param {GridCell | null} anchorCell
+ * @param {() => number} rng
+ * @returns {GridCell[] | null}
+ */
+function pickRandomCellPathWithAnchor(cells, L, anchorCell, rng) {
+  if (!anchorCell) return pickRandomCellPath(cells, L, rng);
+  if (L <= 0) return null;
+  if (L === 1) return [anchorCell];
+  const restPool = cells.filter((c) => !(c.row === anchorCell.row && c.col === anchorCell.col));
+  const rest = pickRandomCellPath(restPool, L - 1, rng);
+  return rest ? [anchorCell, ...rest] : null;
+}
+
+/**
+ * @param {string} word
+ * @param {GridCell[]} path
+ * @param {string} pattern
+ * @param {PickRandomWordAtLengthOpts} opts
+ * @param {number} minLexicalTier
+ * @param {boolean} allowFallbackOnlyWords
+ * @returns {WordPick | null}
+ */
+function validateHintWordPick(word, path, pattern, opts, minLexicalTier, allowFallbackOnlyWords) {
+  const bossResolveContext = opts.bossResolveContext ?? null;
+  const requiredStartLetter = opts.requiredStartLetter ?? "";
+  const tierForWord = opts.getHintLexicalTierForWord ?? (() => DEFAULT_HINT_LEXICAL_TIER);
+  const wordIsFallbackOnly = opts.getHintWordIsFallbackOnly ?? (() => false);
+
+  if (tierForWord(word) < minLexicalTier) return null;
+  if (requiredStartLetter && word[0] !== requiredStartLetter) return null;
+
+  const candidatePick = { word, path, pattern };
+  if (!isHintPickAcceptable(candidatePick, bossResolveContext)) return null;
+  if (!allowFallbackOnlyWords && wordIsFallbackOnly(word)) return null;
+  return candidatePick;
+}
+
+/**
+ * 万能块主导：随机 L 格拼 pattern → resolveWordPattern → assignCellsToWord 校验。
+ * @param {GridCell[]} cells
+ * @param {number} L
+ * @param {ReturnType<typeof pickedLetterMultiset>} gridMs
+ * @param {(pattern: string, wc?: string) => string | null} resolveWordPattern
+ * @param {() => number} rng
+ * @param {number} maxAttempts
+ * @param {PickRandomWordAtLengthOpts} opts
+ * @param {number} minLexicalTier
+ * @param {boolean} allowFallbackOnlyWords
+ * @returns {WordPick | null}
+ */
+function pickHintByPatternResolveAtLength(
+  cells,
+  L,
+  gridMs,
+  resolveWordPattern,
+  rng,
+  maxAttempts,
+  opts,
+  minLexicalTier,
+  allowFallbackOnlyWords,
+) {
+  const anchorCell = opts.anchorCell ?? null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const probePath = pickRandomCellPathWithAnchor(cells, L, anchorCell, rng);
+    if (!probePath?.length) continue;
+
+    const probePattern = buildPatternFromAssignedPath(probePath);
+    const probeResolved = resolveWordPattern(probePattern, "?");
+    if (!probeResolved) continue;
+    if (!wordMatchesMultiset(probeResolved, gridMs)) continue;
+
+    const path = assignCellsToWord(probeResolved, cells, { anchor: anchorCell });
+    if (!path) continue;
+
+    const actualPattern = buildPatternFromAssignedPath(path);
+    const canonical = resolveWordPattern(actualPattern, "?");
+    if (!canonical) continue;
+    if (!wordMatchesMultiset(canonical, gridMs)) continue;
+
+    const finalPath = assignCellsToWord(canonical, cells, { anchor: anchorCell });
+    if (!finalPath) continue;
+    const finalPattern = buildPatternFromAssignedPath(finalPath);
+    if (resolveWordPattern(finalPattern, "?") !== canonical) continue;
+
+    const candidatePick = validateHintWordPick(
+      canonical,
+      finalPath,
+      finalPattern,
+      opts,
+      minLexicalTier,
+      allowFallbackOnlyWords,
+    );
+    if (!candidatePick) continue;
+
+    // 快速路径优先尽快给出可用提示；权重随机留给慢路径
+    return candidatePick;
+  }
+  return null;
+}
+
 /**
  * @param {number} [shift]
  * @returns {{ kind: 'exact', len: number, weight: number }[]}
@@ -198,12 +342,10 @@ function pickRandomWordAtLengthWithMinLexicalTier(
   minLexicalTier,
   allowFallbackOnlyWords,
 ) {
-  const bossResolveContext = opts.bossResolveContext ?? null;
   const anchorCell = opts.anchorCell ?? null;
   const requiredStartLetter = opts.requiredStartLetter ?? "";
   const tierForWord = opts.getHintLexicalTierForWord ?? (() => DEFAULT_HINT_LEXICAL_TIER);
   const lexicalWeightForWord = opts.getHintLexicalPickWeight ?? (() => DEFAULT_HINT_LEXICAL_PICK_WEIGHT);
-  const wordIsFallbackOnly = opts.getHintWordIsFallbackOnly ?? (() => false);
 
   const candidates = getCandidatesByLength(L);
   if (!Array.isArray(candidates) || !candidates.length) return null;
@@ -213,6 +355,8 @@ function pickRandomWordAtLengthWithMinLexicalTier(
   /** @type {WordPick | null} */
   let pick = null;
   let totalWeight = 0;
+  /** @type {Map<string, string | null>} */
+  const patternToResolved = new Map();
 
   for (const idx of checkOrder) {
     const word = candidates[idx];
@@ -221,19 +365,23 @@ function pickRandomWordAtLengthWithMinLexicalTier(
     if (!wordMatchesMultiset(word, gridMs)) continue;
     const path = assignCellsToWord(word, cells, { anchor: anchorCell });
     if (!path) continue;
-    const pattern = path
-      .map((c) => (c.isWildcard ? "?" : c.letter.toLowerCase()))
-      .join("");
-    const resolved = resolveWordPattern(pattern, "?");
+    const pattern = buildPatternFromAssignedPath(path);
+    let resolved = patternToResolved.get(pattern);
+    if (resolved === undefined) {
+      resolved = resolveWordPattern(pattern, "?") ?? null;
+      patternToResolved.set(pattern, resolved);
+    }
     if (!resolved || resolved !== word) continue;
 
-    const candidatePick = { word: resolved, path, pattern };
-    if (!isHintPickAcceptable(candidatePick, bossResolveContext)) {
-      continue;
-    }
-    if (!allowFallbackOnlyWords && wordIsFallbackOnly(resolved)) {
-      continue;
-    }
+    const candidatePick = validateHintWordPick(
+      resolved,
+      path,
+      pattern,
+      opts,
+      minLexicalTier,
+      allowFallbackOnlyWords,
+    );
+    if (!candidatePick) continue;
 
     const debuffN = countDebuffedLettersInPath(path);
     const w = lexicalWeightForWord(resolved) / (1 + debuffN);
@@ -271,8 +419,24 @@ export function pickRandomWordAtLength(
       ? { bossResolveContext: optsOrBossCtx }
       : optsOrBossCtx ?? {};
 
+  const usePatternFastPath = shouldUsePatternResolveFastPath(cells.length, gridMs);
+
   for (const allowFallbackOnly of [false, true]) {
     for (const minTier of HINT_LEXICAL_PASS_MIN_TIERS) {
+      if (usePatternFastPath) {
+        const fastPick = pickHintByPatternResolveAtLength(
+          cells,
+          L,
+          gridMs,
+          resolveWordPattern,
+          rng,
+          PATTERN_RESOLVE_MAX_ATTEMPTS,
+          opts,
+          minTier,
+          allowFallbackOnly,
+        );
+        if (fastPick) return fastPick;
+      }
       const pick = pickRandomWordAtLengthWithMinLexicalTier(
         cells,
         L,

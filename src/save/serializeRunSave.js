@@ -1,7 +1,7 @@
 import { getRunLevelAtIndex } from "../levelDefinitions.js";
 import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
 import { getDeckCardUidSeq } from "../composables/useGameState.js";
-import { normalizeRunSavePhase } from "./runSaveSchema.js";
+import { normalizeRunSaveMoney, normalizeRunSavePhase } from "./runSaveSchema.js";
 import { serializeRunMatchStats } from "./runMatchStatsCodec.js";
 import { serializeTreasureRunState } from "./treasureRunStateCodec.js";
 import { serializeAchievementRunState } from "../achievements/achievementRunState.js";
@@ -34,7 +34,7 @@ export function serializeRunSave(ctx) {
     levelIndex: Math.max(0, Math.floor(Number(ctx.levelIndex) || 0)),
     isEndlessRun: ctx.isEndlessRun === true,
     glyphShopSkipLevelAdvance: ctx.glyphShopSkipLevelAdvance === true,
-    money: Math.max(0, Math.floor(Number(ctx.money) || 0)),
+    money: normalizeRunSaveMoney(ctx.money),
     phase,
     activeSlotIndex: Math.max(0, Math.floor(Number(ctx.activeSlotIndex) || 0)),
     deckState,
@@ -101,7 +101,7 @@ export function buildRunSaveMetaFromPayload(payload, levelIndex) {
   return {
     seedDisplay: String(payload.runSeedDisplay ?? ""),
     levelId: levelDef?.id ?? "1-1",
-    money: Math.max(0, Math.floor(Number(payload.money) || 0)),
+    money: normalizeRunSaveMoney(payload.money),
     isEndlessRun: payload.isEndlessRun === true,
     phase: normalizeRunSavePhase(payload.phase),
     ownedTreasureEmojis: emojis.slice(0, 5),

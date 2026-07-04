@@ -130,9 +130,9 @@ const PRESETS = [
     id: "preset_10",
     emoji: "📐",
     name: "三角尺",
-    description: describe("你的单词被视为", handDelta("+1"), "长度，", discardDelta("-1"), "宝藏栏位"),
+    description: describe("你的单词被视为", handDelta("+2"), "长度，", discardDelta("-1"), "宝藏栏位"),
     effects: {
-      wordLengthJudgmentBonus: 1,
+      wordLengthJudgmentBonus: 2,
       treasureSlotDelta: -1,
     },
   },

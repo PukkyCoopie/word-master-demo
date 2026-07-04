@@ -2,7 +2,7 @@
  * 宝藏简介富文本片段（在数据里写死结构，由 TreasureDescRichText 渲染）。
  * 规范见同目录 treasureDescriptionSpec.md
  */
-import { getGameTermConceptPanel } from "../game/gameConceptCopy.js";
+import { getGameTermConceptPanel, getTileMaterialConceptPanel } from "../game/gameConceptCopy.js";
 import { parseProbabilityFraction } from "./treasureProbability.js";
 
 /** @typedef {'普通' | '稀有' | '史诗' | '传说'} TreasureRarityLabel */
@@ -193,6 +193,18 @@ export function concept(label) {
     console.warn(`[treasureDescription] concept('${v}') 未在 GAME_TERM_CONCEPT_BY_LABEL 登记`);
   }
   return /** @type {TreasureDescConcept} */ ({ type: "concept", v });
+}
+
+/**
+ * 棋盘材质块名：加粗展示，并在详情层主描述下追加 `TILE_MATERIAL_CONCEPT_BY_ID` 说明。
+ * @param {string} materialId 如 `water`
+ */
+export function materialConcept(materialId) {
+  const panel = getTileMaterialConceptPanel(materialId);
+  if (import.meta.env?.DEV && !panel) {
+    console.warn(`[treasureDescription] materialConcept('${materialId}') 未知材质`);
+  }
+  return concept(panel?.title ?? String(materialId ?? "").trim());
 }
 
 /** @param {string} v 如 "+1" */

@@ -10,6 +10,7 @@ import { remixiconWoff2Only } from "./vite-plugin-remixicon-woff2-only.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DICT_SRC = path.join(__dirname, "data", "dictionary", "dict.json");
+const DICT_SCOPES_SRC = path.join(__dirname, "data", "dictionary", "scopes");
 const DIST_DIR = path.join(__dirname, "dist");
 
 /** 构建产物中不随包发布的 public 路径（源图、实验页等） */
@@ -105,6 +106,20 @@ function buildSplitDictionaryPayload(rawJsonBuffer) {
   };
 }
 
+function copyDictionaryScopesToDist() {
+  if (!fs.existsSync(DICT_SCOPES_SRC)) {
+    console.warn("[vite] 未找到 data/dictionary/scopes，dist 可能不包含词汇范围侧车");
+    return;
+  }
+  const outDir = path.join(DIST_DIR, "data", "dictionary", "scopes");
+  fs.mkdirSync(outDir, { recursive: true });
+  for (const name of fs.readdirSync(DICT_SCOPES_SRC)) {
+    const src = path.join(DICT_SCOPES_SRC, name);
+    if (!fs.statSync(src).isFile()) continue;
+    fs.copyFileSync(src, path.join(outDir, name));
+  }
+}
+
 function writeDictionaryToDist() {
   if (!fs.existsSync(DICT_SRC)) {
     console.warn(
@@ -149,6 +164,7 @@ function writeDictionaryToDist() {
   console.log(
     `[vite] 词典分包：core ${(core.length / 1024 / 1024).toFixed(2)} MB（App 明文 / Web Brotli ${(coreCompressed.length / 1024 / 1024).toFixed(2)} MB）；defs ${(defs.length / 1024 / 1024).toFixed(2)} MB（Web Brotli ${(defsCompressed.length / 1024 / 1024).toFixed(2)} MB）`,
   );
+  copyDictionaryScopesToDist();
 }
 
 /** @param {"web" | "native" | "both"} shipMode */
@@ -192,6 +208,18 @@ function dictionaryFromDataDir() {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const clean = req.url?.split("?")[0] ?? "";
+        if (clean.includes("data/dictionary/scopes/")) {
+          const marker = "data/dictionary/scopes/";
+          const idx = clean.indexOf(marker);
+          const rel = idx >= 0 ? clean.slice(idx + marker.length) : "";
+          const filePath = path.join(DICT_SCOPES_SRC, rel);
+          if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            res.setHeader("Content-Type", "application/json; charset=utf-8");
+            res.setHeader("Cache-Control", "public, max-age=300");
+            fs.createReadStream(filePath).pipe(res);
+            return;
+          }
+        }
         if (!clean.endsWith("/data/dictionary/dict.json")) {
           next();
           return;
@@ -222,8 +250,12 @@ function dictionaryFromDataDir() {
 
 /** 构建时把 index.html 内联引导中的占位符替换为实际 module 入口 */
 function wordMasterDynamicEntry() {
+  const mainEntry = path.join(__dirname, "src", "main.js");
   return {
     name: "word-master-dynamic-entry",
+    resolveId(id) {
+      if (id === "__WM_MAIN_IMPORT__") return mainEntry;
+    },
     transformIndexHtml: {
       order: "pre",
       handler(html) {

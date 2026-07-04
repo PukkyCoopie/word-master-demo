@@ -17,6 +17,11 @@ import {
 import { estimateLineCountFromText } from "../dictionary/dictionaryJsonlParse.js";
 import { getAllowSpellingAbbreviations, getLetterQMode } from "../settings/gameSettings.js";
 import {
+  getActiveScopeIdsKey,
+  isWordInDictionaryScope,
+  loadDictionaryScopes,
+} from "../dictionary/dictionaryScope.js";
+import {
   candidateMatchesWildcardPattern,
   countWildcardCharsInPattern,
   countWildcardSlotsForWord,
@@ -256,6 +261,11 @@ function isWordAllowedByAbbrevSetting(word) {
   return !onlyAbbr.has(w);
 }
 
+/** 缩写设置 + 词汇范围并集 */
+function isWordAllowedByActiveDictionaryFilters(word) {
+  return isWordAllowedByAbbrevSetting(word) && isWordInDictionaryScope(word);
+}
+
 /** 通配符解析 LRU 缓存（pattern + 稀有度等级 → 结果） */
 const RESOLVE_PATTERN_CACHE_MAX = 128;
 /** @type {Map<string, string | null>} */
@@ -422,7 +432,7 @@ function mouthPatternHasSubstitutableFixedPositions(raw, vowelAltMask, wildcardC
 function buildPureWildcardTableKey(rarityLevelsByRarity) {
   const rarityKey = buildRarityLevelsKey(rarityLevelsByRarity);
   const abbrevKey = getAllowSpellingAbbreviations() ? "1" : "0";
-  return `${rarityKey}\0${abbrevKey}\0${getLetterQMode()}`;
+  return `${rarityKey}\0${abbrevKey}\0${getLetterQMode()}\0${getActiveScopeIdsKey()}`;
 }
 
 /** @param {Record<string, number> | null | undefined} rarityLevelsByRarity @returns {Map<number, string | null>} */
@@ -461,7 +471,7 @@ function buildAllPureWildcardTables(rarityLevelsByRarity) {
       }
 
       for (const candidate of candidates) {
-        if (!isWordAllowedByAbbrevSetting(candidate)) continue;
+        if (!isWordAllowedByActiveDictionaryFilters(candidate)) continue;
         const metrics = scoreAllLettersIntrinsicProductSum(
           candidate,
           letterProductByCharCode,
@@ -644,7 +654,7 @@ function pickBestWildcardFromWordIds(
 
   for (let k = 0; k < wordIds.length; k += 1) {
     const candidate = lengthIndex.words[wordIds[k]];
-    if (!candidate || !isWordAllowedByAbbrevSetting(candidate)) continue;
+    if (!candidate || !isWordAllowedByActiveDictionaryFilters(candidate)) continue;
     const metrics = scoreWildcardIntrinsicProductSum(
       raw,
       candidate,
@@ -714,7 +724,7 @@ function pickBestWildcardFromCandidatesLinear(
         }
       }
     }
-    if (!isWordAllowedByAbbrevSetting(candidate)) continue;
+    if (!isWordAllowedByActiveDictionaryFilters(candidate)) continue;
     const metrics = scoreWildcardIntrinsicProductSum(
       raw,
       candidate,
@@ -780,7 +790,7 @@ function pickBestMouthQuSlotFromWordIds(
 
   for (let k = 0; k < wordIds.length; k += 1) {
     const candidate = lengthIndex.words[wordIds[k]];
-    if (!candidate || !isWordAllowedByAbbrevSetting(candidate)) continue;
+    if (!candidate || !isWordAllowedByActiveDictionaryFilters(candidate)) continue;
     if (
       !candidateMatchesMouthSlotPattern(raw, candidate, quSlotMask, mouthTrios, wildcardChar)
     ) {
@@ -1072,7 +1082,7 @@ export function resolveWordPattern(
   const set = wordSet.value;
   if (!(set instanceof Set)) return null;
   if (!raw.includes(wildcardChar)) {
-    return set.has(raw) && isWordAllowedByAbbrevSetting(raw) ? raw : null;
+    return set.has(raw) && isWordAllowedByActiveDictionaryFilters(raw) ? raw : null;
   }
   if (isAllWildcardPattern(raw, wildcardChar)) {
     return resolvePureWildcardWord(raw.length, wildcardChar, rarityLevelsByRarity, bossResolveContext);
@@ -1080,7 +1090,7 @@ export function resolveWordPattern(
 
   const rarityKey = buildRarityLevelsKey(rarityLevelsByRarity);
   const bossKey = buildBossWildcardResolveCacheKey(bossResolveContext);
-  const cacheKey = `${raw}\0${wildcardChar}\0${rarityKey}\0${bossKey}\0${getLetterQMode()}`;
+  const cacheKey = `${raw}\0${wildcardChar}\0${rarityKey}\0${bossKey}\0${getLetterQMode()}\0${getActiveScopeIdsKey()}`;
   if (resolvePatternCache.has(cacheKey)) return resolvePatternCache.get(cacheKey) ?? null;
 
   const best = resolveMixedWildcardPattern(raw, wildcardChar, rarityLevelsByRarity, bossResolveContext);
@@ -1142,7 +1152,7 @@ export function resolveWordPatternWithMouthSubstitutions(
   const tubeFlag = hasTestTubeAllVowelsForMouth(ownedSlotTreasureIds) ? "1" : "0";
   const rarityKey = buildRarityLevelsKey(rarityLevelsByRarity);
   const bossKey = buildBossWildcardResolveCacheKey(bossResolveContext);
-  const cacheKey = `mouth\0${raw}\0${maskBits}\0${tubeFlag}\0${wildcardChar}\0${rarityKey}\0${bossKey}\0${getLetterQMode()}`;
+  const cacheKey = `mouth\0${raw}\0${maskBits}\0${tubeFlag}\0${wildcardChar}\0${rarityKey}\0${bossKey}\0${getLetterQMode()}\0${getActiveScopeIdsKey()}`;
   if (mouthResolvePatternCache.has(cacheKey)) return mouthResolvePatternCache.get(cacheKey) ?? null;
 
   const best = resolveMixedMouthWildcardPattern(
@@ -1187,7 +1197,7 @@ export function resolveWordSlotPatternWithMouthSubstitutions(
   const tubeFlag = hasTestTubeAllVowelsForMouth(ownedSlotTreasureIds) ? "1" : "0";
   const rarityKey = buildRarityLevelsKey(rarityLevelsByRarity);
   const bossKey = buildBossWildcardResolveCacheKey(bossResolveContext);
-  const cacheKey = `mouthQu\0${raw}\0${maskBits}\0${quBits}\0${tubeFlag}\0${wildcardChar}\0${rarityKey}\0${bossKey}\0${getLetterQMode()}`;
+  const cacheKey = `mouthQu\0${raw}\0${maskBits}\0${quBits}\0${tubeFlag}\0${wildcardChar}\0${rarityKey}\0${bossKey}\0${getLetterQMode()}\0${getActiveScopeIdsKey()}`;
   if (mouthResolvePatternCache.has(cacheKey)) return mouthResolvePatternCache.get(cacheKey) ?? null;
 
   const mouthTrios = buildMouthTriosForSlotPattern(raw, vowelAltMask, ownedSlotTreasureIds);
@@ -1274,7 +1284,7 @@ export function useDictionary() {
     if (!w) return false;
     const set = wordSet.value;
     if (!(set instanceof Set)) return false;
-    return set.has(w) && isWordAllowedByAbbrevSetting(w);
+    return set.has(w) && isWordAllowedByActiveDictionaryFilters(w);
   }
 
   /**
@@ -1302,7 +1312,8 @@ export function useDictionary() {
     const byLength = wordsByLength.value;
     if (!(byLength instanceof Map)) return [];
     const n = Math.max(0, Math.floor(Number(len)));
-    return byLength.get(n) ?? [];
+    const bucket = byLength.get(n) ?? [];
+    return bucket.filter((w) => isWordInDictionaryScope(w));
   }
 
   return {
@@ -1322,12 +1333,22 @@ export function useDictionary() {
   };
 }
 
+/**
+ * @param {string[] | null | undefined} scopeIds
+ * @param {{ shouldAbort?: () => boolean }} [options]
+ */
+export async function applyDictionaryScopes(scopeIds, options = {}) {
+  await loadDictionaryScopes(scopeIds, options);
+  clearResolvePatternCache();
+}
+
 /** @param {number} len */
 export function getCandidateWordsByLength(len) {
   const byLength = wordsByLength.value;
   if (!(byLength instanceof Map)) return [];
   const n = Math.max(0, Math.floor(Number(len)));
-  return byLength.get(n) ?? [];
+  const bucket = byLength.get(n) ?? [];
+  return bucket.filter((w) => isWordInDictionaryScope(w));
 }
 
 export function getWordDefinition(word) {

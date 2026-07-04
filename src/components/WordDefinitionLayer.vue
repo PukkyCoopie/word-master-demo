@@ -17,38 +17,25 @@
           @click.stop
         >
           <div class="word-definition-layer-header">
-            <h2 :id="titleId" class="word-definition-layer-word">{{ displayWord }}</h2>
-            <div ref="helpWrapRef" class="word-definition-layer-help-wrap">
+            <div class="word-definition-layer-title-group">
+              <h2 :id="titleId" class="word-definition-layer-word">{{ displayWord }}</h2>
               <button
                 type="button"
                 class="word-definition-layer-help-btn"
                 :class="{ 'word-definition-layer-help-btn--active': helpOpen }"
                 aria-label="释义说明"
-                :aria-expanded="helpOpen"
-                @click="toggleHelpPopover"
+                @click.stop="openHelpDialog"
               >
                 <i class="ri-question-line" aria-hidden="true" />
               </button>
-              <Transition name="word-definition-layer-help">
-                <div
-                  v-if="helpOpen"
-                  class="word-definition-layer-help-popover"
-                  role="note"
-                >
-                  <p class="word-definition-layer-help-text">
-                    释义来自网络词库，并非100%准确。如有错漏请点击这里反馈：
-                    <button
-                      type="button"
-                      class="word-definition-layer-feedback-btn"
-                      aria-label="前往论坛反馈"
-                      @click="onFeedbackClick"
-                    >
-                      <i class="ri-edit-line" aria-hidden="true" />
-                    </button>
-                  </p>
-                </div>
-              </Transition>
             </div>
+            <WordFavoriteButton
+              v-if="showFavoriteButton"
+              class="word-definition-layer-favorite"
+              :favorited="favorited"
+              :word="displayWord"
+              @toggle="emit('toggle-favorite')"
+            />
           </div>
           <div class="word-definition-layer-divider" aria-hidden="true" />
           <div v-if="lines.length" class="word-definition-layer-lines">
@@ -71,49 +58,48 @@
       </div>
     </Transition>
   </Teleport>
+  <Teleport to="body">
+    <SettingsHelpDialog :open="helpOpen" title="释义说明" @close="closeHelpDialog">
+      <template #body>
+        <p class="settings-help-dialog-text word-definition-help-text">
+          释义来自网络词库，并非100%准确。如有错漏请点击这里反馈：
+          <button
+            type="button"
+            class="word-definition-help-feedback-btn"
+            aria-label="前往论坛反馈"
+            @click="onFeedbackClick"
+          >
+            <i class="ri-edit-line" aria-hidden="true" />
+          </button>
+        </p>
+      </template>
+    </SettingsHelpDialog>
+  </Teleport>
 </template>
 
 <script setup>
-import { computed, onUnmounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { bumpOverlayZ } from "../game/overlayStack.js";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 import { scheduleOverlayDismiss, scheduleOverlayPresent } from "../platform/haptics.js";
 import { openTapTapFeedbackForum } from "../taptap/tapTapEngagement.js";
+import SettingsHelpDialog from "./settings/SettingsHelpDialog.vue";
+import WordFavoriteButton from "./WordFavoriteButton.vue";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
   word: { type: String, default: "" },
   lines: { type: Array, default: () => [] },
+  favorited: { type: Boolean, default: false },
+  showFavoriteButton: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["close"]);
+const emit = defineEmits(["close", "toggle-favorite"]);
 
 const titleId = "word-definition-layer-title";
 const stackZ = ref(0);
 const helpOpen = ref(false);
-const helpWrapRef = ref(null);
 const backdropSelfCloseGuard = createBackdropSelfCloseGuard();
-
-/** @param {PointerEvent} e */
-function onDocumentPointerDown(e) {
-  if (!helpOpen.value) return;
-  const wrap = helpWrapRef.value;
-  if (wrap instanceof HTMLElement && !wrap.contains(/** @type {Node} */ (e.target))) {
-    helpOpen.value = false;
-  }
-}
-
-watch(helpOpen, (open) => {
-  if (open) {
-    document.addEventListener("pointerdown", onDocumentPointerDown, true);
-  } else {
-    document.removeEventListener("pointerdown", onDocumentPointerDown, true);
-  }
-});
-
-onUnmounted(() => {
-  document.removeEventListener("pointerdown", onDocumentPointerDown, true);
-});
 
 const backdropStackStyle = computed(() =>
   stackZ.value > 0 ? { zIndex: stackZ.value } : {},
@@ -138,8 +124,12 @@ watch(
   { immediate: true },
 );
 
-function toggleHelpPopover() {
-  helpOpen.value = !helpOpen.value;
+function openHelpDialog() {
+  helpOpen.value = true;
+}
+
+function closeHelpDialog() {
+  helpOpen.value = false;
 }
 
 async function onFeedbackClick() {
@@ -200,9 +190,17 @@ function parsePosPrefix(line) {
   margin-bottom: calc(18 * var(--rpx));
 }
 
+.word-definition-layer-title-group {
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--rpx));
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .word-definition-layer-word {
   margin: 0;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   font-size: calc(44 * var(--rpx));
   font-weight: 800;
@@ -212,58 +210,44 @@ function parsePosPrefix(line) {
   word-break: break-word;
 }
 
-.word-definition-layer-help-wrap {
-  flex-shrink: 0;
+.word-definition-layer-favorite {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .word-definition-layer-help-btn {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: calc(40 * var(--rpx));
-  height: calc(40 * var(--rpx));
-  padding: 0;
-  border: calc(1 * var(--rpx)) solid rgba(155, 89, 182, 0.28);
-  border-radius: 50%;
-  background: rgba(155, 89, 182, 0.1);
-  color: #9b59b6;
-  font-size: calc(24 * var(--rpx));
+  padding: calc(4 * var(--rpx));
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #d4954a;
+  font-size: calc(30 * var(--rpx));
+  line-height: 1;
   cursor: pointer;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease,
-    border-color 0.12s ease;
+  transition: color 0.12s ease, opacity 0.12s ease;
 }
 
 .word-definition-layer-help-btn:hover,
 .word-definition-layer-help-btn--active {
-  background: rgba(155, 89, 182, 0.18);
-  border-color: rgba(155, 89, 182, 0.42);
-  color: #7c3aad;
+  color: #c0823a;
+  opacity: 1;
 }
 
-.word-definition-layer-help-popover {
-  position: absolute;
-  top: calc(100% + 10 * var(--rpx));
-  left: 0;
-  right: 0;
-  z-index: 2;
-  box-sizing: border-box;
-  padding: calc(14 * var(--rpx)) calc(16 * var(--rpx));
-  border-radius: calc(10 * var(--rpx));
-  background: #fff;
-  border: calc(1 * var(--rpx)) solid rgba(155, 89, 182, 0.22);
-  box-shadow: 0 calc(4 * var(--rpx)) calc(16 * var(--rpx)) rgba(60, 40, 80, 0.12);
+.word-definition-layer-help-btn:focus-visible {
+  outline: calc(2 * var(--rpx)) solid #d4954a;
+  outline-offset: calc(2 * var(--rpx));
+  border-radius: calc(4 * var(--rpx));
 }
 
-.word-definition-layer-help-text {
-  margin: 0;
-  font-size: calc(26 * var(--rpx));
-  line-height: 1.55;
-  color: var(--text);
+.word-definition-help-text {
+  font-weight: 400;
 }
 
-.word-definition-layer-feedback-btn {
+.word-definition-help-feedback-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -282,25 +266,12 @@ function parsePosPrefix(line) {
   transition: filter 0.12s ease;
 }
 
-.word-definition-layer-feedback-btn:hover {
+.word-definition-help-feedback-btn:hover {
   filter: brightness(1.05);
 }
 
-.word-definition-layer-feedback-btn:active {
+.word-definition-help-feedback-btn:active {
   filter: brightness(0.94);
-}
-
-.word-definition-layer-help-enter-active,
-.word-definition-layer-help-leave-active {
-  transition:
-    opacity calc(0.16s / var(--anim-speed-scale, 1)) ease,
-    transform calc(0.16s / var(--anim-speed-scale, 1)) ease;
-}
-
-.word-definition-layer-help-enter-from,
-.word-definition-layer-help-leave-to {
-  opacity: 0;
-  transform: translateY(calc(-4 * var(--rpx)));
 }
 
 .word-definition-layer-divider {

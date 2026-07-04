@@ -1,4 +1,4 @@
-import { computed, nextTick, provide } from "vue";
+import { computed, nextTick, provide, ref } from "vue";
 import gsap from "gsap";
 import { DECK_PREVIEW_KEY } from "../components/run/deckPreviewKey.js";
 import { coerceRunSeedNumeric } from "../game/runRng.js";
@@ -16,8 +16,8 @@ import { parseTranslationLines } from "../dictionary/parseTranslationLines.js";
 import { notifySubmitAfterLettersBeforePostSteps, notifyPerLetterPostScoringMaterialFx } from "../treasures/treasureRegistry.js";
 import {
   resolveWordSlotShrinkPopEl,
-  runGridTileMaterialChangeAtCell,
 } from "../game/gridTileIgniteFx.js";
+import { animateGridTileMaterialChangeAtCell } from "../game/spellTileAppearanceAnim.js";
 import { animateTreasureFrameFly } from "../game/shopOfferFlyAnim.js";
 import { handleRunEndDiscoverySelect as handleRunEndDiscoverySelectPreview } from "../game/runEndDiscoveryPreview.js";
 import { requestCloudSync } from "../save/cloudSave/cloudSaveSync.js";
@@ -143,6 +143,7 @@ export function useGamePanelSessionAssembly(input) {
     remainingRemovals,
     remainingWords,
     hintRemaining,
+    pendingHintChargeWord,
     remapTileFromRawLetter,
     removeDeckCardByUid,
     removeDeckCardByUidAndNotify,
@@ -364,6 +365,10 @@ export function useGamePanelSessionAssembly(input) {
     transitionBusy,
     treasureInventoryCtrl,
     wordDefinitionCtrl,
+    wordFavoriteCtrl,
+    showInlineFavoriteButton,
+    currentWordFavorited,
+    toggleCurrentWordFavorite,
     wordDefinitionExtraCount,
     wordDefinitionHiddenForWordLeave,
     wordDefinitionPreviewLine,
@@ -590,6 +595,8 @@ function applySubmitRefillForTutorial(options = {}) {
   }
 }
 
+const submitTilePresentationRevision = ref(0);
+
 const wordSlotPresentation =
   injectedWordSlotPresentation ??
   useWordSlotPresentation({
@@ -609,6 +616,7 @@ const wordSlotPresentation =
   getPlayfieldFlySnapshot: getPlayfieldFlySnapshotFromBridge,
   bossSlugForMechanics,
   getBossTileDebuffContext,
+  submitTilePresentationRevision,
 });
 
 const playfieldController = usePlayfieldController({
@@ -627,6 +635,7 @@ const playfieldController = usePlayfieldController({
     ensureCeruleanBellMarkedOnGrid,
     findCeruleanBellLockedTileOnGrid,
     hintRemaining,
+    pendingHintChargeWord,
     ROWS,
     COLS,
   },
@@ -686,6 +695,7 @@ const playfieldController = usePlayfieldController({
     gridTileRarityForRender: wordSlotPresentation.gridTileRarityForRender,
     gridTileVowelGhostForRender: wordSlotPresentation.gridTileVowelGhostForRender,
   },
+  submitTilePresentationRevision,
   firstWordTutorialActive,
   detail: {
     openTileDetail,
@@ -926,24 +936,54 @@ const submitController = useSubmitWordController({
     playGridTileMaterialChangeForSubmitWordSlot: async (letterIndex, onMidApply) => {
       const order = selectedOrder.value;
       const pos = order[letterIndex];
-      if (!pos || typeof pos.row !== "number" || typeof pos.col !== "number") {
+      const hasGridPos =
+        !!pos && typeof pos.row === "number" && typeof pos.col === "number";
+      const slotWrapper = playfieldController.getWordSlotElement?.(letterIndex) ?? null;
+      const wordSlotAnimEl = resolveWordSlotShrinkPopEl(slotWrapper);
+      const wordSlotContentEl =
+        playfieldController.getWordSlotContentElement?.(letterIndex)
+        ?? slotWrapper?.querySelector?.(".word-slot-content")
+        ?? null;
+      if (slotWrapper instanceof HTMLElement) {
+        gsap.killTweensOf(slotWrapper, "scale,rotation,x,y");
+      }
+      if (wordSlotContentEl instanceof HTMLElement) {
+        gsap.killTweensOf(wordSlotContentEl, "scale,rotation,x,y");
+        gsap.set(wordSlotContentEl, { clearProps: "scale,rotation,x,y,transform" });
+      }
+      const gridEl = hasGridPos ? getGridTileElByIndex(pos.row * COLS + pos.col) : null;
+      if (gridEl instanceof HTMLElement) {
+        gsap.killTweensOf(gridEl, "scale,rotation,x,y");
+      }
+      if (!hasGridPos && !(wordSlotAnimEl instanceof HTMLElement)) {
         onMidApply?.();
         playfieldController.touchGrid?.();
         return;
       }
-      const wordSlotEl = resolveWordSlotShrinkPopEl(
-        playfieldController.getWordSlotElement?.(letterIndex) ?? null,
-      );
-      await runGridTileMaterialChangeAtCell(
-        {
-          getGridTileEl: (r, c) => getGridTileElByIndex(r * COLS + c),
-          getWordSlotShrinkPopElForGridCell: () => wordSlotEl,
+      playfieldController.beginWordSlotMaterialAnim?.(letterIndex);
+      try {
+        await animateGridTileMaterialChangeAtCell({
+          row: hasGridPos ? pos.row : 0,
+          col: hasGridPos ? pos.col : 0,
+          getTileEl: hasGridPos
+            ? (r, c) => getGridTileElByIndex(r * COLS + c)
+            : () => undefined,
           touchGrid: () => playfieldController.touchGrid?.(),
-        },
-        pos.row,
-        pos.col,
-        onMidApply,
-      );
+          commitUi: () => nextTick(),
+          onMidApply,
+          companionEls:
+            wordSlotAnimEl instanceof HTMLElement ? [wordSlotAnimEl] : [],
+        });
+      } finally {
+        playfieldController.endWordSlotMaterialAnim?.();
+        if (slotWrapper instanceof HTMLElement) {
+          playfieldController.clearWordSlotGsapAfterSubmitLeave?.(slotWrapper);
+        }
+        if (wordSlotContentEl instanceof HTMLElement) {
+          gsap.killTweensOf(wordSlotContentEl);
+          gsap.set(wordSlotContentEl, { clearProps: "scale,rotation,x,y,transform" });
+        }
+      }
     },
     buildSubmitAfterLettersContext,
     flushDeferredWordSubmitRecord,
@@ -1153,6 +1193,9 @@ playfieldController.initViewContext({
   wordDefinitionZoneVisible,
   SHOW_SUBMIT_TRANSLATION,
   showWordDefinitionTrigger,
+  showInlineFavoriteButton,
+  currentWordFavorited,
+  toggleCurrentWordFavorite,
   wordDefinitionTriggerMode,
   wordDefinitionPreviewWord,
   wordDefinitionPreviewLine,
@@ -1603,6 +1646,7 @@ mountGamePanelSessionNamespaces({
     firstWordTutorial: firstWordTutorialCtrl,
     runEnd: runEndCtrl,
     wordDefinition: wordDefinitionCtrl,
+    wordFavorites: wordFavoriteCtrl,
     tileDetail: tileDetailCtrl,
     runResultPresentation: runResultPresentationCtrl,
     bossMechanics: bossMechanicsCtrl,

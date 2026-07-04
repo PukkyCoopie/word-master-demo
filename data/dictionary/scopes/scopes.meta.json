@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "fullDictionaryCount": 362731,
+  "scopes": [
+    {
+      "id": "full",
+      "label": "全量",
+      "metaOnly": true,
+      "count": 362731
+    },
+    {
+      "id": "cet4",
+      "label": "四级",
+      "file": "cet4.words.json",
+      "count": 3834
+    },
+    {
+      "id": "cet6",
+      "label": "六级",
+      "file": "cet6.words.json",
+      "count": 5391
+    },
+    {
+      "id": "ky",
+      "label": "考研",
+      "file": "ky.words.json",
+      "count": 4798
+    },
+    {
+      "id": "toefl",
+      "label": "托福",
+      "file": "toefl.words.json",
+      "count": 6946
+    },
+    {
+      "id": "ielts",
+      "label": "雅思",
+      "file": "ielts.words.json",
+      "count": 5007
+    },
+    {
+      "id": "gre",
+      "label": "GRE",
+      "file": "gre.words.json",
+      "count": 7472
+    },
+    {
+      "id": "oxford3000",
+      "label": "牛津3000",
+      "file": "oxford3000.words.json",
+      "count": 3301
+    },
+    {
+      "id": "bnc3000",
+      "label": "常用3000",
+      "file": "bnc3000.words.json",
+      "count": 2895
+    }
+  ]
+}

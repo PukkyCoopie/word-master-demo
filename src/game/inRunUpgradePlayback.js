@@ -1,6 +1,11 @@
 import { runClearWinLengthUpgradeShopLikeFx } from "../utils/runClearWinLengthUpgradeShopLikeFx.js";
 import { runInGameRarityUpgradeShopLikeFx } from "../utils/runInGameRarityUpgradeShopLikeFx.js";
 import { resolveUpgradePlaybackSpeed } from "../shop/randomUpgradeRoll.js";
+import {
+  UPGRADE_SEQUENCE_GAP_MS,
+  getSubmitScoringTriggeredUpgradeLocalSpeed,
+  upgradeAnimSleep,
+} from "./upgradePlaybackTiming.js";
 
 /**
  * 局内授予（宝藏钩子等）顶栏升级动效，与商店购买升级卡同款流程。
@@ -22,6 +27,10 @@ import { resolveUpgradePlaybackSpeed } from "../shop/randomUpgradeRoll.js";
  * }} deps
  */
 export function createInRunUpgradePlayback(deps) {
+  function resolveStepPlaybackSpeed(stepIndex, payload) {
+    return resolveUpgradePlaybackSpeed(stepIndex, payload) * getSubmitScoringTriggeredUpgradeLocalSpeed();
+  }
+
   /**
    * @param {{ apply?: () => void, payload: object }[]} steps
    */
@@ -49,11 +58,11 @@ export function createInRunUpgradePlayback(deps) {
               waitNextTick: deps.waitNextTick,
               rarityKey,
               beforeLevel,
-              speed: resolveUpgradePlaybackSpeed(i, p),
+              speed: resolveStepPlaybackSpeed(i, p),
               isFirstRarity: isFirst,
               isLastRarity: isLast,
             });
-            if (!isLast) await deps.sleep(Math.round(30 / resolveUpgradePlaybackSpeed(i, p)));
+            if (!isLast) await upgradeAnimSleep(UPGRADE_SEQUENCE_GAP_MS, resolveStepPlaybackSpeed(i, p));
           }
           continue;
         }
@@ -67,7 +76,7 @@ export function createInRunUpgradePlayback(deps) {
             waitNextTick: deps.waitNextTick,
             rarityKey: rk,
             beforeLevel,
-            speed: 1,
+            speed: getSubmitScoringTriggeredUpgradeLocalSpeed(),
           });
           continue;
         }
@@ -82,7 +91,7 @@ export function createInRunUpgradePlayback(deps) {
         for (let len = lenMin; len <= lenMax; len++) {
           const isFirst = len === lenMin;
           const isLast = len === lenMax;
-          const speed = resolveUpgradePlaybackSpeed(len - lenMin, p);
+          const speed = resolveStepPlaybackSpeed(len - lenMin, p);
           const lenBeforeLevel =
             beforeLevelsByLen != null && beforeLevelsByLen[len] != null
               ? Math.max(1, Math.round(Number(beforeLevelsByLen[len])) || 1)
@@ -99,7 +108,7 @@ export function createInRunUpgradePlayback(deps) {
             isFirstLength: isFirst,
             isLastLength: isLast,
           });
-          if (!isLast) await deps.sleep(Math.round(30 / speed));
+          if (!isLast) await upgradeAnimSleep(UPGRADE_SEQUENCE_GAP_MS, speed);
         }
       }
     } finally {

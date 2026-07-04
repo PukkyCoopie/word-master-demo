@@ -18,10 +18,10 @@
       <section
         v-for="group in groupedSections"
         :key="group.key"
-        class="collection-treasure-group"
+        class="collection-group collection-treasure-group"
       >
-        <div class="collection-treasure-group-divider" aria-hidden="true">
-          <span class="collection-treasure-group-divider__label">{{ group.label }}</span>
+        <div class="collection-group-divider" aria-hidden="true">
+          <span class="collection-group-divider__label">{{ group.label }}</span>
         </div>
         <div class="collection-grid collection-grid--shop-cells collection-grid--grouped">
           <CollectionShopTreasureCell
@@ -36,6 +36,7 @@
             :rarity="entry.rarity"
             :price="entry.price"
             :show-new-mark="entry.showNewMark"
+            :tab-preview-revealed="tabPreviewRevealed"
             @select="$emit('select-treasure', $event)"
           />
         </div>
@@ -55,6 +56,7 @@
         :rarity="entry.rarity"
         :price="entry.price"
         :show-new-mark="entry.showNewMark"
+        :tab-preview-revealed="tabPreviewRevealed"
         @select="$emit('select-treasure', $event)"
       />
     </div>
@@ -84,6 +86,7 @@ const GROUP_BY_OPTIONS = Object.freeze([
 
 const props = defineProps({
   discoveredTreasureIds: { type: Array, default: () => [] },
+  tabPreviewRevealed: { type: Boolean, default: false },
   collectionNewKeys: { type: Object, default: () => new Set() },
   groupView: { type: Boolean, default: false },
   groupBy: {
@@ -192,49 +195,5 @@ const groupedSections = computed(() =>
 .collection-treasure-toolbar__segment :deep(.settings-segment-btn) {
   padding: calc(8 * var(--rpx)) calc(4 * var(--rpx));
   font-size: calc(22 * var(--rpx));
-}
-
-.collection-treasure-group {
-  display: flex;
-  flex-direction: column;
-  gap: calc(4 * var(--rpx));
-}
-
-.collection-treasure-group-divider {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: calc(10 * var(--rpx));
-  margin: calc(10 * var(--rpx)) 0 calc(6 * var(--rpx));
-}
-
-.collection-treasure-group-divider::before,
-.collection-treasure-group-divider::after {
-  content: "";
-  flex: 0 1 calc(140 * var(--rpx));
-  width: 38%;
-  max-width: calc(220 * var(--rpx));
-  height: calc(2 * var(--rpx));
-}
-
-.collection-treasure-group-divider::before {
-  background: linear-gradient(to right, transparent, rgba(60, 58, 50, 0.2));
-}
-
-.collection-treasure-group-divider::after {
-  background: linear-gradient(to left, transparent, rgba(60, 58, 50, 0.2));
-}
-
-.collection-treasure-group-divider__label {
-  flex-shrink: 0;
-  font-size: calc(22 * var(--rpx));
-  font-weight: 600;
-  line-height: 1.25;
-  letter-spacing: 0.04em;
-  color: rgba(60, 58, 50, 0.52);
-}
-
-.collection-treasure-group:first-child .collection-treasure-group-divider {
-  margin-top: 0;
 }
 </style>

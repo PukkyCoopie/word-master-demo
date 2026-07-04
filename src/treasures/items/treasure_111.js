@@ -1,4 +1,4 @@
-import { describe } from "../treasureDescription.js";
+import { concept, describe } from "../treasureDescription.js";
 
 const ID = "111";
 const UPGRADE_FX_DELAY_MS = 300;
@@ -8,7 +8,7 @@ export default {
   price: 8,
   rarity: "epic",
   unlockPrerequisite: { type: "everDiscardedFullWord" },
-  description: describe("每当你在关卡中第一次弃掉一个完整单词，升级这个单词对应的长度"),
+  description: describe("每当你在关卡中第一次弃掉一个完整单词，", concept("升级"), "这个单词对应的长度"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

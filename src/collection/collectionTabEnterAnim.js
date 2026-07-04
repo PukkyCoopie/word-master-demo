@@ -16,7 +16,7 @@ function collectEnterTargets(root) {
   if (!root) return [];
   const items = [
     ...root.querySelectorAll(
-      ".collection-shop-cell, .collection-voucher-cell, .collection-material-row, .collection-accessory-row, .collection-leaderboard-entry, .collection-empty-tab",
+      ".collection-shop-cell, .collection-voucher-cell, .collection-material-row, .collection-accessory-row, .collection-leaderboard-entry, .collection-group-divider, .favorite-words-entry, .collection-empty-tab",
     ),
   ];
   return items.length ? items : [root];

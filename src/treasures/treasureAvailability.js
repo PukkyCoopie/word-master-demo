@@ -160,6 +160,8 @@ export function isTreasureUnlocked(def, snap) {
       return deckMaterialCountFromDerived(snap, derived, "lucky") >= Math.max(0, Number(pre.min) || 0);
     case "deckFireMin":
       return deckMaterialCountFromDerived(snap, derived, "fire") >= Math.max(0, Number(pre.min) || 0);
+    case "deckWaterMin":
+      return deckMaterialCountFromDerived(snap, derived, "water") >= Math.max(0, Number(pre.min) || 0);
     case "ownedLegendaryMin":
       return derived.ownedLegendaryCount >= Math.max(0, Number(pre.min) || 0);
     case "ownedEpicMinOrLegendaryMin": {

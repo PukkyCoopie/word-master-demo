@@ -316,13 +316,18 @@ export function usePackPickController(options) {
     await nextTick();
     const context = grantCtx !== "inRun" ? "shop" : "inRun";
     const offerDeckSource = grantCtx !== "inRun" ? "fullDeck" : "remainingDeck";
-    // 包内详情已展示过；普通法术直接即时释法或开操作层。
-    // 重播/骰子仍走 runSpellPreviewChain 原分支（展示将要释放的法术详情）。
-    await grant.runSpellPreviewChain(spellId, context, offerDeckSource, {
-      afterDetailUseShopCastLogic: grantCtx !== "inRun",
-    });
-    if (restoreLayersAfter) {
-      ensurePackPickOverlayVisible();
+    try {
+      // 包内详情已展示过；普通法术直接即时释法或开操作层。
+      // 重播/骰子仍走 runSpellPreviewChain 原分支（展示将要释放的法术详情）。
+      await grant.runSpellPreviewChain(spellId, context, offerDeckSource, {
+        afterDetailUseShopCastLogic: grantCtx !== "inRun",
+      });
+    } finally {
+      if (restoreLayersAfter) {
+        ensurePackPickOverlayVisible();
+      } else {
+        packPickOverlaySuppressed.value = false;
+      }
     }
   }
 
@@ -334,13 +339,18 @@ export function usePackPickController(options) {
     };
     packPickOverlaySuppressed.value = true;
     await nextTick();
-    if (getPackPickGrantContext() === "inRun") {
-      await grant.runInRunUpgradePlaybackSteps([step]);
-    } else {
-      await shop.runShopUpgradePlaybackSteps([step], { restoreLayersAfter });
-    }
-    if (restoreLayersAfter) {
-      ensurePackPickOverlayVisible();
+    try {
+      if (getPackPickGrantContext() === "inRun") {
+        await grant.runInRunUpgradePlaybackSteps([step]);
+      } else {
+        await shop.runShopUpgradePlaybackSteps([step], { restoreLayersAfter });
+      }
+    } finally {
+      if (restoreLayersAfter) {
+        ensurePackPickOverlayVisible();
+      } else {
+        packPickOverlaySuppressed.value = false;
+      }
     }
   }
 

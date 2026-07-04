@@ -4,13 +4,16 @@
       v-for="item in entries"
       :key="item.id"
       class="collection-material-row"
-      :class="{ 'collection-material-row--unknown': !item.discovered }"
+      :class="{
+        'collection-material-row--unknown': !item.discovered && !item.previewRevealed,
+        'collection-material-row--preview-revealed': !item.discovered && item.previewRevealed,
+      }"
     >
       <div class="collection-material-cell collection-material-cell--tile">
         <div class="collection-material-tile-wrap">
           <CollectionNewMark :show="item.showNewMark" />
           <LetterTile
-            v-if="item.discovered"
+            v-if="item.discovered || item.previewRevealed"
             variant="grid"
             class="collection-material-tile shop-shelf-letter-tile"
             letter="·"
@@ -31,7 +34,10 @@
         <div class="collection-material-text">
           <h3 class="collection-material-title">{{ item.title }}</h3>
           <p class="collection-material-desc">
-            <TreasureDescSegmentList v-if="item.discovered" :segments="item.segments" />
+            <TreasureDescSegmentList
+              v-if="item.discovered || item.previewRevealed"
+              :segments="item.segments"
+            />
             <span v-else>{{ unknownLabel }}</span>
           </p>
         </div>
@@ -55,6 +61,7 @@ import CollectionNewMark from "./CollectionNewMark.vue";
 
 const props = defineProps({
   discoveredMaterialIds: { type: Array, default: () => [] },
+  tabPreviewRevealed: { type: Boolean, default: false },
   collectionNewKeys: { type: Object, default: () => new Set() },
 });
 
@@ -65,10 +72,12 @@ const discoveredSet = computed(() => new Set((props.discoveredMaterialIds ?? [])
 const entries = computed(() =>
   COLLECTION_MATERIAL_DISPLAY_ORDER.map((id) => {
     const discovered = discoveredSet.value.has(id);
+    const previewRevealed = !discovered && props.tabPreviewRevealed;
     return {
       id,
       discovered,
-      title: discovered ? getTileMaterialBlockTitle(id) : COLLECTION_UNKNOWN_LABEL,
+      previewRevealed,
+      title: discovered || previewRevealed ? getTileMaterialBlockTitle(id) : COLLECTION_UNKNOWN_LABEL,
       segments: COLLECTION_MATERIAL_RICH_SEGMENTS[id] ?? [{ type: "text", v: "" }],
       showNewMark: discovered && props.collectionNewKeys.has(collectionNewKeyForMaterial(id)),
     };
@@ -114,6 +123,20 @@ const entries = computed(() =>
 
 .collection-material-row--unknown {
   opacity: 0.62;
+}
+
+.collection-material-row--preview-revealed {
+  opacity: 0.75;
+}
+
+.collection-material-row--preview-revealed .collection-material-title,
+.collection-material-row--preview-revealed .collection-material-desc {
+  color: var(--collection-material-fg);
+}
+
+.collection-material-row--preview-revealed .collection-material-desc :deep(.td-desc-gain),
+.collection-material-row--preview-revealed .collection-material-desc :deep(.td-desc-gain-block) {
+  color: var(--collection-material-fg-strong);
 }
 
 .collection-material-row .collection-material-cell {

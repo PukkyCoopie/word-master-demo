@@ -4,7 +4,10 @@
       v-for="entry in entries"
       :key="entry.id"
       class="collection-achievement-cell"
-      :class="{ 'collection-achievement-cell--locked': !entry.unlocked }"
+      :class="{
+        'collection-achievement-cell--locked': !entry.unlocked && !entry.previewRevealed,
+        'collection-achievement-cell--preview-revealed': !entry.unlocked && entry.previewRevealed,
+      }"
     >
       <div class="collection-achievement-cell__content">
         <div class="collection-achievement-cell__icon-wrap">
@@ -53,6 +56,7 @@ import TreasureDescSegmentList from "../TreasureDescSegmentList.vue";
 const props = defineProps({
   career: { type: Object, required: true },
   unlockedAchievementIds: { type: Array, default: () => [] },
+  tabPreviewRevealed: { type: Boolean, default: false },
   collectionNewKeys: { type: Object, default: () => new Set() },
 });
 
@@ -103,6 +107,7 @@ const unlockedSet = computed(() => new Set((props.unlockedAchievementIds ?? []).
 const entries = computed(() =>
   ACHIEVEMENT_DEFINITIONS.map((def) => {
     const unlocked = unlockedSet.value.has(def.id);
+    const previewRevealed = !unlocked && props.tabPreviewRevealed;
     const progressSuffix = unlocked
       ? null
       : formatAchievementCollectionProgressSuffix(
@@ -115,6 +120,7 @@ const entries = computed(() =>
       progressSuffix,
       iconUrl: getAchievementIconUrl(def),
       unlocked,
+      previewRevealed,
       showNewMark: unlocked && props.collectionNewKeys.has(collectionNewKeyForAchievement(def.id)),
     };
   }),
@@ -175,6 +181,10 @@ const entries = computed(() =>
   opacity: 0.55;
 }
 
+.collection-achievement-cell--preview-revealed .collection-achievement-cell__content {
+  opacity: 0.75;
+}
+
 .collection-achievement-cell__icon {
   width: calc(136 * var(--rpx));
   height: calc(136 * var(--rpx));
@@ -195,6 +205,10 @@ const entries = computed(() =>
 
 .collection-achievement-cell--locked .collection-achievement-cell__icon {
   filter: grayscale(1);
+}
+
+.collection-achievement-cell--preview-revealed .collection-achievement-cell__icon {
+  filter: none;
 }
 
 .collection-achievement-cell__name {

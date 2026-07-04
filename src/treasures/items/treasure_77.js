@@ -1,5 +1,5 @@
 import { getTileMaterialBlockTitle, getTileMaterialEffectDescription } from "../../game/gameConceptCopy.js";
-import { describe, gain } from "../treasureDescription.js";
+import { describe, materialConcept } from "../treasureDescription.js";
 
 const ID = "77";
 const WILDCARD_MATERIAL_ID = "wildcard";
@@ -9,7 +9,7 @@ export default {
   rarity: "rare",
   description: describe(
     "当一次拼写中包含至少3种材质的字母块时，使棋盘上一个随机字母块变为",
-    gain(getTileMaterialBlockTitle("wildcard")),
+    materialConcept("wildcard"),
   ),
 };
 

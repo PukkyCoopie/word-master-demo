@@ -73,6 +73,7 @@ export function sumWordScoreIntrinsicPersistScoreDeltaPerVisit(
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     if (!hooks?.mergeLetterScoreCueIntoIntrinsicLetterScoreStep) continue;
     if (hooks?.perLetterScoreCueDepositsTreasureBank) continue;
+    if (hooks?.replaySubmitScoreAdjustmentsOwnsPerLetterScore) continue;
     const cue = hooks.getPerLetterScoreCue?.(ctx, part, letterIndex);
     delta += Math.max(0, Math.floor(Number(cue?.delta) || 0));
   }

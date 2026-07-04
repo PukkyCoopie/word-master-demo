@@ -7,9 +7,9 @@ test("buildBossTapeSubLine: default uiDescription", () => {
     buildBossTapeSubLine({
       slug: "the_hook",
       nameZh: "倒钩",
-      uiDescription: "每次拼词后，场上随机四格变为无效",
+      uiDescription: "每次拼词后，使棋盘上随机四格变为无效",
     }),
-    "每次拼词后，场上随机四格变为无效",
+    "每次拼词后，使棋盘上随机四格变为无效",
   );
 });
 

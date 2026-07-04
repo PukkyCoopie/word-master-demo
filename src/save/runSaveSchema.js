@@ -38,6 +38,7 @@
  * @property {string[]} [discoveredAccessoryIds]
  * @property {import('../collection/collectionTypes.js').CollectionWordRecord[]} [scoreLeaderboard]
  * @property {import('../collection/collectionTypes.js').CollectionWordRecord[]} [lengthLeaderboard]
+ * @property {import('../collection/collectionTypes.js').WordFavoriteEntry[]} [favoriteWords]
  * @property {string[]} [collectionNewDiscoveryKeys]
  * @property {string[]} [collectionTabsPendingNewClear]
  * @property {string[]} [unlockedAchievementIds]
@@ -105,6 +106,7 @@ export function createEmptySlotCareerStats() {
     discoveredAccessoryIds: [],
     scoreLeaderboard: [],
     lengthLeaderboard: [],
+    favoriteWords: [],
     collectionNewDiscoveryKeys: [],
     collectionTabsPendingNewClear: [],
     unlockedAchievementIds: [],
@@ -133,6 +135,11 @@ export function normalizeRunSavePhase(phase) {
   return /** @type {RunSavePhase} */ (
     RUN_SAVE_PHASES.includes(/** @type {RunSavePhase} */ (s)) ? s : "playing"
   );
+}
+
+/** @param {unknown} value @returns {number} 存档钱包整数（信用卡等可负债，负值须原样读写） */
+export function normalizeRunSaveMoney(value) {
+  return Math.floor(Number(value) || 0);
 }
 
 /** 局内进度是否仍可从主菜单「继续」恢复（整局结束后的存档不算可继续） */

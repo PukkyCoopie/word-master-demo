@@ -3,7 +3,7 @@ import { createRunRng } from "../game/runRng.js";
 import { deserializeRunMatchStats } from "./runMatchStatsCodec.js";
 import { deserializeTreasureRunState } from "./treasureRunStateCodec.js";
 import { deserializeAchievementRunState } from "../achievements/achievementRunState.js";
-import { normalizeRunSavePhase } from "./runSaveSchema.js";
+import { normalizeRunSaveMoney, normalizeRunSavePhase } from "./runSaveSchema.js";
 import { cloneSaveData } from "./saveDataClone.js";
 import { hydrateOwnedTreasureSlots } from "../treasures/ownedTreasureSlot.js";
 import { deserializeRunDiscoveryLog } from "../game/runCollectionDiscoveries.js";
@@ -25,7 +25,7 @@ export function hydrateRunSave(payload, ctx) {
   if (ctx.glyphShopSkipLevelAdvanceRef) {
     ctx.glyphShopSkipLevelAdvanceRef.value = payload.glyphShopSkipLevelAdvance === true;
   }
-  if (ctx.moneyRef) ctx.moneyRef.value = Math.max(0, Math.floor(Number(payload.money) || 0));
+  if (ctx.moneyRef) ctx.moneyRef.value = normalizeRunSaveMoney(payload.money);
 
   if (ctx.ownedTreasuresRef) {
     ctx.ownedTreasuresRef.value = hydrateOwnedTreasureSlots(payload.ownedTreasures ?? []);

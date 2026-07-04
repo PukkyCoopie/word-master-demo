@@ -6,6 +6,7 @@
  *
  * - 材质：见下方 `TILE_*` 表；配饰定义见 `accessories/accessoryCatalog.js`，玩家向文案见下方 `TILE_BOARD_ACCESSORY_*` / `TREASURE_ACCESSORY_*` 表。
  * - 机制词：在 `GAME_TERM_CONCEPT_BY_LABEL` 登记后，简介里用 `concept('词')` 显式标记 → 详情/法术选格在主描述下补充分区（不做全文匹配）。
+ * - 材质块名：简介里用 `materialConcept(materialId)`（或 `concept('水波块')` 等块名）标记 → 补充分区文案来自 `TILE_MATERIAL_CONCEPT_BY_ID`。
  *
  * @see `tileDetailDescriptions.js` 仅作向后兼容 re-export，新代码请直接 import 本文件。
  */
@@ -37,7 +38,7 @@ export const TILE_MATERIAL_CONCEPT_BY_ID = Object.freeze({
   }),
   water: Object.freeze({
     blockTitle: "水波块",
-    effectDescription: "+30 分数",
+    effectDescription: "+40 分数",
   }),
   fire: Object.freeze({
     blockTitle: "火焰块",
@@ -158,7 +159,7 @@ export const TREASURE_ACCESSORY_CONCEPT_BY_ID = Object.freeze({
   }),
   treasure_acc_rental: Object.freeze({
     title: "租赁配饰",
-    effectDescription: "可以花费$1元购买，但关卡结束时扣除$3",
+    effectDescription: "可以花费$1元购买，但关卡结算时扣除$3",
   }),
 });
 
@@ -305,14 +306,32 @@ function collectNamedAccessoryPanelsFromPlainText(text, seen) {
 }
 
 /**
+ * @param {string | null | undefined} materialId
+ * @returns {DescriptionConceptPanel | null}
+ */
+export function getTileMaterialConceptPanel(materialId) {
+  const id = normId(materialId);
+  const c = TILE_MATERIAL_CONCEPT_BY_ID[id];
+  if (!c?.blockTitle || !c?.effectDescription) return null;
+  return { title: c.blockTitle, effectDescription: c.effectDescription };
+}
+
+/**
  * @param {string} label
  * @returns {DescriptionConceptPanel | null}
  */
 export function getGameTermConceptPanel(label) {
   const key = normId(label);
   const c = GAME_TERM_CONCEPT_BY_LABEL[key];
-  if (!c?.title || !c?.effectDescription) return null;
-  return { title: c.title, effectDescription: c.effectDescription };
+  if (c?.title && c?.effectDescription) {
+    return { title: c.title, effectDescription: c.effectDescription };
+  }
+  for (const mat of Object.values(TILE_MATERIAL_CONCEPT_BY_ID)) {
+    if (mat.blockTitle === key) {
+      return { title: mat.blockTitle, effectDescription: mat.effectDescription };
+    }
+  }
+  return null;
 }
 
 /**

@@ -118,17 +118,12 @@ export function createShopUpgradePlayback(deps) {
         step.apply?.();
         await deps.getShopPanel()?.playUpgradeResult?.(step.payload);
       }
-    } catch (e) {
+    } finally {
       deps.shopUpgradeAnimating.value = false;
       deps.shopOverlayLayersSuppressed.value = false;
       shopUpgradePlaybackStepIndex = -1;
       shopUpgradePlaybackStepCount = 0;
-      throw e;
     }
-    deps.shopUpgradeAnimating.value = false;
-    deps.shopOverlayLayersSuppressed.value = false;
-    shopUpgradePlaybackStepIndex = -1;
-    shopUpgradePlaybackStepCount = 0;
   }
 
   function onShopUpgradeInteractionUnlock() {

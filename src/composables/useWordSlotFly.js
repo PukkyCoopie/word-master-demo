@@ -26,7 +26,6 @@ export const MIDDLE_MAX_W = 722;
  * @property {() => void} ensureSlotRafRunning
  * @property {(deltaMs?: number | boolean) => void} updateSlotPositions
  * @property {(item: object) => void} [commitFlyInSlotPosition]
- * @property {() => number} [getSubmitWordLeaveHiddenCount]
  */
 
 /**
@@ -49,7 +48,6 @@ export function useWordSlotFly(options) {
     ensureSlotRafRunning,
     updateSlotPositions,
     commitFlyInSlotPosition,
-    getSubmitWordLeaveHiddenCount,
   } = options;
 
   const {
@@ -222,8 +220,7 @@ export function useWordSlotFly(options) {
   }
 
   function isSlotContentHidden(displayIndex) {
-    const leaveHidden = Math.max(0, Math.floor(Number(getSubmitWordLeaveHiddenCount?.()) || 0));
-    if (leaveHidden > 0 && displayIndex < leaveHidden) return true;
+    // 仅飞回棋盘时隐藏槽内字母；计分离场由 GSAP 整槽淡出，勿 opacity:0 内容（会露出白底并丢掉材质 canvas）
     return flyingBackBatches.value.some((b) => displayIndex >= b.slotIndex);
   }
 

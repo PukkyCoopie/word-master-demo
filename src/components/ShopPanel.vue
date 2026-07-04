@@ -429,6 +429,18 @@ import {
 } from "../composables/useScoring";
 import { resolveUpgradePlaybackSpeed } from "../shop/randomUpgradeRoll.js";
 import { bubbleAtShopPanel } from "../game/popupBubbleFx.js";
+import {
+  UPGRADE_FIRST_LEAD_IN_GAP_MS,
+  UPGRADE_FIRST_RARITY_INTRO_MS,
+  UPGRADE_FINAL_HOLD_MS,
+  UPGRADE_SEQUENCE_GAP_MS,
+  UPGRADE_STEP_GAP_MS,
+  UPGRADE_SWITCH_GAP_MS,
+  UPGRADE_SWITCH_SETTLE_MS,
+  UPGRADE_VALUE_TWEEN_S,
+  UPGRADE_WOBBLE_BUBBLE_MS,
+  upgradeAnimSleep,
+} from "../game/upgradePlaybackTiming.js";
 import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
 import { buildShopOfferPriceView } from "../shop/shopOfferPriceDisplay.js";
 import { isSingleDigitLabel } from "./detailLayerFormatters.js";
@@ -666,10 +678,6 @@ function toDom(el) {
   return el.$el ?? el;
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function bubbleAt(targetEl, text, kind) {
   bubbleAtShopPanel(targetEl, text, kind);
 }
@@ -700,7 +708,7 @@ async function runPanelWobbleAndBubble(panelEl, text, kind, speed = 1) {
   if (!panelEl) return;
   const s = Math.max(0.01, Number(speed) || 1);
   wobblePanelLikeScoreSlot(panelEl, 0, s);
-  await sleep(Math.round(145 / s));
+  await upgradeAnimSleep(UPGRADE_WOBBLE_BUBBLE_MS, s);
   bubbleAt(panelEl, text, kind);
 }
 
@@ -741,15 +749,15 @@ async function playSwitchToLengthDefault(lenLabel, level, scoreBefore, multBefor
   const levelEl = shopResultAreaRef.value?.getWordlenLevelEl?.() ?? null;
   // 多长度切换：不归零，直接切到新长度默认值；x字母也加入序列动画
   popSettle(wordlenMainEl, s);
-  await sleep(Math.round(60 / s));
+  await upgradeAnimSleep(UPGRADE_SWITCH_GAP_MS, s);
   popSettle(levelEl, s);
-  await sleep(Math.round(60 / s));
+  await upgradeAnimSleep(UPGRADE_SWITCH_GAP_MS, s);
   shopResultScoreValue.value = Math.max(0, Math.round(scoreBefore));
   popSettle(scoreBoxEl, s);
-  await sleep(Math.round(60 / s));
+  await upgradeAnimSleep(UPGRADE_SWITCH_GAP_MS, s);
   shopResultMultValue.value = Math.max(0, Math.round(multBefore));
   popSettle(multBoxEl, s);
-  await sleep(Math.round(180 / s));
+  await upgradeAnimSleep(UPGRADE_SWITCH_SETTLE_MS, s);
 }
 
 async function playOneLengthUpgrade(
@@ -791,31 +799,28 @@ async function playOneLengthUpgrade(
     await playSwitchToLengthDefault(lenLabel, beforeLevel, scoreBefore, multBefore, s);
   }
 
-  const stepGapMs = 200;
-  const firstLengthLeadInGapMs = 160;
-  const valueTweenS = 0.46;
-  await sleep(Math.round((isFirstLength ? firstLengthLeadInGapMs : stepGapMs) / s));
+  await upgradeAnimSleep(isFirstLength ? UPGRADE_FIRST_LEAD_IN_GAP_MS : UPGRADE_STEP_GAP_MS, s);
   const levelEl = shopResultAreaRef.value?.getWordlenLevelEl?.() ?? null;
   await runPanelWobbleAndBubble(levelEl, "+1", "level", s);
   shopResultLevelShown.value = nextLevel;
 
-  await sleep(Math.round(stepGapMs / s));
+  await upgradeAnimSleep(UPGRADE_STEP_GAP_MS, s);
   const scoreBoxEl = shopResultAreaRef.value?.getScoreBoxEl?.() ?? null;
   await runPanelWobbleAndBubble(scoreBoxEl, `+${scoreAdd}`, "score", s);
   // 分数补间并行进行，不阻塞倍率 +x 的触发节拍
-  const scoreTweenPromise = tweenResultValues(scoreAfter, multBefore, valueTweenS / s);
+  const scoreTweenPromise = tweenResultValues(scoreAfter, multBefore, UPGRADE_VALUE_TWEEN_S / s);
 
-  await sleep(Math.round(stepGapMs / s));
+  await upgradeAnimSleep(UPGRADE_STEP_GAP_MS, s);
   const multBoxEl = shopResultAreaRef.value?.getMultBoxEl?.() ?? null;
   await runPanelWobbleAndBubble(multBoxEl, `+${multAdd}`, "mult", backToNormalMid);
   await scoreTweenPromise;
-  await tweenResultValues(scoreAfter, multAfter, valueTweenS / backToNormalMid);
+  await tweenResultValues(scoreAfter, multAfter, UPGRADE_VALUE_TWEEN_S / backToNormalMid);
 
   if (isLastLength) {
     shopResultWordlenVisible.value = false;
     await nextTick();
     emit("upgrade-interaction-unlock");
-    await sleep(Math.round(460 / backToNormalEnd));
+    await upgradeAnimSleep(UPGRADE_FINAL_HOLD_MS, backToNormalEnd);
     await tweenResultValues(0, 0, 0.75 / backToNormalEnd);
   }
 }
@@ -836,15 +841,15 @@ async function playSwitchToRarityDefault(line, level, scoreBefore, multBefore, s
   const multBoxEl = shopResultAreaRef.value?.getMultBoxEl?.() ?? null;
   const levelEl = shopResultAreaRef.value?.getWordlenLevelEl?.() ?? null;
   popSettle(wordlenMainEl, s);
-  await sleep(Math.round(60 / s));
+  await upgradeAnimSleep(UPGRADE_SWITCH_GAP_MS, s);
   popSettle(levelEl, s);
-  await sleep(Math.round(60 / s));
+  await upgradeAnimSleep(UPGRADE_SWITCH_GAP_MS, s);
   shopResultScoreValue.value = Math.max(0, Math.round(scoreBefore));
   popSettle(scoreBoxEl, s);
-  await sleep(Math.round(60 / s));
+  await upgradeAnimSleep(UPGRADE_SWITCH_GAP_MS, s);
   shopResultMultValue.value = Math.max(0, Math.round(multBefore));
   popSettle(multBoxEl, s);
-  await sleep(Math.round(180 / s));
+  await upgradeAnimSleep(UPGRADE_SWITCH_SETTLE_MS, s);
 }
 
 async function playOneRarityUpgrade(
@@ -886,7 +891,7 @@ async function playOneRarityUpgrade(
     await nextTick();
     const wordlenMainEl = shopResultAreaRef.value?.getWordlenMainEl?.() ?? null;
     popSettle(wordlenMainEl, s);
-    await sleep(Math.round(120 / s));
+    await upgradeAnimSleep(UPGRADE_FIRST_RARITY_INTRO_MS, s);
   } else {
     await playSwitchToRarityDefault(line, beforeLevel, scoreBefore, multBefore, s);
   }
@@ -895,29 +900,26 @@ async function playOneRarityUpgrade(
   const scoreBoxEl = shopResultAreaRef.value?.getScoreBoxEl?.() ?? null;
   const multBoxEl = shopResultAreaRef.value?.getMultBoxEl?.() ?? null;
 
-  const stepGapMs = 200;
-  const firstRarityLeadInGapMs = 160;
-  const valueTweenS = 0.46;
-  await sleep(Math.round((isFirstRarity ? firstRarityLeadInGapMs : stepGapMs) / s));
+  await upgradeAnimSleep(isFirstRarity ? UPGRADE_FIRST_LEAD_IN_GAP_MS : UPGRADE_STEP_GAP_MS, s);
   await runPanelWobbleAndBubble(levelEl, "+1", "level", s);
   shopResultLevelShown.value = nextLevel;
 
-  await sleep(Math.round(stepGapMs / s));
-  const scoreTweenPromise = tweenResultValues(scoreAfter, multBefore, valueTweenS / s);
+  await upgradeAnimSleep(UPGRADE_STEP_GAP_MS, s);
+  const scoreTweenPromise = tweenResultValues(scoreAfter, multBefore, UPGRADE_VALUE_TWEEN_S / s);
   await runPanelWobbleAndBubble(scoreBoxEl, `+${scoreAdd}`, "score", s);
 
-  await sleep(Math.round(stepGapMs / s));
+  await upgradeAnimSleep(UPGRADE_STEP_GAP_MS, s);
   if (multDelta > 0) {
     await runPanelWobbleAndBubble(multBoxEl, `+${multDelta}`, "mult", backToNormalMid);
   }
   await scoreTweenPromise;
-  await tweenResultValues(scoreAfter, multAfter, valueTweenS / backToNormalMid);
+  await tweenResultValues(scoreAfter, multAfter, UPGRADE_VALUE_TWEEN_S / backToNormalMid);
 
   if (isLastRarity) {
     shopResultWordlenVisible.value = false;
     await nextTick();
     emit("upgrade-interaction-unlock");
-    await sleep(Math.round(460 / backToNormalEnd));
+    await upgradeAnimSleep(UPGRADE_FINAL_HOLD_MS, backToNormalEnd);
     await tweenResultValues(0, 0, 0.75 / backToNormalEnd);
   }
 }
@@ -936,7 +938,7 @@ async function playUpgradeResult(payload) {
       const isLast = i === rarities.length - 1;
       const speed = resolveUpgradePlaybackSpeed(i, payload);
       await playOneRarityUpgrade(rarityKey, beforeLevel, speed, isFirst, isLast);
-      if (!isLast) await sleep(Math.round(30 / speed));
+      if (!isLast) await upgradeAnimSleep(UPGRADE_SEQUENCE_GAP_MS, speed);
     }
     return;
   }
@@ -972,7 +974,7 @@ async function playUpgradeResult(payload) {
         ? Math.max(1, Math.round(Number(beforeLevelsByLen[len])) || 1)
         : beforeLevel;
     await playOneLengthUpgrade(len, lenBeforeLevel, isFirst, isLast, speed, isObsBoost(len));
-    if (!isLast) await sleep(Math.round(30 / speed));
+    if (!isLast) await upgradeAnimSleep(UPGRADE_SEQUENCE_GAP_MS, speed);
   }
 }
 

@@ -136,6 +136,8 @@
  * @property {() => void} [touchGrid] 刷新棋盘响应式
  * @property {() => object[][] | null | undefined} [getGrid] 当前棋盘二维数组
  * @property {(row: number, col: number, onMidApply?: () => void) => Promise<void>} [playGridTileIgniteFxAtCell] 棋盘格引燃：缩小→onMidApply→回弹+「点燃」气泡
+ * @property {(row: number, col: number, onMidApply?: () => void) => Promise<void>} [playGridTileMaterialChangeAtCell] 棋盘格材质切换：缩小→onMidApply→回弹（无气泡）
+ * @property {(materialId: string) => void} [noteCollectionMaterialAcquired] 图鉴材质发现补记
  * @property {(slotIndex: number) => Promise<void>} [playWordSlotCopyFxAtIndex] 词槽字母 wobble +「复制」气泡（传真机等）
  * @property {(spec: { raw: string, accessoryId?: string | null, tileScoreBonus?: number, letterMultBonus?: number, materialId?: string | null }) => object | null} [appendDeckCardSpecToRunDeck]
  */
@@ -167,7 +169,7 @@
  * @property {object[]} [submittedScoringTiles]
  * @property {(slotIndex: number, scoringTile?: object | null) => object | null} [resolveSubmitTileAtIndex]
  * @property {() => void} [touchGrid]
- * @property {(tile: object) => void} [patchGridPlaceholderFreezeFromTile]
+ * @property {(tile: object) => void} [patchGridPlaceholderFreezeFromTile] 同步棋盘占位冻结快照并刷新词槽/占位展示
  * @property {() => HTMLElement[]} [getWordSlotEls]
  * @property {() => HTMLElement[]} [getGridTileElsInOrder]
  * @property {(opts: SubmitWordEnhancementStripLeaveOpts) => Promise<void>} [playSubmitTileEnhancementStripLeave]
@@ -185,7 +187,7 @@
  * @property {() => number} [rng]
  * @property {number} [scoringVisitIndex]
  * @property {(slotIndex: number, scoringTile?: object | null) => object | null} [resolveSubmitTileAtIndex]
- * @property {(tile: object) => void} [patchGridPlaceholderFreezeFromTile]
+ * @property {(tile: object) => void} [patchGridPlaceholderFreezeFromTile] 同步棋盘占位冻结快照并刷新词槽/占位展示
  * @property {(letterIndex: number, onMidApply?: () => void) => Promise<void>} [playGridTileMaterialChangeForSubmitWordSlot]
  * @property {() => void} [touchGrid]
  */
@@ -257,6 +259,8 @@
  * @property {boolean} [perLetterScoreCueDepositsTreasureBank] 为 true 时：逐字 cue 仅累加宝藏分数银行并在宝藏槽弹出 +Δ，不入词槽公式；入账在字后 `buildPostLetterStep` 的 `scoreAdd`（如泡泡 80）
  * @property {boolean} [showPerLetterScoreCueBubble] 与 `perLetterScoreCueDepositsTreasureBank` 配套：设为 false 时，逐字仅 wobble 宝藏槽并入账，不显示 +Δ 气泡（如泡泡 80）
  * @property {boolean} [mergeLetterScoreCueIntoIntrinsicLetterScoreStep] 为 true 时：`getPerLetterScoreCue` 的平面分增量与单字母「本体分数」（稀有度+tile 平面分+材质平面分）**同一拍**展示——词槽一次 wobble/气泡、`animScoreSum` 一次加上该增量，且不再单独走 `runSlotPerLetterTreasureScoreStep`；须与 `persistTileAfterPerLetterTreasureCue`（band `score`）写回角标一致（如剪贴板）。**仅**「增益落在 tile 角标/本体」类；元音、指定字母等条件宝藏勿开。
+ * @property {boolean} [replaySubmitScoreAdjustmentsOwnsPerLetterScore] 为 true 时：平面分由 {@link accumulateReplaySubmitAdjustments} 按 replay 汇总，不参与 `sumWordScoreIntrinsicPersistScoreDeltaPerVisit`（如海浪 143）
+ * @property {boolean} [dedupePerLetterScoreCueByTreasureId] 为 true 时：同宝藏 id 的逐字 merge cue 每字母只取一次（多路径仍可在 cue 内自行入账）
  * @property {(ctx: { ownedSlotTreasureIds: (string | null | undefined)[] }, part: { letter?: string, rarity?: string }, letterIndex: number) => { delta: number, label?: string } | null | undefined} [getPerLetterMultCue]
  * @property {boolean} [mergeLetterMultCueIntoIntrinsicLetterMultStep] 为 true 时：`getPerLetterMultCue` 的倍率增量与单字母「本体倍率」（稀有度+材质+tile 角标）**同一拍**展示——词槽一次 wobble/气泡、`animMultTotal` 一次加上该增量，且不再单独走 `runSlotPerLetterTreasureMultStep`；须与 `persistTileAfterPerLetterTreasureCue`（band `mult`）写回角标一致（如回形针）。**仅**「增益落在 tile 角标/本体」类；元音倍率等条件宝藏勿开。
  * @property {(ctx: { ownedSlotTreasureIds: (string | null | undefined)[], scoringVisitIndex?: number, rng?: () => number, treasureRun?: import('./treasureRunState.js').TreasureRunState }, part: { letter?: string, rarity?: string }, letterIndex: number) => { money?: number } | null | undefined} [getPerLetterMoneyCue] 逐字计分后各 visit 独立掷概率得金币；提交时预掷、动画在词槽 wobble 后弹出金币气泡并入账

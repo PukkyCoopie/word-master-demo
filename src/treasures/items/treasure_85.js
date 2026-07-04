@@ -7,7 +7,7 @@ const ID = "85";
 export default {
   price: 6,
   rarity: "rare",
-  description: describe("如果拼写的单词为副词，打开一个字母组合包"),
+  description: describe("每当你拼写一个副词后，打开一个字母组合包"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

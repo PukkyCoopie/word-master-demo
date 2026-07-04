@@ -3,7 +3,7 @@ import { SHOP_TILE_PACK_MATERIAL_IDS } from "../shop/shopPackEconomy.js";
 
 const WILDCARD_MATERIAL_ID = "wildcard";
 const WILDCARD_TILE_LETTER = "?";
-const WATER_MATERIAL_SCORE_BONUS = 30;
+import { WATER_MATERIAL_SCORE_BONUS } from "../game/tileMaterialApply.js";
 const FIRE_MATERIAL_MULT_BONUS = 5;
 
 /**

@@ -8,6 +8,7 @@ import { computed } from "vue";
  * @property {import('vue').Ref<boolean>} tileDragActive
  * @property {import('vue').Ref<{ zone?: string, row?: number, col?: number } | null>} tileDragSource
  * @property {(tile: object) => object | null} gridPlaceholderFrozenPresentation
+ * @property {import('vue').Ref<number>} [submitTilePresentationRevision]
  * @property {import('vue').Ref<Map<unknown, string>>} gridTileLetterForRender
  * @property {import('vue').Ref<Map<unknown, string>>} gridTileRarityForRender
  * @property {import('vue').Ref<Map<unknown, { prev?: string | null, next?: string | null }>>} gridTileVowelGhostForRender
@@ -26,6 +27,7 @@ export function createPlayfieldGridRender(deps) {
     tileDragActive,
     tileDragSource,
     gridPlaceholderFrozenPresentation,
+    submitTilePresentationRevision,
     gridTileLetterForRender,
     gridTileRarityForRender,
     gridTileVowelGhostForRender,
@@ -75,7 +77,19 @@ export function createPlayfieldGridRender(deps) {
       tileDragSource.value.row === row &&
       tileDragSource.value.col === col;
     if (placeholder) {
-      return [tile.id, placeholder, tileDragActive.value, dragSourceCell];
+      const frozen = gridPlaceholderFrozenPresentation(tile);
+      return [
+        tile.id,
+        placeholder,
+        tileDragActive.value,
+        dragSourceCell,
+        frozen?.materialId ?? tile.materialId ?? null,
+        frozen?.accessoryId ?? tile.accessoryId ?? null,
+        frozen?.treasureAccessoryId ?? tile.treasureAccessoryId ?? null,
+        frozen?.tileScoreBonus ?? (Number(tile.tileScoreBonus) || 0),
+        frozen?.tileMultBonus ?? (Number(tile.letterMultBonus) || 0),
+        submitTilePresentationRevision?.value ?? 0,
+      ];
     }
     const shared = [
       tile.id,

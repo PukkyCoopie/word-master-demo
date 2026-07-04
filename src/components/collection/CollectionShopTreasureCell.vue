@@ -3,8 +3,8 @@
     type="button"
     class="collection-shop-cell shop-treasure-product"
     :class="{
-      'collection-shop-cell--unknown': unknown && !prerequisiteLocked,
-      'collection-shop-cell--prerequisite-locked': prerequisiteLocked,
+      'collection-shop-cell--unknown': unknown && !tabPreviewRevealed,
+      'collection-shop-cell--preview-revealed': unknown && tabPreviewRevealed,
     }"
     :aria-label="cellAriaLabel"
     @click="onClick"
@@ -68,7 +68,7 @@
       class="collection-shop-cell__name"
       :class="{
         'collection-shop-cell__name--unknown': showUnknownVisual,
-        'collection-shop-cell__name--prerequisite': prerequisiteLocked,
+        'collection-shop-cell__name--prerequisite': prerequisiteLocked && !showUnknownVisual,
       }"
     >
       <i
@@ -92,6 +92,8 @@ const props = defineProps({
   showNewMark: { type: Boolean, default: false },
   /** 未发现但有 unlockPrerequisite，可点开预览 */
   prerequisiteLocked: { type: Boolean, default: false },
+  /** tab 解锁进度 ≥80% 时，未获得条目在列表中揭示真实图标与名称（仍半透明） */
+  tabPreviewRevealed: { type: Boolean, default: false },
   /** 有 unlockPrerequisite 时在名称前显示感叹号（含已发现） */
   showPrerequisiteBadge: { type: Boolean, default: false },
   spellOffer: { type: Boolean, default: false },
@@ -112,7 +114,7 @@ const emit = defineEmits(["select"]);
 
 const gemClass = computed(() => gemClassForTreasureRarity(props.rarity));
 
-const showUnknownVisual = computed(() => props.unknown);
+const showUnknownVisual = computed(() => props.unknown && !props.tabPreviewRevealed);
 
 const displayName = computed(() =>
   showUnknownVisual.value ? COLLECTION_UNKNOWN_LABEL : String(props.name ?? "").trim(),
@@ -166,9 +168,8 @@ function onClick(event) {
   opacity: 0.55;
 }
 
-.collection-shop-cell--prerequisite-locked {
-  cursor: pointer;
-  opacity: 0.78;
+.collection-shop-cell--preview-revealed {
+  opacity: 0.75;
 }
 
 .collection-shop-cell__unknown {

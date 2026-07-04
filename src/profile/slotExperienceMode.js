@@ -48,7 +48,10 @@ export function hasSlotExperienceModeChosen(index) {
   return getSlotExperienceMode(index) != null;
 }
 
-/** @param {number} index */
+/**
+ * 仅在玩家主动选择体验模式时调用；勿在启动/切槽时覆盖设置页已保存的释义与提示偏好。
+ * @param {number} index
+ */
 export function syncWordHintModeFromSlotExperience(index) {
   const mode = getSlotExperienceMode(index);
   if (!mode) return;
@@ -69,8 +72,7 @@ export function applySlotExperienceMode(index, mode) {
   prof.experienceMode = normalized;
   persistPlayerProfile();
 
-  setWordHintMode(wordHintModeForExperienceMode(normalized));
-  setWordDefinitionMode(wordDefinitionModeForExperienceMode(normalized));
+  syncWordHintModeFromSlotExperience(ix);
 
   mutateSlotCareer(ix, (career) => {
     setLastSelectedPresetId(career, presetIdForExperienceMode(normalized));
