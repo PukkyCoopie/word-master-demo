@@ -208,7 +208,7 @@ export function createGamePanelDevCommands(deps) {
     await deps.nextTick();
     await finishScreenshotDevGridVisual();
     console.log(
-      "[DEV] 禁售金牌+炸弹+彗星测试局：槽位 [🥇][💣][☄️]，各带禁售配饰。",
+      "[DEV] 禁售金牌+炸弹+彗星测试局：槽位 [🥇禁售][💣禁售][☄️无禁售]。过关炸弹爆炸时金牌假摧毁、彗星真摧毁。",
     );
   }
 

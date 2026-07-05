@@ -18,16 +18,20 @@ export function isNoSellGoldBombCometDevScenario(rng) {
 }
 
 /**
- * 开局 [金牌][炸弹][彗星]，各带禁售配饰（金牌用尽次数过关测试等）。
+ * 开局 [禁售金牌][禁售炸弹][彗星]（仅两侧为禁售，便于测炸弹邻槽真/假摧毁）。
  * @param {import('vue').Ref<(object | null)[]>} ownedTreasuresRef
  * @param {(input: Record<string, unknown>) => object} buildOwnedTreasureSlot
  */
 export function applyNoSellGoldBombCometOwnedTreasures(ownedTreasuresRef, buildOwnedTreasureSlot) {
-  ownedTreasuresRef.value = [GOLD_MEDAL_TREASURE_ID, BOMB_TREASURE_ID, COMET_TREASURE_ID].map(
-    (treasureId) =>
-      buildOwnedTreasureSlot({
-        treasureId,
-        treasureAccessoryIds: [ACCESSORY_NO_SELL],
-      }),
-  );
+  ownedTreasuresRef.value = [
+    buildOwnedTreasureSlot({
+      treasureId: GOLD_MEDAL_TREASURE_ID,
+      treasureAccessoryIds: [ACCESSORY_NO_SELL],
+    }),
+    buildOwnedTreasureSlot({
+      treasureId: BOMB_TREASURE_ID,
+      treasureAccessoryIds: [ACCESSORY_NO_SELL],
+    }),
+    buildOwnedTreasureSlot({ treasureId: COMET_TREASURE_ID }),
+  ];
 }
