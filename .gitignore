@@ -34,5 +34,9 @@ pnpm-debug.log*
 # Local scratch (not versioned)
 tmp/
 
+# ECDICT sqlite 源数据（体积过大，本地自行下载解压，见 tools/build_dict_scopes.mjs）
+data/dictionary/ecdict-sqlite-28.zip
+data/dictionary/ecdict-sqlite-tmp/
+
 # 下次 commit 使用的中/大版本标记（npm run version:minor/major）
 .version-bump-pending
