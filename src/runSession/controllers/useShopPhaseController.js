@@ -694,8 +694,12 @@ export function useShopPhaseController(options) {
     }
   }
 
+  function shopShelfHasOffers(rows) {
+    return Array.isArray(rows) && rows.some((o) => o?.kind === "offer");
+  }
+
   function shopVisitStockMissingFromSave() {
-    return shopOffers.value.length === 0 && packOffers.value.length === 0;
+    return !shopShelfHasOffers(shopOffers.value) && !shopShelfHasOffers(packOffers.value);
   }
 
   function refreshShopVoucherShelfForCurrentVisit() {

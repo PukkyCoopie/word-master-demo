@@ -1,3 +1,4 @@
+import "./platform/legacyPolyfills.js";
 import { createApp } from "vue";
 import "remixicon/fonts/remixicon.css";
 import "../css/game.css";
@@ -93,4 +94,4 @@ if (typeof window !== "undefined" && window.__WM_BOOT_BLOCKED__ === true) {
   void initAndroidBackButton();
   app.mount("#app");
 }
-
+

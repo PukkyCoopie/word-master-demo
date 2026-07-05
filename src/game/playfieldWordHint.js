@@ -270,16 +270,23 @@ export function createPlayfieldWordHint(deps) {
   watch(
     () => getFirstWordTutorialPhase?.() ?? null,
     (phase, prevPhase) => {
-      if (phase !== "retryHint" || prevPhase === "retryHint") return;
-      refreshWordHintAfterGridStable();
+      if (phase === "retryHint" && prevPhase !== "retryHint") {
+        refreshWordHintAfterGridStable();
+        return;
+      }
+      if (phase === "fading" && prevPhase !== "fading" && prevPhase !== "idle") {
+        refreshWordHintAfterGridStable();
+      }
     },
     { flush: "post" },
   );
 
   const showHintButtonInRun = computed(() => {
     if (getWordHintMode() === "hidden") return false;
+    const phase = getFirstWordTutorialPhase?.() ?? null;
+    if (phase === "fading") return true;
     if (!firstWordTutorialActive.value) return true;
-    return getFirstWordTutorialPhase?.() === "retryHint";
+    return phase === "retryHint";
   });
 
   const hintButtonMuted = computed(() => {

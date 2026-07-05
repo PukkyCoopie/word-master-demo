@@ -1266,6 +1266,7 @@ playfieldController.initViewContext({
   remainingRemovals,
   removalDeltaKey: discardController.removalDeltaKey,
   canSubmit,
+  showToast,
   scoringAnimating,
   gridRefillAnimating,
   scoringLetterIndex,

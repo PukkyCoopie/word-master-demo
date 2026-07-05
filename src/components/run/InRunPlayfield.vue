@@ -58,8 +58,27 @@ const pfSubmitReady = computed(
 );
 
 function trySubmitWord() {
-  if (!pfSubmitReady.value) return;
-  pv.submitWord?.();
+  if (pfSubmitReady.value) {
+    pv.submitWord?.();
+    return;
+  }
+  if (
+    pfCanSubmit.value &&
+    (pfFlyingLetters.value.length > 0 || pfFlyingBackBatches.value.length > 0)
+  ) {
+    pv.showToast?.("字母移动中，请稍候");
+  }
+}
+
+function onSubmitClick(e) {
+  if (pfSubmitHoldMode.value && pfSubmitReady.value) {
+    submitHold.onClick(e);
+    if (e.defaultPrevented) {
+      pv.showToast?.("该词违反 Boss 规则，请按住以确认提交");
+    }
+    return;
+  }
+  submitHold.onClick(e);
 }
 
 const submitHold = useHoldConfirmInteraction({
@@ -545,13 +564,13 @@ defineExpose({
               :class="{
                 'action-btn-green': !pfBossSoftViolation,
                 'action-btn--boss-violation-preview': pfBossSoftViolation,
-                'action-btn-disabled': !pfCanSubmit || pfScoringAnimating || pfGridRefillAnimating,
+                'action-btn-disabled': !pfSubmitReady,
                 'action-btn--tutorial-ready': pfSubmitTutorialReady,
                 'hold-action-btn--holding': submitHold.holding.value,
               }"
               :title="pfSubmitHoldMode ? '按住以提交' : '提交'"
               data-haptic-skip-ui-tap
-              @click="submitHold.onClick"
+              @click="onSubmitClick"
               @pointerdown="onSubmitPointerDown"
               @pointerup="submitHold.onPointerUp"
               @pointercancel="submitHold.onPointerCancel"
