@@ -1,4 +1,5 @@
 import { describe } from "../treasureDescription.js";
+import { playTreasureHookBubbleFx } from "../treasureBankHelpers.js";
 
 const ID = "24";
 
@@ -15,6 +16,6 @@ export const treasureHooks = {
     const rs = ctx.treasureRun;
     if (!rs) return;
     rs.shopFreeRerollsRemaining = Math.max(0, Math.floor(Number(rs.shopFreeRerollsRemaining) || 0)) + 1;
-    await ctx.playOwnedTreasureBubbleFx?.(ID, "免费刷新", "reroll");
+    await playTreasureHookBubbleFx(ctx, ID, "免费刷新", "reroll");
   },
 };

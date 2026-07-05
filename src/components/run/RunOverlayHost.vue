@@ -121,7 +121,6 @@ defineExpose({
     <TreasureDetailLayer
       v-if="activeTreasureDetail"
       ref="treasureDetailLayerRef"
-      :overlay-suppressed="shopOverlayLayersSuppressed"
       :treasure="activeTreasureDetail.treasure"
       :description-override="treasureDetailDescriptionOverride"
       :charge-visual-state="treasureDetailChargeVisualState"
@@ -154,7 +153,6 @@ defineExpose({
     />
     <TreasureDetailLayer
       v-if="ov.spellReferencePreview"
-      :overlay-suppressed="shopOverlayLayersSuppressed"
       :treasure="ov.spellReferencePreview"
       mode="spell-reference"
       :owned-voucher-ids="runOwnedVoucherIds"

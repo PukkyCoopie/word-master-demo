@@ -1,4 +1,5 @@
 import { describe, money } from "../treasureDescription.js";
+import { resolveTreasureHookAnimSlotIndex } from "../../game/treasureBlueprintMirror.js";
 import { countVowelsInDiscardBatch } from "../treasureLifecycleShared.js";
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
@@ -13,6 +14,7 @@ export const treasureHooks = {
   async onDiscardBatch(ctx) {
     const vowels = countVowelsInDiscardBatch(ctx.discardedLetters, ctx.ownedSlotTreasureIds);
     if (vowels < 5) return;
-    await ctx.playOwnedTreasureMoneyFx?.("49", 5);
+    const slotIndex = resolveTreasureHookAnimSlotIndex(ctx);
+    await ctx.playOwnedTreasureMoneyFx?.("49", 5, slotIndex != null ? { slotIndex } : {});
   },
 };

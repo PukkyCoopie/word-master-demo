@@ -15,6 +15,14 @@ import {
 import { applyEctoplasmDevOwnedTreasures } from "./ectoplasmDevScenario.js";
 import { applyNoSellGoldBombCometOwnedTreasures } from "./noSellGoldBombCometDevScenario.js";
 import {
+  applyTreasureHookFxDevOwnedTreasures,
+  applyTreasureHookFxDevScenarioState,
+  formatTreasureHookFxDevScenarioHelpLines,
+  listTreasureHookFxDevScenarios,
+  resolveTreasureHookFxDevScenario,
+  TREASURE_HOOK_FX_DEV_COPY_COUNT,
+} from "./treasureHookFxDevScenario.js";
+import {
   applyPromoGameplayOwnedTreasures,
   buildPromoSuperPackPickSession,
   logLongestValidWordsOnGrid,
@@ -85,6 +93,11 @@ import {
  *   nextOfferInstanceId: import('vue').Ref<number>,
  *   grantRandomOwnedTreasuresInRunWithPopAnim: (count?: number, opts?: object) => Promise<number>,
  *   tryCeruleanBellMarkAfterGridStable: () => Promise<void>,
+ *   treasureRunState?: import('vue').Ref<object>,
+ *   remainingWords?: import('vue').Ref<number>,
+ *   targetScore?: import('vue').Ref<number>,
+ *   onShopVisitEnter?: (options?: { hydrateSkip?: boolean }) => void,
+ *   runTreasureLevelCompleteHooks?: () => Promise<void>,
  * }} deps
  */
 export function createGamePanelDevCommands(deps) {
@@ -319,12 +332,109 @@ export function createGamePanelDevCommands(deps) {
     const levelDef = deps.getRunLevelAtIndex(deps.refs.levelIndex.value);
     await deps.resetLevelAfterTreasurePrep(levelDef);
     await deps.nextTick();
-    await deps.runGridIntroAfterReset()
+    await deps.runGridIntroAfterReset();
     deps.scheduleRunAutoSave();
     console.log("[DEV] 青铃测试局：已跳至 1-3，Boss 固定为青铃。");
   }
 
-  /** @param {1 | 3} presetId */
+  /**
+   * 宝藏 hook FX：同 id 多持时仅触发槽 wobble/气泡（非全槽连环动画）。
+   * @param {unknown} [treasureId]
+   * @param {{ copyCount?: number, levelIndex?: number }} [opts]
+   */
+  async function startTreasureHookFxDevTest(treasureId, opts = {}) {
+    const scenario = resolveTreasureHookFxDevScenario(treasureId);
+    if (!scenario) {
+      console.warn(
+        [
+          "[DEV] startTreasureHookFxDevTest: 无效宝藏 id。可用：",
+          ...formatTreasureHookFxDevScenarioHelpLines(),
+          "  示例：__WM_DEV__.startTreasureHookFxDevTest('59')",
+          "  列表：__WM_DEV__.listTreasureHookFxDevTests()",
+        ].join("\n"),
+      );
+      return null;
+    }
+    if (deps.refs.transitionBusy.value) {
+      console.warn("[DEV] 转场进行中，请稍后再试");
+      return null;
+    }
+    deps.refs.transitionBusy.value = true;
+    try {
+      deps.refs.showShop.value = false;
+      deps.refs.showSettlement.value = false;
+      deps.refs.showRunEnd.value = false;
+      deps.refs.showPauseOptions.value = false;
+      deps.refs.showDeveloperOptions.value = false;
+      deps.refs.packPickSession.value = null;
+      deps.refs.shopOverlayLayersSuppressed.value = false;
+      deps.refs.packPickOverlaySuppressed.value = false;
+      await deps.nextTick();
+
+      const copyCount = Math.max(1, Math.floor(Number(opts.copyCount) || TREASURE_HOOK_FX_DEV_COPY_COUNT));
+      applyTreasureHookFxDevOwnedTreasures(
+        deps.refs.ownedTreasures,
+        deps.buildOwnedTreasureSlot,
+        scenario.id,
+        deps.treasureRunState,
+        copyCount,
+      );
+
+      const levelIdx = Math.max(0, Math.floor(Number(opts.levelIndex) || 0));
+      deps.refs.levelIndex.value = levelIdx;
+      deps.refs.glyphShopSkipLevelAdvance.value = false;
+      const levelDef = deps.getRunLevelAtIndex(levelIdx);
+      await deps.resetLevelAfterTreasurePrep(levelDef, { skipBossRestrictionNotify: true });
+      await deps.nextTick();
+      await finishScreenshotDevGridVisual();
+
+      await applyTreasureHookFxDevScenarioState(scenario, {
+        refs: deps.refs,
+        ROWS: deps.ROWS,
+        COLS: deps.COLS,
+        getGrid: deps.getGrid,
+        touchGrid: deps.touchGrid,
+        nextTick: deps.nextTick,
+        runRandom: deps.runRandom,
+        nextOfferInstanceId: deps.nextOfferInstanceId,
+        treasureRunState: deps.treasureRunState,
+        remainingWords: deps.remainingWords,
+        targetScore: deps.targetScore,
+        onShopVisitEnter: deps.onShopVisitEnter,
+        runTreasureLevelCompleteHooks: deps.runTreasureLevelCompleteHooks,
+      });
+
+      deps.scheduleRunAutoSave();
+      const result = {
+        treasureId: scenario.id,
+        name: scenario.name,
+        emoji: scenario.emoji,
+        copyCount,
+        phase: scenario.phase,
+        triggerHint: scenario.triggerHint,
+      };
+      console.log(
+        `[DEV] ${scenario.emoji} ${scenario.name}(${scenario.id}) ×${copyCount} — ${scenario.triggerHint}`,
+        result,
+      );
+      return result;
+    } finally {
+      deps.refs.transitionBusy.value = false;
+    }
+  }
+
+  function listTreasureHookFxDevTests() {
+    const rows = listTreasureHookFxDevScenarios().map((s) => ({
+      id: s.id,
+      label: `${s.emoji} ${s.name}`,
+      phase: s.phase,
+      triggerHint: s.triggerHint,
+    }));
+    console.table(rows);
+    console.log("[DEV] 进入测试：__WM_DEV__.startTreasureHookFxDevTest('宝藏id')");
+    return rows;
+  }
+
   async function startScreenshotPresetDevTest(presetId) {
     if (presetId === 3) {
       deps.refs.shopOverlayLayersSuppressed.value = false;
@@ -428,6 +538,8 @@ export function createGamePanelDevCommands(deps) {
     dev.startMouthQuProblemDevTest = () => startMouthQuProblemDevTest();
     dev.startEctoplasmDevTest = () => startEctoplasmDevTest();
     dev.startNoSellGoldBombCometDevTest = () => startNoSellGoldBombCometDevTest();
+    dev.startTreasureHookFxDevTest = (treasureId, opts) => startTreasureHookFxDevTest(treasureId, opts);
+    dev.listTreasureHookFxDevTests = () => listTreasureHookFxDevTests();
     dev.jumpToLevel = (levelIdOrIndex, opts) => jumpToLevelDev(levelIdOrIndex, opts);
     dev.jumpToBossShop = (bossSlug, chapterOrLevelId) =>
       jumpToBossShopDev(bossSlug, chapterOrLevelId);
@@ -464,6 +576,8 @@ export function createGamePanelDevCommands(deps) {
     startEctoplasmDevTest,
     startNoSellGoldBombCometDevTest,
     startCeruleanBellDevTest,
+    startTreasureHookFxDevTest,
+    listTreasureHookFxDevTests,
     jumpToLevelDev,
     jumpToBossShopDev,
     startScreenshotPresetDevTest,

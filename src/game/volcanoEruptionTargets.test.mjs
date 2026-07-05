@@ -8,10 +8,9 @@ import {
   resolveVolcanoTreasureVictimIndices,
 } from "./volcanoEruptionTargets.js";
 
-test("火山喷发：除火山槽外非空宝藏纳入受害者，禁售跳过", () => {
+test("火山喷发：除火山槽外非空宝藏均纳入动画受害者（含禁售）", () => {
   const slots = [{ treasureId: "1" }, { treasureId: "54" }, { treasureId: "2" }, { treasureId: "3" }];
   assert.deepEqual(resolveVolcanoTreasureVictimIndices(slots, 1), [0, 2, 3]);
-  assert.deepEqual(resolveVolcanoTreasureVictimIndices(slots, 1, (ix) => ix === 0), [2, 3]);
 });
 
 test("gridTileHasMaterial：无材质 / wildcard / 有材质", () => {

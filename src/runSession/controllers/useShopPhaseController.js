@@ -1,5 +1,6 @@
 import { computed, ref } from "vue";
 import { createShopUpgradePlayback } from "../../game/shopUpgradePlayback.js";
+import { waitForShopPresentationBeforeTreasureFx } from "../../game/shopTreasureFxTiming.js";
 import { createShopWalletGainAnim } from "../../game/shopWalletGainAnim.js";
 import { IMPLEMENTED_TREASURE_ID_SET } from "../../treasures/treasureCatalog.js";
 import {
@@ -117,7 +118,6 @@ const SHOP_ELIGIBLE_IMPLEMENTED_DEFS = Object.freeze(
  * @property {() => void} scheduleRunAutoSave
  * @property {(msg: string) => void} showToast
  * @property {() => object} ownedTreasureHookFxBridge
- * @property {(fn: (...args: unknown[]) => unknown) => unknown} playOwnedTreasureMultDeltaFx
  * @property {(treasureId: string, options?: object) => void} [recordPrerequisiteTreasureShopAppeared]
  * @property {() => object} readNormalizedSlotCareer
  * @property {{
@@ -208,7 +208,6 @@ export function useShopPhaseController(options) {
     scheduleRunAutoSave,
     showToast,
     ownedTreasureHookFxBridge,
-    playOwnedTreasureMultDeltaFx,
     recordPrerequisiteTreasureShopAppeared,
     readNormalizedSlotCareer,
     getShopPanel,
@@ -762,11 +761,19 @@ export function useShopPhaseController(options) {
   }
 
   function runOwnedTreasuresOnShopEnterFx() {
-    void notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIdList(), {
-      treasureRun: treasureRunState.value,
-      ownedSlotTreasureIds: ownedSlotTreasureIdList(),
-      ...ownedTreasureHookFxBridge(),
-    });
+    void (async () => {
+      const ready = await waitForShopPresentationBeforeTreasureFx({
+        getShowShop: () => showShop.value,
+        getTransitionBusy: () => gates.transitionBusy.value,
+        nextTick: waitNextTick,
+      });
+      if (!ready) return;
+      await notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIdList(), {
+        treasureRun: treasureRunState.value,
+        ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+        ...ownedTreasureHookFxBridge(),
+      });
+    })();
   }
 
   function buildRollBundleOptionsCtx() {
@@ -853,7 +860,8 @@ export function useShopPhaseController(options) {
     await onAfterStockReroll?.();
     void notifyOwnedTreasuresOnShopReroll(ownedSlotTreasureIdList(), {
       treasureRun: treasureRunState.value,
-      playOwnedTreasureMultDeltaFx,
+      ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+      ...ownedTreasureHookFxBridge(),
     });
     scheduleRunAutoSave();
   }

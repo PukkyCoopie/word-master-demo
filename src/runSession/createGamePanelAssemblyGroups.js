@@ -184,6 +184,7 @@ export function createGamePanelAssemblyGroups(b) {
       grantSpellBonusShopVoucher: b.grantSpellBonusShopVoucher,
       applyTreasureAcquireImmediateEffectsForRun: b.applyTreasureAcquireImmediateEffectsForRun,
       runTreasureLevelCompleteHooks: b.runTreasureLevelCompleteHooks,
+      runLevelEndPreSettlementFx: b.runLevelEndPreSettlementFx,
       runTreasurePackOpenPrecursor: b.runTreasurePackOpenPrecursor,
       runHourglassStageEndFx: b.runHourglassStageEndFx,
       pickCrimsonDisabledTreasureSlotIndex: b.pickCrimsonDisabledTreasureSlotIndex,

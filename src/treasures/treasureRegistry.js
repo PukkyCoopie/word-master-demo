@@ -147,17 +147,18 @@ export async function notifyOwnedTreasuresSuccessfulWordSubmit(ownedSlotTreasure
  * @returns {Promise<boolean>} 是否被某宝藏拦截（不打开释义弹窗）
  */
 export async function notifyOwnedTreasuresOnWordDefinitionOpenAttempt(ownedSlotTreasureIds, ctx) {
-  const seen = new Set();
-  for (const raw of ownedSlotTreasureIds ?? []) {
-    const tid = String(raw ?? "").trim();
-    if (!tid || seen.has(tid)) continue;
-    seen.add(tid);
+  let blocked = false;
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, async ({ treasureId: tid, slotIndex, source }) => {
+    const live = resolveLiveOwnedSlotTreasureIds(ctx, ownedSlotTreasureIds);
+    if (!isTreasureHookContributionActive(live, { slotIndex, treasureId: tid, source })) return;
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.onWordDefinitionOpenAttempt;
-    if (!fn) continue;
-    const result = await fn({ ...ctx, ownedSlotTreasureIds: ownedSlotTreasureIds ?? [] });
-    if (result?.blocked) return true;
-  }
-  return false;
+    if (!fn) return;
+    const result = await fn(
+      withTreasureHookContributionCtx(ctx, live, { slotIndex, source }),
+    );
+    if (result?.blocked) blocked = true;
+  });
+  return blocked;
 }
 
 /**
@@ -265,20 +266,18 @@ export async function notifyOwnedTreasuresOnLevelEnter(ownedSlotTreasureIds, ctx
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureTypes.js').TreasureLevelCompleteContext} ctx */
 export async function notifyOwnedTreasuresOnLevelComplete(ownedSlotTreasureIds, ctx) {
-  await forEachTreasureHookContribution(ownedSlotTreasureIds, (entry) => {
+  await forEachTreasureHookContribution(ownedSlotTreasureIds, async (entry) => {
     const live = resolveLiveOwnedSlotTreasureIds(ctx, ownedSlotTreasureIds);
     if (!isTreasureHookContributionActive(live, entry)) return;
     const fn = TREASURE_HOOKS_BY_ID.get(entry.treasureId)?.onLevelComplete;
-    return fn
-      ? Promise.resolve(
-          fn(
-            withTreasureHookContributionCtx(ctx, live, {
-              slotIndex: entry.slotIndex,
-              source: entry.source,
-            }),
-          ),
-        )
-      : undefined;
+    if (!fn) return;
+    await ctx.onBeforeLevelCompleteHook?.(entry);
+    await fn(
+      withTreasureHookContributionCtx(ctx, live, {
+        slotIndex: entry.slotIndex,
+        source: entry.source,
+      }),
+    );
   });
 }
 

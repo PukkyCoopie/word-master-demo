@@ -1,6 +1,6 @@
 import { concept, describe, prob } from "../treasureDescription.js";
 import { rollProbabilitySuccess } from "../treasureProbability.js";
-import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
+import { playTreasureHookBubbleOnlyFx, wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
 const ID = "39";
 
@@ -18,16 +18,11 @@ export const treasureHooks = {
     if (!rollProbabilitySuccess(1, 4, rng, ctx.ownedSlotTreasureIds)) return;
     const len = Math.max(0, Math.round(Number(ctx.judgedWordLength) || 0));
     if (len < 3 || len > 16) return;
-    const slotIx = Math.max(0, Math.floor(Number(ctx.hookSlotIndex) || 0));
     const runCue = async () => {
-      const wobbleTask = wobbleTreasureHookContributor(ctx, ID);
-      const bubbleTask =
-        typeof ctx.playOwnedTreasureBubbleOnlyFxAtSlot === "function"
-          ? ctx.playOwnedTreasureBubbleOnlyFxAtSlot(slotIx, "升级", "upgrade")
-          : typeof ctx.playOwnedTreasureBubbleOnlyFx === "function"
-            ? ctx.playOwnedTreasureBubbleOnlyFx(ID, "升级", "upgrade")
-            : Promise.resolve(ctx.playOwnedTreasureBubbleFx?.(ID, "升级", "upgrade"));
-      await Promise.all([bubbleTask, wobbleTask]);
+      await Promise.all([
+        wobbleTreasureHookContributor(ctx, ID),
+        playTreasureHookBubbleOnlyFx(ctx, ID, "升级", "upgrade"),
+      ]);
     };
     if (typeof ctx.registerSubmitAccessoryUpgradeCue === "function") {
       ctx.registerSubmitAccessoryUpgradeCue(runCue);

@@ -7,6 +7,10 @@ import { scoringSleep } from "./submitScoringTiming.js";
 /** 与 wobbleScoreSlot 内「缩小 + 放大」两段时长一致（秒） */
 export const WOBBLE_SCALE_COMPRESS_S = 0.11;
 export const WOBBLE_SCALE_EXPAND_S = 0.15;
+/** 放大峰后落回 1 的时长（秒） */
+export const WOBBLE_SCALE_SETTLE_S = 0.2;
+/** 左右微摇归位时长（秒） */
+export const WOBBLE_ROTATION_SETTLE_S = 0.09;
 /** 缩小目标 scale（越大 = 缩得越少） */
 export const WOBBLE_SCALE_COMPRESS_TO = 0.78;
 
@@ -141,7 +145,7 @@ function attachTreasureStackShadowWobble(tl, slotEl, phase) {
     },
     tCompress,
   );
-  tl.to(shadowEl, { scaleY: 1, x: 0, duration: 0.3, ease: "circ.in" }, scaleDownStart);
+  tl.to(shadowEl, { scaleY: 1, x: 0, duration: WOBBLE_SCALE_SETTLE_S, ease: "circ.in" }, scaleDownStart);
 
   chainTimelineCallback(tl, "onInterrupt", () => {
     gsap.killTweensOf(shadowEl, "scaleY,x");
@@ -497,11 +501,11 @@ export function createScoreBubbleFx(deps) {
     const tlBuilt = gsap.timeline();
     tlBuilt.to(wobbleEl, { scale: WOBBLE_SCALE_COMPRESS_TO, duration: tCompress, ease: "circ.out" }, t0);
     tlBuilt.to(wobbleEl, { scale: 1.18, duration: tExpand, ease: "circ.inOut" }, tCompress);
-    tlBuilt.to(wobbleEl, { scale: 1, duration: 0.3, ease: "circ.in" }, scaleDownStart);
+    tlBuilt.to(wobbleEl, { scale: 1, duration: WOBBLE_SCALE_SETTLE_S, ease: "circ.in" }, scaleDownStart);
     tlBuilt.call(() => triggerHaptic("wobble"), null, rotStart);
     tlBuilt.to(wobbleEl, { rotation: 2.6, duration: rotD1, ease: "power2.out" }, rotStart);
     tlBuilt.to(wobbleEl, { rotation: -1.9, duration: rotD2, ease: "power2.inOut" }, rotStart + rotD1);
-    tlBuilt.to(wobbleEl, { rotation: 0, duration: 0.12, ease: "power2.out" }, rotStart + rotD1 + rotD2);
+    tlBuilt.to(wobbleEl, { rotation: 0, duration: WOBBLE_ROTATION_SETTLE_S, ease: "power2.out" }, rotStart + rotD1 + rotD2);
 
     if (pillEls.length) {
       tlBuilt.to(
@@ -509,7 +513,7 @@ export function createScoreBubbleFx(deps) {
         { scale: TILE_AUGMENT_BADGE_BOUNCE_SCALE, duration: tCompress, ease: "circ.out" },
         t0,
       );
-      tlBuilt.to(pillEls, { scale: 1, duration: tExpand + 0.12, ease: "circ.inOut" }, tCompress);
+      tlBuilt.to(pillEls, { scale: 1, duration: tExpand + WOBBLE_ROTATION_SETTLE_S, ease: "circ.inOut" }, tCompress);
     }
 
     attachTreasureStackShadowWobble(tlBuilt, slotEl, {

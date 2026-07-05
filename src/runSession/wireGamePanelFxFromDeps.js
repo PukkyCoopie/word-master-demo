@@ -30,7 +30,6 @@ export function wireGamePanelFxFromDeps(d) {
       isTreasureBarSlotVisible: d.isTreasureBarSlotVisible,
       treasureInventoryCtrl: d.treasureInventoryCtrl,
       ownedTreasures: d.ownedTreasures,
-      removeAndCompactOwnedTreasureAtIndex: d.removeAndCompactOwnedTreasureAtIndex,
       removeOwnedTreasureSlotsLeaveGapAtIndices: d.removeOwnedTreasureSlotsLeaveGapAtIndices,
       scheduleRunAutoSave: d.scheduleRunAutoSave,
       wobbleGameTreasureSlot: d.wobbleGameTreasureSlot,
@@ -67,7 +66,7 @@ export function wireGamePanelFxFromDeps(d) {
     hourglass: {
       hourglassStageFxRef: d.hourglassStageFxRef,
       ownedTreasures: d.ownedTreasures,
-      wobbleGameTreasureSlot: d.wobbleGameTreasureSlot,
+      wobbleScoreSlot: d.wobbleScoreSlot,
       treasureInventoryCtrl: d.treasureInventoryCtrl,
       showScoreBubble: d.showScoreBubble,
       scheduleSmallPlusBubbleOutro: d.scheduleSmallPlusBubbleOutro,

@@ -104,7 +104,7 @@ export function compactOwnedSlotsAfterCropSell(slots, soldIndex, soldTreasure) {
 }
 
 /**
- * 移除指定槽位并向前压实（摧毁/静默清空时用，避免栏内与收藏弹窗留下空洞）。
+ * 移除指定槽位并向前压实（仅非自毁路径保留；自毁应留空位）。
  * @param {Array<object | null>} slots
  * @param {number} removedIndex
  * @returns {boolean}

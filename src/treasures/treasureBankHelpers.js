@@ -179,6 +179,42 @@ export async function wobbleTreasureHookContributor(ctx, treasureId) {
 }
 
 /**
+ * 宝藏槽 wobble + 气泡（按 hook 贡献槽；无槽信息时回退按 id 全槽）。
+ * @param {{ ownedSlotTreasureIds?: (string | null | undefined)[], hookSlotIndex?: number, hookSource?: 'self' | 'blueprint', playOwnedTreasureBubbleFx?: (id: string, text: string, kind?: string) => Promise<void>, playOwnedTreasureBubbleFxAtSlot?: (slotIndex: number, text: string, kind?: string) => Promise<void> }} ctx
+ * @param {string} treasureId
+ * @param {string} text
+ * @param {string} [kind]
+ */
+export async function playTreasureHookBubbleFx(ctx, treasureId, text, kind = "score") {
+  const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
+  if (slotIx != null && ctx.playOwnedTreasureBubbleFxAtSlot) {
+    await ctx.playOwnedTreasureBubbleFxAtSlot(slotIx, text, kind);
+    return;
+  }
+  await ctx.playOwnedTreasureBubbleFx?.(treasureId, text, kind);
+}
+
+/**
+ * 仅气泡（按 hook 贡献槽；无 AtSlot 时回退 BubbleOnlyFx 或完整 BubbleFx）。
+ * @param {Parameters<typeof playTreasureHookBubbleFx>[0]} ctx
+ * @param {string} treasureId
+ * @param {string} text
+ * @param {string} [kind]
+ */
+export async function playTreasureHookBubbleOnlyFx(ctx, treasureId, text, kind = "score") {
+  const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
+  if (slotIx != null && ctx.playOwnedTreasureBubbleOnlyFxAtSlot) {
+    await ctx.playOwnedTreasureBubbleOnlyFxAtSlot(slotIx, text, kind);
+    return;
+  }
+  if (typeof ctx.playOwnedTreasureBubbleOnlyFx === "function") {
+    await ctx.playOwnedTreasureBubbleOnlyFx(treasureId, text, kind);
+    return;
+  }
+  await playTreasureHookBubbleFx(ctx, treasureId, text, kind);
+}
+
+/**
  * 倍率银行累加后的获得动效（+n 文案气泡，不含再次乘算）。
  * @param {{ wobbleOwnedTreasureById?: (id: string) => Promise<void>, playOwnedTreasureBubbleFx?: (id: string, text: string, kind?: string) => Promise<void> }} ctx
  * @param {string} treasureId

@@ -67,7 +67,6 @@ export function wireTreasureDestroyFx(deps) {
     isTreasureBarSlotVisible,
     treasureInventoryCtrl,
     ownedTreasures,
-    removeAndCompactOwnedTreasureAtIndex,
     removeOwnedTreasureSlotsLeaveGapAtIndices,
     scheduleRunAutoSave,
     wobbleGameTreasureSlot,
@@ -87,7 +86,6 @@ export function wireTreasureDestroyFx(deps) {
     isTreasureBarSlotVisible,
     getOwnedTreasureSlotEl: treasureInventoryCtrl.getSlotElement,
     getOwnedTreasures: () => ownedTreasures.value,
-    removeAndCompactOwnedTreasureAtIndex,
     removeOwnedTreasureSlotsLeaveGapAtIndices,
     scheduleRunAutoSave,
     wobbleGameTreasureSlot,
@@ -112,7 +110,7 @@ export function wireHourglassStageFx(deps) {
   const {
     hourglassStageFxRef,
     ownedTreasures,
-    wobbleGameTreasureSlot,
+    wobbleScoreSlot,
     treasureInventoryCtrl,
     showScoreBubble,
     scheduleSmallPlusBubbleOutro,
@@ -124,7 +122,7 @@ export function wireHourglassStageFx(deps) {
     setOwnedTreasures: (slots) => {
       ownedTreasures.value = slots;
     },
-    wobbleGameTreasureSlot,
+    wobbleScoreSlot,
     getOwnedTreasureBarFxEl: (slotIndex) => treasureInventoryCtrl.getBarFxEl(slotIndex),
     showScoreBubble,
     scheduleSmallPlusBubbleOutro,

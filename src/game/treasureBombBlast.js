@@ -20,6 +20,7 @@ export function resolveBombAdjacentVictimSlotIndices(ownedSlots, bombSlotIndex, 
 }
 
 /**
+ * 炸弹爆炸：实际移除的槽位（禁售炸弹本体不参与移除，邻槽禁售仍受保护）。
  * @param {readonly (object | null | undefined)[]} ownedSlots
  * @param {number} bombSlotIndex
  * @param {(slotIndex: number) => boolean} [isSlotNoSell]
@@ -31,6 +32,25 @@ export function resolveBombBlastDestroySlotIndices(ownedSlots, bombSlotIndex, is
     return [];
   }
   if (ownedSlots[bombIx] == null) return [];
-  if (isSlotNoSell?.(bombIx)) return [];
+  if (isSlotNoSell?.(bombIx)) {
+    return resolveBombAdjacentVictimSlotIndices(ownedSlots, bombIx, isSlotNoSell);
+  }
   return [...resolveBombAdjacentVictimSlotIndices(ownedSlots, bombIx, isSlotNoSell), bombIx];
+}
+
+/**
+ * 禁售炸弹：仅本体播放假爆炸动画，不移除。
+ * @param {readonly (object | null | undefined)[]} ownedSlots
+ * @param {number} bombSlotIndex
+ * @param {(slotIndex: number) => boolean} [isSlotNoSell]
+ * @returns {number[]}
+ */
+export function resolveBombBlastFeintSlotIndices(ownedSlots, bombSlotIndex, isSlotNoSell) {
+  const bombIx = Math.floor(Number(bombSlotIndex));
+  if (!Array.isArray(ownedSlots) || !Number.isFinite(bombIx) || bombIx < 0 || bombIx >= ownedSlots.length) {
+    return [];
+  }
+  if (ownedSlots[bombIx] == null) return [];
+  if (!isSlotNoSell?.(bombIx)) return [];
+  return [bombIx];
 }

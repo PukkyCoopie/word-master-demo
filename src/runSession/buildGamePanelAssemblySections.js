@@ -216,6 +216,7 @@ export function buildGamePanelAssemblySections(d) {
       grantSpellBonusShopVoucher: sp.grantSpellBonusShopVoucher,
       applyTreasureAcquireImmediateEffectsForRun: tr.applyTreasureAcquireImmediateEffectsForRun,
       runTreasureLevelCompleteHooks: tr.runTreasureLevelCompleteHooks,
+      runLevelEndPreSettlementFx: tr.runLevelEndPreSettlementFx,
       runTreasurePackOpenPrecursor: tr.runTreasurePackOpenPrecursor,
       runHourglassStageEndFx: tr.runHourglassStageEndFx,
       pickCrimsonDisabledTreasureSlotIndex: tr.pickCrimsonDisabledTreasureSlotIndex,

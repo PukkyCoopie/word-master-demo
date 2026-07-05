@@ -35,8 +35,8 @@ export const treasureHooks = {
       typeof ctx.hookSlotIndex === "number" && ctx.hookSlotIndex >= 0
         ? ctx.hookSlotIndex
         : (ctx.findOwnedTreasureSlotIndex?.(ID) ?? -1);
-    if (bombSlotIndex >= 0 && ctx.isOwnedTreasureSlotNoSell?.(bombSlotIndex)) return;
-    if (ctx.treasureRun) {
+    const bombIsNoSell = bombSlotIndex >= 0 && ctx.isOwnedTreasureSlotNoSell?.(bombSlotIndex);
+    if (!bombIsNoSell && ctx.treasureRun) {
       ctx.treasureRun.treasure29SelfDestructed = true;
       ctx.treasureRun.probabilityEffectTriggered = true;
     }

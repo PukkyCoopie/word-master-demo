@@ -294,6 +294,8 @@ function wireGamePanelControllersEarly(d) {
     },
     grid: {
       basketballWordsSubmitted: d.basketballWordsSubmitted,
+      currentScore: d.currentScore,
+      targetScore: d.targetScore,
       deckCount: d.deckCount,
       initialDeckSnapshot: d.initialDeckSnapshot,
       deck: d.deck,
@@ -464,6 +466,7 @@ function wireGamePanelControllersEarly(d) {
     runPendingInRunGrantsAfterSubmit: treasureRun.runPendingInRunGrantsAfterSubmit,
     resetLevelAfterTreasurePrep: treasureRun.resetLevelAfterTreasurePrep,
     runTreasureLevelCompleteHooks: treasureRun.runTreasureLevelCompleteHooks,
+    runLevelEndPreSettlementFx: treasureRun.runLevelEndPreSettlementFx,
     notifyTreasureDeckCardsRemovedByRaws: treasureRun.notifyTreasureDeckCardsRemovedByRaws,
     appendShopDeckEntriesAndNotify: treasureRun.appendShopDeckEntriesAndNotify,
     appendDeckCardSpecToInitialSnapshotAndNotify: treasureRun.appendDeckCardSpecToInitialSnapshotAndNotify,

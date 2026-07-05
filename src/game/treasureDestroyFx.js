@@ -2,8 +2,17 @@ import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
 import { TREASURE_HOOKS_BY_ID } from "../treasures/treasureRegistry.js";
 import { SCORING_BUBBLE_POP_DELAY_MS } from "./scoreBubbleFx.js";
+import { getLevelEndAnimSpeed } from "./levelEndAnimSpeed.js";
 import { scoringSleep } from "./submitScoringTiming.js";
-import { resolveBombAdjacentVictimSlotIndices, resolveBombBlastDestroySlotIndices } from "./treasureBombBlast.js";
+import {
+  resolveBombAdjacentVictimSlotIndices,
+  resolveBombBlastDestroySlotIndices,
+  resolveBombBlastFeintSlotIndices,
+} from "./treasureBombBlast.js";
+import {
+  applyNoSellFeintBubbleStyle,
+  restoreTreasureSlotAfterNoSellFeint,
+} from "./treasureNoSellDestroyFeint.js";
 
 /**
  * 自毁 / 连锁摧毁宝藏槽 FX（从 GamePanel 迁出）。
@@ -13,7 +22,6 @@ import { resolveBombAdjacentVictimSlotIndices, resolveBombBlastDestroySlotIndice
  *   isTreasureBarSlotVisible: (slotIndex: number) => boolean,
  *   getOwnedTreasureSlotEl: (slotIndex: number) => HTMLElement | null,
  *   getOwnedTreasures: () => (object | null)[],
- *   removeAndCompactOwnedTreasureAtIndex: (slotIndex: number, opts?: { triggerBarCompactAnim?: boolean }) => void,
  *   removeOwnedTreasureSlotsLeaveGapAtIndices: (indices: readonly number[], opts?: { triggerBarCompactAnim?: boolean }) => void,
  *   scheduleRunAutoSave: () => void,
  *   wobbleGameTreasureSlot: (slotIndex: number) => Promise<void>,
@@ -51,7 +59,7 @@ export function createTreasureDestroyFx(deps) {
    * @param {number} slotIndex
    * @param {HTMLElement} el
    * @param {number} sp
-   * @param {{ text?: string, kind?: string }} [bubbleOpts]
+   * @param {{ text?: string, kind?: string, feint?: boolean }} [bubbleOpts]
    */
   async function wobbleTreasureSlotWithDestroyBubbleConcurrent(slotIndex, el, sp, bubbleOpts = {}) {
     const text = String(bubbleOpts.text ?? "摧毁！");
@@ -59,33 +67,46 @@ export function createTreasureDestroyFx(deps) {
     const wobbleP = deps.wobbleGameTreasureSlot(slotIndex);
     const bubbleP = (async () => {
       await new Promise((r) => requestAnimationFrame(r));
-      return deps.showScoreBubble(el, text, kind, sp);
+      const bubble = deps.showScoreBubble(el, text, kind, sp);
+      if (bubbleOpts.feint) applyNoSellFeintBubbleStyle(bubble);
+      return bubble;
     })();
     const [, bubble] = await Promise.all([wobbleP, bubbleP]);
     return bubble;
   }
 
-  /** @param {HTMLElement} el @param {ReturnType<typeof deps.showScoreBubble>} bubble @param {number} sp */
-  async function shrinkTreasureSlotElOnly(el, bubble, sp) {
+  /**
+   * @param {HTMLElement} el
+   * @param {ReturnType<typeof deps.showScoreBubble>} bubble
+   * @param {number} sp
+   * @param {{ feint?: boolean }} [opts]
+   */
+  async function shrinkTreasureSlotElOnly(el, bubble, sp, opts = {}) {
+    const feint = opts.feint === true;
+    const s = Math.max(0.01, Number(sp) || getLevelEndAnimSpeed());
     gsap.killTweensOf(el);
     await new Promise((resolve) => {
       gsap.to(el, {
         scale: 0,
         opacity: 0,
-        duration: 0.35,
+        duration: 0.35 / s,
         ease: EASE_TRANSFORM,
         transformOrigin: "50% 50%",
         onComplete: resolve,
       });
     });
-    deps.scheduleSmallPlusBubbleOutro(bubble, sp);
+    deps.scheduleSmallPlusBubbleOutro(bubble, s);
+    if (feint) {
+      await restoreTreasureSlotAfterNoSellFeint(el, s);
+      return;
+    }
     gsap.set(el, { clearProps: "scale,opacity,transform" });
   }
 
   /** @param {number} slotIndex @param {HTMLElement} el @param {ReturnType<typeof deps.showScoreBubble>} bubble @param {number} sp */
   async function shrinkTreasureSlotAndClear(slotIndex, el, bubble, sp) {
     await shrinkTreasureSlotElOnly(el, bubble, sp);
-    deps.removeAndCompactOwnedTreasureAtIndex(slotIndex);
+    deps.removeOwnedTreasureSlotsLeaveGapAtIndices([slotIndex], { triggerBarCompactAnim: true });
   }
 
   async function destroyOwnedTreasureWithFx(treasureId, slotIndex = null) {
@@ -97,23 +118,32 @@ export function createTreasureDestroyFx(deps) {
     const owned = deps.getOwnedTreasures();
     const slot = owned[ix];
     const tid = String(treasureId ?? slot?.treasureId ?? "");
-    if (deps.ownedTreasureHasNoSellAccessory(slot)) return;
+    const feint = deps.ownedTreasureHasNoSellAccessory(slot);
     if (!deps.isTreasureBarSlotVisible(ix)) {
-      deps.removeAndCompactOwnedTreasureAtIndex(ix);
-      deps.scheduleRunAutoSave();
+      if (!feint) {
+        deps.removeOwnedTreasureSlotsLeaveGapAtIndices([ix]);
+        deps.scheduleRunAutoSave();
+      }
       return;
     }
     const el = deps.getOwnedTreasureSlotEl(ix);
     if (!el) {
-      deps.removeAndCompactOwnedTreasureAtIndex(ix);
-      deps.scheduleRunAutoSave();
+      if (!feint) {
+        deps.removeOwnedTreasureSlotsLeaveGapAtIndices([ix]);
+        deps.scheduleRunAutoSave();
+      }
       return;
     }
-    const sp = 1;
+    const sp = getLevelEndAnimSpeed();
     const { text: bubbleText, kind: bubbleKind } = resolveSelfDestructBubbleForTreasure(tid);
     await awaitTreasureSlotWobbleEl(el, sp);
     await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
     const bubble = deps.showScoreBubble(el, bubbleText, bubbleKind, sp);
+    if (feint) applyNoSellFeintBubbleStyle(bubble);
+    if (feint) {
+      await shrinkTreasureSlotElOnly(el, bubble, sp, { feint: true });
+      return;
+    }
     await shrinkTreasureSlotAndClear(ix, el, bubble, sp);
     deps.scheduleRunAutoSave();
   }
@@ -131,63 +161,73 @@ export function createTreasureDestroyFx(deps) {
       typeof victimSlotIndex === "number" && victimSlotIndex >= 0
         ? victimSlotIndex
         : deps.findOwnedTreasureSlotIndex(victimId);
-    if (victimIx >= 0 && deps.ownedTreasureHasNoSellAccessory(owned[victimIx])) return;
+    const feint = victimIx >= 0 && deps.ownedTreasureHasNoSellAccessory(owned[victimIx]);
     if (sourceId) await deps.playOwnedTreasureWobbleOnlyFx(sourceId);
     const ix = victimIx;
     if (ix < 0) return;
     if (!deps.isTreasureBarSlotVisible(ix)) {
-      deps.removeOwnedTreasureSlotsLeaveGapAtIndices([ix]);
-      deps.scheduleRunAutoSave();
+      if (!feint) {
+        deps.removeOwnedTreasureSlotsLeaveGapAtIndices([ix]);
+        deps.scheduleRunAutoSave();
+      }
       return;
     }
     const el = deps.getOwnedTreasureSlotEl(ix);
     if (!el) {
-      deps.removeOwnedTreasureSlotsLeaveGapAtIndices([ix]);
-      deps.scheduleRunAutoSave();
+      if (!feint) {
+        deps.removeOwnedTreasureSlotsLeaveGapAtIndices([ix]);
+        deps.scheduleRunAutoSave();
+      }
       return;
     }
-    const sp = 1;
+    const sp = getLevelEndAnimSpeed();
     deps.setShopOverlayLayersSuppressed(true);
     await deps.waitNextTick();
-    const bubble = await wobbleTreasureSlotWithDestroyBubbleConcurrent(ix, el, sp);
+    const bubble = await wobbleTreasureSlotWithDestroyBubbleConcurrent(ix, el, sp, { feint });
     deps.setShopOverlayLayersSuppressed(false);
-    await shrinkTreasureSlotElOnly(el, bubble, sp);
-    deps.removeOwnedTreasureSlotsLeaveGapAtIndices([ix], { triggerBarCompactAnim: true });
-    deps.scheduleRunAutoSave();
+    await shrinkTreasureSlotElOnly(el, bubble, sp, { feint });
+    if (!feint) {
+      deps.removeOwnedTreasureSlotsLeaveGapAtIndices([ix], { triggerBarCompactAnim: true });
+      deps.scheduleRunAutoSave();
+    }
   }
 
-  /** 炸弹：本槽与左右邻槽（非空、非禁售）同时 wobble+气泡后一并移除 */
+  /** 炸弹：本槽与左右邻槽（非空、非禁售邻槽）同时 wobble+气泡；禁售炸弹仅假爆炸 */
   async function destroyBombBlastAtSlot(bombSlotIndex) {
     const bombIx = Math.floor(Number(bombSlotIndex));
     if (!Number.isFinite(bombIx) || bombIx < 0) return;
 
     const owned = deps.getOwnedTreasures();
     const isSlotNoSell = (ix) => deps.ownedTreasureHasNoSellAccessory(owned[ix]);
+    const destroyIndices = resolveBombBlastDestroySlotIndices(owned, bombIx, isSlotNoSell);
+    const feintIndices = resolveBombBlastFeintSlotIndices(owned, bombIx, isSlotNoSell);
     const adjacentVictims = resolveBombAdjacentVictimSlotIndices(owned, bombIx, isSlotNoSell);
-    const indices = resolveBombBlastDestroySlotIndices(owned, bombIx, isSlotNoSell);
-    if (!indices.length) return;
+    if (!destroyIndices.length && !feintIndices.length) return;
 
     deps.onBombBlastResolved?.({
       bombSlotIndex: bombIx,
       destroyedOtherTreasures: adjacentVictims.length > 0,
     });
 
-    const sp = 1;
-    /** @type {{ ix: number, el?: HTMLElement, bubbleText: string, bubbleKind: string, skipAnim: boolean }[]} */
+    const sp = getLevelEndAnimSpeed();
+    const animateOrder = [...destroyIndices, ...feintIndices.filter((ix) => !destroyIndices.includes(ix))];
+    /** @type {{ ix: number, el?: HTMLElement, bubbleText: string, bubbleKind: string, skipAnim: boolean, feint: boolean }[]} */
     const targets = [];
-    for (const ix of indices) {
+    for (const ix of animateOrder) {
       const slot = owned[ix];
       const tid = String(slot?.treasureId ?? "");
       const isBomb = ix === bombIx;
       const bubble = isBomb
         ? resolveSelfDestructBubbleForTreasure(tid)
         : { text: "摧毁！", kind: "destroy" };
+      const feint = feintIndices.includes(ix);
       if (!deps.isTreasureBarSlotVisible(ix)) {
         targets.push({
           ix,
           bubbleText: bubble.text,
           bubbleKind: bubble.kind,
           skipAnim: true,
+          feint,
         });
         continue;
       }
@@ -198,6 +238,7 @@ export function createTreasureDestroyFx(deps) {
           bubbleText: bubble.text,
           bubbleKind: bubble.kind,
           skipAnim: true,
+          feint,
         });
         continue;
       }
@@ -207,6 +248,7 @@ export function createTreasureDestroyFx(deps) {
         bubbleText: bubble.text,
         bubbleKind: bubble.kind,
         skipAnim: false,
+        feint,
       });
     }
 
@@ -220,16 +262,24 @@ export function createTreasureDestroyFx(deps) {
           t.ix,
           /** @type {HTMLElement} */ (t.el),
           sp,
-          { text: t.bubbleText, kind: t.bubbleKind },
+          { text: t.bubbleText, kind: t.bubbleKind, feint: t.feint },
         );
-        await shrinkTreasureSlotElOnly(/** @type {HTMLElement} */ (t.el), bubble, sp);
+        await shrinkTreasureSlotElOnly(/** @type {HTMLElement} */ (t.el), bubble, sp, {
+          feint: t.feint,
+        });
       }),
     );
 
     deps.setShopOverlayLayersSuppressed(false);
 
-    deps.removeOwnedTreasureSlotsLeaveGapAtIndices(indices, { triggerBarCompactAnim: true });
-    deps.scheduleRunAutoSave();
+    const removeIndices = destroyIndices.filter((ix) => {
+      const target = targets.find((t) => t.ix === ix);
+      return !target?.feint;
+    });
+    if (removeIndices.length) {
+      deps.removeOwnedTreasureSlotsLeaveGapAtIndices(removeIndices, { triggerBarCompactAnim: true });
+      deps.scheduleRunAutoSave();
+    }
   }
 
   return {

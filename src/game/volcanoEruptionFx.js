@@ -1,6 +1,7 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
 import { animSleep } from "../settings/animationSpeed.js";
+import { getLevelEndAnimSpeed } from "./levelEndAnimSpeed.js";
 import { runGridTileIgniteAtCell } from "./gridTileIgniteFx.js";
 import { applyFireMaterialToTile } from "./tileMaterialApply.js";
 import {
@@ -63,10 +64,11 @@ function appendChaoticJitter(tl, el, startTime, endTime, max = {}) {
   }
 }
 
-/** @param {HTMLElement} slotEl */
-function runVolcanoSlotEruptionWobble(slotEl) {
+/** @param {HTMLElement} slotEl @param {number} [speed=1] */
+function runVolcanoSlotEruptionWobble(slotEl, speed = 1) {
   const wobbleEl = resolveVolcanoWobbleEl(slotEl);
   if (!wobbleEl) return Promise.resolve();
+  const s = Math.max(0.01, Number(speed) || 1);
 
   gsap.killTweensOf(wobbleEl, "rotation,scale,x,y");
   gsap.set(wobbleEl, { x: 0, y: 0, rotation: 0, scale: 1, transformOrigin: "50% 55%" });
@@ -91,6 +93,7 @@ function runVolcanoSlotEruptionWobble(slotEl) {
       { rotation: 0, x: 0, y: 0, scale: 1.12, duration: 0.12, ease: "power2.out" },
       ERUPTION_DURATION_S * 0.92,
     );
+    tl.timeScale(s);
   });
 }
 
@@ -140,8 +143,8 @@ function runVolcanoEruptionBubbleFx(bubble, speed = 1) {
  * @property {(slotIndex: number) => boolean} isTreasureBarSlotVisible
  * @property {(slotEl: unknown, text: string, kind: string, speed?: number, bubbleZIndex?: number) => HTMLElement | null} showScoreBubble
  * @property {(bubble: HTMLElement | null, speed?: number) => void} scheduleSmallPlusBubbleOutro
- * @property {(slotIndex: number, el: HTMLElement, sp: number) => Promise<HTMLElement | null>} wobbleTreasureSlotWithDestroyBubbleConcurrent
- * @property {(el: HTMLElement, bubble: HTMLElement | null, sp: number) => Promise<void>} shrinkTreasureSlotElOnly
+ * @property {(slotIndex: number, el: HTMLElement, sp: number, bubbleOpts?: { feint?: boolean }) => Promise<HTMLElement | null>} wobbleTreasureSlotWithDestroyBubbleConcurrent
+ * @property {(el: HTMLElement, bubble: HTMLElement | null, sp: number, opts?: { feint?: boolean }) => Promise<void>} shrinkTreasureSlotElOnly
  * @property {(slotIndex: number) => void} clearOwnedTreasureSlotLeaveGapAtIndex
  * @property {() => void} scheduleRunAutoSave
  * @property {() => void} touchGrid
@@ -153,18 +156,19 @@ function runVolcanoEruptionBubbleFx(bubble, speed = 1) {
 /** @param {VolcanoEruptionFxDeps} deps @param {number} slotIndex @param {number} sp */
 async function runVolcanoDestroyTreasureAtSlot(deps, slotIndex, sp) {
   const ix = Math.floor(Number(slotIndex));
+  const feint = deps.isOwnedTreasureSlotNoSell(ix);
   if (!deps.isTreasureBarSlotVisible(ix)) {
-    deps.clearOwnedTreasureSlotLeaveGapAtIndex(ix);
+    if (!feint) deps.clearOwnedTreasureSlotLeaveGapAtIndex(ix);
     return;
   }
   const el = deps.getOwnedTreasureSlotEl(ix);
   if (!el) {
-    deps.clearOwnedTreasureSlotLeaveGapAtIndex(ix);
+    if (!feint) deps.clearOwnedTreasureSlotLeaveGapAtIndex(ix);
     return;
   }
-  const bubble = await deps.wobbleTreasureSlotWithDestroyBubbleConcurrent(ix, el, sp);
-  await deps.shrinkTreasureSlotElOnly(el, bubble, sp);
-  deps.clearOwnedTreasureSlotLeaveGapAtIndex(ix);
+  const bubble = await deps.wobbleTreasureSlotWithDestroyBubbleConcurrent(ix, el, sp, { feint });
+  await deps.shrinkTreasureSlotElOnly(el, bubble, sp, { feint });
+  if (!feint) deps.clearOwnedTreasureSlotLeaveGapAtIndex(ix);
 }
 
 /** @param {VolcanoEruptionFxDeps} deps @param {number} row @param {number} col @param {number} sp */
@@ -201,18 +205,14 @@ export async function runVolcanoEruptionFx(deps) {
   };
   const bubbleText = String(bubbleCfg?.text ?? "火山喷发！");
   const bubbleKind = String(bubbleCfg?.kind ?? "volcano-eruption");
-  const sp = 1;
+  const sp = getLevelEndAnimSpeed();
 
   const volcanoSlotEl = deps.getOwnedTreasureSlotEl(volcanoIx);
   const bubbleAnchorEl = deps.getOwnedTreasureBubbleAnchorEl(volcanoIx) ?? volcanoSlotEl;
 
   await deps.nextTick();
 
-  const victimIndices = resolveVolcanoTreasureVictimIndices(
-    deps.ownedTreasures,
-    volcanoIx,
-    (ix) => deps.isOwnedTreasureSlotNoSell(ix),
-  );
+  const victimIndices = resolveVolcanoTreasureVictimIndices(deps.ownedTreasures, volcanoIx);
   const igniteCells = collectVolcanoIgniteGridCells(deps.grid.value, deps.ROWS, deps.COLS);
   const anchorRect = bubbleAnchorEl ? deps.scoreBubbleAnchorRect(bubbleAnchorEl) : null;
 
@@ -240,7 +240,7 @@ export async function runVolcanoEruptionFx(deps) {
   /** 火山本体喷发（与扩散 ripple 并行，计时均从 eruption t=0 起算） */
   const volcanoPhaseP = (async () => {
     if (!volcanoSlotEl || !deps.isTreasureBarSlotVisible(volcanoIx)) return;
-    const wobbleP = runVolcanoSlotEruptionWobble(volcanoSlotEl);
+    const wobbleP = runVolcanoSlotEruptionWobble(volcanoSlotEl, sp);
     const bubbleP = (async () => {
       await deps.nextTick();
       await new Promise((r) => requestAnimationFrame(r));
@@ -264,7 +264,7 @@ export async function runVolcanoEruptionFx(deps) {
   /** 扩散：t=280ms 起按 DOM 距离 stagger 启动，彼此重叠进行 */
   const ripplePs = rippleTargets.map((target, i) =>
     (async () => {
-      await animSleep(RIPPLE_START_DELAY_MS + i * RIPPLE_STAGGER_MS);
+      await animSleep(RIPPLE_START_DELAY_MS + i * RIPPLE_STAGGER_MS, sp);
       if (target.kind === "treasure") {
         await runVolcanoDestroyTreasureAtSlot(deps, target.slotIndex, sp);
       } else {
@@ -275,7 +275,7 @@ export async function runVolcanoEruptionFx(deps) {
 
   await Promise.all([volcanoPhaseP, ...ripplePs]);
 
-  await animSleep(ERUPTION_RECOVERY_MS);
+  await animSleep(ERUPTION_RECOVERY_MS, sp);
 
   if (rippleTargets.length) {
     deps.setShopOverlayLayersSuppressed(false);

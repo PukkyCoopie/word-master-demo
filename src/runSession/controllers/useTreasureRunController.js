@@ -34,6 +34,7 @@ import {
 } from "../../game/treasureSlotCapacity.js";
 import { parseChapterFromLevelId } from "../../treasures/treasureLifecycleShared.js";
 import { resetTreasureLevelScopedState } from "../../treasures/treasureRunState.js";
+import { runLevelEndPreSettlementFx as runLevelEndPreSettlementSequence } from "../../game/levelEndTreasureFx.js";
 import {
   TREASURE_HOOKS_BY_ID,
   notifyOwnedTreasuresOnBossRestrictionTriggered,
@@ -80,6 +81,8 @@ import { getOwnedTreasureSlotBonusFromVouchers, parseLevelSubFromId } from "../.
  * }} run
  * @property {{
  *   basketballWordsSubmitted: import('vue').Ref<number>,
+ *   currentScore: import('vue').Ref<number>,
+ *   targetScore: import('vue').Ref<number>,
  *   deckCount: import('vue').Ref<number>,
  *   initialDeckSnapshot: import('vue').Ref<object[]>,
  *   deck: import('vue').Ref<object[]>,
@@ -597,10 +600,7 @@ export function useTreasureRunController(options) {
   }
 
   function clearOwnedTreasureSlotById(treasureId) {
-    const tid = String(treasureId ?? "");
-    if (!tid) return;
-    const ix = findOwnedTreasureSlotIndex(tid);
-    if (ix >= 0) removeAndCompactOwnedTreasureAtIndex(ix);
+    clearOwnedTreasureSlotLeaveGapById(treasureId);
   }
 
   /** 清空槽位但保留空位（雷管等：触发源不向前压实） */
@@ -611,7 +611,7 @@ export function useTreasureRunController(options) {
     if (ix >= 0) removeOwnedTreasureSlotsLeaveGapAtIndices([ix]);
   }
 
-  /** @param {number} slotIndex @param {{ triggerBarCompactAnim?: boolean }} [opts] */
+  /** @deprecated 自毁/摧毁应使用 removeOwnedTreasureSlotsLeaveGapAtIndices */
   function removeAndCompactOwnedTreasureAtIndex(slotIndex, opts = {}) {
     const ix = Math.floor(Number(slotIndex));
     if (!Number.isFinite(ix) || ix < 0 || ix >= ownedTreasures.value.length) return;
@@ -732,7 +732,14 @@ export function useTreasureRunController(options) {
     });
   }
 
-  async function runTreasureLevelCompleteHooks() {
+  function buildLevelCompleteHookEstimateCtx() {
+    return {
+      currentScore: grid.currentScore.value,
+      targetScore: grid.targetScore.value,
+    };
+  }
+
+  async function runTreasureLevelCompleteHooks(opts = {}) {
     checkLevelLegendaryDeckExhaustedUnlock(treasureRunState.value, grid.deck.value);
     noteEverTwoTreasuresWithAccessoryUnlocked(treasureRunState.value, ownedTreasures.value);
     await notifyOwnedTreasuresOnLevelComplete(ownedSlotTreasureIdList(), {
@@ -742,8 +749,24 @@ export function useTreasureRunController(options) {
       rng: runRandom,
       clearTreasureSlotById: clearOwnedTreasureSlotById,
       findOwnedTreasureSlotIndex,
+      onBeforeLevelCompleteHook: opts.onBeforeEachHook,
       ...hooks.ownedTreasureHookFxBridge(),
       ...hooks.buildTreasureLevelCompleteContextExtras(),
+    });
+  }
+
+  /**
+   * @param {{
+   *   runHourglassStageEndFx: (opts?: { onBeforeEachTick?: () => void | Promise<void> }) => Promise<void>,
+   * }} deps
+   */
+  async function runLevelEndPreSettlementFx(deps) {
+    await runLevelEndPreSettlementSequence({
+      getOwnedTreasures: () => ownedTreasures.value,
+      getOwnedSlotTreasureIds: ownedSlotTreasureIdList,
+      buildLevelCompleteHookEstimateCtx,
+      runHourglassStageEndFx: deps.runHourglassStageEndFx,
+      runTreasureLevelCompleteHooks,
     });
   }
 
@@ -807,6 +830,7 @@ export function useTreasureRunController(options) {
     const owned = ownedTreasures.value.filter(Boolean);
     return {
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+      getOwnedSlotTreasureIds: ownedSlotTreasureIdList,
       findOwnedTreasureSlotIndex,
       incrementChargeWordSubmissionCount: grid.bumpBasketballWordSubmitted,
       submittedScoringTiles: tiles,
@@ -992,6 +1016,7 @@ export function useTreasureRunController(options) {
     buildTreasureLevelEnterEffectContext,
     runTreasureLevelEnterHooks,
     runTreasureLevelCompleteHooks,
+    runLevelEndPreSettlementFx,
     resetLevelAfterTreasurePrep,
     notifyTreasureDeckCardsRemovedByRaws,
     appendShopDeckEntriesAndNotify,

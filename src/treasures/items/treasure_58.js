@@ -1,5 +1,6 @@
 import { getWordLetterCount } from "../../composables/useScoring.js";
 import { describe, money } from "../treasureDescription.js";
+import { resolveTreasureHookAnimSlotIndex } from "../../game/treasureBlueprintMirror.js";
 
 const ID = "58";
 
@@ -27,15 +28,17 @@ export const treasureHooks = {
 
     ctx.removeDeckCardsForSubmittedWord?.(ctx.resolvedWord);
 
+    const slotIndex = resolveTreasureHookAnimSlotIndex(ctx);
     const playLeave = ctx.playSubmitWordLetterRemoveAndRewardLeave;
     const register = ctx.registerSubmitWordLeaveFx;
     if (!playLeave || !register) {
-      await ctx.playOwnedTreasureMoneyFx?.(ID, 3);
+      await ctx.playOwnedTreasureMoneyFx?.(ID, 3, slotIndex != null ? { slotIndex } : {});
       return;
     }
     register(async ({ slotEls, gridEls, duration }) => {
       await playLeave({
         treasureId: ID,
+        ...(slotIndex != null ? { treasureSlotIndex: slotIndex } : {}),
         slotEls,
         gridEls,
         duration,

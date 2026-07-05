@@ -161,6 +161,7 @@ export function buildGamePanelAssemblySectionsInput(d) {
     grantRandomShopTreasureByRarity: d.grantRandomShopTreasureByRarity,
     applyTreasureAcquireImmediateEffectsForRun: d.applyTreasureAcquireImmediateEffectsForRun,
     runTreasureLevelCompleteHooks: d.runTreasureLevelCompleteHooks,
+    runLevelEndPreSettlementFx: d.runLevelEndPreSettlementFx,
     runTreasurePackOpenPrecursor: d.runTreasurePackOpenPrecursor,
     runHourglassStageEndFx: d.runHourglassStageEndFx,
     pickCrimsonDisabledTreasureSlotIndex: d.pickCrimsonDisabledTreasureSlotIndex,

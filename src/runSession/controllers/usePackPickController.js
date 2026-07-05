@@ -218,7 +218,10 @@ export function usePackPickController(options) {
         const owned = callbacks.ownedSlotTreasureIdList();
         await notifyOwnedTreasuresOnPackSkipped(owned, {
           treasureRun: treasureRunState.value,
-          playOwnedTreasureMultDeltaFx: callbacks.playOwnedTreasureMultDeltaFx,
+          ownedSlotTreasureIds: owned,
+          ...(typeof callbacks.ownedTreasureHookFxBridge === "function"
+            ? callbacks.ownedTreasureHookFxBridge()
+            : { playOwnedTreasureMultDeltaFx: callbacks.playOwnedTreasureMultDeltaFx }),
         });
         resolvePackPickFlow();
       }

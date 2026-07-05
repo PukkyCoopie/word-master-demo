@@ -84,10 +84,7 @@ export function buildTreasureRunShellHooks(d) {
         isOwnedTreasureSlotNoSell: (slotIndex) =>
           ownedTreasureHasNoSellAccessory(d.getOwnedTreasureSlot(slotIndex)),
         playOwnedTreasureMoneyFx: (treasureId, amount, fxOpts = {}) =>
-          d.playOwnedTreasureMoneyFx(treasureId, amount, {
-            awaitOutro: true,
-            ...fxOpts,
-          }),
+          d.playOwnedTreasureMoneyFx(treasureId, amount, fxOpts),
         remainingRemovals: d.getRemainingRemovals(),
         currentScore: d.getCurrentScore(),
         targetScore: d.getTargetScore(),

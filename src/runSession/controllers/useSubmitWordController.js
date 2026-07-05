@@ -446,8 +446,7 @@ export function useSubmitWordController(options) {
         const isFinalStandardWin =
           !run.isEndlessRun.value && isStandardRunFinalLevelIndex(run.levelIndex.value);
         if (isFinalStandardWin) {
-          await callbacks.runHourglassStageEndFx();
-          await callbacks.runTreasureLevelCompleteHooks();
+          await callbacks.runLevelEndPreSettlementFx();
           callbacks.setSettlementSnapshot(callbacks.buildSettlementSnapshot());
           await callbacks.openRunEnd("win", { preserveSettlement: true });
         } else {

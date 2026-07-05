@@ -1,5 +1,10 @@
 import { describe, mult } from "../treasureDescription.js";
-import { addMultAddBank, canMutateTreasureBankFromCtx, getMultAddBank } from "../treasureBankHelpers.js";
+import {
+  addMultAddBank,
+  bankMultAddGain,
+  canMutateTreasureBankFromCtx,
+  getMultAddBank,
+} from "../treasureBankHelpers.js";
 
 const ID = "50";
 
@@ -44,7 +49,7 @@ export default {
 async function bumpBalanceBank(ctx, delta) {
   if (!canMutateTreasureBankFromCtx(ctx, ID)) return;
   addMultAddBank(ctx.treasureRun, ID, delta, ctx);
-  await ctx.playOwnedTreasureMultDeltaFx?.(ID, delta);
+  await bankMultAddGain(ctx, ID, delta);
 }
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

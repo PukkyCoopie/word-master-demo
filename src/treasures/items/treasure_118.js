@@ -1,5 +1,6 @@
 import { describe, mult } from "../treasureDescription.js";
 import { recomputeSubmitDetailedAfterPagerStep } from "../treasureScoring.js";
+import { playTreasureHookBubbleFx } from "../treasureBankHelpers.js";
 
 export const TREASURE_118_ID = "118";
 const ID = TREASURE_118_ID;
@@ -29,7 +30,7 @@ export const treasureHooks = {
     }
   },
   async onWordDefinitionOpenAttempt(ctx) {
-    await ctx.playOwnedTreasureBubbleFx?.(ID, "不行哦", "destroy");
+    await playTreasureHookBubbleFx(ctx, ID, "不行哦", "destroy");
     return { blocked: true };
   },
   async runAfterLettersBeforePostSteps(ctx) {
@@ -37,9 +38,11 @@ export const treasureHooks = {
     if (!session?.options?.length) return;
 
     const slotIndex =
-      typeof ctx.findOwnedTreasureSlotIndex === "function"
-        ? ctx.findOwnedTreasureSlotIndex(ID)
-        : -1;
+      typeof ctx.hookSlotIndex === "number" && ctx.hookSlotIndex >= 0
+        ? ctx.hookSlotIndex
+        : typeof ctx.findOwnedTreasureSlotIndex === "function"
+          ? ctx.findOwnedTreasureSlotIndex(ID)
+          : -1;
     if (slotIndex < 0) return;
 
     const result = await ctx.requestPagerQuiz?.({

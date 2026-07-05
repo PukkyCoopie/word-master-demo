@@ -1,4 +1,5 @@
 import { createScoreBubbleFx, SCORING_TREASURE_FALLBACK_MS } from "./scoreBubbleFx.js";
+import { getLevelEndAnimSpeed } from "./levelEndAnimSpeed.js";
 import { scoringSleep } from "./submitScoringTiming.js";
 
 /**
@@ -19,7 +20,7 @@ export function createGamePanelSubmitFxBridge(deps) {
   async function wobbleGameTreasureSlot(slotIndex) {
     const el = deps.getOwnedTreasureBarFxEl(slotIndex);
     if (!el) return;
-    const sp = 1;
+    const sp = getLevelEndAnimSpeed();
     const tl = scoringFx.createWobbleScoreSlotTimeline(el);
     if (!tl) {
       await scoringSleep(SCORING_TREASURE_FALLBACK_MS, sp);

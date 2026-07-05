@@ -396,8 +396,7 @@ export function createStageSettlementAnimController(deps) {
  * @param {(state: unknown, interest: number) => void} deps.recordAchievementRunInterest
  * @param {import('vue').Ref<unknown>} deps.achievementRunState
  * @param {() => { play?: (opts: object) => Promise<void> } | null | undefined} deps.getIrisTransition
- * @param {() => Promise<void>} deps.runHourglassStageEndFx
- * @param {() => Promise<void>} deps.runTreasureLevelCompleteHooks
+ * @param {() => Promise<void>} deps.runLevelEndPreSettlementFx
  * @param {(event: Event | undefined) => void} deps.recordPointerClientFromEvent
  * @param {(kind: string) => void} deps.triggerHaptic
  * @param {typeof import('vue').nextTick} deps.nextTick
@@ -418,8 +417,7 @@ export function createStageSettlementFlow(deps) {
 
   async function openStageSettlement() {
     deps.triggerHaptic("milestone");
-    await deps.runHourglassStageEndFx();
-    await deps.runTreasureLevelCompleteHooks();
+    await deps.runLevelEndPreSettlementFx();
     deps.disableSettlementLayerAnim.value = false;
     deps.settlementSnapshot.value = deps.buildSnapshot();
     deps.getLayerAnim().resetAnimValues();

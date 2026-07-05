@@ -49,6 +49,7 @@ export function createTreasurePorts(binding) {
     grantSpellBonusShopVoucher: binding.grantSpellBonusShopVoucher,
     applyTreasureAcquireImmediateEffectsForRun: binding.applyTreasureAcquireImmediateEffectsForRun,
     runTreasureLevelCompleteHooks: binding.runTreasureLevelCompleteHooks,
+    runLevelEndPreSettlementFx: binding.runLevelEndPreSettlementFx,
     runTreasurePackOpenPrecursor: binding.runTreasurePackOpenPrecursor,
     runHourglassStageEndFx: binding.runHourglassStageEndFx,
     pickCrimsonDisabledTreasureSlotIndex: binding.pickCrimsonDisabledTreasureSlotIndex,

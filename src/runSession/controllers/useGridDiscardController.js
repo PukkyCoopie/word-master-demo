@@ -91,6 +91,8 @@ const ACTION_COUNT_DELTA_ANIM_MS = 920;
  *   playOwnedTreasureWobbleOnlyFx: (...args: unknown[]) => unknown,
  *   buildInRunLengthUpgradeStep: (len: number) => object,
  *   runInRunUpgradePlaybackSteps: (steps: object[]) => Promise<void>,
+ *   runInRunUpgradeStaircasePlayback: (steps: object[]) => Promise<void>,
+ *   ownedSlotTreasureIdList: () => (string | null | undefined)[],
  * }} callbacks
  * @property {ReturnType<import('../../game/submitTreasureSlotFx.js').createSubmitTreasureSlotFx> & ReturnType<import('../../game/submitTileLeaveAnim.js').createSubmitTileLeaveAnim>} submitFx
  * @property {(ms: number) => Promise<void>} sleep
@@ -270,7 +272,7 @@ export function useGridDiscardController(options) {
    * @param {HTMLElement[]} slotEls
    * @param {HTMLElement[]} gridEls
    * @param {{ letter?: string }[]} discardedLetters
-   * @param {{ duration?: number, stagger?: number, potteryProcIndices?: number[], pistolProc?: boolean, pistolDeckUid?: number | null, pistolMoneyAmount?: number }} [animOptions]
+   * @param {{ duration?: number, stagger?: number, potteryProcIndices?: number[], pistolProc?: boolean, pistolDeckUid?: number | null, pistolMoneyAmount?: number, pistolSlotIndex?: number }} [animOptions]
    * @returns {Promise<boolean>}
    */
   async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, animOptions = {}) {
@@ -282,6 +284,10 @@ export function useGridDiscardController(options) {
     const pistolProc = animOptions.pistolProc === true;
     const pistolDeckUid = animOptions.pistolDeckUid ?? null;
     const pistolMoneyAmount = Math.max(0, Math.floor(Number(animOptions.pistolMoneyAmount) || 0));
+    const pistolSlotIndex =
+      typeof animOptions.pistolSlotIndex === "number" && animOptions.pistolSlotIndex >= 0
+        ? animOptions.pistolSlotIndex
+        : callbacks.findOwnedTreasureSlotIndex(TREASURE_120_ID);
     /** @type {number[]} */
     const potteryIndices = potterySlotIx >= 0 ? [...(animOptions.potteryProcIndices ?? [])] : [];
     /** @type {number[]} */
@@ -315,6 +321,7 @@ export function useGridDiscardController(options) {
             rs.levelFirstDiscardBatchDone = true;
             await submitFx.playSubmitWordLetterRemoveAndRewardLeave({
               treasureId: TREASURE_120_ID,
+              ...(pistolSlotIndex >= 0 ? { treasureSlotIndex: pistolSlotIndex } : {}),
               slotEls: slotEl ? [slotEl] : [],
               gridEls: gridEl ? [gridEl] : [],
               moneyAmount: pistolMoneyAmount,
@@ -451,6 +458,7 @@ export function useGridDiscardController(options) {
           pistolProc: pistolDiscardPlan.proc,
           pistolDeckUid: pistolDiscardPlan.proc ? pistolDiscardPlan.deckUid : null,
           pistolMoneyAmount: pistolDiscardPlan.proc ? pistolDiscardPlan.moneyAmount : 0,
+          pistolSlotIndex: pistolDiscardPlan.proc ? pistolDiscardPlan.slotIndex : undefined,
         },
       );
       const discardPotteryFxHandled = discardLeaveFxHandled && potteryProcIndices.length > 0;
@@ -510,6 +518,7 @@ export function useGridDiscardController(options) {
         dropPromise,
         notifyOwnedTreasuresOnDiscardBatch(ownedIds, {
           ownedSlotTreasureIds: ownedIds,
+          getOwnedSlotTreasureIds: callbacks.ownedSlotTreasureIdList,
           discardedLetters: discardedLettersForHooks,
           discardedDeckCardUids,
           letterCount: nSel,
@@ -538,6 +547,8 @@ export function useGridDiscardController(options) {
           playOwnedTreasureMoneyFx: callbacks.playOwnedTreasureMoneyFx,
           ...callbacks.ownedTreasureHookFxBridge(),
           playOwnedTreasureWobbleOnlyFx: callbacks.playOwnedTreasureWobbleOnlyFx,
+          buildInRunLengthUpgradeStep: callbacks.buildInRunLengthUpgradeStep,
+          runInRunUpgradeStaircasePlayback: callbacks.runInRunUpgradeStaircasePlayback,
           runSingleInRunLengthUpgradeFx: async (len) => {
             const step = callbacks.buildInRunLengthUpgradeStep(len);
             await callbacks.runInRunUpgradePlaybackSteps([step]);

@@ -1,4 +1,5 @@
 import { describe, money } from "../treasureDescription.js";
+import { resolveTreasureHookAnimSlotIndex } from "../../game/treasureBlueprintMirror.js";
 
 const ID = "48";
 
@@ -13,6 +14,7 @@ export default {
 export const treasureHooks = {
   async onBossRestrictionTriggered(ctx) {
     if (!ctx.bossSlug) return;
-    await ctx.playOwnedTreasureMoneyFx?.(ID, 8);
+    const slotIndex = resolveTreasureHookAnimSlotIndex(ctx);
+    await ctx.playOwnedTreasureMoneyFx?.(ID, 8, slotIndex != null ? { slotIndex } : {});
   },
 };

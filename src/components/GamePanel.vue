@@ -847,8 +847,12 @@ async function destroyOtherOwnedTreasureFromSourceFx(
 /** @type {{ current: ReturnType<typeof createTreasureHourglassStageFx> | null }} */
 const hourglassStageFxRef = { current: null };
 
-async function runHourglassStageEndFx() {
-  await hourglassStageFxRef.current?.runHourglassStageEndFx();
+async function runHourglassStageEndFx(opts) {
+  await hourglassStageFxRef.current?.runHourglassStageEndFx?.(opts);
+}
+
+async function runLevelEndPreSettlementFx() {
+  await ctrlEarly.runLevelEndPreSettlementFx({ runHourglassStageEndFx });
 }
 
 const showTreasureCollectionLayer = ref(false);
@@ -1848,6 +1852,7 @@ const { ports: gamePanelPorts } = setupGamePanelAssembly(
       grantRandomShopTreasureByRarity: treasureInventoryCtrl.grantRandomByRarity,
       runTreasurePackOpenPrecursor,
       runHourglassStageEndFx,
+      runLevelEndPreSettlementFx,
       pickCrimsonDisabledTreasureSlotIndex,
       crimsonTreasureDisabledSlotIndex,
       runDetachedTileShrinkReplacePop,
@@ -2056,7 +2061,10 @@ runAutoSaveBridge.flushRunSaveNow = () => runSaveBridge?.flushRunSaveNow?.();
     touchGrid, updateSlotPositions, scheduleRunAutoSave, nextTick, runRandom,
     shopPhase, loadDictionary, getGamePanelAlive: () => gamePanelAlive, isWildcardMaterialTile,
     getCandidateWordsByLength, resolveWordPattern, rarityLevelsByRarity, buildBossWildcardResolveContext,
-    grantRandomOwnedTreasuresInRunWithPopAnim, tryCeruleanBellMarkAfterGridStable, grid,
+    grantRandomOwnedTreasuresInRunWithPopAnim: ctrlEarly.grantRandomOwnedTreasuresInRunWithPopAnim,
+    tryCeruleanBellMarkAfterGridStable, grid,
+    treasureRunState, remainingWords,
+    runTreasureLevelCompleteHooks: ctrlEarly.runTreasureLevelCompleteHooks,
     selectTile, removeFromSlot, selectedOrder, submitWord: panelAssembly.submitController.submitWord,
     scoringAnimating, gridRefillAnimating, submitWordBusy,
   }),
@@ -2155,7 +2163,6 @@ wireGamePanelFxFromDeps({
   scoreBubbleAnchorRect,
   clearOwnedTreasureSlotLeaveGapAtIndex: (ix) =>
     ctrlEarly.treasureRun?.clearOwnedTreasureSlotLeaveGapAtIndex(ix),
-  removeAndCompactOwnedTreasureAtIndex: ctrlEarly.removeAndCompactOwnedTreasureAtIndex,
   removeOwnedTreasureSlotsLeaveGapAtIndices: (indices, opts) =>
     ctrlEarly.treasureRun?.removeOwnedTreasureSlotsLeaveGapAtIndices(indices, opts),
   scheduleRunAutoSave,
@@ -2208,6 +2215,7 @@ const {
   achievementRunState,
   irisTransition,
   runHourglassStageEndFx,
+  runLevelEndPreSettlementFx,
   runTreasureLevelCompleteHooks: ctrlEarly.runTreasureLevelCompleteHooks,
   ownedSlotTreasureIdList,
   recordPointerClientFromEvent,

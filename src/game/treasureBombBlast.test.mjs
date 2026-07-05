@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   resolveBombAdjacentVictimSlotIndices,
   resolveBombBlastDestroySlotIndices,
+  resolveBombBlastFeintSlotIndices,
 } from "./treasureBombBlast.js";
 
 test("炸弹爆炸：左右紧邻非空宝藏纳入摧毁，空格跳过", () => {
@@ -34,8 +35,9 @@ test("炸弹爆炸：禁售配饰保护邻槽", () => {
   assert.deepEqual(resolveBombBlastDestroySlotIndices(slots, 1, noSell), [1]);
 });
 
-test("炸弹爆炸：禁售配饰保护炸弹本体时整次爆炸取消", () => {
+test("炸弹爆炸：禁售配饰保护炸弹本体时仅邻槽真摧毁、炸弹假爆炸", () => {
   const slots = [{ treasureId: "1" }, { treasureId: "29" }, { treasureId: "2" }];
   const bombNoSell = (ix) => ix === 1;
-  assert.deepEqual(resolveBombBlastDestroySlotIndices(slots, 1, bombNoSell), []);
+  assert.deepEqual(resolveBombBlastDestroySlotIndices(slots, 1, bombNoSell), [0, 2]);
+  assert.deepEqual(resolveBombBlastFeintSlotIndices(slots, 1, bombNoSell), [1]);
 });

@@ -1202,6 +1202,15 @@ textarea::-moz-placeholder {
 .score-popup-bubble--bomb-blast {
 	background: #c03636;
 }
+/* 禁售配饰：假自毁/爆炸/摧毁（灰底 + 删除线，覆盖各 kind 底色） */
+.score-popup-bubble.score-popup-bubble--no-sell-feint {
+	background: #949494;
+	color: #f4f4f4;
+	text-decoration: line-through;
+	text-decoration-thickness: calc(3 * var(--rpx));
+	text-decoration-color: rgba(255, 255, 255, 0.88);
+	box-shadow: 0 calc(4 * var(--rpx)) calc(12 * var(--rpx)) rgba(0, 0, 0, 0.1);
+}
 /* 火山喷发 */
 .score-popup-bubble--volcano-eruption {
 	background: #d44a28;

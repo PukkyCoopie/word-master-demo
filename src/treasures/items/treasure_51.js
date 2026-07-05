@@ -1,4 +1,5 @@
 import { describe } from "../treasureDescription.js";
+import { resolveTreasureHookAnimSlotIndex } from "../../game/treasureBlueprintMirror.js";
 import { resolveSubmittedWordForHooks } from "../../game/resolvedWordTileMapping.js";
 import { wordEndsWithSuffix } from "../../game/wordPosMatch.js";
 
@@ -14,7 +15,7 @@ export const treasureHooks = {
   async onSuccessfulWordSubmit(ctx) {
     const word = resolveSubmittedWordForHooks(ctx.resolvedWord, ctx.submittedScoringTiles);
     if (!wordEndsWithSuffix(word, "ion")) return;
-    const slotIx = ctx.findOwnedTreasureSlotIndex?.("51") ?? -1;
+    const slotIx = resolveTreasureHookAnimSlotIndex(ctx) ?? ctx.findOwnedTreasureSlotIndex?.("51") ?? -1;
     const runGrant = async () => {
       await ctx.requestInRunSpellGrant?.({
         treasureId: "51",

@@ -34,10 +34,9 @@ export function gridTileHasMaterial(tile) {
 /**
  * @param {readonly (object | null | undefined)[]} ownedSlots
  * @param {number} volcanoSlotIndex
- * @param {(slotIndex: number) => boolean} [isSlotNoSell]
  * @returns {number[]}
  */
-export function resolveVolcanoTreasureVictimIndices(ownedSlots, volcanoSlotIndex, isSlotNoSell) {
+export function resolveVolcanoTreasureVictimIndices(ownedSlots, volcanoSlotIndex) {
   const originIx = Math.floor(Number(volcanoSlotIndex));
   if (!Array.isArray(ownedSlots) || !Number.isFinite(originIx)) return [];
   /** @type {number[]} */
@@ -45,7 +44,6 @@ export function resolveVolcanoTreasureVictimIndices(ownedSlots, volcanoSlotIndex
   for (let i = 0; i < ownedSlots.length; i += 1) {
     if (i === originIx) continue;
     if (ownedSlots[i] == null) continue;
-    if (isSlotNoSell?.(i)) continue;
     victims.push(i);
   }
   return victims;

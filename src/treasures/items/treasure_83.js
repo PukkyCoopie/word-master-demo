@@ -49,6 +49,7 @@ export const treasureHooks = {
     if (!word) return;
     const def = ctx.getWordDefinition?.(word);
     if (!dictionaryPosMatchesTreasureLevelKey(def?.pos, rs.levelPosTargetKey, def?.translation_zh)) return;
-    await ctx.playOwnedTreasureMoneyFx?.(ID, REWARD);
+    const slotIndex = resolveTreasureHookAnimSlotIndex(ctx);
+    await ctx.playOwnedTreasureMoneyFx?.(ID, REWARD, slotIndex != null ? { slotIndex } : {});
   },
 };

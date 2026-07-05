@@ -235,7 +235,10 @@ export function createSubmitTileLeaveAnim(deps) {
     const gridEls = Array.isArray(opts?.gridEls) ? opts.gridEls : [];
     const n = Math.min(slotEls.length, gridEls.length);
     if (n <= 0) return;
-    const treasureSlotIx = findOwnedTreasureSlotIndex(treasureId);
+    const treasureSlotIx =
+      typeof opts?.treasureSlotIndex === "number" && opts.treasureSlotIndex >= 0
+        ? opts.treasureSlotIndex
+        : findOwnedTreasureSlotIndex(treasureId);
     const sp = 1;
 
     for (let i = 0; i < n; i++) {

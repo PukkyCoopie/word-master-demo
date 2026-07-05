@@ -2304,7 +2304,7 @@ function applyEnterInitialHide(backdrop, staggerEls, targetVisual, resetBackdrop
 function runEnterAnimation() {
   const backdrop = backdropRef.value;
   const targetVisual = targetVisualRef.value;
-  if (!backdrop || !targetVisual) return;
+  if (!backdrop || !targetVisual || props.overlaySuppressed) return;
 
   if (enterTl) {
     enterTl.kill();
@@ -2347,7 +2347,7 @@ function runEnterAnimation() {
       const backdropLive = backdropRef.value;
       const targetVisualLive = targetVisualRef.value;
       const iconColumnLive = iconColumnRef.value;
-      if (!backdropLive || !targetVisualLive) return;
+      if (!backdropLive || !targetVisualLive || props.overlaySuppressed) return;
 
       const staggerLive = staggerTargets();
       /* 二次重置仅处理子块；保留 backdrop 正在进行的渐变，避免瞬间跳黑 */
@@ -2401,6 +2401,7 @@ function runEnterAnimation() {
  */
 function continueEnterAfterMeasure(ctx) {
   const { backdropLive, targetVisualLive, iconColumnLive, staggerLive, hasFly, cloneLive } = ctx;
+  if (props.overlaySuppressed) return;
 
   if (!hasFly && targetVisualLive) {
     gsap.set(targetVisualLive, {
