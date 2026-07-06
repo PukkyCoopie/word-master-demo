@@ -1,6 +1,6 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import { TREASURE_HOOKS_BY_ID, notifyPerLetterPostScoringMaterialFx } from "../treasures/treasureRegistry.js";
+import { TREASURE_HOOKS_BY_ID, notifyPerLetterPostScoringMaterialFx, notifySubmitScoringAfterLettersForSlot } from "../treasures/treasureRegistry.js";
 import { isIceMaterialPostLetterStep, ICE_MATERIAL_SCORE_MULT_MUL } from "./iceMaterialScoring.js";
 import { isLuckyMaterialPostLetterStep } from "./luckyMaterialScoring.js";
 import {
@@ -37,8 +37,8 @@ import {
   shouldTreasureRunAccumulationMutate,
 } from "./treasureBlueprintMirror.js";
 import {
-  collectAfterTreasureContributionBoostStep,
   isMeaningfulTreasureBoostStep,
+  ownedSlotTrophyAnimKey,
 } from "../treasures/treasureContributionBoost.js";
 import { snapshotMaxIntrinsicGainsFromTile } from "./tileIntrinsicGains.js";
 import { syncImperativeAugmentBadges } from "../utils/tileImperativeChrome.js";
@@ -148,6 +148,8 @@ export function createSubmitScoringAnimController(deps) {
   let scoringWordSlotBubbleAnchor = null;
   /** @type {Set<number> | null} 本手计分禁用宝藏槽（绯红之心等），与 detailed 对齐 */
   let activeSubmitDisabledTreasureSlotIndices = null;
+  /** @type {Set<string> | null} 本手已播过栏位奖杯 × 倍率动画的 slot:treasureId */
+  let activeSubmitAnimatedOwnedSlotTrophies = null;
 
   function resolveOwnedSlotIdsForSubmitScoring() {
     const raw = refs.ownedTreasures.value.map((s) => s?.treasureId ?? null);
@@ -340,19 +342,13 @@ async function runLetterRarityTreasureMultStep(part, slotEl, cfg, speed = 1) {
   return true;
 }
 
-/** 持有奖杯时：目标宝藏自身贡献（分/倍率/倍率倍数）后、配饰前，于该宝藏槽再 wobble + 倍率乘法气泡 */
-async function runAfterTreasureContributionBoostAnim(treasureId, slotIndex, speed = 1) {
-  const ownedSlotIds = resolveOwnedSlotIdsForSubmitScoring();
-  const boost = collectAfterTreasureContributionBoostStep(
-    {
-      ownedSlotTreasureIds: ownedSlotIds,
-      treasureRun: refs.treasureRunState.value,
-    },
-    ownedSlotIds,
-    { treasureId: String(treasureId ?? ""), slotIndex },
-  );
-  if (!isMeaningfulTreasureBoostStep(boost)) return false;
-  const multMul = Number(boost.multMul) || 0;
+/** 栏位史诗/传说宝藏的奖杯 × 倍率：在目标宝藏槽 wobble + 气泡（不另播奖杯槽） */
+async function runOwnedSlotTrophyBoostAnim(treasureId, slotIndex, multMul, speed = 1) {
+  const mult = Number(multMul) || 0;
+  if (mult <= 1) return false;
+  const key = ownedSlotTrophyAnimKey(slotIndex, treasureId);
+  if (activeSubmitAnimatedOwnedSlotTrophies?.has(key)) return false;
+  activeSubmitAnimatedOwnedSlotTrophies?.add(key);
   const sp = Math.max(0.01, Number(speed) || 1);
   const ti =
     typeof slotIndex === "number" && slotIndex >= 0
@@ -363,18 +359,18 @@ async function runAfterTreasureContributionBoostAnim(treasureId, slotIndex, spee
   await new Promise((r) => requestAnimationFrame(r));
   const tel = ti >= 0 ? getOwnedTreasureBarFxEl(ti) : null;
   if (tel) {
-    if (multMul >= 2) callbacks.triggerHaptic("scoreTotal");
+    if (mult >= 2) callbacks.triggerHaptic("scoreTotal");
     wobbleScoreSlot(tel, sp);
     await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-    refs.animMultTotal.value = Math.round(refs.animMultTotal.value * multMul);
+    refs.animMultTotal.value = Math.round(refs.animMultTotal.value * mult);
     await nextTick();
-    const bubbleX = showMultMultiplyBubble(tel, multMul, sp);
+    const bubbleX = showMultMultiplyBubble(tel, mult, sp);
     pulseFormulaMultMultiplyBurst(getResultMultNumEl());
     scheduleMultMultiplyBubbleOutro(bubbleX, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS + 120, sp);
   } else {
     await scoringSleep(SCORING_TREASURE_FALLBACK_MS, sp);
-    refs.animMultTotal.value = Math.round(refs.animMultTotal.value * multMul);
+    refs.animMultTotal.value = Math.round(refs.animMultTotal.value * mult);
     await nextTick();
     pulseFormulaMultMultiplyBurst(getResultMultNumEl());
   }
@@ -717,7 +713,11 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     await runLetterScoringSkipStep(slotEl, sp, i);
     return;
   }
-  const part = detailed.letterParts[i];
+  const part = detailed.letterParts?.[i];
+  if (!part) {
+    console.warn("[submitScoring] missing letterParts entry", { index: i, wordLen: detailed.letterParts?.length });
+    return;
+  }
   const luckyRoll = detailed.luckyMaterialRollsByLetter?.[i]?.[luckyVisitIndex] ?? null;
   /** 本字母本轮是否已播过词槽「逐字」缩放 wobble（用于幸运金币：尽量与已有分/倍率步同拍，避免单独再晃一格） */
   let wordSlotIntrinsicWobblePlayed = false;
@@ -829,9 +829,6 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
         if (telBank) wobbleScoreSlot(telBank, sp);
         await scoringSleep(SCORING_STEP_BEAT_MS, sp);
         refs.scoringTreasureBarIndex.value = null;
-        if (row.treasureId) {
-          await runAfterTreasureContributionBoostAnim(row.treasureId, row.si, sp);
-        }
       }
       continue;
     }
@@ -867,9 +864,6 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     scheduleSmallPlusBubbleOutro(bubbleS, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
     refs.scoringTreasureBarIndex.value = null;
-    if (row.treasureId && rowDelta > 0) {
-      await runAfterTreasureContributionBoostAnim(row.treasureId, row.si, sp);
-    }
   }
 
   if (await runTileTreasureAccessoryDropScoreBurst(tile, slotEl, sp)) {
@@ -893,7 +887,6 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     );
     if (didTreasureScore) {
       wordSlotIntrinsicWobblePlayed = true;
-      await runAfterTreasureContributionBoostAnim(tid, si, sp);
     }
   }
   if (await runPerLetterTreasureMoneyCues(detailed, i, luckyVisitIndex, slotEl, sp)) {
@@ -976,9 +969,6 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     scheduleSmallPlusBubbleOutro(bubbleM, sp);
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
     refs.scoringTreasureBarIndex.value = null;
-    if (row.treasureId && row.delta > 0) {
-      await runAfterTreasureContributionBoostAnim(row.treasureId, row.si, sp);
-    }
   }
 
   if (
@@ -1012,7 +1002,6 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     );
     if (didTreasureMult) {
       wordSlotIntrinsicWobblePlayed = true;
-      await runAfterTreasureContributionBoostAnim(tid, si, sp);
     }
   }
 
@@ -1038,7 +1027,6 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     }, sp);
     if (didRarity) {
       wordSlotIntrinsicWobblePlayed = true;
-      await runAfterTreasureContributionBoostAnim(tid, si, sp);
     }
   }
 
@@ -1067,7 +1055,6 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
     }, sp);
     if (didRarity) {
       wordSlotIntrinsicWobblePlayed = true;
-      await runAfterTreasureContributionBoostAnim(tid, si, sp);
     }
   }
 
@@ -1434,11 +1421,16 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   activeSubmitDisabledTreasureSlotIndices = normalizeDisabledTreasureSlotIndices(
     detailed?.disabledTreasureSlotIndices,
   );
+  activeSubmitAnimatedOwnedSlotTrophies = new Set();
   try {
   resetSubmitScoringBeatSpeedSnapshot();
   refs.hideResultWordLengthBeforeTotal.value = false;
   refs.suppressResultWordLengthUntilScoringEnd.value = false;
-  const n = detailed.letterParts.length;
+  const letterParts = Array.isArray(detailed.letterParts) ? detailed.letterParts : [];
+  const n = letterParts.length;
+  if (n === 0) {
+    throw new Error("submit scoring: letterParts empty");
+  }
   const persistedSubmitTiles = tiles.filter((t) => !isNewspaperTempTile(t));
   const lenTb =
     detailed.lengthTableLen != null && Number.isFinite(Number(detailed.lengthTableLen))
@@ -1472,22 +1464,35 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   const perLetterTreasureReplayCueSteps = detailed.perLetterTreasureReplayCueSteps ?? [];
   const perLetterTreasureReplayCueCursor = perLetterTreasureReplayCueSteps.map(() => 0);
   /** 与 `luckyMaterialRollsByLetter[i]` 对齐：该字母第几次逐字结算（首遍 + replay + 整词额外轮） */
-  const luckyVisitByLetter = detailed.letterParts.map(() => 0);
+  const luckyVisitByLetter = letterParts.map(() => 0);
   const totalScoringBeats = getSubmitScoringTotalBeats(detailed);
   let scoringBeat = 0;
-  const hasNewspaperAppend = (detailed.submitScoringAppendedTiles?.length ?? 0) > 0;
-  if (!skipLetters && hasNewspaperAppend) {
-    await runNewspaperAppendSequence({
-      detailed,
-      refs,
-      getDom,
-      fx,
-      callbacks,
-      nextTick,
-      speed: beatSpeed(scoringBeat, totalScoringBeats),
-      gsap: gsapLib,
-    });
-    scoringBeat += detailed.submitScoringAppendedTiles?.length ?? 0;
+  const scoringBaseTiles = tiles.filter((t) => !isNewspaperTempTile(t));
+  const ownedSlotIdsForPhase = resolveOwnedSlotIdsForSubmitScoring();
+  if (!skipLetters) {
+    for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(
+      ownedSlotIdsForPhase,
+    )) {
+      const slotAppends = (detailed.submitScoringAppendedTiles ?? []).filter(
+        (entry) =>
+          String(entry?.treasureId ?? "") === String(tid) &&
+          Math.floor(Number(entry?.treasureBarSlotIndex) || 0) === si,
+      );
+      if (slotAppends.length > 0) {
+        await runNewspaperAppendSequence({
+          detailed,
+          appendedEntries: slotAppends,
+          refs,
+          getDom,
+          fx,
+          callbacks,
+          nextTick,
+          speed: beatSpeed(scoringBeat, totalScoringBeats),
+          gsap: gsapLib,
+        });
+        scoringBeat += slotAppends.length;
+      }
+    }
   }
   if (skipLetters) {
     const spSkip = 1.05;
@@ -1531,6 +1536,24 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       }
     }
 
+    const ownedSlotIdsAfterLetters = resolveOwnedSlotIdsForSubmitScoring();
+    const afterLettersSlotCtx = {
+      submittedScoringTiles: scoringBaseTiles,
+      ownedSlotTreasureIds: ownedSlotIdsAfterLetters,
+      treasureRun: refs.treasureRunState.value,
+      appendDeckCardSpecToRunDeck: callbacks.appendDeckCardSpecToRunDeck,
+      playWordSlotCopyFxAtIndex: (slotIndex, sp = 1) =>
+        callbacks.playWordSlotCopyFxAtIndex?.(slotIndex, sp),
+      detailed,
+    };
+    for (const entry of iterTreasureHookContributions(ownedSlotIdsAfterLetters)) {
+      await notifySubmitScoringAfterLettersForSlot(
+        ownedSlotIdsAfterLetters,
+        entry,
+        afterLettersSlotCtx,
+      );
+    }
+
     if (detailed.bossSoftViolation !== true) {
       await callbacks.notifySubmitAfterLettersBeforePostSteps(
         resolveOwnedSlotIdsForSubmitScoring(),
@@ -1565,6 +1588,13 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       typeof step.slotIndex === "number" && step.slotIndex >= 0
         ? step.slotIndex
         : callbacks.findFirstOwnedTreasureSlotIndex(step.treasureId);
+    if (hasMultMul && step.trophyOwnedSlotBoost === true) {
+      const key = ownedSlotTrophyAnimKey(ti, step.treasureId);
+      if (!activeSubmitAnimatedOwnedSlotTrophies?.has(key)) {
+        await runOwnedSlotTrophyBoostAnim(step.treasureId, ti, multMul, spPost);
+      }
+      continue;
+    }
     refs.scoringTreasureBarIndex.value = ti >= 0 ? ti : null;
     await nextTick();
     await new Promise((r) => requestAnimationFrame(r));
@@ -1951,6 +1981,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   return iceShatterCount;
   } finally {
     activeSubmitDisabledTreasureSlotIndices = null;
+    activeSubmitAnimatedOwnedSlotTrophies = null;
     resetSubmitScoringBeatSpeedSnapshot();
     callbacks.submitUpgradeFxRegistrarState.current = null;
     callbacks.submitAccessoryUpgradeBatchState.current = null;

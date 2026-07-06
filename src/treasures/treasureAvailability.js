@@ -67,7 +67,7 @@ export function attachTreasurePoolDerivedStats(snap) {
     }
     const card = /** @type {{ rarity?: string, materialId?: string, accessoryId?: string }} */ (c);
     const rarity = card.rarity;
-    if (rarity && Object.hasOwn(deckLetterRarityCounts, rarity)) {
+    if (rarity && Object.prototype.hasOwnProperty.call(deckLetterRarityCounts, rarity)) {
       deckLetterRarityCounts[rarity] += 1;
     }
     if (rarity === "rare") deckRare += 1;

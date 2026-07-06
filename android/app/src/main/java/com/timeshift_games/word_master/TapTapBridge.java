@@ -14,6 +14,7 @@ import com.taptap.sdk.compliance.TapTapComplianceCallback;
 import com.taptap.sdk.compliance.option.TapTapComplianceOptions;
 import com.taptap.sdk.cloudsave.TapTapCloudSave;
 import com.taptap.sdk.cloudsave.internal.TapCloudSaveCallback;
+import com.taptap.sdk.core.TapTapEventOptions;
 import com.taptap.sdk.core.TapTapRegion;
 import com.taptap.sdk.core.TapTapSdk;
 import com.taptap.sdk.core.TapTapSdkOptions;
@@ -77,6 +78,12 @@ final class TapTapBridge {
             false
         );
         TapTapAchievementOptions achievementOptions = new TapTapAchievementOptions(false);
+        TapTapEventOptions eventOptions =
+            TapTapEventOptions.builder()
+                .channel("TapTap")
+                .enableTapTapEvent(true)
+                .disableAutoLogDeviceLogin(false)
+                .build();
 
         if (debuggable) {
             Log.i(
@@ -90,7 +97,7 @@ final class TapTapBridge {
             );
         }
 
-        TapTapSdk.init(appContext, coreOptions, complianceOptions, achievementOptions);
+        TapTapSdk.init(appContext, coreOptions, complianceOptions, achievementOptions, eventOptions);
         TapTapAchievement.setToastEnable(false);
         TapTapCompliance.registerComplianceCallback(
             new TapTapComplianceCallback() {

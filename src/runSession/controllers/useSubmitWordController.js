@@ -19,6 +19,7 @@ import { resolveSubmitWordInput } from "../../game/submitWordPipeline.js";
 import { createSubmitScoringAnimController } from "../../game/submitScoringAnim.js";
 import { resolveWordLengthJudgmentBonus } from "../../game/wordLengthJudgmentBonus.js";
 import { compareScore, scoreGte, scoreLt } from "../../utils/scoreInteger.js";
+import { reportClientError } from "../../platform/clientErrorReporter.js";
 import {
   getBaseScoreForRarity,
   getWordLetterCount,
@@ -179,9 +180,13 @@ export function useSubmitWordController(options) {
     submitWordBusy.value = true;
     let submitChanceConsumed = false;
     let scoreBeforeHand = 0;
+    /** @type {"prepare"|"score"|"scoringAnim"|"postSubmit"|"settlement"} */
+    let submitPhase = "prepare";
+    let submitResolvedWord = "";
 
     try {
       const { wordPattern: wordPattern0, resolvedWord } = submitInput;
+      submitResolvedWord = resolvedWord;
       const ownedSlotTreasureIds = run.ownedTreasures.value.map((s) => s?.treasureId ?? null);
       const tiles = withWildcardsResolvedForScoring(
         callbacks.listEffectiveTilesForSubmit().map((tile) => {
@@ -274,6 +279,7 @@ export function useSubmitWordController(options) {
           : new Set(expiredSlotIndices);
       }
 
+      submitPhase = "score";
       let detailed = computeWordScoreDetailedForSubmit(
         tiles,
         ownedSlotTreasureIds,
@@ -382,6 +388,7 @@ export function useSubmitWordController(options) {
       await sleep(ACTION_COUNT_DELTA_BEAT_MS);
       ui.scoringLetterIndex.value = -1;
 
+      submitPhase = "scoringAnim";
       const iceShatterCount = await runSubmitScoringSequence(
         detailed.submitScoringTiles ?? tiles,
         detailed,
@@ -390,6 +397,7 @@ export function useSubmitWordController(options) {
       );
 
       if (!submitViolated) {
+        submitPhase = "postSubmit";
         callbacks.flushSubmitAchievements(tiles, detailed, iceShatterCount);
       }
 
@@ -443,6 +451,7 @@ export function useSubmitWordController(options) {
       }
 
       if (scoreGte(gridApi.currentScore.value, gridApi.targetScore.value)) {
+        submitPhase = "settlement";
         const isFinalStandardWin =
           !run.isEndlessRun.value && isStandardRunFinalLevelIndex(run.levelIndex.value);
         if (isFinalStandardWin) {
@@ -456,7 +465,22 @@ export function useSubmitWordController(options) {
         await callbacks.openRunEnd("fail");
       }
     } catch (e) {
-      console.error(e);
+      const errMsg = e instanceof Error ? e.message : String(e ?? "");
+      console.error("[submitWord]", {
+        phase: submitPhase,
+        word: submitResolvedWord,
+        message: errMsg,
+        error: e,
+      });
+      void reportClientError({
+        source: "submitWord",
+        phase: submitPhase,
+        message: errMsg,
+        stack: e instanceof Error ? e.stack : undefined,
+        extra: {
+          wordLen: String(submitResolvedWord?.length ?? 0),
+        },
+      });
       pager.pagerQuizSession.value = null;
       pager.pendingPagerQuizSession.value = null;
       callbacks.clearDeferredWordSubmitPayload();
@@ -481,10 +505,17 @@ export function useSubmitWordController(options) {
         tw.style.height = "";
         tw.style.overflow = "";
       }
-      const submitErrorMessage =
-        import.meta.env.DEV && e
-          ? `提交出错: ${e?.message ?? String(e)}`
-          : "提交出错";
+      const submitErrorMessage = (() => {
+        const detail = errMsg.trim();
+        if (!detail) return "提交出错";
+        if (/hasOwn is not a function|\.at is not a function|replaceAll is not a function/i.test(detail)) {
+          return "提交出错：系统版本过低，请更新应用";
+        }
+        if (import.meta.env.DEV) return `提交出错: ${detail}`;
+        if (/^treasureId=\d+/i.test(detail)) return "提交出错（宝藏效果异常）";
+        if (detail.length <= 48) return `提交出错: ${detail}`;
+        return "提交出错";
+      })();
       callbacks.showToast(submitErrorMessage);
     } finally {
       submitWordBusy.value = false;

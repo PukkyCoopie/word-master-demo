@@ -19,6 +19,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
  * @property {string} packageName
  * @property {string} signatureMd5
  * @property {boolean} debuggable
+ * @property {string} [clientId]
  */
 
 /** @type {import('@capacitor/core').PluginImplementations} */
@@ -42,6 +43,7 @@ export async function ensureTapTapSdkInitialized() {
 /** 浏览器 / 非原生环境 stub，便于本地 Vite 开发 */
 const TapTapWebStub = {
   async initSdk() {},
+  async logEvent() {},
   async getCurrentAccount() {
     return null;
   },
@@ -84,6 +86,23 @@ const TapTapWebStub = {
 
 /** @type {typeof TapTapNative} */
 export const TapTap = Capacitor.isNativePlatform() ? TapTapNative : TapTapWebStub;
+
+/**
+ * 上报 TapDB 自定义事件（TapDB v4 事件名/属性名均勿带 #；属性 value 字符串 ≤256；须先元数据登记）。
+ *
+ * @param {string} name
+ * @param {Record<string, string | number | boolean>} [properties]
+ */
+export async function logTapTapEvent(name, properties = {}) {
+  if (!Capacitor.isNativePlatform()) return;
+  const trimmed = String(name ?? "").trim();
+  if (!trimmed) return;
+  await ensureTapTapSdkInitialized();
+  await TapTap.logEvent({
+    name: trimmed,
+    propertiesJson: JSON.stringify(properties ?? {}),
+  });
+}
 
 /** 合规认证通过，可进入游戏 */
 export const COMPLIANCE_LOGIN_SUCCESS = 500;

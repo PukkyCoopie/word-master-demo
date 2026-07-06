@@ -26,9 +26,7 @@ export default {
     money("1"),
     "，且有",
     prob("1/2"),
-    "的概率提升此数值（当前",
-    money("1"),
-    "）",
+    "的概率提升此数值",
   ),
 };
 
@@ -42,9 +40,7 @@ export const treasureHooks = {
       money(String(payout)),
       "，且有",
       prob("1/2"),
-      "的概率提升此数值（当前",
-      money(String(payout)),
-      "）",
+      "的概率提升此数值",
     );
   },
   async onLevelComplete(ctx) {

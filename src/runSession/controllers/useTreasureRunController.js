@@ -150,19 +150,19 @@ export function useTreasureRunController(options) {
   }
 
   function findOwnedTreasureSlotIndex(treasureId) {
-    const tid = String(treasureId ?? "");
+    const tid = String(treasureId ?? "").trim();
     if (!tid) return -1;
-    return ownedTreasures.value.findIndex((s) => s?.treasureId === tid);
+    return ownedTreasures.value.findIndex((s) => String(s?.treasureId ?? "").trim() === tid);
   }
 
   /** @param {string} treasureId @returns {number[]} */
   function findAllOwnedTreasureSlotIndices(treasureId) {
-    const tid = String(treasureId ?? "");
+    const tid = String(treasureId ?? "").trim();
     if (!tid) return [];
     /** @type {number[]} */
     const indices = [];
     ownedTreasures.value.forEach((s, i) => {
-      if (s?.treasureId === tid) indices.push(i);
+      if (String(s?.treasureId ?? "").trim() === tid) indices.push(i);
     });
     return indices;
   }

@@ -9,6 +9,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.taptap.sdk.core.TapTapEvent;
 import com.taptap.sdk.cloudsave.ArchiveData;
 import com.taptap.sdk.cloudsave.ArchiveMetadata;
 import com.taptap.sdk.cloudsave.internal.TapCloudSaveRequestCallback;
@@ -45,6 +46,23 @@ public class TapTapPlugin extends Plugin {
     public void initSdk(PluginCall call) {
         TapTapBridge.init(getContext());
         call.resolve();
+    }
+
+    @PluginMethod
+    public void logEvent(PluginCall call) {
+        String name = call.getString("name");
+        String propertiesJson = call.getString("propertiesJson", "{}");
+        if (name == null || name.trim().isEmpty()) {
+            call.reject("name is required");
+            return;
+        }
+        try {
+            JSONObject props = new JSONObject(propertiesJson);
+            TapTapEvent.logEvent(name.trim(), props);
+            call.resolve();
+        } catch (Exception exception) {
+            call.reject("logEvent failed", exception);
+        }
     }
 
     static void dispatchComplianceResult(int code, Map<String, ?> extra) {
@@ -340,6 +358,7 @@ public class TapTapPlugin extends Plugin {
         ret.put("packageName", context.getPackageName());
         ret.put("signatureMd5", TapTapBridge.getSigningCertificateMd5(context));
         ret.put("debuggable", debuggable);
+        ret.put("clientId", context.getString(R.string.taptap_client_id));
         call.resolve(ret);
     }
 

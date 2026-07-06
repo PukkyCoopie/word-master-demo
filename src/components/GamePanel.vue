@@ -133,6 +133,7 @@ import {
   createRunDiscoveryLog,
 } from "../game/runCollectionDiscoveries.js";
 import { buildSubmitAfterLettersContext as buildSubmitAfterLettersContextFromDeps } from "../game/playfieldSubmitContext.js";
+import { runWordSlotCopyFxAtIndex } from "../game/wordSlotCopyFx.js";
 import { createGamePanelDevCommands } from "../dev/gamePanelDevCommands.js";
 import {
   startGamePanelFromRestoredSave as startGamePanelFromRestoredSaveRunner,
@@ -1938,6 +1939,19 @@ const { ports: gamePanelPorts } = setupGamePanelAssembly(
     scoringExtras: {
       canSubmit,
       buildSubmitAfterLettersContext,
+      appendDeckCardSpecToRunDeck: (spec) => appendDeckCardSpecToRunDeck(spec),
+      playWordSlotCopyFxAtIndex: async (slotIndex, sp = 1) => {
+        await runWordSlotCopyFxAtIndex(
+          {
+            getWordSlotEl: (i) => getWordSlotRefsFromPlayfield()[i] ?? null,
+            awaitTreasureSlotWobbleEl: awaitTreasureSlotWobbleElForSubmit,
+            showScoreBubble,
+            scheduleSmallPlusBubbleOutro,
+          },
+          slotIndex,
+          sp,
+        );
+      },
       applySubmitRefill,
       applyHookBossAfterSubmit,
       deferredWordSubmitPayload: deferredWordSubmitPayloadBox,

@@ -75,9 +75,17 @@ export function iterTreasureHookContributions(ownedSlotTreasureIds) {
  */
 export async function forEachTreasureHookContribution(ownedSlotTreasureIds, visit) {
   for (const entry of iterTreasureHookContributions(ownedSlotTreasureIds)) {
-    const result = visit(entry);
-    if (result != null && typeof /** @type {Promise<unknown>} */ (result).then === "function") {
-      await result;
+    try {
+      const result = visit(entry);
+      if (result != null && typeof /** @type {Promise<unknown>} */ (result).then === "function") {
+        await result;
+      }
+    } catch (err) {
+      const base = err instanceof Error ? err : new Error(String(err ?? "unknown"));
+      if (!base.message.includes(`treasureId=${entry.treasureId}`)) {
+        base.message = `treasureId=${entry.treasureId} slot=${entry.slotIndex} source=${entry.source}: ${base.message}`;
+      }
+      throw base;
     }
   }
 }

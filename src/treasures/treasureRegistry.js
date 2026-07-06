@@ -196,6 +196,30 @@ export async function notifySubmitAfterLettersBeforePostSteps(ownedSlotTreasureI
 }
 
 /**
+ * 提交计分动画：逐字母开始前，按栏位调用（如传真机复制）。
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {{ treasureId: string, slotIndex: number, source: 'self' | 'blueprint' }} entry
+ * @param {import('./treasureTypes.js').TreasureSubmitSuccessContext} ctx
+ */
+export async function notifySubmitScoringBeforeLettersForSlot(ownedSlotTreasureIds, entry, ctx) {
+  const fn = TREASURE_HOOKS_BY_ID.get(entry.treasureId)?.runSubmitScoringBeforeLettersSlotPhase;
+  if (!fn) return;
+  await fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, entry));
+}
+
+/**
+ * 提交计分动画：逐字母全部完成后、字后宝藏步开始前，按栏位从左到右（如传真机复制）。
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {{ treasureId: string, slotIndex: number, source: 'self' | 'blueprint' }} entry
+ * @param {import('./treasureTypes.js').TreasureSubmitSuccessContext} ctx
+ */
+export async function notifySubmitScoringAfterLettersForSlot(ownedSlotTreasureIds, entry, ctx) {
+  const fn = TREASURE_HOOKS_BY_ID.get(entry.treasureId)?.runSubmitScoringAfterLettersSlotPhase;
+  if (!fn) return;
+  await fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, entry));
+}
+
+/**
  * 逐字母计分动画：该 visit 全部分/倍率步结束后（如蜂蜜换黄金材质）。
  * @param {(string | null | undefined)[]} ownedSlotTreasureIds
  * @param {import('./treasureTypes.js').TreasurePerLetterPostScoringMaterialFxContext} ctx

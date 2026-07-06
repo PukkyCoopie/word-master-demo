@@ -44,34 +44,44 @@ export default {
   description: describe("在每个关卡的第一次拼写中，将第一个具有增强效果的字母复制并洗入你的字母库"),
 };
 
+/** @param {import('../treasureTypes.js').TreasureSubmitSuccessContext} ctx */
+async function tryApplyFax139CopySubmit(ctx) {
+  const rs = ctx.treasureRun;
+  if (!rs) return false;
+  const slotIndex = Math.floor(Number(ctx.hookSlotIndex) || 0);
+  const source = ctx.hookSource === "blueprint" ? "blueprint" : "self";
+  const key = fax139ContributionKey(rs, slotIndex, source);
+  if (!key || rs.level139FaxCopyContributions.has(key)) return false;
+  const tiles = ctx.submittedScoringTiles ?? [];
+  let sourceCard = null;
+  let sourceIndex = -1;
+  for (let i = 0; i < tiles.length; i += 1) {
+    const tile = tiles[i];
+    if (!tileIsEnhanced(tile)) continue;
+    const card = tile._deckCard;
+    if (card && typeof card === "object") {
+      sourceCard = card;
+      sourceIndex = i;
+      break;
+    }
+  }
+  if (!sourceCard || sourceIndex < 0) return false;
+  rs.level139FaxCopyContributions.add(key);
+  ctx.appendDeckCardSpecToRunDeck?.(deckCardToSpec(sourceCard));
+  await Promise.all([
+    wobbleTreasureHookContributor(ctx, ID),
+    ctx.playWordSlotCopyFxAtIndex?.(sourceIndex),
+  ]);
+  return true;
+}
+
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  async runSubmitScoringAfterLettersSlotPhase(ctx) {
+    await tryApplyFax139CopySubmit(ctx);
+  },
+
   async onSuccessfulWordSubmit(ctx) {
-    const rs = ctx.treasureRun;
-    if (!rs) return;
-    const slotIndex = Math.floor(Number(ctx.hookSlotIndex) || 0);
-    const source = ctx.hookSource === "blueprint" ? "blueprint" : "self";
-    const key = fax139ContributionKey(rs, slotIndex, source);
-    if (!key || rs.level139FaxCopyContributions.has(key)) return;
-    const tiles = ctx.submittedScoringTiles ?? [];
-    let sourceCard = null;
-    let sourceIndex = -1;
-    for (let i = 0; i < tiles.length; i += 1) {
-      const tile = tiles[i];
-      if (!tileIsEnhanced(tile)) continue;
-      const card = tile._deckCard;
-      if (card && typeof card === "object") {
-        sourceCard = card;
-        sourceIndex = i;
-        break;
-      }
-    }
-    if (!sourceCard || sourceIndex < 0) return;
-    rs.level139FaxCopyContributions.add(key);
-    ctx.appendDeckCardSpecToRunDeck?.(deckCardToSpec(sourceCard));
-    await Promise.all([
-      wobbleTreasureHookContributor(ctx, ID),
-      ctx.playWordSlotCopyFxAtIndex?.(sourceIndex),
-    ]);
+    await tryApplyFax139CopySubmit(ctx);
   },
 };

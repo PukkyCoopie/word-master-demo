@@ -10,6 +10,7 @@ import { deferReglMaterialWarmupAtBoot, initMaterialAnimationSettings } from "./
 import { startRemixIconFontLoad } from "./composables/useRemixIconFont.js";
 import { initAnimationSpeedSettings } from "./settings/animationSpeed.js";
 import { initConfirmButtonSideSettings } from "./settings/confirmButtonSide.js";
+import { initClientErrorReporter } from "./platform/clientErrorReporter.js";
 import { initAndroidBackButton } from "./platform/androidBackButton.js";
 import { initUIButtonHaptics } from "./platform/haptics.js";
 import { applyBorderlessLayoutHtmlClass } from "./settings/displayLayoutMode.js";
@@ -85,6 +86,7 @@ if (typeof window !== "undefined" && window.__WM_BOOT_BLOCKED__ === true) {
   document.addEventListener("contextmenu", (e) => e.preventDefault(), { capture: true });
   if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
     initUIButtonHaptics();
+    initClientErrorReporter();
   }
 
   const app = createApp(App);

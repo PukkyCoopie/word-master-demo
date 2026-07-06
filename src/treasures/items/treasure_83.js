@@ -1,5 +1,8 @@
 import { describe, money } from "../treasureDescription.js";
-import { isTreasureHookBlueprintMirror } from "../../game/treasureBlueprintMirror.js";
+import {
+  isTreasureHookBlueprintMirror,
+  resolveTreasureHookAnimSlotIndex,
+} from "../../game/treasureBlueprintMirror.js";
 import {
   dictionaryPosMatchesTreasureLevelKey,
   getTreasureLevelPosLabelZh,

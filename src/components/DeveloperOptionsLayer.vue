@@ -142,6 +142,22 @@
               选择法术…
             </button>
           </section>
+
+          <section class="developer-options-section">
+            <h3 class="developer-options-section-title">错误上报</h3>
+            <p class="developer-options-hint developer-options-hint--compact">
+              向 TapDB 发送 client_error 测试（属性名 wm_err_source / wm_err_message / wm_err_stack / wm_err_phase）。
+            </p>
+            <button
+              type="button"
+              class="developer-options-btn"
+              :disabled="errorReportBusy"
+              @click="onTestErrorReportClick"
+            >
+              {{ errorReportBusy ? "上报中…" : "发送测试报错" }}
+            </button>
+            <p v-if="errorReportResultText" class="developer-options-result">{{ errorReportResultText }}</p>
+          </section>
         </div>
 
         <button type="button" class="developer-options-close" @click="$emit('close')">关闭</button>
@@ -331,8 +347,12 @@
 
 <script setup>
 import { computed, onUnmounted, ref, watch } from "vue";
+import { Capacitor } from "@capacitor/core";
 import { createBackdropSelfCloseGuard } from "../game/backdropSelfCloseGuard.js";
 import { scheduleOverlayDismiss, scheduleOverlayPresent } from "../platform/haptics.js";
+import { reportClientError } from "../platform/clientErrorReporter.js";
+import { hasPrivacyConsent } from "../privacy/privacyConsent.js";
+import { ensureTapTapSdkInitialized, TapTap } from "../taptap/tapTapPlugin.js";
 import {
   buildDevDeckConvertScopeOptions,
   buildDevDeckConvertTargetOptionGroups,
@@ -433,6 +453,43 @@ onUnmounted(() => {
 });
 const balanceInput = ref("");
 const balanceResultText = ref("");
+const errorReportBusy = ref(false);
+const errorReportResultText = ref("");
+
+async function onTestErrorReportClick() {
+  if (errorReportBusy.value) return;
+  errorReportResultText.value = "";
+  if (!Capacitor.isNativePlatform()) {
+    errorReportResultText.value = "当前为浏览器环境，无法上报（请用 Android 包测试）。";
+    return;
+  }
+  if (!hasPrivacyConsent()) {
+    errorReportResultText.value = "尚未同意隐私政策，SDK 未初始化，无法上报。";
+    return;
+  }
+  errorReportBusy.value = true;
+  const stamp = new Date().toISOString();
+  try {
+    await ensureTapTapSdkInitialized();
+    const appInfo = await TapTap.getAndroidAppInfo();
+    const clientId = appInfo?.clientId ?? "";
+    const sent = await reportClientError({
+      source: "dev.test",
+      phase: "manual",
+      message: `[dev] fake client_error ${stamp}`,
+      stack: "Error: DeveloperOptionsLayer test stack\n    at onTestErrorReportClick (dev)",
+    });
+    const clientHint = clientId ? ` Client ID：${clientId}（须与 TapDB 项目一致）。` : "";
+    errorReportResultText.value = sent
+      ? `已发送 client_error。${clientHint}到埋点管理 → 上报明细核对 name=client_error。`
+      : `未能发送。${clientHint}请查看 logcat。`;
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err ?? "");
+    errorReportResultText.value = detail ? `上报失败：${detail}` : "上报失败，请查看 logcat。";
+  } finally {
+    errorReportBusy.value = false;
+  }
+}
 
 const showTreasurePicker = ref(false);
 const treasurePickerPage = ref(0);

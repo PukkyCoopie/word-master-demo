@@ -38,8 +38,9 @@ export async function runNewspaperAppendSequence({
   nextTick,
   speed = 1,
   gsap: gsapLib = gsap,
+  appendedEntries = null,
 }) {
-  const appended = detailed.submitScoringAppendedTiles ?? [];
+  const appended = appendedEntries ?? detailed.submitScoringAppendedTiles ?? [];
   if (!appended.length || detailed.bossSoftViolation === true) return;
 
   const sp = Math.max(0.01, Number(speed) || 1);

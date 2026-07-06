@@ -412,6 +412,8 @@ export function buildGamePanelAssemblySections(d) {
       flushDeferredWordSubmitRecord: sc.flushDeferredWordSubmitRecord,
       flushSubmitAchievements: sc.flushSubmitAchievements,
       flushAchievementUnlocks: sc.flushAchievementUnlocks,
+      appendDeckCardSpecToRunDeck: sc.appendDeckCardSpecToRunDeck,
+      playWordSlotCopyFxAtIndex: sc.playWordSlotCopyFxAtIndex,
     },
     fx: {
       pulseFill: fx.pulseFill,

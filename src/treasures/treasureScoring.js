@@ -32,7 +32,6 @@ import { collectPerLetterMoneyCuesByLetter } from "./collectPerLetterMoneyCues.j
 import { bumpRunLuckyTriggerCount } from "./treasureRunState.js";
 import {
   appendPostLetterContributionBoostSteps,
-  productAllPerLetterContributionBoostMult,
 } from "./treasureContributionBoost.js";
 
 /** 新宝藏接入后请同步 `treasureCatalog.js` 的 implemented 字段；具体效果写在对应 `items/treasure_*.js`（本文件不出现具体 treasureId）。 */
@@ -740,18 +739,10 @@ export function computeWordScoreDetailedForSubmit(
   const scoreSumForSubmit =
     base.scoreSum + postLetterScoreAdd + tileAccessoryPerLetter.scoreAdd;
 
-  const perLetterContributionBoostMultProduct = productAllPerLetterContributionBoostMult(
-    baseHookCtx,
-    slots,
-    base.letterParts,
-    scoringVisitCountsByLetter,
-  );
-
   const multPipelineBase =
     multBeforePostLetterTreasures *
     letterRarityTreasureMultMulProduct *
-    tileAccessoryPerLetter.multMulProduct *
-    perLetterContributionBoostMultProduct;
+    tileAccessoryPerLetter.multMulProduct;
 
   const multTotal =
     applyPostLetterMultPipeline(multPipelineBase, postLetterTreasureSteps) +

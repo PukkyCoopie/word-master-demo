@@ -391,6 +391,7 @@ export function useGamePanelSessionAssembly(input) {
     animScoreSum,
     applyHookBossAfterSubmit,
     applySubmitRefill,
+    appendDeckCardSpecToRunDeck,
     buildEffectiveWordPartsForSubmit,
     buildSubmitAfterLettersContext,
     buildTileDetailPayloadFromDeckCard,
@@ -417,6 +418,7 @@ export function useGamePanelSessionAssembly(input) {
     headerTargetScoreValue,
     hideResultWordLengthBeforeTotal,
     listEffectiveTilesForSubmit,
+    playWordSlotCopyFxAtIndex,
     resolveRealSubmitTileForWordSlot,
     resolveWordFromEffectiveParts,
     resolvedWordForSubmit,
@@ -994,6 +996,8 @@ const submitController = useSubmitWordController({
       }
     },
     buildSubmitAfterLettersContext,
+    appendDeckCardSpecToRunDeck,
+    playWordSlotCopyFxAtIndex,
     flushDeferredWordSubmitRecord,
     notifySubmitAfterLettersBeforePostSteps,
     get deferredWordSubmitPayload() {

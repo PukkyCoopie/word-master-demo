@@ -4,7 +4,7 @@ import { describe } from "../treasureDescription.js";
 export default {
   price: 6,
   rarity: "rare",
-  description: describe("你的单词视为+2的长度，每回合拼写次数-1"),
+  description: describe("你的单词视为+2的长度，每关拼写次数-1"),
 };
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */

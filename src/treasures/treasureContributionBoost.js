@@ -1,5 +1,16 @@
-import { iterTreasureHookContributions } from "../game/treasureBlueprintMirror.js";
-import { TREASURE_HOOKS_BY_ID } from "./treasureRegistry.js";
+import {
+  ownedHasTrophyInSlots,
+  trophyBoostMultForOwnedTreasureId,
+} from "./items/treasure_138.js";
+
+/**
+ * @param {(string | null | undefined)[]} slots
+ * @param {(string | null | undefined)[] | undefined} fallbackSlots
+ */
+function resolveOwnedSlotsForTrophyBoost(slots, fallbackSlots) {
+  const row = slots ?? fallbackSlots ?? [];
+  return Array.isArray(row) ? row : [];
+}
 
 /**
  * @param {{ multMul?: number } | null | undefined} step
@@ -10,31 +21,39 @@ export function isMeaningfulTreasureBoostStep(step) {
 }
 
 /**
- * 某宝藏贡献（字后/逐字）后，由其它已装备宝藏（如奖杯）追加的倍率步。
- * @param {import('./treasureTypes.js').TreasureLogicContext} hookCtx
- * @param {(string | null | undefined)[]} slots
- * @param {{ treasureId: string, slotIndex: number }} target
- * @returns {import('./treasureTypes.js').TreasurePostStep | null}
- */
-export function collectAfterTreasureContributionBoostStep(hookCtx, slots, target) {
-  for (const { treasureId: providerId, source } of iterTreasureHookContributions(slots)) {
-    if (source === "blueprint") continue;
-    const boost = TREASURE_HOOKS_BY_ID.get(providerId)?.buildAfterTreasureContributionBoostStep?.(
-      hookCtx,
-      target,
-    );
-    if (isMeaningfulTreasureBoostStep(boost)) return boost;
-  }
-  return null;
-}
-
-/**
- * @param {{ treasureId: string, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, moneyAdd?: number }[]} steps
+ * 计分阶段：栏内每个史诗/传说宝藏（不含奖杯）各追加一次奖杯倍率步，与是否本手触发无关。
+ * @param {{ treasureId: string, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, moneyAdd?: number, trophyContributionBoost?: boolean }[]} steps
  * @param {import('./treasureTypes.js').TreasureLogicContext} hookCtx
  * @param {(string | null | undefined)[]} slots
  * @param {string} treasureId
  * @param {number} slotIndex
- * @param {boolean} contributed
+ */
+export function appendOwnedSlotTrophyBoostStep(steps, hookCtx, slots, treasureId, slotIndex) {
+  const slotRow = resolveOwnedSlotsForTrophyBoost(slots, hookCtx?.ownedSlotTreasureIds);
+  if (!ownedHasTrophyInSlots(slotRow)) return;
+  const multMul = trophyBoostMultForOwnedTreasureId(treasureId);
+  if (!multMul) return;
+  steps.push({
+    treasureId,
+    slotIndex,
+    multMul,
+    trophyContributionBoost: true,
+    trophyOwnedSlotBoost: true,
+  });
+}
+
+/** @param {number} slotIndex @param {string} treasureId */
+export function ownedSlotTrophyAnimKey(slotIndex, treasureId) {
+  return `${Math.floor(Number(slotIndex) || 0)}:${String(treasureId ?? "").trim()}`;
+}
+
+/**
+ * @param {{ treasureId: string, slotIndex: number, multAdd?: number, scoreAdd?: number, multMul?: number, moneyAdd?: number, trophyContributionBoost?: boolean }[]} steps
+ * @param {import('./treasureTypes.js').TreasureLogicContext} hookCtx
+ * @param {(string | null | undefined)[]} slots
+ * @param {string} treasureId
+ * @param {number} slotIndex
+ * @param {boolean} _contributed
  */
 export function appendPostLetterContributionBoostSteps(
   steps,
@@ -42,37 +61,7 @@ export function appendPostLetterContributionBoostSteps(
   slots,
   treasureId,
   slotIndex,
-  contributed,
+  _contributed,
 ) {
-  if (!contributed) return;
-  const boost = collectAfterTreasureContributionBoostStep(hookCtx, slots, {
-    treasureId,
-    slotIndex,
-  });
-  if (!isMeaningfulTreasureBoostStep(boost)) return;
-  steps.push({ treasureId, slotIndex, ...boost });
-}
-
-/**
- * 逐字贡献路径上的奖杯等倍率连乘（与 `submitScoringAnim` 逐宝藏步序对齐）。
- * @param {import('./treasureTypes.js').TreasureLogicContext} hookCtx
- * @param {(string | null | undefined)[]} slots
- * @param {{ letter?: string, rarity?: string }[]} letterParts
- * @param {number[]} scoringVisitCountsByLetter
- */
-export function productAllPerLetterContributionBoostMult(
-  hookCtx,
-  slots,
-  letterParts,
-  scoringVisitCountsByLetter,
-) {
-  let product = 1;
-  for (const { treasureId: providerId, source } of iterTreasureHookContributions(slots)) {
-    if (source === "blueprint") continue;
-    const fn = TREASURE_HOOKS_BY_ID.get(providerId)?.productPerLetterContributionBoostMult;
-    if (!fn) continue;
-    const partial = Number(fn(hookCtx, { letterParts, scoringVisitCountsByLetter })) || 1;
-    if (partial > 1) product *= partial;
-  }
-  return product;
+  appendOwnedSlotTrophyBoostStep(steps, hookCtx, slots, treasureId, slotIndex);
 }

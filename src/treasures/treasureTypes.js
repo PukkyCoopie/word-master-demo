@@ -241,10 +241,9 @@
  * @property {(ctx: TreasureLogicContext) => object | null | undefined} [buildSubmitScoringAppendTile] 提交计分时在字母步开始前追加临时字母块（如报纸 +S）；须与 `getSubmitScoringWordLetterCountBonus` 成对
  * @property {(ctx: TreasureLogicContext) => number} [getSubmitScoringWordLetterCountBonus] 追加临时字母后等效词长表 +n（默认按追加块数）
  * @property {(ctx: TreasureSubmitAfterLettersContext) => void | Promise<void>} [runAfterLettersBeforePostSteps] 计分动画：逐字母步结束后、字后宝藏步开始前（如海绵擦除动效）
+ * @property {(ctx: TreasureSubmitSuccessContext) => void | Promise<void>} [runSubmitScoringAfterLettersSlotPhase] 计分动画：逐字母全部完成后、字后步开始前，按栏位从左到右（如传真机复制）
  * @property {(ctx: TreasurePerLetterPostScoringMaterialFxContext, part: { letter?: string, rarity?: string }, letterIndex: number, scoringTile: object | null | undefined) => void | Promise<void>} [runPerLetterPostScoringMaterialFx] 逐字母计分动画：该 visit 全部分/倍率步结束后缩小换材质回弹（如蜂蜜）
  * @property {(ctx: TreasureLogicContext) => TreasurePostStep | null | undefined} [buildPostLetterStep]
- * @property {(ctx: TreasureLogicContext, target: { treasureId: string, slotIndex: number }) => TreasurePostStep | null | undefined} [buildAfterTreasureContributionBoostStep] 持有方宝藏：在其它宝藏单次贡献之后、该槽配饰之前追加倍率乘法（如奖杯）
- * @property {(ctx: TreasureLogicContext, meta: { letterParts: object[], scoringVisitCountsByLetter: number[] }) => number} [productPerLetterContributionBoostMult] 与逐字动画步序一致的贡献后倍率连乘（默认 1）
  * @property {(ctx: TreasureLogicContext) => (TreasurePostStep | null | undefined)[] | null | undefined} [collectPostLetterSteps] 字后多步（如钢琴逐格 J/K）；若实现则优先于 `buildPostLetterStep`
  * @property {(ctx: TreasureLogicContext) => number} [getLetterRarityMultAdd]
  * @property {(part: { letter?: string, rarity?: string }) => number} [getLetterRarityMultDeltaForLetterPart] replay 时该字母上本宝藏贡献的倍率加量（与 `getLetterRarityMultAdd` 规则一致）
