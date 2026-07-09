@@ -5,6 +5,7 @@ import {
 } from "./scoreBubbleFx.js";
 import { getLevelEndAnimSpeed } from "./levelEndAnimSpeed.js";
 import { scoringSleep } from "./submitScoringTiming.js";
+import { isLevelEndSettlementSkipActive } from "../settings/settlementAnimSkip.js";
 
 export const HOURGLASS_EXPIRE_STAGES = 5;
 
@@ -138,6 +139,7 @@ export function createTreasureHourglassStageFx(deps) {
       if (result.kind === "none") continue;
       changed = true;
       await opts.onBeforeEachTick?.();
+      if (isLevelEndSettlementSkipActive()) continue;
       const el = deps.getOwnedTreasureBarFxEl(i);
       if (!el) continue;
       const sp = getLevelEndAnimSpeed();

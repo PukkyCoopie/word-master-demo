@@ -851,10 +851,13 @@ function buildSettlementSnapshotForSubmit() {
   });
 }
 
+const submitSettlementChunking = ref(false);
+
 const submitController = useSubmitWordController({
   busy: {
     submitWordBusy,
     scoringAnimating,
+    submitSettlementChunking,
   },
   scoringRefs: {
     scoringLetterIndex,
@@ -908,6 +911,7 @@ const submitController = useSubmitWordController({
     scoreBubbleAnchorRect,
   },
   scoringAnimCallbacks: {
+    getIsEndlessRun: () => isEndlessRun.value === true,
     findFirstOwnedTreasureSlotIndex,
     touchGrid,
     wobbleGameTreasureSlot,
@@ -942,6 +946,7 @@ const submitController = useSubmitWordController({
         ? resolveRealSubmitTileForWordSlot
         : resolveRealSubmitTileForScoring,
     patchGridPlaceholderFreezeFromTile: playfieldController.patchGridPlaceholderFreezeFromTile,
+    bumpSubmitTilePresentationRevision: playfieldController.bumpSubmitTilePresentationRevision,
     submitRng: runRandom,
     playGridTileMaterialChangeForSubmitWordSlot: async (letterIndex, onMidApply) => {
       const order = selectedOrder.value;
@@ -1024,6 +1029,7 @@ const submitController = useSubmitWordController({
     beginSubmitWordLeaveHide: playfieldController.beginSubmitWordLeaveHide,
     endSubmitWordLeaveHide: playfieldController.endSubmitWordLeaveHide,
     clearWordSlotGsapAfterSubmitLeave: playfieldController.clearWordSlotGsapAfterSubmitLeave,
+    clearGridTileGsapAfterDrop: playfieldController.clearGridTileGsapAfterDrop,
     setSubmitScoringAppendPresentation: playfieldController.setSubmitScoringAppendPresentation,
     setSubmitScoringAppendPresentations: playfieldController.setSubmitScoringAppendPresentations,
     setSubmitScoringAppendScaleLocked: playfieldController.setSubmitScoringAppendScaleLocked,
@@ -1113,6 +1119,7 @@ const submitController = useSubmitWordController({
     getOwnedTreasureBarFxEl,
     getGridTileElByIndex,
     getSelectedGridCellElsInOrder: playfieldController.getSelectedGridCellElsInOrder,
+    getSelectedGridTileElsInOrder: playfieldController.getSelectedGridTileElsInOrder,
     getWordSlotEl: (index) => playfieldController.wordSlotRefs[index] ?? null,
     getGridTileRefs: () => gridTileRefs.value,
     getWordSlotsWrapRef: () => wordSlotsWrapRef.value,
@@ -1272,6 +1279,7 @@ playfieldController.initViewContext({
   canSubmit,
   showToast,
   scoringAnimating,
+  submitSettlementChunking,
   gridRefillAnimating,
   scoringLetterIndex,
   flyingLetters: playfieldController.flyingLetters,
@@ -1534,7 +1542,7 @@ const runSaveBridge = useRunSaveBridge({
 });
 
 function scheduleRunAutoSave() {
-  runSaveBridge.scheduleAutoSave();
+  runSaveBridge.scheduleMilestoneAutoSave();
 }
 
 const runEndCtrl = useRunEndFlowController({

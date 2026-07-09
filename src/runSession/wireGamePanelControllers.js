@@ -133,6 +133,8 @@ function wireGamePanelControllersEarly(d) {
     },
     bossApi: d.bossApiBridge,
     dev: {
+      settlementSkipStressDevScenarioActive: d.settlementSkipStressDevScenarioActive,
+      applySettlementSkipStressGridWord: d.applySettlementSkipStressGridWord,
       maskBubbleDevScenarioActive: d.maskBubbleDevScenarioActive,
       allIceDevScenarioActive: d.allIceDevScenarioActive,
       mouthQuProblemDevScenarioActive: d.mouthQuProblemDevScenarioActive,

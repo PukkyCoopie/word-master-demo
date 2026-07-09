@@ -93,14 +93,14 @@ function resolveMostCommonLength(lengthCounts) {
   return bestLen;
 }
 
+import { formatWordWithScoreLabel } from "../utils/scoreNumericFormat.js";
+
 /**
  * @param {RunMatchStats} stats
  * @returns {string}
  */
 export function formatRunEndBestWordValue(stats) {
-  return stats.bestWord
-    ? `${stats.bestWord.toUpperCase()}（${stats.bestWordScore.toLocaleString("zh-CN")}）`
-    : "—";
+  return formatWordWithScoreLabel(stats.bestWord, stats.bestWordScore);
 }
 
 /**

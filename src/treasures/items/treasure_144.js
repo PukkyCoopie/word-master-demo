@@ -15,9 +15,27 @@ export default {
   ),
 };
 
+/** @param {import('../treasureTypes.js').TreasureSubmitSuccessContext} ctx */
+async function applyFountainWaterState(ctx) {
+  const grid = ctx.getGrid?.();
+  const rng = typeof ctx.rng === "function" ? ctx.rng : Math.random;
+  const target = pickRandomFountainWaterTarget(grid, rng);
+  if (!target) return;
+  const { row, col } = target;
+  const tile = ctx.getGrid?.()?.[row]?.[col];
+  if (!tile || typeof tile !== "object") return;
+  applyPlainMaterialToTile(/** @type {Record<string, unknown>} */ (tile), "water");
+  ctx.touchGrid?.();
+  ctx.noteCollectionMaterialAcquired?.("water");
+}
+
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   async onSuccessfulWordSubmit(ctx) {
+    if (ctx.skipSettlementFx === true) {
+      await applyFountainWaterState(ctx);
+      return;
+    }
     const runFx = async () => {
       const grid = ctx.getGrid?.();
       const rng = typeof ctx.rng === "function" ? ctx.rng : Math.random;

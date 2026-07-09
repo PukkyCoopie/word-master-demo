@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import {
   countScoreIntegerDigits,
   estimateLocaleIntegerTextLength,
+  formatIntegerScoreForDisplay,
   formatScoreScientificDirect,
+  formatWordWithScoreLabel,
   resolveScoreNumericPresentation,
   SCORE_DIRECT_SCIENTIFIC_ABS_THRESHOLD,
   SCORE_LOCALE_FULL_SIZE_MAX_DIGITS,
@@ -75,5 +77,10 @@ assert.equal(
   shouldLockScoreResultBoxWidth(5e15, resolveScoreNumericPresentation(5e15)),
   true,
 );
+
+assert.equal(formatIntegerScoreForDisplay(1_234_567), "1,234,567");
+assert.equal(formatIntegerScoreForDisplay(1_000_000_000), "1.00000e+9");
+assert.equal(formatWordWithScoreLabel("cat", 1_500_000_000_000), "CAT（1.50000e+12）");
+assert.equal(formatWordWithScoreLabel("", 100), "—");
 
 console.log("scoreNumericFormat.test.mjs ok");

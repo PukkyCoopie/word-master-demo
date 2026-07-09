@@ -115,6 +115,7 @@ import CollectionLeaderboardScoreStat from "./CollectionLeaderboardScoreStat.vue
 import { gemClassForTreasureRarity } from "../../collection/collectionDisplayUtils.js";
 import { resolveLeaderboardTreasureRowSlice } from "../../collection/collectionLeaderboardLayout.js";
 import { buildOwnedTreasureSlot } from "../../treasures/ownedTreasureSlot.js";
+import { formatIntegerScoreForDisplay } from "../../utils/scoreNumericFormat.js";
 
 /** 默认字母块尺寸（设计 rpx）；超出单行时按行宽等比缩小 */
 const LEADERBOARD_TILE_BASE = 80;
@@ -187,7 +188,7 @@ const sortedRecords = computed(() => {
 /** @param {import('../../collection/collectionTypes.js').CollectionWordRecord} record */
 function entryStatLabel(record) {
   if (props.sortKey === "score") {
-    return record.score.toLocaleString("zh-CN");
+    return formatIntegerScoreForDisplay(record.score);
   }
   return `${record.length} 字母`;
 }

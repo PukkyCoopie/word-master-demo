@@ -1,39 +1,51 @@
 import { concept, describe } from "../treasureDescription.js";
-import { isTreasureHookContributionActive } from "../../game/treasureBlueprintMirror.js";
+import {
+  isTreasureHookContributionActive,
+  iterTreasureHookContributions,
+  resolvePostLetterAnimSlotIndex,
+} from "../../game/treasureBlueprintMirror.js";
 
 const ID = "111";
 const UPGRADE_FX_DELAY_MS = 300;
 
 /**
+ * 本关仍有效的日历 hook 贡献（实体槽 + 面具/绵羊 blueprint 镜像）。
  * @param {(string | null | undefined)[]} ownedIds
+ * @returns {{ slotIndex: number, treasureId: string, source: "self" | "blueprint" }[]}
  */
-function resolvePhysicalCalendarSlotIndices(ownedIds) {
-  /** @type {number[]} */
-  const out = [];
-  for (let i = 0; i < (ownedIds?.length ?? 0); i += 1) {
-    if (String(ownedIds[i] ?? "") === ID) out.push(i);
-  }
-  return out;
+function resolveActiveCalendarContributions(ownedIds) {
+  return iterTreasureHookContributions(ownedIds).filter(
+    (entry) => entry.treasureId === ID && isTreasureHookContributionActive(ownedIds, entry),
+  );
 }
 
 /** @param {(string | null | undefined)[]} ownedIds */
-function resolveLeftmostPhysicalCalendarSlotIndex(ownedIds) {
-  const indices = resolvePhysicalCalendarSlotIndices(ownedIds);
-  return indices.length ? indices[0] : -1;
+function resolveCalendarOrchestratorContribution(ownedIds) {
+  const active = resolveActiveCalendarContributions(ownedIds);
+  return active.length ? active[0] : null;
 }
 
 /**
  * @param {import("../treasureTypes.js").TreasureDiscardContext} ctx
  * @param {(string | null | undefined)[]} snapshotOwned
  */
-function resolveActivePhysicalCalendarSlotIndices(ctx, snapshotOwned) {
+function isCalendarOrchestratorHook(ctx, snapshotOwned) {
   const liveOwned = ctx.getOwnedSlotTreasureIds?.() ?? snapshotOwned;
-  return resolvePhysicalCalendarSlotIndices(liveOwned).filter((slotIndex) =>
-    isTreasureHookContributionActive(liveOwned, {
-      slotIndex,
-      treasureId: ID,
-      source: "self",
-    }),
+  const orchestrator = resolveCalendarOrchestratorContribution(liveOwned);
+  if (!orchestrator) return false;
+  const hookSlot = Math.floor(Number(ctx.hookSlotIndex) ?? -1);
+  const hookSource = ctx.hookSource === "blueprint" ? "blueprint" : "self";
+  return orchestrator.slotIndex === hookSlot && orchestrator.source === hookSource;
+}
+
+/**
+ * 各贡献对应的动效槽（实体日历用真实槽；面具/绵羊 blueprint 用镜像槽）。
+ * @param {(string | null | undefined)[]} ownedIds
+ * @returns {number[]}
+ */
+function resolveActiveCalendarFxSlotIndices(ownedIds) {
+  return resolveActiveCalendarContributions(ownedIds).map((entry) =>
+    resolvePostLetterAnimSlotIndex(ownedIds, ID, entry.slotIndex, entry.source),
   );
 }
 
@@ -93,7 +105,7 @@ async function runCalendarLengthUpgradeStaircase(ctx, len, count) {
 }
 
 /**
- * 各日历槽依次 wobble +「升级」气泡（与宝藏栏多槽 FX 同节拍）。
+ * 各生效槽依次 wobble +「升级」气泡（与宝藏栏多槽 FX 同节拍）。
  * @param {import("../treasureTypes.js").TreasureDiscardContext} ctx
  * @param {readonly number[]} slotIndices
  */
@@ -128,16 +140,14 @@ export default {
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   async onDiscardBatch(ctx) {
-    if (ctx.hookSource === "blueprint") return;
     if (!shouldCalendarDiscardTrigger(ctx)) return;
 
     const snapshotOwned = ctx.ownedSlotTreasureIds ?? [];
-    const orchestratorSlot = resolveLeftmostPhysicalCalendarSlotIndex(snapshotOwned);
-    if (orchestratorSlot < 0) return;
-    if (Math.floor(Number(ctx.hookSlotIndex) ?? -1) !== orchestratorSlot) return;
+    if (!isCalendarOrchestratorHook(ctx, snapshotOwned)) return;
 
-    const calendarSlots = resolveActivePhysicalCalendarSlotIndices(ctx, snapshotOwned);
-    if (!calendarSlots.length) return;
+    const liveOwned = ctx.getOwnedSlotTreasureIds?.() ?? snapshotOwned;
+    const calendarFxSlots = resolveActiveCalendarFxSlotIndices(liveOwned);
+    if (!calendarFxSlots.length) return;
     if (!shouldCalendarDiscardTrigger(ctx)) return;
 
     ctx.treasureRun.levelFirstFullWordDiscardDone = true;
@@ -152,8 +162,8 @@ export const treasureHooks = {
       ),
     );
 
-    await wobbleUpgradeAtCalendarSlots(ctx, calendarSlots);
+    await wobbleUpgradeAtCalendarSlots(ctx, calendarFxSlots);
     await new Promise((resolve) => setTimeout(resolve, UPGRADE_FX_DELAY_MS));
-    await runCalendarLengthUpgradeStaircase(ctx, len, calendarSlots.length);
+    await runCalendarLengthUpgradeStaircase(ctx, len, calendarFxSlots.length);
   },
 };

@@ -40,6 +40,7 @@ const pfTutorialActive = computed(() => Boolean(sv(pv.firstWordTutorialActive)))
 const pfGridIntroDone = computed(() => Boolean(sv(pv.gridIntroDone)));
 const pfCanSubmit = computed(() => Boolean(sv(pv.canSubmit)));
 const pfScoringAnimating = computed(() => Boolean(sv(pv.scoringAnimating)));
+const pfSubmitSettlementLoading = computed(() => Boolean(sv(pv.submitSettlementChunking)));
 const pfGridRefillAnimating = computed(() => Boolean(sv(pv.gridRefillAnimating)));
 const pfSubmitTutorialReady = computed(() => Boolean(sv(pv.firstWordTutorialSubmitHighlightReady)));
 const pfFlyingLetters = computed(() => sv(pv.flyingLetters) ?? []);
@@ -566,9 +567,11 @@ defineExpose({
                 'action-btn--boss-violation-preview': pfBossSoftViolation,
                 'action-btn-disabled': !pfSubmitReady,
                 'action-btn--tutorial-ready': pfSubmitTutorialReady,
+                'action-btn--settlement-loading': pfSubmitSettlementLoading,
                 'hold-action-btn--holding': submitHold.holding.value,
               }"
               :title="pfSubmitHoldMode ? '按住以提交' : '提交'"
+              :aria-busy="pfSubmitSettlementLoading ? 'true' : undefined"
               data-haptic-skip-ui-tap
               @click="onSubmitClick"
               @pointerdown="onSubmitPointerDown"
@@ -577,7 +580,12 @@ defineExpose({
               @pointerleave="submitHold.onPointerLeave"
               @lostpointercapture="submitHold.onLostPointerCapture"
             >
-              <i class="ri-check-line action-icon"></i>
+              <i
+                v-if="pfSubmitSettlementLoading"
+                class="ri-loader-4-line action-icon action-icon--settlement-loading"
+                aria-hidden="true"
+              ></i>
+              <i v-else class="ri-check-line action-icon" aria-hidden="true"></i>
               <span
                 v-if="pfSubmitHoldMode"
                 class="hold-action-btn-fill"

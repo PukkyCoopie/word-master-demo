@@ -1,5 +1,6 @@
 import gsap from "gsap";
 import { syncTileStateToDeckCard } from "./deckCardSync.js";
+import { shouldSkipSettlementTreasureFx } from "../settings/settlementAnimSkip.js";
 import {
   snapshotMaxIntrinsicGainsFromTile,
   applyIntrinsicGainsToTileAndLinkedCard,
@@ -501,6 +502,13 @@ export async function animateGridTileMaterialChangeAtCell(opts) {
     companionEls = [],
     commitUi,
   } = opts;
+  if (shouldSkipSettlementTreasureFx()) {
+    onMidApply?.();
+    touchGrid?.();
+    if (commitUi) await commitUi();
+    onPopStart?.();
+    return;
+  }
   const primary = getTileEl(row, col);
   /** @type {HTMLElement[]} */
   const animEls = [];

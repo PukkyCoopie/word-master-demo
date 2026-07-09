@@ -203,3 +203,24 @@ export function shouldLockScoreResultBoxWidth(_value, presentation) {
 export function scoreNumericPresentationKey(presentation, boxLocked = false) {
   return `${presentation.text}|${presentation.fontScale}|${presentation.scientific ? 1 : 0}|${presentation.wrapped ? 1 : 0}|${boxLocked ? 1 : 0}`;
 }
+
+/**
+ * 静态文案用整数分展示：≤9 位 locale 千分位，≥10 位科学计数法（与顶栏 ScoreCardValue 规则一致）。
+ *
+ * @param {import('./scoreInteger.js').ScoreValue | bigint | number | null | undefined} value
+ * @returns {string}
+ */
+export function formatIntegerScoreForDisplay(value) {
+  return resolveScoreNumericPresentation(value).text;
+}
+
+/**
+ * @param {string} word
+ * @param {import('./scoreInteger.js').ScoreValue | bigint | number | null | undefined} score
+ * @returns {string}
+ */
+export function formatWordWithScoreLabel(word, score) {
+  const w = String(word ?? "").trim();
+  if (!w) return "—";
+  return `${w.toUpperCase()}（${formatIntegerScoreForDisplay(score)}）`;
+}

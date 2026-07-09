@@ -2,13 +2,15 @@
   <div class="result-area">
     <div ref="resultAreaInsetRef" class="result-area-inset">
       <div class="result-total-anchor">
-        <div v-show="showTotalBar" class="result-total-wrap">
-          <ResultFitNum
-            ref="resultTotalFitRef"
-            :value="totalNumeric"
-            text-class="result-total"
-          />
-        </div>
+        <transition name="result-total-fade-scale">
+          <div v-if="showTotalBar" class="result-total-wrap">
+            <ResultFitNum
+              ref="resultTotalFitRef"
+              :value="totalNumeric"
+              text-class="result-total"
+            />
+          </div>
+        </transition>
       </div>
       <div class="result-wordlen-anchor">
         <transition name="result-wordlen-fade-scale">

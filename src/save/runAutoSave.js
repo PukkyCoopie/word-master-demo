@@ -12,6 +12,7 @@ const scheduleIdle =
 
 /**
  * 局内自动存档：变更后标记 pending，debounce 合并；空闲且可写时于 idle 回调写入。
+ * `scheduleMilestoneAutoSave` 在关键步骤后立即落盘（仍遵守 canSave 空闲门禁）。
  * 显式 `tryFlush({ force: true })` 立即同步写入（退菜单等）。
  *
  * @param {{
@@ -25,6 +26,7 @@ export function createRunAutoSave(opts) {
   const isAlive = opts.isAlive ?? (() => true);
   const debounceMs = Math.max(0, Math.floor(Number(opts.debounceMs ?? RUN_AUTO_SAVE_DEBOUNCE_MS) || 0));
   let pending = false;
+  let milestoneFlushPending = false;
   /** @type {ReturnType<typeof setTimeout> | null} */
   let debounceTimer = null;
   /** @type {number | null} */
@@ -95,7 +97,8 @@ export function createRunAutoSave(opts) {
   function tryFlush(flushOpts = {}) {
     if (!pending || !isAlive()) return;
     if (!opts.canSave().ok) return;
-    if (flushOpts.force === true) {
+    if (flushOpts.force === true || milestoneFlushPending) {
+      milestoneFlushPending = false;
       executeSave(true);
       return;
     }
@@ -111,10 +114,22 @@ export function createRunAutoSave(opts) {
     armDebounceFlush();
   }
 
+  /** 关键步骤：跳过 debounce，空闲时立即同步落盘；忙碌时待动画结束后再强制写入。 */
+  function scheduleMilestoneAutoSave() {
+    if (!isAlive()) return;
+    pending = true;
+    milestoneFlushPending = true;
+    cancelScheduledFlush();
+    if (!opts.canSave().ok) return;
+    milestoneFlushPending = false;
+    executeSave(true);
+  }
+
   function cancelPending() {
     pending = false;
+    milestoneFlushPending = false;
     cancelScheduledFlush();
   }
 
-  return { scheduleAutoSave, tryFlush, cancelPending };
+  return { scheduleAutoSave, scheduleMilestoneAutoSave, tryFlush, cancelPending };
 }

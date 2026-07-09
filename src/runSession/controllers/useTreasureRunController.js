@@ -36,6 +36,10 @@ import { parseChapterFromLevelId } from "../../treasures/treasureLifecycleShared
 import { resetTreasureLevelScopedState } from "../../treasures/treasureRunState.js";
 import { runLevelEndPreSettlementFx as runLevelEndPreSettlementSequence } from "../../game/levelEndTreasureFx.js";
 import {
+  shouldSkipSettlementAnim,
+  setLevelEndSettlementSkipActive,
+} from "../../settings/settlementAnimSkip.js";
+import {
   TREASURE_HOOKS_BY_ID,
   notifyOwnedTreasuresOnBossRestrictionTriggered,
   notifyOwnedTreasuresOnChapterEnter,
@@ -742,11 +746,13 @@ export function useTreasureRunController(options) {
   async function runTreasureLevelCompleteHooks(opts = {}) {
     checkLevelLegendaryDeckExhaustedUnlock(treasureRunState.value, grid.deck.value);
     noteEverTwoTreasuresWithAccessoryUnlocked(treasureRunState.value, ownedTreasures.value);
+    const skipSettlementFx = shouldSkipSettlementAnim(isEndlessRun.value === true);
     await notifyOwnedTreasuresOnLevelComplete(ownedSlotTreasureIdList(), {
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
       getOwnedSlotTreasureIds: ownedSlotTreasureIdList,
       treasureRun: treasureRunState.value,
       rng: runRandom,
+      skipSettlementFx,
       clearTreasureSlotById: clearOwnedTreasureSlotById,
       findOwnedTreasureSlotIndex,
       onBeforeLevelCompleteHook: opts.onBeforeEachHook,
@@ -761,13 +767,19 @@ export function useTreasureRunController(options) {
    * }} deps
    */
   async function runLevelEndPreSettlementFx(deps) {
-    await runLevelEndPreSettlementSequence({
-      getOwnedTreasures: () => ownedTreasures.value,
-      getOwnedSlotTreasureIds: ownedSlotTreasureIdList,
-      buildLevelCompleteHookEstimateCtx,
-      runHourglassStageEndFx: deps.runHourglassStageEndFx,
-      runTreasureLevelCompleteHooks,
-    });
+    const skip = shouldSkipSettlementAnim(isEndlessRun.value === true);
+    setLevelEndSettlementSkipActive(skip);
+    try {
+      await runLevelEndPreSettlementSequence({
+        getOwnedTreasures: () => ownedTreasures.value,
+        getOwnedSlotTreasureIds: ownedSlotTreasureIdList,
+        buildLevelCompleteHookEstimateCtx,
+        runHourglassStageEndFx: deps.runHourglassStageEndFx,
+        runTreasureLevelCompleteHooks,
+      });
+    } finally {
+      setLevelEndSettlementSkipActive(false);
+    }
   }
 
   /**
@@ -826,9 +838,11 @@ export function useTreasureRunController(options) {
     judgedLenTable,
     scoreBeforeHand,
     handFinalScore,
+    skipSettlementFx = false,
   ) {
     const owned = ownedTreasures.value.filter(Boolean);
     return {
+      skipSettlementFx,
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
       getOwnedSlotTreasureIds: ownedSlotTreasureIdList,
       findOwnedTreasureSlotIndex,
@@ -852,6 +866,7 @@ export function useTreasureRunController(options) {
         judgedLenTable,
         scoreBeforeHand,
         handFinalScore,
+        skipSettlementFx,
       ),
     };
   }
@@ -872,6 +887,7 @@ export function useTreasureRunController(options) {
     handFinalScore,
     disabledTreasureSlotIndices = null,
   ) {
+    const skipSettlementFx = shouldSkipSettlementAnim(isEndlessRun.value === true);
     const ownedIds = applyDisabledTreasureSlots(
       ownedSlotTreasureIdList(),
       disabledTreasureSlotIndices,
@@ -889,16 +905,21 @@ export function useTreasureRunController(options) {
         judgedLenTable,
         scoreBeforeHand,
         handFinalScore,
+        skipSettlementFx,
       ),
       registerSubmitWordLeaveFx: (runner) => {
         if (typeof runner === "function") submitWordLeaveFx.push(runner);
       },
-      registerSubmitAfterWordLeaveFx: (runner) => {
-        if (typeof runner === "function") submitAfterWordLeaveFx.push(runner);
-      },
-      registerSubmitPostScoreClearFx: (runner) => {
-        if (typeof runner === "function") submitPostScoreClearFx.push(runner);
-      },
+      registerSubmitAfterWordLeaveFx: skipSettlementFx
+        ? () => {}
+        : (runner) => {
+            if (typeof runner === "function") submitAfterWordLeaveFx.push(runner);
+          },
+      registerSubmitPostScoreClearFx: skipSettlementFx
+        ? () => {}
+        : (runner) => {
+            if (typeof runner === "function") submitPostScoreClearFx.push(runner);
+          },
       registerSubmitAccessoryUpgradeCue: (cue) => {
         hooks.submitAccessoryUpgradeBatchState?.current?.registerCue(cue);
       },

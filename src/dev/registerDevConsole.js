@@ -121,6 +121,8 @@ export function registerDevConsole(deps) {
         "  __WM_DEV__.startFirstWordTutorial() — 局内：从头启动首词 PLAY 新手引导",
         "  __WM_DEV__.startMaskBubbleBlueprintTest() — 进关后：[面具][泡泡] + 棋盘 2 个 B（计分动画测试）",
         "  或 URL ?dev=maskBubble 新开一局自动启用",
+        "  __WM_DEV__.startSettlementSkipStressTest() — 无尽 9-1 + 150 宝藏 + 首行 STRESSED（跳过结算动画压测）",
+        "  或 URL ?dev=settlementSkipStress 新开一局自动启用",
         "  __WM_DEV__.startAllIceDevTest() — 进关后：棋盘与字母库全部为碎冰块",
         "  或 URL ?dev=allIce 新开一局自动启用",
         "  __WM_DEV__.jumpToLevel('3-2') — 局内跳转关卡（亦可用 levelIndex 数字）",
@@ -201,6 +203,11 @@ export function registerDevConsole(deps) {
     startMaskBubbleBlueprintTest: () => {
       console.warn(
         "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startMaskBubbleBlueprintTest()。",
+      );
+    },
+    startSettlementSkipStressTest: () => {
+      console.warn(
+        "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startSettlementSkipStressTest()。",
       );
     },
     startAllIceDevTest: () => {

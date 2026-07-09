@@ -12,7 +12,7 @@ const BASE_CTX = {
   treasureRun: { levelFirstFullWordDiscardDone: false },
 };
 
-test("treasure_111：多持时由最左槽编排，全部 wobble 后合并阶梯升级", async () => {
+test("treasure_111：多持时由最左贡献编排，全部 wobble 后合并阶梯升级", async () => {
   const wobbled = [];
   const bubbled = [];
   const staircaseLens = [];
@@ -52,6 +52,74 @@ test("treasure_111：多持时由最左槽编排，全部 wobble 后合并阶梯
     },
   });
   assert.deepEqual(wobbled, []);
+});
+
+test("treasure_111：[面具][日历] 由面具 blueprint 编排，面具+日历 wobble 后合并升 2 级", async () => {
+  const wobbled = [];
+  const staircaseLens = [];
+  const treasureRun = { levelFirstFullWordDiscardDone: false };
+
+  await treasureHooks.onDiscardBatch({
+    ...BASE_CTX,
+    hookSource: "blueprint",
+    hookSlotIndex: 0,
+    ownedSlotTreasureIds: ["98", "111"],
+    treasureRun,
+    playOwnedTreasureBubbleFxAtSlot: async (ix) => {
+      wobbled.push(ix);
+    },
+    buildInRunLengthUpgradeStep: (len) => ({
+      payload: { upgradeKind: "length", lengthMin: len, lengthMax: len, beforeLevel: 2 },
+      apply: () => {},
+    }),
+    runInRunUpgradeStaircasePlayback: async (steps) => {
+      staircaseLens.push(steps.length);
+    },
+  });
+
+  assert.deepEqual(wobbled, [0, 1]);
+  assert.deepEqual(staircaseLens, [2]);
+  assert.equal(treasureRun.levelFirstFullWordDiscardDone, true);
+
+  wobbled.length = 0;
+  await treasureHooks.onDiscardBatch({
+    ...BASE_CTX,
+    hookSource: "self",
+    hookSlotIndex: 1,
+    ownedSlotTreasureIds: ["98", "111"],
+    treasureRun,
+    playOwnedTreasureBubbleFxAtSlot: async (ix) => {
+      wobbled.push(ix);
+    },
+  });
+  assert.deepEqual(wobbled, []);
+});
+
+test("treasure_111：[日历][绵羊] 绵羊 blueprint 镜像日历，两槽 wobble 后合并升 2 级", async () => {
+  const wobbled = [];
+  const staircaseLens = [];
+  const treasureRun = { levelFirstFullWordDiscardDone: false };
+
+  await treasureHooks.onDiscardBatch({
+    ...BASE_CTX,
+    hookSource: "self",
+    hookSlotIndex: 0,
+    ownedSlotTreasureIds: ["111", "105"],
+    treasureRun,
+    playOwnedTreasureBubbleFxAtSlot: async (ix) => {
+      wobbled.push(ix);
+    },
+    buildInRunLengthUpgradeStep: (len) => ({
+      payload: { upgradeKind: "length", lengthMin: len, lengthMax: len, beforeLevel: 2 },
+      apply: () => {},
+    }),
+    runInRunUpgradeStaircasePlayback: async (steps) => {
+      staircaseLens.push(steps.length);
+    },
+  });
+
+  assert.deepEqual(wobbled, [0, 1]);
+  assert.deepEqual(staircaseLens, [2]);
 });
 
 test("treasure_111：非完整词或本关已触发时不执行", async () => {

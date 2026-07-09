@@ -176,12 +176,13 @@ function setGridTileRef(index, el) {
 
 function getGridTileElByIndex(index) {
   const byRef = gridTileRefs.value[index];
-  if (byRef) return byRef;
+  if (byRef instanceof HTMLElement && byRef.isConnected) return byRef;
   const host = getLetterGridRef();
   const child = host?.children?.[index];
   if (!(child instanceof HTMLElement)) return undefined;
   const tileEl = child.querySelector(".grid-tile");
-  return tileEl instanceof HTMLElement ? tileEl : child;
+  if (tileEl instanceof HTMLElement && tileEl.isConnected) return tileEl;
+  return child.isConnected ? child : undefined;
 }
 
 /**
@@ -203,6 +204,11 @@ function clearWordSlotGsapAfterSubmitLeave(el) {
   if (!el) return;
   gsap.killTweensOf(el);
   gsap.set(el, { clearProps: "opacity,transform,y,scale" });
+  const inner = el.querySelector(".word-slot-content");
+  if (inner instanceof HTMLElement) {
+    gsap.killTweensOf(inner);
+    gsap.set(inner, { clearProps: "opacity,transform,y,scale" });
+  }
 }
 
 /** @param {number} slotCount */
@@ -217,6 +223,9 @@ function endSubmitWordLeaveHide() {
 /** 与 css `.letter-grid-cell--placeholder` 一致；离场动画在 cell 外包层 tween，避免盖掉 tile 材质 */
 
 function getGridCellElByIndex(index) {
+  const tileEl = getGridTileElByIndex(index);
+  const cellFromTile = tileEl?.closest?.(".letter-grid-cell");
+  if (cellFromTile instanceof HTMLElement) return cellFromTile;
   const host = getLetterGridRef();
   const child = host?.children?.[index];
   if (!(child instanceof HTMLElement)) return undefined;
@@ -375,7 +384,8 @@ function releaseGridPlaceholderFreeze(tileId) {
 }
 
 /** 提交占位期间同步冻结快照，并刷新词槽/棋盘占位展示（如蜂蜜换黄金、海绵擦除增强）。 */
-function patchGridPlaceholderFreezeFromTile(tile) {
+/** @param {object} tile @param {{ deferRevisionBump?: boolean }} [options] */
+function patchGridPlaceholderFreezeFromTile(tile, options = {}) {
   if (!tile?.id) return;
   const frozen = gridPlaceholderFreezeByTileId.get(String(tile.id));
   if (frozen) {
@@ -393,6 +403,15 @@ function patchGridPlaceholderFreezeFromTile(tile) {
     frozen.vowelGhostPrev = ghost?.prev ?? null;
     frozen.vowelGhostNext = ghost?.next ?? null;
   }
+  if (submitTilePresentationRevision && options.deferRevisionBump !== true) {
+    submitTilePresentationRevision.value += 1;
+  }
+  if (options.deferRevisionBump !== true) {
+    touchGrid();
+  }
+}
+
+function bumpSubmitTilePresentationRevision() {
   if (submitTilePresentationRevision) {
     submitTilePresentationRevision.value += 1;
   }
@@ -448,6 +467,9 @@ function setSlotRafLastTime(t) {
 
 function onWordSlotsLayoutResize() {
   refreshSlotLayoutRpx();
+  if (flyingLetters.value.length > 0) {
+    syncFlyingInTargets();
+  }
   ensureSlotRafRunning();
   updateSlotPositions(true);
 }
@@ -1565,6 +1587,7 @@ function disposeSlotRaf() {
     wordSlotPlaceholderKey,
     gridPlaceholderFrozenPresentation,
     patchGridPlaceholderFreezeFromTile,
+    bumpSubmitTilePresentationRevision,
     syncGridPlaceholderFreezeCaptures,
     updateSlotPositions,
     ensureSlotRafRunning,

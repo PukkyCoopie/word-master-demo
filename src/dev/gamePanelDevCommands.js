@@ -19,6 +19,13 @@ import {
 import { applyEctoplasmDevOwnedTreasures } from "./ectoplasmDevScenario.js";
 import { applyNoSellGoldBombCometOwnedTreasures } from "./noSellGoldBombCometDevScenario.js";
 import {
+  applySettlementSkipStressGridWord,
+  applySettlementSkipStressOwnedTreasures,
+  applySettlementSkipStressRunState,
+  SETTLEMENT_SKIP_STRESS_GRID_WORD,
+  SETTLEMENT_SKIP_STRESS_TREASURE_TARGET,
+} from "./settlementSkipStressDevScenario.js";
+import {
   applyTreasureHookFxDevOwnedTreasures,
   applyTreasureHookFxDevScenarioState,
   formatTreasureHookFxDevScenarioHelpLines,
@@ -118,6 +125,29 @@ export function createGamePanelDevCommands(deps) {
     deps.touchGrid();
     deps.updateSlotPositions(true);
     deps.scheduleRunAutoSave();
+  }
+
+  async function startSettlementSkipStressDevTest() {
+    deps.refs.settlementSkipStressDevScenarioActive.value = true;
+    applySettlementSkipStressOwnedTreasures(
+      deps.refs.ownedTreasures,
+      deps.buildOwnedTreasureSlot,
+      deps.treasureRunState,
+    );
+    applySettlementSkipStressRunState({
+      isEndlessRunRef: deps.refs.isEndlessRun,
+      levelIndexRef: deps.refs.levelIndex,
+      runDifficultyIndexRef: deps.refs.runDifficultyIndex,
+      remainingWordsRef: deps.remainingWords,
+      targetScoreRef: deps.targetScore,
+    });
+    const levelDef = deps.getCurrentLevel() ?? deps.getRunLevelAtIndex(deps.refs.levelIndex.value);
+    await deps.resetLevelAfterTreasurePrep(levelDef);
+    await deps.nextTick();
+    await finishScreenshotDevGridVisual();
+    console.log(
+      `[DEV] 跳过结算动画压测：无尽 9-1，${SETTLEMENT_SKIP_STRESS_TREASURE_TARGET} 宝藏；首行已摆 ${SETTLEMENT_SKIP_STRESS_GRID_WORD.toUpperCase()}。请在设置中切换「跳过结算动画」对比提交耗时。`,
+    );
   }
 
   async function startMaskBubbleBlueprintDevTest() {
@@ -550,6 +580,7 @@ export function createGamePanelDevCommands(deps) {
     if (!import.meta.env.DEV) return;
     const dev = globalThis.__WM_DEV__;
     if (!dev || typeof dev !== "object") return;
+    dev.startSettlementSkipStressTest = () => startSettlementSkipStressDevTest();
     dev.startMaskBubbleBlueprintTest = () => startMaskBubbleBlueprintDevTest();
     dev.startFirstWordTutorial = () => extra.startFirstWordTutorialDevTest?.();
     dev.startAllIceDevTest = () => startAllIceDevTest();
@@ -590,6 +621,7 @@ export function createGamePanelDevCommands(deps) {
   }
 
   return {
+    startSettlementSkipStressDevTest,
     startMaskBubbleBlueprintDevTest,
     startAllIceDevTest,
     startPagerDevTest,
@@ -607,6 +639,25 @@ export function createGamePanelDevCommands(deps) {
     applyCeruleanBellDevRunStart,
     applyMaskBubbleDevRunStart() {
       applyMaskBubbleOwnedTreasures(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
+    },
+    applySettlementSkipStressDevRunStart() {
+      applySettlementSkipStressOwnedTreasures(
+        deps.refs.ownedTreasures,
+        deps.buildOwnedTreasureSlot,
+        deps.treasureRunState,
+      );
+    },
+    applySettlementSkipStressRunStateOnly() {
+      applySettlementSkipStressRunState({
+        isEndlessRunRef: deps.refs.isEndlessRun,
+        levelIndexRef: deps.refs.levelIndex,
+        runDifficultyIndexRef: deps.refs.runDifficultyIndex,
+        remainingWordsRef: deps.remainingWords,
+        targetScoreRef: deps.targetScore,
+      });
+    },
+    applySettlementSkipStressGridWordDev(grid, rows, cols) {
+      applySettlementSkipStressGridWord(grid, rows, cols);
     },
     applyPagerDevRunStart() {
       applyPagerOwnedTreasure(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);

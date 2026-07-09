@@ -3,6 +3,7 @@ import { createEmptySlotCareerStats } from "./runSaveSchema.js";
 import { normalizeCollectionCareerFields } from "../collection/collectionCareer.js";
 import { normalizeAchievementCareerFields } from "../achievements/achievementCareer.js";
 import { formatCollectionUnlockProgressDisplay, getCollectionUnlockProgress } from "../collection/collectionProgress.js";
+import { formatWordWithScoreLabel } from "../utils/scoreNumericFormat.js";
 
 /**
  * @param {unknown} raw
@@ -96,9 +97,7 @@ export function recordCareerRunStarted(career) {
  */
 export function getSlotCareerStatRows(career) {
   const c = normalizeSlotCareerStats(career);
-  const best = c.bestWord
-    ? `${c.bestWord.toUpperCase()}（${c.bestWordScore.toLocaleString("zh-CN")}）`
-    : "—";
+  const best = formatWordWithScoreLabel(c.bestWord, c.bestWordScore);
   return [
     { label: "开局次数", value: String(c.runsStarted) },
     { label: "胜利局数", value: String(c.runsWon) },

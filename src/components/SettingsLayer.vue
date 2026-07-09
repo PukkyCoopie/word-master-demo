@@ -66,6 +66,16 @@
                   />
                 </div>
 
+                <div class="settings-row settings-row--segment">
+                  <span class="settings-row-label">跳过结算动画</span>
+                  <SettingsSegmentControl
+                    :options="SKIP_SETTLEMENT_ANIM_MODE_OPTIONS"
+                    :model-value="skipSettlementAnimMode"
+                    aria-label="跳过结算动画"
+                    @update:model-value="onSkipSettlementAnimModeChange"
+                  />
+                </div>
+
                 <label
                   class="settings-row"
                   :class="{ 'settings-row--disabled': !materialAnimationSettingSupported }"
@@ -429,13 +439,6 @@
     </div>
   </Transition>
 
-  <SettingsHelpDialog
-    :open="scopeChangeConfirmOpen"
-    title="切换词汇范围"
-    :paragraphs="SCOPE_CHANGE_CONFIRM_LINES"
-    @close="onScopeChangeNoticeClose"
-  />
-
   <Teleport to="body">
     <div v-if="settingsToastMessage" class="settings-layer-toast">
       {{ settingsToastMessage }}
@@ -451,7 +454,6 @@ import { settingsOverlayZ } from "../game/overlayStack.js";
 import SettingsSegmentControl from "./SettingsSegmentControl.vue";
 import SettingsHelpButton from "./settings/SettingsHelpButton.vue";
 import SettingsDictionaryScopePanel from "./settings/SettingsDictionaryScopePanel.vue";
-import SettingsHelpDialog from "./settings/SettingsHelpDialog.vue";
 import { applyDictionaryScopes } from "../composables/useDictionary.js";
 import {
   DICTIONARY_SCOPE_OPTIONS,
@@ -460,6 +462,7 @@ import {
   normalizeDictionaryScopeIds,
 } from "../settings/dictionaryScope.js";
 import { ANIMATION_SPEED_OPTIONS } from "../settings/animationSpeed.js";
+import { SKIP_SETTLEMENT_ANIM_MODE_OPTIONS } from "../settings/settlementAnimSkip.js";
 import { isMaterialAnimationSettingSupported } from "../settings/materialAnimationAvailability.js";
 import { LETTER_CASE_OPTIONS } from "../settings/letterCase.js";
 import { LETTER_Q_MODE_OPTIONS } from "../settings/letterQ.js";
@@ -469,6 +472,7 @@ import {
   gameSettings,
   setAllowSpellingAbbreviations,
   setAnimationSpeedTier,
+  setSkipSettlementAnimMode,
   setDisplayLayoutMode,
   setHapticsEnabled,
   setLetterCase,
@@ -514,8 +518,6 @@ const settingsTabsRef = ref(/** @type {import('vue').ComponentPublicInstance | n
 const settingsPanelsRef = ref(/** @type {HTMLElement | null} */ (null));
 const backdropStackStyle = computed(() => (stackZ.value > 0 ? { zIndex: stackZ.value } : undefined));
 
-const SCOPE_CHANGE_CONFIRM_LINES = Object.freeze(["切换词汇范围后，仅之后提交的词按新范围校验。"]);
-
 const {
   scrollBodyRef,
   scrollTrackRef,
@@ -557,9 +559,6 @@ watch(
 );
 
 const titleId = "settings-layer-title";
-
-/** @type {import('vue').Ref<boolean> | null} */
-const isGameSessionActive = inject("isGameSessionActive", null);
 
 const SETTINGS_BASE_TAB_IDS = Object.freeze(["ui", "gameplay", "vocabulary", "controls"]);
 const SETTINGS_DEVELOPER_TAB_ID = "developer";
@@ -619,9 +618,6 @@ function onOpenMaterialBench() {
 const allowAbbrev = computed(() => gameSettings.allowSpellingAbbreviations === true);
 const dictionaryScopeIds = computed(() => getDictionaryScopeIds());
 const scopeChangeBusy = ref(false);
-const scopeChangeConfirmOpen = ref(false);
-/** @type {import('vue').Ref<string[] | null>} */
-const pendingDictionaryScopeIds = ref(null);
 /** @type {import('vue').Ref<string[]>} */
 const lastCustomDictionaryScopeIds = ref(["cet4"]);
 const settingsToastMessage = ref("");
@@ -658,11 +654,7 @@ const dictionaryScopePanelOptions = computed(() =>
 watch(
   () => props.open,
   (open) => {
-    if (!open) {
-      scopeChangeConfirmOpen.value = false;
-      pendingDictionaryScopeIds.value = null;
-      return;
-    }
+    if (!open) return;
     if (!scopeIdsIncludeFull(getDictionaryScopeIds())) {
       lastCustomDictionaryScopeIds.value = getDictionaryScopeIds();
     }
@@ -674,11 +666,6 @@ watch(
 function requestDictionaryScopeChange(next) {
   if (!next?.length) return;
   settingsChangeTap();
-  if (isGameSessionActive?.value === true) {
-    pendingDictionaryScopeIds.value = next;
-    scopeChangeConfirmOpen.value = true;
-    return;
-  }
   void commitDictionaryScopeIds(next);
 }
 
@@ -729,14 +716,6 @@ async function commitDictionaryScopeIds(ids) {
   }
 }
 
-function onScopeChangeNoticeClose() {
-  const ids = pendingDictionaryScopeIds.value;
-  scopeChangeConfirmOpen.value = false;
-  pendingDictionaryScopeIds.value = null;
-  if (!ids?.length) return;
-  void commitDictionaryScopeIds(ids);
-}
-
 const wordDefinitionMode = computed(() => gameSettings.wordDefinitionMode);
 const wordFavoriteSettingEnabled = computed(() => wordDefinitionMode.value !== "off");
 const wordFavoriteButtonEnabled = computed(() => gameSettings.wordFavoriteButtonEnabled !== false);
@@ -748,6 +727,7 @@ const markOnSwapSettingEnabled = computed(
 );
 const displayLayoutMode = computed(() => gameSettings.displayLayoutMode);
 const animationSpeedTier = computed(() => gameSettings.animationSpeedTier);
+const skipSettlementAnimMode = computed(() => gameSettings.skipSettlementAnimMode);
 const materialAnimationEnabled = computed(() => gameSettings.materialAnimationEnabled !== false);
 const materialAnimationSettingSupported = computed(() => isMaterialAnimationSettingSupported());
 const materialAnimationToggleChecked = computed(
@@ -781,6 +761,14 @@ function onDisplayLayoutModeChange(mode) {
 /** @param {string} tier */
 function onAnimationSpeedChange(tier) {
   setAnimationSpeedTier(/** @type {import('../settings/gameSettings.js').AnimationSpeedTier} */ (tier));
+}
+
+/** @param {string} mode */
+function onSkipSettlementAnimModeChange(mode) {
+  setSkipSettlementAnimMode(
+    /** @type {import('../settings/gameSettings.js').SkipSettlementAnimMode} */ (mode),
+  );
+  settingsChangeTap();
 }
 
 function onToggleMaterialAnimation() {

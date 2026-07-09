@@ -103,46 +103,12 @@ export function buildTilePresentationIndex(
             resolvedCh === "q" &&
             res[readPos + 1] === "u";
           const displayedCh = frag.replace(/^qu/, "q").charAt(0);
-          const cardShift =
-            card && typeof card === "object" ? Math.sign(Number(card.vowelDisplayShift) || 0) : 0;
-          const letterBefore = letter;
           const shouldSyncLetterToResolved =
             !isQuPair && (resolvedCh !== naturalCh || displayedCh !== resolvedCh);
           if (shouldSyncLetterToResolved) {
             letter = resolveLetterFromRaw(resolvedCh);
             rarity = getRarityForLetter(resolvedCh);
           }
-          // #region agent log
-          if (vowelTreasure && naturalCh === "e" && (effWord.includes("i") || res === "tea")) {
-            fetch("http://127.0.0.1:7623/ingest/3382c565-2350-4795-bc82-3716661b9aea", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "fa631d" },
-              body: JSON.stringify({
-                sessionId: "fa631d",
-                runId: "post-fix",
-                hypothesisId: "A,B,D,E",
-                location: "useWordSlotPresentation.js:buildTilePresentationIndex",
-                message: "mouth vowel tile presentation",
-                data: {
-                  tileId: tile.id,
-                  naturalCh,
-                  resolvedCh,
-                  displayedCh,
-                  cardShift,
-                  ghostShift: shift,
-                  effWord,
-                  res,
-                  letterBefore,
-                  letterAfter: letter,
-                  vowelGhostPrev,
-                  vowelGhostNext,
-                  shouldSyncLetterToResolved,
-                },
-                timestamp: Date.now(),
-              }),
-            }).catch(() => {});
-          }
-          // #endregion
         }
       }
     }
@@ -357,33 +323,6 @@ export function useWordSlotPresentation(options) {
     }
     if (!ghosts) return null;
     const up = (ch) => (ch ? resolveLetterFromRaw(ch) : null);
-    // #region agent log
-    if (raw === "e" || raw === "i") {
-      fetch("http://127.0.0.1:7623/ingest/3382c565-2350-4795-bc82-3716661b9aea", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "fa631d" },
-        body: JSON.stringify({
-          sessionId: "fa631d",
-          runId: "post-fix-ghost",
-          hypothesisId: "B",
-          location: "useWordSlotPresentation.js:vowelGhostForTile",
-          message: "grid ghost resolve",
-          data: {
-            tileId: tile?.id,
-            raw,
-            tileLetter: tile?.letter,
-            shift,
-            shiftSource: liveShift != null ? "liveResolve" : "cardShift",
-            cardShift: card && typeof card === "object" ? Math.sign(Number(card.vowelDisplayShift) || 0) : 0,
-            ghostPrev: up(ghosts.prev),
-            ghostNext: up(ghosts.next),
-            skipLiveWordResolve: opts.skipLiveWordResolve === true,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
     return { prev: up(ghosts.prev), next: up(ghosts.next) };
   }
 

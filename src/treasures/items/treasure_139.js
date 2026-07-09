@@ -68,6 +68,7 @@ async function tryApplyFax139CopySubmit(ctx) {
   if (!sourceCard || sourceIndex < 0) return false;
   rs.level139FaxCopyContributions.add(key);
   ctx.appendDeckCardSpecToRunDeck?.(deckCardToSpec(sourceCard));
+  if (ctx.skipSettlementFx === true) return true;
   await Promise.all([
     wobbleTreasureHookContributor(ctx, ID),
     ctx.playWordSlotCopyFxAtIndex?.(sourceIndex),

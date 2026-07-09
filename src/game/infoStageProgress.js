@@ -4,6 +4,7 @@ import { pickBossSlugForLevel } from "./bossRoll.js";
 import { resolveLevelTargetScoreForDifficulty } from "./runDifficultyRuntime.js";
 import { parseLevelSubFromId, parseMajorFromLevelId } from "../vouchers/voucherRuntime.js";
 import { normalizeRunDifficultyIndex } from "./runDifficultyDefinitions.js";
+import { formatIntegerScoreForDisplay } from "../utils/scoreNumericFormat.js";
 
 /**
  * @typedef {{
@@ -35,8 +36,7 @@ import { normalizeRunDifficultyIndex } from "./runDifficultyDefinitions.js";
  * @returns {string}
  */
 export function formatStageTargetScore(n) {
-  const v = Math.round(Number(n) || 0);
-  return v.toLocaleString("zh-CN");
+  return formatIntegerScoreForDisplay(Math.round(Number(n) || 0));
 }
 
 /**

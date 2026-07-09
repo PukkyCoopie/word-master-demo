@@ -17,7 +17,7 @@ export function wireGamePanelSettlement(d) {
   };
 
   function scheduleRunAutoSave() {
-    d.runSaveBridge.scheduleAutoSave();
+    d.runSaveBridge.scheduleMilestoneAutoSave();
   }
 
   function buildSettlementSnapshotForFlow() {

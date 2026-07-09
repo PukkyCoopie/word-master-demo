@@ -1,4 +1,5 @@
 import { getEffectiveAnimSpeed } from "../settings/animationSpeed.js";
+import { isSubmitScoringMidPhaseSkipActive } from "../settings/settlementAnimSkip.js";
 import { isIceMaterialPostLetterStep } from "./iceMaterialScoring.js";
 import { isLuckyMaterialPostLetterStep } from "./luckyMaterialScoring.js";
 import { pauseAwareDelay } from "./gamePause.js";
@@ -87,6 +88,7 @@ export function getSubmitScoringBeatSpeed(beatIndex, totalBeats) {
 }
 
 export async function scoringSleep(ms, speed) {
+  if (isSubmitScoringMidPhaseSkipActive()) return;
   const s = getEffectiveAnimSpeed(speed);
   return pauseAwareDelay(Math.max(1, Math.round(ms / s)));
 }

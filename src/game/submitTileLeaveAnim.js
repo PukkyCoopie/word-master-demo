@@ -13,6 +13,11 @@ import {
   PLUS_BUBBLE_ENTER_DURATION_S,
 } from "./scoreBubbleFx.js";
 import { scoringSleep } from "./submitScoringTiming.js";
+import {
+  shouldSkipSettlementAnim,
+  shouldSkipSettlementTreasureFx,
+  shouldSkipSubmitTailTreasureFx,
+} from "../settings/settlementAnimSkip.js";
 import { schedulePopupBubbleDismiss } from "./popupBubbleFx.js";
 
 const TOOLBOX_REMOVE_BUBBLE_HOLD_MS = 200;
@@ -190,6 +195,15 @@ export function createSubmitTileLeaveAnim(deps) {
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
   }
 
+  /** @param {object} t */
+  function applyIceShatterStateForTile(t) {
+    refs.treasureRunState.value.runIceMaterialShattered = true;
+    const deckUid = t?._deckCard?._dcUid;
+    if (deckUid != null) {
+      removeDeckCardByUidAndNotify(deckUid, { clearGrid: false });
+    }
+  }
+
   /** @param {object[]} tiles */
   async function runSubmittedIceShatterEffects(tiles) {
     const list = Array.isArray(tiles) ? tiles : [];
@@ -197,20 +211,24 @@ export function createSubmitTileLeaveAnim(deps) {
     const snowmanSlotIx = findOwnedTreasureSlotIndex(TREASURE_78_ID);
     const iceShatterTreasureFxHandled = snowmanSlotIx >= 0;
     let shatterCount = 0;
+    const skipFx = shouldSkipSettlementTreasureFx();
     let iceShatterHapticCount = 0;
     for (let i = 0; i < list.length; i += 1) {
       const t = list[i];
       if (t?.materialId !== "ice" || isBossTileDebuffed(t)) continue;
       if (runRandom() >= ICE_MATERIAL_SELF_DESTRUCT_CHANCE) continue;
       shatterCount += 1;
-      if (iceShatterHapticCount < 3) {
+      if (!skipFx && iceShatterHapticCount < 3) {
         triggerHaptic("land");
         iceShatterHapticCount += 1;
       }
-      refs.treasureRunState.value.runIceMaterialShattered = true;
-      const deckUid = t?._deckCard?._dcUid;
-      if (deckUid != null) {
-        removeDeckCardByUidAndNotify(deckUid, { clearGrid: false });
+      applyIceShatterStateForTile(t);
+      if (skipFx) {
+        if (iceShatterTreasureFxHandled) {
+          addMultMulBank(refs.treasureRunState.value, TREASURE_78_ID, TREASURE_78_ICE_SHATTER_MULT_INCREMENT);
+        }
+        await notifyIceBreak({ iceShatterTreasureFxHandled });
+        continue;
       }
       const slotEl = getWordSlotRefs()[i];
       const gridEl = gridEls[i];
@@ -240,6 +258,17 @@ export function createSubmitTileLeaveAnim(deps) {
         ? opts.treasureSlotIndex
         : findOwnedTreasureSlotIndex(treasureId);
     const sp = 1;
+    const amt = Math.max(0, Math.floor(Number(opts?.moneyAmount) || 0));
+
+    /* 跳过计分动画：离场视觉交给 runSlotAndGridLeaveAnimation，此处只做牌库/金币等副作用 */
+    if (shouldSkipSettlementAnim()) {
+      opts.onRemoveDeck?.();
+      if (amt > 0 && !shouldSkipSubmitTailTreasureFx()) {
+        if (treasureSlotIx >= 0) await playTreasureSlotMoneyBurstAtPeak(treasureSlotIx, amt);
+        else await playOwnedTreasureMoneyFx(treasureId, amt);
+      }
+      return;
+    }
 
     for (let i = 0; i < n; i++) {
       const slotEl = slotEls[i];
@@ -255,7 +284,6 @@ export function createSubmitTileLeaveAnim(deps) {
 
     opts.onRemoveDeck?.();
     if (TOOLBOX_REMOVE_BEFORE_MONEY_MS > 0) await sleep(TOOLBOX_REMOVE_BEFORE_MONEY_MS);
-    const amt = Math.max(0, Math.floor(Number(opts?.moneyAmount) || 0));
     if (amt > 0) {
       if (treasureSlotIx >= 0) await playTreasureSlotMoneyBurstAtPeak(treasureSlotIx, amt);
       else await playOwnedTreasureMoneyFx(treasureId, amt);
@@ -309,6 +337,15 @@ export function createSubmitTileLeaveAnim(deps) {
     const stripAt = opts?.stripTileAtIndex;
     const sp = 1;
     if (!indices.length) return;
+
+    if (shouldSkipSettlementTreasureFx()) {
+      for (const i of indices) {
+        stripAt?.(i);
+      }
+      touchGrid();
+      await nextTick();
+      return;
+    }
 
     for (let ki = 0; ki < indices.length; ki += 1) {
       const i = indices[ki];

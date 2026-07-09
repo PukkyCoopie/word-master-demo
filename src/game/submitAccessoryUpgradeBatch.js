@@ -102,13 +102,21 @@ export function createSubmitAccessoryUpgradeBatch(deps) {
       if (!step?.payload) return;
       steps.push(normalizeStepWithVirtualLevels(step, virtualLengthLevels, virtualRarityLevels));
     },
-    async flush() {
+    async flush({ skipFx = false } = {}) {
       if (cues.length === 0 && steps.length === 0) return;
-      for (const cue of cues) {
-        await cue();
+      if (!skipFx) {
+        for (const cue of cues) {
+          await cue();
+        }
       }
       if (steps.length > 0) {
-        await deps.runStaircasePlayback(steps);
+        if (skipFx) {
+          for (const step of steps) {
+            step.apply?.();
+          }
+        } else {
+          await deps.runStaircasePlayback(steps);
+        }
       }
     },
   };

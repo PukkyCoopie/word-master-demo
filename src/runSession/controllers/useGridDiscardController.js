@@ -19,6 +19,8 @@ import {
   recordTreasureLevelVowelLetters,
 } from "../../treasures/treasureRunTracking.js";
 import { notifyOwnedTreasuresOnDiscardBatch } from "../../treasures/treasureRegistry.js";
+import { pauseAwareDelay } from "../../game/gamePause.js";
+import { animSleep, getEffectiveAnimSpeed } from "../../settings/animationSpeed.js";
 
 /** @typedef {import('../runSessionTypes.js').GridDiscardController} GridDiscardController */
 
@@ -26,6 +28,12 @@ const REMOVE_SLOT_FADE_DURATION = 0.18;
 const REMOVE_SLOT_STAGGER = 0.055;
 const DISCARD_PROC_FX_HOLD_MS = Math.round(200 * SCORING_GAP_SCALE);
 const GRID_CELL_PLACEHOLDER_OPACITY = 0.26;
+/** @param {HTMLElement | null | undefined} slotWrapper */
+function resolveWordSlotLeaveInnerEl(slotWrapper) {
+  if (!(slotWrapper instanceof HTMLElement)) return null;
+  const inner = slotWrapper.querySelector(".word-slot-content");
+  return inner instanceof HTMLElement ? inner : null;
+}
 const ACTION_COUNT_DELTA_BEAT_MS = 400;
 const ACTION_COUNT_DELTA_ANIM_MS = 920;
 
@@ -157,22 +165,129 @@ export function useGridDiscardController(options) {
     return Math.max(0.14, base - extra * taper);
   }
 
-  function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
+  /**
+   * 逐步写入 opacity/transform（不依赖 globalTimeline onComplete；跳过计分动画时离场/弃牌共用）。
+   * @param {HTMLElement[]} slotEls
+   * @param {HTMLElement[]} gridEls
+   * @param {{ duration?: number, stagger?: number, gridTileEls?: HTMLElement[] }} options
+   */
+  async function runSteppedSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
     const duration = Number.isFinite(options.duration) ? options.duration : 0.28;
     const stagger = Number.isFinite(options.stagger) ? options.stagger : 0.12;
+    const gridTileEls = Array.isArray(options.gridTileEls) ? options.gridTileEls : [];
+    const maxIdx = Math.max(slotEls.length, gridEls.length, gridTileEls.length, 1);
+    if (slotEls.length === 0 && gridEls.length === 0 && gridTileEls.length === 0) {
+      return;
+    }
+
+    const ease = gsap.parseEase(EASE_TRANSFORM);
+    const span = duration + Math.max(0, maxIdx - 1) * stagger;
+    const totalMs = Math.ceil((span * 1000) / getEffectiveAnimSpeed(1));
+    const steps = Math.max(12, Math.ceil(totalMs / (1000 / 60)));
+    const stepMs = totalMs / steps;
+
+    let hapticFired = 0;
+    const maxHaptic = Math.min(3, maxIdx);
+
+    for (let s = 0; s <= steps; s += 1) {
+      const clock = (s / steps) * span;
+      for (let i = 0; i < slotEls.length; i += 1) {
+        const el = slotEls[i];
+        if (!el?.isConnected) continue;
+        const elapsed = Math.max(0, clock - i * stagger);
+        const t = ease(Math.min(1, elapsed / duration));
+        if (t > 0 && hapticFired < maxHaptic && elapsed > 0 && elapsed <= duration / steps + 0.001) {
+          ui.triggerHaptic("tileRemove");
+          hapticFired += 1;
+        }
+        gsap.set(el, {
+          opacity: 1 - t,
+          scale: 1 - 0.12 * t,
+          y: -10 * t,
+          transformOrigin: "50% 50%",
+          force3D: true,
+          overwrite: "auto",
+        });
+        const inner = resolveWordSlotLeaveInnerEl(el);
+        if (inner?.isConnected) {
+          gsap.set(inner, { opacity: 1 - t, overwrite: "auto" });
+        }
+      }
+      for (let i = 0; i < gridEls.length; i += 1) {
+        const el = gridEls[i];
+        if (!el?.isConnected) continue;
+        const elapsed = Math.max(0, clock - i * stagger);
+        const t = ease(Math.min(1, elapsed / duration));
+        gsap.set(el, {
+          opacity: GRID_CELL_PLACEHOLDER_OPACITY * (1 - t),
+          scale: 1 - 0.18 * t,
+          y: 0,
+          transformOrigin: "50% 50%",
+          force3D: true,
+          overwrite: "auto",
+        });
+      }
+      for (let i = 0; i < gridTileEls.length; i += 1) {
+        const el = gridTileEls[i];
+        if (!el?.isConnected) continue;
+        const elapsed = Math.max(0, clock - i * stagger);
+        const t = ease(Math.min(1, elapsed / duration));
+        gsap.set(el, {
+          opacity: 1 - t,
+          scale: 1 - 0.18 * t,
+          y: 0,
+          transformOrigin: "50% 50%",
+          force3D: true,
+          overwrite: "auto",
+        });
+      }
+      if (s < steps) {
+        await animSleep(stepMs);
+      }
+    }
+  }
+
+  function runSlotAndGridLeaveAnimation(slotEls, gridEls, options = {}) {
+    if (options.useSteppedLeave === true) {
+      return runSteppedSlotAndGridLeaveAnimation(slotEls, gridEls, options);
+    }
+    const duration = Number.isFinite(options.duration) ? options.duration : 0.28;
+    const stagger = Number.isFinite(options.stagger) ? options.stagger : 0.12;
+    const gridTileEls = Array.isArray(options.gridTileEls) ? options.gridTileEls : [];
     return new Promise((resolve) => {
-      let done = 0;
-      const need = (slotEls.length > 0 ? 1 : 0) + (gridEls.length > 0 ? 1 : 0);
+      const need =
+        (slotEls.length > 0 ? 1 : 0) +
+        (gridEls.length > 0 ? 1 : 0) +
+        (gridTileEls.length > 0 ? 1 : 0);
       if (need === 0) {
         resolve();
         return;
       }
-      const finish = () => {
-        done += 1;
-        if (done >= need) resolve();
+      let settled = false;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
       };
+      let gsapDone = 0;
+      const gsapFinish = () => {
+        gsapDone += 1;
+        if (gsapDone >= need) settle();
+      };
+      const maxCount = Math.max(slotEls.length, gridEls.length, gridTileEls.length);
+      const waitMs = Math.ceil(
+        ((duration + Math.max(0, maxCount - 1) * stagger) * 1000) / getEffectiveAnimSpeed(1),
+      );
+      void pauseAwareDelay(waitMs).then(settle);
       const removeHapticStagger = { each: stagger, onStart: () => ui.triggerHaptic("tileRemove") };
+      const gridStagger = slotEls.length > 0 ? stagger : removeHapticStagger;
       if (slotEls.length > 0) {
+        /** @type {HTMLElement[]} */
+        const slotInnerEls = [];
+        for (const slotEl of slotEls) {
+          const inner = resolveWordSlotLeaveInnerEl(slotEl);
+          if (inner) slotInnerEls.push(inner);
+        }
         gsap.fromTo(
           slotEls,
           { opacity: 1, scale: 1, y: 0 },
@@ -183,9 +298,21 @@ export function useGridDiscardController(options) {
             duration,
             stagger: removeHapticStagger,
             ease: EASE_TRANSFORM,
-            onComplete: finish,
+            onComplete: gsapFinish,
           },
         );
+        if (slotInnerEls.length > 0) {
+          gsap.fromTo(
+            slotInnerEls,
+            { opacity: 1 },
+            {
+              opacity: 0,
+              duration,
+              stagger: removeHapticStagger,
+              ease: EASE_TRANSFORM,
+            },
+          );
+        }
       }
       if (gridEls.length > 0) {
         gsap.fromTo(
@@ -201,9 +328,24 @@ export function useGridDiscardController(options) {
             scale: 0.82,
             y: 0,
             duration,
-            stagger: slotEls.length > 0 ? stagger : removeHapticStagger,
+            stagger: gridStagger,
             ease: EASE_TRANSFORM,
-            onComplete: finish,
+            onComplete: gsapFinish,
+          },
+        );
+      }
+      if (gridTileEls.length > 0) {
+        gsap.fromTo(
+          gridTileEls,
+          { opacity: 1, scale: 1, y: 0, transformOrigin: "50% 50%" },
+          {
+            opacity: 0,
+            scale: 0.82,
+            y: 0,
+            duration,
+            stagger: gridStagger,
+            ease: EASE_TRANSFORM,
+            onComplete: gsapFinish,
           },
         );
       }

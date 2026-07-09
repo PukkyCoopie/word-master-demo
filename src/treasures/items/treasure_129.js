@@ -35,6 +35,17 @@ export const treasureHooks = {
     const grid = ctx.getGrid?.();
     const targets = collectFireworkIgniteTargets(grid);
     if (!targets.length) return;
+    if (ctx.skipSettlementFx === true) {
+      let changed = false;
+      for (const { row, col } of targets) {
+        const above = grid?.[row]?.[col];
+        if (!isNoMaterialLetterTile(above)) continue;
+        applyFireworkIgniteToTile(/** @type {Record<string, unknown>} */ (above));
+        changed = true;
+      }
+      if (changed) ctx.touchGrid?.();
+      return;
+    }
     await wobbleTreasureHookContributor(ctx, ID);
     let changed = false;
     for (const { row, col } of targets) {

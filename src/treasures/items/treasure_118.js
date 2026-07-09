@@ -34,6 +34,7 @@ export const treasureHooks = {
     return { blocked: true };
   },
   async runAfterLettersBeforePostSteps(ctx) {
+    if (ctx.skipSettlementFx === true) return;
     const session = ctx.pagerQuizSession;
     if (!session?.options?.length) return;
 

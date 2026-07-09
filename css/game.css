@@ -1143,6 +1143,23 @@ textarea::-moz-placeholder {
 	transform: scale(1);
 }
 
+.result-total-fade-scale-enter-active,
+.result-total-fade-scale-leave-active {
+	transition:
+		opacity 0.22s var(--ease-expo-out),
+		transform 0.22s var(--ease-expo-out);
+}
+.result-total-fade-scale-enter-from,
+.result-total-fade-scale-leave-to {
+	opacity: 0;
+	transform: scale(0.5);
+}
+.result-total-fade-scale-enter-to,
+.result-total-fade-scale-leave-from {
+	opacity: 1;
+	transform: scale(1);
+}
+
 /* 记分气泡（挂 body；定位与 translate 由 GSAP 写入，避免与动画 transform 冲突） */
 .score-popup-bubble,
 .mult-popup-bubble {
@@ -3028,6 +3045,23 @@ textarea::-moz-placeholder {
 
 .action-btn .action-icon {
 	font-size: calc(38 * var(--rpx));
+}
+
+.action-btn--settlement-loading {
+	pointer-events: none;
+}
+
+.action-icon--settlement-loading {
+	animation: action-btn-settlement-spin 0.75s linear infinite;
+}
+
+@keyframes action-btn-settlement-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .action-btn-green {

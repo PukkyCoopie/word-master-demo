@@ -4,6 +4,7 @@ import {
 } from "./scoreBubbleFx.js";
 import { getLevelEndAnimSpeed } from "./levelEndAnimSpeed.js";
 import { scoringSleep } from "./submitScoringTiming.js";
+import { shouldSkipSettlementTreasureFx } from "../settings/settlementAnimSkip.js";
 
 /**
  * 宝藏栏记分 / wobble / 气泡 FX（从 GamePanel 迁出）。
@@ -59,6 +60,10 @@ export function createOwnedTreasureBarFx(deps) {
     if (slotIndex < 0) return;
     const amt = Math.max(0, Math.floor(Number(amount) || 0));
     if (amt <= 0) return;
+    if (shouldSkipSettlementTreasureFx()) {
+      deps.addMoney(amt);
+      return;
+    }
     await runLevelEndTreasureSlotBeat(slotIndex, async ({ el, sp, bubbleZ }) => {
       const bubble = deps.showScoreBubble(el, deps.formatMoneyBubbleLabel(amt), "money", sp, bubbleZ);
       deps.scheduleSmallPlusBubbleOutro(bubble, sp);
@@ -83,6 +88,7 @@ export function createOwnedTreasureBarFx(deps) {
   async function playTreasureSlotBubbleBurstAtPeak(slotIndex, text, kind = "score") {
     const label = String(text ?? "").trim();
     if (!label) return;
+    if (shouldSkipSettlementTreasureFx()) return;
     await runLevelEndTreasureSlotBeat(slotIndex, async ({ el, sp, bubbleZ }) => {
       const bubble = deps.showScoreBubble(el, label, kind, sp, bubbleZ);
       deps.scheduleSmallPlusBubbleOutro(bubble, sp);

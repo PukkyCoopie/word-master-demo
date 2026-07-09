@@ -87,7 +87,8 @@ export const treasureHooks = {
     }
     if (indices.length === 0) return;
 
-    const playStrip = ctx.playSubmitTileEnhancementStripLeave;
+    const playStrip =
+      ctx.skipSettlementFx === true ? null : ctx.playSubmitTileEnhancementStripLeave;
     if (!playStrip) {
       for (const i of indices) stripSubmitTileAt(ctx, i, tiles[i]);
       ctx.touchGrid?.();

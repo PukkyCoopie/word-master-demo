@@ -307,7 +307,7 @@ export function useWordSlotFly(options) {
     nextTick(() => updateSlotPositions(true));
   }
 
-  function startOneMoveIn(row, col, tile, moveOptions = {}) {
+  async function startOneMoveIn(row, col, tile, moveOptions = {}) {
     const ceruleanBellFly = moveOptions.ceruleanBell === true;
     if (!ceruleanBellFly && (gates.transitionBusy.value || gates.showShop.value || ui.isRunFlowOverlayOpen())) return;
     if (ceruleanBellFly && (gates.showShop.value || ui.isRunFlowOverlayOpen())) return;
@@ -348,6 +348,9 @@ export function useWordSlotFly(options) {
         pendingCol: col,
       },
     ];
+    // 首字母入词会同步打开释义区 layout（middle-word-stack--definition-zone 上移 ~10rpx）；
+    // 须等 Vue 写入 DOM 后再测量词槽终点，否则仅第一枚飞字目标偏低并在下一帧上跳。
+    await nextTick();
     syncFlyingInTargets();
     ui.triggerHaptic("selection");
     if (fwt.phase.value === "select" && fwt.allowsTileClick(row, col)) {

@@ -18,6 +18,16 @@ export const treasureHooks = {
     if (!rollProbabilitySuccess(1, 4, rng, ctx.ownedSlotTreasureIds)) return;
     const len = Math.max(0, Math.round(Number(ctx.judgedWordLength) || 0));
     if (len < 3 || len > 16) return;
+    if (ctx.skipSettlementFx === true) {
+      const step =
+        typeof ctx.buildInRunLengthUpgradeStep === "function" ? ctx.buildInRunLengthUpgradeStep(len) : null;
+      if (step && typeof ctx.registerSubmitAccessoryUpgradeStep === "function") {
+        ctx.registerSubmitAccessoryUpgradeStep(step);
+        return;
+      }
+      ctx.bumpWordLengthLevel?.(len);
+      return;
+    }
     const runCue = async () => {
       await Promise.all([
         wobbleTreasureHookContributor(ctx, ID),

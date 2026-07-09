@@ -79,6 +79,10 @@ export async function startGamePanelNewRun(deps) {
   if (deps.isNoSellGoldBombCometDevScenarioActive()) {
     deps.applyNoSellGoldBombCometOwnedTreasures();
   }
+  if (deps.isSettlementSkipStressDevScenarioActive()) {
+    deps.applySettlementSkipStressOwnedTreasures();
+    deps.applySettlementSkipStressRunState();
+  }
   deps.registerMaskBubbleDevConsoleHook();
   deps.setSlotRafLastTime(performance.now());
   deps.ensureSlotRafRunning();

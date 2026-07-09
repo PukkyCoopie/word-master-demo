@@ -37,12 +37,19 @@ export const treasureHooks = {
     /** @type {object[]} */
     const targets = [];
     if (real && typeof real === "object") targets.push(real);
-    if (scoringTile && typeof scoringTile === "object" && scoringTile !== real) targets.push(scoringTile);
+    if (
+      !ctx.skipSettlementFx &&
+      scoringTile &&
+      typeof scoringTile === "object" &&
+      scoringTile !== real
+    ) {
+      targets.push(scoringTile);
+    }
     if (!targets.length) return;
 
     const applyGold = () => applyGoldToSubmitTiles(targets, ctx, real);
     const play = ctx.playGridTileMaterialChangeForSubmitWordSlot;
-    if (play) {
+    if (play && !ctx.skipSettlementFx) {
       await play(letterIndex, applyGold);
       return;
     }

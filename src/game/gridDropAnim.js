@@ -116,6 +116,7 @@ export function createGridDropAnim(deps) {
    * initial：首次入场，最下一排 tile 先落，再往上逐排。
    * 补牌：新格同上；同 id FLIP 也按排从下到上依次动。
    * @param {{ rects: Map<string, DOMRect>, cells: Map<string, { row: number, col: number }> } | null} prevFlip 补牌前快照；initial 时为 null
+   * @param {{ initial?: boolean }} [options]
    */
   function runGridDropAnimation(prevFlip, options = {}) {
     const isInitial = options.initial === true;
@@ -141,10 +142,6 @@ export function createGridDropAnim(deps) {
         const stepX = measureGridTileStepX();
         let pending = 0;
         let completed = 0;
-        let movedAnimatedCount = 0;
-        let movedInstantCount = 0;
-        let newDropCount = 0;
-        let fallbackNodeCount = 0;
         const tickOne = (el, opts = {}) => {
           if (opts.landHaptic) triggerHaptic("land");
           clearGridTileGsapAfterDrop(el);
@@ -167,7 +164,6 @@ export function createGridDropAnim(deps) {
           if (tile == null || tile.bossGridBlocked) continue;
           const el = getGridTileElByIndex(i);
           if (!el) continue;
-          if (!getGridTileRef(i)) fallbackNodeCount += 1;
           pending++;
           const tid = tile?.id != null && tile.id !== "" ? String(tile.id) : "";
           const stagger = gridTileEntranceDelay(row, col);
@@ -198,13 +194,9 @@ export function createGridDropAnim(deps) {
               dy = -(row - pCell.row) * stepY;
             }
             if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
-              if (movedCell) {
-                movedInstantCount += 1;
-              }
               gsapLib.set(el, { x: 0, y: 0 });
               tickOne(el);
             } else {
-              if (movedCell) movedAnimatedCount += 1;
               gsapLib.set(el, { x: dx, y: dy, force3D: true });
               const gravityDom = Math.abs(dy) >= Math.abs(dx) && Math.abs(dy) > 1.5;
               if (gravityDom) {
@@ -224,7 +216,6 @@ export function createGridDropAnim(deps) {
               }
             }
           } else {
-            newDropCount += 1;
             const dropOffsetRows = gridRefillNewTileDropOffsetRows(row, col);
             const y0 = -dropOffsetRows * stepY;
             const dropFromAboveGrid = isGridDropFromAboveGrid(dropOffsetRows, row);

@@ -385,6 +385,7 @@
  * @property {(slotIndex: number, amount: number) => void} [bumpOwnedTreasureSellRefundBonusAtSlot] 按栏位下标提高额外售出额（同 id 多槽时逐槽加价）
  * @property {(treasureId: string, amount: number) => void} [bumpOwnedTreasureSellRefundBonusById] 提高已拥有实例的额外售出额（叠在 floor(购入价/2) 之上，不参与 /2；仅命中第一个同 id 槽位）
  * @property {(entry: { slotIndex: number, treasureId: string, source: 'self' | 'blueprint' }) => void | Promise<void>} [onBeforeLevelCompleteHook] 关卡结束 FX 编排：每个 hook 执行前（渐进加速 beat）
+ * @property {boolean} [skipSettlementFx] 跳过结算宝藏动效，仅执行状态变更
  * @property {(volcanoSlotIndex: number) => Promise<void>} [playVolcanoEruptionAtSlot] 火山喷发：剧烈 wobble + 按距离摧毁其他宝藏 + 棋盘字母格转火焰
  */
 

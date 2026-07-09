@@ -140,6 +140,40 @@ test("run auto save flushes when idle", () => {
   assert.equal(lastImmediate, true);
 });
 
+test("milestone auto save writes immediately when idle", () => {
+  let saved = 0;
+  let lastImmediate = false;
+  const autoSave = createRunAutoSave({
+    canSave: () => ({ ok: true }),
+    save: (opts) => {
+      saved += 1;
+      lastImmediate = opts?.immediate === true;
+    },
+  });
+  autoSave.scheduleMilestoneAutoSave();
+  assert.equal(saved, 1);
+  assert.equal(lastImmediate, true);
+});
+
+test("milestone auto save defers until idle then forces immediate write", () => {
+  let saved = 0;
+  let idle = false;
+  let lastImmediate = false;
+  const autoSave = createRunAutoSave({
+    canSave: () => ({ ok: idle }),
+    save: (opts) => {
+      saved += 1;
+      lastImmediate = opts?.immediate === true;
+    },
+  });
+  autoSave.scheduleMilestoneAutoSave();
+  assert.equal(saved, 0);
+  idle = true;
+  autoSave.tryFlush();
+  assert.equal(saved, 1);
+  assert.equal(lastImmediate, true);
+});
+
 test("empty save envelope has three slots", () => {
   const env = createEmptySaveEnvelope();
   assert.equal(env.slots.length, SAVE_SLOT_COUNT);

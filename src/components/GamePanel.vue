@@ -240,6 +240,12 @@ import {
   applyRandomBLettersToGrid,
   isMaskBubbleDevScenario,
 } from "../dev/maskBubbleBlueprintScenario.js";
+import {
+  applySettlementSkipStressGridWord,
+  applySettlementSkipStressOwnedTreasures,
+  applySettlementSkipStressRunState,
+  isSettlementSkipStressDevScenario,
+} from "../dev/settlementSkipStressDevScenario.js";
 import { isCeruleanBellDevScenario } from "../dev/ceruleanBellDevScenario.js";
 import { isPagerDevScenario } from "../dev/pagerDevScenario.js";
 import { isEctoplasmDevScenario } from "../dev/ectoplasmDevScenario.js";
@@ -456,6 +462,8 @@ const noSellGoldBombCometDevScenarioActive = ref(isNoSellGoldBombCometDevScenari
 const mouthQuProblemDevScenarioActive = ref(isMouthQuProblemDevScenario());
 /** 开发：嘴+tia→tea 还原（`?dev=mouthTiaTea` 或控制台命令） */
 const mouthTiaTeaDevScenarioActive = ref(isMouthTiaTeaDevScenario());
+/** 开发：跳过结算动画压测（`?dev=settlementSkipStress` 或控制台命令） */
+const settlementSkipStressDevScenarioActive = ref(isSettlementSkipStressDevScenario());
 /** 开发：宣传图预设 1 的棋盘材质/加成（`setupScreenshotPreset(1)`） */
 const promoScreenshotDevPresetActive = ref(0);
 
@@ -1113,11 +1121,13 @@ const ctrlEarly = wireGamePanelControllers({
   bossApiBridge,
   bossMechanicsBridge,
   maskBubbleDevScenarioActive,
+  settlementSkipStressDevScenarioActive,
   allIceDevScenarioActive,
   mouthQuProblemDevScenarioActive,
   mouthTiaTeaDevScenarioActive,
   promoScreenshotDevPresetActive,
   applyRandomBLettersToGrid,
+  applySettlementSkipStressGridWord,
   applyProblemQuRowToGrid,
   applyMouthTiaTeaRowToGrid,
   applyIceMaterialToAllGridTiles,
@@ -1734,7 +1744,7 @@ async function awaitTreasureSlotWobbleElForSubmit(el, sp) {
 let openStageSettlementSlot = async () => {};
 
 function scheduleRunAutoSave() {
-  runSaveBridge?.scheduleAutoSave?.();
+  runSaveBridge?.scheduleMilestoneAutoSave?.();
 }
 
 const { ports: gamePanelPorts } = setupGamePanelAssembly(
@@ -2063,12 +2073,13 @@ runAutoSaveBridge.flushRunSaveNow = () => runSaveBridge?.flushRunSaveNow?.();
   playfieldActionsRef,
   devCommandsRef,
   devCommandsOptions: buildGamePanelDevCommandsOptions({
-    maskBubbleDevScenarioActive, allIceDevScenarioActive, ceruleanBellDevScenarioActive,
+    maskBubbleDevScenarioActive, settlementSkipStressDevScenarioActive, allIceDevScenarioActive, ceruleanBellDevScenarioActive,
     pagerDevScenarioActive, ectoplasmDevScenarioActive, noSellGoldBombCometDevScenarioActive,
     mouthQuProblemDevScenarioActive,
     mouthTiaTeaDevScenarioActive,
     promoScreenshotDevPresetActive, ownedTreasures, transitionBusy,
     showShop, showSettlement, showRunEnd, showPauseOptions, showDeveloperOptions, levelIndex,
+    isEndlessRun,
     pendingBossSlugOverride: ctrlEarly.pendingBossSlugOverride,
     gridIntroDone, gridRefillAnimating, gridTileRefs,
     glyphShopSkipLevelAdvance: ctrlEarly.glyphShopSkipLevelAdvance,
@@ -2086,7 +2097,7 @@ runAutoSaveBridge.flushRunSaveNow = () => runSaveBridge?.flushRunSaveNow?.();
     getCandidateWordsByLength, resolveWordPattern, rarityLevelsByRarity, buildBossWildcardResolveContext,
     grantRandomOwnedTreasuresInRunWithPopAnim: ctrlEarly.grantRandomOwnedTreasuresInRunWithPopAnim,
     tryCeruleanBellMarkAfterGridStable, grid,
-    treasureRunState, remainingWords,
+    treasureRunState, remainingWords, targetScore,
     runTreasureLevelCompleteHooks: ctrlEarly.runTreasureLevelCompleteHooks,
     selectTile, removeFromSlot, selectedOrder, submitWord: panelAssembly.submitController.submitWord,
     scoringAnimating, gridRefillAnimating, submitWordBusy,
@@ -2392,6 +2403,11 @@ function buildGamePanelBootstrapSource() {
     applyRunPresetStartEffects,
     isMaskBubbleDevScenarioActive: () => maskBubbleDevScenarioActive.value,
     applyMaskBubbleOwnedTreasures: () => devCommandsRef.current?.applyMaskBubbleDevRunStart(),
+    isSettlementSkipStressDevScenarioActive: () => settlementSkipStressDevScenarioActive.value,
+    applySettlementSkipStressOwnedTreasures: () =>
+      devCommandsRef.current?.applySettlementSkipStressDevRunStart(),
+    applySettlementSkipStressRunState: () =>
+      devCommandsRef.current?.applySettlementSkipStressRunStateOnly(),
     isPagerDevScenarioActive: () => pagerDevScenarioActive.value,
     applyPagerOwnedTreasure: () => devCommandsRef.current?.applyPagerDevRunStart(),
     isEctoplasmDevScenarioActive: () => ectoplasmDevScenarioActive.value,

@@ -32,39 +32,10 @@ export function syncTileStateToDeckCard(tile) {
   } else {
     c.isWildcard = false;
     const lr = tileLetterToRawLowerForDeck(tile.letter);
-    const prevRaw = String(c.raw ?? "").toLowerCase().charAt(0);
     const mouthShift = Math.sign(Number(c.vowelDisplayShift) || 0);
     if (lr && lr !== "?" && mouthShift === 0) {
       c.raw = lr === "qu" ? "q" : lr.slice(0, 1);
     }
-    // #region agent log
-    const nextRaw = String(c.raw ?? "").toLowerCase().charAt(0);
-    if (
-      (prevRaw === "e" || nextRaw === "i" || prevRaw === "i") &&
-      prevRaw !== nextRaw &&
-      mouthShift !== 0
-    ) {
-      fetch("http://127.0.0.1:7623/ingest/3382c565-2350-4795-bc82-3716661b9aea", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "fa631d" },
-        body: JSON.stringify({
-          sessionId: "fa631d",
-          runId: "post-fix",
-          hypothesisId: "C",
-          location: "deckCardSync.js:syncTileStateToDeckCard",
-          message: "raw preserved despite mouth shift",
-          data: {
-            prevRaw,
-            nextRaw,
-            tileLetter: tile.letter,
-            vowelDisplayShift: mouthShift,
-            rawPreserved: prevRaw === nextRaw,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
     c.materialId = tile.materialId != null ? String(tile.materialId) : null;
   }
   c.rarity = String(tile?.rarity || "common");

@@ -1,5 +1,6 @@
 import { SCORING_BUBBLE_POP_DELAY_MS } from "./scoreBubbleFx.js";
 import { scoringSleep } from "./submitScoringTiming.js";
+import { shouldSkipSettlementTreasureFx } from "../settings/settlementAnimSkip.js";
 
 const COPY_BUBBLE_Z_INDEX = 380;
 
@@ -18,6 +19,7 @@ const COPY_BUBBLE_Z_INDEX = 380;
  * @param {number} [sp=1]
  */
 export async function runWordSlotCopyFxAtIndex(deps, slotIndex, sp = 1) {
+  if (shouldSkipSettlementTreasureFx()) return;
   const slotEl = deps.getWordSlotEl(slotIndex);
   if (!(slotEl instanceof HTMLElement)) return;
   const wobbleP = deps.awaitTreasureSlotWobbleEl(slotEl, sp);

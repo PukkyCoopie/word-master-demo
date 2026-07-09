@@ -1,4 +1,5 @@
 import { resolvePostLetterAnimSlotIndex, shouldTreasureRunAccumulationMutate } from "../game/treasureBlueprintMirror.js";
+import { shouldSkipSettlementTreasureFx } from "../settings/settlementAnimSkip.js";
 import { describe, mult, score } from "./treasureDescription.js";
 import { ensureTreasureBank } from "./treasureRunState.js";
 
@@ -127,6 +128,7 @@ export async function bankMultAddGain(ctx, treasureId, delta) {
   if (canMutateTreasureBankFromCtx(ctx, treasureId)) {
     addMultAddBank(ctx.treasureRun, treasureId, delta);
   }
+  if (ctx?.skipSettlementFx === true || shouldSkipSettlementTreasureFx()) return;
   const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
   if (slotIx != null && ctx.playTreasureMultDeltaFxAtSlot) {
     await ctx.playTreasureMultDeltaFxAtSlot(slotIx, delta);
@@ -145,6 +147,7 @@ export async function bankScoreAddGain(ctx, treasureId, delta) {
   if (canMutateTreasureBankFromCtx(ctx, treasureId)) {
     addScoreAddBank(ctx.treasureRun, treasureId, delta);
   }
+  if (ctx?.skipSettlementFx === true || shouldSkipSettlementTreasureFx()) return;
   const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
   if (slotIx != null && ctx.playTreasureScoreDeltaFxAtSlot) {
     await ctx.playTreasureScoreDeltaFxAtSlot(slotIx, delta);
@@ -166,6 +169,7 @@ export async function bankScoreAddGain(ctx, treasureId, delta) {
  * @param {string} treasureId
  */
 export async function wobbleTreasureHookContributor(ctx, treasureId) {
+  if (ctx?.skipSettlementFx === true || shouldSkipSettlementTreasureFx()) return;
   const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
   if (slotIx != null && ctx.wobbleOwnedTreasureAtSlot) {
     await ctx.wobbleOwnedTreasureAtSlot(slotIx);
@@ -186,6 +190,7 @@ export async function wobbleTreasureHookContributor(ctx, treasureId) {
  * @param {string} [kind]
  */
 export async function playTreasureHookBubbleFx(ctx, treasureId, text, kind = "score") {
+  if (ctx?.skipSettlementFx === true || shouldSkipSettlementTreasureFx()) return;
   const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
   if (slotIx != null && ctx.playOwnedTreasureBubbleFxAtSlot) {
     await ctx.playOwnedTreasureBubbleFxAtSlot(slotIx, text, kind);
@@ -202,6 +207,7 @@ export async function playTreasureHookBubbleFx(ctx, treasureId, text, kind = "sc
  * @param {string} [kind]
  */
 export async function playTreasureHookBubbleOnlyFx(ctx, treasureId, text, kind = "score") {
+  if (ctx?.skipSettlementFx === true || shouldSkipSettlementTreasureFx()) return;
   const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
   if (slotIx != null && ctx.playOwnedTreasureBubbleOnlyFxAtSlot) {
     await ctx.playOwnedTreasureBubbleOnlyFxAtSlot(slotIx, text, kind);
@@ -221,6 +227,7 @@ export async function playTreasureHookBubbleOnlyFx(ctx, treasureId, text, kind =
  * @param {string} [bubbleText] 默认由 {@link formatMultMulBankGainLabel} 从 increment 生成
  */
 export async function playBankMultMulGainFx(ctx, treasureId, bubbleText) {
+  if (ctx?.skipSettlementFx === true || shouldSkipSettlementTreasureFx()) return;
   const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
   if (bubbleText) {
     if (slotIx != null && ctx.playOwnedTreasureBubbleFxAtSlot) {

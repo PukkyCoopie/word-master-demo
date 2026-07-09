@@ -17,6 +17,7 @@ import { resolveGridEffectTriggerCount } from "../../game/gridEffectTriggerCount
 import { buildPagerQuizOptions } from "../../game/pagerQuizOptions.js";
 import { resolveSubmitWordInput } from "../../game/submitWordPipeline.js";
 import { createSubmitScoringAnimController } from "../../game/submitScoringAnim.js";
+import { shouldSkipSettlementAnim } from "../../settings/settlementAnimSkip.js";
 import { resolveWordLengthJudgmentBonus } from "../../game/wordLengthJudgmentBonus.js";
 import { compareScore, scoreGte, scoreLt } from "../../utils/scoreInteger.js";
 import { reportClientError } from "../../platform/clientErrorReporter.js";
@@ -53,12 +54,13 @@ export function createSubmitWordBusyRefs() {
   return {
     submitWordBusy: ref(false),
     scoringAnimating: ref(false),
+    submitSettlementChunking: ref(false),
   };
 }
 
 /**
  * @typedef {Object} SubmitWordControllerOptions
- * @property {{ submitWordBusy: import('vue').Ref<boolean>, scoringAnimating: import('vue').Ref<boolean> }} busy
+ * @property {{ submitWordBusy: import('vue').Ref<boolean>, scoringAnimating: import('vue').Ref<boolean>, submitSettlementChunking: import('vue').Ref<boolean> }} busy
  * @property {object} scoringRefs 计分 UI ref（animScoreSum 等）
  * @property {ReturnType<import('../../game/scoreBubbleFx.js').createScoreBubbleFx>} scoringFx
  * @property {object} scoringAnimCallbacks submitScoringAnim 回调（仍由 GamePanel 提供 DOM/流程钩子）
@@ -112,7 +114,7 @@ export function useSubmitWordController(options) {
     flashSubmitCountDelta,
   } = options;
 
-  const { submitWordBusy, scoringAnimating } = busy;
+  const { submitWordBusy, scoringAnimating, submitSettlementChunking } = busy;
 
   /** @type {ReturnType<typeof createSubmitScoringAnimController> | null} */
   let submitScoringAnimControllerInstance = null;
@@ -124,6 +126,7 @@ export function useSubmitWordController(options) {
         ...scoringRefs,
         scoringAnimating,
         submitWordBusy,
+        submitSettlementChunking,
       },
       getDom: dom,
       fx: scoringFx,
@@ -177,7 +180,12 @@ export function useSubmitWordController(options) {
 
     callbacks.triggerHaptic("confirm");
     ui.wordDefinitionHiddenForWordLeave.value = true;
+    const skipSettlementBatch = shouldSkipSettlementAnim(run.isEndlessRun.value === true);
     submitWordBusy.value = true;
+    if (skipSettlementBatch) {
+      submitSettlementChunking.value = true;
+      await nextTick();
+    }
     let submitChanceConsumed = false;
     let scoreBeforeHand = 0;
     /** @type {"prepare"|"score"|"scoringAnim"|"postSubmit"|"settlement"} */
@@ -385,7 +393,11 @@ export function useSubmitWordController(options) {
       scoringAnimating.value = true;
       ui.wordDefinitionHiddenForWordLeave.value = true;
       await nextTick();
-      await sleep(ACTION_COUNT_DELTA_BEAT_MS);
+      if (skipSettlementBatch) {
+        await nextTick();
+      } else {
+        await sleep(ACTION_COUNT_DELTA_BEAT_MS);
+      }
       ui.scoringLetterIndex.value = -1;
 
       submitPhase = "scoringAnim";
@@ -493,6 +505,7 @@ export function useSubmitWordController(options) {
         }
       }
       scoringAnimating.value = false;
+      submitSettlementChunking.value = false;
       ui.wordDefinitionHiddenForWordLeave.value = false;
       ui.scoringLetterIndex.value = -1;
       ui.roundScoreOverride.value = null;
@@ -519,12 +532,14 @@ export function useSubmitWordController(options) {
       callbacks.showToast(submitErrorMessage);
     } finally {
       submitWordBusy.value = false;
+      submitSettlementChunking.value = false;
     }
   }
 
   return {
     submitWordBusy,
     scoringAnimating,
+    submitSettlementChunking,
     submitWord,
     seedAnimFormulaFromSubmitDetailed,
   };

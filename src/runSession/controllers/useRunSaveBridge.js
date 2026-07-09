@@ -73,6 +73,7 @@ import { flushSaveStorageSync } from "../../save/runSaveStorage.js";
  * @param {RunSaveBridgeOptions} options
  * @returns {SaveBridge & {
  *   scheduleAutoSave: () => void,
+ *   scheduleMilestoneAutoSave: () => void,
  *   tryFlush: (opts?: { force?: boolean }) => void,
  *   cancelPending: () => void,
  *   flushRunSaveNow: () => void,
@@ -249,6 +250,7 @@ export function useRunSaveBridge(options) {
     flushAutoSave,
     flushRunSaveNow,
     scheduleAutoSave: () => runAutoSave.scheduleAutoSave(),
+    scheduleMilestoneAutoSave: () => runAutoSave.scheduleMilestoneAutoSave(),
     tryFlush: runAutoSave.tryFlush,
     cancelPending: runAutoSave.cancelPending,
   };

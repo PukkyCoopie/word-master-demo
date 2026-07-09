@@ -7,6 +7,13 @@ import {
 	normalizeDictionaryScopeIds,
 	DICTIONARY_SCOPE_OPTIONS,
 } from "./dictionaryScope.js";
+import {
+	normalizeSkipSettlementAnimMode,
+	bindSettlementAnimSkipGameSettings,
+} from "./settlementAnimSkip.js";
+
+export { SKIP_SETTLEMENT_ANIM_MODE_OPTIONS } from "./settlementAnimSkip.js";
+export { normalizeSkipSettlementAnimMode } from "./settlementAnimSkip.js";
 
 export { WORD_HINT_MODE_OPTIONS, normalizeWordHintMode, DICTIONARY_SCOPE_OPTIONS };
 
@@ -85,6 +92,8 @@ function applyNewPlayerWordAuxDefaults() {
 
 /** @typedef {'slow' | 'normal' | 'fast'} AnimationSpeedTier */
 
+/** @typedef {import('./settlementAnimSkip.js').SkipSettlementAnimMode} SkipSettlementAnimMode */
+
 /** @typedef {'centered' | 'borderless'} DisplayLayoutMode */
 
 /** @type {readonly { id: DisplayLayoutMode; label: string }[]} */
@@ -159,7 +168,7 @@ function applyNewPlayerWordDefinitionDefault() {
   gameSettings.wordDefinitionMode = "button";
 }
 
-/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; wordHintMode: import('./wordHintMode.js').WordHintMode; animationSpeedTier: AnimationSpeedTier; materialAnimationEnabled: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; wordFavoriteButtonEnabled: boolean; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean; devSuppressAchievementsAndLeaderboards: boolean; collectionTreasureGroupView: boolean; collectionTreasureGroupBy: import('../collection/collectionTreasureSort.js').TreasureCollectionGroupBy; dictionaryScopeIds: import('./dictionaryScopeIds.js').DictionaryScopeId[] }} */
+/** @type {{ allowSpellingAbbreviations: boolean; uiScalePercent: number; markButtonEnabled: boolean; swapButtonMode: SwapButtonMode; markOnSwap: boolean; wordHintMode: import('./wordHintMode.js').WordHintMode; animationSpeedTier: AnimationSpeedTier; skipSettlementAnimMode: SkipSettlementAnimMode; materialAnimationEnabled: boolean; hapticsEnabled: boolean; displayLayoutMode: DisplayLayoutMode; wordDefinitionMode: WordDefinitionMode; wordFavoriteButtonEnabled: boolean; letterCase: LetterCase; letterQMode: LetterQMode; highRiskSpellConfirm: boolean; swapConfirmButtonSide: boolean; devSuppressAchievementsAndLeaderboards: boolean; collectionTreasureGroupView: boolean; collectionTreasureGroupBy: import('../collection/collectionTreasureSort.js').TreasureCollectionGroupBy; dictionaryScopeIds: import('./dictionaryScopeIds.js').DictionaryScopeId[] }} */
 export const gameSettings = reactive({
   allowSpellingAbbreviations: false,
   uiScalePercent: UI_SCALE_DEFAULT,
@@ -168,6 +177,7 @@ export const gameSettings = reactive({
   markOnSwap: false,
   wordHintMode: "autoSelect",
   animationSpeedTier: "normal",
+  skipSettlementAnimMode: "endless",
   materialAnimationEnabled: true,
   hapticsEnabled: true,
   displayLayoutMode: inferDefaultDisplayLayoutMode(),
@@ -232,6 +242,9 @@ export function loadGameSettings() {
     }
     if (parsed.animationSpeedTier != null) {
       gameSettings.animationSpeedTier = normalizeAnimationSpeedTier(parsed.animationSpeedTier);
+    }
+    if (parsed.skipSettlementAnimMode != null) {
+      gameSettings.skipSettlementAnimMode = normalizeSkipSettlementAnimMode(parsed.skipSettlementAnimMode);
     }
     if (typeof parsed.materialAnimationEnabled === "boolean") {
       gameSettings.materialAnimationEnabled = parsed.materialAnimationEnabled;
@@ -321,6 +334,7 @@ export function persistGameSettings() {
         markOnSwap: gameSettings.markOnSwap,
         wordHintMode: gameSettings.wordHintMode,
         animationSpeedTier: gameSettings.animationSpeedTier,
+        skipSettlementAnimMode: normalizeSkipSettlementAnimMode(gameSettings.skipSettlementAnimMode),
         materialAnimationEnabled: gameSettings.materialAnimationEnabled,
         hapticsEnabled: gameSettings.hapticsEnabled,
         displayLayoutMode: gameSettings.displayLayoutMode,
@@ -437,6 +451,17 @@ export function getAnimationSpeedTier() {
 /** @param {AnimationSpeedTier} tier */
 export function setAnimationSpeedTier(tier) {
   gameSettings.animationSpeedTier = normalizeAnimationSpeedTier(tier);
+  persistGameSettings();
+}
+
+/** @returns {SkipSettlementAnimMode} */
+export function getSkipSettlementAnimMode() {
+  return normalizeSkipSettlementAnimMode(gameSettings.skipSettlementAnimMode);
+}
+
+/** @param {SkipSettlementAnimMode} mode */
+export function setSkipSettlementAnimMode(mode) {
+  gameSettings.skipSettlementAnimMode = normalizeSkipSettlementAnimMode(mode);
   persistGameSettings();
 }
 
@@ -603,3 +628,4 @@ export function setDictionaryScopeIds(ids) {
 }
 
 loadGameSettings();
+bindSettlementAnimSkipGameSettings(gameSettings);

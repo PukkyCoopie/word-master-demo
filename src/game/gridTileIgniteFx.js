@@ -1,5 +1,6 @@
 import gsap from "gsap";
 import { animateGridTileMaterialChangeAtCell } from "./spellTileAppearanceAnim.js";
+import { shouldSkipSettlementTreasureFx } from "../settings/settlementAnimSkip.js";
 
 /** @param {(HTMLElement | null | undefined)[]} els */
 function prepMaterialChangeAnimEls(els) {
@@ -53,6 +54,11 @@ export function showIgniteBubbleAtGridCell(deps, row, col, sp = 1) {
  * @param {number} [sp=1]
  */
 export async function runGridTileIgniteAtCell(deps, row, col, onMidApply, sp = 1) {
+  if (shouldSkipSettlementTreasureFx()) {
+    onMidApply?.();
+    deps.touchGrid?.();
+    return;
+  }
   const wordSlotEl = deps.getWordSlotShrinkPopElForGridCell?.(row, col);
   await animateGridTileMaterialChangeAtCell({
     row,

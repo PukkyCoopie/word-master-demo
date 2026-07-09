@@ -3,6 +3,7 @@ import { EASE_TRANSFORM } from "../constants.js";
 import { schedulePopupBubbleDismiss } from "./popupBubbleFx.js";
 import { isDebtMoneyBubbleLabel } from "./moneyDisplay.js";
 import { scoringSleep } from "./submitScoringTiming.js";
+import { shouldSkipSettlementTreasureFx } from "../settings/settlementAnimSkip.js";
 
 /** 与 wobbleScoreSlot 内「缩小 + 放大」两段时长一致（秒） */
 export const WOBBLE_SCALE_COMPRESS_S = 0.11;
@@ -265,6 +266,7 @@ export function createScoreBubbleFx(deps) {
 
   /** 宝藏槽上方 ×n 气泡：比 +倍率 更夸张的弹出与回弹 */
   function showMultMultiplyBubble(slotEl, factor, speed = 1, anchorRect = null) {
+    if (shouldSkipSettlementTreasureFx()) return null;
     const s = Math.max(0.01, Number(speed) || 1);
     const node = refToDom(slotEl) ?? (slotEl instanceof HTMLElement ? slotEl : null);
     const rect =
@@ -358,6 +360,7 @@ export function createScoreBubbleFx(deps) {
    * @param {DOMRect | { left: number, top: number, width: number, height: number } | null} [anchorRect]
    */
   function showScoreBubble(slotEl, text, kind, speed = 1, bubbleZIndex = 350, anchorRect = null) {
+    if (shouldSkipSettlementTreasureFx()) return null;
     const s = Math.max(0.01, Number(speed) || 1);
     const rect = anchorRect ?? scoreBubbleAnchorRect(slotEl);
     if (!rect) return null;
@@ -468,6 +471,7 @@ export function createScoreBubbleFx(deps) {
    * @param {{ scorePill?: boolean, multPill?: boolean } | null | undefined} pillAugment
    */
   function createWobbleScoreSlotTimeline(slotEl, pillAugment) {
+    if (shouldSkipSettlementTreasureFx()) return null;
     if (!slotEl) return null;
     const wobbleEl = resolveWobbleTransformEl(slotEl);
     /** @type {gsap.core.Timeline | null} */
@@ -530,6 +534,7 @@ export function createScoreBubbleFx(deps) {
   }
 
   function wobbleScoreSlot(slotEl, speed = 1, pillAugment) {
+    if (shouldSkipSettlementTreasureFx()) return;
     const tl = createWobbleScoreSlotTimeline(slotEl, pillAugment);
     if (tl) {
       const s = Math.max(0.01, Number(speed) || 1);
@@ -540,6 +545,7 @@ export function createScoreBubbleFx(deps) {
 
   /** @param {gsap.core.Timeline | null | undefined} tl */
   async function awaitWobbleScoreSlotTimeline(tl) {
+    if (shouldSkipSettlementTreasureFx()) return;
     if (!tl) {
       await scoringSleep(SCORING_TREASURE_FALLBACK_MS, 1);
       return;
@@ -556,6 +562,7 @@ export function createScoreBubbleFx(deps) {
    * @param {number} [speed]
    */
   function showBundlePackBubble(slotEl, _bundleKind, speed = 1) {
+    if (shouldSkipSettlementTreasureFx()) return null;
     const s = Math.max(0.01, Number(speed) || 1);
     const rect = scoreBubbleAnchorRect(slotEl);
     if (!rect) return null;
@@ -588,6 +595,7 @@ export function createScoreBubbleFx(deps) {
   }
 
   function triggerAccessoryChipRipple(slotEl, speed = 1, strong = false) {
+    if (shouldSkipSettlementTreasureFx()) return;
     if (!slotEl) return;
     const s = Math.max(0.01, Number(speed) || 1);
     /** @param {HTMLElement} chip */

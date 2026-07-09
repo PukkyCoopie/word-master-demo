@@ -70,6 +70,17 @@ import {
   scoreIsPositive,
   subtractScore,
 } from "../utils/scoreInteger.js";
+import {
+  shouldSkipSettlementAnim,
+  setSubmitScoringMidPhaseSkipActive,
+  isSubmitScoringMidPhaseSkipActive,
+  shouldSkipSettlementTreasureFx,
+  shouldSkipSubmitTailTreasureFx,
+  bindSkipSettlementAnimEndlessRun,
+  clearSkipSettlementAnimEndlessRunBinding,
+} from "../settings/settlementAnimSkip.js";
+import { animSleep } from "../settings/animationSpeed.js";
+import { createFrameBudgetYielder } from "../utils/chunkedMainThreadWork.js";
 
 /** 记分步间等待、气泡延迟等统一再 ×0.7（比上一版缩短 30%） */
 export const SCORING_GAP_SCALE = 0.7;
@@ -89,8 +100,8 @@ export const SCORING_BUBBLE_POP_DELAY_MS = Math.round(
 export const FORMULA_TOTAL_HOLD_BEFORE_FINAL_SCORE_MS = Math.round(360 * SCORING_GAP_SCALE);
 /** 最终得分步结束后，再让本手分汇入顶栏 score-value-wrap */
 export const FINAL_SCORE_HOLD_BEFORE_HEADER_ROLL_MS = Math.round(420 * SCORING_GAP_SCALE);
-/** 关卡通关时：棋盘上每个黄金材质字母块 wobble + 金币色 $ 气泡 */
-export const GOLD_MATERIAL_CLEAR_BONUS_DOLLARS = 3;
+/** 与 `css/game.css` 中 `.result-wordlen-fade-scale-*` / `.result-total-fade-scale-*` 对齐 */
+const RESULT_HANDOFF_WORDLEN_LEAVE_MS = 220;
 /** 字母块钱币配饰：在该字母轮到计分时触发 $3 */
 export const COIN_ACCESSORY_SCORE_BONUS_DOLLARS = 3;
 
@@ -150,6 +161,12 @@ export function createSubmitScoringAnimController(deps) {
   let activeSubmitDisabledTreasureSlotIndices = null;
   /** @type {Set<string> | null} 本手已播过栏位奖杯 × 倍率动画的 slot:treasureId */
   let activeSubmitAnimatedOwnedSlotTrophies = null;
+  /** @type {(() => Promise<void>) | null} 跳过结算批量应用时的帧预算 yield */
+  let activeChunkedSettlementYielder = null;
+
+  async function yieldChunkedSettlementIfNeeded() {
+    await activeChunkedSettlementYielder?.();
+  }
 
   function resolveOwnedSlotIdsForSubmitScoring() {
     const raw = refs.ownedTreasures.value.map((s) => s?.treasureId ?? null);
@@ -169,7 +186,6 @@ export function createSubmitScoringAnimController(deps) {
     return nested instanceof HTMLElement ? nested : slotEl;
   }
 
-  /** 计分板/回形针/泡泡写回 tile 角标后：刷新占位冻结快照 + 词槽 pill DOM（冻结快照否则仍显示旧 +0）。 */
   async function refreshWordSlotIntrinsicBadgesAfterPersist(realTile, slotEl) {
     if (!realTile || typeof realTile !== "object") return;
     if (typeof callbacks.patchGridPlaceholderFreezeFromTile === "function") {
@@ -190,6 +206,66 @@ export function createSubmitScoringAnimController(deps) {
 
   function showWordSlotMultMultiplyBubble(slotEl, factor, speed = 1) {
     return showMultMultiplyBubble(slotEl, factor, speed, scoringWordSlotBubbleAnchor);
+  }
+
+  /** @param {number} count */
+  function collectWordSlotLeaveEls(count) {
+    const n = Math.max(0, Math.round(Number(count)) || 0);
+    if (n === 0) return [];
+    /** @type {HTMLElement[]} */
+    const els = [];
+    const root = getDom.getWordSlotsScaleRootRef?.();
+    if (root instanceof HTMLElement) {
+      root.querySelectorAll(".word-slot-tile:not(.word-slot-tile-out)").forEach((node) => {
+        if (!(node instanceof HTMLElement)) return;
+        if (!node.querySelector(".word-slot-content")) return;
+        if (!els.includes(node)) els.push(node);
+      });
+    }
+    if (els.length >= n) return els.slice(0, n);
+    for (let i = 0; i < n; i += 1) {
+      const el = getDom.getWordSlotEl(i);
+      if (el instanceof HTMLElement && el.isConnected && !els.includes(el)) els.push(el);
+    }
+    return els.slice(0, n);
+  }
+
+  /** @param {number} leaveSlotCount */
+  function resolveSubmitLeaveTargets(leaveSlotCount) {
+    return {
+      slotEls: collectWordSlotLeaveEls(leaveSlotCount),
+      gridCellEls: getDom.getSelectedGridCellElsInOrder(),
+      gridTileEls: getDom.getSelectedGridTileElsInOrder?.() ?? [],
+    };
+  }
+
+  /** @param {HTMLElement[]} slotEls @param {HTMLElement[]} slotInnerEls @param {HTMLElement[]} gridCellEls @param {HTMLElement[]} gridTileEls */
+  function prepSubmitLeaveTargetsForAnimation(slotEls, slotInnerEls, gridCellEls, gridTileEls) {
+    gsapLib.killTweensOf([...slotEls, ...slotInnerEls, ...gridCellEls, ...gridTileEls]);
+    gsapLib.set(slotEls, {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      transformOrigin: "50% 50%",
+    });
+    if (slotInnerEls.length > 0) {
+      gsapLib.set(slotInnerEls, { opacity: 1, clearProps: "transform" });
+    }
+    for (const slotEl of slotEls) {
+      const ph = slotEl.querySelector(".word-slot-placeholder");
+      if (ph) ph.classList.add("word-slot-placeholder--shell");
+    }
+    gsapLib.set(gridCellEls, {
+      scale: 1,
+      y: 0,
+      transformOrigin: "50% 50%",
+    });
+    gsapLib.set(gridTileEls, {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      transformOrigin: "50% 50%",
+    });
   }
 
 async function expandSubmitTranslation() {
@@ -388,9 +464,21 @@ async function runLetterTreasureScoreBurst(
   persistCtx = null,
 ) {
   if (!slotEl || amount <= 0) return false;
+  const tid = treasureSlotIndex >= 0 ? refs.ownedTreasures.value[treasureSlotIndex]?.treasureId : null;
+  if (isSubmitScoringMidPhaseSkipActive()) {
+    if (tid && persistCtx?.realTile) {
+      persistTileIntrinsicTreasureCue({
+        treasureId: tid,
+        realTile: persistCtx.realTile,
+        scoringTile: persistCtx.scoringTile,
+        band: "score",
+        delta: amount,
+      });
+    }
+    return true;
+  }
   const sp = Math.max(0.01, Number(speed) || 1);
   const tel = treasureSlotIndex >= 0 ? getOwnedTreasureBarFxEl(treasureSlotIndex) : null;
-  const tid = treasureSlotIndex >= 0 ? refs.ownedTreasures.value[treasureSlotIndex]?.treasureId : null;
 
   let slotPillAug = undefined;
   if (tid && persistCtx?.realTile) {
@@ -439,9 +527,21 @@ async function runLetterTreasureMultBurst(
   persistCtx = null,
 ) {
   if (!slotEl || amount <= 0) return false;
+  const tid = treasureSlotIndex >= 0 ? refs.ownedTreasures.value[treasureSlotIndex]?.treasureId : null;
+  if (isSubmitScoringMidPhaseSkipActive()) {
+    if (tid && persistCtx?.realTile) {
+      persistTileIntrinsicTreasureCue({
+        treasureId: tid,
+        realTile: persistCtx.realTile,
+        scoringTile: persistCtx.scoringTile,
+        band: "mult",
+        delta: amount,
+      });
+    }
+    return true;
+  }
   const sp = Math.max(0.01, Number(speed) || 1);
   const tel = treasureSlotIndex >= 0 ? getOwnedTreasureBarFxEl(treasureSlotIndex) : null;
-  const tid = treasureSlotIndex >= 0 ? refs.ownedTreasures.value[treasureSlotIndex]?.treasureId : null;
 
   let slotPillAug = undefined;
   if (tid && persistCtx?.realTile) {
@@ -503,6 +603,29 @@ async function runSlotPerLetterTreasureScoreStep(
   };
   const cue = hooks?.getPerLetterScoreCue?.(ctx, part, letterIndex);
   if (!cue?.delta) return false;
+  if (isSubmitScoringMidPhaseSkipActive()) {
+    if (hooks?.perLetterScoreCueDepositsTreasureBank) {
+      if (
+        shouldTreasureRunAccumulationMutate(
+          ownedSlotIds,
+          treasureSlotIndex,
+          tid,
+          hookSource,
+        )
+      ) {
+        addScoreAddBank(refs.treasureRunState.value, tid, cue.delta);
+      }
+      return true;
+    }
+    return runLetterTreasureScoreBurst(
+      slotEl,
+      treasureSlotIndex,
+      cue.delta,
+      cue.label ?? `+${cue.delta}`,
+      1,
+      realTile ? { realTile, scoringTile: scoringTile ?? undefined } : null,
+    );
+  }
   if (hooks?.perLetterScoreCueDepositsTreasureBank) {
     if (
       shouldTreasureRunAccumulationMutate(
@@ -515,7 +638,9 @@ async function runSlotPerLetterTreasureScoreStep(
       addScoreAddBank(refs.treasureRunState.value, tid, cue.delta);
     }
     if (hooks?.showPerLetterScoreCueBubble === false) {
-      await callbacks.wobbleGameTreasureSlot(treasureSlotIndex);
+      if (!isSubmitScoringMidPhaseSkipActive()) {
+        await callbacks.wobbleGameTreasureSlot(treasureSlotIndex);
+      }
       return true;
     }
     await submitFx.playTreasureSlotScoreBurstAtPeak(treasureSlotIndex, cue.delta);
@@ -546,6 +671,16 @@ async function runSlotPerLetterTreasureMultStep(
   const ctx = { ownedSlotTreasureIds: resolveOwnedSlotIdsForSubmitScoring() };
   const cue = TREASURE_HOOKS_BY_ID.get(tid)?.getPerLetterMultCue?.(ctx, part, letterIndex);
   if (!cue?.delta) return false;
+  if (isSubmitScoringMidPhaseSkipActive()) {
+    return runLetterTreasureMultBurst(
+      slotEl,
+      treasureSlotIndex,
+      cue.delta,
+      cue.label ?? `+${cue.delta}`,
+      1,
+      realTile ? { realTile, scoringTile: scoringTile ?? undefined } : null,
+    );
+  }
   return runLetterTreasureMultBurst(
     slotEl,
     treasureSlotIndex,
@@ -651,6 +786,10 @@ async function runTileTreasureAccessoryWrenchMultBurst(tile, slotEl, speed = 1) 
 /** 字母块配饰「钱币」：该字母轮到计分时，wobble 并弹出 $ 气泡。 */
 async function runLetterAccessoryCoinMoneyBurst(tile, slotEl, speed = 1) {
   if (!slotEl || tile?.accessoryId !== TILE_ACCESSORY_COIN) return;
+  if (isSubmitScoringMidPhaseSkipActive()) {
+    refs.money.value += COIN_ACCESSORY_SCORE_BONUS_DOLLARS;
+    return;
+  }
   const sp = Math.max(0.01, Number(speed) || 1);
   wobbleScoreSlot(slotEl, sp);
   triggerAccessoryChipRipple(slotEl, sp);
@@ -675,6 +814,16 @@ async function runLetterAccessoryCoinMoneyBurst(tile, slotEl, speed = 1) {
 async function runPerLetterTreasureMoneyCues(detailed, letterIndex, luckyVisitIndex, slotEl, speed = 1) {
   const cues = detailed.perLetterMoneyCuesByLetter?.[letterIndex]?.[luckyVisitIndex] ?? [];
   if (!cues.length || !slotEl) return false;
+  if (isSubmitScoringMidPhaseSkipActive()) {
+    let played = false;
+    for (const cue of cues) {
+      const moneyAmt = Math.max(0, Math.round(Number(cue.money) || 0));
+      if (moneyAmt <= 0) continue;
+      refs.money.value += moneyAmt;
+      played = true;
+    }
+    return played;
+  }
   const sp = Math.max(0.01, Number(speed) || 1);
   let played = false;
   for (const cue of cues) {
@@ -1312,6 +1461,7 @@ function registerClearWinVipDiamondRarityPostScoreFx(batch, tiles, willClearLeve
  * @param {HTMLElement[]} slotTileEls
  */
 async function runClearWinVipDiamondSlotCueBeforeLeave(tiles, willClearLevelThisSubmit, slotTileEls) {
+  if (shouldSkipSubmitTailTreasureFx(callbacks.getIsEndlessRun?.() ?? false)) return;
   const upgrade = resolveClearWinVipDiamondRarityUpgrade(tiles, willClearLevelThisSubmit);
   if (!upgrade) return;
   const slotEl = slotTileEls[upgrade.slotIndex] ?? getDom.getWordSlotEl(upgrade.slotIndex);
@@ -1360,6 +1510,10 @@ async function runClearWinLengthUpgradeAccessoryCueOnly(tileId, accessoryTrigger
 async function runClearWinGoldEffectsBeforeRefill() {
   const queue = buildClearWinGoldEffectQueue();
   if (queue.length === 0) return;
+  if (shouldSkipSubmitTailTreasureFx(callbacks.getIsEndlessRun?.() ?? false)) {
+    refs.money.value += queue.length * GOLD_MATERIAL_CLEAR_BONUS_DOLLARS;
+    return;
+  }
   const sp = 1;
   for (const item of queue) {
     const idx = item.r * COLS + item.c;
@@ -1382,6 +1536,264 @@ async function runClearWinGoldEffectsBeforeRefill() {
     await scoringSleep(SCORING_STEP_BEAT_MS, sp);
     refs.money.value += GOLD_MATERIAL_CLEAR_BONUS_DOLLARS;
     if (wobbleTl) await wobbleTl.then();
+  }
+}
+
+/**
+ * 跳过结算动画：单字母状态写入（不更新 animScoreSum/animMultTotal，不写 DOM 动效）。
+ * @param {object} tile
+ * @param {number} i
+ * @param {object} detailed
+ * @param {number} [luckyVisitIndex]
+ */
+async function applySingleLetterScoringStateOnly(tile, i, detailed, luckyVisitIndex = 0) {
+  const slotEl = getDom.getWordSlotEl(i);
+  if (!slotEl || callbacks.isBossDebuffedSubmitTile(tile)) return;
+  const part = detailed.letterParts?.[i];
+  if (!part) return;
+  const luckyRoll = detailed.luckyMaterialRollsByLetter?.[i]?.[luckyVisitIndex] ?? null;
+  const realTile = callbacks.resolveRealSubmitTileForWordSlot(i, tile);
+  const paperclipDisabled = isPaperclipDisabledForActiveSubmit();
+  const ownedSlotIds = resolveOwnedSlotIdsForSubmitScoring();
+
+  if (
+    callbacks.bossSlugForMechanics() === "the_tooth" &&
+    detailed.bossSoftViolation !== true &&
+    luckyVisitIndex === 0
+  ) {
+    getDom.getBossTapeStrip()?.tryPlaySubmitToothCue();
+    await callbacks.notifyBossRestrictionTreasures("the_tooth");
+    refs.money.value = callbacks.applyWalletDeltaClamped(
+      refs.money.value,
+      -1,
+      refs.runWalletFloor.value,
+    );
+  }
+
+  const ctxScoreMerge = {
+    ownedSlotTreasureIds: ownedSlotIds,
+    treasureRun: refs.treasureRunState.value,
+    scoringVisitIndex: luckyVisitIndex,
+  };
+  const mergedScoreCueTreasureIds = new Set();
+  for (const { slotIndex: si, treasureId: tid, source } of iterTreasureHookContributions(ownedSlotIds)) {
+    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
+    if (!hooks?.mergeLetterScoreCueIntoIntrinsicLetterScoreStep) continue;
+    if (hooks?.dedupePerLetterScoreCueByTreasureId && mergedScoreCueTreasureIds.has(tid)) continue;
+    if (hooks?.dedupePerLetterScoreCueByTreasureId) mergedScoreCueTreasureIds.add(tid);
+    const cue = hooks.getPerLetterScoreCue?.(
+      { ...ctxScoreMerge, hookSlotIndex: si, hookSource: source },
+      part,
+      i,
+    );
+    const d = Math.max(0, Math.floor(Number(cue?.delta) || 0));
+    if (d <= 0) continue;
+    const rowHooks = hooks;
+    if (realTile) {
+      persistTileIntrinsicTreasureCue({
+        treasureId: tid,
+        realTile,
+        scoringTile: tile,
+        band: "score",
+        delta: d,
+      });
+      await refreshWordSlotIntrinsicBadgesAfterPersist(realTile, slotEl);
+    }
+    if (rowHooks?.perLetterScoreCueDepositsTreasureBank) {
+      if (shouldTreasureRunAccumulationMutate(ownedSlotIds, si, tid, source)) {
+        addScoreAddBank(refs.treasureRunState.value, tid, d);
+      }
+    }
+    await yieldChunkedSettlementIfNeeded();
+  }
+
+  const mergedMultSiSkip = new Set();
+  const ctxMultMerge = { ownedSlotTreasureIds: ownedSlotIds };
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(ownedSlotIds)) {
+    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
+    if (!hooks?.mergeLetterMultCueIntoIntrinsicLetterMultStep) continue;
+    const cue = hooks.getPerLetterMultCue?.(ctxMultMerge, part, i);
+    const d = Math.max(0, Math.round(Number(cue?.delta) || 0));
+    if (d <= 0) continue;
+    mergedMultSiSkip.add(si);
+    if (realTile && !paperclipDisabled) {
+      persistTileIntrinsicTreasureCue({
+        treasureId: tid,
+        realTile,
+        scoringTile: tile,
+        band: "mult",
+        delta: d,
+      });
+      await refreshWordSlotIntrinsicBadgesAfterPersist(realTile, slotEl);
+    }
+    await yieldChunkedSettlementIfNeeded();
+  }
+
+  for (const { slotIndex: si, treasureId: tid, source } of iterTreasureHookContributions(ownedSlotIds)) {
+    await runSlotPerLetterTreasureScoreStep(
+      si,
+      tid,
+      part,
+      i,
+      slotEl,
+      1,
+      realTile,
+      luckyVisitIndex,
+      source,
+      tile,
+    );
+    await yieldChunkedSettlementIfNeeded();
+  }
+  await runPerLetterTreasureMoneyCues(detailed, i, luckyVisitIndex, slotEl, 1);
+  await runLetterAccessoryCoinMoneyBurst(tile, slotEl, 1);
+
+  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(ownedSlotIds)) {
+    if (mergedMultSiSkip.has(si)) continue;
+    await runSlotPerLetterTreasureMultStep(si, tid, part, i, slotEl, 1, realTile, tile);
+    await yieldChunkedSettlementIfNeeded();
+  }
+
+  if (luckyRoll?.moneyAdd > 0) {
+    refs.money.value += luckyRoll.moneyAdd;
+  }
+}
+
+/**
+ * 跳过结算：批量静默应用字后材质 hook（不写词槽逐字 UI）。
+ * @param {object[]} tiles
+ * @param {object} detailed
+ */
+async function applyPostScoringMaterialFxBatchSilent(tiles, detailed) {
+  const letterParts = Array.isArray(detailed.letterParts) ? detailed.letterParts : [];
+  const n = letterParts.length;
+  if (n === 0 || detailed.bossSoftViolation === true) return;
+  const letterPassCount = Math.max(1, Math.round(Number(detailed.letterScoringPassCount)) || 1);
+  const letterReplayExtraCounts = detailed.letterReplayExtraCounts ?? [];
+  const luckyVisitByLetter = letterParts.map(() => 0);
+  const ownedSlotIds = resolveOwnedSlotIdsForSubmitScoring();
+  let materialPresentationBumpPending = false;
+  const materialCtx = {
+    ownedSlotTreasureIds: ownedSlotIds,
+    rng: callbacks.submitRng ?? Math.random,
+    skipSettlementFx: true,
+    resolveSubmitTileAtIndex: (ix, st) => callbacks.resolveRealSubmitTileForWordSlot(ix, st),
+    patchGridPlaceholderFreezeFromTile: (tile) => {
+      callbacks.patchGridPlaceholderFreezeFromTile?.(tile, { deferRevisionBump: true });
+      materialPresentationBumpPending = true;
+    },
+    playGridTileMaterialChangeForSubmitWordSlot: async (_i, apply) => {
+      apply?.();
+    },
+    touchGrid: () => {},
+  };
+  for (let pass = 0; pass < letterPassCount; pass += 1) {
+    for (let i = 0; i < n; i += 1) {
+      if (callbacks.isBossDebuffedSubmitTile(tiles[i])) continue;
+      const part = letterParts[i];
+      if (!part) continue;
+      await notifyPerLetterPostScoringMaterialFx(
+        ownedSlotIds,
+        { ...materialCtx, scoringVisitIndex: luckyVisitByLetter[i]++ },
+        part,
+        i,
+        tiles[i],
+      );
+      await yieldChunkedSettlementIfNeeded();
+      if (pass === 0) {
+        const replayExtra = Math.max(0, Math.floor(Number(letterReplayExtraCounts[i]) || 0));
+        for (let r = 0; r < replayExtra; r += 1) {
+          await notifyPerLetterPostScoringMaterialFx(
+            ownedSlotIds,
+            { ...materialCtx, scoringVisitIndex: luckyVisitByLetter[i]++ },
+            part,
+            i,
+            tiles[i],
+          );
+          await yieldChunkedSettlementIfNeeded();
+        }
+      }
+    }
+  }
+  if (materialPresentationBumpPending) {
+    callbacks.bumpSubmitTilePresentationRevision?.();
+  }
+}
+
+/**
+ * 跳过结算动画：批量应用逐字母 + 字后宝藏状态，并同步公式区中间值。
+ * @param {object[]} tiles
+ * @param {object} detailed
+ * @param {object[]} scoringBaseTiles
+ */
+async function applySubmitScoringMidPhaseInstant(tiles, detailed, scoringBaseTiles) {
+  const letterParts = Array.isArray(detailed.letterParts) ? detailed.letterParts : [];
+  const n = letterParts.length;
+  const letterPassCount = Math.max(1, Math.round(Number(detailed.letterScoringPassCount)) || 1);
+  const letterReplayExtraCounts = detailed.letterReplayExtraCounts ?? [];
+  const luckyVisitByLetter = letterParts.map(() => 0);
+
+  activeChunkedSettlementYielder = createFrameBudgetYielder();
+  try {
+    await yieldChunkedSettlementIfNeeded();
+    for (let pass = 0; pass < letterPassCount; pass++) {
+      for (let i = 0; i < n; i++) {
+        if (callbacks.isBossDebuffedSubmitTile(tiles[i])) continue;
+        await applySingleLetterScoringStateOnly(tiles[i], i, detailed, luckyVisitByLetter[i]++);
+        await yieldChunkedSettlementIfNeeded();
+        if (pass === 0) {
+          const replayExtra = Math.max(0, Math.floor(Number(letterReplayExtraCounts[i]) || 0));
+          for (let r = 0; r < replayExtra; r++) {
+            await applySingleLetterScoringStateOnly(tiles[i], i, detailed, luckyVisitByLetter[i]++);
+            await yieldChunkedSettlementIfNeeded();
+          }
+        }
+      }
+    }
+
+    const ownedSlotIdsAfterLetters = resolveOwnedSlotIdsForSubmitScoring();
+    const afterLettersSlotCtx = {
+      submittedScoringTiles: scoringBaseTiles,
+      ownedSlotTreasureIds: ownedSlotIdsAfterLetters,
+      treasureRun: refs.treasureRunState.value,
+      skipSettlementFx: true,
+      appendDeckCardSpecToRunDeck: callbacks.appendDeckCardSpecToRunDeck,
+      playWordSlotCopyFxAtIndex: () => {},
+      detailed,
+    };
+    for (const entry of iterTreasureHookContributions(ownedSlotIdsAfterLetters)) {
+      await notifySubmitScoringAfterLettersForSlot(
+        ownedSlotIdsAfterLetters,
+        entry,
+        afterLettersSlotCtx,
+      );
+      await yieldChunkedSettlementIfNeeded();
+    }
+
+    if (detailed.bossSoftViolation !== true) {
+      await callbacks.notifySubmitAfterLettersBeforePostSteps(
+        resolveOwnedSlotIdsForSubmitScoring(),
+        {
+          ...callbacks.buildSubmitAfterLettersContext(tiles, detailed),
+          skipSettlementFx: true,
+        },
+      );
+      if (callbacks.deferredWordSubmitPayload) {
+        callbacks.flushDeferredWordSubmitRecord();
+      }
+      await yieldChunkedSettlementIfNeeded();
+    }
+
+    for (const step of detailed.postLetterTreasureSteps ?? []) {
+      const moneyAdd = Math.round(Number(step.moneyAdd) || 0);
+      if (moneyAdd > 0) refs.money.value += moneyAdd;
+    }
+
+    await applyPostScoringMaterialFxBatchSilent(tiles, detailed);
+  } finally {
+    activeChunkedSettlementYielder = null;
+    if (refs.submitSettlementChunking) {
+      refs.submitSettlementChunking.value = false;
+    }
   }
 }
 
@@ -1414,6 +1826,49 @@ function seedAnimFormulaFromSubmitDetailed(detailed) {
   refs.animResultTotal.value = 0;
 }
 
+/**
+ * 词长×等级离场 → 公式区总分入场（正常/跳过结算共用，与 ResultArea transition 对齐）。
+ * @param {number} formulaFinalScore
+ */
+async function runResultWordLengthExitThenTotalReveal(formulaFinalScore) {
+  refs.hideResultWordLengthBeforeTotal.value = true;
+  refs.suppressResultWordLengthUntilScoringEnd.value = true;
+  await animSleep(RESULT_HANDOFF_WORDLEN_LEAVE_MS, 1);
+  refs.animResultTotal.value = formulaFinalScore;
+  refs.hideResultWordLengthBeforeTotal.value = false;
+  await nextTick();
+  await new Promise((r) => requestAnimationFrame(r));
+  pulseFill(getResultTotalEl());
+  callbacks.triggerHaptic("scoreTotal");
+}
+
+/**
+ * 跳过结算：公式分数/倍率跳到终值（脉冲）+ 词长离场 + 总分入场，三者同时进行。
+ * @param {object} detailed
+ * @param {number} formulaFinalScore
+ */
+async function runSkipSettlementFormulaRevealWithResultHandoff(detailed, formulaFinalScore) {
+  const targetScore = Math.round(Number(detailed.scoreSum) || 0);
+  const targetMult = Math.round(Number(detailed.multTotal) || 0);
+
+  refs.hideResultWordLengthBeforeTotal.value = true;
+  refs.suppressResultWordLengthUntilScoringEnd.value = true;
+
+  refs.animScoreSum.value = targetScore;
+  refs.animMultTotal.value = targetMult;
+  refs.animResultTotal.value = formulaFinalScore;
+  refs.hideResultWordLengthBeforeTotal.value = false;
+
+  await nextTick();
+  await new Promise((r) => requestAnimationFrame(r));
+  pulseFormulaPanelNum(getResultScoreNumEl());
+  pulseFormulaPanelNum(getResultMultNumEl());
+  pulseFill(getResultTotalEl());
+  callbacks.triggerHaptic("scoreTotal");
+
+  await animSleep(RESULT_HANDOFF_WORDLEN_LEAVE_MS, 1);
+}
+
 async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, isLastSubmitChance = false) {
   refs.scoringTreasureBarIndex.value = null;
   getDom.getBossTapeStrip()?.resetSubmitToothCue();
@@ -1422,6 +1877,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     detailed?.disabledTreasureSlotIndices,
   );
   activeSubmitAnimatedOwnedSlotTrophies = new Set();
+  const skipSettlementAnim = shouldSkipSettlementAnim(callbacks.getIsEndlessRun?.() ?? false);
+  bindSkipSettlementAnimEndlessRun(callbacks.getIsEndlessRun?.() ?? false);
   try {
   resetSubmitScoringBeatSpeedSnapshot();
   refs.hideResultWordLengthBeforeTotal.value = false;
@@ -1469,28 +1926,39 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   let scoringBeat = 0;
   const scoringBaseTiles = tiles.filter((t) => !isNewspaperTempTile(t));
   const ownedSlotIdsForPhase = resolveOwnedSlotIdsForSubmitScoring();
+  let midPhaseInstantApplied = false;
   if (!skipLetters) {
-    for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(
-      ownedSlotIdsForPhase,
-    )) {
-      const slotAppends = (detailed.submitScoringAppendedTiles ?? []).filter(
-        (entry) =>
-          String(entry?.treasureId ?? "") === String(tid) &&
-          Math.floor(Number(entry?.treasureBarSlotIndex) || 0) === si,
-      );
-      if (slotAppends.length > 0) {
-        await runNewspaperAppendSequence({
-          detailed,
-          appendedEntries: slotAppends,
-          refs,
-          getDom,
-          fx,
-          callbacks,
-          nextTick,
-          speed: beatSpeed(scoringBeat, totalScoringBeats),
-          gsap: gsapLib,
-        });
-        scoringBeat += slotAppends.length;
+    if (skipSettlementAnim) {
+      setSubmitScoringMidPhaseSkipActive(true);
+      try {
+        await applySubmitScoringMidPhaseInstant(tiles, detailed, scoringBaseTiles);
+        midPhaseInstantApplied = true;
+      } finally {
+        setSubmitScoringMidPhaseSkipActive(false);
+      }
+    } else {
+      for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(
+        ownedSlotIdsForPhase,
+      )) {
+        const slotAppends = (detailed.submitScoringAppendedTiles ?? []).filter(
+          (entry) =>
+            String(entry?.treasureId ?? "") === String(tid) &&
+            Math.floor(Number(entry?.treasureBarSlotIndex) || 0) === si,
+        );
+        if (slotAppends.length > 0) {
+          await runNewspaperAppendSequence({
+            detailed,
+            appendedEntries: slotAppends,
+            refs,
+            getDom,
+            fx,
+            callbacks,
+            nextTick,
+            speed: beatSpeed(scoringBeat, totalScoringBeats),
+            gsap: gsapLib,
+          });
+          scoringBeat += slotAppends.length;
+        }
       }
     }
   }
@@ -1499,7 +1967,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     for (let i = 0; i < n; i++) {
       await runLetterScoringSkipStep(getDom.getWordSlotEl(i), spSkip, i);
     }
-  } else {
+  } else if (!midPhaseInstantApplied) {
     for (let pass = 0; pass < letterPassCount; pass++) {
       if (pass > 0) {
         const spCue = beatSpeed(scoringBeat, totalScoringBeats);
@@ -1680,9 +2148,6 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     }
   }
 
-  refs.hideResultWordLengthBeforeTotal.value = true;
-  refs.suppressResultWordLengthUntilScoringEnd.value = true;
-  await sleep(200);
   const formulaFinalScore =
     detailed.formulaFinalScore != null
       ? detailed.formulaFinalScore
@@ -1693,19 +2158,36 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
             0,
           ),
         );
-  refs.animResultTotal.value = formulaFinalScore;
-  refs.hideResultWordLengthBeforeTotal.value = false;
-  await nextTick();
-  pulseFill(getResultTotalEl());
-  callbacks.triggerHaptic("scoreTotal");
+  if (midPhaseInstantApplied) {
+    await runSkipSettlementFormulaRevealWithResultHandoff(detailed, formulaFinalScore);
+  } else {
+    await runResultWordLengthExitThenTotalReveal(formulaFinalScore);
+  }
 
   const finalScoreSteps = detailed.finalScoreTreasureSteps ?? [];
   const hasFinalScoreTreasureSteps = finalScoreSteps.some(
     (st) => Math.round(Number(st?.finalScoreAdd) || 0) > 0,
   );
   if (hasFinalScoreTreasureSteps) {
-    await scoringSleep(FORMULA_TOTAL_HOLD_BEFORE_FINAL_SCORE_MS, 1);
+    if (midPhaseInstantApplied) {
+      await sleep(60);
+    } else {
+      await scoringSleep(FORMULA_TOTAL_HOLD_BEFORE_FINAL_SCORE_MS, 1);
+    }
   }
+  if (midPhaseInstantApplied) {
+    for (const step of finalScoreSteps) {
+      const add = Math.round(Number(step.finalScoreAdd) || 0);
+      if (add <= 0) continue;
+      refs.animResultTotal.value = addScore(refs.animResultTotal.value, add);
+    }
+    if (hasFinalScoreTreasureSteps) {
+      await nextTick();
+      if (!midPhaseInstantApplied) {
+        pulseFill(getResultTotalEl());
+      }
+    }
+  } else {
   for (const step of finalScoreSteps) {
     const add = Math.round(Number(step.finalScoreAdd) || 0);
     if (add <= 0) continue;
@@ -1736,25 +2218,28 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     }
     refs.scoringTreasureBarIndex.value = null;
   }
+  }
 
-  await sleep(220);
+  if (!midPhaseInstantApplied) {
+    await sleep(220);
 
-  await new Promise((resolve) => {
-    const o = { s: refs.animScoreSum.value, m: refs.animMultTotal.value };
-    gsapLib.to(o, {
-      s: 0,
-      m: 0,
-      duration: 0.5,
-      ease: EASE_TRANSFORM,
-      onUpdate: () => {
-        refs.animScoreSum.value = Math.round(o.s);
-        refs.animMultTotal.value = Math.round(o.m);
-      },
-      onComplete: resolve,
+    await new Promise((resolve) => {
+      const o = { s: refs.animScoreSum.value, m: refs.animMultTotal.value };
+      gsapLib.to(o, {
+        s: 0,
+        m: 0,
+        duration: 0.5,
+        ease: EASE_TRANSFORM,
+        onUpdate: () => {
+          refs.animScoreSum.value = Math.round(o.s);
+          refs.animMultTotal.value = Math.round(o.m);
+        },
+        onComplete: resolve,
+      });
     });
-  });
 
-  await sleep(220);
+    await sleep(220);
+  }
 
   await nextTick();
   await new Promise((r) => requestAnimationFrame(r));
@@ -1831,31 +2316,33 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   }
   /** 整格依次消失（占位+字母一起），按槽位索引 0..n-1（含报纸临时 S） */
   const leaveSlotCount = n;
-  const slotTileEls = [];
-  for (let i = 0; i < leaveSlotCount; i++) {
-    const el = getDom.getWordSlotEl(i);
-    if (el) slotTileEls.push(el);
-  }
-  gsapLib.killTweensOf(slotTileEls);
-  gsapLib.set(slotTileEls, {
-    opacity: 1,
-    scale: 1,
-    y: 0,
-    transformOrigin: "50% 50%",
-  });
-  for (const slotEl of slotTileEls) {
-    const ph = slotEl.querySelector(".word-slot-placeholder");
-    if (ph) ph.classList.add("word-slot-placeholder--shell");
-  }
-  await runClearWinVipDiamondSlotCueBeforeLeave(tiles, willClearLevelThisSubmit, slotTileEls);
+  callbacks.beginSubmitWordLeaveHide?.(leaveSlotCount);
+  await nextTick();
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-  const submitGridLeaveEls = getDom.getSelectedGridCellElsInOrder();
-  gsapLib.killTweensOf(submitGridLeaveEls);
-  gsapLib.set(submitGridLeaveEls, {
-    scale: 1,
-    y: 0,
-    transformOrigin: "50% 50%",
-  });
+  let slotTileEls = collectWordSlotLeaveEls(leaveSlotCount);
+  let submitGridLeaveEls = getDom.getSelectedGridCellElsInOrder();
+  let submitGridTileLeaveEls = getDom.getSelectedGridTileElsInOrder?.() ?? [];
+
+  if (midPhaseInstantApplied) {
+    refs.animScoreSum.value = 0;
+    refs.animMultTotal.value = 0;
+    refs.scoringLetterIndex.value = -1;
+  }
+
+  /** @type {HTMLElement[]} */
+  let slotLeaveInnerEls = [];
+  for (const slotEl of slotTileEls) {
+    const inner = slotEl.querySelector(".word-slot-content");
+    if (inner instanceof HTMLElement) slotLeaveInnerEls.push(inner);
+  }
+  prepSubmitLeaveTargetsForAnimation(
+    slotTileEls,
+    slotLeaveInnerEls,
+    submitGridLeaveEls,
+    submitGridTileLeaveEls,
+  );
+  await runClearWinVipDiamondSlotCueBeforeLeave(tiles, willClearLevelThisSubmit, slotTileEls);
 
   const collapseTrans = collapseSubmitTranslation();
 
@@ -1866,9 +2353,47 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   };
   const leaveDuration = 0.28;
   const leaveStagger = submitWordLeaveStagger(leaveSlotCount);
-  callbacks.beginSubmitWordLeaveHide?.(leaveSlotCount);
   const leavePromise = (async () => {
-    if (submitWordLeaveFx.length > 0) {
+    await nextTick();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const fresh = resolveSubmitLeaveTargets(leaveSlotCount);
+    slotTileEls = fresh.slotEls;
+    submitGridLeaveEls = fresh.gridCellEls;
+    submitGridTileLeaveEls = fresh.gridTileEls;
+    slotLeaveInnerEls = [];
+    for (const slotEl of slotTileEls) {
+      const inner = slotEl.querySelector(".word-slot-content");
+      if (inner instanceof HTMLElement) slotLeaveInnerEls.push(inner);
+    }
+    prepSubmitLeaveTargetsForAnimation(
+      slotTileEls,
+      slotLeaveInnerEls,
+      submitGridLeaveEls,
+      submitGridTileLeaveEls,
+    );
+    await new Promise((r) => requestAnimationFrame(r));
+
+    const deferLeaveToDefault = skipSettlementAnim || midPhaseInstantApplied;
+    const leaveAnimOpts = {
+      duration: leaveDuration,
+      stagger: leaveStagger,
+      useSteppedLeave: true,
+      gridTileEls: submitGridTileLeaveEls,
+    };
+
+    if (deferLeaveToDefault) {
+      await callbacks.runSlotAndGridLeaveAnimation(slotTileEls, submitGridLeaveEls, leaveAnimOpts);
+      if (submitWordLeaveFx.length > 0) {
+        for (const fx of submitWordLeaveFx) {
+          await fx({
+            slotEls: slotTileEls,
+            gridEls: submitGridLeaveEls,
+            duration: leaveDuration,
+            stagger: leaveStagger,
+          });
+        }
+      }
+    } else if (submitWordLeaveFx.length > 0) {
       for (const fx of submitWordLeaveFx) {
         await fx({
           slotEls: slotTileEls,
@@ -1877,17 +2402,14 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
           stagger: leaveStagger,
         });
       }
-      return;
+    } else {
+      await callbacks.runSlotAndGridLeaveAnimation(slotTileEls, submitGridLeaveEls, leaveAnimOpts);
     }
-    await callbacks.runSlotAndGridLeaveAnimation(slotTileEls, submitGridLeaveEls, {
-      duration: leaveDuration,
-      stagger: leaveStagger,
-    });
   })();
 
-  const scorePromise = (async () => {
-    if (hasFinalScoreTreasureSteps) {
-      await scoringSleep(FINAL_SCORE_HOLD_BEFORE_HEADER_ROLL_MS, 1);
+  async function runSubmitScoreRollToHeader() {
+    if (hasFinalScoreTreasureSteps && !midPhaseInstantApplied) {
+      await animSleep(FINAL_SCORE_HOLD_BEFORE_HEADER_ROLL_MS, 1);
     }
     const handScore = detailed.finalScore;
     const scoreRollSteps = 26;
@@ -1908,16 +2430,40 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       refs.animResultTotal.value = interpolateScore(handScore, 0, t);
       refs.roundScoreOverride.value = interpolateScore(startRound, endRound, t);
       if (step < scoreRollSteps) {
-        await scoringSleep(scoreRollStepMs, 1);
+        await animSleep(scoreRollStepMs, 1);
       }
     }
     refs.roundScoreOverride.value = null;
     refs.animResultTotal.value = 0;
-  })();
+  }
+
+  /** 离场与顶栏滚分并行（正常 / 跳过结算一致） */
+  const scorePromise = runSubmitScoreRollToHeader();
 
   await leavePromise;
 
   await nextTick();
+  for (const slotEl of slotTileEls) {
+    if (!slotEl) continue;
+    gsapLib.killTweensOf(slotEl);
+    gsapLib.set(slotEl, { opacity: 0, clearProps: "transform" });
+    const inner = slotEl.querySelector(".word-slot-content");
+    if (inner instanceof HTMLElement) {
+      gsapLib.killTweensOf(inner);
+      gsapLib.set(inner, { opacity: 0, clearProps: "transform" });
+    }
+  }
+  for (const el of submitGridLeaveEls) {
+    if (!el) continue;
+    gsapLib.killTweensOf(el);
+    /* 离场 end 态 opacity:0；勿 clearProps opacity，否则滚分等待期占位格会闪一下 */
+    gsapLib.set(el, { clearProps: "transform" });
+  }
+  for (const el of submitGridTileLeaveEls) {
+    if (!el) continue;
+    gsapLib.killTweensOf(el);
+    gsapLib.set(el, { opacity: 0, clearProps: "transform" });
+  }
 
   if (submitAfterWordLeaveFx.length > 0) {
     for (const fx of submitAfterWordLeaveFx) {
@@ -1938,29 +2484,30 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     await runClearWinGoldEffectsBeforeRefill();
   }
 
+  /* 滚分进顶栏后再补牌+下落：若先 refill 再等滚分，tile 会在终态停半秒再被 GSAP 拽动 → 闪烁 */
+  await scorePromise;
+  await nextTick();
+
+  refs.gridRefillAnimating.value = true;
   callbacks.applySubmitRefill({ skipNewFromDeck });
+  await nextTick();
   for (const slotEl of slotTileEls) {
     callbacks.clearWordSlotGsapAfterSubmitLeave?.(slotEl);
   }
   callbacks.endSubmitWordLeaveHide?.();
+  try {
+    await gridDropAnim.runGridDropAnimation(prevFlip);
+  } finally {
+    refs.gridRefillAnimating.value = false;
+    await callbacks.tryCeruleanBellFlyInAfterGridStable();
+  }
   await callbacks.applyHookBossAfterSubmit();
-  refs.gridRefillAnimating.value = true;
-  const dropPromise = (async () => {
-    await nextTick();
-    try {
-      /* 关内已结束：不补新块（顶部为 void），仅让已有字母 FLIP 落位 */
-      await gridDropAnim.runGridDropAnimation(prevFlip);
-    } finally {
-      refs.gridRefillAnimating.value = false;
-      await callbacks.tryCeruleanBellFlyInAfterGridStable();
-    }
-  })();
-
-  await Promise.all([dropPromise, scorePromise]);
 
   callbacks.submitUpgradeFxRegistrarState.current = null;
   if (accessoryUpgradeBatch.hasContent) {
-    submitPostScoreClearFx.push(() => accessoryUpgradeBatch.flush());
+    submitPostScoreClearFx.push(() =>
+      accessoryUpgradeBatch.flush({ skipFx: midPhaseInstantApplied === true }),
+    );
   }
   if (submitPostScoreClearFx.length > 0) {
     for (const fx of submitPostScoreClearFx) {
@@ -1980,6 +2527,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   callbacks.scheduleRunAutoSave();
   return iceShatterCount;
   } finally {
+    setSubmitScoringMidPhaseSkipActive(false);
+    clearSkipSettlementAnimEndlessRunBinding();
     activeSubmitDisabledTreasureSlotIndices = null;
     activeSubmitAnimatedOwnedSlotTrophies = null;
     resetSubmitScoringBeatSpeedSnapshot();

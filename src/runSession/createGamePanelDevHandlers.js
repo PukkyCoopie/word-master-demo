@@ -143,6 +143,7 @@ export function buildGamePanelDevCommandsOptions(d) {
   return {
     refs: {
       maskBubbleDevScenarioActive: d.maskBubbleDevScenarioActive,
+      settlementSkipStressDevScenarioActive: d.settlementSkipStressDevScenarioActive,
       allIceDevScenarioActive: d.allIceDevScenarioActive,
       ceruleanBellDevScenarioActive: d.ceruleanBellDevScenarioActive,
       pagerDevScenarioActive: d.pagerDevScenarioActive,
@@ -159,6 +160,7 @@ export function buildGamePanelDevCommandsOptions(d) {
       showPauseOptions: d.showPauseOptions,
       showDeveloperOptions: d.showDeveloperOptions,
       levelIndex: d.levelIndex,
+      isEndlessRun: d.isEndlessRun,
       pendingBossSlugOverride: d.pendingBossSlugOverride,
       gridIntroDone: d.gridIntroDone,
       gridRefillAnimating: d.gridRefillAnimating,
