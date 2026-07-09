@@ -133,6 +133,8 @@ export function registerDevConsole(deps) {
         "  或 URL ?dev=pager 新开一局自动启用",
         "  __WM_DEV__.startMouthQuProblemDevTest() — Qu+嘴+试管：首行 problem，Qu 可替为 p",
         "  或 URL ?dev=mouthQuProblem 新开一局自动启用",
+        "  __WM_DEV__.startMouthTiaTeaDevTest() — 嘴+tia→tea：首行 T|E(展示I)|A",
+        "  或 URL ?dev=mouthTiaTea 新开一局自动启用",
         "  __WM_DEV__.startEctoplasmDevTest() — 进关后：5 个宝藏各带随机非裁剪配饰（烛台调试）",
         "  或 URL ?dev=ectoplasm 新开一局自动启用",
         "  __WM_DEV__.startNoSellGoldBombCometDevTest() — 进关后：[禁售金牌][禁售炸弹][禁售彗星]",
@@ -213,6 +215,11 @@ export function registerDevConsole(deps) {
     startMouthQuProblemDevTest: () => {
       console.warn(
         "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startMouthQuProblemDevTest()。",
+      );
+    },
+    startMouthTiaTeaDevTest: () => {
+      console.warn(
+        "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startMouthTiaTeaDevTest()。",
       );
     },
     startVolcanoKiteDevTest: () => {

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   resolveWordPatternWithVowelSubstitutions,
   vowelDisplayShiftForResolved,
+  vowelGhostNeighborsForDisplayedLetter,
   hasTestTubeAllVowelsForMouth,
   buildMouthSubstituteTriosForPattern,
   candidateMatchesMouthSubstitutePattern,
@@ -15,6 +16,11 @@ const OWNED_MOUTH_TUBE = ["95", "30"];
 function exactFromSet(dict) {
   return (p) => (dict.has(p) ? p : null);
 }
+
+test("vowelGhostNeighborsForDisplayedLetter: shown I has E and O", () => {
+  const g = vowelGhostNeighborsForDisplayedLetter("i", OWNED_MOUTH);
+  assert.deepEqual(g, { prev: "e", next: "o" });
+});
 
 test("resolveWordPatternWithVowelSubstitutions: exact match first", () => {
   const dict = new Set(["cat"]);

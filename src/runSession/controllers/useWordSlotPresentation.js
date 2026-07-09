@@ -8,6 +8,7 @@ import {
   vowelDisplayLetter,
   vowelDisplayShiftForResolved,
   vowelGhostSlotsForDisplay,
+  vowelGhostNeighborsForDisplayedLetter,
 } from "../../game/vowelNeighborSubstitute.js";
 import { resolveLetterFromRaw } from "../../settings/letterQ.js";
 import {
@@ -101,10 +102,47 @@ export function buildTilePresentationIndex(
             isQuModeSubmitQFamilyTile(tile, getLetterQMode()) &&
             resolvedCh === "q" &&
             res[readPos + 1] === "u";
-          if (!isQuPair && resolvedCh !== naturalCh) {
+          const displayedCh = frag.replace(/^qu/, "q").charAt(0);
+          const cardShift =
+            card && typeof card === "object" ? Math.sign(Number(card.vowelDisplayShift) || 0) : 0;
+          const letterBefore = letter;
+          const shouldSyncLetterToResolved =
+            !isQuPair && (resolvedCh !== naturalCh || displayedCh !== resolvedCh);
+          if (shouldSyncLetterToResolved) {
             letter = resolveLetterFromRaw(resolvedCh);
             rarity = getRarityForLetter(resolvedCh);
           }
+          // #region agent log
+          if (vowelTreasure && naturalCh === "e" && (effWord.includes("i") || res === "tea")) {
+            fetch("http://127.0.0.1:7623/ingest/3382c565-2350-4795-bc82-3716661b9aea", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "fa631d" },
+              body: JSON.stringify({
+                sessionId: "fa631d",
+                runId: "post-fix",
+                hypothesisId: "A,B,D,E",
+                location: "useWordSlotPresentation.js:buildTilePresentationIndex",
+                message: "mouth vowel tile presentation",
+                data: {
+                  tileId: tile.id,
+                  naturalCh,
+                  resolvedCh,
+                  displayedCh,
+                  cardShift,
+                  ghostShift: shift,
+                  effWord,
+                  res,
+                  letterBefore,
+                  letterAfter: letter,
+                  vowelGhostPrev,
+                  vowelGhostNext,
+                  shouldSyncLetterToResolved,
+                },
+                timestamp: Date.now(),
+              }),
+            }).catch(() => {});
+          }
+          // #endregion
         }
       }
     }
@@ -166,7 +204,7 @@ export function computeFlyBackTilePresentation(tile, ownedSlotTreasureIds) {
       card?.rarity != null && String(card.rarity).trim() !== "" && shift === 0
         ? String(card.rarity)
         : getRarityForLetter(displayed);
-    const ghosts = vowelGhostSlotsForDisplay(rawLower, shift, ownedFlyBack);
+    const ghosts = vowelGhostNeighborsForDisplayedLetter(displayed, ownedFlyBack);
     vowelGhostPrev = upGhost(ghosts?.prev ?? null);
     vowelGhostNext = upGhost(ghosts?.next ?? null);
   } else if (card && typeof card === "object") {
@@ -308,9 +346,44 @@ export function useWordSlotPresentation(options) {
         : card && typeof card === "object"
           ? Math.sign(Number(card.vowelDisplayShift) || 0)
           : 0;
-    const ghosts = vowelGhostSlotsForDisplay(raw, shift, owned);
+    let ghosts;
+    if (liveShift != null) {
+      ghosts = vowelGhostSlotsForDisplay(raw, liveShift, owned);
+    } else {
+      const shown = String(tile.letter ?? "").toLowerCase().replace(/^qu/, "q").charAt(0);
+      ghosts =
+        vowelGhostNeighborsForDisplayedLetter(shown, owned) ??
+        vowelGhostSlotsForDisplay(raw, shift, owned);
+    }
     if (!ghosts) return null;
     const up = (ch) => (ch ? resolveLetterFromRaw(ch) : null);
+    // #region agent log
+    if (raw === "e" || raw === "i") {
+      fetch("http://127.0.0.1:7623/ingest/3382c565-2350-4795-bc82-3716661b9aea", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "fa631d" },
+        body: JSON.stringify({
+          sessionId: "fa631d",
+          runId: "post-fix-ghost",
+          hypothesisId: "B",
+          location: "useWordSlotPresentation.js:vowelGhostForTile",
+          message: "grid ghost resolve",
+          data: {
+            tileId: tile?.id,
+            raw,
+            tileLetter: tile?.letter,
+            shift,
+            shiftSource: liveShift != null ? "liveResolve" : "cardShift",
+            cardShift: card && typeof card === "object" ? Math.sign(Number(card.vowelDisplayShift) || 0) : 0,
+            ghostPrev: up(ghosts.prev),
+            ghostNext: up(ghosts.next),
+            skipLiveWordResolve: opts.skipLiveWordResolve === true,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    }
+    // #endregion
     return { prev: up(ghosts.prev), next: up(ghosts.next) };
   }
 

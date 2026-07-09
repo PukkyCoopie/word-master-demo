@@ -12,6 +12,10 @@ import {
   applyMouthQuProblemOwnedTreasures,
   applyProblemQuRowToGrid,
 } from "./mouthQuProblemDevScenario.js";
+import {
+  applyMouthTiaTeaOwnedTreasures,
+  applyMouthTiaTeaRowToGrid,
+} from "./mouthTiaTeaDevScenario.js";
 import { applyEctoplasmDevOwnedTreasures } from "./ectoplasmDevScenario.js";
 import { applyNoSellGoldBombCometOwnedTreasures } from "./noSellGoldBombCometDevScenario.js";
 import {
@@ -179,6 +183,22 @@ export function createGamePanelDevCommands(deps) {
     await finishScreenshotDevGridVisual();
     console.log(
       "[DEV] Qu+嘴+试管测试：设置 Qu 模式，槽位 [嘴][试管]，首行 problem（Qu→p）。按顺序选格拼词后应解析为 problem。",
+    );
+  }
+
+  async function startMouthTiaTeaDevTest() {
+    deps.refs.mouthTiaTeaDevScenarioActive.value = true;
+    applyMouthTiaTeaOwnedTreasures(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
+    const levelDef = deps.getCurrentLevel() ?? deps.getRunLevelAtIndex(deps.refs.levelIndex.value);
+    await deps.resetLevelAfterTreasurePrep(levelDef);
+    await deps.nextTick();
+    if (typeof deps.getGrid === "function") {
+      applyMouthTiaTeaRowToGrid(deps.getGrid(), deps.ROWS, deps.COLS);
+      deps.touchGrid?.();
+    }
+    await finishScreenshotDevGridVisual();
+    console.log(
+      "[DEV] 嘴+tia→tea 测试：槽位 [嘴]，首行 T | E(展示I,shift+1) | A。按序选格拼 t-i-a，词槽中间应出现 A-I-I，释义应为 tea/茶叶。",
     );
   }
 
@@ -536,6 +556,7 @@ export function createGamePanelDevCommands(deps) {
     dev.startCeruleanBellDevTest = () => startCeruleanBellDevTest();
     dev.startPagerDevTest = () => startPagerDevTest();
     dev.startMouthQuProblemDevTest = () => startMouthQuProblemDevTest();
+    dev.startMouthTiaTeaDevTest = () => startMouthTiaTeaDevTest();
     dev.startEctoplasmDevTest = () => startEctoplasmDevTest();
     dev.startNoSellGoldBombCometDevTest = () => startNoSellGoldBombCometDevTest();
     dev.startTreasureHookFxDevTest = (treasureId, opts) => startTreasureHookFxDevTest(treasureId, opts);
@@ -573,6 +594,7 @@ export function createGamePanelDevCommands(deps) {
     startAllIceDevTest,
     startPagerDevTest,
     startMouthQuProblemDevTest,
+    startMouthTiaTeaDevTest,
     startEctoplasmDevTest,
     startNoSellGoldBombCometDevTest,
     startCeruleanBellDevTest,
@@ -591,6 +613,9 @@ export function createGamePanelDevCommands(deps) {
     },
     applyMouthQuProblemDevRunStart() {
       applyMouthQuProblemOwnedTreasures(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
+    },
+    applyMouthTiaTeaDevRunStart() {
+      applyMouthTiaTeaOwnedTreasures(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
     },
     applyEctoplasmDevRunStart() {
       return applyEctoplasmDevOwnedTreasures(

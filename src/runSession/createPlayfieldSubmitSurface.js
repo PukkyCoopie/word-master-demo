@@ -133,9 +133,31 @@ export function createPlayfieldSubmitSurface(deps) {
 
   const effectiveWordPartsForSubmit = computed(() => buildEffectiveWordPartsForSubmit());
   const effectiveWordForSubmit = computed(() => effectiveWordPartsForSubmit.value.word);
-  const resolvedWordForSubmit = computed(() =>
-    resolveWordFromEffectiveParts(effectiveWordPartsForSubmit.value),
-  );
+  const resolvedWordForSubmit = computed(() => {
+    const parts = effectiveWordPartsForSubmit.value;
+    const res = resolveWordFromEffectiveParts(parts);
+    // #region agent log
+    if (parts?.word?.includes("i") && (res === "tea" || parts.word === "tia")) {
+      fetch("http://127.0.0.1:7623/ingest/3382c565-2350-4795-bc82-3716661b9aea", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "fa631d" },
+        body: JSON.stringify({
+          sessionId: "fa631d",
+          hypothesisId: "D",
+          location: "createPlayfieldSubmitSurface.js:resolvedWordForSubmit",
+          message: "word resolve",
+          data: {
+            effWord: parts.word,
+            vowelAltMask: parts.vowelAltMask,
+            resolved: res,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    }
+    // #endregion
+    return res;
+  });
 
   return {
     buildSubmitSelectionSnapshot,

@@ -251,6 +251,10 @@ import {
   applyProblemQuRowToGrid,
 } from "../dev/mouthQuProblemDevScenario.js";
 import {
+  isMouthTiaTeaDevScenario,
+  applyMouthTiaTeaRowToGrid,
+} from "../dev/mouthTiaTeaDevScenario.js";
+import {
   applyPromoGameplayGridMaterials,
   applyPromoGameplayTileBonuses,
 } from "../dev/screenshotPresetScenario.js";
@@ -450,6 +454,8 @@ const ectoplasmDevScenarioActive = ref(isEctoplasmDevScenario());
 const noSellGoldBombCometDevScenarioActive = ref(isNoSellGoldBombCometDevScenario());
 /** 开发：Qu+嘴+试管 problem 替换测试（`?dev=mouthQuProblem` 或控制台命令） */
 const mouthQuProblemDevScenarioActive = ref(isMouthQuProblemDevScenario());
+/** 开发：嘴+tia→tea 还原（`?dev=mouthTiaTea` 或控制台命令） */
+const mouthTiaTeaDevScenarioActive = ref(isMouthTiaTeaDevScenario());
 /** 开发：宣传图预设 1 的棋盘材质/加成（`setupScreenshotPreset(1)`） */
 const promoScreenshotDevPresetActive = ref(0);
 
@@ -1109,9 +1115,11 @@ const ctrlEarly = wireGamePanelControllers({
   maskBubbleDevScenarioActive,
   allIceDevScenarioActive,
   mouthQuProblemDevScenarioActive,
+  mouthTiaTeaDevScenarioActive,
   promoScreenshotDevPresetActive,
   applyRandomBLettersToGrid,
   applyProblemQuRowToGrid,
+  applyMouthTiaTeaRowToGrid,
   applyIceMaterialToAllGridTiles,
   applyIceMaterialToAllDeckCards,
   applyPromoGameplayGridMaterials,
@@ -2058,6 +2066,7 @@ runAutoSaveBridge.flushRunSaveNow = () => runSaveBridge?.flushRunSaveNow?.();
     maskBubbleDevScenarioActive, allIceDevScenarioActive, ceruleanBellDevScenarioActive,
     pagerDevScenarioActive, ectoplasmDevScenarioActive, noSellGoldBombCometDevScenarioActive,
     mouthQuProblemDevScenarioActive,
+    mouthTiaTeaDevScenarioActive,
     promoScreenshotDevPresetActive, ownedTreasures, transitionBusy,
     showShop, showSettlement, showRunEnd, showPauseOptions, showDeveloperOptions, levelIndex,
     pendingBossSlugOverride: ctrlEarly.pendingBossSlugOverride,
@@ -2393,6 +2402,9 @@ function buildGamePanelBootstrapSource() {
     isMouthQuProblemDevScenarioActive: () => mouthQuProblemDevScenarioActive.value,
     applyMouthQuProblemOwnedTreasures: () =>
       devCommandsRef.current?.applyMouthQuProblemDevRunStart(),
+    isMouthTiaTeaDevScenarioActive: () => mouthTiaTeaDevScenarioActive.value,
+    applyMouthTiaTeaOwnedTreasures: () =>
+      devCommandsRef.current?.applyMouthTiaTeaDevRunStart(),
     isCeruleanBellDevScenarioActive: () => ceruleanBellDevScenarioActive.value,
     applyCeruleanBellDevRunStart: () => devCommandsRef.current?.applyCeruleanBellDevRunStart(),
     getGamePanelAlive,

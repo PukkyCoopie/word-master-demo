@@ -43,6 +43,45 @@ test("computeFlyBackTilePresentation: wildcard stays ?", () => {
   assert.equal(pres.vowelGhostPrev, null);
 });
 
+test("buildTilePresentationIndex: mouth E displayed as I syncs to resolved E in tea", () => {
+  const tile = {
+    id: "e1",
+    letter: "I",
+    rarity: "common",
+    _deckCard: { raw: "e", rarity: "common", vowelDisplayShift: 1 },
+  };
+  const list = () => [
+    { id: "t1", letter: "T", _deckCard: { raw: "t" } },
+    tile,
+    { id: "a1", letter: "A", _deckCard: { raw: "a" } },
+  ];
+  const owned = () => [VOWEL_SUBSTITUTE_TREASURE_ID];
+  const parts = {
+    word: "tia",
+    vowelAltMask: [false, true, true],
+    quSlotMask: [false, false, false],
+  };
+  const byId = buildTilePresentationIndex("tea", "tia", null, list, owned, parts);
+  const pres = byId.get("e1");
+  assert.equal(pres?.letter, "E");
+  assert.equal(pres?.vowelGhostPrev, "A");
+  assert.equal(pres?.vowelGhostNext, "I");
+});
+
+test("computeFlyBackTilePresentation: natural E shift+1 showing I has E/O ghosts", () => {
+  const pres = computeFlyBackTilePresentation(
+    {
+      letter: "I",
+      rarity: "common",
+      _deckCard: { raw: "e", rarity: "common", vowelDisplayShift: 1 },
+    },
+    () => [VOWEL_SUBSTITUTE_TREASURE_ID],
+  );
+  assert.equal(pres.letter, "I");
+  assert.equal(pres.vowelGhostPrev, "E");
+  assert.equal(pres.vowelGhostNext, "O");
+});
+
 test("computeFlyBackTilePresentation: vowel shift shows ghost slots", () => {
   const pres = computeFlyBackTilePresentation(
     {

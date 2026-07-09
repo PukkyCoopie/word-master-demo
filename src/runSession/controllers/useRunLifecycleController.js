@@ -299,6 +299,9 @@ export function useRunLifecycleController(options) {
         if (dev.mouthQuProblemDevScenarioActive.value) {
           dev.applyProblemQuRowToGrid(g, ROWS, COLS);
         }
+        if (dev.mouthTiaTeaDevScenarioActive.value) {
+          dev.applyMouthTiaTeaRowToGrid(g, ROWS, COLS);
+        }
         if (dev.allIceDevScenarioActive.value) {
           dev.applyIceMaterialToAllGridTiles(g, ROWS, COLS);
           dev.applyIceMaterialToAllDeckCards(initialDeckSnapshot.value);

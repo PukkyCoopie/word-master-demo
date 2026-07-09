@@ -40,6 +40,8 @@ export function buildGamePanelBootstrapDeps(d) {
     applyEctoplasmDevOwnedTreasures: d.applyEctoplasmDevOwnedTreasures,
     isMouthQuProblemDevScenarioActive: d.isMouthQuProblemDevScenarioActive,
     applyMouthQuProblemOwnedTreasures: d.applyMouthQuProblemOwnedTreasures,
+    isMouthTiaTeaDevScenarioActive: d.isMouthTiaTeaDevScenarioActive,
+    applyMouthTiaTeaOwnedTreasures: d.applyMouthTiaTeaOwnedTreasures,
     isCeruleanBellDevScenarioActive: d.isCeruleanBellDevScenarioActive,
     applyCeruleanBellDevRunStart: d.applyCeruleanBellDevRunStart,
     isNoSellGoldBombCometDevScenarioActive: d.isNoSellGoldBombCometDevScenarioActive,

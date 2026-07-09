@@ -70,6 +70,9 @@ export async function startGamePanelNewRun(deps) {
   if (deps.isMouthQuProblemDevScenarioActive()) {
     deps.applyMouthQuProblemOwnedTreasures();
   }
+  if (deps.isMouthTiaTeaDevScenarioActive()) {
+    deps.applyMouthTiaTeaOwnedTreasures();
+  }
   if (deps.isCeruleanBellDevScenarioActive()) {
     deps.applyCeruleanBellDevRunStart();
   }

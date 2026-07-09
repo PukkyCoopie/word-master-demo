@@ -107,6 +107,19 @@ export function vowelDisplayShiftForResolved(naturalRaw, resolvedCh, ownedSlotTr
   return 0;
 }
 
+/**
+ * 嘴 UI 角标：按当前格面展示的元音字母，取元音链上的前/后邻位（展示 I → 左上 E、右下 O）。
+ * @param {string} displayedRaw 当前展示单字母（小写）
+ * @param {(string | null | undefined)[]} [ownedSlotTreasureIds]
+ * @returns {{ prev: string | null, next: string | null } | null}
+ */
+export function vowelGhostNeighborsForDisplayedLetter(displayedRaw, ownedSlotTreasureIds = []) {
+  const c = String(displayedRaw ?? "").toLowerCase().charAt(0);
+  const n = letterSubstituteNeighborTrio(c, ownedSlotTreasureIds);
+  if (!n) return null;
+  return { prev: n.prev, next: n.next };
+}
+
 /** @param {string} naturalRaw @param {number} [displayShift] @param {(string | null | undefined)[]} [ownedSlotTreasureIds] */
 export function vowelGhostSlotsForDisplay(naturalRaw, displayShift = 0, ownedSlotTreasureIds = []) {
   const c = String(naturalRaw ?? "").toLowerCase().charAt(0);
