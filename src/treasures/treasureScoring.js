@@ -112,8 +112,9 @@ function sumSubmitScoringWordLetterCountBonus(originalTiles, slots, partialCtx, 
   let working = [...originalTiles];
   let bonus = 0;
   for (const { treasureId: tid, source } of iterTreasureHookContributions(slots)) {
-    if (source === "blueprint") continue;
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
+    // 与 append 成对的词长加成（报纸 +S）不在 blueprint 复现；纯词内容加长（弓箭 X/Y/Z 等）须复现。
+    if (source === "blueprint" && hooks?.buildSubmitScoringAppendTile) continue;
     const hookCtx = {
       ...partialCtx,
       tiles: working,

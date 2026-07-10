@@ -1029,6 +1029,7 @@ const submitController = useSubmitWordController({
     beginSubmitWordLeaveHide: playfieldController.beginSubmitWordLeaveHide,
     endSubmitWordLeaveHide: playfieldController.endSubmitWordLeaveHide,
     clearWordSlotGsapAfterSubmitLeave: playfieldController.clearWordSlotGsapAfterSubmitLeave,
+    clearWordSlotsGsapAfterSubmitLeave: playfieldController.clearWordSlotsGsapAfterSubmitLeave,
     clearGridTileGsapAfterDrop: playfieldController.clearGridTileGsapAfterDrop,
     setSubmitScoringAppendPresentation: playfieldController.setSubmitScoringAppendPresentation,
     setSubmitScoringAppendPresentations: playfieldController.setSubmitScoringAppendPresentations,

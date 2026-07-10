@@ -84,7 +84,9 @@ import { requestCloudSync } from "../../save/cloudSave/cloudSaveSync.js";
  * }} bossApi
  * @property {{
  *   settlementSkipStressDevScenarioActive: import('vue').Ref<boolean>,
+ *   volcanoCometDevScenarioActive: import('vue').Ref<boolean>,
  *   applySettlementSkipStressGridWord: (g: object[][], rows: number, cols: number) => void,
+ *   applyVolcanoCometGridWord: (g: object[][], rows: number, cols: number) => void,
  *   maskBubbleDevScenarioActive: import('vue').Ref<boolean>,
  *   allIceDevScenarioActive: import('vue').Ref<boolean>,
  *   mouthQuProblemDevScenarioActive: import('vue').Ref<boolean>,
@@ -297,6 +299,9 @@ export function useRunLifecycleController(options) {
         applyBossPostGridBuild(g, mechSlug);
         if (dev.settlementSkipStressDevScenarioActive.value) {
           dev.applySettlementSkipStressGridWord(g, ROWS, COLS);
+        }
+        if (dev.volcanoCometDevScenarioActive.value) {
+          dev.applyVolcanoCometGridWord(g, ROWS, COLS);
         }
         if (dev.maskBubbleDevScenarioActive.value) {
           dev.applyRandomBLettersToGrid(g, ROWS, COLS, runRandom, 2);

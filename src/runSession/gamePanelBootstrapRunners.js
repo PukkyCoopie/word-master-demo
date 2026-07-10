@@ -79,6 +79,10 @@ export async function startGamePanelNewRun(deps) {
   if (deps.isNoSellGoldBombCometDevScenarioActive()) {
     deps.applyNoSellGoldBombCometOwnedTreasures();
   }
+  if (deps.isVolcanoCometDevScenarioActive()) {
+    deps.applyVolcanoCometOwnedTreasures();
+    deps.applyVolcanoCometRunState();
+  }
   if (deps.isSettlementSkipStressDevScenarioActive()) {
     deps.applySettlementSkipStressOwnedTreasures();
     deps.applySettlementSkipStressRunState();

@@ -24,7 +24,7 @@ test("computeResultAreaJudgedWordLength uses judged table", () => {
     tiles: [{}],
     resolvedWord: "cat",
     getWordLetterCount: () => 3,
-    judgedLengthTableLenForRun: (n) => n + 1,
+    judgedLengthTableLenForRun: (n, ctx) => n + (ctx?.resolvedWord === "cat" ? 1 : 0),
   });
   assert.equal(len, 4);
 });

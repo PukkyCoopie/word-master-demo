@@ -10,6 +10,7 @@ export function serializeTreasureRunState(state) {
     levelFirstWordLength: state.levelFirstWordLength ?? null,
     treasure29SelfDestructed: !!state.treasure29SelfDestructed,
     probabilityEffectTriggered: !!state.probabilityEffectTriggered,
+    volcano54Erupted: !!state.volcano54Erupted,
     playedAllGoldWord: !!state.playedAllGoldWord,
     allCommonBossClearRecorded: !!state.allCommonBossClearRecorded,
     chapterAllDiscardsExhausted: !!state.chapterAllDiscardsExhausted,
@@ -64,6 +65,7 @@ export function deserializeTreasureRunState(raw) {
   base.levelFirstWordLength = o.levelFirstWordLength != null ? Math.floor(Number(o.levelFirstWordLength)) : null;
   base.treasure29SelfDestructed = !!o.treasure29SelfDestructed;
   base.probabilityEffectTriggered = !!o.probabilityEffectTriggered;
+  base.volcano54Erupted = !!o.volcano54Erupted;
   base.playedAllGoldWord = !!o.playedAllGoldWord;
   base.allCommonBossClearRecorded = !!o.allCommonBossClearRecorded;
   base.chapterAllDiscardsExhausted = !!o.chapterAllDiscardsExhausted;

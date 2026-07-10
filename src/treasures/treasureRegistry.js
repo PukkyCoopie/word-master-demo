@@ -109,6 +109,24 @@ export function resolveTreasureEffectDepleted(treasureId, chargeWordsSubmitted, 
   }
 }
 
+/**
+ * 火山喷发：该槽位宝藏是否免疫摧毁（由各宝藏 `isImmuneToVolcanoEruption` 钩子声明）。
+ * @param {string | null | undefined} treasureId
+ * @param {object | null | undefined} [_slot]
+ * @returns {boolean}
+ */
+export function resolveTreasureVolcanoEruptionImmune(treasureId, _slot) {
+  const id = String(treasureId ?? "").trim();
+  if (!id) return false;
+  const hook = TREASURE_HOOKS_BY_ID.get(id)?.isImmuneToVolcanoEruption;
+  if (typeof hook !== "function") return false;
+  try {
+    return hook() === true;
+  } catch {
+    return false;
+  }
+}
+
 /** @param {object} ctx @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {{ slotIndex: number, source: 'self' | 'blueprint' }} entry */
 function withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source }) {
   return {
@@ -400,6 +418,30 @@ export async function notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIds,
       ? Promise.resolve(fn(withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source })))
       : undefined;
   });
+}
+
+/**
+ * 提交计分时按词内容追加的等效词长（如弓箭 X/Y/Z、报纸 +S）；不含整词 flat `getSubmitLengthBonus`。
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {import('./treasureTypes.js').TreasureLogicContext} [partialCtx]
+ */
+export function sumTreasureSubmitScoringWordLetterCountBonus(ownedSlotTreasureIds, partialCtx = {}) {
+  const slots = ownedSlotTreasureIds ?? [];
+  let bonus = 0;
+  for (const { treasureId: tid, source } of iterTreasureHookContributions(slots)) {
+    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
+    // 与 append 成对的词长加成（报纸 +S）不在 blueprint 复现；纯词内容加长（弓箭 X/Y/Z 等）须复现。
+    if (source === "blueprint" && hooks?.buildSubmitScoringAppendTile) continue;
+    const hookCtx = {
+      ...partialCtx,
+      ownedSlotTreasureIds: slots,
+    };
+    bonus += Math.max(
+      0,
+      Math.floor(Number(hooks?.getSubmitScoringWordLetterCountBonus?.(hookCtx)) || 0),
+    );
+  }
+  return bonus;
 }
 
 /** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureRunState.js').TreasureRunState} [treasureRun] */

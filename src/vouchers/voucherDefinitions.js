@@ -4,8 +4,8 @@ import { concept, describe } from "../treasures/treasureDescription.js";
 const V = [
   { id: "v_overstock_1", pairId: "overstock", tier: 1, emoji: "📦", nameStem: "纸箱", price: 10, description: "商店单卡区商品槽位 +1", effectKey: "overstock", inShopPool: true },
   { id: "v_overstock_2", pairId: "overstock", tier: 2, emoji: "📦", nameStem: "纸箱", price: 10, description: "商店单卡区商品槽位再 +1", effectKey: "overstock_plus", inShopPool: true },
-  { id: "v_clearance_1", pairId: "clearance", tier: 1, emoji: "🏷️", nameStem: "特价标签", price: 10, description: "商店商品优惠 25%", effectKey: "clearance", inShopPool: true },
-  { id: "v_clearance_2", pairId: "clearance", tier: 2, emoji: "🏷️", nameStem: "特价标签", price: 10, description: "商店商品再优惠 25%", effectKey: "liquidation", inShopPool: true },
+  { id: "v_clearance_1", pairId: "clearance", tier: 1, emoji: "🔖", nameStem: "特价标签", price: 10, description: "商店商品优惠 25%", effectKey: "clearance", inShopPool: true },
+  { id: "v_clearance_2", pairId: "clearance", tier: 2, emoji: "🔖", nameStem: "特价标签", price: 10, description: "商店商品再优惠 25%", effectKey: "liquidation", inShopPool: true },
   { id: "v_hone_1", pairId: "hone", tier: 1, emoji: "💎", nameStem: "宝石", price: 10, description: "宝藏出现配饰的概率提升至2倍", effectKey: "hone", inShopPool: true },
   { id: "v_hone_2", pairId: "hone", tier: 2, emoji: "💎", nameStem: "宝石", price: 10, description: "宝藏出现配饰的概率提升至4倍", effectKey: "glow_up", inShopPool: true },
   { id: "v_reroll_1", pairId: "reroll", tier: 1, emoji: "🎲", nameStem: "骰子", price: 10, description: "商店每次刷新的费用减少 $2", effectKey: "reroll_surplus", inShopPool: true },

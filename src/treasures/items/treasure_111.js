@@ -1,5 +1,9 @@
 import { concept, describe } from "../treasureDescription.js";
 import {
+  normalizeJudgedWordLength,
+  resolveLengthUpgradeLen,
+} from "../../game/wordLengthBalance.js";
+import {
   isTreasureHookContributionActive,
   iterTreasureHookContributions,
   resolvePostLetterAnimSlotIndex,
@@ -57,8 +61,8 @@ function shouldCalendarDiscardTrigger(ctx) {
     .map((p) => String(p?.letter ?? "").toLowerCase())
     .join("");
   if (!chars || !ctx.resolveDiscardedWord?.(chars)) return false;
-  const len = Math.max(0, Math.round(Number(ctx.judgedWordLength ?? chars.length) || 0));
-  if (len < 3 || len > 16) return false;
+  const len = normalizeJudgedWordLength(ctx.judgedWordLength ?? chars.length);
+  if (len < 3) return false;
   return true;
 }
 
@@ -152,15 +156,12 @@ export const treasureHooks = {
 
     ctx.treasureRun.levelFirstFullWordDiscardDone = true;
 
-    const len = Math.max(
-      0,
-      Math.round(
-        Number(
-          ctx.judgedWordLength ??
-            (ctx.discardedLetters ?? []).map((p) => String(p?.letter ?? "").toLowerCase()).join("").length,
-        ) || 0,
-      ),
+    const judgedLen = normalizeJudgedWordLength(
+      ctx.judgedWordLength ??
+        (ctx.discardedLetters ?? []).map((p) => String(p?.letter ?? "").toLowerCase()).join("").length,
     );
+    const len = resolveLengthUpgradeLen(judgedLen);
+    if (len == null) return;
 
     await wobbleUpgradeAtCalendarSlots(ctx, calendarFxSlots);
     await new Promise((resolve) => setTimeout(resolve, UPGRADE_FX_DELAY_MS));

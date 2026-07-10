@@ -18,7 +18,7 @@ import { buildPagerQuizOptions } from "../../game/pagerQuizOptions.js";
 import { resolveSubmitWordInput } from "../../game/submitWordPipeline.js";
 import { createSubmitScoringAnimController } from "../../game/submitScoringAnim.js";
 import { shouldSkipSettlementAnim } from "../../settings/settlementAnimSkip.js";
-import { resolveWordLengthJudgmentBonus } from "../../game/wordLengthJudgmentBonus.js";
+import { resolveJudgedLengthTableLen, resolveWordLengthJudgmentBonus } from "../../game/wordLengthJudgmentBonus.js";
 import { compareScore, scoreGte, scoreLt } from "../../utils/scoreInteger.js";
 import { reportClientError } from "../../platform/clientErrorReporter.js";
 import {
@@ -28,7 +28,6 @@ import {
 } from "../../composables/useScoring.js";
 import { resolveScoringLetterRarity } from "../../game/treasureRarityTierMerge.js";
 import {
-  getLengthTableLenFromTileCountAndBonus,
   parseLevelSubFromId,
 } from "../../vouchers/voucherRuntime.js";
 import { readTreasureAccessoryIds } from "../../accessories/accessoryState.js";
@@ -246,6 +245,7 @@ export function useSubmitWordController(options) {
         (tile) => resolveGridEffectTriggerCount(tile, ownedSlotTreasureIds),
       );
 
+      const actualWordLen = Math.max(0, getWordLetterCount(tiles, resolvedWord));
       const lengthJb = resolveWordLengthJudgmentBonus({
         ownedVoucherIds: run.ownedVoucherIds.value,
         ownedSlotTreasureIds,
@@ -253,8 +253,18 @@ export function useSubmitWordController(options) {
         runWordLengthJudgmentPenalty: gridApi.runWordLengthJudgmentPenalty.value,
         treasureRun: run.treasureRunState.value,
       });
-      const actualWordLen = Math.max(0, getWordLetterCount(tiles, resolvedWord));
-      const judgedLenTable = getLengthTableLenFromTileCountAndBonus(resolvedWord.length, lengthJb);
+      const judgedLenTable = resolveJudgedLengthTableLen({
+        wordLetterCount: actualWordLen,
+        ownedVoucherIds: run.ownedVoucherIds.value,
+        ownedSlotTreasureIds,
+        presetId: run.runPresetId.value,
+        runWordLengthJudgmentPenalty: gridApi.runWordLengthJudgmentPenalty.value,
+        treasureRun: run.treasureRunState.value,
+        tiles,
+        resolvedWord,
+        getWordDefinition: callbacks.getWordDefinition,
+        rarityLevelsByRarity: gridApi.rarityLevelsByRarity.value,
+      });
       const soft = evaluateBossSoftWordViolation({
         slug: callbacks.bossSlugForMechanics(),
         wordLen: judgedLenTable,

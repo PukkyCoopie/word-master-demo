@@ -47,6 +47,7 @@ import {
   scaleLengthContributionForBoss,
   getLengthMultiplier,
   LETTER_RARITY_ORDER,
+  resolveLengthUpgradeLen,
 } from "../composables/useScoring.js";
 
 import { submitWordLeaveStagger } from "./submitWordLeaveStagger.js";
@@ -1364,8 +1365,8 @@ function buildClearWinLengthUpgradeAccessoryEntries() {
  * @param {(len: number) => { apply?: () => void, payload: object }} buildLengthUpgradeStep
  */
 function registerClearWinLengthUpgradePostScoreFx(batch, judgedLen, buildLengthUpgradeStep) {
-  const len = Math.max(3, Math.min(16, Math.round(Number(judgedLen)) || 0));
-  if (len < 3 || len > 16) return;
+  const len = resolveLengthUpgradeLen(judgedLen);
+  if (len == null) return;
   for (const { tileId, accessoryTriggered } of buildClearWinLengthUpgradeAccessoryEntries()) {
     batch.registerCue(() => runClearWinLengthUpgradeAccessoryCueOnly(tileId, accessoryTriggered));
     batch.registerStep(buildLengthUpgradeStep(len));
@@ -1379,8 +1380,8 @@ function registerClearWinLengthUpgradePostScoreFx(batch, judgedLen, buildLengthU
  */
 function registerArmBossLengthDowngradePostScoreFx(fxQueue, judgedLen) {
   if (callbacks.bossSlugForMechanics() !== "the_arm") return;
-  const len = Math.max(3, Math.min(16, Math.round(Number(judgedLen)) || 0));
-  if (len < 3 || len > 16) return;
+  const len = resolveLengthUpgradeLen(judgedLen);
+  if (len == null) return;
   fxQueue.push(() => runArmBossLengthDowngradePostScoreFx(len));
 }
 
@@ -2265,7 +2266,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   };
   /** @param {number} len */
   const buildClearWinLengthUpgradeStep = (len) => {
-    const L = Math.max(3, Math.min(16, Math.round(Number(len)) || 0));
+    const L = resolveLengthUpgradeLen(len);
+    if (L == null) return null;
     const observatoryBoost = callbacks.isLengthObservatoryBoosted(
       refs.ownedVoucherIds.value,
       L,
@@ -2346,9 +2348,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
 
   const collapseTrans = collapseSubmitTranslation();
 
-  /** 快照与补牌同一瞬：rect 与 cells 对齐，避免间隔内布局漂移导致 FLIP 误判 */
+  /** 快照与补牌同一瞬：cells 对齐；FLIP 位移用格坐标 × 步长，无需 rects 批量 getBoundingClientRect */
   const prevFlip = {
-    rects: gridDropAnim.captureGridRectsByTileId(),
     cells: callbacks.snapshotGridCellsByTileId(),
   };
   const leaveDuration = 0.28;
@@ -2486,15 +2487,13 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
 
   /* 滚分进顶栏后再补牌+下落：若先 refill 再等滚分，tile 会在终态停半秒再被 GSAP 拽动 → 闪烁 */
   await scorePromise;
-  await nextTick();
+  /* 总分归零会触发 result-area 过渡；与补牌/FLIP 拆到下一帧，避免同帧 flushJobs + 大量 style 重算卡顿 */
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   refs.gridRefillAnimating.value = true;
+  callbacks.endSubmitWordLeaveHide?.();
   callbacks.applySubmitRefill({ skipNewFromDeck });
   await nextTick();
-  for (const slotEl of slotTileEls) {
-    callbacks.clearWordSlotGsapAfterSubmitLeave?.(slotEl);
-  }
-  callbacks.endSubmitWordLeaveHide?.();
   try {
     await gridDropAnim.runGridDropAnimation(prevFlip);
   } finally {
@@ -2523,7 +2522,6 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   refs.suppressResultWordLengthUntilScoringEnd.value = false;
   await nextTick();
   callbacks.updateSlotPositions(true);
-  callbacks.refreshWordHintAfterGridStable?.();
   callbacks.scheduleRunAutoSave();
   return iceShatterCount;
   } finally {

@@ -46,7 +46,7 @@ const voucherDef = computed(() => {
   return VOUCHERS_BY_ID.get(String(props.refId ?? "")) ?? null;
 });
 
-const voucherEmoji = computed(() => voucherDef.value?.emoji ?? "🏷️");
+const voucherEmoji = computed(() => voucherDef.value?.emoji ?? "🔖");
 const voucherDisplayName = computed(() => {
   const d = voucherDef.value;
   if (!d) return "优惠券";

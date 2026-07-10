@@ -134,7 +134,9 @@ function wireGamePanelControllersEarly(d) {
     bossApi: d.bossApiBridge,
     dev: {
       settlementSkipStressDevScenarioActive: d.settlementSkipStressDevScenarioActive,
+      volcanoCometDevScenarioActive: d.volcanoCometDevScenarioActive,
       applySettlementSkipStressGridWord: d.applySettlementSkipStressGridWord,
+      applyVolcanoCometGridWord: d.applyVolcanoCometGridWord,
       maskBubbleDevScenarioActive: d.maskBubbleDevScenarioActive,
       allIceDevScenarioActive: d.allIceDevScenarioActive,
       mouthQuProblemDevScenarioActive: d.mouthQuProblemDevScenarioActive,
@@ -477,6 +479,8 @@ function wireGamePanelControllersEarly(d) {
     removeAndCompactOwnedTreasureAtIndex: treasureRun.removeAndCompactOwnedTreasureAtIndex,
     removeOwnedTreasureSlotsLeaveGapAtIndices: treasureRun.removeOwnedTreasureSlotsLeaveGapAtIndices,
     clearOwnedTreasureSlotLeaveGapAtIndex: treasureRun.clearOwnedTreasureSlotLeaveGapAtIndex,
+    reconcileOwnedTreasureSlotsAfterLeaveGapDestruction:
+      treasureRun.reconcileOwnedTreasureSlotsAfterLeaveGapDestruction,
     notifyShopLeave: treasureRun.notifyShopLeave,
     rollRandomBigramForTreasure: treasureRun.rollRandomBigramForTreasure,
     treasureSession: treasureRun,

@@ -9,7 +9,7 @@ import {
   collectVolcanoIgniteGridCells,
   resolveVolcanoTreasureVictimIndices,
 } from "./volcanoEruptionTargets.js";
-import { TREASURE_HOOKS_BY_ID } from "../treasures/treasureRegistry.js";
+import { TREASURE_HOOKS_BY_ID, resolveTreasureVolcanoEruptionImmune } from "../treasures/treasureRegistry.js";
 import { PLUS_BUBBLE_ENTER_DURATION_S } from "./scoreBubbleFx.js";
 
 const VOLCANO_ID = "54";
@@ -146,6 +146,7 @@ function runVolcanoEruptionBubbleFx(bubble, speed = 1) {
  * @property {(slotIndex: number, el: HTMLElement, sp: number, bubbleOpts?: { feint?: boolean }) => Promise<HTMLElement | null>} wobbleTreasureSlotWithDestroyBubbleConcurrent
  * @property {(el: HTMLElement, bubble: HTMLElement | null, sp: number, opts?: { feint?: boolean }) => Promise<void>} shrinkTreasureSlotElOnly
  * @property {(slotIndex: number) => void} clearOwnedTreasureSlotLeaveGapAtIndex
+ * @property {(opts?: { triggerBarCompactAnim?: boolean }) => boolean} [reconcileOwnedTreasureSlotsAfterLeaveGapDestruction]
  * @property {() => void} scheduleRunAutoSave
  * @property {() => void} touchGrid
  * @property {() => Promise<void>} nextTick
@@ -212,7 +213,9 @@ export async function runVolcanoEruptionFx(deps) {
 
   await deps.nextTick();
 
-  const victimIndices = resolveVolcanoTreasureVictimIndices(deps.ownedTreasures, volcanoIx);
+  const victimIndices = resolveVolcanoTreasureVictimIndices(deps.ownedTreasures, volcanoIx, (_ix, slot) =>
+    resolveTreasureVolcanoEruptionImmune(String(slot?.treasureId ?? "").trim(), slot),
+  );
   const igniteCells = collectVolcanoIgniteGridCells(deps.grid.value, deps.ROWS, deps.COLS);
   const anchorRect = bubbleAnchorEl ? deps.scoreBubbleAnchorRect(bubbleAnchorEl) : null;
 
@@ -274,6 +277,12 @@ export async function runVolcanoEruptionFx(deps) {
   );
 
   await Promise.all([volcanoPhaseP, ...ripplePs]);
+
+  const destroyedTreasures = rippleTargets.some((t) => t.kind === "treasure");
+  if (destroyedTreasures) {
+    deps.reconcileOwnedTreasureSlotsAfterLeaveGapDestruction?.({ triggerBarCompactAnim: true });
+    await deps.nextTick();
+  }
 
   await animSleep(ERUPTION_RECOVERY_MS, sp);
 

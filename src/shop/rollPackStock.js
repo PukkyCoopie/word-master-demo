@@ -29,6 +29,7 @@ import {
   getUpgradeCategoryWeightMultiplier,
   getMostPlayedWordLength,
   hasTelescopeVoucher,
+  resolveTelescopeLengthUpgradeGroupKey,
 } from "../vouchers/voucherRuntime.js";
 
 function shuffleArrayInPlace(arr, rnd) {
@@ -83,8 +84,9 @@ function bundleTreasureIdSuffixForTier(tier) {
  * @param {() => number} rng
  */
 function ensureTelescopeLengthUpgradeInBundleOpts(opts, mostLen, makeLengthUpgrade, rng) {
-  if (!mostLen || mostLen < 3) return;
-  const g = UPGRADE_LENGTH_GROUPS.find((x) => mostLen >= x.minLen && mostLen <= x.maxLen);
+  const groupKey = resolveTelescopeLengthUpgradeGroupKey(mostLen, UPGRADE_LENGTH_GROUPS);
+  if (!groupKey) return;
+  const g = UPGRADE_LENGTH_GROUPS.find((x) => x.key === groupKey);
   if (!g) return;
   const has = opts.some(
     (o) => o && o.offerType === "upgrade" && o.upgradeKind === "length" && o.lengthGroupKey === g.key,

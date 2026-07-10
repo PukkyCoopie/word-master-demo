@@ -133,7 +133,6 @@ export async function runBossKeySoldEffects(deps) {
 
   if (slug === "the_manacle" && deps.releaseManacleBossTopRow()) {
     const prevFlip = {
-      rects: deps.gridDropAnim?.captureGridRectsByTileId?.() ?? new Map(),
       cells: deps.snapshotGridCellsByTileId?.() ?? new Map(),
     };
     await nextTick();

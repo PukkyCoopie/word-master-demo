@@ -2,7 +2,7 @@
 
 /** @type {readonly { id: SkipSettlementAnimMode; label: string }[]} */
 export const SKIP_SETTLEMENT_ANIM_MODE_OPTIONS = Object.freeze([
-  { id: "off", label: "正常" },
+  { id: "off", label: "关闭" },
   { id: "endless", label: "仅无尽" },
   { id: "always", label: "总是跳过" },
 ]);

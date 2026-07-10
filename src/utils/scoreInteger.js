@@ -173,6 +173,8 @@ export function interpolateScore(start, end, t) {
   const s = parseScore(start);
   const e = parseScore(end);
   const clamped = Math.max(0, Math.min(1, Number(t) || 0));
+  if (clamped <= 0) return normalizeScore(s);
+  if (clamped >= 1) return normalizeScore(e);
   const tScaled = BigInt(Math.round(clamped * Number(LERP_SCALE)));
   const diff = e - s;
   const half = LERP_SCALE / 2n;

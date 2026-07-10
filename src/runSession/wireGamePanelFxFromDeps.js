@@ -55,6 +55,8 @@ export function wireGamePanelFxFromDeps(d) {
       showScoreBubble: d.showScoreBubble,
       scheduleSmallPlusBubbleOutro: d.scheduleSmallPlusBubbleOutro,
       clearOwnedTreasureSlotLeaveGapAtIndex: d.clearOwnedTreasureSlotLeaveGapAtIndex,
+      reconcileOwnedTreasureSlotsAfterLeaveGapDestruction:
+        d.reconcileOwnedTreasureSlotsAfterLeaveGapDestruction,
       scheduleRunAutoSave: d.scheduleRunAutoSave,
       touchGrid: d.touchGrid,
       nextTick: d.nextTick,

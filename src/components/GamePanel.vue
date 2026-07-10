@@ -176,7 +176,7 @@ import {
   getPresetStartWildcardCount,
 } from "../game/runPresetRuntime.js";
 
-import { resolveWordLengthJudgmentBonus } from "../game/wordLengthJudgmentBonus.js";
+import { resolveJudgedLengthTableLen } from "../game/wordLengthJudgmentBonus.js";
 import { normalizeRunPresetId } from "../game/runPresetDefinitions.js";
 import { normalizeRunDifficultyIndex } from "../game/runDifficultyDefinitions.js";
 import {
@@ -190,7 +190,6 @@ import {
 import { buildOwnedTreasureSlot } from "../treasures/ownedTreasureSlot.js";
 import {
   clampRemainingRemovalsForBossMechanics,
-  getLengthTableLenFromTileCountAndBonus,
   isLengthObservatoryBoosted,
 } from "../vouchers/voucherRuntime.js";
 
@@ -205,6 +204,7 @@ import {
   getRarityForLetter,
   getWordLetterCount,
   isWildcardMaterialTile,
+  resolveLengthUpgradeLen,
 } from "../composables/useScoring";
 
 import {
@@ -252,6 +252,10 @@ import { isEctoplasmDevScenario } from "../dev/ectoplasmDevScenario.js";
 import {
   isNoSellGoldBombCometDevScenario,
 } from "../dev/noSellGoldBombCometDevScenario.js";
+import {
+  applyVolcanoCometGridWord,
+  isVolcanoCometDevScenario,
+} from "../dev/volcanoCometDevScenario.js";
 import {
   isMouthQuProblemDevScenario,
   applyProblemQuRowToGrid,
@@ -458,6 +462,8 @@ const pagerDevScenarioActive = ref(isPagerDevScenario());
 const ectoplasmDevScenarioActive = ref(isEctoplasmDevScenario());
 /** 开发：开局禁售金牌+炸弹+彗星（`?dev=noSellGoldBombComet` 或控制台命令） */
 const noSellGoldBombCometDevScenarioActive = ref(isNoSellGoldBombCometDevScenario());
+/** 开发：火山喷发测试（5 彗星 + 火花/火苗免疫 + 顶行 cat）`?dev=volcanoComet` 或控制台 */
+const volcanoCometDevScenarioActive = ref(isVolcanoCometDevScenario());
 /** 开发：Qu+嘴+试管 problem 替换测试（`?dev=mouthQuProblem` 或控制台命令） */
 const mouthQuProblemDevScenarioActive = ref(isMouthQuProblemDevScenario());
 /** 开发：嘴+tia→tea 还原（`?dev=mouthTiaTea` 或控制台命令） */
@@ -1049,7 +1055,8 @@ function flushDeferredWordSubmitRecord() {
 
 /** @param {number} len */
 function buildInRunLengthUpgradeStep(len) {
-  const L = Math.max(3, Math.min(16, Math.round(Number(len) || 0)));
+  const L = resolveLengthUpgradeLen(len);
+  if (L == null) return null;
   const beforeLevel = Math.max(1, Math.round(Number(lengthLevelsByLength.value?.[L])) || 1);
   const obs = isLengthObservatoryBoosted(ownedVoucherIds.value, L, spellCountsByLength.value);
   return {
@@ -1122,12 +1129,14 @@ const ctrlEarly = wireGamePanelControllers({
   bossMechanicsBridge,
   maskBubbleDevScenarioActive,
   settlementSkipStressDevScenarioActive,
+  volcanoCometDevScenarioActive,
   allIceDevScenarioActive,
   mouthQuProblemDevScenarioActive,
   mouthTiaTeaDevScenarioActive,
   promoScreenshotDevPresetActive,
   applyRandomBLettersToGrid,
   applySettlementSkipStressGridWord,
+  applyVolcanoCometGridWord,
   applyProblemQuRowToGrid,
   applyMouthTiaTeaRowToGrid,
   applyIceMaterialToAllGridTiles,
@@ -1282,15 +1291,16 @@ const {
 presentTreasureDetail = ctrlEarly.presentTreasureDetail;
 ownedSlotTreasureIdListImpl = ctrlEarly.ownedSlotTreasureIdListFromController;
 
-function judgedLengthTableLenForRun(wordLetterCount) {
-  const bonus = resolveWordLengthJudgmentBonus({
+function judgedLengthTableLenForRun(wordLetterCount, partialCtx = {}) {
+  return resolveJudgedLengthTableLen({
+    wordLetterCount,
     ownedVoucherIds: ownedVoucherIds.value,
     ownedSlotTreasureIds: ownedSlotTreasureIdList(),
     presetId: runPresetId.value,
     runWordLengthJudgmentPenalty: runWordLengthJudgmentPenalty.value,
     treasureRun: treasureRunState.value,
+    ...partialCtx,
   });
-  return getLengthTableLenFromTileCountAndBonus(wordLetterCount, bonus);
 }
 
 function readNormalizedSlotCareer() {
@@ -2075,6 +2085,7 @@ runAutoSaveBridge.flushRunSaveNow = () => runSaveBridge?.flushRunSaveNow?.();
   devCommandsOptions: buildGamePanelDevCommandsOptions({
     maskBubbleDevScenarioActive, settlementSkipStressDevScenarioActive, allIceDevScenarioActive, ceruleanBellDevScenarioActive,
     pagerDevScenarioActive, ectoplasmDevScenarioActive, noSellGoldBombCometDevScenarioActive,
+    volcanoCometDevScenarioActive,
     mouthQuProblemDevScenarioActive,
     mouthTiaTeaDevScenarioActive,
     promoScreenshotDevPresetActive, ownedTreasures, transitionBusy,
@@ -2199,6 +2210,8 @@ wireGamePanelFxFromDeps({
     ctrlEarly.treasureRun?.clearOwnedTreasureSlotLeaveGapAtIndex(ix),
   removeOwnedTreasureSlotsLeaveGapAtIndices: (indices, opts) =>
     ctrlEarly.treasureRun?.removeOwnedTreasureSlotsLeaveGapAtIndices(indices, opts),
+  reconcileOwnedTreasureSlotsAfterLeaveGapDestruction: (opts) =>
+    ctrlEarly.treasureRun?.reconcileOwnedTreasureSlotsAfterLeaveGapDestruction(opts),
   scheduleRunAutoSave,
   createWobbleScoreSlotTimeline, awaitWobbleScoreSlotTimeline, playOwnedTreasureWobbleOnlyFx,
   hourglassStageFxRef, inRunUpgradePlaybackRef, runResultPresentationCtrl, sleep,
@@ -2415,6 +2428,9 @@ function buildGamePanelBootstrapSource() {
     isNoSellGoldBombCometDevScenarioActive: () => noSellGoldBombCometDevScenarioActive.value,
     applyNoSellGoldBombCometOwnedTreasures: () =>
       devCommandsRef.current?.applyNoSellGoldBombCometDevRunStart(),
+    isVolcanoCometDevScenarioActive: () => volcanoCometDevScenarioActive.value,
+    applyVolcanoCometOwnedTreasures: () => devCommandsRef.current?.applyVolcanoCometDevRunStart(),
+    applyVolcanoCometRunState: () => devCommandsRef.current?.applyVolcanoCometRunStateOnly(),
     isMouthQuProblemDevScenarioActive: () => mouthQuProblemDevScenarioActive.value,
     applyMouthQuProblemOwnedTreasures: () =>
       devCommandsRef.current?.applyMouthQuProblemDevRunStart(),

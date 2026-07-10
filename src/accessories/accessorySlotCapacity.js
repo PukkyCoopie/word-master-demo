@@ -117,7 +117,8 @@ export function compactOwnedTreasureSlotsAtIndex(slots, removedIndex) {
 }
 
 /**
- * 摧毁后保留空位；若栏长超出裁剪配饰允许的槽位上限，将超出段的宝藏移入左侧空位并裁掉尾部空槽。
+ * 摧毁后保留空位；若栏长超出裁剪配饰允许的槽位上限，从右侧依次移除空槽，
+ * 使超出段的宝藏随之后移（保持相对顺序，不填入最左侧空位）。
  * @param {Array<object | null>} slots
  * @param {string[]} [keys]
  * @param {number} [voucherExtraSlots=0]
@@ -127,32 +128,27 @@ export function reconcileOwnedTreasureSlotsAfterDestruction(slots, keys, voucher
   if (!Array.isArray(slots) || slots.length === 0) return false;
   let changed = false;
   const extra = Math.floor(Number(voucherExtraSlots) || 0);
+  const hasKeys = Array.isArray(keys);
 
   for (;;) {
     const target = computeOwnedTreasureSlotTargetLength(slots, extra);
     if (slots.length <= target) break;
 
-    let moved = false;
-    for (let i = slots.length - 1; i >= target; i -= 1) {
-      if (slots[i] == null) continue;
-      const hole = slots.findIndex((s, j) => j < target && s == null);
-      if (hole < 0) break;
-      slots[hole] = slots[i];
-      slots[i] = null;
-      moved = true;
-      changed = true;
+    let rightmostGap = -1;
+    for (let i = slots.length - 1; i >= 0; i -= 1) {
+      if (slots[i] == null) {
+        rightmostGap = i;
+        break;
+      }
     }
+    if (rightmostGap < 0) break;
 
-    while (slots.length > target && slots[slots.length - 1] == null) {
-      slots.pop();
-      if (Array.isArray(keys) && keys.length > 0) keys.pop();
-      changed = true;
-    }
-
-    if (!moved) break;
+    slots.splice(rightmostGap, 1);
+    if (hasKeys && rightmostGap < keys.length) keys.splice(rightmostGap, 1);
+    changed = true;
   }
 
-  if (Array.isArray(keys)) {
+  if (hasKeys) {
     while (keys.length < slots.length) keys.push(nextUniqueOwnedTreasureSlotKey(keys));
     while (keys.length > slots.length) keys.pop();
   }

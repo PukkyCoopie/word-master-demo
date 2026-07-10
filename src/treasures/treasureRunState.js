@@ -9,6 +9,7 @@
  * @property {number | null} levelFirstWordLength
  * @property {boolean} treasure29SelfDestructed
  * @property {boolean} probabilityEffectTriggered
+ * @property {boolean} volcano54Erupted 火山（54）本局是否已喷发（仅喷发一次）
  * @property {boolean} playedAllGoldWord
  * @property {boolean} allCommonBossClearRecorded
  * @property {boolean} chapterAllDiscardsExhausted
@@ -68,6 +69,7 @@ export function createTreasureRunState() {
     levelFirstWordLength: null,
     treasure29SelfDestructed: false,
     probabilityEffectTriggered: false,
+    volcano54Erupted: false,
     playedAllGoldWord: false,
     allCommonBossClearRecorded: false,
     chapterAllDiscardsExhausted: false,

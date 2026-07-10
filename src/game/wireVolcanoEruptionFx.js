@@ -16,6 +16,7 @@ import { runVolcanoEruptionFx } from "./volcanoEruptionFx.js";
  *   showScoreBubble: (...args: unknown[]) => HTMLElement | null,
  *   scheduleSmallPlusBubbleOutro: (bubble: HTMLElement | null | undefined, speed?: number) => void,
  *   clearOwnedTreasureSlotLeaveGapAtIndex: (slotIndex: number) => void,
+ *   reconcileOwnedTreasureSlotsAfterLeaveGapDestruction?: (opts?: { triggerBarCompactAnim?: boolean }) => boolean,
  *   scheduleRunAutoSave: () => void,
  *   touchGrid: () => void,
  *   nextTick: () => Promise<void>,
@@ -51,6 +52,8 @@ export function createVolcanoEruptionRunner(deps) {
         wobbleTreasureSlotWithDestroyBubbleConcurrent: wobbleFn,
         shrinkTreasureSlotElOnly: shrinkFn,
         clearOwnedTreasureSlotLeaveGapAtIndex: deps.clearOwnedTreasureSlotLeaveGapAtIndex,
+        reconcileOwnedTreasureSlotsAfterLeaveGapDestruction:
+          deps.reconcileOwnedTreasureSlotsAfterLeaveGapDestruction,
         scheduleRunAutoSave: deps.scheduleRunAutoSave,
         touchGrid: deps.touchGrid,
         nextTick: deps.nextTick,

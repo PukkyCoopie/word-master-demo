@@ -10,6 +10,51 @@ import {
   resolvePostLetterAnimSlotIndex,
   shouldTreasureRunAccumulationMutate,
 } from "./treasureBlueprintMirror.js";
+import {
+  BOW_ARROW_LENGTH_BONUS_PER_LETTER,
+  treasureHooks as bowArrowHooks,
+} from "../treasures/items/treasure_145.js";
+
+/** 与 `sumTreasureSubmitScoringWordLetterCountBonus` 相同的 blueprint 过滤规则（单测不 import registry）。 */
+function sumWordLetterCountBonusWithHooks(slots, hooksById, partialCtx = {}) {
+  let bonus = 0;
+  for (const { treasureId: tid, source } of iterTreasureHookContributions(slots)) {
+    const hooks = hooksById.get(tid);
+    if (source === "blueprint" && hooks?.buildSubmitScoringAppendTile) continue;
+    bonus += Math.max(
+      0,
+      Math.floor(Number(hooks?.getSubmitScoringWordLetterCountBonus?.({ ...partialCtx, ownedSlotTreasureIds: slots })) || 0),
+    );
+  }
+  return bonus;
+}
+
+test("blueprint 复制弓箭：面具/绵羊 计入 +3 长度", () => {
+  const hooksById = new Map([["145", bowArrowHooks]]);
+  const ctx = { resolvedWord: "bay" };
+  assert.equal(
+    sumWordLetterCountBonusWithHooks(["98", "145", null], hooksById, ctx),
+    BOW_ARROW_LENGTH_BONUS_PER_LETTER * 2,
+  );
+  assert.equal(
+    sumWordLetterCountBonusWithHooks(["105", "145", null], hooksById, ctx),
+    BOW_ARROW_LENGTH_BONUS_PER_LETTER * 2,
+  );
+});
+
+test("blueprint 复制报纸：仍跳过 append 成对的词长加成", () => {
+  const newspaperLikeHooks = {
+    buildSubmitScoringAppendTile: () => ({}),
+    getSubmitScoringWordLetterCountBonus: () => 1,
+  };
+  let blueprintBonus = 0;
+  for (const { treasureId: tid, source } of iterTreasureHookContributions(["98", "140", null])) {
+    if (source !== "blueprint" || tid !== "140") continue;
+    if (newspaperLikeHooks.buildSubmitScoringAppendTile) continue;
+    blueprintBonus += newspaperLikeHooks.getSubmitScoringWordLetterCountBonus();
+  }
+  assert.equal(blueprintBonus, 0);
+});
 
 test("resolvePhysicalTreasureSlotIndex 同 id 多槽用 hook 槽位", () => {
   const slots = ["98", "66", "66"];

@@ -31,6 +31,9 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  isImmuneToVolcanoEruption() {
+    return true;
+  },
   async onSuccessfulWordSubmit(ctx) {
     const grid = ctx.getGrid?.();
     const targets = collectFireworkIgniteTargets(grid);

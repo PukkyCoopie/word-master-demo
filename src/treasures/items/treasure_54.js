@@ -3,17 +3,42 @@ import { isTreasureHookBlueprintMirror } from "../../game/treasureBlueprintMirro
 import { rollProbabilityFailsSkip } from "../treasureProbability.js";
 
 const ID = "54";
-const ERUPTION_PROB_DENOMINATOR = 25;
+const ERUPTION_PROB_DENOMINATOR = 20;
+
+/** @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx */
+function buildVolcanoDescription(ctx) {
+  const erupted = ctx.treasureRun?.volcano54Erupted === true;
+  if (erupted) {
+    return describe(
+      mult("x5"),
+      "倍率",
+      "；",
+      prob("1/20"),
+      "的概率在关卡完成时喷发",
+      { type: "br" },
+      riskText("（已喷发）"),
+    );
+  }
+  return describe(
+    mult("x5"),
+    "倍率",
+    "；",
+    prob("1/20"),
+    "的概率在关卡完成时喷发",
+    { type: "br" },
+    riskBlock("…火焰会吞没", riskText("一切"), "！"),
+  );
+}
 
 /** @type {import('../treasureTypes.js').TreasureDef} */
 export default {
-  price: 10,
+  price: 9,
   rarity: "epic",
   description: describe(
     mult("x5"),
     "倍率",
     "；",
-    prob("1/25"),
+    prob("1/20"),
     "的概率在关卡完成时喷发",
     { type: "br" },
     riskBlock("…火焰会吞没", riskText("一切"), "！"),
@@ -23,6 +48,10 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  replaceDescriptionWithPatch: true,
+  patchDescription(ctx) {
+    return buildVolcanoDescription(ctx);
+  },
   resolveVolcanoEruptionBubble() {
     return { text: "火山喷发！", kind: "volcano-eruption" };
   },
@@ -31,14 +60,18 @@ export const treasureHooks = {
   },
   async onLevelComplete(ctx) {
     if (isTreasureHookBlueprintMirror(ctx)) return;
+    if (ctx.treasureRun?.volcano54Erupted) return;
     const rng = ctx.rng ?? Math.random;
     if (rollProbabilityFailsSkip(1, ERUPTION_PROB_DENOMINATOR, rng, ctx.ownedSlotTreasureIds)) return;
-    if (ctx.treasureRun) ctx.treasureRun.probabilityEffectTriggered = true;
     const volcanoSlotIndex =
       typeof ctx.hookSlotIndex === "number" && ctx.hookSlotIndex >= 0
         ? ctx.hookSlotIndex
         : (ctx.findOwnedTreasureSlotIndex?.(ID) ?? -1);
     if (volcanoSlotIndex < 0) return;
+    if (ctx.treasureRun) {
+      ctx.treasureRun.probabilityEffectTriggered = true;
+      ctx.treasureRun.volcano54Erupted = true;
+    }
     await ctx.playVolcanoEruptionAtSlot?.(volcanoSlotIndex);
   },
 };

@@ -146,6 +146,8 @@ export function registerDevConsole(deps) {
         "  可选第二参 { copyCount: 3, levelIndex: 0 }；URL ?dev=treasureHookFx:59",
         "  __WM_DEV__.startVolcanoKiteDevTest() — 进关后：[风筝×2][火山][风筝×2]",
         "  或 URL ?dev=volcanoKite 新开一局自动启用",
+        "  __WM_DEV__.startVolcanoCometDevTest() — 进关后：[火花][彗星×5][火山][风筝][火苗]（超 6 栏带裁剪），顶行 cat、目标分 1，喷发 100%",
+        "  或 URL ?dev=volcanoComet 新开一局自动启用",
         "  __WM_DEV__.randomizeGridTileMaterials() — 局内：为棋盘无材质格各随机加一种材质",
         "  __WM_DEV__.grantRandomOwnedTreasures(10) — 局内授予 N 个不重复随机宝藏（槽位满时自动加裁剪配饰扩栏）",
         "  __WM_DEV__.debugSetScoreCardValues(123, 456) — 顶栏两分数框测试展示（至少得分, 关卡得分）",
@@ -232,6 +234,11 @@ export function registerDevConsole(deps) {
     startVolcanoKiteDevTest: () => {
       console.warn(
         "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startVolcanoKiteDevTest()。",
+      );
+    },
+    startVolcanoCometDevTest: () => {
+      console.warn(
+        "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startVolcanoCometDevTest()。",
       );
     },
     startNoSellGoldBombCometDevTest: () => {

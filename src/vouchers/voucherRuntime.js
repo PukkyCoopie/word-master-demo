@@ -1,4 +1,5 @@
 import { LEVELS } from "../levelDefinitions.js";
+import { getLengthUpgradeLookupKey, normalizeJudgedWordLength } from "../game/wordLengthBalance.js";
 import { canAffordWallet } from "../treasures/treasureWalletFloor.js";
 import { VOUCHERS_BY_ID } from "./voucherDefinitions.js";
 
@@ -145,15 +146,14 @@ export function getWordLengthJudgmentBonus(owned) {
 }
 
 /**
- * 与 `getLengthMultiplier` 内对词长的 clamp 一致：用于「实际字母数 + 判定加成」后的等效词长。
+ * 与 `getLengthMultiplier` 内对词长的处理一致：用于「实际字母数 + 判定加成」后的等效词长（下限 3，可超过 16）。
  * @param {number} wordLetterCount 单词实际字母数（`Qu` 块计 2，非棋盘格数）
  * @param {number} judgmentBonus 优惠券等给出的非负整数加成
  */
 export function getLengthTableLenFromTileCountAndBonus(wordLetterCount, judgmentBonus) {
   const t = Math.max(0, Math.round(Number(wordLetterCount)) || 0);
   const b = Math.floor(Number(judgmentBonus) || 0);
-  const L = t + b;
-  return L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
+  return normalizeJudgedWordLength(t + b);
 }
 
 /**
@@ -253,18 +253,42 @@ export function getMostPlayedWordLength(spellCountsByLength) {
 }
 
 /**
+ * 望远镜：最常拼写判定词长映射到商店可升级槽位（3–16）。
+ * 判定词长 > 16 时归入 16 槽位（对应「11+字母」升级组）。
+ * @param {number} judgedLen
+ * @returns {number} 0 表示无效
+ */
+export function getTelescopeLengthUpgradeSlot(judgedLen) {
+  const raw = Math.max(0, Math.round(Number(judgedLen)) || 0);
+  if (raw < 3) return 0;
+  return getLengthUpgradeLookupKey(normalizeJudgedWordLength(raw));
+}
+
+/**
  * 望远镜二级：本次升级是否对该词长应用 1.5 倍升级步（分数/倍率增量向下取整）。
  * @param {Iterable<string>} owned
- * @param {number} len 3–16
+ * @param {number} len 判定词长（可超过 16）
  * @param {Record<string, number> | null | undefined} spellCountsByLength
  */
 export function isLengthObservatoryBoosted(owned, len, spellCountsByLength) {
   if (!hasObservatoryVoucher(owned)) return false;
-  const most = getMostPlayedWordLength(spellCountsByLength);
-  if (most < 3) return false;
-  const L = Math.max(0, Math.round(Number(len)) || 0);
-  const clamped = L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
-  return clamped === most;
+  const mostSlot = getTelescopeLengthUpgradeSlot(getMostPlayedWordLength(spellCountsByLength));
+  if (mostSlot < 3) return false;
+  const slot = getTelescopeLengthUpgradeSlot(len);
+  return slot >= 3 && slot === mostSlot;
+}
+
+/**
+ * 望远镜一级：最常拼写长度对应的商店词长升级组 key（如 `len11_plus`）。
+ * @param {number} mostPlayedLen
+ * @param {readonly { key: string, minLen: number, maxLen: number }[]} lengthGroups
+ * @returns {string | null}
+ */
+export function resolveTelescopeLengthUpgradeGroupKey(mostPlayedLen, lengthGroups) {
+  const slotLen = getTelescopeLengthUpgradeSlot(mostPlayedLen);
+  if (slotLen < 3) return null;
+  const g = lengthGroups.find((x) => slotLen >= x.minLen && slotLen <= x.maxLen);
+  return g?.key ?? null;
 }
 
 /** @param {string} levelId 如 "3-1" */

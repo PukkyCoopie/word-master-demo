@@ -1,5 +1,5 @@
 import { computed, ref, shallowRef, watch, nextTick } from "vue";
-import gsap from "gsap";
+import { killGsapAndRemoveTransform, killGsapAndRemoveTransformBatch } from "../../game/domGsapCleanup.js";
 import { useTileDrag, buildInsertDragPreviewSlots } from "../../composables/useTileDrag.js";
 import { useWordSlotFly, MIDDLE_MAX_W, SLOT_TILE_W } from "../../composables/useWordSlotFly.js";
 import { createPlayfieldGridRender } from "../../game/playfieldGridRender.js";
@@ -191,23 +191,34 @@ function getGridTileElByIndex(index) {
  * @param {HTMLElement | null | undefined} el
  */
 function clearGridTileGsapAfterDrop(el) {
-  if (!el) return;
-  gsap.killTweensOf(el);
-  gsap.set(el, { clearProps: "opacity,transform" });
+  killGsapAndRemoveTransform(el, { removeOpacity: true });
 }
 
 /**
- * 提交离场动画结束后清掉 GSAP 写在 `.word-slot-tile` 上的 opacity/transform。
+ * 提交离场后复位词槽 GSAP 行内样式（补牌阶段词槽仍由 updateSlotPositions 托管，仅 kill + 去 inline）。
  * @param {HTMLElement | null | undefined} el
  */
-function clearWordSlotGsapAfterSubmitLeave(el) {
-  if (!el) return;
-  gsap.killTweensOf(el);
-  gsap.set(el, { clearProps: "opacity,transform,y,scale" });
-  const inner = el.querySelector(".word-slot-content");
+function resetWordSlotGsapAfterSubmitLeave(el) {
+  killGsapAndRemoveTransform(el, { removeOpacity: true });
+  const inner = el?.querySelector?.(".word-slot-content");
   if (inner instanceof HTMLElement) {
-    gsap.killTweensOf(inner);
-    gsap.set(inner, { clearProps: "opacity,transform,y,scale" });
+    killGsapAndRemoveTransform(inner, { removeOpacity: true });
+  }
+}
+
+/** @param {HTMLElement | null | undefined} el */
+function clearWordSlotGsapAfterSubmitLeave(el) {
+  resetWordSlotGsapAfterSubmitLeave(el);
+}
+
+/** @param {readonly (HTMLElement | null | undefined)[]} slotEls */
+function clearWordSlotsGsapAfterSubmitLeave(slotEls) {
+  killGsapAndRemoveTransformBatch(slotEls, { removeOpacity: true });
+  for (const el of slotEls) {
+    const inner = el?.querySelector?.(".word-slot-content");
+    if (inner instanceof HTMLElement) {
+      killGsapAndRemoveTransform(inner, { removeOpacity: true });
+    }
   }
 }
 
@@ -1558,6 +1569,7 @@ function disposeSlotRaf() {
     endWordSlotMaterialAnim,
     clearGridTileGsapAfterDrop,
     clearWordSlotGsapAfterSubmitLeave,
+    clearWordSlotsGsapAfterSubmitLeave,
     beginSubmitWordLeaveHide,
     endSubmitWordLeaveHide,
     onWordSlotsLayoutResize,

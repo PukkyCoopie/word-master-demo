@@ -13,6 +13,19 @@ test("火山喷发：除火山槽外非空宝藏均纳入动画受害者（含�
   assert.deepEqual(resolveVolcanoTreasureVictimIndices(slots, 1), [0, 2, 3]);
 });
 
+test("火山喷发：isTreasureImmune 回调可排除免疫槽位（火苗、火花）", () => {
+  const slots = [
+    { treasureId: "129" },
+    { treasureId: "54" },
+    { treasureId: "1" },
+    { treasureId: "2", treasureAccessoryIds: ["treasure_acc_fire"] },
+    { treasureId: "3" },
+  ];
+  const immuneIds = new Set(["129", "1"]);
+  const isImmune = (_ix, slot) => immuneIds.has(String(slot?.treasureId ?? ""));
+  assert.deepEqual(resolveVolcanoTreasureVictimIndices(slots, 1, isImmune), [3, 4]);
+});
+
 test("gridTileHasMaterial：无材质 / wildcard / 有材质", () => {
   assert.equal(gridTileHasMaterial({ letter: "A" }), false);
   assert.equal(gridTileHasMaterial({ letter: "A", materialId: "fire" }), true);

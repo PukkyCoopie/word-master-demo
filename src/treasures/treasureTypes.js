@@ -296,6 +296,7 @@
  * @property {() => number} [getWalletFloor] 本局钱包可降至的最低余额（默认 0；如信用卡为 -20）
  * @property {() => { text?: string, kind?: string } | null | undefined} [resolveSelfDestructBubble] 自毁移除时气泡文案与样式 kind（默认「摧毁！」/`destroy`）
  * @property {() => { text?: string, kind?: string } | null | undefined} [resolveVolcanoEruptionBubble] 火山喷发时气泡文案与样式
+ * @property {() => boolean} [isImmuneToVolcanoEruption] 火山喷发时不被摧毁、不进入摧毁动画队列（如火苗、火花）
  */
 
 /**

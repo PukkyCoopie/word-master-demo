@@ -9,6 +9,9 @@ export default {
 
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
+  isImmuneToVolcanoEruption() {
+    return true;
+  },
   buildPostLetterStep() {
     return { multAdd: 4 };
   },

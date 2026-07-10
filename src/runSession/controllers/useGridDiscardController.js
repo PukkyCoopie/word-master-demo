@@ -572,7 +572,6 @@ export function useGridDiscardController(options) {
       await sleep(ACTION_COUNT_DELTA_BEAT_MS);
 
       const prevFlip = {
-        rects: gridDropAnim.captureGridRectsByTileId(),
         cells: snapshotGridCellsByTileId(),
       };
 

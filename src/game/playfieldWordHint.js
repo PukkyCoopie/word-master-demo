@@ -206,6 +206,8 @@ export function createPlayfieldWordHint(deps) {
   function refreshWordHintAfterGridStable() {
     hintAppliedViaButton.value = false;
     hintAppliedWord.value = null;
+    // 计分动画未结束前 hint 已由 notifyWordSubmitStarted 清空；此时 pick 结果不会展示，跳过昂贵字典扫描
+    if (scoringAnimating.value) return;
     hintSubmitLatch.value = false;
 
     if (!dictionaryReady.value || dictFatalError.value) {

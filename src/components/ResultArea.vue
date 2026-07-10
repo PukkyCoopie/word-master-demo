@@ -144,11 +144,6 @@ onMounted(() => {
   }
 });
 
-watch(
-  () => props.showTotalBar,
-  () => scheduleLayoutSync(),
-);
-
 onUnmounted(() => {
   layoutObserver?.disconnect();
   layoutObserver = null;

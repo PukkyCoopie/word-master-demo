@@ -25,6 +25,23 @@ export const GRID_FLIP_DURATION = 0.46;
  */
 
 /**
+ * @param {{ row: number, col: number }} prevCell
+ * @param {number} row
+ * @param {number} col
+ * @param {number} stepX
+ * @param {number} stepY
+ */
+function computeFlipDeltaFromCells(prevCell, row, col, stepX, stepY) {
+  if (prevCell.row === row && prevCell.col === col) {
+    return { dx: 0, dy: 0 };
+  }
+  return {
+    dx: (prevCell.col - col) * stepX,
+    dy: (prevCell.row - row) * stepY,
+  };
+}
+
+/**
  * 棋盘补牌/首次入场 GSAP 下落与 FLIP（无 Vue；DOM 经 getter 注入）。
  *
  * @param {GridDropAnimDeps} deps
@@ -41,6 +58,13 @@ export function createGridDropAnim(deps) {
     getPlayableTopRow = () => 0,
     gsapLib = gsap,
   } = deps;
+
+  /** @type {{ y: number, x: number } | null} */
+  let gridStepCache = null;
+
+  function invalidateGridTileStepCache() {
+    gridStepCache = null;
+  }
 
   function resolvePlayableTopRow() {
     const top = Math.floor(Number(getPlayableTopRow()) || 0);
@@ -90,37 +114,44 @@ export function createGridDropAnim(deps) {
   }
 
   function measureGridTileStepY() {
+    if (gridStepCache && gridStepCache.y > 0) return gridStepCache.y;
     const topRow = resolvePlayableTopRow();
     const i0 = topRow * COLS;
     const i1 = i0 + COLS;
     const e0 = getGridTileElByIndex(i0);
     const e1 = getGridTileElByIndex(i1);
+    let stepY = 72;
     if (e0 && e1) {
       const dy = e1.getBoundingClientRect().top - e0.getBoundingClientRect().top;
-      return Math.max(48, dy);
+      stepY = Math.max(48, dy);
     }
-    return 72;
+    gridStepCache = { y: stepY, x: gridStepCache?.x ?? 0 };
+    return stepY;
   }
 
   function measureGridTileStepX() {
+    if (gridStepCache && gridStepCache.x > 0) return gridStepCache.x;
     const e0 = getGridTileElByIndex(0);
     const e1 = getGridTileElByIndex(1);
+    let stepX = 0;
     if (e0 && e1) {
       const dx = e1.getBoundingClientRect().left - e0.getBoundingClientRect().left;
-      return Math.max(48, Math.abs(dx));
+      stepX = Math.max(48, Math.abs(dx));
+    } else {
+      stepX = measureGridTileStepY();
     }
-    return measureGridTileStepY();
+    gridStepCache = { y: gridStepCache?.y ?? 0, x: stepX };
+    return stepX;
   }
 
   /**
    * initial：首次入场，最下一排 tile 先落，再往上逐排。
    * 补牌：新格同上；同 id FLIP 也按排从下到上依次动。
-   * @param {{ rects: Map<string, DOMRect>, cells: Map<string, { row: number, col: number }> } | null} prevFlip 补牌前快照；initial 时为 null
+   * @param {{ rects?: Map<string, DOMRect> | null, cells: Map<string, { row: number, col: number }> } | null} prevFlip 补牌前快照；initial 时为 null
    * @param {{ initial?: boolean }} [options]
    */
   function runGridDropAnimation(prevFlip, options = {}) {
     const isInitial = options.initial === true;
-    const prevRectMap = !isInitial && prevFlip?.rects ? prevFlip.rects : null;
     const prevCellMap = !isInitial && prevFlip?.cells ? prevFlip.cells : null;
     return new Promise((resolve) => {
       let settled = false;
@@ -142,9 +173,8 @@ export function createGridDropAnim(deps) {
         const stepX = measureGridTileStepX();
         let pending = 0;
         let completed = 0;
-        const tickOne = (el, opts = {}) => {
+        const tickOne = (_el, opts = {}) => {
           if (opts.landHaptic) triggerHaptic("land");
-          clearGridTileGsapAfterDrop(el);
           if (settled) return;
           if (++completed >= pending) settleOnce();
         };
@@ -157,6 +187,10 @@ export function createGridDropAnim(deps) {
           settleOnce();
         }, Math.max(1200, watchdogMs));
         const grid = getGrid();
+        const dDrop = GRID_DROP_DURATION;
+        const dFlip = GRID_FLIP_DURATION;
+        /** @type {Array<() => void>} */
+        const startAnimJobs = [];
         for (let i = 0; i < ROWS * COLS; i++) {
           const row = Math.floor(i / COLS);
           const col = i % COLS;
@@ -167,72 +201,80 @@ export function createGridDropAnim(deps) {
           pending++;
           const tid = tile?.id != null && tile.id !== "" ? String(tile.id) : "";
           const stagger = gridTileEntranceDelay(row, col);
-          gsapLib.killTweensOf(el);
-          gsapLib.set(el, { x: 0, scale: 1, force3D: true });
-          const dDrop = GRID_DROP_DURATION;
-          const dFlip = GRID_FLIP_DURATION;
           const flipDelay = gridTileEntranceDelay(row, col, 0.65);
 
           if (isInitial) {
-            gsapLib
-              .timeline({ delay: stagger, onComplete: () => tickOne(el, { landHaptic: true }) })
-              .to(el, { y: 0, duration: dDrop, ease: EASE_GRID_GRAVITY_Y }, 0);
+            startAnimJobs.push(() => {
+              gsapLib.killTweensOf(el);
+              gsapLib.to(el, {
+                y: 0,
+                duration: dDrop,
+                delay: stagger,
+                ease: EASE_GRID_GRAVITY_Y,
+                onComplete: () => tickOne(el, { landHaptic: true }),
+              });
+            });
           } else if (tid && prevCellMap?.has(tid)) {
             const pCell = prevCellMap.get(tid);
-            const movedCell = pCell.row !== row || pCell.col !== col;
-            let dx = 0;
-            let dy = 0;
-            if (prevRectMap?.has(tid)) {
-              const prev = prevRectMap.get(tid);
-              const last = el.getBoundingClientRect();
-              dx = prev.left - last.left;
-              dy = prev.top - last.top;
-            }
-            const rectSignificant = Math.abs(dx) >= 0.5 || Math.abs(dy) >= 0.5;
-            if (!rectSignificant && movedCell) {
-              dx = -(col - pCell.col) * stepX;
-              dy = -(row - pCell.row) * stepY;
-            }
-            if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
-              gsapLib.set(el, { x: 0, y: 0 });
-              tickOne(el);
-            } else {
-              gsapLib.set(el, { x: dx, y: dy, force3D: true });
+            const { dx, dy } = computeFlipDeltaFromCells(pCell, row, col, stepX, stepY);
+            startAnimJobs.push(() => {
+              gsapLib.killTweensOf(el);
+              if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+                tickOne(el);
+                return;
+              }
               const gravityDom = Math.abs(dy) >= Math.abs(dx) && Math.abs(dy) > 1.5;
               if (gravityDom) {
                 gsapLib
                   .timeline({ delay: flipDelay, onComplete: () => tickOne(el, { landHaptic: true }) })
-                  .to(el, { x: 0, duration: dFlip, ease: EASE_GRID_LINEAR }, 0)
+                  .fromTo(
+                    el,
+                    { x: dx, y: dy, force3D: true, immediateRender: true },
+                    { x: 0, duration: dFlip, ease: EASE_GRID_LINEAR },
+                    0,
+                  )
                   .to(el, { y: 0, duration: dFlip, ease: EASE_GRID_GRAVITY_Y }, 0);
               } else {
-                gsapLib.to(el, {
-                  x: 0,
-                  y: 0,
-                  duration: dFlip,
-                  delay: flipDelay,
-                  ease: EASE_TRANSFORM,
-                  onComplete: () => tickOne(el, { landHaptic: true }),
-                });
+                gsapLib.fromTo(
+                  el,
+                  { x: dx, y: dy, force3D: true, immediateRender: true },
+                  {
+                    x: 0,
+                    y: 0,
+                    duration: dFlip,
+                    delay: flipDelay,
+                    ease: EASE_TRANSFORM,
+                    onComplete: () => tickOne(el, { landHaptic: true }),
+                  },
+                );
               }
-            }
+            });
           } else {
             const dropOffsetRows = gridRefillNewTileDropOffsetRows(row, col);
             const y0 = -dropOffsetRows * stepY;
             const dropFromAboveGrid = isGridDropFromAboveGrid(dropOffsetRows, row);
-            gsapLib.set(el, {
-              x: 0,
-              y: y0,
-              ...(dropFromAboveGrid ? { opacity: 0.55 } : {}),
-            });
-            const dropTl = gsapLib.timeline({
+            /** @type {gsap.TweenVars} */
+            const fromVars = { x: 0, y: y0, force3D: true, immediateRender: true };
+            /** @type {gsap.TweenVars} */
+            const toVars = {
+              y: 0,
+              duration: dDrop,
               delay: stagger,
+              ease: EASE_GRID_GRAVITY_Y,
               onComplete: () => tickOne(el, { landHaptic: true }),
-            });
-            dropTl.to(el, { y: 0, duration: dDrop, ease: EASE_GRID_GRAVITY_Y }, 0);
+            };
             if (dropFromAboveGrid) {
-              dropTl.to(el, { opacity: 1, duration: dDrop, ease: EASE_GRID_LINEAR }, 0);
+              fromVars.opacity = 0.55;
+              toVars.opacity = 1;
             }
+            startAnimJobs.push(() => {
+              gsapLib.killTweensOf(el);
+              gsapLib.fromTo(el, fromVars, toVars);
+            });
           }
+        }
+        for (const start of startAnimJobs) {
+          start();
         }
         if (pending === 0) {
           settleOnce();
@@ -252,6 +294,7 @@ export function createGridDropAnim(deps) {
     captureGridRectsByTileId,
     measureGridTileStepY,
     measureGridTileStepX,
+    invalidateGridTileStepCache,
     gridRefillNewTileDropOffsetRows,
     gridIntroDropOffsetRows,
     gridTileEntranceDelay,

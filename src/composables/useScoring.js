@@ -13,6 +13,24 @@ import {
 import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { resolveScoringLetterRarity } from "../game/treasureRarityTierMerge.js";
 import { multiplyScoreRound } from "../utils/scoreInteger.js";
+import {
+  WORD_LENGTH_BALANCE,
+  WORD_LENGTH_TABLE_MAX,
+  WORD_LENGTH_TABLE_MIN,
+  getLengthBalanceBaseMult,
+  getLengthBalanceBaseScore,
+  getLengthUpgradeLookupKey,
+  normalizeJudgedWordLength,
+} from "../game/wordLengthBalance.js";
+
+export {
+  WORD_LENGTH_BALANCE,
+  WORD_LENGTH_TABLE_MAX,
+  WORD_LENGTH_TABLE_MIN,
+  normalizeJudgedWordLength,
+  getLengthUpgradeLookupKey,
+  resolveLengthUpgradeLen,
+} from "../game/wordLengthBalance.js";
 
 export const RARITY_BY_LETTER = {
 
@@ -84,29 +102,7 @@ function getLevelForLetterRarity(rarity, rarityLevelsByRarity) {
  */
 export const BASE_SCORE_PER_LETTER = 3;
 
-/**
- * 统一长度平衡常量（3~16）：
- * - base: [基础分, 基础倍率]
- * - upgrade: [每升一级增加的分数, 每升一级增加的倍率]
- */
-export const WORD_LENGTH_BALANCE = {
-  3: { base: [5, 4], upgrade: [4, 3] },
-  4: { base: [6, 5], upgrade: [4, 4] },
-  5: { base: [7, 6], upgrade: [5, 4] },
-  6: { base: [8, 7], upgrade: [5, 5] },
-  7: { base: [10, 9], upgrade: [6, 5] },
-  8: { base: [12, 12], upgrade: [6, 6] },
-  9: { base: [15, 15], upgrade: [8, 8] },
-  10: { base: [20, 18], upgrade: [10, 9] },
-  11: { base: [27, 21], upgrade: [13, 11] },
-  12: { base: [36, 25], upgrade: [18, 13] },
-  13: { base: [48, 30], upgrade: [24, 15] },
-  14: { base: [64, 42], upgrade: [32, 21] },
-  15: { base: [84, 60], upgrade: [42, 30] },
-  16: { base: [120, 80], upgrade: [60, 40] },
-};
-
-/** 单词实际字母数 → 每个字母的基础分（不含稀有度加成） */
+/** 单词实际字母数 → 每个字母的基础分（不含稀有度加成，仅表内 3–16） */
 const BASE_SCORE_PER_LETTER_BY_LENGTH = Object.fromEntries(
   Object.entries(WORD_LENGTH_BALANCE).map(([len, cfg]) => [len, Number(cfg.base?.[0]) || 0]),
 );
@@ -127,24 +123,28 @@ const DEFAULT_BASE_PER_LETTER = 3;
 const DEFAULT_WORD_LEVEL = 1;
 
 /**
- * @param {number} len 单词实际字母数（3–16；Qu 块计 2 字母）
+ * @param {number} len 判定词长（Qu 块计 2 字母）；>16 时读长度 16 的等级
  */
 function getLevelForWordLength(len, lengthLevelsByLength) {
   if (!lengthLevelsByLength || typeof lengthLevelsByLength !== "object") return DEFAULT_WORD_LEVEL;
-  return Math.max(DEFAULT_WORD_LEVEL, Math.round(Number(lengthLevelsByLength[len])) || DEFAULT_WORD_LEVEL);
+  const lookupLen = getLengthUpgradeLookupKey(len);
+  return Math.max(
+    DEFAULT_WORD_LEVEL,
+    Math.round(Number(lengthLevelsByLength[lookupLen])) || DEFAULT_WORD_LEVEL,
+  );
 }
 
 function cumulativeUpgradeForLength(len, level, upgradeIndex) {
-  const L = Math.max(3, Math.min(16, Math.round(Number(len)) || 3));
+  const lookupLen = getLengthUpgradeLookupKey(len);
   const lv = Math.max(DEFAULT_WORD_LEVEL, Math.round(Number(level)) || DEFAULT_WORD_LEVEL);
-  const perLevelAdd = Number(WORD_LENGTH_BALANCE[L]?.upgrade?.[upgradeIndex]) || 0;
+  const perLevelAdd = Number(WORD_LENGTH_BALANCE[lookupLen]?.upgrade?.[upgradeIndex]) || 0;
   return Math.max(0, lv - 1) * perLevelAdd;
 }
 
 /** @param {Record<number, { score?: number, mult?: number }> | null | undefined} extra */
 function observatoryExtraForLen(extra, len) {
   if (!extra || typeof extra !== "object") return { score: 0, mult: 0 };
-  const row = extra[len];
+  const row = extra[getLengthUpgradeLookupKey(len)];
   if (!row || typeof row !== "object") return { score: 0, mult: 0 };
   return {
     score: Math.max(0, Math.floor(Number(row.score) || 0)),
@@ -152,11 +152,10 @@ function observatoryExtraForLen(extra, len) {
   };
 }
 
-/** @param {number} len 3–16 */
+/** @param {number} len 3–16（升级槽位；>16 时按 16） */
 export function getLengthUpgradeStepAdds(len) {
-  const L = Math.max(0, Math.round(Number(len)) || 0);
-  const clamped = L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
-  const u = WORD_LENGTH_BALANCE[clamped]?.upgrade;
+  const lookupLen = getLengthUpgradeLookupKey(normalizeJudgedWordLength(len));
+  const u = WORD_LENGTH_BALANCE[lookupLen]?.upgrade;
   return {
     scoreAdd: Math.max(0, Math.floor(Number(u?.[0]) || 1)),
     multAdd: Math.max(0, Math.floor(Number(u?.[1]) || 1)),
@@ -177,29 +176,27 @@ export function getBaseScorePerLetterForWordLength(
   lengthLevelsByLength = null,
   lengthUpgradeObservatoryExtra = null,
 ) {
-  const L = Math.max(0, Math.round(Number(len)) || 0);
-  const clamped = L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
-  const base = BASE_SCORE_PER_LETTER_BY_LENGTH[clamped] ?? DEFAULT_BASE_PER_LETTER;
-  const level = getLevelForWordLength(clamped, lengthLevelsByLength);
-  const obs = observatoryExtraForLen(lengthUpgradeObservatoryExtra, clamped);
-  return base + cumulativeUpgradeForLength(clamped, level, 0) + obs.score;
+  const L = normalizeJudgedWordLength(len);
+  const base =
+    L <= WORD_LENGTH_TABLE_MAX
+      ? (BASE_SCORE_PER_LETTER_BY_LENGTH[L] ?? DEFAULT_BASE_PER_LETTER)
+      : getLengthBalanceBaseScore(L);
+  const level = getLevelForWordLength(L, lengthLevelsByLength);
+  const obs = observatoryExtraForLen(lengthUpgradeObservatoryExtra, L);
+  return base + cumulativeUpgradeForLength(L, level, 0) + obs.score;
 }
 
 /**
  * 词长分数段：查表每字基础 × **判定词长**（含画笔等；与棋盘格数可不同）。
- * @param {number} judgedLen 等效词长（已 clamp 的 3–16）
+ * @param {number} judgedLen 等效词长（下限 3；可超过 16）
  */
 export function getWordLengthScoreForTableLen(
   judgedLen,
   lengthLevelsByLength = null,
   lengthUpgradeObservatoryExtra = null,
 ) {
-  const L = Math.max(0, Math.round(Number(judgedLen)) || 0);
-  const clamped = L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
-  return (
-    clamped *
-    getBaseScorePerLetterForWordLength(clamped, lengthLevelsByLength, lengthUpgradeObservatoryExtra)
-  );
+  const L = normalizeJudgedWordLength(judgedLen);
+  return L * getBaseScorePerLetterForWordLength(L, lengthLevelsByLength, lengthUpgradeObservatoryExtra);
 }
 
 /** 与 {@link getBaseScorePerLetterForWordLength} 相同，供新代码引用 */
@@ -373,12 +370,14 @@ export function getLengthMultiplier(
   lengthLevelsByLength = null,
   lengthUpgradeObservatoryExtra = null,
 ) {
-  const L = Math.max(0, Math.round(Number(len)) || 0);
-  const clamped = L <= 0 ? 3 : L < 3 ? 3 : L > 16 ? 16 : L;
-  const base = LENGTH_MULTIPLIER[clamped] ?? DEFAULT_LENGTH_MULT;
-  const level = getLevelForWordLength(clamped, lengthLevelsByLength);
-  const obs = observatoryExtraForLen(lengthUpgradeObservatoryExtra, clamped);
-  return base + cumulativeUpgradeForLength(clamped, level, 1) + obs.mult;
+  const L = normalizeJudgedWordLength(len);
+  const base =
+    L <= WORD_LENGTH_TABLE_MAX
+      ? (LENGTH_MULTIPLIER[L] ?? DEFAULT_LENGTH_MULT)
+      : getLengthBalanceBaseMult(L);
+  const level = getLevelForWordLength(L, lengthLevelsByLength);
+  const obs = observatoryExtraForLen(lengthUpgradeObservatoryExtra, L);
+  return base + cumulativeUpgradeForLength(L, level, 1) + obs.mult;
 }
 
 
@@ -409,8 +408,7 @@ export function computeWordScoreDetailed(
       ? Math.max(0, Math.round(Number(opts.wordLetterCount)))
       : getWordLetterCount(tiles, opts?.resolvedWord);
   const jb = Math.floor(Number(lengthJudgmentBonus) || 0);
-  const rawLen = wordLetterCount + jb;
-  const len = rawLen <= 0 ? 3 : rawLen < 3 ? 3 : rawLen > 16 ? 16 : rawLen;
+  const len = normalizeJudgedWordLength(wordLetterCount + jb);
 
   const lm = Math.max(0, Number(lengthMultFactor) || 1);
   const lengthUpgradeExtra = opts?.lengthUpgradeObservatoryExtra ?? null;
@@ -519,7 +517,7 @@ export function computeWordScoreDetailed(
 
     finalScore,
 
-    /** 用于长度倍率与每字基础分的等效词长（已 clamp）；`letterParts.length` 仍为棋盘格数 */
+    /** 用于长度倍率与每字基础分的等效词长（下限 3，可超过 16）；`letterParts.length` 仍为棋盘格数 */
     lengthTableLen: len,
 
     lengthJudgmentBonus: jb,

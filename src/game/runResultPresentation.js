@@ -28,12 +28,15 @@ export function formatMultDisplay(m) {
  * @param {readonly unknown[]} p.tiles
  * @param {string | null} p.resolvedWord
  * @param {(tiles: readonly unknown[], word: string | null) => number} p.getWordLetterCount
- * @param {(n: number) => number} p.judgedLengthTableLenForRun
+ * @param {(n: number, partialCtx?: { tiles?: readonly unknown[], resolvedWord?: string | null }) => number} p.judgedLengthTableLenForRun
  */
 export function computeResultAreaJudgedWordLength(p) {
   const n = p.getWordLetterCount(p.tiles, p.resolvedWord);
   if (n < 1) return 0;
-  return p.judgedLengthTableLenForRun(n);
+  return p.judgedLengthTableLenForRun(n, {
+    tiles: p.tiles,
+    resolvedWord: p.resolvedWord,
+  });
 }
 
 /**

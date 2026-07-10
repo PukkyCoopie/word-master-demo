@@ -149,6 +149,7 @@ export function buildGamePanelDevCommandsOptions(d) {
       pagerDevScenarioActive: d.pagerDevScenarioActive,
       ectoplasmDevScenarioActive: d.ectoplasmDevScenarioActive,
       noSellGoldBombCometDevScenarioActive: d.noSellGoldBombCometDevScenarioActive,
+      volcanoCometDevScenarioActive: d.volcanoCometDevScenarioActive,
       mouthQuProblemDevScenarioActive: d.mouthQuProblemDevScenarioActive,
       mouthTiaTeaDevScenarioActive: d.mouthTiaTeaDevScenarioActive,
       promoScreenshotDevPresetActive: d.promoScreenshotDevPresetActive,

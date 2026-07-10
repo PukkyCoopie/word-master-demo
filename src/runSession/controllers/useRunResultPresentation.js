@@ -1,6 +1,7 @@
-import { computed, ref, watch, nextTick } from "vue";
+import { computed, ref, watch } from "vue";
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../../constants.js";
+import { getLengthUpgradeLookupKey } from "../../game/wordLengthBalance.js";
 import { scoreIsPositive } from "../../utils/scoreInteger.js";
 import {
   formatResultNum,
@@ -98,7 +99,8 @@ export function useRunResultPresentation(options) {
   );
 
   watch(showResultTotalBar, (show) => {
-    nextTick(() => {
+    /* 与补牌/棋盘 FLIP 错帧，避免总分归零同帧触发公式区 scale + 全屏 layout */
+    requestAnimationFrame(() => {
       const el = getResultFormulaEl();
       if (!el) return;
       gsap.killTweensOf(el);
@@ -155,8 +157,9 @@ export function useRunResultPresentation(options) {
     if (inRunGrantUpgradeFxActive.value) return inRunGrantUpgrade.levelShown.value;
     if (armBossLengthDowngradeFxActive.value) return armBossDowngrade.levelShown.value;
     const len = resultAreaJudgedWordLength.value;
-    if (len < 3 || len > 16) return 1;
-    return Math.max(1, Math.round(Number(options.lengthLevelsByLength.value?.[len])) || 1);
+    const lookupLen = getLengthUpgradeLookupKey(len);
+    if (lookupLen < 3) return 1;
+    return Math.max(1, Math.round(Number(options.lengthLevelsByLength.value?.[lookupLen])) || 1);
   });
 
   const displayFormulaScore = computed(() => {

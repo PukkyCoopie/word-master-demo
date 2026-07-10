@@ -145,7 +145,10 @@ export function useBossMechanicsController(options) {
       options.resolvedWordForSubmit.value,
     );
     if (n < 1) return 0;
-    return options.judgedLengthTableLenForRun(n);
+    return options.judgedLengthTableLenForRun(n, {
+      tiles: options.effectiveFormulaTiles.value,
+      resolvedWord: options.resolvedWordForSubmit.value,
+    });
   });
 
   const softWordViolationPreview = computed(() =>

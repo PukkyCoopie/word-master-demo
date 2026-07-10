@@ -1,4 +1,5 @@
 import { concept, describe, prob } from "../treasureDescription.js";
+import { resolveLengthUpgradeLen } from "../../game/wordLengthBalance.js";
 import { rollProbabilitySuccess } from "../treasureProbability.js";
 import { playTreasureHookBubbleOnlyFx, wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
 
@@ -16,8 +17,8 @@ export const treasureHooks = {
   async onSuccessfulWordSubmit(ctx) {
     const rng = ctx.rng ?? Math.random;
     if (!rollProbabilitySuccess(1, 4, rng, ctx.ownedSlotTreasureIds)) return;
-    const len = Math.max(0, Math.round(Number(ctx.judgedWordLength) || 0));
-    if (len < 3 || len > 16) return;
+    const len = resolveLengthUpgradeLen(ctx.judgedWordLength);
+    if (len == null) return;
     if (ctx.skipSettlementFx === true) {
       const step =
         typeof ctx.buildInRunLengthUpgradeStep === "function" ? ctx.buildInRunLengthUpgradeStep(len) : null;

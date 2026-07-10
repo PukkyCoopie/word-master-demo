@@ -56,6 +56,8 @@ assert.equal(subtractScore(30, 100), 0);
 {
   const handScore = 500;
   assert.equal(interpolateScore(handScore, 0, 0), handScore);
+  assert.equal(interpolateScore(handScore, 0, 1), 0);
+  assert.equal(interpolateScore(100, 0, 1), 0);
   assert.ok(scoreLt(interpolateScore(handScore, 0, 1), handScore));
   assert.ok(scoreGt(interpolateScore(handScore, 0, 0.25), interpolateScore(handScore, 0, 0.75)));
 }

@@ -641,6 +641,28 @@ export function useTreasureRunController(options) {
   }
 
   /**
+   * 留空位式摧毁之后：若裁剪配饰减少导致栏位上限变小，将超出段的宝藏移入左侧空位并裁尾。
+   * @param {{ triggerBarCompactAnim?: boolean }} [opts]
+   * @returns {boolean}
+   */
+  function reconcileOwnedTreasureSlotsAfterLeaveGapDestruction(opts = {}) {
+    const slots = [...ownedTreasures.value];
+    const keys = [...gameOwnedKeyOrder.value];
+    const reconciled = reconcileOwnedTreasureSlotsAfterDestruction(
+      slots,
+      keys,
+      treasureSlotCapacityExtra(),
+    );
+    ownedTreasures.value = slots;
+    gameOwnedKeyOrder.value = keys;
+    syncOwnedTreasureSlots();
+    if (reconciled && opts.triggerBarCompactAnim !== false) {
+      hooks.triggerTreasureBarCompactAnim?.();
+    }
+    return reconciled;
+  }
+
+  /**
    * 批量清空槽位但保留空位（炸弹等）；仅当裁剪配饰减少栏位上限时才前移超出段的宝藏。
    * @param {readonly number[]} indices
    * @param {{ triggerBarCompactAnim?: boolean }} [opts]
@@ -662,18 +684,8 @@ export function useTreasureRunController(options) {
     }
     if (!any) return;
 
-    const keys = [...gameOwnedKeyOrder.value];
-    const reconciled = reconcileOwnedTreasureSlotsAfterDestruction(
-      slots,
-      keys,
-      treasureSlotCapacityExtra(),
-    );
     ownedTreasures.value = slots;
-    gameOwnedKeyOrder.value = keys;
-    syncOwnedTreasureSlots();
-    if (reconciled && opts.triggerBarCompactAnim !== false) {
-      hooks.triggerTreasureBarCompactAnim?.();
-    }
+    reconcileOwnedTreasureSlotsAfterLeaveGapDestruction(opts);
   }
 
   function syncAmberBossTreasureLayoutForLevelEnter(incomingMechSlug) {
@@ -1047,6 +1059,7 @@ export function useTreasureRunController(options) {
     removeAndCompactOwnedTreasureAtIndex,
     clearOwnedTreasureSlotLeaveGapAtIndex,
     removeOwnedTreasureSlotsLeaveGapAtIndices,
+    reconcileOwnedTreasureSlotsAfterLeaveGapDestruction,
     notifyBossRestrictionTreasures,
     notifyWordDefinitionOpenAttempt,
     notifyIceBreak,

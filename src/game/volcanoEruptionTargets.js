@@ -34,16 +34,19 @@ export function gridTileHasMaterial(tile) {
 /**
  * @param {readonly (object | null | undefined)[]} ownedSlots
  * @param {number} volcanoSlotIndex
+ * @param {(slotIndex: number, slot: object) => boolean} [isTreasureImmune]
  * @returns {number[]}
  */
-export function resolveVolcanoTreasureVictimIndices(ownedSlots, volcanoSlotIndex) {
+export function resolveVolcanoTreasureVictimIndices(ownedSlots, volcanoSlotIndex, isTreasureImmune) {
   const originIx = Math.floor(Number(volcanoSlotIndex));
   if (!Array.isArray(ownedSlots) || !Number.isFinite(originIx)) return [];
   /** @type {number[]} */
   const victims = [];
   for (let i = 0; i < ownedSlots.length; i += 1) {
     if (i === originIx) continue;
-    if (ownedSlots[i] == null) continue;
+    const slot = ownedSlots[i];
+    if (slot == null) continue;
+    if (isTreasureImmune?.(i, /** @type {object} */ (slot))) continue;
     victims.push(i);
   }
   return victims;

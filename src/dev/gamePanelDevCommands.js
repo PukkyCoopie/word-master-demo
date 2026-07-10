@@ -26,6 +26,11 @@ import {
   SETTLEMENT_SKIP_STRESS_TREASURE_TARGET,
 } from "./settlementSkipStressDevScenario.js";
 import {
+  applyVolcanoCometOwnedTreasures,
+  applyVolcanoCometRunState,
+  formatVolcanoCometDevEruptionChanceLabel,
+} from "./volcanoCometDevScenario.js";
+import {
   applyTreasureHookFxDevOwnedTreasures,
   applyTreasureHookFxDevScenarioState,
   formatTreasureHookFxDevScenarioHelpLines,
@@ -54,6 +59,7 @@ import {
  *     ceruleanBellDevScenarioActive: import('vue').Ref<boolean>,
  *     pagerDevScenarioActive: import('vue').Ref<boolean>,
  *     noSellGoldBombCometDevScenarioActive: import('vue').Ref<boolean>,
+ *     volcanoCometDevScenarioActive: import('vue').Ref<boolean>,
  *     promoScreenshotDevPresetActive: import('vue').Ref<number>,
  *     ownedTreasures: import('vue').Ref<(object | null)[]>,
  *     transitionBusy: import('vue').Ref<boolean>,
@@ -259,6 +265,22 @@ export function createGamePanelDevCommands(deps) {
     await finishScreenshotDevGridVisual();
     console.log(
       "[DEV] 禁售金牌+炸弹+彗星测试局：槽位 [🥇禁售][💣禁售][☄️无禁售]。过关炸弹爆炸时金牌假摧毁、彗星真摧毁。",
+    );
+  }
+
+  async function startVolcanoCometDevTest() {
+    deps.refs.volcanoCometDevScenarioActive.value = true;
+    applyVolcanoCometOwnedTreasures(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
+    applyVolcanoCometRunState({
+      remainingWordsRef: deps.remainingWords,
+      targetScoreRef: deps.targetScore,
+    });
+    const levelDef = deps.getCurrentLevel() ?? deps.getRunLevelAtIndex(deps.refs.levelIndex.value);
+    await deps.resetLevelAfterTreasurePrep(levelDef);
+    await deps.nextTick();
+    await finishScreenshotDevGridVisual();
+    console.log(
+      `[DEV] 火山彗星测试局：槽位 [✨火花][☄️×5][🌋火山][🪁风筝][🔥火苗]（第 7–9 槽带裁剪配饰扩栏）；顶行已铺「cat」、目标分 1。过关喷发概率 ${formatVolcanoCometDevEruptionChanceLabel()}。火花/火苗免疫摧毁。`,
     );
   }
 
@@ -590,6 +612,7 @@ export function createGamePanelDevCommands(deps) {
     dev.startMouthTiaTeaDevTest = () => startMouthTiaTeaDevTest();
     dev.startEctoplasmDevTest = () => startEctoplasmDevTest();
     dev.startNoSellGoldBombCometDevTest = () => startNoSellGoldBombCometDevTest();
+    dev.startVolcanoCometDevTest = () => startVolcanoCometDevTest();
     dev.startTreasureHookFxDevTest = (treasureId, opts) => startTreasureHookFxDevTest(treasureId, opts);
     dev.listTreasureHookFxDevTests = () => listTreasureHookFxDevTests();
     dev.jumpToLevel = (levelIdOrIndex, opts) => jumpToLevelDev(levelIdOrIndex, opts);
@@ -629,6 +652,7 @@ export function createGamePanelDevCommands(deps) {
     startMouthTiaTeaDevTest,
     startEctoplasmDevTest,
     startNoSellGoldBombCometDevTest,
+    startVolcanoCometDevTest,
     startCeruleanBellDevTest,
     startTreasureHookFxDevTest,
     listTreasureHookFxDevTests,
@@ -677,6 +701,15 @@ export function createGamePanelDevCommands(deps) {
     },
     applyNoSellGoldBombCometDevRunStart() {
       applyNoSellGoldBombCometOwnedTreasures(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
+    },
+    applyVolcanoCometDevRunStart() {
+      applyVolcanoCometOwnedTreasures(deps.refs.ownedTreasures, deps.buildOwnedTreasureSlot);
+    },
+    applyVolcanoCometRunStateOnly() {
+      applyVolcanoCometRunState({
+        remainingWordsRef: deps.remainingWords,
+        targetScoreRef: deps.targetScore,
+      });
     },
     debugSetScoreCardValues,
     debugClearScoreCardValues,
