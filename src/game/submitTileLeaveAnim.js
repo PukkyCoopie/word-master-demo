@@ -1,6 +1,6 @@
 import gsap from "gsap";
 import { EASE_TRANSFORM } from "../constants.js";
-import { addMultMulBank } from "../treasures/treasureBankHelpers.js";
+import { addMultMulBank, treasureBankHookCtxFromSubmitSlot } from "../treasures/treasureBankHelpers.js";
 import {
   TREASURE_78_ICE_SHATTER_MULT_BUBBLE,
   TREASURE_78_ICE_SHATTER_MULT_INCREMENT,
@@ -19,6 +19,12 @@ import {
   shouldSkipSubmitTailTreasureFx,
 } from "../settings/settlementAnimSkip.js";
 import { schedulePopupBubbleDismiss } from "./popupBubbleFx.js";
+import {
+  ICE_MATERIAL_SHATTER_PROB_DEN,
+  ICE_MATERIAL_SHATTER_PROB_NUM,
+} from "./iceMaterialScoring.js";
+import { rollProbabilitySuccess } from "../treasures/treasureProbability.js";
+import { resolveWordSlotShrinkPopEl } from "./gridTileIgniteFx.js";
 
 const TOOLBOX_REMOVE_BUBBLE_HOLD_MS = 200;
 const TOOLBOX_REMOVE_SHRINK_S = 0.14;
@@ -26,7 +32,6 @@ const TOOLBOX_REMOVE_LETTER_GAP_MS = 48;
 const TOOLBOX_REMOVE_BEFORE_MONEY_MS = 0;
 const TOOLBOX_REMOVE_BUBBLE_OUTRO_DELAY_S = 0.2;
 const TOOLBOX_REMOVE_BUBBLE_OUTRO_DURATION_S = 0.24;
-const ICE_MATERIAL_SELF_DESTRUCT_CHANCE = 0.25;
 
 /** 海绵擦除：总时长略长于记分气泡入场（0.14s），对齐 wobble+bubble 体感 */
 const SPONGE_ERASE_SHRINK_S = PLUS_BUBBLE_ENTER_DURATION_S * 0.55;
@@ -37,19 +42,21 @@ const SPONGE_ERASE_POP_PEAK = 1.06;
 const SPONGE_ERASE_LETTER_STAGGER_S = 0.04;
 const SPONGE_ERASE_LETTER_GAP_MS = 44;
 
-/** @param {HTMLElement | null | undefined} slotWrapper */
-function resolveWordSlotLeaveAnimEl(slotWrapper) {
-  if (!(slotWrapper instanceof HTMLElement)) return null;
-  const inner = slotWrapper.querySelector(".word-slot-content");
-  return inner instanceof HTMLElement ? inner : slotWrapper;
+/** @param {HTMLElement | null | undefined} gridEl `.grid-tile` 或外包 `.letter-grid-cell` */
+function resolveGridTileLeaveAnimEl(gridEl) {
+  if (!(gridEl instanceof HTMLElement)) return null;
+  if (gridEl.classList.contains("grid-tile")) return gridEl;
+  const tile = gridEl.querySelector(".grid-tile");
+  return tile instanceof HTMLElement ? tile : gridEl;
 }
 
 /**
  * @typedef {Object} SubmitTileLeaveAnimDeps
- * @property {{ treasureRunState: import('vue').Ref<object> }} refs
+ * @property {{ treasureRunState: import('vue').Ref<object>, ownedTreasures: import('vue').Ref<(object | null)[]> }} refs
  * @property {() => HTMLElement[]} getSelectedGridTileElsInOrder
  * @property {() => (HTMLElement | undefined)[]} getWordSlotRefs
  * @property {(treasureId: string) => number} findOwnedTreasureSlotIndex
+ * @property {(treasureId: string) => number[]} findAllOwnedTreasureSlotIndices
  * @property {() => number} runRandom
  * @property {(tile: object) => boolean} isBossTileDebuffed
  * @property {(uid: number, options?: object) => void} removeDeckCardByUidAndNotify
@@ -81,6 +88,7 @@ export function createSubmitTileLeaveAnim(deps) {
     getSelectedGridTileElsInOrder,
     getWordSlotRefs,
     findOwnedTreasureSlotIndex,
+    findAllOwnedTreasureSlotIndices,
     runRandom,
     isBossTileDebuffed,
     removeDeckCardByUidAndNotify,
@@ -100,6 +108,21 @@ export function createSubmitTileLeaveAnim(deps) {
     nextTick,
     gsapLib = gsap,
   } = deps;
+
+  /** 词槽离场/缩放回弹：缩放 `.word-slot-tile` 外包层，并清掉内层残留 transform */
+  /** @param {HTMLElement | null | undefined} slotWrapper */
+  function prepWordSlotLeaveAnimWrapper(slotWrapper) {
+    const animEl = resolveWordSlotShrinkPopEl(slotWrapper);
+    if (!(animEl instanceof HTMLElement)) return null;
+    if (slotWrapper instanceof HTMLElement) {
+      const inner = slotWrapper.querySelector(".word-slot-content");
+      if (inner instanceof HTMLElement) {
+        gsapLib.killTweensOf(inner);
+        gsapLib.set(inner, { clearProps: "scale,rotation,x,y,transform" });
+      }
+    }
+    return animEl;
+  }
 
   /** @param {HTMLElement | null | undefined} el @param {number} [speed] */
   function scheduleToolboxRemoveBubbleOutro(el, speed = 1) {
@@ -126,10 +149,11 @@ export function createSubmitTileLeaveAnim(deps) {
    * @param {number} duration
    */
   function animateToolboxTileShrinkToZero(slotEl, gridEl, duration) {
-    const wordAnimEl = resolveWordSlotLeaveAnimEl(slotEl);
+    const wordAnimEl = prepWordSlotLeaveAnimWrapper(slotEl);
+    const gridAnimEl = resolveGridTileLeaveAnimEl(gridEl);
     return new Promise((resolve) => {
       let done = 0;
-      const need = (wordAnimEl ? 1 : 0) + (gridEl ? 1 : 0);
+      const need = (wordAnimEl ? 1 : 0) + (gridAnimEl ? 1 : 0);
       if (need === 0) {
         resolve();
         return;
@@ -149,21 +173,25 @@ export function createSubmitTileLeaveAnim(deps) {
           ease: EASE_TRANSFORM,
           onStart: fireRemoveHaptic,
           onComplete: () => {
-            gsapLib.set(wordAnimEl, { clearProps: "scale,opacity,transform" });
+            /* 保持离场终态，勿 clearProps；DOM 清空前否则会瞬间弹回正常大小 */
+            gsapLib.set(wordAnimEl, { opacity: 0, scale: 0, transformOrigin: "50% 55%" });
             finish();
           },
         });
       }
-      if (gridEl) {
-        gsapLib.killTweensOf(gridEl);
-        gsapLib.set(gridEl, { transformOrigin: "50% 50%" });
-        gsapLib.to(gridEl, {
+      if (gridAnimEl) {
+        gsapLib.killTweensOf(gridAnimEl);
+        gsapLib.set(gridAnimEl, { transformOrigin: "50% 50%" });
+        gsapLib.to(gridAnimEl, {
           opacity: 0,
           scale: 0,
           duration,
           ease: EASE_TRANSFORM,
           onStart: slotEl ? undefined : fireRemoveHaptic,
-          onComplete: finish,
+          onComplete: () => {
+            gsapLib.set(gridAnimEl, { opacity: 0, scale: 0, transformOrigin: "50% 50%" });
+            finish();
+          },
         });
       }
     });
@@ -171,7 +199,7 @@ export function createSubmitTileLeaveAnim(deps) {
 
   /** @param {HTMLElement | null | undefined} slotEl @param {number} [speed] */
   async function playToolboxRemoveWobbleAndBubble(slotEl, speed = 1) {
-    const wordAnimEl = resolveWordSlotLeaveAnimEl(slotEl);
+    const wordAnimEl = prepWordSlotLeaveAnimWrapper(slotEl);
     if (!wordAnimEl) return;
     const sp = Math.max(0.01, Number(speed) || 1);
     await awaitTreasureSlotWobbleEl(wordAnimEl, sp);
@@ -208,15 +236,47 @@ export function createSubmitTileLeaveAnim(deps) {
   async function runSubmittedIceShatterEffects(tiles) {
     const list = Array.isArray(tiles) ? tiles : [];
     const gridEls = getSelectedGridTileElsInOrder();
-    const snowmanSlotIx = findOwnedTreasureSlotIndex(TREASURE_78_ID);
-    const iceShatterTreasureFxHandled = snowmanSlotIx >= 0;
+    const snowmanSlotIndices = findAllOwnedTreasureSlotIndices(TREASURE_78_ID);
+    const iceShatterTreasureFxHandled = snowmanSlotIndices.length > 0;
+    const ownedInstances = refs.ownedTreasures.value;
+    const ownedSlotIds = ownedInstances.map((s) => s?.treasureId ?? null);
+
+    /** @param {boolean} withBubble */
+    async function applySnowmanIceShatterTreasureFx(withBubble) {
+      if (!iceShatterTreasureFxHandled) return;
+      for (const slotIx of snowmanSlotIndices) {
+        addMultMulBank(
+          refs.treasureRunState.value,
+          TREASURE_78_ID,
+          TREASURE_78_ICE_SHATTER_MULT_INCREMENT,
+          treasureBankHookCtxFromSubmitSlot(ownedInstances, ownedSlotIds, slotIx),
+        );
+        if (withBubble) {
+          await playTreasureSlotBubbleBurstAtPeak(
+            slotIx,
+            TREASURE_78_ICE_SHATTER_MULT_BUBBLE,
+            "mult",
+          );
+        }
+      }
+    }
+
     let shatterCount = 0;
     const skipFx = shouldSkipSettlementTreasureFx();
     let iceShatterHapticCount = 0;
     for (let i = 0; i < list.length; i += 1) {
       const t = list[i];
       if (t?.materialId !== "ice" || isBossTileDebuffed(t)) continue;
-      if (runRandom() >= ICE_MATERIAL_SELF_DESTRUCT_CHANCE) continue;
+      if (
+        !rollProbabilitySuccess(
+          ICE_MATERIAL_SHATTER_PROB_NUM,
+          ICE_MATERIAL_SHATTER_PROB_DEN,
+          runRandom,
+          ownedSlotIds,
+        )
+      ) {
+        continue;
+      }
       shatterCount += 1;
       if (!skipFx && iceShatterHapticCount < 3) {
         triggerHaptic("land");
@@ -224,23 +284,14 @@ export function createSubmitTileLeaveAnim(deps) {
       }
       applyIceShatterStateForTile(t);
       if (skipFx) {
-        if (iceShatterTreasureFxHandled) {
-          addMultMulBank(refs.treasureRunState.value, TREASURE_78_ID, TREASURE_78_ICE_SHATTER_MULT_INCREMENT);
-        }
+        await applySnowmanIceShatterTreasureFx(false);
         await notifyIceBreak({ iceShatterTreasureFxHandled });
         continue;
       }
       const slotEl = getWordSlotRefs()[i];
       const gridEl = gridEls[i];
       await playIceTileShatterWobbleAndBubble(slotEl, gridEl);
-      if (iceShatterTreasureFxHandled) {
-        addMultMulBank(refs.treasureRunState.value, TREASURE_78_ID, TREASURE_78_ICE_SHATTER_MULT_INCREMENT);
-        await playTreasureSlotBubbleBurstAtPeak(
-          snowmanSlotIx,
-          TREASURE_78_ICE_SHATTER_MULT_BUBBLE,
-          "mult",
-        );
-      }
+      await applySnowmanIceShatterTreasureFx(true);
       await notifyIceBreak({ iceShatterTreasureFxHandled });
     }
     return shatterCount;
@@ -351,15 +402,16 @@ export function createSubmitTileLeaveAnim(deps) {
       const i = indices[ki];
       const slotEl = slotEls[i];
       const gridEl = gridEls[i];
-      const wordAnimEl = resolveWordSlotLeaveAnimEl(slotEl);
-      if (!wordAnimEl && !gridEl) {
+      const wordAnimEl = prepWordSlotLeaveAnimWrapper(slotEl);
+      const gridAnimEl = resolveGridTileLeaveAnimEl(gridEl);
+      if (!wordAnimEl && !gridAnimEl) {
         stripAt?.(i);
         continue;
       }
 
       const delay = ki * SPONGE_ERASE_LETTER_STAGGER_S;
       await new Promise((r) => requestAnimationFrame(r));
-      const bubbleAnchor = wordAnimEl ?? slotEl ?? gridEl;
+      const bubbleAnchor = wordAnimEl ?? slotEl ?? gridAnimEl ?? gridEl;
       const bubble = showScoreBubble(bubbleAnchor, "擦除", "sponge-erase", sp);
       let stripped = false;
       const onMidStrip = async () => {
@@ -372,7 +424,7 @@ export function createSubmitTileLeaveAnim(deps) {
 
       await Promise.all([
         animateSpongeErasePop(wordAnimEl, delay, onMidStrip),
-        animateSpongeErasePop(gridEl, delay + 0.015),
+        animateSpongeErasePop(gridAnimEl, delay + 0.015),
       ]);
       scheduleSmallPlusBubbleOutro(bubble, sp);
       if (ki < indices.length - 1) await sleep(SPONGE_ERASE_LETTER_GAP_MS);

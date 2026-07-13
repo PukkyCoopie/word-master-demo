@@ -14,7 +14,7 @@ export default {
 export const treasureHooks = {
   ...patchCurrentBankDescription(ID, "scoreAdd"),
   buildPostLetterStep(ctx) {
-    const v = getScoreAddBank(ctx.treasureRun, ID);
+    const v = getScoreAddBank(ctx.treasureRun, ID, ctx);
     return v !== 0 ? { scoreAdd: v } : null;
   },
   async onSuccessfulWordSubmit(ctx) {

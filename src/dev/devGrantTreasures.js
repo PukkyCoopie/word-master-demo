@@ -39,7 +39,7 @@ export function grantDevOwnedTreasureById(treasureId, deps) {
   });
   deps.setOwnedTreasures(slots);
   deps.noteCollectionTreasureAcquired(def.treasureId);
-  deps.initTreasureBankOnAcquire(def.treasureId, deps.getTreasureRunState());
+  deps.initTreasureBankOnAcquire(def.treasureId, deps.getTreasureRunState(), slots[ix]);
   deps.applyTreasureAcquireImmediateEffectsForRun(def.treasureId);
   return { ok: true, slotIndex: ix, treasureId: tid, usedCrop };
 }

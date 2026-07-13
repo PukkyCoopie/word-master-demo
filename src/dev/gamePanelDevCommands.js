@@ -39,6 +39,13 @@ import {
   TREASURE_HOOK_FX_DEV_COPY_COUNT,
 } from "./treasureHookFxDevScenario.js";
 import {
+  applyPerSlotBankDevOwnedTreasures,
+  applyPerSlotBankDevScenarioState,
+  formatPerSlotBankDevScenarioHelpLines,
+  listPerSlotBankDevScenarios,
+  resolvePerSlotBankDevScenario,
+} from "./perSlotBankDevScenario.js";
+import {
   applyPromoGameplayOwnedTreasures,
   buildPromoSuperPackPickSession,
   logLongestValidWordsOnGrid,
@@ -49,6 +56,13 @@ import {
   isValidDevBossJumpSlug,
   resolveDevBossShopJumpTarget,
 } from "./devBossShopJump.js";
+import {
+  applyWordToTopRow,
+  autoSelectTopRowWord,
+  buildLadderQuisLengthProbeReport,
+  grantTwoActiveLadderTreasures,
+  LADDER_QUIS_DEV_WORD,
+} from "./ladderQuisLengthDevScenario.js";
 
 /**
  * GamePanel 开发命令（控制台 / 预设场景）。
@@ -115,6 +129,8 @@ import {
  *   targetScore?: import('vue').Ref<number>,
  *   onShopVisitEnter?: (options?: { hydrateSkip?: boolean }) => void,
  *   runTreasureLevelCompleteHooks?: () => Promise<void>,
+ *   buildDevGrantTreasureDeps?: () => Parameters<import('./devGrantTreasures.js').grantDevOwnedTreasureById>[1],
+ *   appendShopDeckEntriesAndNotify?: (entries: object[]) => unknown[],
  * }} deps
  */
 export function createGamePanelDevCommands(deps) {
@@ -507,6 +523,107 @@ export function createGamePanelDevCommands(deps) {
     return rows;
   }
 
+  /**
+   * Per-slot 银行：目标宝藏 ×2（辅助 ×1），预置第一块已成长 bank。
+   * @param {unknown} scenarioIndex 1-based，见 listPerSlotBankDevTests()
+   * @param {{ levelIndex?: number }} [opts]
+   */
+  async function startPerSlotBankDevTest(scenarioIndex, opts = {}) {
+    const scenario = resolvePerSlotBankDevScenario(scenarioIndex);
+    if (!scenario) {
+      console.warn(
+        [
+          "[DEV] startPerSlotBankDevTest: 无效场景编号。可用：",
+          ...formatPerSlotBankDevScenarioHelpLines(),
+          "  示例：__WM_DEV__.startPerSlotBankDevTest(1)",
+          "  列表：__WM_DEV__.listPerSlotBankDevTests()",
+        ].join("\n"),
+      );
+      return null;
+    }
+    if (!deps.buildDevGrantTreasureDeps) {
+      console.warn("[DEV] startPerSlotBankDevTest: buildDevGrantTreasureDeps 未就绪");
+      return null;
+    }
+    if (deps.refs.transitionBusy.value) {
+      console.warn("[DEV] 转场进行中，请稍后再试");
+      return null;
+    }
+    deps.refs.transitionBusy.value = true;
+    try {
+      deps.refs.showShop.value = false;
+      deps.refs.showSettlement.value = false;
+      deps.refs.showRunEnd.value = false;
+      deps.refs.showPauseOptions.value = false;
+      deps.refs.showDeveloperOptions.value = false;
+      deps.refs.packPickSession.value = null;
+      deps.refs.shopOverlayLayersSuppressed.value = false;
+      deps.refs.packPickOverlaySuppressed.value = false;
+      await deps.nextTick();
+
+      const grantSummary = applyPerSlotBankDevOwnedTreasures(
+        scenario,
+        deps.buildDevGrantTreasureDeps(),
+        deps.treasureRunState?.value,
+      );
+
+      const levelIdx = Math.max(0, Math.floor(Number(opts.levelIndex) || 0));
+      deps.refs.levelIndex.value = levelIdx;
+      deps.refs.glyphShopSkipLevelAdvance.value = false;
+      const levelDef = deps.getRunLevelAtIndex(levelIdx);
+      await deps.resetLevelAfterTreasurePrep(levelDef, { skipBossRestrictionNotify: true });
+      await deps.nextTick();
+      await finishScreenshotDevGridVisual();
+
+      await applyPerSlotBankDevScenarioState(scenario, {
+        refs: deps.refs,
+        ROWS: deps.ROWS,
+        COLS: deps.COLS,
+        getGrid: deps.getGrid,
+        touchGrid: deps.touchGrid,
+        nextTick: deps.nextTick,
+        runRandom: deps.runRandom,
+        nextOfferInstanceId: deps.nextOfferInstanceId,
+        treasureRunState: deps.treasureRunState,
+        onShopVisitEnter: deps.onShopVisitEnter,
+        appendShopDeckEntriesAndNotify: deps.appendShopDeckEntriesAndNotify,
+      });
+
+      deps.updateSlotPositions?.(true);
+      deps.scheduleRunAutoSave();
+      const result = {
+        scenarioIndex: scenario.scenarioIndex,
+        treasureId: scenario.treasureId,
+        name: scenario.name,
+        emoji: scenario.emoji,
+        trigger: scenario.trigger,
+        triggerHint: scenario.triggerHint,
+        slotIndices: grantSummary.slotIndices,
+        targetCount: grantSummary.targetCount,
+      };
+      console.log(
+        `[DEV] 场景 ${scenario.scenarioIndex}：${scenario.emoji} ${scenario.name}(${scenario.treasureId}) ×2 — ${scenario.triggerHint}`,
+        result,
+      );
+      return result;
+    } finally {
+      deps.refs.transitionBusy.value = false;
+    }
+  }
+
+  function listPerSlotBankDevTests() {
+    const rows = listPerSlotBankDevScenarios().map((s) => ({
+      scenarioIndex: s.scenarioIndex,
+      treasureId: s.treasureId,
+      label: `${s.emoji} ${s.name}`,
+      trigger: s.trigger,
+      triggerHint: s.triggerHint,
+    }));
+    console.table(rows);
+    console.log("[DEV] 进入测试：__WM_DEV__.startPerSlotBankDevTest(场景编号)");
+    return rows;
+  }
+
   async function startScreenshotPresetDevTest(presetId) {
     if (presetId === 3) {
       deps.refs.shopOverlayLayersSuppressed.value = false;
@@ -595,6 +712,87 @@ export function createGamePanelDevCommands(deps) {
     console.log("[DEV] 分数框测试已清除，恢复真实分数");
   }
 
+  /** @param {string} [word] */
+  function buildLengthProbeCtxFromDeps(word = LADDER_QUIS_DEV_WORD) {
+    const owned = deps.refs.ownedTreasures.value ?? [];
+    return {
+      ownedSlotTreasureIds: owned.map((s) => s?.treasureId ?? null),
+      ownedTreasureInstances: owned,
+      treasureRun: deps.treasureRunState?.value,
+      word,
+      getWordDefinition: deps.getWordDefinition,
+      ...(typeof deps.getLengthProbeCtx === "function" ? deps.getLengthProbeCtx() : {}),
+    };
+  }
+
+  /** @param {string} [word] */
+  function probeLadderQuisJudgedLength(word = LADDER_QUIS_DEV_WORD) {
+    const report = buildLadderQuisLengthProbeReport(buildLengthProbeCtxFromDeps(word));
+    console.log(
+      `[DEV] 判定词长探测：${report.word} 实际${report.actualLetterCount}字母 → 判定${report.judgedLen}（仅双梯子生效时应为 ${report.expectedJudgedLenIfTwoActiveLaddersOnly}）`,
+      report,
+    );
+    return report;
+  }
+
+  /**
+   * 复现：2×生效梯子 + 顶行 quis + 自动选词；控制台打印词长分解。
+   * @param {{ levelIndex?: number, word?: string, autoSelect?: boolean }} [opts]
+   */
+  async function startLadderQuisLengthDevTest(opts = {}) {
+    if (!deps.buildDevGrantTreasureDeps) {
+      console.warn("[DEV] startLadderQuisLengthDevTest: buildDevGrantTreasureDeps 未就绪");
+      return null;
+    }
+    if (deps.refs.transitionBusy.value) {
+      console.warn("[DEV] 转场进行中，请稍后再试");
+      return null;
+    }
+    const word = String(opts.word ?? LADDER_QUIS_DEV_WORD).toLowerCase().trim();
+    const autoSelect = opts.autoSelect !== false;
+    deps.refs.transitionBusy.value = true;
+    try {
+      deps.refs.showShop.value = false;
+      deps.refs.showSettlement.value = false;
+      deps.refs.showRunEnd.value = false;
+      deps.refs.showPauseOptions.value = false;
+      deps.refs.showDeveloperOptions.value = false;
+      await deps.nextTick();
+
+      const slotIndices = grantTwoActiveLadderTreasures(deps.buildDevGrantTreasureDeps());
+
+      const levelIdx = Math.max(0, Math.floor(Number(opts.levelIndex) || 0));
+      deps.refs.levelIndex.value = levelIdx;
+      deps.refs.glyphShopSkipLevelAdvance.value = false;
+      const levelDef = deps.getRunLevelAtIndex(levelIdx);
+      await deps.resetLevelAfterTreasurePrep(levelDef, { skipBossRestrictionNotify: true });
+      await deps.nextTick();
+
+      applyWordToTopRow(deps, word);
+      if (autoSelect) {
+        await autoSelectTopRowWord(deps, word);
+      }
+
+      deps.updateSlotPositions?.(true);
+      deps.scheduleRunAutoSave();
+
+      const report = probeLadderQuisJudgedLength(word);
+      const result = {
+        word,
+        ladderSlotIndices: slotIndices,
+        autoSelected: autoSelect,
+        report,
+      };
+      console.log(
+        `[DEV] 梯子×2 + ${word}：顶行已摆词${autoSelect ? "并已选入词槽" : ""}。看结果区「N字母」或下方 breakdown。`,
+        result,
+      );
+      return result;
+    } finally {
+      deps.refs.transitionBusy.value = false;
+    }
+  }
+
   /**
    * @param {{ startFirstWordTutorialDevTest?: () => void, setupScreenshotPreset?: (preset: unknown) => Promise<unknown> }} [extra]
    */
@@ -615,6 +813,10 @@ export function createGamePanelDevCommands(deps) {
     dev.startVolcanoCometDevTest = () => startVolcanoCometDevTest();
     dev.startTreasureHookFxDevTest = (treasureId, opts) => startTreasureHookFxDevTest(treasureId, opts);
     dev.listTreasureHookFxDevTests = () => listTreasureHookFxDevTests();
+    dev.startPerSlotBankDevTest = (scenarioIndex, opts) => startPerSlotBankDevTest(scenarioIndex, opts);
+    dev.listPerSlotBankDevTests = () => listPerSlotBankDevTests();
+    dev.startLadderQuisLengthDevTest = (opts) => startLadderQuisLengthDevTest(opts);
+    dev.probeLadderQuisJudgedLength = (word) => probeLadderQuisJudgedLength(word);
     dev.jumpToLevel = (levelIdOrIndex, opts) => jumpToLevelDev(levelIdOrIndex, opts);
     dev.jumpToBossShop = (bossSlug, chapterOrLevelId) =>
       jumpToBossShopDev(bossSlug, chapterOrLevelId);
@@ -656,6 +858,10 @@ export function createGamePanelDevCommands(deps) {
     startCeruleanBellDevTest,
     startTreasureHookFxDevTest,
     listTreasureHookFxDevTests,
+    startPerSlotBankDevTest,
+    listPerSlotBankDevTests,
+    startLadderQuisLengthDevTest,
+    probeLadderQuisJudgedLength,
     jumpToLevelDev,
     jumpToBossShopDev,
     startScreenshotPresetDevTest,

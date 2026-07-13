@@ -366,13 +366,28 @@ export function useRunLifecycleController(options) {
   }
 
   /**
-   * @param {{ session?: object }} [opts]
+   * @param {{ session?: object, slotIndex?: number, treasureId?: string, reuseResult?: { correct?: boolean, skipped?: boolean } }} [opts]
    */
   async function runPagerQuizRequest(opts = {}) {
+    const reuse = opts.reuseResult;
+    if (reuse && reuse.skipped !== true) {
+      const slotIx =
+        typeof opts.slotIndex === "number" && opts.slotIndex >= 0
+          ? opts.slotIndex
+          : findOwnedTreasureSlotIndexImpl(TREASURE_118_ID);
+      if (slotIx >= 0) {
+        await dom.wobbleGameTreasureSlot(slotIx);
+      }
+      return { correct: reuse.correct === true, skipped: false };
+    }
+
     const session = opts.session ?? pendingPagerQuizSession.value;
     if (!session?.options?.length) return { skipped: true };
 
-    const slotIx = findOwnedTreasureSlotIndexImpl(TREASURE_118_ID);
+    const slotIx =
+      typeof opts.slotIndex === "number" && opts.slotIndex >= 0
+        ? opts.slotIndex
+        : findOwnedTreasureSlotIndexImpl(TREASURE_118_ID);
     if (slotIx >= 0) {
       await dom.wobbleGameTreasureSlot(slotIx);
     }
@@ -596,11 +611,13 @@ export function useRunLifecycleController(options) {
   function applyGlyphVoucherLevelSkip(voucherId) {
     const vid = String(voucherId ?? "");
     if (vid !== "v_glyph_1" && vid !== "v_glyph_2") return false;
-    const tix = getGlyphPurchaseTargetLevelIndex(levelIndex.value);
+    const tix = getGlyphPurchaseTargetLevelIndex(levelIndex.value, {
+      isEndlessRun: isEndlessRun.value === true,
+    });
     if (tix == null) return false;
     levelIndex.value = tix;
     glyphShopSkipLevelAdvance.value = true;
-    const L = LEVELS[tix];
+    const L = getRunLevelAtIndex(tix);
     if (L) {
       targetScore.value = resolveLevelTargetScoreForDifficulty(L.id, "", runDifficultyIndex.value);
       activeBossSlug.value = "";

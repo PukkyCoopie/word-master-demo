@@ -188,7 +188,7 @@
   /* 约 1/3～1/2 角标向右下伸出 stack 外框 */
   right: calc(-8 * var(--rpx));
   bottom: calc(-8 * var(--rpx));
-  z-index: 12;
+  z-index: 30;
   min-width: calc(22 * var(--rpx));
   height: calc(22 * var(--rpx));
   padding: 0 calc(6 * var(--rpx));
@@ -210,6 +210,7 @@
 .deck-stack-pile {
   position: absolute;
   inset: 0;
+  z-index: 1;
   border-radius: inherit;
   pointer-events: none;
   transition: transform 0.12s var(--ease-expo-out);
@@ -282,12 +283,17 @@
 .deck-layer-stacks .deck-stack-pile-tile.tile-material-lucky .letter-tile-char {
   font-size: 1em;
 }
+/* 万能块材质 canvas 会溢出 tile 框；stack 角标在右下须裁切在牌面内 */
+.deck-layer-stacks .deck-stack-pile-tile.grid-tile.tile-material-wildcard {
+  overflow: hidden;
+}
 .deck-layer-stacks .deck-stack-pile-tile .letter-gem {
   display: none;
 }
 .deck-stack-ghost-face {
   position: absolute;
   inset: 0;
+  z-index: 1;
   border-radius: calc(var(--deck-stack-size) * 0.06);
   box-sizing: border-box;
   display: flex;

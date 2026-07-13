@@ -15,6 +15,13 @@ import {
   restoreTreasureSlotAfterNoSellFeint,
 } from "./treasureNoSellDestroyFeint.js";
 
+/** 缩至 0 后清空槽位时 Vue 仍复用同一 DOM；须恢复可见态以便空槽 dashed 框正常显示 */
+export function resetTreasureSlotElAfterDestroyShrink(el) {
+  if (!(el instanceof HTMLElement)) return;
+  gsap.killTweensOf(el);
+  gsap.set(el, { scale: 1, opacity: 1, clearProps: "scale,opacity,transform" });
+}
+
 /**
  * 自毁 / 连锁摧毁宝藏槽 FX（从 GamePanel 迁出）。
  * @param {{
@@ -102,10 +109,17 @@ export function createTreasureDestroyFx(deps) {
     }
   }
 
+  /** @param {number} slotIndex @param {HTMLElement} el */
+  async function restoreEmptySlotElAfterLeaveGapClear(slotIndex, el) {
+    await deps.waitNextTick();
+    resetTreasureSlotElAfterDestroyShrink(deps.getOwnedTreasureSlotEl(slotIndex) ?? el);
+  }
+
   /** @param {number} slotIndex @param {HTMLElement} el @param {ReturnType<typeof deps.showScoreBubble>} bubble @param {number} sp */
   async function shrinkTreasureSlotAndClear(slotIndex, el, bubble, sp) {
     await shrinkTreasureSlotElOnly(el, bubble, sp);
     deps.removeOwnedTreasureSlotsLeaveGapAtIndices([slotIndex], { triggerBarCompactAnim: true });
+    await restoreEmptySlotElAfterLeaveGapClear(slotIndex, el);
   }
 
   async function destroyOwnedTreasureWithFx(treasureId, slotIndex = null) {
@@ -188,6 +202,7 @@ export function createTreasureDestroyFx(deps) {
     if (!feint) {
       deps.removeOwnedTreasureSlotsLeaveGapAtIndices([ix], { triggerBarCompactAnim: true });
       deps.scheduleRunAutoSave();
+      await restoreEmptySlotElAfterLeaveGapClear(ix, el);
     }
   }
 
@@ -282,6 +297,10 @@ export function createTreasureDestroyFx(deps) {
     if (removeIndices.length) {
       deps.removeOwnedTreasureSlotsLeaveGapAtIndices(removeIndices, { triggerBarCompactAnim: true });
       deps.scheduleRunAutoSave();
+      await deps.waitNextTick();
+      for (const ix of removeIndices) {
+        resetTreasureSlotElAfterDestroyShrink(deps.getOwnedTreasureSlotEl(ix));
+      }
     }
   }
 
@@ -291,5 +310,6 @@ export function createTreasureDestroyFx(deps) {
     destroyBombBlastAtSlot,
     wobbleTreasureSlotWithDestroyBubbleConcurrent,
     shrinkTreasureSlotElOnly,
+    resetTreasureSlotElAfterDestroyShrink,
   };
 }

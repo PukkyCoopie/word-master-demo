@@ -2,8 +2,36 @@
 
 /** @typedef {{ multAdd: number, multMul: number, scoreAdd: number, posPackProgress?: number }} TreasureIdBank */
 
+/** 全局 run 银行（按 treasureId）；目前仅海浪（143）等作用于全局材质池的宝藏 */
+export const GLOBAL_TREASURE_BANK_IDS = Object.freeze(new Set(["143"]));
+
+/** @param {string | null | undefined} treasureId */
+export function isGlobalTreasureBank(treasureId) {
+  return GLOBAL_TREASURE_BANK_IDS.has(String(treasureId ?? "").trim());
+}
+
+/** @returns {TreasureIdBank} */
+export function createDefaultTreasureBank() {
+  return { multAdd: 0, multMul: 1, scoreAdd: 0 };
+}
+
+/** @param {unknown} raw @returns {TreasureIdBank} */
+export function normalizeTreasureBank(raw) {
+  const base = createDefaultTreasureBank();
+  if (!raw || typeof raw !== "object") return base;
+  const o = /** @type {Record<string, unknown>} */ (raw);
+  base.multAdd = Number(o.multAdd) || 0;
+  const m = Number(o.multMul);
+  base.multMul = m > 0 ? m : 1;
+  base.scoreAdd = Number(o.scoreAdd) || 0;
+  if (o.posPackProgress != null) {
+    base.posPackProgress = Math.max(0, Math.floor(Number(o.posPackProgress) || 0));
+  }
+  return base;
+}
+
 /** @typedef {Object} TreasureRunState
- * @property {Record<string, TreasureIdBank>} banks
+ * @property {Record<string, TreasureIdBank>} banks 全局银行（仅 {@link GLOBAL_TREASURE_BANK_IDS}）
  * @property {Set<number>} levelLengthsSpelled
  * @property {boolean} levelFirstWordSubmitted
  * @property {number | null} levelFirstWordLength
@@ -49,6 +77,7 @@
  * @property {boolean} levelBossRestrictionSuppressed 本小关 Boss 限制已消除（宝藏 136 卖出）
  * @property {boolean} level137BonusApplied 本小关已消耗电池储存分（宝藏 137）
  * @property {Set<string>} level139FaxCopyContributions 传真机（139）本关已结算的 hook 贡献键（实体/绵羊蓝图各计一次）
+ * @property {number} [ownedSlotBankRevision] 槽位 bank 就地变更计数（供宝藏栏充能/失效态 computed 追踪）
  */
 
 /** @type {readonly string[]} */
@@ -108,7 +137,14 @@ export function createTreasureRunState() {
     levelBossRestrictionSuppressed: false,
     level137BonusApplied: false,
     level139FaxCopyContributions: new Set(),
+    ownedSlotBankRevision: 0,
   };
+}
+
+/** @param {TreasureRunState | null | undefined} state */
+export function bumpOwnedSlotBankRevision(state) {
+  if (!state) return;
+  state.ownedSlotBankRevision = Math.max(0, Math.floor(Number(state.ownedSlotBankRevision) || 0)) + 1;
 }
 
 /** @param {TreasureRunState} state */
@@ -118,12 +154,109 @@ export function bumpRunLuckyTriggerCount(state) {
 }
 
 /** @param {TreasureRunState} state @param {string} treasureId */
-export function ensureTreasureBank(state, treasureId) {
+export function ensureGlobalTreasureBank(state, treasureId) {
   const id = String(treasureId);
+  if (!isGlobalTreasureBank(id)) {
+    throw new Error(`ensureGlobalTreasureBank: treasure ${id} is not global-bank`);
+  }
   if (!state.banks[id]) {
-    state.banks[id] = { multAdd: 0, multMul: 1, scoreAdd: 0 };
+    state.banks[id] = createDefaultTreasureBank();
   }
   return state.banks[id];
+}
+
+/** @param {Record<string, unknown> | null | undefined} slot */
+export function ensureOwnedSlotBank(slot) {
+  if (!slot || typeof slot !== "object") return createDefaultTreasureBank();
+  if (!slot.bank || typeof slot.bank !== "object") {
+    slot.bank = createDefaultTreasureBank();
+    return /** @type {TreasureIdBank} */ (slot.bank);
+  }
+  const bank = /** @type {TreasureIdBank} */ (slot.bank);
+  const normalized = normalizeTreasureBank(bank);
+  bank.multAdd = normalized.multAdd;
+  bank.multMul = normalized.multMul;
+  bank.scoreAdd = normalized.scoreAdd;
+  if (normalized.posPackProgress != null) {
+    bank.posPackProgress = normalized.posPackProgress;
+  }
+  return bank;
+}
+
+/**
+ * 旧存档：`banks[treasureId]` → 首个同 id 槽位的 `bank`；全局 id 保留在 runState.banks。
+ * @param {TreasureRunState} state
+ * @param {(Record<string, unknown> | null | undefined)[]} ownedSlots
+ */
+export function migrateLegacyTreasureBanks(state, ownedSlots) {
+  if (!state?.banks || typeof state.banks !== "object") return;
+  const slots = ownedSlots ?? [];
+  /** @type {Record<string, TreasureIdBank>} */
+  const nextGlobal = {};
+  for (const [key, raw] of Object.entries(state.banks)) {
+    if (isGlobalTreasureBank(key)) {
+      nextGlobal[key] = normalizeTreasureBank(raw);
+      continue;
+    }
+    if (!/^\d+$/.test(key)) continue;
+    const bank = normalizeTreasureBank(raw);
+    let assigned = false;
+    for (let i = 0; i < slots.length; i += 1) {
+      const slot = slots[i];
+      if (!slot || String(slot.treasureId ?? "") !== key) continue;
+      if (slot.bank && typeof slot.bank === "object") {
+        assigned = true;
+        break;
+      }
+      slot.bank = bank;
+      assigned = true;
+      break;
+    }
+    if (!assigned && isGlobalTreasureBank(key)) {
+      nextGlobal[key] = bank;
+    }
+  }
+  state.banks = nextGlobal;
+  for (const slot of slots) {
+    if (slot?.bank) slot.bank = normalizeTreasureBank(slot.bank);
+  }
+}
+
+/**
+ * 旧存档：`extraLetterScoreWordsRemaining` → 首个旋钮（64）槽位的 `bank.scoreAdd`。
+ * @param {TreasureRunState} state
+ * @param {(Record<string, unknown> | null | undefined)[]} ownedSlots
+ */
+export function migrateLegacyKnobWordsRemaining(state, ownedSlots) {
+  const legacy = Math.max(0, Math.floor(Number(state.extraLetterScoreWordsRemaining) || 0));
+  if (legacy <= 0) return;
+  const slots = ownedSlots ?? [];
+  for (let i = 0; i < slots.length; i += 1) {
+    const slot = slots[i];
+    if (!slot || String(slot.treasureId ?? "") !== "64") continue;
+    const bank = ensureOwnedSlotBank(slot);
+    if (Math.max(0, Math.floor(Number(bank.scoreAdd) || 0)) > 0) return;
+    bank.scoreAdd = legacy;
+    state.extraLetterScoreWordsRemaining = 0;
+    return;
+  }
+}
+
+/**
+ * 旧存档：`deckState.basketballWordsSubmitted` → 各篮球（20）槽 `bank.posPackProgress`（仅 progress 仍为 0 的槽）。
+ * @param {(Record<string, unknown> | null | undefined)[]} ownedSlots
+ * @param {number} legacyWordsSubmitted
+ */
+export function migrateLegacyBasketballWordsSubmitted(ownedSlots, legacyWordsSubmitted) {
+  const legacy = Math.max(0, Math.floor(Number(legacyWordsSubmitted) || 0));
+  if (legacy <= 0) return;
+  const slots = ownedSlots ?? [];
+  for (const slot of slots) {
+    if (!slot || String(slot.treasureId ?? "") !== "20") continue;
+    const bank = ensureOwnedSlotBank(slot);
+    if (Math.max(0, Math.floor(Number(bank.posPackProgress) || 0)) > 0) continue;
+    bank.posPackProgress = legacy;
+  }
 }
 
 /** @param {TreasureRunState} state */

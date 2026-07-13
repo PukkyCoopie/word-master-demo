@@ -1,5 +1,16 @@
 import { describe, mult } from "../treasureDescription.js";
-import { getBasketballChargeProgress, getBasketballChargeVisualState } from "../basketballProgress.js";
+import {
+  assignOwnedSlotTreasureBank,
+  canMutateTreasureBankFromCtx,
+  readTreasureBankSnapshot,
+} from "../treasureBankHelpers.js";
+import {
+  getBasketballChargeProgress,
+  getBasketballChargeVisualState,
+  getBasketballWordsSubmittedFromCtx,
+} from "../basketballProgress.js";
+
+const ID = "20";
 
 /** @type {import('../treasureTypes.js').TreasureBaseDef} */
 export default {
@@ -11,17 +22,23 @@ export default {
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   buildPostLetterStep(ctx) {
-    return getBasketballChargeVisualState(ctx.basketballWordsSubmitted) === "active"
-      ? { multMul: 4 }
-      : null;
+    const n = getBasketballWordsSubmittedFromCtx(ctx.treasureRun, ctx);
+    return getBasketballChargeVisualState(n) === "active" ? { multMul: 4 } : null;
   },
   getChargeVisualState(c) {
-    return getBasketballChargeVisualState(c.chargeWordsSubmitted);
+    const n = getBasketballWordsSubmittedFromCtx(c.treasureRun, c);
+    return getBasketballChargeVisualState(n);
   },
   getChargeProgress(c) {
-    return getBasketballChargeProgress(c.chargeWordsSubmitted);
+    const n = getBasketballWordsSubmittedFromCtx(c.treasureRun, c);
+    return getBasketballChargeProgress(n);
   },
-  onSuccessfulWordSubmit(submitCtx) {
-    submitCtx.incrementChargeWordSubmissionCount();
+  onSuccessfulWordSubmit(ctx) {
+    const rs = ctx.treasureRun;
+    if (!rs) return;
+    if (!canMutateTreasureBankFromCtx(ctx, ID)) return;
+    const bank = readTreasureBankSnapshot(rs, ID, ctx);
+    const before = Math.max(0, Math.floor(Number(bank?.posPackProgress) || 0));
+    assignOwnedSlotTreasureBank(ctx, ID, { posPackProgress: before + 1 });
   },
 };

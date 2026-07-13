@@ -252,6 +252,7 @@ export function useSubmitWordController(options) {
         presetId: run.runPresetId.value,
         runWordLengthJudgmentPenalty: gridApi.runWordLengthJudgmentPenalty.value,
         treasureRun: run.treasureRunState.value,
+        ownedTreasureInstances: run.ownedTreasures.value,
       });
       const judgedLenTable = resolveJudgedLengthTableLen({
         wordLetterCount: actualWordLen,
@@ -260,6 +261,7 @@ export function useSubmitWordController(options) {
         presetId: run.runPresetId.value,
         runWordLengthJudgmentPenalty: gridApi.runWordLengthJudgmentPenalty.value,
         treasureRun: run.treasureRunState.value,
+        ownedTreasureInstances: run.ownedTreasures.value,
         tiles,
         resolvedWord,
         getWordDefinition: callbacks.getWordDefinition,
@@ -322,7 +324,7 @@ export function useSubmitWordController(options) {
           resolvedWord,
           treasureRun: run.treasureRunState.value,
           money: run.money.value,
-          ownedTreasureInstances: run.ownedTreasures.value.filter(Boolean),
+          ownedTreasureInstances: run.ownedTreasures.value,
           getWordDefinition: callbacks.getWordDefinition,
           gridTiles: gridTilesForTreasures,
           remainingGridTiles: remainingGridTilesForTreasures,
@@ -357,7 +359,9 @@ export function useSubmitWordController(options) {
       }
 
       scoreBeforeHand = gridApi.currentScore.value;
-      const deferWordSubmitForPager = !submitViolated && ownedSlotTreasureIds.includes(TREASURE_118_ID);
+      const deferWordSubmitForPager =
+        !submitViolated &&
+        ownedSlotTreasureIds.some((id) => String(id ?? "").trim() === TREASURE_118_ID);
       pager.pendingPagerQuizSession.value = deferWordSubmitForPager
         ? buildPagerQuizOptions(resolvedWord, run.runRandom)
         : null;

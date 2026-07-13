@@ -129,6 +129,34 @@
           </section>
 
           <section class="developer-options-section">
+            <h3 class="developer-options-section-title">Per-slot 银行测试</h3>
+            <p class="developer-options-hint developer-options-hint--compact">
+              场景 1–27：目标宝藏各 ×2（辅助 ×1），第一块预置已成长 bank（寻呼机无 bank）。控制台：
+              <code>__WM_DEV__.listPerSlotBankDevTests()</code>
+            </p>
+            <div class="developer-options-row">
+              <input
+                v-model.trim="perSlotBankScenarioInput"
+                class="developer-options-input"
+                type="text"
+                inputmode="numeric"
+                placeholder="场景编号 1–27"
+                aria-label="Per-slot 银行测试场景编号"
+                @keydown.enter.prevent="onPerSlotBankTestClick"
+              />
+              <button
+                type="button"
+                class="developer-options-btn"
+                :disabled="perSlotBankTestBusy"
+                @click="onPerSlotBankTestClick"
+              >
+                {{ perSlotBankTestBusy ? "准备中…" : "进入" }}
+              </button>
+            </div>
+            <p v-if="perSlotBankResultText" class="developer-options-result">{{ perSlotBankResultText }}</p>
+          </section>
+
+          <section class="developer-options-section">
             <h3 class="developer-options-section-title">获取宝藏</h3>
             <button type="button" class="developer-options-btn" @click="openTreasurePicker">
               选择宝藏…
@@ -146,7 +174,7 @@
           <section class="developer-options-section">
             <h3 class="developer-options-section-title">错误上报</h3>
             <p class="developer-options-hint developer-options-hint--compact">
-              向 TapDB 发送 client_error 测试（属性名 wm_err_source / wm_err_message / wm_err_stack / wm_err_phase）。
+              向 TapDB 发送 client_error_02 测试（属性名 wm_err_source / wm_err_message / wm_err_stack / wm_err_phase）。
             </p>
             <button
               type="button"
@@ -453,6 +481,9 @@ onUnmounted(() => {
 });
 const balanceInput = ref("");
 const balanceResultText = ref("");
+const perSlotBankScenarioInput = ref("1");
+const perSlotBankResultText = ref("");
+const perSlotBankTestBusy = ref(false);
 const errorReportBusy = ref(false);
 const errorReportResultText = ref("");
 
@@ -476,12 +507,12 @@ async function onTestErrorReportClick() {
     const sent = await reportClientError({
       source: "dev.test",
       phase: "manual",
-      message: `[dev] fake client_error ${stamp}`,
+      message: `[dev] fake client_error_02 ${stamp}`,
       stack: "Error: DeveloperOptionsLayer test stack\n    at onTestErrorReportClick (dev)",
     });
     const clientHint = clientId ? ` Client ID：${clientId}（须与 TapDB 项目一致）。` : "";
     errorReportResultText.value = sent
-      ? `已发送 client_error。${clientHint}到埋点管理 → 上报明细核对 name=client_error。`
+      ? `已发送 client_error_02。${clientHint}到埋点管理 → 上报明细核对 name=client_error_02。`
       : `未能发送。${clientHint}请查看 logcat。`;
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err ?? "");
@@ -635,6 +666,34 @@ function onBossShopJumpClick() {
   if (!slug) return;
   bossShopJumpResultText.value = "";
   emit("jump-boss-shop", { bossSlug: slug, levelId: levelInput.value.trim() });
+}
+
+async function onPerSlotBankTestClick() {
+  if (perSlotBankTestBusy.value) return;
+  const raw = perSlotBankScenarioInput.value.trim();
+  const ix = Math.floor(Number(raw));
+  if (!raw || !Number.isFinite(ix) || ix < 1) {
+    perSlotBankResultText.value = "请输入 1–27 的场景编号。";
+    return;
+  }
+  const dev = globalThis.__WM_DEV__;
+  if (!dev || typeof dev.startPerSlotBankDevTest !== "function") {
+    perSlotBankResultText.value = "开发命令未就绪，请先进入局内。";
+    return;
+  }
+  perSlotBankTestBusy.value = true;
+  perSlotBankResultText.value = "";
+  try {
+    const result = await dev.startPerSlotBankDevTest(ix);
+    if (!result) {
+      perSlotBankResultText.value = `场景 ${ix} 无效或未启动，请查看控制台。`;
+      return;
+    }
+    perSlotBankResultText.value = `场景 ${ix}：${result.emoji} ${result.name} — ${result.triggerHint}`;
+    emit("close");
+  } finally {
+    perSlotBankTestBusy.value = false;
+  }
 }
 
 /** @param {number} amount */

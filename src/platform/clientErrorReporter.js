@@ -4,8 +4,8 @@ import { logTapTapEvent } from "../taptap/tapTapPlugin.js";
 
 const MAX_PROP_LEN = 240;
 const MAX_REPORTS_PER_FINGERPRINT = 3;
-/** TapDB v4：事件 client_error + wm_err_* 属性须先在「事件属性管理」登记并关联到该事件 */
-const CLIENT_ERROR_EVENT = "client_error";
+/** TapDB v4：事件 client_error_02 + wm_err_* 属性须先在「事件属性管理」登记并关联到该事件 */
+const CLIENT_ERROR_EVENT = "client_error_02";
 
 /** @type {Map<string, number>} */
 const reportedCounts = new Map();

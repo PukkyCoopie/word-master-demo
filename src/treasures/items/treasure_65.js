@@ -4,6 +4,7 @@ import {
   getScoreAddBank,
   patchCurrentBankDescription,
 } from "../treasureBankHelpers.js";
+import { iterTreasureHookContributions } from "../../game/treasureBlueprintMirror.js";
 import { rollProbabilitySuccess } from "../treasureProbability.js";
 
 export const TREASURE_65_ID = "65";
@@ -37,13 +38,66 @@ export function rollPotteryDiscardProcIndices(letterCount, rng = Math.random, ow
 }
 
 /**
+ * 同 id 多陶罐：每实体槽独立掷 1/8（弃牌动效与 `onDiscardBatch` 共用）。
+ * @param {readonly (string | null | undefined)[]} ownedSlotTreasureIds
+ * @param {number} letterCount
+ * @param {() => number} [rng]
+ * @returns {Record<number, number[]>}
+ */
+export function rollPotteryDiscardProcIndicesBySlot(
+  ownedSlotTreasureIds,
+  letterCount,
+  rng = Math.random,
+) {
+  /** @type {Record<number, number[]>} */
+  const bySlot = {};
+  for (const { slotIndex, treasureId, source } of iterTreasureHookContributions(
+    ownedSlotTreasureIds ?? [],
+  )) {
+    if (source === "blueprint") continue;
+    if (String(treasureId) !== TREASURE_65_ID) continue;
+    bySlot[slotIndex] = rollPotteryDiscardProcIndices(letterCount, rng, ownedSlotTreasureIds);
+  }
+  return bySlot;
+}
+
+/**
+ * @param {readonly (string | null | undefined)[]} ownedSlotTreasureIds
+ * @returns {boolean}
+ */
+export function ownedSlotTreasureIdsIncludePottery(ownedSlotTreasureIds) {
+  for (const { treasureId, source } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
+    if (source === "blueprint") continue;
+    if (String(treasureId) === TREASURE_65_ID) return true;
+  }
+  return false;
+}
+
+/**
+ * @param {import('../treasureTypes.js').TreasureDiscardContext} ctx
+ * @returns {number[] | null}
+ */
+function resolvePotteryDiscardProcIndicesForHookSlot(ctx) {
+  const slotIx = typeof ctx.hookSlotIndex === "number" ? Math.floor(ctx.hookSlotIndex) : -1;
+  const bySlot = ctx.potteryDiscardProcIndicesBySlot;
+  if (bySlot && slotIx >= 0 && Array.isArray(bySlot[slotIx])) {
+    return bySlot[slotIx];
+  }
+  if (Array.isArray(ctx.potteryDiscardProcIndices)) {
+    return ctx.potteryDiscardProcIndices;
+  }
+  return null;
+}
+
+/**
  * @param {import("../treasureRunState.js").TreasureRunState | null | undefined} rs
  * @param {number[]} indices
+ * @param {object} [hookCtx]
  */
-export function applyPotteryDiscardProcs(rs, indices) {
+export function applyPotteryDiscardProcs(rs, indices, hookCtx) {
   if (!rs || !indices?.length) return;
   for (let k = 0; k < indices.length; k += 1) {
-    addScoreAddBank(rs, TREASURE_65_ID, DISCARD_SCORE_AWARD);
+    addScoreAddBank(rs, TREASURE_65_ID, DISCARD_SCORE_AWARD, hookCtx);
   }
 }
 
@@ -64,14 +118,14 @@ export default {
 export const treasureHooks = {
   ...patchCurrentBankDescription(TREASURE_65_ID, "scoreAdd"),
   buildPostLetterStep(ctx) {
-    const v = getScoreAddBank(ctx.treasureRun, TREASURE_65_ID);
+    const v = getScoreAddBank(ctx.treasureRun, TREASURE_65_ID, ctx);
     return v !== 0 ? { scoreAdd: v } : null;
   },
   onDiscardBatch(ctx) {
     if (ctx.discardPotteryFxHandled) return;
-    const preset = ctx.potteryDiscardProcIndices;
+    const preset = resolvePotteryDiscardProcIndicesForHookSlot(ctx);
     if (Array.isArray(preset)) {
-      applyPotteryDiscardProcs(ctx.treasureRun, preset);
+      applyPotteryDiscardProcs(ctx.treasureRun, preset, ctx);
       return;
     }
     const rs = ctx.treasureRun;
@@ -82,6 +136,6 @@ export const treasureHooks = {
       rnd,
       ctx.ownedSlotTreasureIds,
     );
-    applyPotteryDiscardProcs(rs, rolled);
+    applyPotteryDiscardProcs(rs, rolled, ctx);
   },
 };

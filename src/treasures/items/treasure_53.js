@@ -14,7 +14,7 @@ export default {
 export const treasureHooks = {
   ...patchCurrentBankDescription(ID, "multAdd"),
   buildPostLetterStep(ctx) {
-    const v = getMultAddBank(ctx.treasureRun, ID);
+    const v = getMultAddBank(ctx.treasureRun, ID, ctx);
     return v !== 0 ? { multAdd: v } : null;
   },
   async onPackSkipped(ctx) {

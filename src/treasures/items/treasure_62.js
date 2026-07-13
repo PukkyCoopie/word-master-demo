@@ -16,7 +16,8 @@ function formatMultMulBankShown(v) {
  */
 function buildMagnetDescription(ctx) {
   const rs = ctx.treasureRun;
-  const current = rs?.banks?.[ID] != null ? getMultMulBank(rs, ID) : START_MULT_MUL;
+  const hasSlotCtx = typeof ctx.slotIndex === "number";
+  const current = hasSlotCtx ? getMultMulBank(rs, ID, ctx) : START_MULT_MUL;
   const shown = formatMultMulBankShown(current);
   return describe(
     mult("x2"),
@@ -47,15 +48,15 @@ export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription: buildMagnetDescription,
   buildPostLetterStep(ctx) {
-    const m = getMultMulBank(ctx.treasureRun, ID);
+    const m = getMultMulBank(ctx.treasureRun, ID, ctx);
     return m > 1 ? { multMul: m } : null;
   },
   onDiscardBatch(ctx) {
     const n = Math.max(0, Math.floor(Number(ctx.letterCount) || 0));
     if (n <= 0 || !ctx.treasureRun) return;
-    addMultMulBank(ctx.treasureRun, ID, -0.01 * n);
+    addMultMulBank(ctx.treasureRun, ID, -0.01 * n, ctx);
   },
   isTreasureEffectDepleted(ctx) {
-    return getMultMulBank(ctx.treasureRun, ID) <= 1;
+    return getMultMulBank(ctx.treasureRun, ID, ctx) <= 1;
   },
 };

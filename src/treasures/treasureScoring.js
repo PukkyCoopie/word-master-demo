@@ -37,6 +37,9 @@ import {
 /** 新宝藏接入后请同步 `treasureCatalog.js` 的 implemented 字段；具体效果写在对应 `items/treasure_*.js`（本文件不出现具体 treasureId）。 */
 /** 拼词中公式区预览用 `useScoring` 的 `computeWordScore`（无宝藏）；提交结算用 `computeWordScoreDetailedForSubmit`（棋盘光环类材质倍率由 `gridOnlyMaterialScoring.js` 的 `buildGridPresencePostLetterSteps` 提供字后乘法步；冰为入词格逐字 ×2.5，见 `iceMaterialScoring.js`）。 */
 
+/** 每次 `computeWordScoreDetailedForSubmit` 递增，供海绵等同词多槽按栏位顺序分配擦除入账 */
+let prepareSubmitBankPassSerial = 0;
+
 /**
  * 累计乘法倍率银行仍为 ×1、且无其它增益时，不计入字后步（避免计分 wobble 显示 ×1）。
  * @param {{ multAdd?: number, scoreAdd?: number, multMul?: number, moneyAdd?: number }} step
@@ -56,15 +59,18 @@ function isNoOpPostLetterTreasureStep(step) {
  * @param {(string | null | undefined)[]} slots
  * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} treasureRun
  */
-function applyPrepareSubmitScoringBanks(tiles, slots, treasureRun) {
-  const hookCtx = {
-    tiles,
-    ownedSlotTreasureIds: slots,
-    treasureRun: treasureRun ?? undefined,
-  };
-  for (const { treasureId: tid, source } of iterTreasureHookContributions(slots)) {
+function applyPrepareSubmitScoringBanks(tiles, slots, treasureRun, ownedTreasureInstances, prepareSubmitBankPassId) {
+  for (const { treasureId: tid, source, slotIndex: si } of iterTreasureHookContributions(slots)) {
     if (source === "blueprint") continue;
-    TREASURE_HOOKS_BY_ID.get(tid)?.prepareSubmitScoringBank?.(hookCtx);
+    TREASURE_HOOKS_BY_ID.get(tid)?.prepareSubmitScoringBank?.({
+      tiles,
+      ownedSlotTreasureIds: slots,
+      treasureRun: treasureRun ?? undefined,
+      ownedTreasureInstances: ownedTreasureInstances ?? undefined,
+      hookSlotIndex: si,
+      hookSource: source,
+      prepareSubmitBankPassId,
+    });
   }
 }
 
@@ -232,7 +238,8 @@ function buildPostLetterTreasureSteps(
     }
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
     const animSi = resolvePostLetterAnimSlotIndex(slots, tid, si, source);
-    const plural = hooks?.collectPostLetterSteps?.(hookCtxBase);
+    const hookCtx = { ...hookCtxBase, hookSlotIndex: si, hookSource: source };
+    const plural = hooks?.collectPostLetterSteps?.(hookCtx);
     let contributedThisHook = false;
     if (Array.isArray(plural) && plural.length > 0) {
       for (const step of plural) {
@@ -242,7 +249,7 @@ function buildPostLetterTreasureSteps(
         }
       }
     } else {
-      const step = hooks?.buildPostLetterStep?.(hookCtxBase);
+      const step = hooks?.buildPostLetterStep?.(hookCtx);
       if (step && !isNoOpPostLetterTreasureStep(step)) {
         steps.push({ treasureId: tid, slotIndex: animSi, ...step });
         contributedThisHook = true;
@@ -372,9 +379,16 @@ function computeSubmitLetterReplayMeta(hookCtx, tiles, slots) {
   let extraLetterScoringPasses = 0;
   /** @type {{ treasureId: string, slotIndex: number }[]} */
   const extraLetterPassCueSteps = [];
-  for (const { slotIndex: si, treasureId: tid } of iterTreasureHookContributions(slots)) {
+  for (const { slotIndex: si, treasureId: tid, source } of iterTreasureHookContributions(slots)) {
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
-    const p = Math.max(0, Math.floor(Number(hooks?.getExtraLetterScoringPasses?.(hookCtx)) || 0));
+    const slotCtx = {
+      ...hookCtx,
+      ownedSlotTreasureIds: slots,
+      ownedTreasureInstances: hookCtx.ownedTreasureInstances,
+      hookSlotIndex: si,
+      hookSource: source,
+    };
+    const p = Math.max(0, Math.floor(Number(hooks?.getExtraLetterScoringPasses?.(slotCtx)) || 0));
     if (p <= 0) continue;
     extraLetterScoringPasses += p;
     for (let k = 0; k < p; k++) {
@@ -469,6 +483,7 @@ export function computeWordScoreDetailedForSubmit(
   lengthJudgmentBonus = 0,
   submitOptions = {},
 ) {
+  const prepareSubmitBankPassId = ++prepareSubmitBankPassSerial;
   const rawSlots = ownedSlotTreasureIds ?? [];
   const disabledSet = normalizeDisabledTreasureSlotIndices(submitOptions?.disabledTreasureSlotIndices);
   const slots = applyDisabledTreasureSlots(rawSlots, disabledSet);
@@ -527,7 +542,13 @@ export function computeWordScoreDetailedForSubmit(
       ? slots.map(() => null)
       : slots.map((_, i) => (disabledSet?.has(i) ? null : (ownedSlotTreasureAccessoryIds[i] ?? null)));
   if (submitOptions?.skipPrepareSubmitScoringBank !== true) {
-    applyPrepareSubmitScoringBanks(tiles, slots, submitOptions?.treasureRun ?? null);
+    applyPrepareSubmitScoringBanks(
+      tiles,
+      slots,
+      submitOptions?.treasureRun ?? null,
+      submitOptions?.ownedTreasureInstances ?? null,
+      prepareSubmitBankPassId,
+    );
   }
   const baseHookCtx = {
     tiles,
@@ -555,6 +576,7 @@ export function computeWordScoreDetailedForSubmit(
     rarityLevelsByRarity: rarityLevelsByRarity ?? undefined,
     getWordDefinition: submitOptions?.getWordDefinition ?? undefined,
     fullDeck: submitOptions?.fullDeck ?? undefined,
+    ownedTreasureInstances: submitOptions?.ownedTreasureInstances ?? undefined,
   };
   const {
     extraLetterScoringPasses,

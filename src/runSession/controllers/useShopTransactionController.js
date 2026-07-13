@@ -2,7 +2,6 @@ import { nextTick } from "vue";
 import { animateTreasureFrameFly } from "../../game/shopOfferFlyAnim.js";
 import { resolveShopPurchaseRoute } from "../../shop/shopPurchaseDispatch.js";
 import {
-  initTreasureBankOnAcquire,
   syncShopUpgradesFreeFromOwnedTreasures,
 } from "../../treasures/treasureAcquireInit.js";
 import { canAffordWallet } from "../../treasures/treasureWalletFloor.js";
@@ -17,7 +16,7 @@ import { getShopRandomCardSlotBonus } from "../../vouchers/voucherRuntime.js";
  * @typedef {Object} ShopTransactionInventoryApi
  * @property {(offer: object | null) => number} findPlacementIndex
  * @property {(index: number, slot: object) => void} grantAt
- * @property {(excludeTreasureId?: string, targetSlotIndex?: number) => number} grantRandomCopy
+ * @property {(soldSlotIndex?: number, targetSlotIndex?: number) => number} grantRandomCopy
  * @property {(soldIndex: number, soldSlot: object, copyGrantedAtSoldSlot: boolean) => boolean} applySellSlotState
  * @property {() => Promise<void>} triggerCompactAnim
  * @property {(slotIndex: number, opts?: object) => Promise<HTMLElement | null>} waitForSlotElement
@@ -86,7 +85,6 @@ export function useShopTransactionController(options) {
     const ix = inventory.findPlacementIndex(t);
     if (ix < 0) return;
 
-    initTreasureBankOnAcquire(t.treasureId, options.treasureRunState.value);
     options.applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
 
     options.clearOfferSlotAfterPurchase(t);
@@ -306,11 +304,13 @@ export function useShopTransactionController(options) {
     let copyGrantedSlotIndex = -1;
     await notifyOwnedTreasuresOnTreasureSold(options.ownedSlotTreasureIdList(), {
       ownedSlotTreasureIds: options.ownedSlotTreasureIdList(),
+      ownedTreasureInstances: options.ownedTreasures.value,
+      getOwnedTreasures: () => options.ownedTreasures.value,
       treasureRun: options.treasureRunState.value,
       soldTreasureId: soldId,
       soldSlotIndex: ix,
       grantRandomTreasureCopy: (targetSlotIndex = ix) => {
-        copyGrantedSlotIndex = inventory.grantRandomCopy("104", targetSlotIndex);
+        copyGrantedSlotIndex = inventory.grantRandomCopy(ix, targetSlotIndex);
         copyGrantedAtSoldSlot = copyGrantedSlotIndex >= 0;
         return copyGrantedAtSoldSlot;
       },

@@ -1,32 +1,57 @@
-import { ensureTreasureBank } from "./treasureRunState.js";
+import { createDefaultTreasureBank, ensureGlobalTreasureBank, isGlobalTreasureBank } from "./treasureRunState.js";
 
-/** 购入宝藏槽后初始化运行时银行/计数 */
-export function initTreasureBankOnAcquire(treasureId, runState) {
-  if (!runState) return;
+/**
+ * 购入宝藏槽后初始化运行时银行/计数。
+ * @param {string} treasureId
+ * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
+ * @param {Record<string, unknown> | null | undefined} [ownedSlot] 新获得的宝藏实例（非全局银行宝藏必填）
+ */
+export function initTreasureBankOnAcquire(treasureId, runState, ownedSlot = null) {
+  if (!runState && !ownedSlot) return;
   const id = String(treasureId);
+  /** @type {import('./treasureRunState.js').TreasureIdBank} */
+  const bank = createDefaultTreasureBank();
   switch (id) {
     case "60":
-      ensureTreasureBank(runState, id).multAdd = 30;
+      bank.multAdd = 30;
       break;
     case "62":
-      ensureTreasureBank(runState, id).multMul = 2;
+      bank.multMul = 2;
       break;
     case "64":
-      runState.extraLetterScoreWordsRemaining = 10;
+      bank.scoreAdd = 10;
       break;
     case "104":
-      // 镜子：再次购入须从 0/2 重新累计（卖出后 banks 仍保留旧进度）
-      ensureTreasureBank(runState, id).scoreAdd = 0;
+      bank.scoreAdd = 0;
       break;
     case "122":
-      ensureTreasureBank(runState, id).posPackProgress = 3;
+      bank.posPackProgress = 3;
       break;
     case "132":
-      ensureTreasureBank(runState, id).scoreAdd = 1;
+      bank.scoreAdd = 1;
       break;
     default:
       break;
   }
+  if (isGlobalTreasureBank(id)) {
+    if (!runState) return;
+    const globalBank = ensureGlobalTreasureBank(runState, id);
+    Object.assign(globalBank, bank);
+    return;
+  }
+  if (!ownedSlot) return;
+  ownedSlot.bank = bank;
+}
+
+/**
+ * @param {string} treasureId
+ * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
+ * @param {number} slotIndex
+ * @param {object[]} ownedTreasureInstances
+ */
+export function initTreasureBankOnAcquireAtSlot(treasureId, runState, slotIndex, ownedTreasureInstances) {
+  const slot = ownedTreasureInstances?.[slotIndex];
+  initTreasureBankOnAcquire(treasureId, runState, slot && typeof slot === "object" ? slot : null);
 }
 
 /**
@@ -41,7 +66,6 @@ export function applyTreasureAcquireImmediateEffects(treasureId, ctx = {}) {
 }
 
 /**
- * 同步「升级免费」运行态，避免在面板层写 110 的字面量分支。
  * @param {(string | null | undefined)[]} ownedSlotTreasureIds
  * @param {import('./treasureRunState.js').TreasureRunState} runState
  */

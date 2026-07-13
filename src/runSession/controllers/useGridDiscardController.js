@@ -3,10 +3,11 @@ import gsap from "gsap";
 import { EASE_TRANSFORM } from "../../constants.js";
 import { MAX_LETTERS_PER_REMOVAL } from "../../composables/useGameState.js";
 import { SCORING_GAP_SCALE } from "../../game/submitScoringAnim.js";
-import { addMultMulBank, addScoreAddBank } from "../../treasures/treasureBankHelpers.js";
+import { addMultMulBank, addScoreAddBank, treasureBankHookCtxFromSubmitSlot } from "../../treasures/treasureBankHelpers.js";
 import {
   DISCARD_SCORE_AWARD,
-  rollPotteryDiscardProcIndices,
+  rollPotteryDiscardProcIndicesBySlot,
+  ownedSlotTreasureIdsIncludePottery,
   TREASURE_65_ID,
 } from "../../treasures/items/treasure_65.js";
 import { TREASURE_99_E_MULT_GAIN_BUBBLE, TREASURE_99_ID } from "../../treasures/items/treasure_99.js";
@@ -134,7 +135,20 @@ export function useGridDiscardController(options) {
     ownedVoucherIds,
     spellCountsByLength,
     runRandom,
+    ownedTreasures,
   } = run;
+
+  /** @param {string} treasureId @returns {number[]} */
+  function allOwnedTreasureSlotIndices(treasureId) {
+    const tid = String(treasureId ?? "").trim();
+    if (!tid) return [];
+    /** @type {number[]} */
+    const indices = [];
+    ownedTreasures.value.forEach((s, i) => {
+      if (String(s?.treasureId ?? "").trim() === tid) indices.push(i);
+    });
+    return indices;
+  }
 
   const removalDeltaKey = ref(0);
   let removalDeltaClearTimer = null;
@@ -414,15 +428,14 @@ export function useGridDiscardController(options) {
    * @param {HTMLElement[]} slotEls
    * @param {HTMLElement[]} gridEls
    * @param {{ letter?: string }[]} discardedLetters
-   * @param {{ duration?: number, stagger?: number, potteryProcIndices?: number[], pistolProc?: boolean, pistolDeckUid?: number | null, pistolMoneyAmount?: number, pistolSlotIndex?: number }} [animOptions]
+   * @param {{ duration?: number, stagger?: number, potteryDiscardProcIndicesBySlot?: Record<number, number[]>, pistolProc?: boolean, pistolDeckUid?: number | null, pistolMoneyAmount?: number, pistolSlotIndex?: number }} [animOptions]
    * @returns {Promise<boolean>}
    */
   async function runDiscardLeaveAnimation(slotEls, gridEls, discardedLetters, animOptions = {}) {
     const duration = Number.isFinite(animOptions.duration) ? animOptions.duration : REMOVE_SLOT_FADE_DURATION;
     const stagger = Number.isFinite(animOptions.stagger) ? animOptions.stagger : REMOVE_SLOT_STAGGER;
     const rs = treasureRunState.value;
-    const potterySlotIx = callbacks.findOwnedTreasureSlotIndex(TREASURE_65_ID);
-    const trashSlotIx = callbacks.findOwnedTreasureSlotIndex(TREASURE_99_ID);
+    const trashSlotIndices = allOwnedTreasureSlotIndices(TREASURE_99_ID);
     const pistolProc = animOptions.pistolProc === true;
     const pistolDeckUid = animOptions.pistolDeckUid ?? null;
     const pistolMoneyAmount = Math.max(0, Math.floor(Number(animOptions.pistolMoneyAmount) || 0));
@@ -430,16 +443,22 @@ export function useGridDiscardController(options) {
       typeof animOptions.pistolSlotIndex === "number" && animOptions.pistolSlotIndex >= 0
         ? animOptions.pistolSlotIndex
         : callbacks.findOwnedTreasureSlotIndex(TREASURE_120_ID);
+    const potteryProcsBySlot = animOptions.potteryDiscardProcIndicesBySlot ?? {};
     /** @type {number[]} */
-    const potteryIndices = potterySlotIx >= 0 ? [...(animOptions.potteryProcIndices ?? [])] : [];
+    const potterySlotIndices = Object.keys(potteryProcsBySlot)
+      .map((k) => Math.floor(Number(k)))
+      .filter((ix) => Number.isFinite(ix) && ix >= 0);
     /** @type {number[]} */
     const trashIndices = [];
-    if (trashSlotIx >= 0) {
+    if (trashSlotIndices.length > 0) {
       for (let i = 0; i < discardedLetters.length; i++) {
         if (String(discardedLetters[i]?.letter ?? "").toLowerCase() === "e") trashIndices.push(i);
       }
     }
-    if (!potteryIndices.length && !trashIndices.length && !pistolProc) {
+    const anyPotteryProc = potterySlotIndices.some(
+      (ix) => (potteryProcsBySlot[ix] ?? []).length > 0,
+    );
+    if (!anyPotteryProc && !trashIndices.length && !pistolProc) {
       await runSlotAndGridLeaveAnimation(slotEls, gridEls, { duration, stagger });
       return false;
     }
@@ -447,13 +466,17 @@ export function useGridDiscardController(options) {
     const scorePerLetter = DISCARD_SCORE_AWARD;
     const trashMultIncrement = 0.25;
     const trashBubble = TREASURE_99_E_MULT_GAIN_BUBBLE;
+    const ownedSlots = ownedTreasures.value;
+    const ownedSlotIds = callbacks.ownedSlotTreasureIdList();
     const staggerMs = Math.round(stagger * 1000);
     /** @type {Promise<void>[]} */
     const leaveTasks = [];
     for (let i = 0; i < slotEls.length; i++) {
       const slotEl = slotEls[i];
       const gridEl = gridEls[i];
-      const triggersPottery = potteryIndices.includes(i);
+      const triggersPottery = potterySlotIndices.some((slotIx) =>
+        (potteryProcsBySlot[slotIx] ?? []).includes(i),
+      );
       const triggersTrash = trashIndices.includes(i);
       const triggersPistol = pistolProc && i === 0;
       leaveTasks.push(
@@ -477,14 +500,30 @@ export function useGridDiscardController(options) {
             await animateOneDiscardTileLeave(slotEl, gridEl, duration);
           }
           if (triggersPottery) {
-            addScoreAddBank(rs, TREASURE_65_ID, scorePerLetter);
-            await submitFx.playTreasureSlotScoreBurstAtPeak(potterySlotIx, scorePerLetter);
-            await sleep(DISCARD_PROC_FX_HOLD_MS);
+            for (const slotIx of potterySlotIndices) {
+              const procIndices = potteryProcsBySlot[slotIx] ?? [];
+              if (!procIndices.includes(i)) continue;
+              addScoreAddBank(
+                rs,
+                TREASURE_65_ID,
+                scorePerLetter,
+                treasureBankHookCtxFromSubmitSlot(ownedSlots, ownedSlotIds, slotIx),
+              );
+              await submitFx.playTreasureSlotScoreBurstAtPeak(slotIx, scorePerLetter);
+              await sleep(DISCARD_PROC_FX_HOLD_MS);
+            }
           }
           if (triggersTrash) {
-            addMultMulBank(rs, TREASURE_99_ID, trashMultIncrement);
-            await submitFx.playTreasureSlotBubbleBurstAtPeak(trashSlotIx, trashBubble, "mult");
-            await sleep(DISCARD_PROC_FX_HOLD_MS);
+            for (const slotIx of trashSlotIndices) {
+              addMultMulBank(
+                rs,
+                TREASURE_99_ID,
+                trashMultIncrement,
+                treasureBankHookCtxFromSubmitSlot(ownedSlots, ownedSlotIds, slotIx),
+              );
+              await submitFx.playTreasureSlotBubbleBurstAtPeak(slotIx, trashBubble, "mult");
+              await sleep(DISCARD_PROC_FX_HOLD_MS);
+            }
           }
         })(),
       );
@@ -576,16 +615,28 @@ export function useGridDiscardController(options) {
       };
 
       const ownedIds = callbacks.ownedSlotTreasureIdList();
-      const potteryProcIndices =
-        callbacks.findOwnedTreasureSlotIndex(TREASURE_65_ID) >= 0
-          ? rollPotteryDiscardProcIndices(nSel, runRandom, ownedIds)
-          : [];
+      const potteryDiscardProcIndicesBySlot = ownedSlotTreasureIdsIncludePottery(ownedIds)
+        ? rollPotteryDiscardProcIndicesBySlot(ownedIds, nSel, runRandom)
+        : {};
+      const anyPotteryProc = Object.values(potteryDiscardProcIndicesBySlot).some(
+        (indices) => indices.length > 0,
+      );
       const pistolDiscardPlan = resolvePistolDiscardBatchPlan({
         treasureRun: treasureRunState.value,
         letterCount: nSel,
         discardedDeckCardUids,
         ownedSlotTreasureIds: ownedIds,
       });
+      const skateboardSlotIndices = allOwnedTreasureSlotIndices(TREASURE_99_ID);
+      /** @type {number[]} */
+      const skateboardTrashLetterIndices = [];
+      if (skateboardSlotIndices.length > 0) {
+        for (let i = 0; i < discardedLettersForHooks.length; i += 1) {
+          if (String(discardedLettersForHooks[i]?.letter ?? "").toLowerCase() === "e") {
+            skateboardTrashLetterIndices.push(i);
+          }
+        }
+      }
 
       wordDefinitionHiddenForWordLeave.value = true;
       const discardLeaveFxHandled = await runDiscardLeaveAnimation(
@@ -595,14 +646,18 @@ export function useGridDiscardController(options) {
         {
           duration: discardLeaveDuration(nSel),
           stagger: discardLeaveStagger(nSel),
-          potteryProcIndices,
+          potteryDiscardProcIndicesBySlot,
           pistolProc: pistolDiscardPlan.proc,
           pistolDeckUid: pistolDiscardPlan.proc ? pistolDiscardPlan.deckUid : null,
           pistolMoneyAmount: pistolDiscardPlan.proc ? pistolDiscardPlan.moneyAmount : 0,
           pistolSlotIndex: pistolDiscardPlan.proc ? pistolDiscardPlan.slotIndex : undefined,
         },
       );
-      const discardPotteryFxHandled = discardLeaveFxHandled && potteryProcIndices.length > 0;
+      const discardPotteryFxHandled = discardLeaveFxHandled && anyPotteryProc;
+      const discardSkateboardFxHandled =
+        discardLeaveFxHandled &&
+        skateboardSlotIndices.length > 0 &&
+        skateboardTrashLetterIndices.length > 0;
       const discardPistolFxHandled = discardLeaveFxHandled && pistolDiscardPlan.proc;
       const result = removeSelectedLetters({
         prevCells: prevFlip.cells,
@@ -659,6 +714,7 @@ export function useGridDiscardController(options) {
         dropPromise,
         notifyOwnedTreasuresOnDiscardBatch(ownedIds, {
           ownedSlotTreasureIds: ownedIds,
+          ownedTreasureInstances: callbacks.getOwnedTreasures?.() ?? [],
           getOwnedSlotTreasureIds: callbacks.ownedSlotTreasureIdList,
           discardedLetters: discardedLettersForHooks,
           discardedDeckCardUids,
@@ -666,8 +722,9 @@ export function useGridDiscardController(options) {
           treasureRun: treasureRunState.value,
           rng: runRandom,
           discardPotteryFxHandled,
+          discardSkateboardFxHandled,
           discardPistolFxHandled,
-          potteryDiscardProcIndices: potteryProcIndices,
+          potteryDiscardProcIndicesBySlot,
           resolveDiscardedWord: (w) => callbacks.getWordDefinition(w),
           judgedWordLength: judgedWordLengthForDiscard,
           removeDeckCardByUid: (uid, options) => callbacks.removeDeckCardByUidAndNotify(uid, options),

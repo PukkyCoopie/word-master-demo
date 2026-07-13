@@ -103,7 +103,7 @@ export function isBlockingPauseOpen(input) {
 }
 
 /**
- * 与 GamePanel `canSubmit` computed 对齐（不含飞字 batch 门禁，由 template click 额外判断）。
+ * 与 GamePanel `canSubmit` / 提交按钮视觉态对齐（含飞入在途、飞回截断后的有效词判定）。
  * @param {RunPhaseMachineInput} input
  */
 export function canSubmitWord(input) {

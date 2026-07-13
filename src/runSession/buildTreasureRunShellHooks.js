@@ -116,7 +116,6 @@ export function buildTreasureRunShellHooks(d) {
         skipSettlementFx,
         pickRandomInRunSpellId: () => d.pickRandomInRunSpellIdForRun(),
         requestInRunSpellGrant: async ({ spellId, treasureSlotIndex, treasureId } = {}) => {
-          if (skipSettlementFx) return;
           const sid =
             spellId != null && String(spellId).trim()
               ? String(spellId)
@@ -124,21 +123,28 @@ export function buildTreasureRunShellHooks(d) {
           if (!sid) return;
           let slotIx = treasureSlotIndex;
           if (slotIx == null && treasureId) slotIx = d.findOwnedTreasureSlotIndex(treasureId);
-          await d.runInRunSpellGrant(sid, { treasureSlotIndex: slotIx });
+          await d.runInRunSpellGrant(sid, {
+            treasureSlotIndex: slotIx,
+            skipPrecursorFx: skipSettlementFx,
+          });
         },
         requestInRunPackOpen: async ({ bundle, treasureSlotIndex, treasureId } = {}) => {
-          if (skipSettlementFx) return;
           let slotIx = treasureSlotIndex;
           if (slotIx == null && treasureId) slotIx = d.findOwnedTreasureSlotIndex(treasureId);
-          await d.runInRunPackPickFlow(bundle ?? null, { treasureSlotIndex: slotIx });
+          await d.runInRunPackPickFlow(bundle ?? null, {
+            treasureSlotIndex: slotIx,
+            skipPrecursorFx: skipSettlementFx,
+          });
         },
         requestInRunPackOpenOfKind: async ({ kind, treasureSlotIndex, treasureId } = {}) => {
-          if (skipSettlementFx) return;
           let slotIx = treasureSlotIndex;
           if (slotIx == null && treasureId) slotIx = d.findOwnedTreasureSlotIndex(treasureId);
           const bundle = d.rollInRunBundlePackOfKind(kind, d.buildRollInRunBundlePackCtx());
           if (!bundle) return;
-          await d.runInRunPackPickFlow(bundle, { treasureSlotIndex: slotIx });
+          await d.runInRunPackPickFlow(bundle, {
+            treasureSlotIndex: slotIx,
+            skipPrecursorFx: skipSettlementFx,
+          });
         },
         getWordDefinition: d.getWordDefinition,
         requestInRunUpgrade: async ({ offer, treasureSlotIndex, treasureId } = {}) => {

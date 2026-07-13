@@ -40,7 +40,7 @@ const USER_BATCH_50 = [
   { batchIndex: 19, text: "$6 rare 你每有$1，+2分数" },
   {
     batchIndex: 20,
-    text: "$6 rare 如果每关拼写的第一个单词只有3个字母，从字母库中移除这3个字母并获得$3",
+    text: "$6 rare 如果每关拼写的第一个单词只有3个字母，从字母库中移除这3个字母以获得$3",
   },
   { batchIndex: 21, text: "$5 rare 每当商店刷新时，获得+2倍率（当前+0）" },
   { batchIndex: 22, text: "$5 common +25倍率；每拼写一个单词-5倍率（当前+25）" },

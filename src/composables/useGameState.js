@@ -1687,13 +1687,15 @@ export function useGameState(gameOpts = {}) {
    */
   /**
    * 进关前向 multiset 追加牌张（如鬼牌）；`resetLevel` 会复制该快照。
-   * @param {{ raw: string, accessoryId?: string | null, tileScoreBonus?: number, letterMultBonus?: number, materialId?: string | null }} spec
+   * @param {{ raw: string, accessoryId?: string | null, treasureAccessoryId?: string | null, tileScoreBonus?: number, letterMultBonus?: number, materialId?: string | null }} spec
    * @returns {ReturnType<typeof createDeckCard>}
    */
   function appendDeckCardSpecToInitialSnapshot(spec) {
     const raw = String(spec?.raw ?? "e").toLowerCase();
     const card = createDeckCard(raw);
-    if (spec.accessoryId) card.accessoryId = spec.accessoryId;
+    const accessoryPair = normalizeExclusiveTileAccessoryPair(spec.accessoryId, spec.treasureAccessoryId);
+    if (accessoryPair.accessoryId) card.accessoryId = accessoryPair.accessoryId;
+    if (accessoryPair.treasureAccessoryId) card.treasureAccessoryId = accessoryPair.treasureAccessoryId;
     if (spec.tileScoreBonus) card.tileScoreBonus = Math.max(0, Math.floor(Number(spec.tileScoreBonus) || 0));
     if (spec.letterMultBonus) card.letterMultBonus = Math.max(0, Math.floor(Number(spec.letterMultBonus) || 0));
     if (spec.materialId) applyRolledMaterialIdToDeckCard(card, spec.materialId);

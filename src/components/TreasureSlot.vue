@@ -10,7 +10,7 @@
         'treasure-slot--stack-overlap': stackOverlapShadow,
         'treasure-slot--effect-charge': chargeState != null,
         'treasure-slot--effect-charge-active': chargeState === 'active',
-        'treasure-slot--effect-depleted': effectDepleted,
+        'treasure-slot--effect-depleted': effectDepletedShown,
         'treasure-slot--boss-hand-disabled': crimsonHandDisabled,
         'treasure-slot--accessory-expired': accessoryExpired,
         'treasure-slot--amber-mask': amberBossMask,
@@ -21,7 +21,7 @@
     <template v-if="treasure">
       <div v-if="stackOverlapShadow" class="treasure-slot-stack-shadow" aria-hidden="true" />
       <div class="treasure-slot-face">
-        <span v-if="accessoryExpired" class="letter-tile-boss-x" aria-hidden="true">×</span>
+        <span v-if="accessoryExpired || effectDepletedShown" class="letter-tile-boss-x" aria-hidden="true">×</span>
         <span class="letter-gem" :class="gemClass" aria-hidden="true" />
         <span class="treasure-slot-emoji" role="img">{{ amberBossMask ? "?" : treasure.emoji }}</span>
         <div
@@ -39,7 +39,11 @@
             <i class="treasure-accessory-chip-icon" :class="chip.iconClass" aria-hidden="true" />
           </span>
         </div>
-        <i v-if="chargeState != null" class="treasure-charge-corner-icon ri-flashlight-fill" aria-hidden="true"></i>
+        <i
+          v-if="chargeState != null && !effectDepletedShown"
+          class="treasure-charge-corner-icon ri-flashlight-fill"
+          aria-hidden="true"
+        ></i>
         <i v-if="crimsonHandDisabled" class="treasure-boss-hand-lock ri-lock-fill" aria-hidden="true"></i>
       </div>
     </template>
@@ -47,9 +51,12 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { getTreasureAccessoryChipVisualsFromEntity } from "../game/treasureAccessories.js";
 import { isHourglassAccessoryExpired } from "../game/treasureHourglassRuntime.js";
+import { RUN_SESSION_KEY } from "../runSession/useRunSession.js";
+import { isOwnedTreasureBarSlotContext } from "../treasures/treasureOwnedBarContext.js";
+import { resolveTreasureEffectDepleted } from "../treasures/treasureRegistry.js";
 
 const props = defineProps({
   /** 槽位索引：供 pointer 拖动时 hit-test */
@@ -70,12 +77,45 @@ const props = defineProps({
 });
 
 const rootRef = ref(null);
+/** @type {import('../runSession/runSessionTypes.js').RunSession | null} */
+const runSession = inject(RUN_SESSION_KEY, null);
 
 const accessoryChipVisuals = computed(() =>
   props.treasure ? getTreasureAccessoryChipVisualsFromEntity(props.treasure) : [],
 );
 
 const accessoryExpired = computed(() => isHourglassAccessoryExpired(props.treasure));
+
+/** 宝藏栏：父级 computed 可能滞后；已装备实例在槽内实时解析。非栏位预览（商店/包/开发者）不解析 depleted。 */
+const effectDepletedShown = computed(() => {
+  const treasure = props.treasure;
+  const tid = String(treasure?.treasureId ?? "").trim();
+  if (!tid) return props.effectDepleted === true;
+
+  void treasure?.bank?.scoreAdd;
+  void treasure?.bank?.posPackProgress;
+  void treasure?.bank?.multAdd;
+  void treasure?.bank?.multMul;
+
+  const instances = runSession?.run?.ownedTreasures?.value;
+  const runState = runSession?.run?.treasureRunState?.value;
+  const physicalIndex = treasure && Array.isArray(instances) ? instances.indexOf(treasure) : -1;
+  if (
+    physicalIndex < 0 ||
+    !isOwnedTreasureBarSlotContext(treasure, physicalIndex, instances)
+  ) {
+    return props.effectDepleted === true;
+  }
+
+  return resolveTreasureEffectDepleted(
+    tid,
+    0,
+    runState,
+    treasure,
+    physicalIndex,
+    instances,
+  );
+});
 
 const clampedChargeProgress = computed(() => {
   const n = Number(props.chargeProgress);

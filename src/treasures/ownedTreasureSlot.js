@@ -6,6 +6,7 @@ import {
 import { getShopTreasureAccessoryPriceAddFromIds } from "../accessories/accessoryResolve.js";
 import { treasureOfferHasRentalAccessory } from "../game/runDifficultyRuntime.js";
 import { getTreasureDef } from "./treasureRegistry.js";
+import { normalizeTreasureBank } from "./treasureRunState.js";
 
 const CANDLE_TREASURE_ID = "41";
 
@@ -17,6 +18,7 @@ const CANDLE_TREASURE_ID = "41";
  * @property {string[]} [treasureAccessoryIds]
  * @property {number} [hourglassStagesElapsed]
  * @property {boolean} [treasureAccessoryExpired]
+ * @property {import('./treasureRunState.js').TreasureIdBank} [bank] 本实例可成长数值（倍率/分数银行等）
  */
 
 /**
@@ -101,6 +103,9 @@ export function buildOwnedTreasureSlot(input) {
   if (input.treasureAccessoryExpired === true) {
     slot.treasureAccessoryExpired = true;
   }
+  if (input.bank != null && typeof input.bank === "object") {
+    slot.bank = normalizeTreasureBank(input.bank);
+  }
   return normalizeOwnedTreasureSlot(slot);
 }
 
@@ -127,6 +132,10 @@ export function serializeOwnedTreasureSlot(slot) {
   if (elapsed > 0) out.hourglassStagesElapsed = elapsed;
 
   if (slot.treasureAccessoryExpired === true) out.treasureAccessoryExpired = true;
+
+  if (slot.bank != null && typeof slot.bank === "object") {
+    out.bank = normalizeTreasureBank(slot.bank);
+  }
 
   return out;
 }

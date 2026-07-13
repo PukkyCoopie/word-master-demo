@@ -19,8 +19,13 @@ function onVisibilityChange() {
   }
 }
 
+function onPageHide() {
+  onPageHidden();
+}
+
 export async function initAppLifecycle() {
   document.addEventListener("visibilitychange", onVisibilityChange);
+  window.addEventListener("pagehide", onPageHide);
   if (!Capacitor.isNativePlatform()) return;
   if (appStateListener) return;
   appStateListener = await App.addListener("appStateChange", ({ isActive }) => {
@@ -32,6 +37,7 @@ export async function initAppLifecycle() {
 
 export async function disposeAppLifecycle() {
   document.removeEventListener("visibilitychange", onVisibilityChange);
+  window.removeEventListener("pagehide", onPageHide);
   if (appStateListener) {
     await appStateListener.remove();
     appStateListener = null;

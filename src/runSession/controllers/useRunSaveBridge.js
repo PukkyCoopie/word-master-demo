@@ -151,6 +151,7 @@ export function useRunSaveBridge(options) {
       crimsonTreasureDisabledSlotIndexRef: boss.crimsonTreasureDisabledSlotIndex,
       pendingBossSlugOverrideRef: boss.pendingBossSlugOverride,
       hydrateDeckState: grid.hydrateDeckState,
+      basketballWordsSubmittedRef: grid.basketballWordsSubmitted,
       ownedUpgradesRef: run.ownedUpgrades,
       runMatchStatsRef: run.runMatchStats,
       runDiscoveryLogRef: misc.runDiscoveryLog,
@@ -228,14 +229,11 @@ export function useRunSaveBridge(options) {
     flushRunSaveNow();
   }
 
-  /** 退菜单 / 切后台：写入当前局内状态并立即落盘（不依赖 pending 标记）。 */
+  /** 退菜单 / 切后台：写入当前局内状态并立即落盘（不依赖 pending 标记与动画空闲门禁）。 */
   function flushRunSaveNow() {
     if (isAlive()) {
-      if (canSaveNow().ok) {
-        saveCurrentRun(getSaveSlotIndex(), { immediate: true });
-      } else {
-        runAutoSave.tryFlush({ force: true });
-      }
+      saveCurrentRun(getSaveSlotIndex(), { immediate: true });
+      runAutoSave.cancelPending();
     }
     flushSaveStorageSync();
   }

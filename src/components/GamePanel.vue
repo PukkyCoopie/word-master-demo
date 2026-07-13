@@ -188,6 +188,7 @@ import {
   normalizeExclusiveTileAccessoryPair,
 } from "../accessories/accessoryState.js";
 import { buildOwnedTreasureSlot } from "../treasures/ownedTreasureSlot.js";
+import { resolvedWordToRemovalLetterRaws } from "../treasures/treasureLogicShared.js";
 import {
   clampRemainingRemovalsForBossMechanics,
   isLengthObservatoryBoosted,
@@ -939,8 +940,10 @@ function onInfoSelectOwnedVoucher(payload) {
  * 宝藏触发开包前：槽位 wobble + 头上组合包图标气泡（节奏对齐记分气泡）。
  * @param {number} slotIndex
  * @param {string} [bundleKind]
+ * @param {{ skipFx?: boolean }} [opts]
  */
-async function runTreasurePackOpenPrecursor(slotIndex, bundleKind = "") {
+async function runTreasurePackOpenPrecursor(slotIndex, bundleKind = "", opts = {}) {
+  if (opts.skipFx === true) return;
   if (typeof slotIndex !== "number" || slotIndex < 0) return;
   const el = treasureInventoryCtrl.getSlotElement(slotIndex);
   if (!el) return;
@@ -992,16 +995,35 @@ function addRemainingRemovalsClamped(n) {
   );
 }
 
+/** @param {readonly string[]} raws */
+function notifyTreasureDeckCardsRemovedForRaws(raws) {
+  if (!raws?.length) return;
+  void ctrlEarly.notifyTreasureDeckCardsRemovedByRaws(raws);
+}
+
+/** @param {number} uid */
+function peekDeckCardRawByUid(uid) {
+  const card = initialDeckSnapshot.value.find(
+    (c) => c && typeof c === "object" && /** @type {{ _dcUid?: number }} */ (c)._dcUid === uid,
+  );
+  return deckCardRaw(card);
+}
+
 /** @param {number} uid @param {{ clearGrid?: boolean }} [options] */
 function removeDeckCardByUidAndNotify(uid, options = {}) {
+  const raw = peekDeckCardRawByUid(uid);
   const removed = removeDeckCardByUid(uid, options);
-  if (removed) flushDeckMultisetAchievements();
+  if (removed) {
+    if (raw) notifyTreasureDeckCardsRemovedForRaws([raw]);
+    flushDeckMultisetAchievements();
+  }
   return removed;
 }
 
 /** @param {unknown[]} tiles @param {string | null | undefined} resolvedWord */
 function removeDeckCardsForSubmittedWordAndNotify(tiles, resolvedWord) {
   removeDeckCardsForSubmittedWord(tiles, resolvedWord);
+  notifyTreasureDeckCardsRemovedForRaws(resolvedWordToRemovalLetterRaws(resolvedWord, tiles));
   flushDeckMultisetAchievements();
 }
 
@@ -1236,7 +1258,7 @@ const ctrlEarly = wireGamePanelControllers({
     getTargetScore: () => targetScore.value,
     getCurrentScore: () => currentScore.value,
     getInitialDeckSnapshot: () => initialDeckSnapshot.value,
-    getOwnedTreasures: () => ownedTreasures.value.filter(Boolean),
+    getOwnedTreasures: () => ownedTreasures.value,
     getGrid: () => grid.value,
     getSelectedOrder: () => selectedOrder.value,
     appendDeckCardSpecToRunDeck: (spec) => appendDeckCardSpecToRunDeck(spec),
@@ -1299,6 +1321,7 @@ function judgedLengthTableLenForRun(wordLetterCount, partialCtx = {}) {
     presetId: runPresetId.value,
     runWordLengthJudgmentPenalty: runWordLengthJudgmentPenalty.value,
     treasureRun: treasureRunState.value,
+    ownedTreasureInstances: ownedTreasures.value,
     ...partialCtx,
   });
 }
@@ -1473,7 +1496,7 @@ watchEffect(() => {
 
 function removeDeckLettersByRawsWithTreasureNotify(raws) {
   removeDeckLetterInstancesByRaws(raws);
-  void ctrlEarly.notifyTreasureDeckCardsRemovedByRaws(raws);
+  notifyTreasureDeckCardsRemovedForRaws(raws);
   flushDeckMultisetAchievements();
 }
 
@@ -2112,6 +2135,14 @@ runAutoSaveBridge.flushRunSaveNow = () => runSaveBridge?.flushRunSaveNow?.();
     runTreasureLevelCompleteHooks: ctrlEarly.runTreasureLevelCompleteHooks,
     selectTile, removeFromSlot, selectedOrder, submitWord: panelAssembly.submitController.submitWord,
     scoringAnimating, gridRefillAnimating, submitWordBusy,
+    findTreasurePlacementIndex: ctrlEarly.findTreasurePlacementIndex,
+    noteCollectionTreasureAcquired: ctrlEarly.noteCollectionTreasureAcquired,
+    applyTreasureAcquireImmediateEffectsForRun: ctrlEarly.applyTreasureAcquireImmediateEffectsForRun,
+    appendShopDeckEntriesAndNotify: ctrlEarly.appendShopDeckEntriesAndNotify,
+    ownedVoucherIds,
+    runPresetId,
+    runWordLengthJudgmentPenalty,
+    getWordDefinition,
   }),
 }));
 
@@ -2123,6 +2154,7 @@ wireOverlayViewContext(overlayStackController, {
   packPickRequiredPicks,
   money,
   levelIndex,
+  isEndlessRun,
   shopPhase,
   canPlaceTreasureOffer: ctrlEarly.canPlaceTreasureOffer,
   walletHeaderShown,

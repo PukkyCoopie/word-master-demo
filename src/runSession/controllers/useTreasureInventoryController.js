@@ -12,9 +12,8 @@ import {
 import { offerFlyOriginRectFromEl } from "../../game/offerFlyOrigin.js";
 import { createPreviewNavGroupFromItems } from "../../preview/previewGroupNav.js";
 import { animSleep } from "../../settings/animationSpeed.js";
+import { pickMirrorCopySourceSlotIndex } from "../../treasures/items/treasure_104.js";
 import { getTreasureDef } from "../../treasures/treasureRegistry.js";
-import { initTreasureBankOnAcquire } from "../../treasures/treasureAcquireInit.js";
-
 /** @param {string | null | undefined} rarity */
 export function treasureGemClassForRarity(rarity) {
   if (rarity === "epic") return "gem-epic";
@@ -126,7 +125,6 @@ export function useTreasureInventoryController(options) {
       price: plan.treasureDef.price,
       ...(plan.usedCrop ? { treasureAccessoryIds: [ACCESSORY_CROP] } : {}),
     });
-    initTreasureBankOnAcquire(plan.treasureDef.treasureId, options.treasureRunState.value);
     applyAcquireEffectsImpl(plan.treasureDef.treasureId);
     return { ok: true, slotIndex: plan.slotIndex };
   }
@@ -135,12 +133,12 @@ export function useTreasureInventoryController(options) {
     return grantRandomByRarity(null).ok;
   }
 
-  function grantRandomCopy(excludeTreasureId = "104", targetSlotIndex = -1) {
-    const filled = options.ownedTreasures.value.filter(
-      (s) => s?.treasureId && String(s.treasureId) !== String(excludeTreasureId),
-    );
-    if (!filled.length) return -1;
-    const pick = filled[Math.floor(options.runRandom() * filled.length)];
+  function grantRandomCopy(soldSlotIndex = -1, targetSlotIndex = -1) {
+    const owned = options.ownedTreasures.value;
+    const sourceIx = pickMirrorCopySourceSlotIndex(owned, soldSlotIndex, options.runRandom);
+    if (sourceIx < 0) return -1;
+    const pick = owned[sourceIx];
+    if (!pick?.treasureId) return -1;
     const def = getTreasureDef(String(pick.treasureId));
     if (!def) return -1;
     const preferred = Math.floor(Number(targetSlotIndex));
@@ -153,7 +151,6 @@ export function useTreasureInventoryController(options) {
       treasureId: def.treasureId,
       price: def.price,
     });
-    initTreasureBankOnAcquire(def.treasureId, options.treasureRunState.value);
     applyAcquireEffectsImpl(def.treasureId);
     return ix;
   }

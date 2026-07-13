@@ -6,7 +6,7 @@ import {
 } from "../../game/inRunGrantFlow.js";
 import { rollOneRandomBundlePackOffer } from "../../shop/rollInRunBundlePack.js";
 import { notifyOwnedTreasuresOnPackSkipped, notifyOwnedTreasuresOnPackClaimed } from "../../treasures/treasureRegistry.js";
-import { syncShopUpgradesFreeFromOwnedTreasures, initTreasureBankOnAcquire } from "../../treasures/treasureAcquireInit.js";
+import { syncShopUpgradesFreeFromOwnedTreasures } from "../../treasures/treasureAcquireInit.js";
 import { readTreasureAccessoryIds } from "../../accessories/accessoryState.js";
 import { animatePackDeckOfferFlyToDeck } from "../../game/shopOfferFlyAnim.js";
 import { packDeckOfferFlyOriginRectFromEl } from "../../game/offerFlyOrigin.js";
@@ -63,7 +63,7 @@ function refToDom(el) {
  *   getInRunDeckFlyTargetEl: () => HTMLElement | null,
  *   playOwnedTreasureMultDeltaFx: (...args: unknown[]) => unknown,
  *   treasureOriginRectFromEl: (el: unknown) => object | null,
- *   runTreasurePackOpenPrecursor: (slotIndex: number, bundleKind?: string) => Promise<void>,
+ *   runTreasurePackOpenPrecursor: (slotIndex: number, bundleKind?: string, opts?: { skipFx?: boolean }) => Promise<void>,
  * }} callbacks
  */
 
@@ -130,7 +130,7 @@ export function usePackPickController(options) {
     packPickSession.value = null;
   }
 
-  async function runInRunPackPickFlow(bundleRow, { treasureSlotIndex } = {}) {
+  async function runInRunPackPickFlow(bundleRow, { treasureSlotIndex, skipPrecursorFx = false } = {}) {
     let bundle = bundleRow;
     if (!bundle || bundle.offerType !== "bundlePack") {
       bundle = rollOneRandomBundlePackOffer(shop.buildRollInRunBundlePackCtx());
@@ -138,7 +138,9 @@ export function usePackPickController(options) {
     }
     const bundleKind = String(bundle.bundleKind ?? "");
     if (typeof treasureSlotIndex === "number" && treasureSlotIndex >= 0) {
-      await callbacks.runTreasurePackOpenPrecursor(treasureSlotIndex, bundleKind);
+      await callbacks.runTreasurePackOpenPrecursor(treasureSlotIndex, bundleKind, {
+        skipFx: skipPrecursorFx,
+      });
     }
     return new Promise((resolve) => {
       packPickFlowResolve = resolve;
@@ -219,6 +221,8 @@ export function usePackPickController(options) {
         await notifyOwnedTreasuresOnPackSkipped(owned, {
           treasureRun: treasureRunState.value,
           ownedSlotTreasureIds: owned,
+          ownedTreasureInstances: ownedTreasures.value,
+          getOwnedTreasures: () => ownedTreasures.value,
           ...(typeof callbacks.ownedTreasureHookFxBridge === "function"
             ? callbacks.ownedTreasureHookFxBridge()
             : { playOwnedTreasureMultDeltaFx: callbacks.playOwnedTreasureMultDeltaFx }),
@@ -265,6 +269,8 @@ export function usePackPickController(options) {
     scheduleOverlayPresent(280);
     await notifyOwnedTreasuresOnPackClaimed(owned, {
       ownedSlotTreasureIds: owned,
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
       treasureRun: treasureRunState.value,
       rng: runRandom,
       findOwnedTreasureSlotIndex: callbacks.findOwnedTreasureSlotIndex,
@@ -361,7 +367,6 @@ export function usePackPickController(options) {
     const slotsLenBefore = ownedTreasures.value.length;
     const ix = callbacks.findTreasurePlacementIndex(t);
     if (ix < 0) return false;
-    initTreasureBankOnAcquire(t.treasureId, treasureRunState.value);
     callbacks.applyTreasureAcquireImmediateEffectsForRun(t.treasureId);
     const slotsExpanded = ownedTreasures.value.length > slotsLenBefore;
     const frameEl = fromEl instanceof HTMLElement ? fromEl : null;

@@ -775,6 +775,8 @@ export function useShopPhaseController(options) {
       await notifyOwnedTreasuresOnShopEnter(ownedSlotTreasureIdList(), {
         treasureRun: treasureRunState.value,
         ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+        ownedTreasureInstances: ownedTreasures.value,
+        getOwnedTreasures: () => ownedTreasures.value,
         ...ownedTreasureHookFxBridge(),
       });
     })();
@@ -865,6 +867,8 @@ export function useShopPhaseController(options) {
     void notifyOwnedTreasuresOnShopReroll(ownedSlotTreasureIdList(), {
       treasureRun: treasureRunState.value,
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
       ...ownedTreasureHookFxBridge(),
     });
     scheduleRunAutoSave();

@@ -1142,10 +1142,14 @@ async function runSpellPreviewChain(purchasedSpellId, context, offerDeckSource, 
 
 /**
  * @param {string} spellId
- * @param {{ treasureSlotIndex?: number, cdShopLeaveReplay?: boolean }} [opts]
+ * @param {{ treasureSlotIndex?: number, cdShopLeaveReplay?: boolean, skipPrecursorFx?: boolean }} [opts]
  */
-async function runInRunSpellGrant(spellId, { treasureSlotIndex, cdShopLeaveReplay = false } = {}) {
-  if (typeof treasureSlotIndex === "number" && treasureSlotIndex >= 0) {
+async function runInRunSpellGrant(spellId, { treasureSlotIndex, cdShopLeaveReplay = false, skipPrecursorFx = false } = {}) {
+  if (
+    !skipPrecursorFx &&
+    typeof treasureSlotIndex === "number" &&
+    treasureSlotIndex >= 0
+  ) {
     shopOverlayLayersSuppressed.value = true;
     await nextTick();
     await fxApi.wobbleGameTreasureSlot(treasureSlotIndex);

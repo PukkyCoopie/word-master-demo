@@ -14,13 +14,13 @@ export default {
 export const treasureHooks = {
   ...patchCurrentBankDescription(ID, "multAdd", "+0", { multAdd: 30 }),
   buildPostLetterStep(ctx) {
-    const v = getMultAddBank(ctx.treasureRun, ID);
+    const v = getMultAddBank(ctx.treasureRun, ID, ctx);
     return v !== 0 ? { multAdd: v } : null;
   },
   async onSuccessfulWordSubmit(ctx) {
     await bankMultAddGain(ctx, ID, -5);
   },
   isTreasureEffectDepleted(ctx) {
-    return getMultAddBank(ctx.treasureRun, ID) <= 0;
+    return getMultAddBank(ctx.treasureRun, ID, ctx) <= 0;
   },
 };

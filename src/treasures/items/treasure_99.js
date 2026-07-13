@@ -2,12 +2,12 @@ import { describe, mult } from "../treasureDescription.js";
 import { isTreasureHookBlueprintMirror } from "../../game/treasureBlueprintMirror.js";
 import {
   addMultMulBank,
+  assignOwnedSlotTreasureBank,
   canMutateTreasureBankFromCtx,
   formatMultMulBankGainLabel,
   getMultMulBank,
   patchCurrentBankDescription,
 } from "../treasureBankHelpers.js";
-import { ensureTreasureBank } from "../treasureRunState.js";
 
 export const TREASURE_99_ID = "99";
 const ID = TREASURE_99_ID;
@@ -25,16 +25,15 @@ export default {
 export const treasureHooks = {
   ...patchCurrentBankDescription(ID, "multMul"),
   buildPostLetterStep(ctx) {
-    const m = getMultMulBank(ctx.treasureRun, ID);
+    const m = getMultMulBank(ctx.treasureRun, ID, ctx);
     return m > 1 ? { multMul: m } : null;
   },
   onLevelComplete(ctx) {
     if (isTreasureHookBlueprintMirror(ctx) || !canMutateTreasureBankFromCtx(ctx, ID)) return;
-    if (!ctx.treasureRun) return;
-    ensureTreasureBank(ctx.treasureRun, ID).multMul = 1;
+    assignOwnedSlotTreasureBank(ctx, ID, { multMul: 1 });
   },
   onDiscardBatch(ctx) {
-    if (ctx.discardPotteryFxHandled) return;
+    if (ctx.discardPotteryFxHandled || ctx.discardSkateboardFxHandled) return;
     const rs = ctx.treasureRun;
     if (!rs) return;
     for (const p of ctx.discardedLetters ?? []) {

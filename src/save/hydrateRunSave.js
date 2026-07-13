@@ -6,6 +6,11 @@ import { deserializeAchievementRunState } from "../achievements/achievementRunSt
 import { normalizeRunSaveMoney, normalizeRunSavePhase } from "./runSaveSchema.js";
 import { cloneSaveData } from "./saveDataClone.js";
 import { hydrateOwnedTreasureSlots } from "../treasures/ownedTreasureSlot.js";
+import {
+  migrateLegacyBasketballWordsSubmitted,
+  migrateLegacyKnobWordsRemaining,
+  migrateLegacyTreasureBanks,
+} from "../treasures/treasureRunState.js";
 import { deserializeRunDiscoveryLog } from "../game/runCollectionDiscoveries.js";
 import { reconcilePackPickClaimedTreasures } from "./packPickSessionReconcile.js";
 import { resolveSavedIsEndlessRun } from "./runSaveEndless.js";
@@ -35,6 +40,10 @@ export function hydrateRunSave(payload, ctx) {
   if (ctx.ownedVoucherIdsRef) ctx.ownedVoucherIdsRef.value = [...(payload.ownedVoucherIds ?? [])].map(String);
   if (ctx.treasureRunStateRef) {
     ctx.treasureRunStateRef.value = deserializeTreasureRunState(payload.treasureRunState);
+  }
+  if (ctx.treasureRunStateRef && ctx.ownedTreasuresRef) {
+    migrateLegacyTreasureBanks(ctx.treasureRunStateRef.value, ctx.ownedTreasuresRef.value);
+    migrateLegacyKnobWordsRemaining(ctx.treasureRunStateRef.value, ctx.ownedTreasuresRef.value);
   }
   if (ctx.spellCastHistoryRef) ctx.spellCastHistoryRef.value = [...(payload.spellCastHistory ?? [])].map(String);
   if (ctx.lastReplayableSpellIdRef) {
@@ -73,6 +82,15 @@ export function hydrateRunSave(payload, ctx) {
 
   if (ctx.hydrateDeckState && payload.deckState) {
     ctx.hydrateDeckState(payload.deckState, payload.deckState.ownedUpgrades ?? []);
+  }
+  if (ctx.ownedTreasuresRef && payload.deckState) {
+    migrateLegacyBasketballWordsSubmitted(
+      ctx.ownedTreasuresRef.value,
+      payload.deckState.basketballWordsSubmitted,
+    );
+    if (ctx.basketballWordsSubmittedRef && typeof ctx.basketballWordsSubmittedRef === "object" && "value" in ctx.basketballWordsSubmittedRef) {
+      ctx.basketballWordsSubmittedRef.value = 0;
+    }
   }
   if (ctx.ownedUpgradesRef) {
     ctx.ownedUpgradesRef.value = cloneSaveData(payload.deckState?.ownedUpgrades ?? []);

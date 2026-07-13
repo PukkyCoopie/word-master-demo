@@ -9,6 +9,7 @@ import {
   TREASURE_CATALOG,
   TREASURE_CATALOG_BY_ID,
 } from "./treasureCatalog.js";
+import { isOwnedTreasureBarSlotContext } from "./treasureOwnedBarContext.js";
 
 // 须顶层无条件调用，Vite 才能在构建期静态展开 glob；运行时 typeof import.meta.glob 恒为 false。
 const modules = import.meta.glob("./items/*.js", { eager: true });
@@ -70,40 +71,91 @@ export function getTreasureDef(treasureId) {
  * @param {string | null | undefined} treasureId
  * @param {number} chargeWordsSubmitted
  * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} [treasureRun]
+ * @param {object | null | undefined} [ownedSlot]
+ * @param {number | null | undefined} [slotIndex]
+ * @param {object[] | null | undefined} [ownedTreasureInstances]
  * @returns {'inactive' | 'active' | null}
  */
-export function resolveTreasureChargeVisualState(treasureId, chargeWordsSubmitted, treasureRun) {
+export function resolveTreasureChargeVisualState(
+  treasureId,
+  chargeWordsSubmitted,
+  treasureRun,
+  ownedSlot = null,
+  slotIndex = null,
+  ownedTreasureInstances = null,
+) {
   if (!treasureId) return null;
   const hooks = TREASURE_HOOKS_BY_ID.get(treasureId);
   if (!hooks?.getChargeVisualState) return null;
-  return hooks.getChargeVisualState({ chargeWordsSubmitted, treasureRun: treasureRun ?? undefined });
+  return hooks.getChargeVisualState({
+    chargeWordsSubmitted,
+    treasureRun: treasureRun ?? undefined,
+    ownedSlot: ownedSlot ?? undefined,
+    slotIndex: slotIndex != null ? slotIndex : undefined,
+    ownedTreasureInstances: ownedTreasureInstances ?? undefined,
+  });
 }
 
 /**
  * @param {string | null | undefined} treasureId
  * @param {number} chargeWordsSubmitted
  * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} [treasureRun]
+ * @param {object | null | undefined} [ownedSlot]
+ * @param {number | null | undefined} [slotIndex]
+ * @param {object[] | null | undefined} [ownedTreasureInstances]
  * @returns {number}
  */
-export function resolveTreasureChargeProgress(treasureId, chargeWordsSubmitted, treasureRun) {
+export function resolveTreasureChargeProgress(
+  treasureId,
+  chargeWordsSubmitted,
+  treasureRun,
+  ownedSlot = null,
+  slotIndex = null,
+  ownedTreasureInstances = null,
+) {
   if (!treasureId) return 0;
   const hooks = TREASURE_HOOKS_BY_ID.get(treasureId);
   if (!hooks?.getChargeProgress) return 0;
-  return hooks.getChargeProgress({ chargeWordsSubmitted, treasureRun: treasureRun ?? undefined });
+  return hooks.getChargeProgress({
+    chargeWordsSubmitted,
+    treasureRun: treasureRun ?? undefined,
+    ownedSlot: ownedSlot ?? undefined,
+    slotIndex: slotIndex != null ? slotIndex : undefined,
+    ownedTreasureInstances: ownedTreasureInstances ?? undefined,
+  });
 }
 
 /**
  * @param {string | null | undefined} treasureId
  * @param {number} chargeWordsSubmitted
  * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} [treasureRun]
+ * @param {object | null | undefined} [ownedSlot]
+ * @param {number | null | undefined} [slotIndex]
+ * @param {object[] | null | undefined} [ownedTreasureInstances]
  * @returns {boolean}
  */
-export function resolveTreasureEffectDepleted(treasureId, chargeWordsSubmitted, treasureRun) {
+export function resolveTreasureEffectDepleted(
+  treasureId,
+  chargeWordsSubmitted,
+  treasureRun,
+  ownedSlot = null,
+  slotIndex = null,
+  ownedTreasureInstances = null,
+) {
   if (!treasureId) return false;
   const fn = TREASURE_HOOKS_BY_ID.get(treasureId)?.isTreasureEffectDepleted;
   if (!fn) return false;
+  if (!isOwnedTreasureBarSlotContext(ownedSlot, slotIndex, ownedTreasureInstances)) return false;
   try {
-    return fn({ chargeWordsSubmitted, treasureRun: treasureRun ?? undefined }) === true;
+    return (
+      fn({
+        chargeWordsSubmitted,
+        treasureRun: treasureRun ?? undefined,
+        ownedSlot,
+        slotIndex: slotIndex != null ? slotIndex : undefined,
+        ownedTreasureInstances: ownedTreasureInstances ?? undefined,
+      }) === true
+    );
   } catch {
     return false;
   }
@@ -127,11 +179,23 @@ export function resolveTreasureVolcanoEruptionImmune(treasureId, _slot) {
   }
 }
 
+/** @param {object} ctx */
+function resolveOwnedTreasureInstancesForHookCtx(ctx) {
+  if (Array.isArray(ctx?.ownedTreasureInstances)) return ctx.ownedTreasureInstances;
+  if (typeof ctx?.getOwnedTreasures === "function") {
+    const live = ctx.getOwnedTreasures();
+    if (Array.isArray(live)) return live;
+  }
+  return undefined;
+}
+
 /** @param {object} ctx @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {{ slotIndex: number, source: 'self' | 'blueprint' }} entry */
 function withTreasureHookContributionCtx(ctx, ownedSlotTreasureIds, { slotIndex, source }) {
+  const instances = resolveOwnedTreasureInstancesForHookCtx(ctx);
   return {
     ...ctx,
     ownedSlotTreasureIds: ownedSlotTreasureIds ?? ctx.ownedSlotTreasureIds,
+    ...(instances != null ? { ownedTreasureInstances: instances } : {}),
     hookSlotIndex: slotIndex,
     hookSource: source,
   };
@@ -200,7 +264,7 @@ export function resolveWordDefinitionTriggerMode(ownedSlotTreasureIds, ctx) {
 }
 
 /**
- * 逐字母计分动画结束后、字后宝藏步开始前（同 id 多槽不重复）
+ * 逐字母计分动画结束后、字后宝藏步开始前（寻呼机等同 id 多槽共享一次测验结果）
  * @param {(string | null | undefined)[]} ownedSlotTreasureIds
  * @param {import('./treasureTypes.js').TreasureSubmitAfterLettersContext} ctx
  */
@@ -444,15 +508,26 @@ export function sumTreasureSubmitScoringWordLetterCountBonus(ownedSlotTreasureId
   return bonus;
 }
 
-/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureRunState.js').TreasureRunState} [treasureRun] */
-export function sumTreasureSubmitLengthBonus(ownedSlotTreasureIds, treasureRun) {
+/** @param {(string | null | undefined)[]} ownedSlotTreasureIds @param {import('./treasureRunState.js').TreasureRunState} [treasureRun] @param {object[] | null | undefined} [ownedTreasureInstances] */
+export function sumTreasureSubmitLengthBonus(
+  ownedSlotTreasureIds,
+  treasureRun,
+  ownedTreasureInstances = null,
+) {
   const slots = ownedSlotTreasureIds ?? [];
-  const ctx = { ownedSlotTreasureIds: slots, treasureRun };
   let sum = 0;
-  for (const { treasureId: tid } of iterTreasureHookContributions(slots)) {
+  for (const { treasureId: tid, slotIndex, source } of iterTreasureHookContributions(slots)) {
+    if (source === "blueprint") continue;
     const fn = TREASURE_HOOKS_BY_ID.get(tid)?.getSubmitLengthBonus;
     if (!fn) continue;
-    sum += Math.max(0, Math.floor(Number(fn(ctx)) || 0));
+    const hookCtx = {
+      ownedSlotTreasureIds: slots,
+      treasureRun,
+      ownedTreasureInstances: ownedTreasureInstances ?? undefined,
+      hookSlotIndex: slotIndex,
+      hookSource: source,
+    };
+    sum += Math.max(0, Math.floor(Number(fn(hookCtx)) || 0));
   }
   return sum;
 }

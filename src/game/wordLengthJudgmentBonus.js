@@ -16,6 +16,7 @@ import { getLengthTableLenFromTileCountAndBonus, getWordLengthJudgmentBonus } fr
  *   presetId?: string,
  *   runWordLengthJudgmentPenalty?: number,
  *   treasureRun?: import('../treasures/treasureRunState.js').TreasureRunState,
+ *   ownedTreasureInstances?: object[],
  * }} opts
  */
 export function resolveWordLengthJudgmentBonus({
@@ -24,13 +25,14 @@ export function resolveWordLengthJudgmentBonus({
   presetId = "",
   runWordLengthJudgmentPenalty = 0,
   treasureRun,
+  ownedTreasureInstances,
 } = {}) {
   return (
     getWordLengthJudgmentBonus(ownedVoucherIds) +
     getPresetWordLengthJudgmentBonus(presetId) -
     Math.max(0, Math.floor(Number(runWordLengthJudgmentPenalty) || 0)) -
     sumTreasureLengthJudgmentPenalty(ownedSlotTreasureIds) +
-    sumTreasureSubmitLengthBonus(ownedSlotTreasureIds, treasureRun)
+    sumTreasureSubmitLengthBonus(ownedSlotTreasureIds, treasureRun, ownedTreasureInstances)
   );
 }
 
@@ -45,6 +47,7 @@ export function resolveWordLengthJudgmentBonus({
  *   presetId?: string,
  *   runWordLengthJudgmentPenalty?: number,
  *   treasureRun?: import('../treasures/treasureRunState.js').TreasureRunState,
+ *   ownedTreasureInstances?: object[],
  *   tiles?: readonly unknown[],
  *   resolvedWord?: string | null,
  *   getWordDefinition?: (word: string) => object | null | undefined,
@@ -58,6 +61,7 @@ export function resolveJudgedLengthTableLen({
   presetId = "",
   runWordLengthJudgmentPenalty = 0,
   treasureRun,
+  ownedTreasureInstances,
   tiles,
   resolvedWord,
   getWordDefinition,
@@ -70,6 +74,7 @@ export function resolveJudgedLengthTableLen({
     presetId,
     runWordLengthJudgmentPenalty,
     treasureRun,
+    ownedTreasureInstances,
   });
   const contentBonus = sumTreasureSubmitScoringWordLetterCountBonus(ownedSlotTreasureIds, {
     tiles,

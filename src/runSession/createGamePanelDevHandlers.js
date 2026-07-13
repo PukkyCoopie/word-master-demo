@@ -10,25 +10,32 @@ function formatDevBalanceLabel(amount) {
 }
 
 /**
+ * @param {object} d
+ */
+export function buildDevGrantTreasureDepsFromPanel(d) {
+  return {
+    getOwnedTreasures: () => d.ownedTreasures.value,
+    setOwnedTreasures: (slots) => {
+      d.ownedTreasures.value = slots;
+    },
+    findTreasurePlacementIndex: d.findTreasurePlacementIndex,
+    buildOwnedTreasureSlot: d.buildOwnedTreasureSlot,
+    noteCollectionTreasureAcquired: d.noteCollectionTreasureAcquired,
+    initTreasureBankOnAcquire,
+    applyTreasureAcquireImmediateEffectsForRun: d.applyTreasureAcquireImmediateEffectsForRun,
+    getTreasureRunState: () => d.treasureRunState.value,
+    accessoryCropId: ACCESSORY_CROP,
+    expandWithCropWhenFull: true,
+  };
+}
+
+/**
  * Developer 选项层回调 + dev grant deps。
  * @param {object} d
  */
 export function createGamePanelDevHandlers(d) {
   function buildDevGrantTreasureDeps() {
-    return {
-      getOwnedTreasures: () => d.ownedTreasures.value,
-      setOwnedTreasures: (slots) => {
-        d.ownedTreasures.value = slots;
-      },
-      findTreasurePlacementIndex: d.findTreasurePlacementIndex,
-      buildOwnedTreasureSlot: d.buildOwnedTreasureSlot,
-      noteCollectionTreasureAcquired: d.noteCollectionTreasureAcquired,
-      initTreasureBankOnAcquire,
-      applyTreasureAcquireImmediateEffectsForRun: d.applyTreasureAcquireImmediateEffectsForRun,
-      getTreasureRunState: () => d.treasureRunState.value,
-      accessoryCropId: ACCESSORY_CROP,
-      expandWithCropWhenFull: true,
-    };
+    return buildDevGrantTreasureDepsFromPanel(d);
   }
 
   function onDeveloperConvertDeck(payload) {
@@ -216,5 +223,13 @@ export function buildGamePanelDevCommandsOptions(d) {
     getScoringAnimating: () => d.scoringAnimating.value,
     getGridRefillAnimating: () => d.gridRefillAnimating.value,
     getSubmitWordBusy: () => d.submitWordBusy.value,
+    buildDevGrantTreasureDeps: () => buildDevGrantTreasureDepsFromPanel(d),
+    appendShopDeckEntriesAndNotify: d.appendShopDeckEntriesAndNotify,
+    getLengthProbeCtx: () => ({
+      ownedVoucherIds: d.ownedVoucherIds.value,
+      presetId: d.runPresetId.value,
+      runWordLengthJudgmentPenalty: d.runWordLengthJudgmentPenalty.value,
+    }),
+    getWordDefinition: d.getWordDefinition,
   };
 }

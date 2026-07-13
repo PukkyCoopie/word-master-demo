@@ -1,4 +1,8 @@
 import { describe } from "../treasureDescription.js";
+import {
+  addScoreAddBank,
+  getScoreAddBank,
+} from "../treasureBankHelpers.js";
 
 const KNOB_WORDS_TOTAL = 10;
 const TREASURE_ID = "64";
@@ -8,8 +12,12 @@ const TREASURE_ID = "64";
  * @returns {number}
  */
 function resolveKnobWordsRemaining(ctx) {
-  const n = Math.max(0, Math.floor(Number(ctx.extraLetterScoreWordsRemaining) || 0));
-  if (n > 0) return n;
+  const fromBank = Math.max(0, Math.floor(getScoreAddBank(ctx.treasureRun, TREASURE_ID, ctx)));
+  if (fromBank > 0) return fromBank;
+  if (typeof ctx.slotIndex === "number" && Array.isArray(ctx.ownedTreasureInstances)) {
+    const slot = ctx.ownedTreasureInstances[ctx.slotIndex];
+    if (slot && String(slot.treasureId ?? "") === TREASURE_ID) return 0;
+  }
   const slots = Array.isArray(ctx.ownedSlotTreasureIds) ? ctx.ownedSlotTreasureIds : [];
   const ownsKnob = slots.some((id) => String(id ?? "") === TREASURE_ID);
   return ownsKnob ? 0 : KNOB_WORDS_TOTAL;
@@ -40,16 +48,15 @@ export const treasureHooks = {
     return buildKnobDescription(ctx);
   },
   getExtraLetterScoringPasses(ctx) {
-    const rs = ctx.treasureRun;
-    if (!rs || rs.extraLetterScoreWordsRemaining <= 0) return 0;
-    return 1;
+    const remaining = Math.max(0, Math.floor(getScoreAddBank(ctx.treasureRun, TREASURE_ID, ctx)));
+    return remaining > 0 ? 1 : 0;
   },
   onSuccessfulWordSubmit(ctx) {
-    const rs = ctx.treasureRun;
-    if (!rs || rs.extraLetterScoreWordsRemaining <= 0) return;
-    rs.extraLetterScoreWordsRemaining -= 1;
+    const remaining = Math.max(0, Math.floor(getScoreAddBank(ctx.treasureRun, TREASURE_ID, ctx)));
+    if (remaining <= 0) return;
+    addScoreAddBank(ctx.treasureRun, TREASURE_ID, -1, ctx);
   },
   isTreasureEffectDepleted(ctx) {
-    return Math.max(0, Math.floor(Number(ctx.treasureRun?.extraLetterScoreWordsRemaining) || 0)) <= 0;
+    return Math.max(0, Math.floor(getScoreAddBank(ctx.treasureRun, TREASURE_ID, ctx))) <= 0;
   },
 };

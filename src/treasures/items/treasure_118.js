@@ -1,4 +1,5 @@
 import { describe, mult } from "../treasureDescription.js";
+import { resolveTreasureHookAnimSlotIndex } from "../../game/treasureBlueprintMirror.js";
 import { recomputeSubmitDetailedAfterPagerStep } from "../treasureScoring.js";
 import { playTreasureHookBubbleFx } from "../treasureBankHelpers.js";
 
@@ -34,28 +35,36 @@ export const treasureHooks = {
     return { blocked: true };
   },
   async runAfterLettersBeforePostSteps(ctx) {
-    if (ctx.skipSettlementFx === true) return;
+    // 翻译测验是计分状态变更，不是可跳过的结算装饰动效；skipSettlementFx 时仍须执行。
     const session = ctx.pagerQuizSession;
     if (!session?.options?.length) return;
 
-    const slotIndex =
-      typeof ctx.hookSlotIndex === "number" && ctx.hookSlotIndex >= 0
-        ? ctx.hookSlotIndex
-        : typeof ctx.findOwnedTreasureSlotIndex === "function"
-          ? ctx.findOwnedTreasureSlotIndex(ID)
-          : -1;
+    const slotIndex = resolveTreasureHookAnimSlotIndex(ctx) ?? -1;
     if (slotIndex < 0) return;
 
-    const result = await ctx.requestPagerQuiz?.({
-      treasureId: ID,
-      session,
-    });
-    if (!result || result.skipped) return;
-
-    const multMul = result.correct ? MULT_CORRECT : MULT_WRONG;
     const detailed = ctx.detailed;
     if (!detailed || !Array.isArray(detailed.postLetterTreasureSteps)) return;
 
+    /** @type {{ correct?: boolean, skipped?: boolean } | undefined} */
+    let result = detailed._pagerQuizSubmitResult;
+    if (result == null) {
+      result = await ctx.requestPagerQuiz?.({
+        treasureId: ID,
+        slotIndex,
+        session,
+      });
+      if (!result || result.skipped) return;
+      detailed._pagerQuizSubmitResult = result;
+    } else {
+      result = await ctx.requestPagerQuiz?.({
+        treasureId: ID,
+        slotIndex,
+        reuseResult: result,
+      });
+      if (!result || result.skipped) return;
+    }
+
+    const multMul = result.correct ? MULT_CORRECT : MULT_WRONG;
     detailed.postLetterTreasureSteps.push({
       treasureId: ID,
       slotIndex,

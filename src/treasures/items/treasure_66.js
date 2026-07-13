@@ -14,7 +14,7 @@ export default {
 export const treasureHooks = {
   ...patchCurrentBankDescription(ID, "multMul"),
   buildPostLetterStep(ctx) {
-    const m = getMultMulBank(ctx.treasureRun, ID);
+    const m = getMultMulBank(ctx.treasureRun, ID, ctx);
     return m > 1 ? { multMul: m } : null;
   },
   async onTreasureSold(ctx) {

@@ -35,7 +35,7 @@ function pendingScoreAddThisSubmit(ctx) {
  * @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx
  */
 function patchBKeyDescription(ctx) {
-  const v = Math.round(getScoreAddBank(ctx.treasureRun, ID));
+  const v = Math.round(getScoreAddBank(ctx.treasureRun, ID, ctx));
   return describe(
     "每当字母B计分时，使其和本宝藏均获得",
     score("+8"),
@@ -70,7 +70,7 @@ export const treasureHooks = {
     return null;
   },
   buildPostLetterStep(ctx) {
-    const bank = getScoreAddBank(ctx.treasureRun, ID);
+    const bank = getScoreAddBank(ctx.treasureRun, ID, ctx);
     const visitScore = pendingScoreAddThisSubmit(ctx);
     const paths = countTreasureHookContributionPaths(ctx.ownedSlotTreasureIds, ID);
     const fromTriggers = visitScore * Math.max(1, paths);

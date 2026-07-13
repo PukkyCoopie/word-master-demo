@@ -17,6 +17,8 @@ export function createScoringPorts(binding) {
     listEffectiveTilesForSubmit: binding.listEffectiveTilesForSubmit,
     resolveRealSubmitTileForWordSlot: binding.resolveRealSubmitTileForWordSlot,
     buildSubmitAfterLettersContext: binding.buildSubmitAfterLettersContext,
+    appendDeckCardSpecToRunDeck: binding.appendDeckCardSpecToRunDeck,
+    playWordSlotCopyFxAtIndex: binding.playWordSlotCopyFxAtIndex,
     applySubmitRefill: binding.applySubmitRefill,
     applyHookBossAfterSubmit: binding.applyHookBossAfterSubmit,
     deferredWordSubmitPayload: binding.deferredWordSubmitPayload,

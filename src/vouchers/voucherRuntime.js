@@ -1,4 +1,4 @@
-import { LEVELS } from "../levelDefinitions.js";
+import { getRunLevelAtIndex, getRunLevelIndexForId, LEVELS } from "../levelDefinitions.js";
 import { getLengthUpgradeLookupKey, normalizeJudgedWordLength } from "../game/wordLengthBalance.js";
 import { canAffordWallet } from "../treasures/treasureWalletFloor.js";
 import { VOUCHERS_BY_ID } from "./voucherDefinitions.js";
@@ -190,27 +190,29 @@ export function getOwnedTreasureSlotBonusFromVouchers(owned) {
   return has(owned, "v_blank_2") ? 1 : 0;
 }
 
+/** 无尽模式起始大关（通关 8-3 后进入 9-1） */
+export const ENDLESS_RUN_START_CHAPTER = 9;
+
 /**
  * 卷轴券购买后跳转的关卡索引：相对「商店离开后即将进入的下一小关」回退 1 个大关，保留小关号。
  * 例：刚通关 2-2 进店时下一关本为 2-3，购买卷轴后变为 1-3；通关 1-1 后下一关为 1-2，购买卷轴后变为 0-2（Ante 0 章底 100）。
- * @param {number} currentLevelIndex `LEVELS` 下标（通常为刚通关、尚未 +1 的关卡）
+ * 无尽模式下同样回退 1 大关，但不低于 9 章；且支持 `levelIndex` 超过标准流程终局下标。
+ * @param {number} currentLevelIndex 当前关卡下标（通常为刚通关、尚未 +1 的关卡）
+ * @param {{ isEndlessRun?: boolean }} [opts]
  * @returns {number | null}
  */
-export function getGlyphPurchaseTargetLevelIndex(currentLevelIndex) {
-  const ix0 = Math.max(0, Math.min(Math.floor(Number(currentLevelIndex) || 0), LEVELS.length - 1));
-  const upcomingIx = Math.min(ix0 + 1, LEVELS.length - 1);
-  const upcoming = LEVELS[upcomingIx];
+export function getGlyphPurchaseTargetLevelIndex(currentLevelIndex, opts = {}) {
+  const isEndlessRun = opts.isEndlessRun === true;
+  const ix0 = Math.max(0, Math.floor(Number(currentLevelIndex) || 0));
+  const upcoming = getRunLevelAtIndex(ix0 + 1);
   if (!upcoming?.id) return null;
   const major = parseMajorFromLevelId(upcoming.id);
   const minor = parseLevelSubFromId(upcoming.id);
   const targetMajor = major - 1;
   if (targetMajor < 0) return null;
-  const tix = LEVELS.findIndex((l) => {
-    const m = parseMajorFromLevelId(l.id);
-    const sub = parseLevelSubFromId(l.id);
-    return m === targetMajor && sub === minor;
-  });
-  return tix >= 0 ? tix : null;
+  if (isEndlessRun && targetMajor < ENDLESS_RUN_START_CHAPTER) return null;
+  const tix = getRunLevelIndexForId(`${targetMajor}-${minor}`);
+  return tix != null && tix >= 0 ? tix : null;
 }
 
 /** @param {Iterable<string>} owned */

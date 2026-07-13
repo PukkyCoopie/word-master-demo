@@ -1,3 +1,17 @@
+import { readTreasureBankSnapshot } from "./treasureBankHelpers.js";
+
+const BASKETBALL_TREASURE_ID = "20";
+
+/**
+ * 篮球槽位 bank.posPackProgress：本槽已成功结算的拼词次数（下一词提交前不计入当前这次）。
+ * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} treasureRun
+ * @param {import('./treasureTypes.js').TreasurePatchDescriptionContext | import('./treasureTypes.js').TreasureLogicContext | import('./treasureTypes.js').TreasureChargeContext | Record<string, unknown> | null | undefined} access
+ */
+export function getBasketballWordsSubmittedFromCtx(treasureRun, access) {
+  const bank = readTreasureBankSnapshot(treasureRun, BASKETBALL_TREASURE_ID, access);
+  return Math.max(0, Math.floor(Number(bank?.posPackProgress) || 0));
+}
+
 /**
  * 篮球「每 5 词一充」规则下的槽位充能外观（与记分 active 判定一致）。
  * @param {number} wordsSubmittedSoFar 本局已成功结算的拼词次数（下一词提交前不计入当前这次）

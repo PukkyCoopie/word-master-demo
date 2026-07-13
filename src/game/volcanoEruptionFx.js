@@ -1,4 +1,5 @@
 import gsap from "gsap";
+import { resetTreasureSlotElAfterDestroyShrink } from "./treasureDestroyFx.js";
 import { EASE_TRANSFORM } from "../constants.js";
 import { animSleep } from "../settings/animationSpeed.js";
 import { getLevelEndAnimSpeed } from "./levelEndAnimSpeed.js";
@@ -169,7 +170,11 @@ async function runVolcanoDestroyTreasureAtSlot(deps, slotIndex, sp) {
   }
   const bubble = await deps.wobbleTreasureSlotWithDestroyBubbleConcurrent(ix, el, sp, { feint });
   await deps.shrinkTreasureSlotElOnly(el, bubble, sp, { feint });
-  if (!feint) deps.clearOwnedTreasureSlotLeaveGapAtIndex(ix);
+  if (!feint) {
+    deps.clearOwnedTreasureSlotLeaveGapAtIndex(ix);
+    await deps.nextTick();
+    resetTreasureSlotElAfterDestroyShrink(deps.getOwnedTreasureSlotEl(ix) ?? el);
+  }
 }
 
 /** @param {VolcanoEruptionFxDeps} deps @param {number} row @param {number} col @param {number} sp */

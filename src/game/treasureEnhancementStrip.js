@@ -69,3 +69,16 @@ export function submitScoringTileHasEnhancement(scoringTile, realTile = null) {
   if (deckCard && typeof deckCard === "object" && tileHasScoringEnhancement(deckCard)) return true;
   return false;
 }
+
+/**
+ * 本词提交字母是否「带有增益」（海绵擦除、传真机复制等共用）。
+ * 须在逐字母计分写回角标/配饰后再调用；按 tile / 真实格 / `_deckCard` 当前状态判定，不按宝藏栏 id 硬编码。
+ * @param {{ resolveSubmitTileAtIndex?: (index: number, scoringTile?: object | null) => object | null }} [ctx]
+ * @param {number} index 词槽索引
+ * @param {object | null | undefined} scoringTile
+ */
+export function submitWordTileHasEnhancement(ctx, index, scoringTile) {
+  if (scoringTile?.bossTileDebuffed === true) return false;
+  const real = ctx?.resolveSubmitTileAtIndex?.(index, scoringTile) ?? null;
+  return submitScoringTileHasEnhancement(scoringTile, real);
+}

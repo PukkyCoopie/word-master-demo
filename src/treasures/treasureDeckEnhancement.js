@@ -4,7 +4,7 @@
  */
 
 import { entityHasAccessory } from "../accessories/accessoryState.js";
-import { deckCardHasPersistedIntrinsicGain } from "../game/tileIntrinsicGains.js";
+import { deckCardHasPersistedIntrinsicGain } from "../game/deckCardIntrinsicGain.js";
 
 /** @param {unknown} card */
 export function deckCardHasEnhancement(card) {

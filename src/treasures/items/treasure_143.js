@@ -64,7 +64,7 @@ function computeWaterWaveScoreForSubmit(ctx) {
  * @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx
  */
 function patchWaterWaveDescription(ctx) {
-  const v = Math.round(getScoreAddBank(ctx.treasureRun, ID));
+  const v = Math.round(getScoreAddBank(ctx.treasureRun, ID, ctx));
   return describe(
     materialConcept("water"),
     "在计分后还会使之后",

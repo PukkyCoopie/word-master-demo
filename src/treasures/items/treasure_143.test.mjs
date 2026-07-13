@@ -7,6 +7,15 @@ import {
   treasureHooks,
 } from "./treasure_143.js";
 
+test("海浪 getPerLetterScoreCue：两块海浪入账 +20", () => {
+  const rs = createTreasureRunState();
+  treasureHooks.getPerLetterScoreCue?.(
+    { treasureRun: rs, ownedSlotTreasureIds: ["143", "143"] },
+    { materialId: "water" },
+  );
+  assert.equal(getScoreAddBank(rs, "143"), 20);
+});
+
 test("海浪 getPerLetterScoreCue：非水波块不触发", () => {
   assert.equal(treasureHooks.getPerLetterScoreCue?.({}, { materialId: "fire" }), null);
 });

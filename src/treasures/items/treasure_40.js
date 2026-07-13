@@ -18,7 +18,7 @@ function isNonNounSubmittedWord(ctx) {
  * @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx
  */
 function buildBookDescription(ctx) {
-  const v = getMultAddBank(ctx.treasureRun, ID);
+  const v = getMultAddBank(ctx.treasureRun, ID, ctx);
   return describe(
     "每当你拼写出一个不是名词的单词，获得",
     mult("+3"),
@@ -49,7 +49,7 @@ export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription: buildBookDescription,
   buildPostLetterStep(ctx) {
-    const v = getMultAddBank(ctx.treasureRun, ID);
+    const v = getMultAddBank(ctx.treasureRun, ID, ctx);
     return v !== 0 ? { multAdd: v } : null;
   },
   async onSuccessfulWordSubmit(ctx) {

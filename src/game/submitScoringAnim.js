@@ -15,7 +15,7 @@ import {
 } from "./upgradePlaybackTiming.js";
 import { createSubmitAccessoryUpgradeBatch } from "./submitAccessoryUpgradeBatch.js";
 import { persistTileIntrinsicTreasureCue } from "./persistTileIntrinsicTreasureCue.js";
-import { addScoreAddBank } from "../treasures/treasureBankHelpers.js";
+import { addScoreAddBank, treasureBankHookCtxFromSubmitSlot } from "../treasures/treasureBankHelpers.js";
 import {
   TREASURE_ACCESSORY_DROP,
   TREASURE_ACCESSORY_FIRE,
@@ -599,8 +599,11 @@ async function runSlotPerLetterTreasureScoreStep(
   const ownedSlotIds = resolveOwnedSlotIdsForSubmitScoring();
   const ctx = {
     ownedSlotTreasureIds: ownedSlotIds,
+    ownedTreasureInstances: refs.ownedTreasures.value,
     treasureRun: refs.treasureRunState.value,
     scoringVisitIndex,
+    hookSlotIndex: treasureSlotIndex,
+    hookSource,
   };
   const cue = hooks?.getPerLetterScoreCue?.(ctx, part, letterIndex);
   if (!cue?.delta) return false;
@@ -614,7 +617,7 @@ async function runSlotPerLetterTreasureScoreStep(
           hookSource,
         )
       ) {
-        addScoreAddBank(refs.treasureRunState.value, tid, cue.delta);
+        addScoreAddBank(refs.treasureRunState.value, tid, cue.delta, ctx);
       }
       return true;
     }
@@ -636,7 +639,7 @@ async function runSlotPerLetterTreasureScoreStep(
         hookSource,
       )
     ) {
-      addScoreAddBank(refs.treasureRunState.value, tid, cue.delta);
+      addScoreAddBank(refs.treasureRunState.value, tid, cue.delta, ctx);
     }
     if (hooks?.showPerLetterScoreCueBubble === false) {
       if (!isSubmitScoringMidPhaseSkipActive()) {
@@ -964,7 +967,12 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
       }
       if (bankOnlyTreasureCue) {
         if (shouldTreasureRunAccumulationMutate(ownedSlotIds, row.si, row.treasureId, row.source)) {
-          addScoreAddBank(refs.treasureRunState.value, row.treasureId, rowDelta);
+          addScoreAddBank(
+            refs.treasureRunState.value,
+            row.treasureId,
+            rowDelta,
+            treasureBankHookCtxFromSubmitSlot(refs.ownedTreasures.value, ownedSlotIds, row.si, row.source),
+          );
         }
       }
     }
@@ -1023,6 +1031,8 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   const mergedScoreSiSkip = new Set(mergedIntrinsicScoreSlots.map((x) => x.si));
   for (const { slotIndex: si, treasureId: tid, source } of iterTreasureHookContributions(ownedSlotIds)) {
     if (mergedScoreSiSkip.has(si)) continue;
+    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
+    if (hooks?.mergeLetterScoreCueIntoIntrinsicLetterScoreStep) continue;
     const didTreasureScore = await runSlotPerLetterTreasureScoreStep(
       si,
       tid,
@@ -1602,7 +1612,12 @@ async function applySingleLetterScoringStateOnly(tile, i, detailed, luckyVisitIn
     }
     if (rowHooks?.perLetterScoreCueDepositsTreasureBank) {
       if (shouldTreasureRunAccumulationMutate(ownedSlotIds, si, tid, source)) {
-        addScoreAddBank(refs.treasureRunState.value, tid, d);
+        addScoreAddBank(
+          refs.treasureRunState.value,
+          tid,
+          d,
+          treasureBankHookCtxFromSubmitSlot(refs.ownedTreasures.value, ownedSlotIds, si, source),
+        );
       }
     }
     await yieldChunkedSettlementIfNeeded();
@@ -1631,6 +1646,8 @@ async function applySingleLetterScoringStateOnly(tile, i, detailed, luckyVisitIn
   }
 
   for (const { slotIndex: si, treasureId: tid, source } of iterTreasureHookContributions(ownedSlotIds)) {
+    const hooks = TREASURE_HOOKS_BY_ID.get(tid);
+    if (hooks?.mergeLetterScoreCueIntoIntrinsicLetterScoreStep) continue;
     await runSlotPerLetterTreasureScoreStep(
       si,
       tid,
@@ -1757,6 +1774,7 @@ async function applySubmitScoringMidPhaseInstant(tiles, detailed, scoringBaseTil
       ownedSlotTreasureIds: ownedSlotIdsAfterLetters,
       treasureRun: refs.treasureRunState.value,
       skipSettlementFx: true,
+      resolveSubmitTileAtIndex: (ix, st) => callbacks.resolveRealSubmitTileForWordSlot(ix, st),
       appendDeckCardSpecToRunDeck: callbacks.appendDeckCardSpecToRunDeck,
       playWordSlotCopyFxAtIndex: () => {},
       detailed,
@@ -2010,6 +2028,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       submittedScoringTiles: scoringBaseTiles,
       ownedSlotTreasureIds: ownedSlotIdsAfterLetters,
       treasureRun: refs.treasureRunState.value,
+      resolveSubmitTileAtIndex: (ix, st) => callbacks.resolveRealSubmitTileForWordSlot(ix, st),
       appendDeckCardSpecToRunDeck: callbacks.appendDeckCardSpecToRunDeck,
       playWordSlotCopyFxAtIndex: (slotIndex, sp = 1) =>
         callbacks.playWordSlotCopyFxAtIndex?.(slotIndex, sp),

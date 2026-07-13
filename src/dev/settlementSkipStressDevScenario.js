@@ -69,15 +69,14 @@ export function applySettlementSkipStressOwnedTreasures(
   for (let i = 0; i < SETTLEMENT_SKIP_STRESS_TREASURE_TARGET; i += 1) {
     const treasureId = idQueue[i % idQueue.length];
     const useCrop = i > 0 && i % cropEvery === 0;
-    slots.push(
-      buildOwnedTreasureSlot({
-        treasureId,
-        price: 5,
-        ...(useCrop ? { treasureAccessoryIds: [ACCESSORY_CROP] } : {}),
-      }),
-    );
+    const slot = buildOwnedTreasureSlot({
+      treasureId,
+      price: 5,
+      ...(useCrop ? { treasureAccessoryIds: [ACCESSORY_CROP] } : {}),
+    });
+    slots.push(slot);
     if (treasureRunStateRef?.value) {
-      initTreasureBankOnAcquire(treasureId, treasureRunStateRef.value);
+      initTreasureBankOnAcquire(treasureId, treasureRunStateRef.value, slot);
     }
   }
   ownedTreasuresRef.value = slots;

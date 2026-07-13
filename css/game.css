@@ -3246,12 +3246,20 @@ textarea::-moz-placeholder {
 	overflow: visible;
 }
 
-/* 非叠放：face 不参与盒模型，视觉样式在槽根上 */
-.treasure-slots:not(.treasure-slots--stack) .treasure-slot.filled .treasure-slot-face {
-	display: contents;
+/* 非叠放 / 叠放 / 拖拽 ghost：face 均为真实定位层（勿 display:contents，否则失效遮罩 ::before 无法渲染） */
+.treasure-slot.filled .treasure-slot-face {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: inherit;
+	pointer-events: none;
+	container-type: size;
+	container-name: treasure-cell;
 }
 
-/* 叠放：槽根仅作定位/分层，阴影与卡面只在 face 上 */
+/* 叠放：卡面底色与阴影在 face 上 */
 .treasure-slots--stack .treasure-slot.filled {
 	background: transparent;
 	border: none;
@@ -3289,20 +3297,16 @@ textarea::-moz-placeholder {
 }
 
 .treasure-slots--stack .treasure-slot.filled .treasure-slot-face {
-	position: absolute;
-	inset: 0;
 	z-index: 1;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: inherit;
 	background: var(--card-bright);
 	box-shadow: var(--shadow);
-	container-type: size;
-	container-name: treasure-cell;
 }
 
 .treasure-slots--stack .treasure-slot--effect-charge .treasure-slot-face {
+	overflow: hidden;
+}
+
+.treasure-slot.filled.treasure-slot--effect-charge .treasure-slot-face {
 	overflow: hidden;
 }
 
@@ -3626,8 +3630,10 @@ textarea::-moz-placeholder {
 	right: auto;
 }
 
-/* 沙漏配饰失效：压暗整块 + boss debuff 叉（对齐字母块；拖拽 ghost / 飞入克隆同样生效） */
-.treasure-slot.filled.treasure-slot--accessory-expired::before,
+/* 效果耗尽 / 沙漏配饰失效：face（宝藏栏）与详情 frame 压暗；配饰/耗尽均显示 × */
+.treasure-slot.filled.treasure-slot--effect-depleted .treasure-slot-face::before,
+.treasure-slot.filled.treasure-slot--accessory-expired .treasure-slot-face::before,
+.shop-treasure-frame.treasure-detail-frame--effect-depleted::before,
 .shop-treasure-frame.shop-treasure-frame--accessory-expired::before {
 	content: "";
 	position: absolute;
@@ -3638,27 +3644,24 @@ textarea::-moz-placeholder {
 	z-index: 4;
 }
 
-.treasure-slots--stack .treasure-slot.filled.treasure-slot--accessory-expired::before {
-	content: none;
-}
-
-.treasure-slots--stack .treasure-slot.filled.treasure-slot--accessory-expired .treasure-slot-face::before {
-	content: "";
-	position: absolute;
-	inset: 0;
-	border-radius: inherit;
-	background: var(--overlay-debuff);
-	pointer-events: none;
-	z-index: 4;
-}
-
+.treasure-slot.filled.treasure-slot--effect-depleted .letter-gem,
+.treasure-slot.filled.treasure-slot--effect-depleted .treasure-slot-emoji,
+.treasure-slot.filled.treasure-slot--effect-depleted .treasure-accessory-chip-stack,
 .treasure-slot.filled.treasure-slot--accessory-expired .letter-gem,
 .treasure-slot.filled.treasure-slot--accessory-expired .treasure-slot-emoji,
 .treasure-slot.filled.treasure-slot--accessory-expired .treasure-accessory-chip-stack,
+.shop-treasure-frame.treasure-detail-frame--effect-depleted .letter-gem,
+.shop-treasure-frame.treasure-detail-frame--effect-depleted .shop-treasure-emoji,
+.shop-treasure-frame.treasure-detail-frame--effect-depleted .treasure-accessory-chip-stack,
 .shop-treasure-frame.shop-treasure-frame--accessory-expired .letter-gem,
 .shop-treasure-frame.shop-treasure-frame--accessory-expired .shop-treasure-emoji,
 .shop-treasure-frame.shop-treasure-frame--accessory-expired .treasure-accessory-chip-stack {
 	z-index: 1;
+}
+
+.treasure-slot.filled.treasure-slot--effect-depleted .letter-tile-boss-x,
+.treasure-slot.filled.treasure-slot--accessory-expired .letter-tile-boss-x {
+	z-index: 5;
 }
 
 .header-box-level-title {

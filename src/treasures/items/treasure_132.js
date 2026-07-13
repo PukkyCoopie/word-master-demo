@@ -1,7 +1,10 @@
 import { describe, money, prob } from "../treasureDescription.js";
 import { resolveTreasureHookAnimSlotIndex } from "../../game/treasureBlueprintMirror.js";
-import { canMutateTreasureBankFromCtx } from "../treasureBankHelpers.js";
-import { ensureTreasureBank } from "../treasureRunState.js";
+import {
+  assignOwnedSlotTreasureBank,
+  canMutateTreasureBankFromCtx,
+  getScoreAddBank,
+} from "../treasureBankHelpers.js";
 import { rollProbabilitySuccess } from "../treasureProbability.js";
 import { SCORING_STEP_BEAT_MS } from "../../game/scoreBubbleFx.js";
 import { getLevelEndAnimSpeed } from "../../game/levelEndAnimSpeed.js";
@@ -11,9 +14,9 @@ const ID = "132";
 /** 金钱气泡弹出后、紧接「提升」气泡前的短休（略短于常规记分步间隔） */
 const UPGRADE_CHAIN_DELAY_MS = Math.round(SCORING_STEP_BEAT_MS * 0.55);
 
-/** @param {import('../treasureRunState.js').TreasureRunState | null | undefined} rs */
-function currentPayout(rs) {
-  const v = rs?.banks?.[ID]?.scoreAdd;
+/** @param {import('../treasureTypes.js').TreasureLogicContext | import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx */
+function currentPayout(ctx) {
+  const v = getScoreAddBank(ctx?.treasureRun, ID, ctx);
   return Math.max(1, Math.floor(Number(v) || 1));
 }
 
@@ -34,7 +37,7 @@ export default {
 export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription(ctx) {
-    const payout = currentPayout(ctx.treasureRun);
+    const payout = currentPayout(ctx);
     return describe(
       "每个关卡完成时使你获得",
       money(String(payout)),
@@ -44,10 +47,8 @@ export const treasureHooks = {
     );
   },
   async onLevelComplete(ctx) {
-    const rs = ctx.treasureRun;
-    if (!rs) return;
     const slotIndex = resolveTreasureHookAnimSlotIndex(ctx);
-    const payout = currentPayout(rs);
+    const payout = currentPayout(ctx);
     const rnd = typeof ctx.rng === "function" ? ctx.rng : Math.random;
     const canGrow = canMutateTreasureBankFromCtx(ctx, ID);
     const willUpgrade = canGrow && rollProbabilitySuccess(1, 2, rnd, ctx.ownedSlotTreasureIds);
@@ -56,7 +57,7 @@ export const treasureHooks = {
       ...(slotIndex != null ? { slotIndex } : {}),
     });
     if (!willUpgrade) return;
-    ensureTreasureBank(rs, ID).scoreAdd = payout + 1;
+    assignOwnedSlotTreasureBank(ctx, ID, { scoreAdd: payout + 1 });
     await scoringSleep(UPGRADE_CHAIN_DELAY_MS, getLevelEndAnimSpeed());
     if (slotIndex != null && ctx.playOwnedTreasureBubbleFxAtSlot) {
       await ctx.playOwnedTreasureBubbleFxAtSlot(slotIndex, "提升", "upgrade");

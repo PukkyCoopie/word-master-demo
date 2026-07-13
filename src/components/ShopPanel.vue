@@ -1082,25 +1082,19 @@ const displayTreasureEffectDepletedBySlot = computed(() =>
 );
 
 const shopOwnedDragChargeState = computed(() => {
-  const treasure = shopOwnedDragTreasure.value;
-  if (!treasure?.treasureId) return null;
-  const idx = props.ownedTreasures.findIndex((s) => s?.treasureId === treasure.treasureId);
-  if (idx < 0) return null;
-  return displayTreasureChargeBySlot.value[idx] ?? null;
+  const slotIndex = shopOwnedDragSourceIndex.value;
+  if (slotIndex < 0) return null;
+  return displayTreasureChargeBySlot.value[slotIndex] ?? null;
 });
 const shopOwnedDragChargeProgress = computed(() => {
-  const treasure = shopOwnedDragTreasure.value;
-  if (!treasure?.treasureId) return 0;
-  const idx = props.ownedTreasures.findIndex((s) => s?.treasureId === treasure.treasureId);
-  if (idx < 0) return 0;
-  return displayTreasureChargeProgressBySlot.value[idx] ?? 0;
+  const slotIndex = shopOwnedDragSourceIndex.value;
+  if (slotIndex < 0) return 0;
+  return displayTreasureChargeProgressBySlot.value[slotIndex] ?? 0;
 });
 const shopOwnedDragEffectDepleted = computed(() => {
-  const treasure = shopOwnedDragTreasure.value;
-  if (!treasure?.treasureId) return false;
-  const idx = props.ownedTreasures.findIndex((s) => s?.treasureId === treasure.treasureId);
-  if (idx < 0) return false;
-  return displayTreasureEffectDepletedBySlot.value[idx] === true;
+  const slotIndex = shopOwnedDragSourceIndex.value;
+  if (slotIndex < 0) return false;
+  return displayTreasureEffectDepletedBySlot.value[slotIndex] === true;
 });
 
 /** 卷轴券生效：本轮信息按钮 wobble + 白色「-N大关」气泡 */

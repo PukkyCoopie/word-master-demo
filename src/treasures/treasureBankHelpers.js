@@ -1,7 +1,216 @@
-import { resolvePostLetterAnimSlotIndex, shouldTreasureRunAccumulationMutate } from "../game/treasureBlueprintMirror.js";
+import { resolvePhysicalTreasureSlotIndex, resolvePostLetterAnimSlotIndex, shouldTreasureRunAccumulationMutate } from "../game/treasureBlueprintMirror.js";
 import { shouldSkipSettlementTreasureFx } from "../settings/settlementAnimSkip.js";
 import { describe, mult, score } from "./treasureDescription.js";
-import { ensureTreasureBank } from "./treasureRunState.js";
+import {
+  bumpOwnedSlotBankRevision,
+  createDefaultTreasureBank,
+  ensureGlobalTreasureBank,
+  ensureOwnedSlotBank,
+  isGlobalTreasureBank,
+} from "./treasureRunState.js";
+
+/**
+ * @typedef {Object} TreasureBankAccess
+ * @property {number} [slotIndex] 详情/预览用物理槽下标
+ * @property {object[]} [ownedTreasureInstances] 与槽位同索引的宝藏实例（含 null 槽）
+ * @property {{ ownedSlotTreasureIds?: (string | null | undefined)[], hookSlotIndex?: number, hookSource?: 'self' | 'blueprint', ownedTreasureInstances?: object[], slotIndex?: number }} [hookCtx]
+ */
+
+/**
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} access
+ * @returns {TreasureBankAccess | undefined}
+ */
+function normalizeBankAccess(access) {
+  if (!access) return undefined;
+  if (access.hookCtx && typeof access.hookCtx === "object") {
+    return /** @type {TreasureBankAccess} */ (access);
+  }
+  if (
+    typeof access.hookSlotIndex === "number" ||
+    typeof access.slotIndex === "number" ||
+    Array.isArray(access.ownedTreasureInstances)
+  ) {
+    return { hookCtx: /** @type {TreasureBankAccess['hookCtx']} */ (access) };
+  }
+  return /** @type {TreasureBankAccess} */ (access);
+}
+
+/**
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} access
+ * @param {string} treasureId
+ * @returns {number | null}
+ */
+function resolveOwnedSlotIndexForBank(access, treasureId) {
+  const normalized = normalizeBankAccess(access);
+  if (!normalized) return null;
+  const hookCtx = normalized.hookCtx;
+  const instances = normalized.ownedTreasureInstances ?? hookCtx?.ownedTreasureInstances;
+  let ix =
+    typeof normalized.slotIndex === "number" && Number.isFinite(normalized.slotIndex)
+      ? Math.floor(normalized.slotIndex)
+      : null;
+  if (ix == null && hookCtx && typeof hookCtx.slotIndex === "number") {
+    ix = Math.floor(Number(hookCtx.slotIndex));
+  }
+  if (ix == null && hookCtx && typeof hookCtx.hookSlotIndex === "number") {
+    const owned = hookCtx.ownedSlotTreasureIds;
+    if (Array.isArray(owned)) {
+      ix = resolvePhysicalTreasureSlotIndex(
+        owned,
+        treasureId,
+        hookCtx.hookSlotIndex,
+      );
+    } else {
+      ix = Math.floor(Number(hookCtx.hookSlotIndex));
+    }
+  }
+  if (ix == null || !Number.isFinite(ix) || ix < 0) return null;
+  if (Array.isArray(instances)) {
+    const slot = instances[ix];
+    if (!slot || String(slot.treasureId ?? "") !== String(treasureId)) return null;
+  }
+  return ix;
+}
+
+/**
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} access
+ * @param {string} treasureId
+ * @returns {Record<string, unknown> | null}
+ */
+function resolveOwnedSlotForBank(access, treasureId) {
+  const normalized = normalizeBankAccess(access);
+  const instances = normalized?.ownedTreasureInstances ?? normalized?.hookCtx?.ownedTreasureInstances;
+  const ix = resolveOwnedSlotIndexForBank(access, treasureId);
+  if (ix == null || !Array.isArray(instances)) return null;
+  const slot = instances[ix];
+  if (!slot || typeof slot !== "object") return null;
+  if (String(slot.treasureId ?? "") !== String(treasureId)) return null;
+  return /** @type {Record<string, unknown>} */ (slot);
+}
+
+/**
+ * 只读银行快照：不创建/规范化槽位 bank（避免详情 computed 等读路径触发 slot 变更）。
+ * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
+ * @param {string} treasureId
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} [access]
+ * @returns {import('./treasureRunState.js').TreasureIdBank | null}
+ */
+function readTreasureBank(runState, treasureId, access) {
+  const id = String(treasureId ?? "").trim();
+  if (!id) return null;
+  if (isGlobalTreasureBank(id)) {
+    const bank = runState?.banks?.[id];
+    return bank && typeof bank === "object"
+      ? /** @type {import('./treasureRunState.js').TreasureIdBank} */ (bank)
+      : null;
+  }
+  const slot = resolveOwnedSlotForBank(access, id);
+  if (!slot?.bank || typeof slot.bank !== "object") return null;
+  return /** @type {import('./treasureRunState.js').TreasureIdBank} */ (slot.bank);
+}
+
+/**
+ * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
+ * @param {string} treasureId
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} [access]
+ * @returns {import('./treasureRunState.js').TreasureIdBank | null}
+ */
+function resolveTreasureBankMutable(runState, treasureId, access) {
+  const id = String(treasureId ?? "").trim();
+  if (!id) return null;
+  if (isGlobalTreasureBank(id)) {
+    if (!runState) return null;
+    return ensureGlobalTreasureBank(runState, id);
+  }
+  const slot = resolveOwnedSlotForBank(access, id);
+  if (!slot) return null;
+  return ensureOwnedSlotBank(slot);
+}
+
+/**
+ * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
+ * @param {string} treasureId
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} [access]
+ * @returns {import('./treasureRunState.js').TreasureIdBank | null}
+ */
+export function readTreasureBankSnapshot(runState, treasureId, access) {
+  const id = String(treasureId ?? "").trim();
+  if (!id) return null;
+  if (isGlobalTreasureBank(id)) {
+    const bank = runState?.banks?.[id];
+    return bank ? { ...bank } : null;
+  }
+  const slot = resolveOwnedSlotForBank(access, id);
+  if (!slot?.bank || typeof slot.bank !== "object") return null;
+  return { .../** @type {import('./treasureRunState.js').TreasureIdBank} */ (slot.bank) };
+}
+
+/**
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} access
+ * @param {string} treasureId
+ * @param {Partial<import('./treasureRunState.js').TreasureIdBank>} fields
+ */
+export function assignOwnedSlotTreasureBank(access, treasureId, fields) {
+  const slot = resolveOwnedSlotForBank(access, treasureId);
+  if (!slot) return;
+  const bank = ensureOwnedSlotBank(slot);
+  if (fields.multAdd != null) bank.multAdd = Number(fields.multAdd) || 0;
+  if (fields.multMul != null) {
+    const m = Number(fields.multMul);
+    bank.multMul = m > 0 ? m : 1;
+  }
+  if (fields.scoreAdd != null) bank.scoreAdd = Number(fields.scoreAdd) || 0;
+  if (fields.posPackProgress != null) {
+    bank.posPackProgress = Math.max(0, Math.floor(Number(fields.posPackProgress) || 0));
+  }
+  bumpOwnedSlotBankRevision(resolveTreasureRunFromBankAccess(access));
+}
+
+/**
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} access
+ * @returns {import('./treasureRunState.js').TreasureRunState | null | undefined}
+ */
+function resolveTreasureRunFromBankAccess(access) {
+  if (!access || typeof access !== "object") return null;
+  if ("treasureRun" in access && access.treasureRun) {
+    return /** @type {import('./treasureRunState.js').TreasureRunState} */ (access.treasureRun);
+  }
+  const hookCtx = normalizeBankAccess(access)?.hookCtx;
+  if (hookCtx && typeof hookCtx === "object" && "treasureRun" in hookCtx && hookCtx.treasureRun) {
+    return /** @type {import('./treasureRunState.js').TreasureRunState} */ (hookCtx.treasureRun);
+  }
+  return null;
+}
+
+/**
+ * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
+ * @param {string} treasureId
+ */
+function notifyOwnedSlotBankMutated(runState, treasureId) {
+  if (!isGlobalTreasureBank(treasureId)) {
+    bumpOwnedSlotBankRevision(runState);
+  }
+}
+
+/**
+ * @param {object[]} ownedTreasures
+ * @param {(string | null | undefined)[]} ownedSlotIds
+ * @param {number} slotIndex
+ * @param {'self' | 'blueprint'} [hookSource]
+ */
+export function treasureBankHookCtxFromSubmitSlot(
+  ownedTreasures,
+  ownedSlotIds,
+  slotIndex,
+  hookSource = "self",
+) {
+  return {
+    hookSlotIndex: slotIndex,
+    hookSource,
+    ownedSlotTreasureIds: ownedSlotIds,
+    ownedTreasureInstances: ownedTreasures,
+  };
+}
 
 /**
  * @param {{ ownedSlotTreasureIds?: (string | null | undefined)[], hookSlotIndex?: number, hookSource?: 'self' | 'blueprint' }} ctx
@@ -44,40 +253,51 @@ export function canMutateTreasureBankFromCtx(ctx, treasureId) {
 /**
  * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
  * @param {string} treasureId
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} [access]
  */
-export function getMultAddBank(runState, treasureId) {
-  if (!runState) return 0;
-  return ensureTreasureBank(runState, treasureId).multAdd;
+export function getMultAddBank(runState, treasureId, access) {
+  const bank = readTreasureBank(runState, treasureId, access);
+  if (bank) return bank.multAdd;
+  return 0;
 }
 
 /**
  * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
  * @param {string} treasureId
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} [access]
  */
-export function getMultMulBank(runState, treasureId) {
-  if (!runState) return 1;
-  const m = ensureTreasureBank(runState, treasureId).multMul;
-  return m > 0 ? m : 1;
+export function getMultMulBank(runState, treasureId, access) {
+  const bank = readTreasureBank(runState, treasureId, access);
+  if (bank) {
+    const m = Number(bank.multMul);
+    return m > 0 ? m : 1;
+  }
+  return 1;
 }
 
 /**
  * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
  * @param {string} treasureId
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} [access]
  */
-export function getScoreAddBank(runState, treasureId) {
-  if (!runState) return 0;
-  return ensureTreasureBank(runState, treasureId).scoreAdd;
+export function getScoreAddBank(runState, treasureId, access) {
+  const bank = readTreasureBank(runState, treasureId, access);
+  if (bank) return bank.scoreAdd;
+  return 0;
 }
 
 /**
  * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
  * @param {string} treasureId
  * @param {number} delta
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} [hookCtx]
  */
 export function addMultAddBank(runState, treasureId, delta, hookCtx) {
-  if (hookCtx && !canMutateTreasureBankFromCtx(hookCtx, treasureId)) return;
-  if (!runState) return;
-  ensureTreasureBank(runState, treasureId).multAdd += Number(delta) || 0;
+  if (hookCtx && !canMutateTreasureBankFromCtx(/** @type {object} */ (hookCtx), treasureId)) return;
+  const bank = resolveTreasureBankMutable(runState, treasureId, hookCtx);
+  if (!bank) return;
+  bank.multAdd += Number(delta) || 0;
+  notifyOwnedSlotBankMutated(runState, treasureId);
 }
 
 /**
@@ -93,40 +313,43 @@ export function formatMultMulBankGainLabel(increment) {
 }
 
 /**
- * 「获得 xN 倍率」类宝藏：在 1 的基础上累加增量（如 x0.25 → +0.25，银行 1→1.25→1.5）。
- * 计分时再将银行值作为 {@link buildPostLetterStep} 的 `multMul` 乘入总倍率。
  * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
  * @param {string} treasureId
- * @param {number} increment 加法增量（可为负，如磁铁每弃字 -0.01）
+ * @param {number} increment
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} [hookCtx]
  */
 export function addMultMulBank(runState, treasureId, increment, hookCtx) {
-  if (hookCtx && !canMutateTreasureBankFromCtx(hookCtx, treasureId)) return;
-  if (!runState) return;
+  if (hookCtx && !canMutateTreasureBankFromCtx(/** @type {object} */ (hookCtx), treasureId)) return;
   const d = Number(increment);
   if (!Number.isFinite(d) || d === 0) return;
-  ensureTreasureBank(runState, treasureId).multMul += d;
+  const bank = resolveTreasureBankMutable(runState, treasureId, hookCtx);
+  if (!bank) return;
+  bank.multMul += d;
+  notifyOwnedSlotBankMutated(runState, treasureId);
 }
 
 /**
  * @param {import('./treasureRunState.js').TreasureRunState | null | undefined} runState
  * @param {string} treasureId
  * @param {number} delta
+ * @param {TreasureBankAccess | Record<string, unknown> | null | undefined} [hookCtx]
  */
 export function addScoreAddBank(runState, treasureId, delta, hookCtx) {
-  if (hookCtx && !canMutateTreasureBankFromCtx(hookCtx, treasureId)) return;
-  if (!runState) return;
-  ensureTreasureBank(runState, treasureId).scoreAdd += Number(delta) || 0;
+  if (hookCtx && !canMutateTreasureBankFromCtx(/** @type {object} */ (hookCtx), treasureId)) return;
+  const bank = resolveTreasureBankMutable(runState, treasureId, hookCtx);
+  if (!bank) return;
+  bank.scoreAdd += Number(delta) || 0;
+  notifyOwnedSlotBankMutated(runState, treasureId);
 }
 
 /**
- * 累加倍率银行 + 宝藏槽 wobble / +n 倍率气泡。
  * @param {{ treasureRun?: import('./treasureRunState.js').TreasureRunState, playOwnedTreasureMultDeltaFx?: (id: string, delta: number) => Promise<void> }} ctx
  * @param {string} treasureId
  * @param {number} delta
  */
 export async function bankMultAddGain(ctx, treasureId, delta) {
   if (canMutateTreasureBankFromCtx(ctx, treasureId)) {
-    addMultAddBank(ctx.treasureRun, treasureId, delta);
+    addMultAddBank(ctx.treasureRun, treasureId, delta, ctx);
   }
   if (ctx?.skipSettlementFx === true || shouldSkipSettlementTreasureFx()) return;
   const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
@@ -138,14 +361,13 @@ export async function bankMultAddGain(ctx, treasureId, delta) {
 }
 
 /**
- * 累加分数银行 + 宝藏槽 wobble / +n 分气泡。
  * @param {{ treasureRun?: import('./treasureRunState.js').TreasureRunState, playOwnedTreasureScoreDeltaFx?: (id: string, delta: number) => Promise<void> }} ctx
  * @param {string} treasureId
  * @param {number} delta
  */
 export async function bankScoreAddGain(ctx, treasureId, delta) {
   if (canMutateTreasureBankFromCtx(ctx, treasureId)) {
-    addScoreAddBank(ctx.treasureRun, treasureId, delta);
+    addScoreAddBank(ctx.treasureRun, treasureId, delta, ctx);
   }
   if (ctx?.skipSettlementFx === true || shouldSkipSettlementTreasureFx()) return;
   const slotIx = resolveTreasureHookFxSlotIndex(ctx, treasureId);
@@ -157,7 +379,6 @@ export async function bankScoreAddGain(ctx, treasureId, delta) {
 }
 
 /**
- * 按 hook 贡献槽 wobble：实体宝藏 wobble 真实槽；面具/绵羊 blueprint 镜像 wobble 面具/绵羊槽。
  * @param {{
  *   ownedSlotTreasureIds?: (string | null | undefined)[],
  *   hookSlotIndex?: number,
@@ -183,7 +404,6 @@ export async function wobbleTreasureHookContributor(ctx, treasureId) {
 }
 
 /**
- * 宝藏槽 wobble + 气泡（按 hook 贡献槽；无槽信息时回退按 id 全槽）。
  * @param {{ ownedSlotTreasureIds?: (string | null | undefined)[], hookSlotIndex?: number, hookSource?: 'self' | 'blueprint', playOwnedTreasureBubbleFx?: (id: string, text: string, kind?: string) => Promise<void>, playOwnedTreasureBubbleFxAtSlot?: (slotIndex: number, text: string, kind?: string) => Promise<void> }} ctx
  * @param {string} treasureId
  * @param {string} text
@@ -200,7 +420,6 @@ export async function playTreasureHookBubbleFx(ctx, treasureId, text, kind = "sc
 }
 
 /**
- * 仅气泡（按 hook 贡献槽；无 AtSlot 时回退 BubbleOnlyFx 或完整 BubbleFx）。
  * @param {Parameters<typeof playTreasureHookBubbleFx>[0]} ctx
  * @param {string} treasureId
  * @param {string} text
@@ -221,10 +440,9 @@ export async function playTreasureHookBubbleOnlyFx(ctx, treasureId, text, kind =
 }
 
 /**
- * 倍率银行累加后的获得动效（+n 文案气泡，不含再次乘算）。
  * @param {{ wobbleOwnedTreasureById?: (id: string) => Promise<void>, playOwnedTreasureBubbleFx?: (id: string, text: string, kind?: string) => Promise<void> }} ctx
  * @param {string} treasureId
- * @param {string} [bubbleText] 默认由 {@link formatMultMulBankGainLabel} 从 increment 生成
+ * @param {string} [bubbleText]
  */
 export async function playBankMultMulGainFx(ctx, treasureId, bubbleText) {
   if (ctx?.skipSettlementFx === true || shouldSkipSettlementTreasureFx()) return;
@@ -245,15 +463,14 @@ export async function playBankMultMulGainFx(ctx, treasureId, bubbleText) {
 }
 
 /**
- * 倍率银行单次累加 + 动效。
  * @param {{ treasureRun?: import('./treasureRunState.js').TreasureRunState, wobbleOwnedTreasureById?: (id: string) => Promise<void>, playOwnedTreasureBubbleFx?: (id: string, text: string, kind?: string) => Promise<void> }} ctx
  * @param {string} treasureId
- * @param {number} increment 与 `addMultMulBank` 相同（x0.25 → 0.25）
- * @param {string} [bubbleText] 省略时用 {@link formatMultMulBankGainLabel}(increment)
+ * @param {number} increment
+ * @param {string} [bubbleText]
  */
 export async function bankMultMulGain(ctx, treasureId, increment, bubbleText) {
   if (canMutateTreasureBankFromCtx(ctx, treasureId)) {
-    addMultMulBank(ctx.treasureRun, treasureId, increment);
+    addMultMulBank(ctx.treasureRun, treasureId, increment, ctx);
   }
   await playBankMultMulGainFx(
     ctx,
@@ -266,12 +483,14 @@ export async function bankMultMulGain(ctx, treasureId, increment, bubbleText) {
  * @param {string} treasureId
  * @param {'multAdd' | 'multMul' | 'scoreAdd'} band
  * @param {string} [_zeroLabel]
- * @param {{ multAdd?: number, multMul?: number, scoreAdd?: number } | null | undefined} [previewInitialWhenUnowned] 未购入/银行未初始化时商店预览用的起始值（如火车 +30、磁铁 x2）
+ * @param {{ multAdd?: number, multMul?: number, scoreAdd?: number } | null | undefined} [previewInitialWhenUnowned]
  */
 export function patchCurrentBankDescription(treasureId, band, _zeroLabel = "+0", previewInitialWhenUnowned = null) {
   return {
     patchDescription(ctx) {
-      const bank = ctx.treasureRun?.banks?.[treasureId] ?? null;
+      const bank = isGlobalTreasureBank(treasureId)
+        ? ctx.treasureRun?.banks?.[treasureId] ?? null
+        : readTreasureBankSnapshot(ctx.treasureRun, treasureId, ctx);
       if (band === "multAdd") {
         let v = 0;
         if (bank) {
@@ -303,3 +522,5 @@ export function patchCurrentBankDescription(treasureId, band, _zeroLabel = "+0",
     },
   };
 }
+
+export { createDefaultTreasureBank };

@@ -159,9 +159,11 @@ export function wireSubmitTileLeaveAnim(deps) {
   const {
     submitTileLeaveFxRef,
     treasureRunState,
+    ownedTreasures,
     getSelectedGridTileElsInOrder,
     getWordSlotRefs,
     findOwnedTreasureSlotIndex,
+    findAllOwnedTreasureSlotIndices,
     runRandom,
     isBossTileDebuffed,
     removeDeckCardByUidAndNotify,
@@ -183,10 +185,11 @@ export function wireSubmitTileLeaveAnim(deps) {
   } = deps;
 
   submitTileLeaveFxRef.current = createSubmitTileLeaveAnim({
-    refs: { treasureRunState },
+    refs: { treasureRunState, ownedTreasures },
     getSelectedGridTileElsInOrder,
     getWordSlotRefs,
     findOwnedTreasureSlotIndex,
+    findAllOwnedTreasureSlotIndices,
     runRandom,
     isBossTileDebuffed,
     removeDeckCardByUidAndNotify,
@@ -195,6 +198,8 @@ export function wireSubmitTileLeaveAnim(deps) {
         treasureRun: treasureRunState.value,
         iceShatterTreasureFxHandled,
         ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+        ownedTreasureInstances: ownedTreasures.value,
+        getOwnedTreasures: () => ownedTreasures.value,
         ...ownedTreasureHookFxBridge(),
       });
     },

@@ -796,6 +796,7 @@ const discardController = useGridDiscardController({
     ownedVoucherIds,
     spellCountsByLength,
     runRandom,
+    ownedTreasures,
   },
   wordLeave: {
     wordDefinitionHiddenForWordLeave,
@@ -829,6 +830,7 @@ const discardController = useGridDiscardController({
     runInRunUpgradePlaybackSteps,
     runInRunUpgradeStaircasePlayback,
     ownedSlotTreasureIdList,
+    getOwnedTreasures: () => ownedTreasures.value,
   },
   submitFx: {
     playSubmitWordLetterRemoveAndRewardLeave,

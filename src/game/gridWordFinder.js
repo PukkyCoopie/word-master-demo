@@ -39,49 +39,72 @@ export function wordMatchesMultiset(word, ms) {
 }
 
 /**
+ * @param {GridCell} cell
+ * @param {string} ch
+ * @returns {boolean}
+ */
+function cellMatchesWordLetter(cell, ch) {
+  if (cell.isWildcard) return true;
+  const letter = cell.letter.toLowerCase();
+  return letter === ch || (letter === "qu" && ch === "q");
+}
+
+/**
+ * @param {string} word
+ * @param {GridCell[]} pool
+ * @param {number} wi
+ * @param {Set<number>} used
+ * @param {GridCell[]} path
+ * @param {((path: GridCell[]) => boolean) | null | undefined} acceptPath
+ * @returns {GridCell[] | null}
+ */
+function backtrackAssignCellsToWord(word, pool, wi, used, path, acceptPath) {
+  if (wi >= word.length) {
+    if (acceptPath && !acceptPath(path)) return null;
+    return [...path];
+  }
+
+  const ch = word[wi];
+  for (let pi = 0; pi < pool.length; pi += 1) {
+    if (used.has(pi)) continue;
+    const cell = pool[pi];
+    if (!cellMatchesWordLetter(cell, ch)) continue;
+
+    used.add(pi);
+    path.push(cell);
+    const found = backtrackAssignCellsToWord(word, pool, wi + 1, used, path, acceptPath);
+    if (found) return found;
+    path.pop();
+    used.delete(pi);
+  }
+  return null;
+}
+
+/**
  * @param {string} word
  * @param {GridCell[]} picked
- * @param {{ anchor?: GridCell | null }} [opts]
+ * @param {{ anchor?: GridCell | null, acceptPath?: (path: GridCell[]) => boolean }} [opts]
  * @returns {GridCell[] | null}
  */
 export function assignCellsToWord(word, picked, opts = {}) {
   const anchor = opts.anchor ?? null;
+  const acceptPath = opts.acceptPath ?? null;
   const w = String(word).toLowerCase();
   if (!w.length) return null;
 
   if (anchor) {
     const ch0 = w[0];
-    if (!anchor.isWildcard && anchor.letter.toLowerCase() !== ch0 && !(anchor.letter.toLowerCase() === "qu" && ch0 === "q")) {
-      return null;
-    }
+    if (!cellMatchesWordLetter(anchor, ch0)) return null;
     const restPool = picked.filter((c) => !(c.row === anchor.row && c.col === anchor.col));
-    const restPath = assignCellsToWord(w.slice(1), restPool);
+    const restPath = assignCellsToWord(w.slice(1), restPool, {
+      acceptPath: acceptPath ? (rest) => acceptPath([anchor, ...rest]) : null,
+    });
     if (!restPath) return null;
     return [anchor, ...restPath];
   }
 
-  const pool = picked.map((c, i) => ({ ...c, _i: i }));
-  /** @type {GridCell[]} */
-  const path = [];
-  const used = new Set();
-
-  for (let wi = 0; wi < w.length; wi++) {
-    const ch = w[wi];
-    let found = -1;
-    for (let pi = 0; pi < pool.length; pi++) {
-      if (used.has(pi)) continue;
-      const cell = pool[pi];
-      if (cell.isWildcard || cell.letter.toLowerCase() === ch) {
-        found = pi;
-        break;
-      }
-    }
-    if (found < 0) return null;
-    used.add(found);
-    const { _i, ...cell } = pool[found];
-    path.push(cell);
-  }
-  return path.length === w.length ? path : null;
+  const pool = picked.filter((c) => c?.letter);
+  return backtrackAssignCellsToWord(w, pool, 0, new Set(), [], acceptPath);
 }
 
 /**

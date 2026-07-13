@@ -69,7 +69,6 @@ const deckPortalStyle = computed(() => sv(overlayStack.deckPortalStackStyle));
                     :aria-label="stack.isGhost ? `${stack.displayLetter} 无牌` : `${stack.displayLetter}，共 ${stack.count} 张`"
                     @click="deck.openDeckStackDetail(stack, $event)"
                   >
-                    <span class="deck-stack-count" aria-hidden="true">{{ stack.count }}</span>
                     <div v-if="!stack.isGhost" class="deck-stack-pile" aria-hidden="true">
                       <div
                         v-for="(entry, idx) in deck.deckStackPileVisibleEntries(stack)"
@@ -90,6 +89,7 @@ const deckPortalStyle = computed(() => sv(overlayStack.deckPortalStackStyle));
                     <div v-else class="deck-stack-ghost-face" aria-hidden="true">
                       <span class="deck-stack-ghost-char">{{ stack.displayLetter }}</span>
                     </div>
+                    <span class="deck-stack-count" aria-hidden="true">{{ stack.count }}</span>
                   </button>
                 </div>
               </div>

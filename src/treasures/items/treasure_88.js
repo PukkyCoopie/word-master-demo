@@ -2,31 +2,37 @@ import { describe, mult } from "../treasureDescription.js";
 import {
   commitWildcardMorphBeforeEnhancementStrip,
   stripEnhancementsFromTileOrDeckCard,
-  submitScoringTileHasEnhancement,
+  submitWordTileHasEnhancement,
 } from "../../game/treasureEnhancementStrip.js";
 import { syncTileStateToDeckCard } from "../../game/deckCardSync.js";
 import { addMultMulBank, getMultMulBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
-import { isBossDebuffedSubmitTile } from "../treasureScoring.js";
 
 const ID = "88";
 const MULT_GAIN_PER_STRIP = 0.1;
-/** 本手逐字结算会把持久平面分/倍率写回牌张的宝藏（计分板、回形针、泡泡；非玩家标记折角） */
-const INTRINSIC_PERSIST_TREASURE_IDS = new Set(["75", "76", "80"]);
+
+/** @type {{ passId: number, remaining: Set<number> } | null} */
+let spongePrepareStripPass = null;
 
 /**
- * @param {import('../treasureTypes.js').TreasureLogicContext | import('../treasureTypes.js').TreasureSubmitAfterLettersContext} ctx
- * @param {number} index
- * @param {object | null | undefined} scoringTile
+ * 同词多海绵：按栏位从左到右，仅本槽「抢到」的增强字母计入银行（与 `runAfterLetters` 擦除顺序一致）。
+ * @param {import('../treasureTypes.js').TreasureLogicContext} ctx
+ * @returns {number}
  */
-function spongeSubmitTileCountsAsEnhanced(ctx, index, scoringTile) {
-  if (isBossDebuffedSubmitTile(scoringTile)) return false;
-  const real = ctx.resolveSubmitTileAtIndex?.(index, scoringTile) ?? null;
-  if (submitScoringTileHasEnhancement(scoringTile, real)) return true;
-  const owned = new Set((ctx.ownedSlotTreasureIds ?? []).filter(Boolean).map(String));
-  for (const tid of INTRINSIC_PERSIST_TREASURE_IDS) {
-    if (owned.has(tid)) return true;
+function consumeSpongeStripBankCredits(ctx) {
+  const passId = Number(ctx.prepareSubmitBankPassId);
+  if (!Number.isFinite(passId)) return 0;
+  const tiles = ctx.tiles ?? [];
+  if (!Array.isArray(tiles)) return 0;
+  if (!spongePrepareStripPass || spongePrepareStripPass.passId !== passId) {
+    const remaining = new Set();
+    for (let i = 0; i < tiles.length; i++) {
+      if (submitWordTileHasEnhancement(ctx, i, tiles[i])) remaining.add(i);
+    }
+    spongePrepareStripPass = { passId, remaining };
   }
-  return false;
+  const count = spongePrepareStripPass.remaining.size;
+  spongePrepareStripPass.remaining.clear();
+  return count;
 }
 
 /** @param {import('../treasureTypes.js').TreasureSubmitAfterLettersContext} ctx @param {number} index @param {object | null | undefined} scoringTile */
@@ -65,16 +71,15 @@ export default {
 /** @type {import('../treasureTypes.js').TreasureHooks} */
 export const treasureHooks = {
   ...patchCurrentBankDescription(ID, "multMul"),
-  /** 计分前：每个带增强的提交字母擦除时 +0.1 入银行（与字后 `buildPostLetterStep` 读取的累计倍率一致） */
+  /** 计分前：按栏位顺序仅对本槽实际擦除的增强字母 +0.1 入银行 */
   prepareSubmitScoringBank(ctx) {
-    const tiles = ctx.tiles ?? [];
-    for (let i = 0; i < tiles.length; i++) {
-      if (!spongeSubmitTileCountsAsEnhanced(ctx, i, tiles[i])) continue;
-      addMultMulBank(ctx.treasureRun, ID, MULT_GAIN_PER_STRIP);
+    const stripped = consumeSpongeStripBankCredits(ctx);
+    if (stripped > 0) {
+      addMultMulBank(ctx.treasureRun, ID, MULT_GAIN_PER_STRIP * stripped, ctx);
     }
   },
   buildPostLetterStep(ctx) {
-    const m = getMultMulBank(ctx.treasureRun, ID);
+    const m = getMultMulBank(ctx.treasureRun, ID, ctx);
     return m > 1 ? { multMul: m } : null;
   },
   async runAfterLettersBeforePostSteps(ctx) {
@@ -83,7 +88,7 @@ export const treasureHooks = {
     /** @type {number[]} */
     const indices = [];
     for (let i = 0; i < tiles.length; i++) {
-      if (spongeSubmitTileCountsAsEnhanced(ctx, i, tiles[i])) indices.push(i);
+      if (submitWordTileHasEnhancement(ctx, i, tiles[i])) indices.push(i);
     }
     if (indices.length === 0) return;
 

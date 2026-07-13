@@ -12,7 +12,7 @@ const ID = "50";
  * @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx
  */
 function buildBalanceDescription(ctx) {
-  const v = Math.round(getMultAddBank(ctx.treasureRun, ID));
+  const v = Math.round(getMultAddBank(ctx.treasureRun, ID, ctx));
   const bankLabel = v >= 0 ? `+${v}` : String(v);
   return describe(
     "每拼写一个单词，获得",
@@ -57,7 +57,7 @@ export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription: buildBalanceDescription,
   buildPostLetterStep(ctx) {
-    const v = getMultAddBank(ctx.treasureRun, ID);
+    const v = getMultAddBank(ctx.treasureRun, ID, ctx);
     return v !== 0 ? { multAdd: v } : null;
   },
   async onSuccessfulWordSubmit(ctx) {

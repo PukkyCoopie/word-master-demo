@@ -1,14 +1,17 @@
 import { describe, handDelta, riskText } from "../treasureDescription.js";
-import { canMutateTreasureBankFromCtx } from "../treasureBankHelpers.js";
-import { ensureTreasureBank } from "../treasureRunState.js";
+import {
+  assignOwnedSlotTreasureBank,
+  canMutateTreasureBankFromCtx,
+  readTreasureBankSnapshot,
+} from "../treasureBankHelpers.js";
 
 const ID = "122";
 const LEVELS_TOTAL = 3;
 
-/** @param {import('../treasureRunState.js').TreasureRunState | null | undefined} treasureRun */
-function levelsRemainingFromRun(treasureRun) {
-  const v = treasureRun?.banks?.[ID]?.posPackProgress;
-  return Math.max(0, Math.floor(Number(v) || 0));
+/** @param {import('../treasureTypes.js').TreasurePatchDescriptionContext | import('../treasureTypes.js').TreasureLogicContext} ctx */
+function levelsRemainingFromCtx(ctx) {
+  const bank = readTreasureBankSnapshot(ctx?.treasureRun, ID, ctx);
+  return Math.max(0, Math.floor(Number(bank?.posPackProgress) || 0));
 }
 
 /** @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx */
@@ -19,8 +22,7 @@ function ownsLadder(ctx) {
 
 /** @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx */
 function levelsLeft(ctx) {
-  const v = ctx.treasureRun?.banks?.[ID]?.posPackProgress;
-  const n = Math.max(0, Math.floor(Number(v) || 0));
+  const n = levelsRemainingFromCtx(ctx);
   if (n > 0) return n;
   return ownsLadder(ctx) ? 0 : LEVELS_TOTAL;
 }
@@ -62,17 +64,15 @@ export const treasureHooks = {
     return buildLadderDescription(ctx);
   },
   getSubmitLengthBonus(ctx) {
-    return levelsRemainingFromRun(ctx.treasureRun) > 0 ? 2 : 0;
+    return levelsRemainingFromCtx(ctx) > 0 ? 2 : 0;
   },
   isTreasureEffectDepleted(ctx) {
-    return levelsRemainingFromRun(ctx.treasureRun) <= 0;
+    return levelsRemainingFromCtx(ctx) <= 0;
   },
   onLevelComplete(ctx) {
     if (!canMutateTreasureBankFromCtx(ctx, ID)) return;
-    const rs = ctx.treasureRun;
-    if (!rs) return;
-    const left = levelsRemainingFromRun(rs);
+    const left = levelsRemainingFromCtx(ctx);
     if (left <= 0) return;
-    ensureTreasureBank(rs, ID).posPackProgress = left - 1;
+    assignOwnedSlotTreasureBank(ctx, ID, { posPackProgress: left - 1 });
   },
 };

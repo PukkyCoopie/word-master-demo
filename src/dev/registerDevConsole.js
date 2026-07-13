@@ -144,6 +144,11 @@ export function registerDevConsole(deps) {
         "  __WM_DEV__.listTreasureHookFxDevTests() — 列出多持 FX 测试场景",
         "  __WM_DEV__.startTreasureHookFxDevTest('59') — 进入指定宝藏多持 FX 测试（默认 ×2）",
         "  可选第二参 { copyCount: 3, levelIndex: 0 }；URL ?dev=treasureHookFx:59",
+        "  __WM_DEV__.listPerSlotBankDevTests() — 列出 per-slot 银行测试场景（1–27）",
+        "  __WM_DEV__.startPerSlotBankDevTest(1) — 进入场景：目标宝藏 ×2 + 辅助 ×1，预置第一块 bank",
+        "  __WM_DEV__.startLadderQuisLengthDevTest() — 2×生效梯子 + 顶行 quis + 自动选词，控制台打印判定词长分解",
+        "  __WM_DEV__.probeLadderQuisJudgedLength('quis') — 仅探测当前局判定词长（不改棋盘/宝藏）",
+        "  可选第二参 { levelIndex: 0 }",
         "  __WM_DEV__.startVolcanoKiteDevTest() — 进关后：[风筝×2][火山][风筝×2]",
         "  或 URL ?dev=volcanoKite 新开一局自动启用",
         "  __WM_DEV__.startVolcanoCometDevTest() — 进关后：[火花][彗星×5][火山][风筝][火苗]（超 6 栏带裁剪），顶行 cat、目标分 1，喷发 100%",
@@ -245,6 +250,26 @@ export function registerDevConsole(deps) {
       console.warn(
         "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startNoSellGoldBombCometDevTest()。",
       );
+    },
+    listPerSlotBankDevTests: () => {
+      console.warn(
+        "[DEV] 请先进入局内（GamePanel 已挂载）后再调用 listPerSlotBankDevTests()。",
+      );
+      return [];
+    },
+    startPerSlotBankDevTest: (scenarioIndex) => {
+      console.warn(
+        `[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startPerSlotBankDevTest(${JSON.stringify(scenarioIndex)})。`,
+      );
+      return null;
+    },
+    startLadderQuisLengthDevTest: () => {
+      console.warn("[DEV] 请先进入局内（GamePanel 已挂载）后再调用 startLadderQuisLengthDevTest()。");
+      return null;
+    },
+    probeLadderQuisJudgedLength: () => {
+      console.warn("[DEV] 请先进入局内（GamePanel 已挂载）后再调用 probeLadderQuisJudgedLength()。");
+      return null;
     },
     jumpToLevel: (levelIdOrIndex, opts) => {
       console.warn(

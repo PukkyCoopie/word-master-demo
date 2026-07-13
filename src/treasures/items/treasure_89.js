@@ -15,7 +15,7 @@ const INBOX_LETTER_MULT_INCREMENT = 0.25;
  * @param {import('../treasureTypes.js').TreasurePatchDescriptionContext} ctx
  */
 function buildInboxDescription(ctx) {
-  const m = getMultMulBank(ctx.treasureRun, ID);
+  const m = getMultMulBank(ctx.treasureRun, TREASURE_89_ID, ctx);
   const shown = Number.isInteger(m) ? String(m) : m.toFixed(2).replace(/\.?0+$/, "");
   return describe(
     "每当一个字母被加入你的字母库，获得",
@@ -46,7 +46,7 @@ export const treasureHooks = {
   replaceDescriptionWithPatch: true,
   patchDescription: buildInboxDescription,
   buildPostLetterStep(ctx) {
-    const m = getMultMulBank(ctx.treasureRun, ID);
+    const m = getMultMulBank(ctx.treasureRun, TREASURE_89_ID, ctx);
     return m > 1 ? { multMul: m } : null;
   },
   async onDeckCardsAdded(ctx) {

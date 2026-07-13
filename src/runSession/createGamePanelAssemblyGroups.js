@@ -337,6 +337,8 @@ export function createGamePanelAssemblyGroups(b) {
       listEffectiveTilesForSubmit: b.listEffectiveTilesForSubmit,
       resolveRealSubmitTileForWordSlot: b.resolveRealSubmitTileForWordSlot,
       buildSubmitAfterLettersContext: b.buildSubmitAfterLettersContext,
+      appendDeckCardSpecToRunDeck: b.appendDeckCardSpecToRunDeck,
+      playWordSlotCopyFxAtIndex: b.playWordSlotCopyFxAtIndex,
       applySubmitRefill: b.applySubmitRefill,
       applyHookBossAfterSubmit: b.applyHookBossAfterSubmit,
       deferredWordSubmitPayload: b.deferredWordSubmitPayload,

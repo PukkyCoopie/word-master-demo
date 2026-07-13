@@ -1,4 +1,5 @@
 import { iterTreasureHookContributions } from "./treasureBlueprintMirror.js";
+import { deckCardHasPersistedIntrinsicGain } from "./deckCardIntrinsicGain.js";
 import { TREASURE_HOOKS_BY_ID } from "../treasures/treasureRegistry.js";
 
 /**
@@ -7,14 +8,7 @@ import { TREASURE_HOOKS_BY_ID } from "../treasures/treasureRegistry.js";
  * 法术改字母、材质、稀有度、万能等时，应在突变后写回，避免牌张与格短暂不同步或后续路径盖掉。
  */
 
-/** @param {unknown} card */
-export function deckCardHasPersistedIntrinsicGain(card) {
-  if (!card || typeof card !== "object") return false;
-  const c = /** @type {{ tileScoreBonus?: unknown, letterMultBonus?: unknown }} */ (card);
-  if (Math.floor(Number(c.tileScoreBonus) || 0) !== 0) return true;
-  if (Math.floor(Number(c.letterMultBonus) || 0) !== 0) return true;
-  return false;
-}
+export { deckCardHasPersistedIntrinsicGain };
 
 /**
  * @param {unknown} tile

@@ -39,40 +39,21 @@ const pfShowShop = computed(() => Boolean(sv(pv.showShop)));
 const pfTutorialActive = computed(() => Boolean(sv(pv.firstWordTutorialActive)));
 const pfGridIntroDone = computed(() => Boolean(sv(pv.gridIntroDone)));
 const pfCanSubmit = computed(() => Boolean(sv(pv.canSubmit)));
-const pfScoringAnimating = computed(() => Boolean(sv(pv.scoringAnimating)));
 const pfSubmitSettlementLoading = computed(() => Boolean(sv(pv.submitSettlementChunking)));
-const pfGridRefillAnimating = computed(() => Boolean(sv(pv.gridRefillAnimating)));
 const pfSubmitTutorialReady = computed(() => Boolean(sv(pv.firstWordTutorialSubmitHighlightReady)));
-const pfFlyingLetters = computed(() => sv(pv.flyingLetters) ?? []);
-const pfFlyingBackBatches = computed(() => sv(pv.flyingBackBatches) ?? []);
 const pfBossSoftViolation = computed(() => Boolean(sv(pv.bossSubmitDangerPreview)));
 const pfSubmitHoldMode = computed(
   () => pfBossSoftViolation.value && getHighRiskSpellConfirmEnabled() && pfCanSubmit.value,
 );
-const pfSubmitReady = computed(
-  () =>
-    pfCanSubmit.value &&
-    !pfScoringAnimating.value &&
-    !pfGridRefillAnimating.value &&
-    pfFlyingLetters.value.length === 0 &&
-    pfFlyingBackBatches.value.length === 0,
-);
 
 function trySubmitWord() {
-  if (pfSubmitReady.value) {
+  if (pfCanSubmit.value) {
     pv.submitWord?.();
-    return;
-  }
-  if (
-    pfCanSubmit.value &&
-    (pfFlyingLetters.value.length > 0 || pfFlyingBackBatches.value.length > 0)
-  ) {
-    pv.showToast?.("字母移动中，请稍候");
   }
 }
 
 function onSubmitClick(e) {
-  if (pfSubmitHoldMode.value && pfSubmitReady.value) {
+  if (pfSubmitHoldMode.value && pfCanSubmit.value) {
     submitHold.onClick(e);
     if (e.defaultPrevented) {
       pv.showToast?.("该词违反 Boss 规则，请按住以确认提交");
@@ -83,7 +64,7 @@ function onSubmitClick(e) {
 }
 
 const submitHold = useHoldConfirmInteraction({
-  enabled: () => pfSubmitHoldMode.value && pfSubmitReady.value,
+  enabled: () => pfSubmitHoldMode.value && pfCanSubmit.value,
   onConfirm: trySubmitWord,
 });
 
@@ -271,9 +252,7 @@ defineExpose({
                 pv.gridPlaceholderFrozenPresentation(entry)?.tileMultBonus
                   ?? (Number(entry.letterMultBonus) || 0)
               "
-              :material-animate="
-                !pv.isSlotContentHidden(i) && !pv.gridPlaceholderFrozenPresentation(entry)
-              "
+              :material-animate="!pv.isSlotContentHidden(i)"
               :content-hidden="pv.isSlotContentHidden(i)"
               :boss-tile-debuffed="!!entry.bossTileDebuffed"
               :cerulean-bell-locked="entry.ceruleanBellLocked === true"
@@ -565,7 +544,7 @@ defineExpose({
               :class="{
                 'action-btn-green': !pfBossSoftViolation,
                 'action-btn--boss-violation-preview': pfBossSoftViolation,
-                'action-btn-disabled': !pfSubmitReady,
+                'action-btn-disabled': !pfCanSubmit,
                 'action-btn--tutorial-ready': pfSubmitTutorialReady,
                 'action-btn--settlement-loading': pfSubmitSettlementLoading,
                 'hold-action-btn--holding': submitHold.holding.value,

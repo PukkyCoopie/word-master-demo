@@ -118,6 +118,48 @@ function validateHintWordPick(word, path, pattern, opts, minLexicalTier, allowFa
 }
 
 /**
+ * 为提示在棋盘上找一条满足 Boss 软规则（如魔鬼末字稀有度）的选格路径。
+ * @param {string} word
+ * @param {GridCell[]} cells
+ * @param {PickRandomWordAtLengthOpts} opts
+ * @param {number} minLexicalTier
+ * @param {boolean} allowFallbackOnlyWords
+ * @param {(pattern: string, wc?: string) => string | null} resolveWordPattern
+ * @returns {WordPick | null}
+ */
+function assignHintPathForWord(
+  word,
+  cells,
+  opts,
+  minLexicalTier,
+  allowFallbackOnlyWords,
+  resolveWordPattern,
+) {
+  const bossResolveContext = opts.bossResolveContext ?? null;
+  const requiredStartLetter = opts.requiredStartLetter ?? "";
+  const tierForWord = opts.getHintLexicalTierForWord ?? (() => DEFAULT_HINT_LEXICAL_TIER);
+  const wordIsFallbackOnly = opts.getHintWordIsFallbackOnly ?? (() => false);
+
+  if (tierForWord(word) < minLexicalTier) return null;
+  if (requiredStartLetter && word[0] !== requiredStartLetter) return null;
+  if (!allowFallbackOnlyWords && wordIsFallbackOnly(word)) return null;
+
+  const path = assignCellsToWord(word, cells, {
+    anchor: opts.anchorCell ?? null,
+    acceptPath(candidatePath) {
+      const pattern = buildPatternFromAssignedPath(candidatePath);
+      const resolved = resolveWordPattern(pattern, "?");
+      if (!resolved || resolved !== word) return false;
+      return isHintPickAcceptable({ word, path: candidatePath, pattern }, bossResolveContext);
+    },
+  });
+  if (!path) return null;
+
+  const pattern = buildPatternFromAssignedPath(path);
+  return validateHintWordPick(word, path, pattern, opts, minLexicalTier, allowFallbackOnlyWords);
+}
+
+/**
  * 万能块主导：随机 L 格拼 pattern → resolveWordPattern → assignCellsToWord 校验。
  * @param {GridCell[]} cells
  * @param {number} L
@@ -152,26 +194,13 @@ function pickHintByPatternResolveAtLength(
     if (!probeResolved) continue;
     if (!wordMatchesMultiset(probeResolved, gridMs)) continue;
 
-    const path = assignCellsToWord(probeResolved, cells, { anchor: anchorCell });
-    if (!path) continue;
-
-    const actualPattern = buildPatternFromAssignedPath(path);
-    const canonical = resolveWordPattern(actualPattern, "?");
-    if (!canonical) continue;
-    if (!wordMatchesMultiset(canonical, gridMs)) continue;
-
-    const finalPath = assignCellsToWord(canonical, cells, { anchor: anchorCell });
-    if (!finalPath) continue;
-    const finalPattern = buildPatternFromAssignedPath(finalPath);
-    if (resolveWordPattern(finalPattern, "?") !== canonical) continue;
-
-    const candidatePick = validateHintWordPick(
-      canonical,
-      finalPath,
-      finalPattern,
+    const candidatePick = assignHintPathForWord(
+      probeResolved,
+      cells,
       opts,
       minLexicalTier,
       allowFallbackOnlyWords,
+      resolveWordPattern,
     );
     if (!candidatePick) continue;
 
@@ -342,9 +371,6 @@ function pickRandomWordAtLengthWithMinLexicalTier(
   minLexicalTier,
   allowFallbackOnlyWords,
 ) {
-  const anchorCell = opts.anchorCell ?? null;
-  const requiredStartLetter = opts.requiredStartLetter ?? "";
-  const tierForWord = opts.getHintLexicalTierForWord ?? (() => DEFAULT_HINT_LEXICAL_TIER);
   const lexicalWeightForWord = opts.getHintLexicalPickWeight ?? (() => DEFAULT_HINT_LEXICAL_PICK_WEIGHT);
 
   const candidates = getCandidatesByLength(L);
@@ -355,33 +381,23 @@ function pickRandomWordAtLengthWithMinLexicalTier(
   /** @type {WordPick | null} */
   let pick = null;
   let totalWeight = 0;
-  /** @type {Map<string, string | null>} */
-  const patternToResolved = new Map();
 
   for (const idx of checkOrder) {
     const word = candidates[idx];
-    if (tierForWord(word) < minLexicalTier) continue;
-    if (requiredStartLetter && word[0] !== requiredStartLetter) continue;
+    if (String(word).length !== L) continue;
     if (!wordMatchesMultiset(word, gridMs)) continue;
-    const path = assignCellsToWord(word, cells, { anchor: anchorCell });
-    if (!path) continue;
-    const pattern = buildPatternFromAssignedPath(path);
-    let resolved = patternToResolved.get(pattern);
-    if (resolved === undefined) {
-      resolved = resolveWordPattern(pattern, "?") ?? null;
-      patternToResolved.set(pattern, resolved);
-    }
-    if (!resolved || resolved !== word) continue;
-
-    const candidatePick = validateHintWordPick(
-      resolved,
-      path,
-      pattern,
+    const candidatePick = assignHintPathForWord(
+      word,
+      cells,
       opts,
       minLexicalTier,
       allowFallbackOnlyWords,
+      resolveWordPattern,
     );
     if (!candidatePick) continue;
+
+    const { path } = candidatePick;
+    const resolved = word;
 
     const debuffN = countDebuffedLettersInPath(path);
     const w = lexicalWeightForWord(resolved) / (1 + debuffN);
@@ -540,20 +556,18 @@ function pickHintWordWithLengthPool(
     }
   }
 
-  if (bossCtx?.slug === "the_needle") {
-    for (let L = Math.min(maxLen, MAX_WORD_LEN); L >= MIN_WORD_LEN; L -= 1) {
-      const pick = pickRandomWordAtLength(
-        cells,
-        L,
-        gridMs,
-        getCandidatesByLength,
-        resolveWordPattern,
-        rng,
-        DEFAULT_MAX_CHECKS_PER_LENGTH,
-        pickOptsBase,
-      );
-      if (pick) return pick;
-    }
+  for (let L = MIN_WORD_LEN; L <= Math.min(maxLen, MAX_WORD_LEN); L += 1) {
+    const pick = pickRandomWordAtLength(
+      cells,
+      L,
+      gridMs,
+      getCandidatesByLength,
+      resolveWordPattern,
+      rng,
+      DEFAULT_MAX_CHECKS_PER_LENGTH,
+      pickOptsBase,
+    );
+    if (pick) return pick;
   }
 
   return null;

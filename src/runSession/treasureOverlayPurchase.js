@@ -12,6 +12,7 @@ import { getGlyphPurchaseTargetLevelIndex } from "../vouchers/voucherRuntime.js"
  *   packPickRequiredPicks: (sess: object) => number,
  *   money: import('vue').Ref<number>,
  *   levelIndex: import('vue').Ref<number>,
+ *   isEndlessRun: import('vue').Ref<boolean>,
  *   shopPhase: {
  *     shopPriceForOffer: Function,
  *     runWalletFloor: import('vue').Ref<number>,
@@ -64,7 +65,13 @@ export function createTreasureOverlayPurchaseState(deps) {
     if (t.offerType === "voucher") {
       const vid = String(t.voucherId ?? "");
       if (vid === "v_glyph_1" || vid === "v_glyph_2") {
-        if (getGlyphPurchaseTargetLevelIndex(deps.levelIndex.value) == null) return false;
+        if (
+          getGlyphPurchaseTargetLevelIndex(deps.levelIndex.value, {
+            isEndlessRun: deps.isEndlessRun.value === true,
+          }) == null
+        ) {
+          return false;
+        }
       }
       return canAffordWallet(w, p, floor);
     }

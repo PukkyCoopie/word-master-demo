@@ -370,6 +370,26 @@ describe("gridWordHint", () => {
     assert.equal(pick?.path.length, 5);
   });
 
+  it("魔鬼 Boss：重复字母时选非普通末字格", () => {
+    const cells = [
+      { row: 0, col: 0, letter: "m", rarity: "common", isWildcard: false, blocked: false, bossDebuffed: false },
+      { row: 0, col: 1, letter: "e", rarity: "common", isWildcard: false, blocked: false, bossDebuffed: false },
+      { row: 0, col: 2, letter: "r", rarity: "common", isWildcard: false, blocked: false, bossDebuffed: false },
+      { row: 0, col: 3, letter: "e", rarity: "rare", isWildcard: false, blocked: false, bossDebuffed: false },
+    ];
+    const getCandidatesByLength = (len) => (len === 4 ? ["mere"] : []);
+    const resolveWordPattern = (pattern) => pattern;
+    const pick = pickHintWordForGrid(
+      cells,
+      getCandidatesByLength,
+      resolveWordPattern,
+      () => 0,
+      { bossResolveContext: { slug: "the_noble_end" } },
+    );
+    assert.equal(pick?.word, "mere");
+    assert.equal(pick?.path[pick.path.length - 1].rarity, "rare");
+  });
+
   it("pickRandomCellPath 洗牌不产生 undefined 格", () => {
     /** @type {import('./gridWordFinder.js').GridCell[]} */
     const cells = Array.from({ length: 16 }, (_, i) => ({

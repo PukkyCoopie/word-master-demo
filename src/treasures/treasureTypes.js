@@ -62,6 +62,7 @@
  * @property {Record<string, number> | null} [rarityLevelsByRarity] 各字母稀有度等级
  * @property {(word: string) => { pos?: string } | null | undefined} [getWordDefinition]
  * @property {number[]} [letterReplayCounts] 各字母 replay 次数（提交计分与字后步共用）
+ * @property {number} [prepareSubmitBankPassId] 单次提交计分 pass（海绵等同 id 多槽按栏位顺序分配擦除入账）
  */
 
 /**
@@ -69,6 +70,9 @@
  * @typedef {Object} TreasureChargeVisualContext
  * @property {number} chargeWordsSubmitted 本关已成功结算的拼词次数（与 `onSuccessfulWordSubmit` 所 bump 的计数一致）
  * @property {import('./treasureRunState.js').TreasureRunState} [treasureRun] 整局银行/计数（如镜子关卡进度）
+ * @property {object | null | undefined} [ownedSlot] 当前槽位宝藏实例
+ * @property {number} [slotIndex] 物理槽下标（同 id 多实例时读取各自 bank）
+ * @property {object[]} [ownedTreasureInstances] 与栏位同索引的宝藏实例（含 null 槽）
  */
 
 /**
@@ -174,7 +178,7 @@
  * @property {() => HTMLElement[]} [getWordSlotEls]
  * @property {() => HTMLElement[]} [getGridTileElsInOrder]
  * @property {(opts: SubmitWordEnhancementStripLeaveOpts) => Promise<void>} [playSubmitTileEnhancementStripLeave]
- * @property {(opts: { treasureId?: string, session?: object }) => Promise<{ correct?: boolean, skipped?: boolean }>} [requestPagerQuiz]
+ * @property {(opts: { treasureId?: string, session?: object, slotIndex?: number, reuseResult?: { correct?: boolean, skipped?: boolean } }) => Promise<{ correct?: boolean, skipped?: boolean }>} [requestPagerQuiz]
  * @property {object} [detailed]
  * @property {object | null} [pagerQuizSession]
  * @property {() => number} [findOwnedTreasureSlotIndex]
@@ -237,7 +241,7 @@
 
 /**
  * @typedef {Object} TreasureHooks
- * @property {(ctx: TreasureLogicContext) => void} [prepareSubmitScoringBank] 提交计分前：擦除类宝藏将 +0.1 等写入 run 银行，供同词 `buildPostLetterStep` 读取累计倍率
+ * @property {(ctx: TreasureLogicContext) => void} [prepareSubmitScoringBank] 提交计分前：擦除类宝藏将本词实际擦除量写入 run 银行，供同词 `buildPostLetterStep` 读取累计倍率（同 id 多槽须按 `prepareSubmitBankPassId` + 栏位顺序分配）
  * @property {(ctx: TreasureLogicContext) => object | null | undefined} [buildSubmitScoringAppendTile] 提交计分时在字母步开始前追加临时字母块（如报纸 +S）；须与 `getSubmitScoringWordLetterCountBonus` 成对
  * @property {(ctx: TreasureLogicContext) => number} [getSubmitScoringWordLetterCountBonus] 追加临时字母后等效词长表 +n（默认按追加块数）
  * @property {(ctx: TreasureSubmitAfterLettersContext) => void | Promise<void>} [runAfterLettersBeforePostSteps] 计分动画：逐字母步结束后、字后宝藏步开始前（如海绵擦除动效）
@@ -311,6 +315,7 @@
  * @property {readonly unknown[]} [fullDeck] 本局完整字母库 multiset（动态简介用）
  * @property {(string | null | undefined)[]} [ownedSlotTreasureIds] 当前宝藏槽位（含空槽）
  * @property {object[]} [ownedTreasureInstances] 当前已拥有宝藏实例（动态简介用）
+ * @property {number} [slotIndex] 当前详情/预览所指的物理槽下标（同 id 多实例时区分银行）
  */
 
 /**
@@ -326,9 +331,11 @@
  * @property {(treasureId: string, delta: number) => Promise<void>} [playOwnedTreasureMultDeltaFx]
  * @property {(treasureId: string) => Promise<void>} [wobbleOwnedTreasureById]
  * @property {(treasureId: string) => number} [findOwnedTreasureSlotIndex]
- * @property {boolean} [discardPotteryFxHandled] 陶罐/垃圾桶等逐字弃牌动效已在消失动画中结算（避免 onDiscardBatch 重复入银行或播 FX）
+ * @property {boolean} [discardPotteryFxHandled] 陶罐等逐字弃牌动效已在消失动画中结算（避免 onDiscardBatch 重复入银行或播 FX）
+ * @property {boolean} [discardSkateboardFxHandled] 滑板（99）弃 E 动效已在消失动画中结算
  * @property {boolean} [discardPistolFxHandled] 手枪弃牌「移除」+ $ 动效已在消失动画中结算
- * @property {number[]} [potteryDiscardProcIndices] 陶罐本次弃牌已掷出的触发字索引（与消失动效共用同一 rng）
+ * @property {number[]} [potteryDiscardProcIndices] 陶罐本次弃牌已掷出的触发字索引（单槽遗留；优先 `potteryDiscardProcIndicesBySlot`）
+ * @property {Record<number, number[]>} [potteryDiscardProcIndicesBySlot] 陶罐各实体槽独立掷出的触发字索引（与消失动效共用同一 rng）
  * @property {(word: string) => object | null | undefined} [resolveDiscardedWord] 弃牌字母串是否构成词典词
  * @property {number} [judgedWordLength] 判定词长（券/预设/宝藏加成与减益后的等效词长表长度）
  * @property {(len: number, opts?: { observatoryBoost?: boolean }) => void} [bumpWordLengthLevel]

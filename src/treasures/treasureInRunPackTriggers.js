@@ -2,6 +2,7 @@ import {
   dictionaryPosMatchesAdverb,
   dictionaryPosMatchesTreasureLevelKey,
 } from "../game/wordPosMatch.js";
+import { resolveTreasureHookAnimSlotIndex } from "../game/treasureBlueprintMirror.js";
 import { rollProbabilitySuccess } from "./treasureProbability.js";
 
 /**
@@ -9,7 +10,9 @@ import { rollProbabilitySuccess } from "./treasureProbability.js";
  * @param {{ treasureId: string, packKind: import('../shop/rollInRunBundlePack.js').InRunBundlePackKind }} opts
  */
 async function requestInRunPackOpen(ctx, opts) {
-  const slotIx = ctx.findOwnedTreasureSlotIndex?.(opts.treasureId) ?? -1;
+  const hookSlot = resolveTreasureHookAnimSlotIndex(ctx);
+  const slotIx =
+    hookSlot != null ? hookSlot : (ctx.findOwnedTreasureSlotIndex?.(opts.treasureId) ?? -1);
   await ctx.requestInRunPackOpenOfKind?.({
     kind: opts.packKind,
     treasureId: opts.treasureId,

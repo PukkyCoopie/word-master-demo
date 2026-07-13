@@ -14,6 +14,7 @@ export function wireOverlayViewContext(overlayStackController, deps) {
     packPickRequiredPicks: deps.packPickRequiredPicks,
     money: deps.money,
     levelIndex: deps.levelIndex,
+    isEndlessRun: deps.isEndlessRun,
     shopPhase: deps.shopPhase,
     canPlaceTreasureOffer: deps.canPlaceTreasureOffer,
   });

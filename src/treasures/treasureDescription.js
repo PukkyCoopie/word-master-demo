@@ -361,7 +361,8 @@ function isProgressCounterFractionContext(buf) {
     /(?:当前|已达)\d*$/.test(buf) ||
     /[（(]\s*当前\d*$/.test(buf) ||
     /(?:当前|已达)\s*$/.test(buf) ||
-    /[（(]\s*当前\s*$/.test(buf)
+    /[（(]\s*当前\s*$/.test(buf) ||
+    /弃掉\s*[（(]\d*$/.test(buf)
   );
 }
 

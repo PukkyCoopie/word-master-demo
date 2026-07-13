@@ -232,7 +232,7 @@
                   </span>
                 </div>
                 <i
-                  v-if="chargeVisualState != null && !isCollectionContentHidden"
+                  v-if="chargeVisualState != null && !isEffectDepleted && !isCollectionContentHidden"
                   class="treasure-charge-corner-icon treasure-detail-disabled-mark ri-flashlight-fill"
                   aria-hidden="true"
                 ></i>
@@ -979,7 +979,7 @@
               </span>
             </div>
             <i
-              v-if="chargeVisualState != null && !isCollectionContentHidden"
+              v-if="chargeVisualState != null && !isEffectDepleted && !isCollectionContentHidden"
               class="treasure-charge-corner-icon treasure-detail-disabled-mark ri-flashlight-fill"
               aria-hidden="true"
             ></i>
@@ -1413,15 +1413,18 @@ const isRunShopCommerceDetail = computed(() => {
   return props.mode === "offer" || props.mode === "owned-shop" || props.mode === "pack-inner";
 });
 
+/** 商店货架待购商品：展示购买相关优惠说明（已拥有、包内开出均不展示） */
+const isShopShelfPurchaseDetail = computed(
+  () => isRunShopCommerceDetail.value && props.mode === "offer",
+);
+
 /** 商店货架「购买」主按钮；包内领取、已拥有卖出走独立按钮 */
 const showShopOfferPurchaseButton = computed(
   () => props.mode === "offer" && isRunShopCommerceDetail.value && !props.spellGrantFlow,
 );
 
 const showVoucherSalePanel = computed(
-  () =>
-    isRunShopCommerceDetail.value &&
-    voucherSaleDiscountAmount.value > 0,
+  () => isShopShelfPurchaseDetail.value && voucherSaleDiscountAmount.value > 0,
 );
 
 const voucherSalePanelDescription = computed(() =>
@@ -1435,11 +1438,11 @@ const presetSaleDiscountAmount = computed(() =>
 );
 
 const showPresetSalePanel = computed(
-  () => isRunShopCommerceDetail.value && presetSaleDiscountAmount.value > 0,
+  () => isShopShelfPurchaseDetail.value && presetSaleDiscountAmount.value > 0,
 );
 
 const showRandomSalePanel = computed(
-  () => isRunShopCommerceDetail.value && randomSaleDiscountAmount.value > 0,
+  () => isShopShelfPurchaseDetail.value && randomSaleDiscountAmount.value > 0,
 );
 
 const showSpellGrantedVoucherPanel = computed(

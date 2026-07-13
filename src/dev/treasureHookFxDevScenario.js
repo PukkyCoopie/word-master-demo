@@ -193,7 +193,9 @@ export function applyTreasureHookFxDevOwnedTreasures(
   const n = Math.max(1, Math.floor(Number(copyCount) || TREASURE_HOOK_FX_DEV_COPY_COUNT));
   ownedTreasuresRef.value = Array.from({ length: n }, () => buildOwnedTreasureSlot({ treasureId }));
   if (treasureRunStateRef?.value) {
-    initTreasureBankOnAcquire(treasureId, treasureRunStateRef.value);
+    for (const slot of ownedTreasuresRef.value) {
+      initTreasureBankOnAcquire(treasureId, treasureRunStateRef.value, slot);
+    }
   }
 }
 

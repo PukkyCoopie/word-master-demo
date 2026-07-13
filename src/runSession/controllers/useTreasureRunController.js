@@ -70,6 +70,28 @@ import {
 } from "../../treasures/treasureRunTracking.js";
 import { getOwnedTreasureSlotBonusFromVouchers, parseLevelSubFromId } from "../../vouchers/voucherRuntime.js";
 
+/**
+ * 宝藏栏失效/充能 UI 依赖槽位 bank 与配饰的就地 mutation；显式追踪以便 computed 重算。
+ * @param {import('../../treasures/treasureRunState.js').TreasureRunState | null | undefined} runState
+ * @param {(object | null | undefined)[]} instances
+ */
+function trackOwnedTreasureBarVisualDeps(runState, instances) {
+  void runState?.ownedSlotBankRevision;
+  if (!Array.isArray(instances)) return;
+  for (const slot of instances) {
+    if (!slot || typeof slot !== "object") continue;
+    void slot.treasureAccessoryExpired;
+    void slot.hourglassStagesElapsed;
+    const bank = slot.bank;
+    if (bank && typeof bank === "object") {
+      void bank.multAdd;
+      void bank.multMul;
+      void bank.scoreAdd;
+      void bank.posPackProgress;
+    }
+  }
+}
+
 /** @typedef {import('../runSessionTypes.js').TreasureRunController} TreasureRunController */
 
 /**
@@ -281,16 +303,26 @@ export function useTreasureRunController(options) {
 
   function buildTreasurePatchDescriptionContext() {
     ensureBigramTargetPair(treasureRunState.value, rollRandomBigramForTreasure);
+    const detail = treasureDetail.value;
+    const instances = ownedTreasures.value;
+    let slotIndex =
+      detail && typeof detail.slotIndex === "number" && Number.isFinite(detail.slotIndex)
+        ? Math.floor(detail.slotIndex)
+        : undefined;
+    if (detail?.treasure && Array.isArray(instances)) {
+      const physical = instances.indexOf(detail.treasure);
+      if (physical >= 0) slotIndex = physical;
+    }
     return {
       treasureRun: treasureRunState.value,
       fullDeck: grid.initialDeckSnapshot.value,
-      extraLetterScoreWordsRemaining: treasureRunState.value.extraLetterScoreWordsRemaining,
       levelPosTargetKey: treasureRunState.value.levelPosTargetKey,
       rollRandomBigram: rollRandomBigramForTreasure,
       rng: runRandom,
       money: money.value,
-      ownedSlotTreasureIds: ownedTreasures.value.map((s) => s?.treasureId ?? null),
-      ownedTreasureInstances: ownedTreasures.value.filter(Boolean),
+      ownedSlotTreasureIds: instances.map((s) => s?.treasureId ?? null),
+      ownedTreasureInstances: instances,
+      ...(slotIndex != null ? { slotIndex } : {}),
     };
   }
 
@@ -328,27 +360,52 @@ export function useTreasureRunController(options) {
 
   const treasureChargeVisualBySlot = computed(() => {
     const runState = treasureRunState.value;
-    return ownedTreasures.value.map((s) =>
+    const instances = ownedTreasures.value;
+    return instances.map((s, slotIndex) =>
       s?.treasureId
-        ? resolveTreasureChargeVisualState(s.treasureId, grid.basketballWordsSubmitted.value, runState)
+        ? resolveTreasureChargeVisualState(
+            s.treasureId,
+            grid.basketballWordsSubmitted.value,
+            runState,
+            s,
+            slotIndex,
+            instances,
+          )
         : null,
     );
   });
 
   const treasureChargeProgressBySlot = computed(() => {
     const runState = treasureRunState.value;
-    return ownedTreasures.value.map((s) =>
+    const instances = ownedTreasures.value;
+    return instances.map((s, slotIndex) =>
       s?.treasureId
-        ? resolveTreasureChargeProgress(s.treasureId, grid.basketballWordsSubmitted.value, runState)
+        ? resolveTreasureChargeProgress(
+            s.treasureId,
+            grid.basketballWordsSubmitted.value,
+            runState,
+            s,
+            slotIndex,
+            instances,
+          )
         : 0,
     );
   });
 
   const treasureEffectDepletedBySlot = computed(() => {
     const runState = treasureRunState.value;
-    return ownedTreasures.value.map((s) =>
+    const instances = ownedTreasures.value;
+    trackOwnedTreasureBarVisualDeps(runState, instances);
+    return instances.map((s, slotIndex) =>
       s?.treasureId
-        ? resolveTreasureEffectDepleted(s.treasureId, grid.basketballWordsSubmitted.value, runState)
+        ? resolveTreasureEffectDepleted(
+            s.treasureId,
+            grid.basketballWordsSubmitted.value,
+            runState,
+            s,
+            slotIndex,
+            instances,
+          )
         : false,
     );
   });
@@ -356,7 +413,14 @@ export function useTreasureRunController(options) {
   const treasureDetailChargeVisualState = computed(() => {
     const d = treasureDetail.value;
     if (!d || d.kind !== "owned") return null;
-    const i = Number(d.slotIndex);
+    const instances = ownedTreasures.value;
+    const physical = d.treasure ? instances.indexOf(d.treasure) : -1;
+    const i =
+      physical >= 0
+        ? physical
+        : typeof d.slotIndex === "number" && Number.isFinite(d.slotIndex)
+          ? Math.floor(d.slotIndex)
+          : -1;
     if (!Number.isInteger(i) || i < 0) return null;
     return treasureChargeVisualBySlot.value[i] ?? null;
   });
@@ -364,7 +428,14 @@ export function useTreasureRunController(options) {
   const treasureDetailChargeProgress = computed(() => {
     const d = treasureDetail.value;
     if (!d || d.kind !== "owned") return 0;
-    const i = Number(d.slotIndex);
+    const instances = ownedTreasures.value;
+    const physical = d.treasure ? instances.indexOf(d.treasure) : -1;
+    const i =
+      physical >= 0
+        ? physical
+        : typeof d.slotIndex === "number" && Number.isFinite(d.slotIndex)
+          ? Math.floor(d.slotIndex)
+          : -1;
     if (!Number.isInteger(i) || i < 0) return 0;
     return treasureChargeProgressBySlot.value[i] ?? 0;
   });
@@ -372,66 +443,110 @@ export function useTreasureRunController(options) {
   const treasureDetailEffectDepleted = computed(() => {
     const d = treasureDetail.value;
     if (!d || d.kind !== "owned") return false;
-    const i = Number(d.slotIndex);
+    const instances = ownedTreasures.value;
+    const physical = d.treasure ? instances.indexOf(d.treasure) : -1;
+    const i =
+      physical >= 0
+        ? physical
+        : typeof d.slotIndex === "number" && Number.isFinite(d.slotIndex)
+          ? Math.floor(d.slotIndex)
+          : -1;
     if (!Number.isInteger(i) || i < 0) return false;
     return treasureEffectDepletedBySlot.value[i] === true;
   });
 
   const gameOwnedDragChargeState = computed(() => {
     const treasure = gameOwnedDragTreasure.value;
-    if (!treasure?.treasureId) return null;
+    const slotIndex = gameOwnedDragSourceIndex.value;
+    if (!treasure?.treasureId || slotIndex < 0) return null;
     return resolveTreasureChargeVisualState(
       treasure.treasureId,
       grid.basketballWordsSubmitted.value,
       treasureRunState.value,
+      treasure,
+      slotIndex,
+      ownedTreasures.value,
     );
   });
 
   const gameOwnedDragChargeProgress = computed(() => {
     const treasure = gameOwnedDragTreasure.value;
-    if (!treasure?.treasureId) return 0;
+    const slotIndex = gameOwnedDragSourceIndex.value;
+    if (!treasure?.treasureId || slotIndex < 0) return 0;
     return resolveTreasureChargeProgress(
       treasure.treasureId,
       grid.basketballWordsSubmitted.value,
       treasureRunState.value,
+      treasure,
+      slotIndex,
+      ownedTreasures.value,
     );
   });
 
   const gameOwnedDragEffectDepleted = computed(() => {
     const treasure = gameOwnedDragTreasure.value;
-    if (!treasure?.treasureId) return false;
+    const slotIndex = gameOwnedDragSourceIndex.value;
+    if (!treasure?.treasureId || slotIndex < 0) return false;
     return resolveTreasureEffectDepleted(
       treasure.treasureId,
       grid.basketballWordsSubmitted.value,
       treasureRunState.value,
+      treasure,
+      slotIndex,
+      ownedTreasures.value,
     );
   });
 
   const displayTreasureChargeVisualBySlot = computed(() => {
     const runState = treasureRunState.value;
-    return displayOwnedTreasures.value.map((s) =>
-      s?.treasureId
-        ? resolveTreasureChargeVisualState(s.treasureId, grid.basketballWordsSubmitted.value, runState)
-        : null,
-    );
+    const instances = ownedTreasures.value;
+    return displayOwnedTreasures.value.map((s) => {
+      if (!s?.treasureId) return null;
+      const physicalIndex = instances.indexOf(s);
+      return resolveTreasureChargeVisualState(
+        s.treasureId,
+        grid.basketballWordsSubmitted.value,
+        runState,
+        s,
+        physicalIndex >= 0 ? physicalIndex : null,
+        instances,
+      );
+    });
   });
 
   const displayTreasureChargeProgressBySlot = computed(() => {
     const runState = treasureRunState.value;
-    return displayOwnedTreasures.value.map((s) =>
-      s?.treasureId
-        ? resolveTreasureChargeProgress(s.treasureId, grid.basketballWordsSubmitted.value, runState)
-        : 0,
-    );
+    const instances = ownedTreasures.value;
+    return displayOwnedTreasures.value.map((s) => {
+      if (!s?.treasureId) return 0;
+      const physicalIndex = instances.indexOf(s);
+      return resolveTreasureChargeProgress(
+        s.treasureId,
+        grid.basketballWordsSubmitted.value,
+        runState,
+        s,
+        physicalIndex >= 0 ? physicalIndex : null,
+        instances,
+      );
+    });
   });
 
   const displayTreasureEffectDepletedBySlot = computed(() => {
     const runState = treasureRunState.value;
-    return displayOwnedTreasures.value.map((s) =>
-      s?.treasureId
-        ? resolveTreasureEffectDepleted(s.treasureId, grid.basketballWordsSubmitted.value, runState)
-        : false,
-    );
+    const instances = ownedTreasures.value;
+    trackOwnedTreasureBarVisualDeps(runState, instances);
+    return displayOwnedTreasures.value.map((s) => {
+      if (!s?.treasureId) return false;
+      const physicalIndex = instances.indexOf(s);
+      return resolveTreasureEffectDepleted(
+        s.treasureId,
+        grid.basketballWordsSubmitted.value,
+        runState,
+        s,
+        physicalIndex >= 0 ? physicalIndex : null,
+        instances,
+      );
+    });
   });
 
   const treasureSellRefund = computed(() => {
@@ -505,6 +620,8 @@ export function useTreasureRunController(options) {
    */
   function grantOwnedTreasureAt(ix, input) {
     ownedTreasures.value[ix] = buildOwnedTreasureSlot(input);
+    const slot = ownedTreasures.value[ix];
+    initTreasureBankOnAcquire(String(input?.treasureId ?? ""), treasureRunState.value, slot);
     collection.noteCollectionTreasureAcquired(String(input?.treasureId ?? ""));
     collection.noteCollectionTreasureSlotAccessories(input);
     noteEverTwoTreasuresWithAccessoryUnlocked(treasureRunState.value, ownedTreasures.value);
@@ -564,6 +681,8 @@ export function useTreasureRunController(options) {
       ownedSlotTreasureIds: slots,
       treasureRun: treasureRunState.value,
       vowelsRemoved,
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
       ...hooks.ownedTreasureHookFxBridge(),
     });
   }
@@ -581,6 +700,8 @@ export function useTreasureRunController(options) {
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
       treasureRun: treasureRunState.value,
       count: n,
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
       ...hooks.ownedTreasureHookFxBridge(),
     });
     collection.flushDeckMultisetAchievements();
@@ -597,6 +718,8 @@ export function useTreasureRunController(options) {
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
       treasureRun: treasureRunState.value,
       count: 1,
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
       ...hooks.ownedTreasureHookFxBridge(),
     });
     collection.flushDeckMultisetAchievements();
@@ -718,6 +841,8 @@ export function useTreasureRunController(options) {
     return {
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
       getOwnedSlotTreasureIds: ownedSlotTreasureIdList,
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
       treasureRun: treasureRunState.value,
       rng: runRandom,
       levelId,
@@ -762,6 +887,7 @@ export function useTreasureRunController(options) {
     await notifyOwnedTreasuresOnLevelComplete(ownedSlotTreasureIdList(), {
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
       getOwnedSlotTreasureIds: ownedSlotTreasureIdList,
+      getOwnedTreasures: () => ownedTreasures.value,
       treasureRun: treasureRunState.value,
       rng: runRandom,
       skipSettlementFx,
@@ -808,6 +934,8 @@ export function useTreasureRunController(options) {
     syncAmberBossTreasureLayoutForLevelEnter(incomingMechSlug);
     await notifyOwnedTreasuresPrepareLevelEnter(ownedSlotTreasureIdList(), {
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
       treasureRun: treasureRunState.value,
       rng: runRandom,
       appendDeckCardSpecToInitialSnapshot: appendDeckCardSpecToInitialSnapshotAndNotify,
@@ -852,7 +980,7 @@ export function useTreasureRunController(options) {
     handFinalScore,
     skipSettlementFx = false,
   ) {
-    const owned = ownedTreasures.value.filter(Boolean);
+    const owned = ownedTreasures.value;
     return {
       skipSettlementFx,
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
@@ -864,6 +992,7 @@ export function useTreasureRunController(options) {
       resolvedWord,
       judgedWordLength: judgedLenTable,
       ownedTreasureInstances: owned,
+      getOwnedTreasures: () => ownedTreasures.value,
       rng: runRandom,
       moneyAfterSubmit: money.value,
       removeDeckLettersByRaws: (raws) => {
@@ -922,16 +1051,12 @@ export function useTreasureRunController(options) {
       registerSubmitWordLeaveFx: (runner) => {
         if (typeof runner === "function") submitWordLeaveFx.push(runner);
       },
-      registerSubmitAfterWordLeaveFx: skipSettlementFx
-        ? () => {}
-        : (runner) => {
-            if (typeof runner === "function") submitAfterWordLeaveFx.push(runner);
-          },
-      registerSubmitPostScoreClearFx: skipSettlementFx
-        ? () => {}
-        : (runner) => {
-            if (typeof runner === "function") submitPostScoreClearFx.push(runner);
-          },
+      registerSubmitAfterWordLeaveFx: (runner) => {
+        if (typeof runner === "function") submitAfterWordLeaveFx.push(runner);
+      },
+      registerSubmitPostScoreClearFx: (runner) => {
+        if (typeof runner === "function") submitPostScoreClearFx.push(runner);
+      },
       registerSubmitAccessoryUpgradeCue: (cue) => {
         hooks.submitAccessoryUpgradeBatchState?.current?.registerCue(cue);
       },
@@ -948,6 +1073,8 @@ export function useTreasureRunController(options) {
     if (!slug || hooks.bossMechanicsSuppressed.value) return;
     await notifyOwnedTreasuresOnBossRestrictionTriggered(ownedSlotTreasureIdList(), {
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
       treasureRun: treasureRunState.value,
       bossSlug: slug,
       addMoney: (n) => {
@@ -962,6 +1089,8 @@ export function useTreasureRunController(options) {
     return notifyOwnedTreasuresOnWordDefinitionOpenAttempt(ownedSlotTreasureIdList(), {
       ...hooks.ownedTreasureHookFxBridge(),
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
       word: String(word ?? ""),
     });
   }
@@ -971,6 +1100,8 @@ export function useTreasureRunController(options) {
     await notifyOwnedTreasuresOnIceBreak(ownedSlotTreasureIdList(), {
       treasureRun: treasureRunState.value,
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
       ...hooks.ownedTreasureHookFxBridge(),
       ...ctx,
     });
@@ -980,6 +1111,8 @@ export function useTreasureRunController(options) {
   async function notifyTreasureSold(ctx = {}) {
     await notifyOwnedTreasuresOnTreasureSold(ownedSlotTreasureIdList(), {
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
       treasureRun: treasureRunState.value,
       ...hooks.ownedTreasureHookFxBridge(),
       ...ctx,
@@ -991,6 +1124,8 @@ export function useTreasureRunController(options) {
     await notifyOwnedTreasuresOnShopLeave(ownedSlotTreasureIdList(), {
       treasureRun: treasureRunState.value,
       ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
       ...ctx,
     });
   }

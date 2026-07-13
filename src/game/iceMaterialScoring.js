@@ -6,6 +6,10 @@
 /** 入词碎冰块每次计分触发的乘法倍率 */
 export const ICE_MATERIAL_SCORE_MULT_MUL = 2.5;
 
+/** 碎冰块入词计分后自毁概率（基础 1/4；受彗星叠乘） */
+export const ICE_MATERIAL_SHATTER_PROB_NUM = 1;
+export const ICE_MATERIAL_SHATTER_PROB_DEN = 4;
+
 /**
  * @param {{ materialIce?: boolean } | null | undefined} step
  */

@@ -1,5 +1,5 @@
 import { describe, mult } from "../treasureDescription.js";
-import { bankMultMulGain, patchCurrentBankDescription } from "../treasureBankHelpers.js";
+import { bankMultMulGain, getMultMulBank, patchCurrentBankDescription } from "../treasureBankHelpers.js";
 
 const ID = "86";
 
@@ -14,17 +14,22 @@ export default {
 export const treasureHooks = {
   ...patchCurrentBankDescription(ID, "multMul"),
   buildPostLetterStep(ctx) {
-    const m = ctx.treasureRun?.banks?.[ID]?.multMul ?? 1;
+    const m = getMultMulBank(ctx.treasureRun, ID, ctx);
     return m > 1 ? { multMul: m } : null;
   },
   async onLevelEnter(ctx) {
     const rng = ctx.rng ?? Math.random;
     const owned = ctx.ownedSlotTreasureIds ?? [];
+    const sourceIx =
+      typeof ctx.slotIndex === "number" && Number.isFinite(ctx.slotIndex)
+        ? Math.floor(ctx.slotIndex)
+        : -1;
     /** @type {number[]} */
     const candidates = [];
     for (let i = 0; i < owned.length; i += 1) {
       const tid = owned[i];
-      if (!tid || tid === ID) continue;
+      if (!tid) continue;
+      if (i === sourceIx) continue;
       if (ctx.isOwnedTreasureSlotNoSell?.(i)) continue;
       candidates.push(i);
     }
