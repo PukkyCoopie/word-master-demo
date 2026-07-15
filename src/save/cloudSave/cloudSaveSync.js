@@ -11,6 +11,7 @@ import {
   normalizeCloudSaveBundle,
   shouldPromptForeignLocalSave,
 } from "./cloudSaveBundle.js";
+import { shouldAutoResolveConflictPreferLocal } from "./cloudSaveConflictPolicy.js";
 import { CLOUD_ARCHIVE_NAME } from "./cloudSaveConstants.js";
 import { markPendingTutorialAutoStart, prepareFirstWordTutorialAfterFreshLocalSaveChoice } from "../../tutorial/firstWordTutorial.js";
 import {
@@ -294,6 +295,28 @@ export async function syncOnLogin(account) {
       lastConflictCloudExportedAt: null,
     });
     setCloudSaveSyncState("idle");
+    return;
+  }
+
+  if (
+    shouldAutoResolveConflictPreferLocal({
+      localBundle,
+      cloudBundle,
+      unionId: account.unionId,
+      meta,
+    })
+  ) {
+    persistCloudSaveMeta({
+      archiveUuid: cloudArchive.uuid,
+      archiveFileId: cloudArchive.fileId,
+      lastSyncedUnionId: account.unionId,
+      syncState: "pending",
+      conflictDeferred: false,
+      lastConflictCloudExportedAt: null,
+    });
+    dirty = true;
+    setCloudSaveSyncState("pending");
+    await flushCloudUpload({ force: true });
     return;
   }
 

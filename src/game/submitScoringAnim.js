@@ -25,7 +25,6 @@ import {
   TILE_ACCESSORY_COIN,
   TILE_ACCESSORY_LEVEL_UPGRADE,
   TILE_ACCESSORY_REWIND,
-  TILE_ACCESSORY_VIP_DIAMOND,
 } from "../game/tileAccessories.js";
 import {
   TILE_TREASURE_ACCESSORY_DROP_SCORE_ADD,
@@ -46,9 +45,12 @@ import {
   getWordLengthScoreForTableLen,
   scaleLengthContributionForBoss,
   getLengthMultiplier,
-  LETTER_RARITY_ORDER,
   resolveLengthUpgradeLen,
 } from "../composables/useScoring.js";
+import {
+  resolveClearWinVipDiamondRarityUpgrade,
+  shouldRegisterClearWinVipDiamondUpgrade,
+} from "./clearWinVipDiamondUpgrade.js";
 
 import { submitWordLeaveStagger } from "./submitWordLeaveStagger.js";
 import {
@@ -1425,22 +1427,6 @@ async function runArmBossLengthDowngradePostScoreFx(len) {
 /** 与飞机升级：格子上 wobble + 升级气泡后，顶栏播词长升级动效 */
 
 /**
- * 通关当手：首格佩戴钻石配饰 → 升级该字母稀有度对应的全局等级。
- * @param {Record<string, unknown>[]} tiles
- * @param {boolean} willClearLevelThisSubmit 本手计分后达到通关分
- * @returns {{ rk: string, beforeLevel: number, slotIndex: number } | null}
- */
-function resolveClearWinVipDiamondRarityUpgrade(tiles, willClearLevelThisSubmit) {
-  if (!willClearLevelThisSubmit || !Array.isArray(tiles) || tiles.length === 0) return null;
-  const first = tiles[0];
-  if (!first || first.accessoryId !== TILE_ACCESSORY_VIP_DIAMOND) return null;
-  const rk = String(first.rarity ?? "common");
-  if (!LETTER_RARITY_ORDER.includes(rk)) return null;
-  const beforeLevel = Math.max(1, Math.round(Number(refs.rarityLevelsByRarity.value?.[rk])) || 1);
-  return { rk, beforeLevel, slotIndex: 0 };
-}
-
-/**
  * 通关当手、首格钻石配饰：登记 post-clear 顶栏稀有度升级（字母消散后、结算层前）。
  * @param {ReturnType<typeof createSubmitAccessoryUpgradeBatch>} batch
  * @param {Record<string, unknown>[]} tiles
@@ -1450,7 +1436,8 @@ function resolveClearWinVipDiamondRarityUpgrade(tiles, willClearLevelThisSubmit)
 function registerClearWinVipDiamondRarityPostScoreFx(batch, tiles, willClearLevelThisSubmit, cbs) {
   const upgrade = resolveClearWinVipDiamondRarityUpgrade(tiles, willClearLevelThisSubmit);
   if (!upgrade) return;
-  const { rk, beforeLevel } = upgrade;
+  const { rk } = upgrade;
+  const beforeLevel = Math.max(1, Math.round(Number(refs.rarityLevelsByRarity.value?.[rk])) || 1);
   batch.registerStep({
     payload: {
       upgradeKind: "rarity",
@@ -1458,8 +1445,9 @@ function registerClearWinVipDiamondRarityPostScoreFx(batch, tiles, willClearLeve
       beforeLevel,
     },
     apply: () => {
+      const liveBefore = Math.max(1, Math.round(Number(refs.rarityLevelsByRarity.value?.[rk])) || 1);
       cbs.noteCollectionUpgradeUsed(cbs.getUpgradeTreasureIdForRarityKey(rk));
-      cbs.setRarityLevelWithTreasurePairs(rk, beforeLevel + 1);
+      cbs.setRarityLevelWithTreasurePairs(rk, liveBefore + 1);
       cbs.refreshGridTileBaseScoresFromLevels();
     },
   });
@@ -1471,8 +1459,14 @@ function registerClearWinVipDiamondRarityPostScoreFx(batch, tiles, willClearLeve
  * @param {boolean} willClearLevelThisSubmit
  * @param {HTMLElement[]} slotTileEls
  */
-async function runClearWinVipDiamondSlotCueBeforeLeave(tiles, willClearLevelThisSubmit, slotTileEls) {
+async function runClearWinVipDiamondSlotCueBeforeLeave(
+  tiles,
+  willClearLevelThisSubmit,
+  slotTileEls,
+  detailed,
+) {
   if (shouldSkipSubmitTailTreasureFx(callbacks.getIsEndlessRun?.() ?? false)) return;
+  if (!shouldRegisterClearWinVipDiamondUpgrade(detailed)) return;
   const upgrade = resolveClearWinVipDiamondRarityUpgrade(tiles, willClearLevelThisSubmit);
   if (!upgrade) return;
   const slotEl = slotTileEls[upgrade.slotIndex] ?? getDom.getWordSlotEl(upgrade.slotIndex);
@@ -2326,13 +2320,15 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   const endRound = addScore(startRound, detailed.finalScore);
   const willClearLevelThisSubmit = scoreGte(endRound, refs.targetScore.value);
 
-  if (detailed.bossSoftViolation !== true && scoreIsPositive(detailed.finalScore)) {
+  if (shouldRegisterClearWinVipDiamondUpgrade(detailed)) {
     registerClearWinVipDiamondRarityPostScoreFx(
       accessoryUpgradeBatch,
       persistedSubmitTiles,
       willClearLevelThisSubmit,
       callbacks,
     );
+  }
+  if (detailed.bossSoftViolation !== true && scoreIsPositive(detailed.finalScore)) {
     registerArmBossLengthDowngradePostScoreFx(submitPostScoreClearFx, lenTb);
   }
   /** 整格依次消失（占位+字母一起），按槽位索引 0..n-1（含报纸临时 S） */
@@ -2363,7 +2359,12 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     submitGridLeaveEls,
     submitGridTileLeaveEls,
   );
-  await runClearWinVipDiamondSlotCueBeforeLeave(tiles, willClearLevelThisSubmit, slotTileEls);
+  await runClearWinVipDiamondSlotCueBeforeLeave(
+    persistedSubmitTiles,
+    willClearLevelThisSubmit,
+    slotTileEls,
+    detailed,
+  );
 
   const collapseTrans = collapseSubmitTranslation();
 

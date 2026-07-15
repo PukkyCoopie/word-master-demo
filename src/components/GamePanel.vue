@@ -833,7 +833,14 @@ async function runInRunUpgradePlaybackSteps(steps) {
 }
 
 async function runInRunUpgradeStaircasePlayback(steps) {
-  await inRunUpgradePlaybackRef.current?.runInRunUpgradeStaircasePlayback(steps);
+  const playback = inRunUpgradePlaybackRef.current;
+  if (playback) {
+    await playback.runInRunUpgradeStaircasePlayback(steps);
+    return;
+  }
+  for (const step of steps ?? []) {
+    step?.apply?.();
+  }
 }
 
 /** @type {{ current: ReturnType<typeof createTreasureDestroyFx> | null }} */
