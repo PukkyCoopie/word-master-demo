@@ -30,6 +30,7 @@ import {
   hasMeaningfulRunProgress,
   isAbandonedFreshRunPayload,
 } from "./runSaveMeaningfulProgress.js";
+import { RUN_START_LEVEL_INDEX } from "../levelDefinitions.js";
 import {
   serializeAchievementRunState,
   deserializeAchievementRunState,
@@ -191,7 +192,7 @@ test("isContinuableRunPhase excludes run end phases", () => {
 test("abandoned fresh run has no meaningful progress", () => {
   const payload = {
     phase: "playing",
-    levelIndex: 0,
+    levelIndex: RUN_START_LEVEL_INDEX,
     runMatchStats: createRunMatchStats(),
     spellCastHistory: [],
     achievementRunState: { wordsPerLevelId: {}, interestEarnedTotal: 0, moneySpentTotal: 0, discardUsesCount: 0 },
@@ -200,12 +201,24 @@ test("abandoned fresh run has no meaningful progress", () => {
   assert.equal(isAbandonedFreshRunPayload(payload), true);
 });
 
+test("past start level alone makes progress meaningful", () => {
+  const payload = {
+    phase: "playing",
+    levelIndex: RUN_START_LEVEL_INDEX + 1,
+    runMatchStats: createRunMatchStats(),
+    spellCastHistory: [],
+    achievementRunState: { wordsPerLevelId: {}, interestEarnedTotal: 0, moneySpentTotal: 0, discardUsesCount: 0 },
+  };
+  assert.equal(hasMeaningfulRunProgress(payload), true);
+  assert.equal(isAbandonedFreshRunPayload(payload), false);
+});
+
 test("word submit makes run progress meaningful", () => {
   const stats = createRunMatchStats();
   stats.wordsSubmitted = 1;
   const payload = {
     phase: "playing",
-    levelIndex: 0,
+    levelIndex: RUN_START_LEVEL_INDEX,
     runMatchStats: stats,
     spellCastHistory: [],
     achievementRunState: { wordsPerLevelId: {}, interestEarnedTotal: 0, moneySpentTotal: 0, discardUsesCount: 0 },

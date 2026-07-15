@@ -3,6 +3,7 @@ import { isSlotOccupied, getSlotCareer, getSlotPayload } from "../save/runSaveSt
 import { clampSaveSlotIndex, SAVE_SLOT_COUNT, createEmptySlotCareerStats } from "../save/runSaveSchema.js";
 import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import { hasMeaningfulRunProgress } from "../save/runSaveMeaningfulProgress.js";
+import { careerShowsPastFirstWordTutorial } from "../save/firstWordTutorialProgressEvidence.js";
 
 const STORAGE_KEY = "word_master_player_profile_v1";
 const PROFILE_SCHEMA_VERSION = 6;
@@ -232,10 +233,28 @@ export function repairSlotProfilesAfterLoad() {
     }
     pendingLegacyGlobalTutorialCompleted = false;
   }
+  // bug 兼容：已有真实游玩证据但教程 flag 未置位 → 补标完成（同步，避免开局竞态）
+  for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
+    const prof = slotProfiles[i];
+    if (prof.firstWordTutorialCompleted) continue;
+    const career = getSlotCareer(i);
+    if (careerShowsPastFirstWordTutorial(career)) {
+      prof.firstWordTutorialCompleted = true;
+      changed = true;
+      continue;
+    }
+    const payload = getSlotPayload(i);
+    if (payload && hasMeaningfulRunProgress(payload)) {
+      prof.firstWordTutorialCompleted = true;
+      changed = true;
+    }
+  }
   for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
     const prof = slotProfiles[i];
     if (!prof.firstWordTutorialCompleted) continue;
     if (isSlotOccupied(i)) continue;
+    // 局内存档被误 discard 后槽位可为空，但生涯仍有游玩痕迹 —— 勿清教程完成态
+    if (careerShowsPastFirstWordTutorial(getSlotCareer(i))) continue;
     prof.firstWordTutorialCompleted = false;
     changed = true;
   }
@@ -316,8 +335,7 @@ export function resetFirstWordTutorialCompleted(slotIndex = getActiveSaveSlotInd
 export function resetFirstWordTutorialIfNoRunProgress() {
   let changed = false;
   for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
-    const career = normalizeSlotCareerStats(getSlotCareer(i) ?? createEmptySlotCareerStats());
-    if (career.runsCompleted > 0 || career.runsWon > 0) continue;
+    if (careerShowsPastFirstWordTutorial(getSlotCareer(i))) continue;
     const payload = getSlotPayload(i);
     if (payload && hasMeaningfulRunProgress(payload)) continue;
     const prof = slotProfiles[i];

@@ -375,6 +375,8 @@ const sessionRestoredSave = ref(null);
 const sessionSaveSlotIndex = ref(0);
 /** 继续读档时为 true，阻止本局进入首词教程。 */
 const sessionFirstWordTutorialSuppressed = ref(false);
+/** 本局已锁定走首词教程（开局后局内存档写入不得再翻成 false）。 */
+const sessionFirstWordTutorialLatched = ref(false);
 const runStartPrefillSeed = ref("");
 const saveUiRefreshKey = ref(0);
 const collectionRefreshKey = ref(0);
@@ -895,15 +897,18 @@ provide("isGameSessionActive", showGame);
 const gamePanelFirstWordTutorial = computed(() => {
   if (sessionFirstWordTutorialSuppressed.value) return false;
   if (sessionRunDifficultyIndex.value !== 0) return false;
+  if (sessionFirstWordTutorialLatched.value) return true;
   return shouldStartNewRunAtSlot(sessionSaveSlotIndex.value);
 });
 
 function enableSessionFirstWordTutorialForSlot(_slotIx) {
   sessionFirstWordTutorialSuppressed.value = false;
+  sessionFirstWordTutorialLatched.value = true;
 }
 
 function disableSessionFirstWordTutorial() {
   sessionFirstWordTutorialSuppressed.value = true;
+  sessionFirstWordTutorialLatched.value = false;
 }
 
 async function maybeScheduleTutorialAutoStartOnBoot() {
@@ -923,6 +928,7 @@ async function tryAutoStartFirstWordTutorial() {
   consumePendingTutorialAutoStart();
   markTutorialAutoStartAttempted();
   sessionFirstWordTutorialSuppressed.value = false;
+  sessionFirstWordTutorialLatched.value = true;
   await startDirectNewRun(getActiveSaveSlotIndex(), "menu");
 }
 

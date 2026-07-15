@@ -1,9 +1,11 @@
+import { RUN_START_LEVEL_INDEX } from "../levelDefinitions.js";
 import { deserializeAchievementRunState } from "../achievements/achievementRunState.js";
 import { deserializeRunMatchStats } from "./runMatchStatsCodec.js";
 import { isContinuableRunPhase, normalizeRunSavePhase } from "./runSaveSchema.js";
 
 /**
  * 局内存档是否包含玩家实质操作（非「刚进局就离开」的空白局）。
+ * 新局 `levelIndex` 从 `RUN_START_LEVEL_INDEX`（1-1）起，仅停留在开局关、尚无提交/丢弃等操作时不算实质进度。
  * @param {import('./runSavePayload.js').RunSavePayload | null | undefined} payload
  */
 export function hasMeaningfulRunProgress(payload) {
@@ -13,7 +15,9 @@ export function hasMeaningfulRunProgress(payload) {
   if (!isContinuableRunPhase(phase)) return true;
   if (phase !== "playing") return true;
 
-  if (Math.max(0, Math.floor(Number(payload.levelIndex) || 0)) > 0) return true;
+  if (Math.max(0, Math.floor(Number(payload.levelIndex) || 0)) > RUN_START_LEVEL_INDEX) {
+    return true;
+  }
   if (payload.showShop === true || payload.showSettlement === true || payload.showRunEnd === true) {
     return true;
   }

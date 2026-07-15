@@ -171,7 +171,9 @@ export function shouldRunFirstWordTutorialInGame(
   levelIndex = RUN_START_LEVEL_INDEX,
   slotIndex = getActiveSaveSlotIndex(),
 ) {
-  if (!isSlotFreshForFirstWordTutorial(slotIndex)) return false;
+  // 是否走本局教程由 App 的 firstWordTutorial prop 决定；此处不再用局内存档「实质进度」反推，
+  // 避免开局 auto-save（levelIndex=RUN_START）误判后扼杀引导。
+  if (isFirstWordTutorialCompleted(slotIndex)) return false;
   return levelIndex === RUN_START_LEVEL_INDEX;
 }
 
