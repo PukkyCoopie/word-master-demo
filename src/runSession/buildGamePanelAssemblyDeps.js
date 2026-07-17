@@ -510,7 +510,7 @@ export function buildAssemblyScoringSection(early, gpExtras, playfieldSubmit) {
     flushDeferredWordSubmitRecord: gpExtras.flushDeferredWordSubmitRecord,
     flushSubmitAchievements: gpExtras.flushSubmitAchievements,
     flushAchievementUnlocks: gpExtras.flushAchievementUnlocks,
-    appendDeckCardSpecToRunDeck: gpExtras.appendDeckCardSpecToRunDeck,
+    appendDeckCardSpecToRunDeck: early.appendDeckCardSpecToRunDeckAndNotify,
     playWordSlotCopyFxAtIndex: gpExtras.playWordSlotCopyFxAtIndex,
     headerRoundScoreValue: early.headerRoundScoreValue,
     headerTargetScoreValue: early.headerTargetScoreValue,

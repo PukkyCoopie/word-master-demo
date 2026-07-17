@@ -58,6 +58,7 @@ import {
   runNewspaperAppendSequence,
 } from "./newspaperSubmitAnim.js";
 import { isNewspaperTempTile } from "../treasures/items/treasure_140.js";
+import { resolveArmBossDowngradeLen } from "./bossMechanicsContext.js";
 import { findGridCellByTileId } from "./gridTileCellLookup.js";
 import { resolveSubmittedWordForHooks } from "./resolvedWordTileMapping.js";
 import { resolveGridEffectTriggerCount } from "./gridEffectTriggerCount.js";
@@ -881,7 +882,12 @@ async function runSingleLetterScoringStep(tile, i, detailed, speed = 1, luckyVis
   await new Promise((r) => requestAnimationFrame(r));
   scoringWordSlotBubbleAnchor = scoreBubbleAnchorRect(slotEl);
 
-  if (callbacks.bossSlugForMechanics() === "the_tooth" && detailed.bossSoftViolation !== true && luckyVisitIndex === 0) {
+  if (
+    callbacks.bossSlugForMechanics() === "the_tooth" &&
+    detailed.bossSoftViolation !== true &&
+    luckyVisitIndex === 0 &&
+    !isNewspaperTempTile(tile)
+  ) {
     if (getDom.getBossTapeStrip()?.tryPlaySubmitToothCue()) {
       await callbacks.notifyBossRestrictionTreasures("the_tooth");
     }
@@ -1388,11 +1394,16 @@ function registerClearWinLengthUpgradePostScoreFx(batch, judgedLen, buildLengthU
 /**
  * 胳膊 Boss：单词消散后于 result-area 播词长降级动效。
  * @param {(() => Promise<void>)[]} fxQueue
- * @param {number} judgedLen
+ * @param {number} judgedLen 最终判定词长（含报纸）
+ * @param {number} [baseJudgedLen] 不含报纸 append 的原词判定词长
  */
-function registerArmBossLengthDowngradePostScoreFx(fxQueue, judgedLen) {
+function registerArmBossLengthDowngradePostScoreFx(fxQueue, judgedLen, baseJudgedLen = judgedLen) {
   if (callbacks.bossSlugForMechanics() !== "the_arm") return;
-  const len = resolveLengthUpgradeLen(judgedLen);
+  const len = resolveArmBossDowngradeLen(
+    baseJudgedLen,
+    judgedLen,
+    refs.lengthLevelsByLength.value,
+  );
   if (len == null) return;
   fxQueue.push(() => runArmBossLengthDowngradePostScoreFx(len));
 }
@@ -1564,7 +1575,8 @@ async function applySingleLetterScoringStateOnly(tile, i, detailed, luckyVisitIn
   if (
     callbacks.bossSlugForMechanics() === "the_tooth" &&
     detailed.bossSoftViolation !== true &&
-    luckyVisitIndex === 0
+    luckyVisitIndex === 0 &&
+    !isNewspaperTempTile(tile)
   ) {
     getDom.getBossTapeStrip()?.tryPlaySubmitToothCue();
     await callbacks.notifyBossRestrictionTreasures("the_tooth");
@@ -2329,7 +2341,9 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     );
   }
   if (detailed.bossSoftViolation !== true && scoreIsPositive(detailed.finalScore)) {
-    registerArmBossLengthDowngradePostScoreFx(submitPostScoreClearFx, lenTb);
+    const appendBonus = Math.max(0, Math.floor(Number(detailed.submitScoringWordLetterCountBonus) || 0));
+    const baseLenTb = appendBonus > 0 ? Math.max(1, lenTb - appendBonus) : lenTb;
+    registerArmBossLengthDowngradePostScoreFx(submitPostScoreClearFx, lenTb, baseLenTb);
   }
   /** 整格依次消失（占位+字母一起），按槽位索引 0..n-1（含报纸临时 S） */
   const leaveSlotCount = n;

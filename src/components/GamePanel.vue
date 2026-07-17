@@ -1997,7 +1997,7 @@ const { ports: gamePanelPorts } = setupGamePanelAssembly(
     scoringExtras: {
       canSubmit,
       buildSubmitAfterLettersContext,
-      appendDeckCardSpecToRunDeck: (spec) => appendDeckCardSpecToRunDeck(spec),
+      appendDeckCardSpecToRunDeck: (spec) => ctrlEarly.appendDeckCardSpecToRunDeckAndNotify(spec),
       playWordSlotCopyFxAtIndex: async (slotIndex, sp = 1) => {
         await runWordSlotCopyFxAtIndex(
           {

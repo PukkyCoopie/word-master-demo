@@ -1,4 +1,4 @@
-import { dictionaryPosMatchesClubKey } from "./bossClubPos.js";
+import { evaluateBossSoftWordViolationWithPostSubmitLength } from "./bossWordViolation.js";
 import { isBossEffectsSuppressedByTreasures } from "./treasureBossSuppress.js";
 import { resolveUniqueMostSpellLength } from "./spellLengthCounts.js";
 import {
@@ -178,11 +178,27 @@ export function buildBossHintEvaluateContext(pick, bossCtx) {
     typeof bossCtx.getJudgedLengthTableLen === "function"
       ? bossCtx.getJudgedLengthTableLen
       : (n) => Math.max(0, Math.floor(Number(n) || 0));
+  const tiles = hintPathToSubmitTiles(pick.path);
+  const judgedPartial = (resolvedWord, extra = {}) => ({
+    tiles,
+    resolvedWord,
+    getWordDefinition: bossCtx.getWordDefinition,
+    ...extra,
+  });
   return {
     ...bossCtx,
-    tiles: hintPathToSubmitTiles(pick.path),
+    tiles,
     getJudgedWordLen(resolvedWord) {
-      return getJudgedLengthTableLen(hintResolvedWordLetterCount(resolvedWord));
+      return getJudgedLengthTableLen(
+        hintResolvedWordLetterCount(resolvedWord),
+        judgedPartial(resolvedWord),
+      );
+    },
+    getBaseJudgedWordLen(resolvedWord) {
+      return getJudgedLengthTableLen(
+        hintResolvedWordLetterCount(resolvedWord),
+        judgedPartial(resolvedWord, { excludeAppendPairedContentBonus: true }),
+      );
     },
     getEndingLetterRarity(resolvedWord) {
       return hintEndingLetterRarity(pick.path, resolvedWord);
@@ -191,7 +207,7 @@ export function buildBossHintEvaluateContext(pick, bossCtx) {
 }
 
 /**
- * 与 `evaluateBossSoftWordViolation` 对齐：违规返回 true。
+ * 与 `evaluateBossSoftWordViolationWithPostSubmitLength` 对齐：违规返回 true。
  * @param {import('./gridWordFinder.js').WordPick} pick
  * @param {BossWildcardResolveContext | null | undefined} bossCtx
  * @returns {boolean}
@@ -200,34 +216,33 @@ function hintViolatesBossSoftWordRule(pick, bossCtx) {
   if (!bossCtx?.slug) return false;
   if (isBossEffectsSuppressedByTreasures(bossCtx.ownedSlotTreasureIds)) return false;
 
-  const slug = bossCtx.slug;
   const w = String(pick.word ?? "").toLowerCase().trim();
   if (!w) return true;
 
-  const judgedLen =
+  const finalWordLen =
     typeof bossCtx.getJudgedWordLen === "function"
       ? bossCtx.getJudgedWordLen(w)
       : hintResolvedWordLetterCount(w);
+  const baseWordLen =
+    typeof bossCtx.getBaseJudgedWordLen === "function"
+      ? bossCtx.getBaseJudgedWordLen(w)
+      : finalWordLen;
 
-  if (slug === "the_psychic") return judgedLen !== 5;
-  if (slug === "the_eye") {
-    const used = bossCtx.usedLengthsThisLevel;
-    return used instanceof Set && used.has(judgedLen);
-  }
-  if (slug === "the_mouth") {
-    const locked = bossCtx.mouthLockedLength;
-    return locked != null && Number.isFinite(locked) && judgedLen !== locked;
-  }
-  if (slug === "the_club") {
-    const key = String(bossCtx.clubRequiredKey ?? "").trim();
-    if (!key) return false;
-    const def = bossCtx.getWordDefinition?.(w) ?? null;
-    return !dictionaryPosMatchesClubKey(def?.pos, key, def?.translation_zh);
-  }
-  if (slug === "the_noble_end") {
-    return hintEndingLetterRarity(pick.path, w) === "common";
-  }
-  return false;
+  return evaluateBossSoftWordViolationWithPostSubmitLength({
+    slug: bossCtx.slug,
+    baseWordLen,
+    finalWordLen,
+    resolvedWord: w,
+    endingLetterRarity:
+      typeof bossCtx.getEndingLetterRarity === "function"
+        ? bossCtx.getEndingLetterRarity(w)
+        : hintEndingLetterRarity(pick.path, w),
+    getWordDefinition: bossCtx.getWordDefinition,
+    usedLengthsThisLevel: bossCtx.usedLengthsThisLevel ?? new Set(),
+    mouthLockedLength: bossCtx.mouthLockedLength ?? null,
+    clubRequiredKey: bossCtx.clubRequiredKey ?? null,
+    ownedSlotTreasureIds: bossCtx.ownedSlotTreasureIds,
+  }).violated;
 }
 
 /**

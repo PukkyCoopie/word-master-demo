@@ -3,10 +3,14 @@ import gsap from "gsap";
 import { EASE_TRANSFORM } from "../../constants.js";
 import { applyBossTileDebuffState } from "../../game/bossTileDebuff.js";
 import {
-  evaluateBossSoftWordViolation,
+  evaluateBossSoftWordViolationWithPostSubmitLength,
   getEndingLetterRarityForResolvedWord,
   nextMouthLockedLengthAfterSubmit,
 } from "../../game/bossWordViolation.js";
+import {
+  evaluateOxBossHitWithPostSubmitLength,
+  resolvePostSubmitAppendBookkeepingLen,
+} from "../../game/bossMechanicsContext.js";
 import { getTreasureAccessoryExpiredSlotIndices } from "../../game/treasureHourglassRuntime.js";
 import { isStandardRunFinalLevelIndex } from "../../levelDefinitions.js";
 import {
@@ -254,7 +258,7 @@ export function useSubmitWordController(options) {
         treasureRun: run.treasureRunState.value,
         ownedTreasureInstances: run.ownedTreasures.value,
       });
-      const judgedLenTable = resolveJudgedLengthTableLen({
+      const judgedLenOpts = {
         wordLetterCount: actualWordLen,
         ownedVoucherIds: run.ownedVoucherIds.value,
         ownedSlotTreasureIds,
@@ -266,10 +270,17 @@ export function useSubmitWordController(options) {
         resolvedWord,
         getWordDefinition: callbacks.getWordDefinition,
         rarityLevelsByRarity: gridApi.rarityLevelsByRarity.value,
+      };
+      // 计分用最终判定词长（含报纸 +S）；Boss 先判原词，违规时再用最终词长救回。
+      const judgedLenBase = resolveJudgedLengthTableLen({
+        ...judgedLenOpts,
+        excludeAppendPairedContentBonus: true,
       });
-      const soft = evaluateBossSoftWordViolation({
+      const judgedLenTable = resolveJudgedLengthTableLen(judgedLenOpts);
+      const soft = evaluateBossSoftWordViolationWithPostSubmitLength({
         slug: callbacks.bossSlugForMechanics(),
-        wordLen: judgedLenTable,
+        baseWordLen: judgedLenBase,
+        finalWordLen: judgedLenTable,
         resolvedWord,
         endingLetterRarity: getEndingLetterRarityForResolvedWord(tiles, resolvedWord),
         getWordDefinition: callbacks.getWordDefinition,
@@ -279,6 +290,18 @@ export function useSubmitWordController(options) {
         ownedSlotTreasureIds,
       });
       const submitViolated = soft.violated;
+      const bookkeepingLen = resolvePostSubmitAppendBookkeepingLen({
+        slug: callbacks.bossSlugForMechanics(),
+        baseWordLen: judgedLenBase,
+        finalWordLen: judgedLenTable,
+        resolvedWord,
+        endingLetterRarity: getEndingLetterRarityForResolvedWord(tiles, resolvedWord),
+        getWordDefinition: callbacks.getWordDefinition,
+        usedLengthsThisLevel: boss.usedWordLengthsThisBoss.value,
+        mouthLockedLength: boss.mouthLockedLengthBoss.value,
+        clubRequiredKey: boss.clubRequiredKeyBoss.value || "",
+        ownedSlotTreasureIds,
+      });
 
       if (submitViolated) {
         dom.getBossTapeStrip()?.playAttentionPulse?.();
@@ -439,7 +462,7 @@ export function useSubmitWordController(options) {
           !submitViolated && tiles.length > 0 && tiles.every((t) => t?.materialId === "gold");
         if (allGold) run.treasureRunState.value.playedAllGoldWord = true;
 
-        gridApi.recordSpellWordLength(judgedLenTable);
+        gridApi.recordSpellWordLength(bookkeepingLen);
         const sub = parseLevelSubFromId(boss.currentLevel.value?.id ?? "1-1");
         if (sub <= 2) {
           for (const t of tiles) {
@@ -452,16 +475,20 @@ export function useSubmitWordController(options) {
           }
         }
         if (callbacks.bossSlugForMechanics() === "the_eye") {
-          boss.usedWordLengthsThisBoss.value.add(judgedLenTable);
+          boss.usedWordLengthsThisBoss.value.add(bookkeepingLen);
         }
         boss.mouthLockedLengthBoss.value = nextMouthLockedLengthAfterSubmit(
           boss.mouthLockedLengthBoss.value,
-          judgedLenTable,
+          bookkeepingLen,
           false,
         );
         const oxHit =
           callbacks.bossSlugForMechanics() === "the_ox" &&
-          callbacks.evaluateOxBossHit(judgedLenTable, gridApi.spellCountsByLength.value);
+          evaluateOxBossHitWithPostSubmitLength(
+            judgedLenBase,
+            judgedLenTable,
+            gridApi.spellCountsByLength.value,
+          );
         if (oxHit) {
           const lostMoney = Math.max(0, Math.round(Number(run.money.value) || 0));
           dom.getBossTapeStrip()?.playOxMoneyLossCue?.(lostMoney);
@@ -471,7 +498,7 @@ export function useSubmitWordController(options) {
       } else {
         boss.mouthLockedLengthBoss.value = nextMouthLockedLengthAfterSubmit(
           boss.mouthLockedLengthBoss.value,
-          judgedLenTable,
+          bookkeepingLen,
           true,
         );
       }

@@ -65,8 +65,9 @@ export function getEndingLetterRarityForResolvedWord(tiles, resolvedWord) {
  * @property {string | null} [clubRequiredKey]
  * @property {(string | null | undefined)[]} [ownedSlotTreasureIds]
  * @property {(w: string) => { pos?: string, translation_zh?: string } | null | undefined} [getWordDefinition]
- * @property {(n: number) => number} [getJudgedLengthTableLen]
+ * @property {(n: number, partialCtx?: object) => number} [getJudgedLengthTableLen]
  * @property {(resolvedWord: string) => number} [getJudgedWordLen]
+ * @property {(resolvedWord: string) => number} [getBaseJudgedWordLen] 不含报纸等提交后 append 的判定词长
  * @property {(resolvedWord: string) => string} [getEndingLetterRarity]
  * @property {object[]} [tiles]
  */
@@ -104,16 +105,20 @@ export function bossWildcardComplianceMode(ctx, patternCharLen) {
   const slug = ctx.slug;
 
   if (slug === "the_psychic") {
-    return judgedLen === 5 ? "all_pass" : "all_fail";
+    if (judgedLen === 5) return "all_pass";
+    // 报纸等可能把 4→5；无 append 时逐候选仍会失败
+    return "per_candidate";
   }
   if (slug === "the_mouth") {
     const locked = ctx.mouthLockedLength;
-    if (locked != null && Number.isFinite(locked) && judgedLen !== locked) return "all_fail";
+    if (locked != null && Number.isFinite(locked) && judgedLen !== locked) {
+      return "per_candidate";
+    }
     return "all_pass";
   }
   if (slug === "the_eye") {
     const used = ctx.usedLengthsThisLevel;
-    if (used instanceof Set && used.has(judgedLen)) return "all_fail";
+    if (used instanceof Set && used.has(judgedLen)) return "per_candidate";
     return "all_pass";
   }
   return "per_candidate";
@@ -129,15 +134,18 @@ export function candidatePassesBossSoftWordRule(candidate, ctx) {
   if (isBossEffectsSuppressedByTreasures(ctx.ownedSlotTreasureIds)) return true;
   const w = String(candidate ?? "").toLowerCase().trim();
   if (!w) return false;
-  const wordLen =
+  const finalWordLen =
     typeof ctx.getJudgedWordLen === "function" ? ctx.getJudgedWordLen(w) : Math.max(0, w.length);
+  const baseWordLen =
+    typeof ctx.getBaseJudgedWordLen === "function" ? ctx.getBaseJudgedWordLen(w) : finalWordLen;
   const endingLetterRarity =
     typeof ctx.getEndingLetterRarity === "function"
       ? ctx.getEndingLetterRarity(w)
       : getEndingLetterRarityForResolvedWord(ctx.tiles, w);
-  return !evaluateBossSoftWordViolation({
+  return !evaluateBossSoftWordViolationWithPostSubmitLength({
     slug: ctx.slug,
-    wordLen,
+    baseWordLen,
+    finalWordLen,
     resolvedWord: w,
     endingLetterRarity,
     getWordDefinition: ctx.getWordDefinition,
@@ -146,6 +154,41 @@ export function candidatePassesBossSoftWordRule(candidate, ctx) {
     clubRequiredKey: ctx.clubRequiredKey ?? null,
     ownedSlotTreasureIds: ctx.ownedSlotTreasureIds,
   }).violated;
+}
+
+/**
+ * 报纸等「提交后 append」词长：先判原词，原词已通过则不被推翻；原词违规再用最终词长再检一次。
+ * @param {{
+ *   slug: string,
+ *   baseWordLen: number,
+ *   finalWordLen: number,
+ *   resolvedWord: string,
+ *   endingLetterRarity?: string,
+ *   getWordDefinition: (w: string) => { pos?: string } | null | undefined,
+ *   usedLengthsThisLevel: Set<number>,
+ *   mouthLockedLength: number | null,
+ *   clubRequiredKey: string | null,
+ *   ownedSlotTreasureIds?: (string | null | undefined)[],
+ * }} ctx
+ * @returns {{ violated: boolean, reason: string }}
+ */
+export function evaluateBossSoftWordViolationWithPostSubmitLength(ctx) {
+  const baseWordLen = Math.max(0, Math.round(Number(ctx.baseWordLen)) || 0);
+  const finalWordLen = Math.max(0, Math.round(Number(ctx.finalWordLen)) || 0);
+  const shared = {
+    slug: ctx.slug,
+    resolvedWord: ctx.resolvedWord,
+    endingLetterRarity: ctx.endingLetterRarity,
+    getWordDefinition: ctx.getWordDefinition,
+    usedLengthsThisLevel: ctx.usedLengthsThisLevel,
+    mouthLockedLength: ctx.mouthLockedLength,
+    clubRequiredKey: ctx.clubRequiredKey,
+    ownedSlotTreasureIds: ctx.ownedSlotTreasureIds,
+  };
+  const base = evaluateBossSoftWordViolation({ ...shared, wordLen: baseWordLen });
+  if (!base.violated) return { violated: false, reason: "" };
+  if (finalWordLen === baseWordLen) return base;
+  return evaluateBossSoftWordViolation({ ...shared, wordLen: finalWordLen });
 }
 
 /**

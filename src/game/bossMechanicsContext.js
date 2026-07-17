@@ -1,9 +1,11 @@
 import {
   bossHasWholeWordSoftRule,
   evaluateBossSoftWordViolation,
+  evaluateBossSoftWordViolationWithPostSubmitLength,
   getEndingLetterRarityForResolvedWord,
 } from "./bossWordViolation.js";
 import { resolveUniqueMostSpellLength } from "./spellLengthCounts.js";
+import { resolveLengthUpgradeLen } from "./wordLengthBalance.js";
 
 export { resolveUniqueMostSpellLength };
 
@@ -106,13 +108,30 @@ export function evaluateOxBossHit(judgedLen, counts) {
 }
 
 /**
+ * 报纸等提交后加长：任一侧不触发「最常长度」则不归零（对玩家有利）。
+ * @param {number} baseJudgedLen
+ * @param {number} finalJudgedLen
+ * @param {Record<string | number, number> | null | undefined} counts
+ */
+export function evaluateOxBossHitWithPostSubmitLength(baseJudgedLen, finalJudgedLen, counts) {
+  const base = Math.max(0, Math.floor(Number(baseJudgedLen)) || 0);
+  const final = Math.max(0, Math.floor(Number(finalJudgedLen)) || 0);
+  if (base < 1 && final < 1) return false;
+  if (base < 1 || final < 1 || base === final) {
+    return evaluateOxBossHit(base || final, counts);
+  }
+  return evaluateOxBossHit(base, counts) && evaluateOxBossHit(final, counts);
+}
+
+/**
  * 公牛 Boss：当前选词是否将触发「最常拼写长度 → 资金归零」。
  * @param {Object} p
  * @param {boolean} p.dictionaryReady
  * @param {string} p.slug
  * @param {string | null} p.resolvedWord
  * @param {string} p.effectiveWord
- * @param {number} p.judgedLen
+ * @param {number} p.judgedLen 最终判定词长
+ * @param {number} [p.baseJudgedLen] 不含报纸 append 的原词判定词长
  * @param {Record<string | number, number> | null | undefined} p.spellCountsByLength
  */
 export function evaluateOxBossViolationPreview(p) {
@@ -120,9 +139,75 @@ export function evaluateOxBossViolationPreview(p) {
   if (String(p.slug ?? "") !== "the_ox") return false;
   if (p.resolvedWord == null) return false;
   if (!p.effectiveWord || p.effectiveWord.length < 1) return false;
-  const judgedLen = Math.max(0, Math.floor(Number(p.judgedLen)) || 0);
-  if (judgedLen < 1) return false;
-  return evaluateOxBossHit(judgedLen, p.spellCountsByLength);
+  const finalWordLen = Math.max(0, Math.floor(Number(p.judgedLen)) || 0);
+  if (finalWordLen < 1) return false;
+  const baseWordLen =
+    p.baseJudgedLen != null && Number.isFinite(Number(p.baseJudgedLen))
+      ? Math.max(0, Math.floor(Number(p.baseJudgedLen)) || 0)
+      : finalWordLen;
+  return evaluateOxBossHitWithPostSubmitLength(baseWordLen, finalWordLen, p.spellCountsByLength);
+}
+
+/**
+ * 报纸加长后的 Boss 词长记账（冷眼已用 / 独眼锁定 / 拼写次数统计）。
+ * 长度软规则下：原词已通过则记原长，否则记最终长（救回）；其它 Boss 记原长更有利。
+ * @param {{
+ *   slug: string,
+ *   baseWordLen: number,
+ *   finalWordLen: number,
+ *   resolvedWord: string,
+ *   endingLetterRarity?: string,
+ *   getWordDefinition: (w: string) => unknown,
+ *   usedLengthsThisLevel: Set<number>,
+ *   mouthLockedLength: number | null,
+ *   clubRequiredKey: string | null,
+ *   ownedSlotTreasureIds?: (string | null | undefined)[],
+ * }} ctx
+ */
+export function resolvePostSubmitAppendBookkeepingLen(ctx) {
+  const base = Math.max(0, Math.round(Number(ctx.baseWordLen)) || 0);
+  const final = Math.max(0, Math.round(Number(ctx.finalWordLen)) || 0);
+  if (base < 1) return final;
+  if (final < 1 || base === final) return final || base;
+
+  const slug = String(ctx.slug ?? "");
+  const lengthSoft = slug === "the_psychic" || slug === "the_eye" || slug === "the_mouth";
+  if (lengthSoft) {
+    const baseSoft = evaluateBossSoftWordViolation({
+      slug,
+      wordLen: base,
+      resolvedWord: ctx.resolvedWord,
+      endingLetterRarity: ctx.endingLetterRarity,
+      getWordDefinition: ctx.getWordDefinition,
+      usedLengthsThisLevel: ctx.usedLengthsThisLevel,
+      mouthLockedLength: ctx.mouthLockedLength,
+      clubRequiredKey: ctx.clubRequiredKey,
+      ownedSlotTreasureIds: ctx.ownedSlotTreasureIds,
+    });
+    if (!baseSoft.violated) return base;
+    return final;
+  }
+  return base;
+}
+
+/**
+ * 胳膊 Boss：报纸加长时选择降级伤害更小的词长槽（等级更低或已为 1 无实质伤害）。
+ * @param {number} baseJudgedLen
+ * @param {number} finalJudgedLen
+ * @param {Record<string | number, number> | null | undefined} lengthLevelsByLength
+ * @returns {number | null} 可升级表键（3–16）
+ */
+export function resolveArmBossDowngradeLen(baseJudgedLen, finalJudgedLen, lengthLevelsByLength) {
+  const baseKey = resolveLengthUpgradeLen(baseJudgedLen);
+  const finalKey = resolveLengthUpgradeLen(finalJudgedLen);
+  if (baseKey == null) return finalKey;
+  if (finalKey == null || baseKey === finalKey) return finalKey ?? baseKey;
+  const levels = lengthLevelsByLength ?? {};
+  const baseLevel = Math.max(1, Math.round(Number(levels[baseKey])) || 1);
+  const finalLevel = Math.max(1, Math.round(Number(levels[finalKey])) || 1);
+  if (baseLevel <= 1 && finalLevel > 1) return baseKey;
+  if (finalLevel <= 1 && baseLevel > 1) return finalKey;
+  return baseLevel <= finalLevel ? baseKey : finalKey;
 }
 
 /**
@@ -192,7 +277,8 @@ export function clearVerdantDebuffsOnGrid(grid, rows, cols) {
  * @param {string | null} p.resolvedWord
  * @param {string} p.effectiveWord
  * @param {readonly unknown[]} p.tiles
- * @param {number} p.judgedLen
+ * @param {number} p.judgedLen 最终判定词长（含报纸等；兼容旧调用）
+ * @param {number} [p.baseJudgedLen] 不含报纸等 append 的原词判定词长；缺省则与 judgedLen 相同
  * @param {(tiles: readonly unknown[], word: string | null) => string} p.getEndingLetterRarity
  * @param {(word: string) => unknown} p.getWordDefinition
  * @param {ReadonlySet<number>} p.usedLengthsThisLevel
@@ -205,9 +291,15 @@ export function evaluateBossSoftWordViolationPreview(p) {
   if (!bossHasWholeWordSoftRule(p.slug)) return false;
   if (p.resolvedWord == null) return false;
   if (!p.effectiveWord || p.effectiveWord.length < 1) return false;
-  const soft = evaluateBossSoftWordViolation({
+  const finalWordLen = Math.max(0, Math.round(Number(p.judgedLen)) || 0);
+  const baseWordLen =
+    p.baseJudgedLen != null && Number.isFinite(Number(p.baseJudgedLen))
+      ? Math.max(0, Math.round(Number(p.baseJudgedLen)) || 0)
+      : finalWordLen;
+  const soft = evaluateBossSoftWordViolationWithPostSubmitLength({
     slug: p.slug,
-    wordLen: p.judgedLen,
+    baseWordLen,
+    finalWordLen,
     resolvedWord: p.resolvedWord,
     endingLetterRarity: p.getEndingLetterRarity(p.tiles, p.resolvedWord),
     getWordDefinition: p.getWordDefinition,

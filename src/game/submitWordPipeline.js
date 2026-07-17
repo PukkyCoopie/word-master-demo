@@ -1,7 +1,7 @@
 import { deckCardRaw } from "./deckCardSync.js";
 import {
   bossHasWholeWordSoftRule,
-  evaluateBossSoftWordViolation,
+  evaluateBossSoftWordViolationWithPostSubmitLength,
   getEndingLetterRarityForResolvedWord,
 } from "./bossWordViolation.js";
 import { isBossEffectsSuppressedByTreasures } from "./treasureBossSuppress.js";
@@ -39,7 +39,7 @@ import {
  * @property {string | null} [clubRequiredKey]
  * @property {(w: string) => { pos?: string, translation_zh?: string } | null | undefined} [getWordDefinition]
  * @property {Record<string, number> | null | undefined} [rarityLevelsByRarity]
- * @property {(wordLetterCount: number) => number} [getJudgedLengthTableLen]
+ * @property {(wordLetterCount: number, partialCtx?: object) => number} [getJudgedLengthTableLen]
  */
 
 /** 飞入在途：拼词/展示用解析字母，而非棋盘格上存的 ? */
@@ -154,6 +154,13 @@ export function buildBossWildcardResolveContext(ctx) {
     typeof ctx.getJudgedLengthTableLen === "function"
       ? ctx.getJudgedLengthTableLen
       : (n) => Math.max(0, Math.floor(Number(n) || 0));
+  const judgedPartial = (resolvedWord, extra = {}) => ({
+    tiles,
+    resolvedWord,
+    getWordDefinition: ctx.getWordDefinition,
+    rarityLevelsByRarity: ctx.rarityLevelsByRarity,
+    ...extra,
+  });
   return {
     slug,
     usedLengthsThisLevel: ctx.usedWordLengthsThisLevel,
@@ -164,7 +171,16 @@ export function buildBossWildcardResolveContext(ctx) {
     getJudgedLengthTableLen,
     tiles,
     getJudgedWordLen(resolvedWord) {
-      return getJudgedLengthTableLen(getWordLetterCount(tiles, resolvedWord));
+      return getJudgedLengthTableLen(
+        getWordLetterCount(tiles, resolvedWord),
+        judgedPartial(resolvedWord),
+      );
+    },
+    getBaseJudgedWordLen(resolvedWord) {
+      return getJudgedLengthTableLen(
+        getWordLetterCount(tiles, resolvedWord),
+        judgedPartial(resolvedWord, { excludeAppendPairedContentBonus: true }),
+      );
     },
     getEndingLetterRarity(resolvedWord) {
       return getEndingLetterRarityForResolvedWord(tiles, resolvedWord);
@@ -186,10 +202,22 @@ export function previewBossSoftWordViolation(ctx) {
     typeof ctx.getJudgedLengthTableLen === "function"
       ? ctx.getJudgedLengthTableLen
       : (n) => Math.max(0, Math.floor(Number(n) || 0));
-  const judgedLen = getJudgedLengthTableLen(getWordLetterCount(ctx.tiles ?? [], res));
-  const soft = evaluateBossSoftWordViolation({
+  const letterCount = getWordLetterCount(ctx.tiles ?? [], res);
+  const judgedPartial = {
+    tiles: ctx.tiles ?? [],
+    resolvedWord: res,
+    getWordDefinition: ctx.getWordDefinition,
+    rarityLevelsByRarity: ctx.rarityLevelsByRarity,
+  };
+  const finalWordLen = getJudgedLengthTableLen(letterCount, judgedPartial);
+  const baseWordLen = getJudgedLengthTableLen(letterCount, {
+    ...judgedPartial,
+    excludeAppendPairedContentBonus: true,
+  });
+  const soft = evaluateBossSoftWordViolationWithPostSubmitLength({
     slug,
-    wordLen: judgedLen,
+    baseWordLen,
+    finalWordLen,
     resolvedWord: res,
     endingLetterRarity: getEndingLetterRarityForResolvedWord(ctx.tiles ?? [], res),
     getWordDefinition: ctx.getWordDefinition,

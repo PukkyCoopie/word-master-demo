@@ -19,9 +19,47 @@ let supportsMaterialAnimation = false;
 let supportsConfettiWorker = false;
 /** @type {boolean} */
 let requiresMaterialCssFallback = false;
+/** @type {boolean} */
+let supportsFlexGap = true;
+/** @type {boolean} */
+let supportsAspectRatio = true;
 
 /** CSS 回退标记变更时 bump，供 LetterTile 等重渲染 */
 export const materialCssFallbackSignal = { value: 0 };
+
+/**
+ * Modernizr 式探测：flex 容器上的 gap / row-gap（@supports (gap) 不可靠，grid 也会 true）。
+ * @returns {boolean}
+ */
+export function detectFlexGapSupport() {
+  if (typeof document === "undefined") return true;
+  try {
+    const flex = document.createElement("div");
+    flex.style.display = "flex";
+    flex.style.flexDirection = "column";
+    flex.style.rowGap = "1px";
+    flex.appendChild(document.createElement("div"));
+    flex.appendChild(document.createElement("div"));
+    document.documentElement.appendChild(flex);
+    const supported = flex.scrollHeight === 1;
+    flex.remove();
+    return supported;
+  } catch {
+    return false;
+  }
+}
+
+/** @returns {boolean} */
+export function detectAspectRatioSupport() {
+  if (typeof document === "undefined" || typeof CSS === "undefined" || typeof CSS.supports !== "function") {
+    return true;
+  }
+  try {
+    return CSS.supports("aspect-ratio", "1 / 1");
+  } catch {
+    return false;
+  }
+}
 
 /**
  * @param {string} ua
@@ -87,7 +125,17 @@ export function initWebViewCapabilities() {
   webglAvailable = detectWebglAvailable();
   supportsBitmapRendererPipeline = detectBitmapRendererPipelineSupport();
   supportsConfettiWorker = typeof OffscreenCanvas !== "undefined";
+  supportsFlexGap = detectFlexGapSupport();
+  supportsAspectRatio = detectAspectRatioSupport();
   recomputeSupportsMaterialAnimation();
+
+  if (typeof document !== "undefined") {
+    const root = document.documentElement;
+    if (!supportsFlexGap) root.classList.add("no-flex-gap");
+    else root.classList.remove("no-flex-gap");
+    if (!supportsAspectRatio) root.classList.add("no-aspect-ratio");
+    else root.classList.remove("no-aspect-ratio");
+  }
 }
 
 export function getMeetsMinimumWebView() {
@@ -112,4 +160,12 @@ export function getSupportsConfettiWorker() {
 
 export function getRequiresMaterialCssFallback() {
   return requiresMaterialCssFallback;
+}
+
+export function getSupportsFlexGap() {
+  return supportsFlexGap;
+}
+
+export function getSupportsAspectRatio() {
+  return supportsAspectRatio;
 }

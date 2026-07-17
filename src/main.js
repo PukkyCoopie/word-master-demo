@@ -4,6 +4,7 @@ import "remixicon/fonts/remixicon.css";
 import "../css/game.css";
 import "../css/game.deck-layer.css";
 import "../css/game.layout.css";
+import "../css/legacy-aspect-ratio.css";
 import App from "./App.vue";
 import { warmupAllReglMaterialHubs } from "./lib/reglMaterialWarmup.js";
 import { deferReglMaterialWarmupAtBoot, initMaterialAnimationSettings } from "./lib/reglMaterialPerf.js";
@@ -19,6 +20,7 @@ import {
   getMeetsMinimumWebView,
   initWebViewCapabilities,
 } from "./platform/webViewCapabilities.js";
+import { initAspectRatioFallback } from "./platform/aspectRatioFallback.js";
 import { applyMaterialAnimationCapabilityConstraints } from "./settings/materialAnimationAvailability.js";
 
 function disableNativeWebNotificationPrompt() {
@@ -52,6 +54,7 @@ function disableNativeWebNotificationPrompt() {
 
 initWebViewCapabilities();
 applyMaterialAnimationCapabilityConstraints();
+initAspectRatioFallback();
 
 if (typeof window !== "undefined" && window.__WM_BOOT_BLOCKED__ === true) {
   // index.html 内联脚本已展示提示，避免继续启动

@@ -139,15 +139,32 @@ export function useBossMechanicsController(options) {
     return s ? getBossDef(s) : null;
   });
 
+  function judgedLenPartialCtx() {
+    return {
+      tiles: options.effectiveFormulaTiles.value,
+      resolvedWord: options.resolvedWordForSubmit.value,
+      getWordDefinition: options.getWordDefinition,
+    };
+  }
+
   const resultAreaJudgedWordLength = computed(() => {
     const n = options.getWordLetterCount(
       options.effectiveFormulaTiles.value,
       options.resolvedWordForSubmit.value,
     );
     if (n < 1) return 0;
+    return options.judgedLengthTableLenForRun(n, judgedLenPartialCtx());
+  });
+
+  const resultAreaJudgedWordLengthBase = computed(() => {
+    const n = options.getWordLetterCount(
+      options.effectiveFormulaTiles.value,
+      options.resolvedWordForSubmit.value,
+    );
+    if (n < 1) return 0;
     return options.judgedLengthTableLenForRun(n, {
-      tiles: options.effectiveFormulaTiles.value,
-      resolvedWord: options.resolvedWordForSubmit.value,
+      ...judgedLenPartialCtx(),
+      excludeAppendPairedContentBonus: true,
     });
   });
 
@@ -159,6 +176,7 @@ export function useBossMechanicsController(options) {
       effectiveWord: options.effectiveWordForSubmit.value,
       tiles: options.effectiveFormulaTiles.value,
       judgedLen: resultAreaJudgedWordLength.value,
+      baseJudgedLen: resultAreaJudgedWordLengthBase.value,
       getEndingLetterRarity: getEndingLetterRarityForResolvedWord,
       getWordDefinition: options.getWordDefinition,
       usedLengthsThisLevel: options.usedWordLengthsThisBoss.value,
@@ -176,6 +194,7 @@ export function useBossMechanicsController(options) {
       resolvedWord: options.resolvedWordForSubmit.value,
       effectiveWord: options.effectiveWordForSubmit.value,
       judgedLen: resultAreaJudgedWordLength.value,
+      baseJudgedLen: resultAreaJudgedWordLengthBase.value,
       spellCountsByLength: options.spellCountsByLength.value,
     });
   });

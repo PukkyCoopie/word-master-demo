@@ -1,0 +1,39 @@
+/*
+ * 无 aspect-ratio 时的布局回退（Chrome &lt; 88）。
+ * 由 webViewCapabilities 挂 html.no-aspect-ratio 门控（与 flex gap 一致）。
+ * 用 ::before 撑高（避免 border-box + height:0 + padding 的歧义）；
+ * 流式内容比例盒由 src/platform/aspectRatioFallback.js 按宽度写 height。
+ */
+html.no-aspect-ratio .result-area::before {
+	content: "";
+	display: block;
+	width: 100%;
+	padding-bottom: calc(100% / 3.2);
+	pointer-events: none;
+}
+
+html.no-aspect-ratio .treasure-slot {
+	position: relative;
+}
+
+html.no-aspect-ratio .treasure-slot::before {
+	content: "";
+	display: block;
+	width: 100%;
+	padding-bottom: 100%;
+	pointer-events: none;
+}
+
+/* 叠放模式已有显式 height：不要 ::before 撑高 */
+html.no-aspect-ratio .treasure-slots--stack .treasure-slot::before {
+	content: none;
+	display: none;
+	padding-bottom: 0;
+}
+
+/* 行内样例槽已有固定宽高 */
+html.no-aspect-ratio .desc-inline-entity__slot.treasure-slot::before {
+	content: none;
+	display: none;
+	padding-bottom: 0;
+}

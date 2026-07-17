@@ -52,6 +52,7 @@ export function resolveWordLengthJudgmentBonus({
  *   resolvedWord?: string | null,
  *   getWordDefinition?: (word: string) => object | null | undefined,
  *   rarityLevelsByRarity?: Record<string, number> | null,
+ *   excludeAppendPairedContentBonus?: boolean 不含报纸等提交后 append 的词长（Boss 先判原词）
  * }} opts
  */
 export function resolveJudgedLengthTableLen({
@@ -66,6 +67,7 @@ export function resolveJudgedLengthTableLen({
   resolvedWord,
   getWordDefinition,
   rarityLevelsByRarity,
+  excludeAppendPairedContentBonus = false,
 } = {}) {
   const n = Math.max(0, Math.floor(Number(wordLetterCount)) || 0);
   const flatBonus = resolveWordLengthJudgmentBonus({
@@ -82,6 +84,7 @@ export function resolveJudgedLengthTableLen({
     getWordDefinition,
     rarityLevelsByRarity,
     treasureRun,
+    excludeAppendPaired: excludeAppendPairedContentBonus === true,
   });
   return getLengthTableLenFromTileCountAndBonus(n + contentBonus, flatBonus);
 }

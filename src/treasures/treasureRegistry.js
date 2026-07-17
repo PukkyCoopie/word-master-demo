@@ -485,17 +485,33 @@ export async function notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIds,
 }
 
 /**
+ * 是否拥有「提交计分 append」类宝藏（如报纸 +S）。
+ * @param {(string | null | undefined)[]} ownedSlotTreasureIds
+ */
+export function ownedHasSubmitScoringAppendTreasure(ownedSlotTreasureIds) {
+  for (const { treasureId: tid } of iterTreasureHookContributions(ownedSlotTreasureIds ?? [])) {
+    if (typeof TREASURE_HOOKS_BY_ID.get(tid)?.buildSubmitScoringAppendTile === "function") {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * 提交计分时按词内容追加的等效词长（如弓箭 X/Y/Z、报纸 +S）；不含整词 flat `getSubmitLengthBonus`。
  * @param {(string | null | undefined)[]} ownedSlotTreasureIds
- * @param {import('./treasureTypes.js').TreasureLogicContext} [partialCtx]
+ * @param {import('./treasureTypes.js').TreasureLogicContext & { excludeAppendPaired?: boolean }} [partialCtx]
  */
 export function sumTreasureSubmitScoringWordLetterCountBonus(ownedSlotTreasureIds, partialCtx = {}) {
   const slots = ownedSlotTreasureIds ?? [];
+  const excludeAppendPaired = partialCtx.excludeAppendPaired === true;
   let bonus = 0;
   for (const { treasureId: tid, source } of iterTreasureHookContributions(slots)) {
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
-    // 与 append 成对的词长加成（报纸 +S）不在 blueprint 复现；纯词内容加长（弓箭 X/Y/Z 等）须复现。
-    if (source === "blueprint" && hooks?.buildSubmitScoringAppendTile) continue;
+    // 与 append 成对的词长加成（报纸 +S）：blueprint 不复现；Boss 先判原词时也可整体排除。
+    if (hooks?.buildSubmitScoringAppendTile && (excludeAppendPaired || source === "blueprint")) {
+      continue;
+    }
     const hookCtx = {
       ...partialCtx,
       ownedSlotTreasureIds: slots,

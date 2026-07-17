@@ -132,3 +132,59 @@ test("previewBossSoftWordViolation: psychic passes at 5 judged len", () => {
   });
   assert.equal(ok, false);
 });
+
+/** 模拟报纸：final = n+1，base（excludeAppend）= n */
+function newspaperLikeJudgedLen(n, ctx = {}) {
+  return n + (ctx.excludeAppendPairedContentBonus ? 0 : 1);
+}
+
+test("previewBossSoftWordViolation: 报纸 5→6 灵媒仍通过", () => {
+  const tiles = Array.from({ length: 5 }, () => ({ letter: "a", rarity: "common" }));
+  const violated = previewBossSoftWordViolation({
+    bossSlug: "the_psychic",
+    resolvedWord: "apple",
+    tiles,
+    ownedSlotTreasureIds: ["140"],
+    dictionaryReady: true,
+    getWordDefinition: () => ({ pos: "n" }),
+    usedWordLengthsThisLevel: new Set(),
+    mouthLockedLength: null,
+    clubRequiredKey: "",
+    getJudgedLengthTableLen: newspaperLikeJudgedLen,
+  });
+  assert.equal(violated, false);
+});
+
+test("previewBossSoftWordViolation: 报纸 4→5 灵媒可救回", () => {
+  const tiles = Array.from({ length: 4 }, () => ({ letter: "a", rarity: "common" }));
+  const violated = previewBossSoftWordViolation({
+    bossSlug: "the_psychic",
+    resolvedWord: "cats",
+    tiles,
+    ownedSlotTreasureIds: ["140"],
+    dictionaryReady: true,
+    getWordDefinition: () => ({ pos: "n" }),
+    usedWordLengthsThisLevel: new Set(),
+    mouthLockedLength: null,
+    clubRequiredKey: "",
+    getJudgedLengthTableLen: newspaperLikeJudgedLen,
+  });
+  assert.equal(violated, false);
+});
+
+test("previewBossSoftWordViolation: 报纸 3→4 灵媒仍违规", () => {
+  const tiles = Array.from({ length: 3 }, () => ({ letter: "a", rarity: "common" }));
+  const violated = previewBossSoftWordViolation({
+    bossSlug: "the_psychic",
+    resolvedWord: "cat",
+    tiles,
+    ownedSlotTreasureIds: ["140"],
+    dictionaryReady: true,
+    getWordDefinition: () => ({ pos: "n" }),
+    usedWordLengthsThisLevel: new Set(),
+    mouthLockedLength: null,
+    clubRequiredKey: "",
+    getJudgedLengthTableLen: newspaperLikeJudgedLen,
+  });
+  assert.equal(violated, true);
+});

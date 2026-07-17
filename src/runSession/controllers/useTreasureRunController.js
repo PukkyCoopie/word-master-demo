@@ -115,6 +115,7 @@ function trackOwnedTreasureBarVisualDeps(runState, instances) {
  *   bumpBasketballWordSubmitted: () => void,
  *   appendShopDeckEntries: (entries: object[]) => object[],
  *   appendDeckCardSpecToInitialSnapshot: (spec: object) => object | null,
+ *   appendDeckCardSpecToRunDeck: (spec: object) => object | null,
  *   removeDeckLetterInstancesByRaws: (raws: string[]) => void,
  * }} grid
  * @property {{
@@ -726,6 +727,24 @@ export function useTreasureRunController(options) {
     return card;
   }
 
+  /** @param {Parameters<typeof grid.appendDeckCardSpecToRunDeck>[0]} spec */
+  function appendDeckCardSpecToRunDeckAndNotify(spec) {
+    collection.noteCollectionDeckEntryModifiers(spec);
+    const card = grid.appendDeckCardSpecToRunDeck(spec);
+    if (!card) return card;
+    recordTreasureRunDeckCardsAdded(treasureRunState.value, [card]);
+    void notifyOwnedTreasuresOnDeckCardsAdded(ownedSlotTreasureIdList(), {
+      ownedSlotTreasureIds: ownedSlotTreasureIdList(),
+      treasureRun: treasureRunState.value,
+      count: 1,
+      ownedTreasureInstances: ownedTreasures.value,
+      getOwnedTreasures: () => ownedTreasures.value,
+      ...hooks.ownedTreasureHookFxBridge(),
+    });
+    collection.flushDeckMultisetAchievements();
+    return card;
+  }
+
   function clearOwnedTreasureSlotById(treasureId) {
     clearOwnedTreasureSlotLeaveGapById(treasureId);
   }
@@ -1009,6 +1028,8 @@ export function useTreasureRunController(options) {
         handFinalScore,
         skipSettlementFx,
       ),
+      // 覆盖 shell extras 中的裸 append：洗入字母库须触发 onDeckCardsAdded（邮筒等）
+      appendDeckCardSpecToRunDeck: appendDeckCardSpecToRunDeckAndNotify,
     };
   }
 
@@ -1189,6 +1210,7 @@ export function useTreasureRunController(options) {
     notifyTreasureDeckCardsRemovedByRaws,
     appendShopDeckEntriesAndNotify,
     appendDeckCardSpecToInitialSnapshotAndNotify,
+    appendDeckCardSpecToRunDeckAndNotify,
     clearOwnedTreasureSlotById,
     clearOwnedTreasureSlotLeaveGapById,
     removeAndCompactOwnedTreasureAtIndex,

@@ -5,6 +5,7 @@ import {
   bossWildcardComplianceMode,
   dictionaryPosMatchesClubKey,
   evaluateBossSoftWordViolation,
+  evaluateBossSoftWordViolationWithPostSubmitLength,
   getEndingLetterRarityForResolvedWord,
   getEndingLetterRarityFromTiles,
   inferPosFromTranslationHead,
@@ -66,7 +67,78 @@ test("bossWildcardComplianceMode: 独眼锁定长度", () => {
     getJudgedWordLen: (w) => w.length,
   };
   assert.equal(bossWildcardComplianceMode(ctx, 8), "all_pass");
-  assert.equal(bossWildcardComplianceMode(ctx, 5), "all_fail");
+  // 长度不符时 per_candidate：报纸等 append 可能救回具体词
+  assert.equal(bossWildcardComplianceMode(ctx, 5), "per_candidate");
+});
+
+test("报纸两阶段：灵媒 5→6 原词已通过则不被推翻", () => {
+  const soft = evaluateBossSoftWordViolationWithPostSubmitLength({
+    slug: "the_psychic",
+    baseWordLen: 5,
+    finalWordLen: 6,
+    resolvedWord: "apple",
+    getWordDefinition: () => null,
+    usedLengthsThisLevel: new Set(),
+    mouthLockedLength: null,
+    clubRequiredKey: null,
+  });
+  assert.equal(soft.violated, false);
+});
+
+test("报纸两阶段：灵媒 4→5 原词违规可被救回", () => {
+  const soft = evaluateBossSoftWordViolationWithPostSubmitLength({
+    slug: "the_psychic",
+    baseWordLen: 4,
+    finalWordLen: 5,
+    resolvedWord: "cats",
+    getWordDefinition: () => null,
+    usedLengthsThisLevel: new Set(),
+    mouthLockedLength: null,
+    clubRequiredKey: null,
+  });
+  assert.equal(soft.violated, false);
+});
+
+test("报纸两阶段：灵媒 3→4 仍违规", () => {
+  const soft = evaluateBossSoftWordViolationWithPostSubmitLength({
+    slug: "the_psychic",
+    baseWordLen: 3,
+    finalWordLen: 4,
+    resolvedWord: "cat",
+    getWordDefinition: () => null,
+    usedLengthsThisLevel: new Set(),
+    mouthLockedLength: null,
+    clubRequiredKey: null,
+  });
+  assert.equal(soft.violated, true);
+});
+
+test("报纸两阶段：冷眼原词长度已用、加长后未用则可救回", () => {
+  const soft = evaluateBossSoftWordViolationWithPostSubmitLength({
+    slug: "the_eye",
+    baseWordLen: 4,
+    finalWordLen: 5,
+    resolvedWord: "cats",
+    getWordDefinition: () => null,
+    usedLengthsThisLevel: new Set([4]),
+    mouthLockedLength: null,
+    clubRequiredKey: null,
+  });
+  assert.equal(soft.violated, false);
+});
+
+test("报纸两阶段：冷眼原词未用过则加长占用已用长度也不推翻", () => {
+  const soft = evaluateBossSoftWordViolationWithPostSubmitLength({
+    slug: "the_eye",
+    baseWordLen: 4,
+    finalWordLen: 5,
+    resolvedWord: "cats",
+    getWordDefinition: () => null,
+    usedLengthsThisLevel: new Set([5]),
+    mouthLockedLength: null,
+    clubRequiredKey: null,
+  });
+  assert.equal(soft.violated, false);
 });
 
 test("bossWildcardComplianceMode: 棘梅需逐词判定", () => {

@@ -308,6 +308,7 @@ function wireGamePanelControllersEarly(d) {
       bumpBasketballWordSubmitted: d.bumpBasketballWordSubmitted,
       appendShopDeckEntries: d.appendShopDeckEntries,
       appendDeckCardSpecToInitialSnapshot: d.appendDeckCardSpecToInitialSnapshot,
+      appendDeckCardSpecToRunDeck: d.appendDeckCardSpecToRunDeck,
       removeDeckLetterInstancesByRaws: d.removeDeckLetterInstancesByRaws,
     },
     phase: {
@@ -476,6 +477,7 @@ function wireGamePanelControllersEarly(d) {
     notifyTreasureDeckCardsRemovedByRaws: treasureRun.notifyTreasureDeckCardsRemovedByRaws,
     appendShopDeckEntriesAndNotify: treasureRun.appendShopDeckEntriesAndNotify,
     appendDeckCardSpecToInitialSnapshotAndNotify: treasureRun.appendDeckCardSpecToInitialSnapshotAndNotify,
+    appendDeckCardSpecToRunDeckAndNotify: treasureRun.appendDeckCardSpecToRunDeckAndNotify,
     removeAndCompactOwnedTreasureAtIndex: treasureRun.removeAndCompactOwnedTreasureAtIndex,
     removeOwnedTreasureSlotsLeaveGapAtIndices: treasureRun.removeOwnedTreasureSlotsLeaveGapAtIndices,
     clearOwnedTreasureSlotLeaveGapAtIndex: treasureRun.clearOwnedTreasureSlotLeaveGapAtIndex,
