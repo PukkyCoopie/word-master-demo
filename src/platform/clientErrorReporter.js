@@ -55,6 +55,15 @@ function formatExtraForMessage(extra) {
   return parts.length ? ` (${parts.join(", ")})` : "";
 }
 
+/** 浏览器已知良性噪声：ResizeObserver 回调里触发布局会触发，不应上报。 */
+function isBenignBrowserNoise(message) {
+  const msg = String(message ?? "");
+  return (
+    msg.includes("ResizeObserver loop limit exceeded") ||
+    msg.includes("ResizeObserver loop completed with undelivered notifications")
+  );
+}
+
 /**
  * 原生包内将客户端错误上报 TapDB 自定义事件（需已同意隐私政策且 SDK 已初始化）。
  *
@@ -73,6 +82,8 @@ export async function reportClientError(payload) {
   const source = truncate(payload.source ?? "unknown", 64);
   const extra = payload.extra && typeof payload.extra === "object" ? payload.extra : {};
   const message = truncate(`${payload.message ?? ""}${formatExtraForMessage(extra)}`, MAX_PROP_LEN);
+  if (isBenignBrowserNoise(message) || isBenignBrowserNoise(payload.message)) return false;
+  if (/^400002:/.test(String(payload.message ?? "")) || /^400002:/.test(message)) return false;
   const stack = payload.stack ? truncate(payload.stack, MAX_PROP_LEN) : "";
   const phase = payload.phase ? truncate(payload.phase, 64) : "";
 
@@ -109,6 +120,7 @@ export function initClientErrorReporter() {
   window.__WM_CLIENT_ERROR_REPORTER__ = true;
 
   window.addEventListener("error", (event) => {
+    if (isBenignBrowserNoise(event.message)) return;
     void reportClientError({
       source: "window.error",
       message: event.message,
@@ -123,9 +135,13 @@ export function initClientErrorReporter() {
 
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event.reason;
+    const message = reason instanceof Error ? reason.message : String(reason ?? "");
+    if (isBenignBrowserNoise(message)) return;
+    /* Tap 云存档「指定存档不存在」属可恢复业务态，已在 sync 层处理，勿当客户端崩溃上报 */
+    if (/^400002:/.test(message)) return;
     void reportClientError({
       source: "unhandledrejection",
-      message: reason instanceof Error ? reason.message : String(reason ?? ""),
+      message,
       stack: reason instanceof Error ? reason.stack : undefined,
     });
   });

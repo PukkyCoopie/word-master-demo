@@ -162,6 +162,9 @@ function wireGamePanelControllersEarly(d) {
       noteRunMoneySpent: achievementBridge.noteRunMoneySpent,
       flushAchievementUnlocks: achievementBridge.flushAchievementUnlocks,
       recordPointerClientFromEvent: d.recordPointerClientFromEvent,
+      clearShopOverlayLayersSuppressed: () => {
+        d.shopOverlayLayersSuppressed.value = false;
+      },
     },
   });
 
@@ -327,6 +330,7 @@ function wireGamePanelControllersEarly(d) {
       noteCollectionTreasureSlotAccessories: achievementBridge.noteCollectionTreasureSlotAccessories,
       noteCollectionDeckEntryModifiers: achievementBridge.noteCollectionDeckEntryModifiers,
       flushDeckMultisetAchievements: achievementBridge.flushDeckMultisetAchievements,
+      noteLevelEnterForAchievements: achievementBridge.noteLevelEnterForAchievements,
     },
     scheduleRunAutoSave: d.scheduleRunAutoSave,
     triggerHaptic: d.triggerHaptic,

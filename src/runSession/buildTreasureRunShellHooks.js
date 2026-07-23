@@ -1,5 +1,6 @@
 import { handleRunEndDiscoverySelect as handleRunEndDiscoverySelectPreview } from "../game/runEndDiscoveryPreview.js";
-import { runGridTileIgniteAtCell, runGridTileMaterialChangeAtCell, resolveWordSlotShrinkPopEl } from "../game/gridTileIgniteFx.js";
+import { runGridTileIgniteAtCell, runGridTileMaterialChangeAtCell } from "../game/gridTileIgniteFx.js";
+import { resolveWordSlotShrinkPopEl } from "../game/wordSlotAnimTarget.js";
 import { findWordSlotIndexForGridCell } from "../game/fireworkIgniteTargets.js";
 import { runWordSlotCopyFxAtIndex } from "../game/wordSlotCopyFx.js";
 import { clampRemainingWordsForBossMechanics, isLengthObservatoryBoosted } from "../vouchers/voucherRuntime.js";
@@ -161,8 +162,11 @@ export function buildTreasureRunShellHooks(d) {
           if (typeof slotIx === "number" && slotIx >= 0) {
             d.setShopOverlayLayersSuppressed(true);
             await d.nextTick();
-            await d.wobbleGameTreasureSlot(slotIx);
-            d.setShopOverlayLayersSuppressed(false);
+            try {
+              await d.wobbleGameTreasureSlot(slotIx);
+            } finally {
+              d.setShopOverlayLayersSuppressed(false);
+            }
           }
           const payload = d.buildUpgradeAnimPayloadFromOffer(row);
           await d.runInRunUpgradePlaybackSteps([

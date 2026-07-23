@@ -148,11 +148,14 @@ export function useSpellCastController(options) {
 async function wobbleGameTreasureSlots(slotIndices) {
   shopOverlayLayersSuppressed.value = true;
   await nextTick();
-  for (const ix of slotIndices) {
-    if (typeof ix === "number" && ix >= 0) await fxApi.wobbleGameTreasureSlot(ix);
-    await sleep(SPELL_TREASURE_WOBBLE_GAP_MS);
+  try {
+    for (const ix of slotIndices) {
+      if (typeof ix === "number" && ix >= 0) await fxApi.wobbleGameTreasureSlot(ix);
+      await sleep(SPELL_TREASURE_WOBBLE_GAP_MS);
+    }
+  } finally {
+    shopOverlayLayersSuppressed.value = false;
   }
-  shopOverlayLayersSuppressed.value = false;
 }
 
 const SPELL_TREASURE_WOBBLE_GAP_MS = 189;
@@ -1152,8 +1155,11 @@ async function runInRunSpellGrant(spellId, { treasureSlotIndex, cdShopLeaveRepla
   ) {
     shopOverlayLayersSuppressed.value = true;
     await nextTick();
-    await fxApi.wobbleGameTreasureSlot(treasureSlotIndex);
-    shopOverlayLayersSuppressed.value = false;
+    try {
+      await fxApi.wobbleGameTreasureSlot(treasureSlotIndex);
+    } finally {
+      shopOverlayLayersSuppressed.value = false;
+    }
   }
   const pid = String(spellId ?? "");
   if (!pid) return { confirmed: false, skipped: true };

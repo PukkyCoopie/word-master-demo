@@ -11,8 +11,6 @@ import { resolveHintMaxPerLevel } from "../../game/wordHintLimits.js";
 import { getPresetHintLengthWeightShift } from "../../game/runPresetRuntime.js";
 import { createPlayfieldViewContext } from "../../components/run/playfieldViewKey.js";
 import { assemblePlayfieldViewContext } from "../viewContext/assemblePlayfieldViewContext.js";
-import { resolveWordSlotShrinkPopEl } from "../../game/gridTileIgniteFx.js";
-
 /** @typedef {import("../runSessionTypes.js").PlayfieldController} PlayfieldController */
 /** @typedef {import("../runSessionTypes.js").GridStore} GridStore */
 
@@ -271,7 +269,10 @@ function setWordSlotContentRef(index, el) {
 function getWordSlotContentElement(index) {
   const byRef = wordSlotContentRefs[index];
   if (byRef instanceof HTMLElement) return byRef;
-  return resolveWordSlotShrinkPopEl(wordSlotRefs[index] ?? null);
+  const wrap = wordSlotRefs[index];
+  if (!(wrap instanceof HTMLElement)) return null;
+  const inner = wrap.querySelector(".word-slot-content");
+  return inner instanceof HTMLElement ? inner : null;
 }
 
 /** @param {number} index */

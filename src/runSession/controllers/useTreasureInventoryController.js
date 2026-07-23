@@ -163,17 +163,20 @@ export function useTreasureInventoryController(options) {
       options.shopOverlayLayersSuppressed.value = true;
     }
     await nextTick();
-    for (let i = 0; i < cap; i += 1) {
-      const slotsLenBefore = options.ownedTreasures.value.length;
-      const r = grantRandomByRarity(null, opts);
-      if (!r.ok) break;
-      granted += 1;
-      await playTreasureGrantPopAtSlotIndex(r.slotIndex, {
-        slotsExpanded: options.ownedTreasures.value.length > slotsLenBefore,
-      });
-    }
-    if (options.shopOverlayLayersSuppressed) {
-      options.shopOverlayLayersSuppressed.value = false;
+    try {
+      for (let i = 0; i < cap; i += 1) {
+        const slotsLenBefore = options.ownedTreasures.value.length;
+        const r = grantRandomByRarity(null, opts);
+        if (!r.ok) break;
+        granted += 1;
+        await playTreasureGrantPopAtSlotIndex(r.slotIndex, {
+          slotsExpanded: options.ownedTreasures.value.length > slotsLenBefore,
+        });
+      }
+    } finally {
+      if (options.shopOverlayLayersSuppressed) {
+        options.shopOverlayLayersSuppressed.value = false;
+      }
     }
     return granted;
   }

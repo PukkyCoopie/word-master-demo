@@ -91,10 +91,17 @@ function resolveSkipSettlementIsEndlessRun(isEndlessRun) {
   return boundSkipSettlementIsEndlessRun === true;
 }
 
-/** 提交中段或关卡结束 skip 任一激活时，宝藏/计分原语应跳过 DOM 动效 */
+/**
+ * 计分/关卡结算期内：按「跳过结算动画」设置跳过宝藏 DOM 动效。
+ * 非结算交互（如寻呼机拦截释义的「不行哦」）不得因「总是跳过」被吞掉。
+ */
 export function shouldSkipSettlementTreasureFx(isEndlessRun) {
   if (submitScoringMidPhaseSkipActive || levelEndSettlementSkipActive) return true;
-  return shouldSkipSettlementAnim(resolveSkipSettlementIsEndlessRun(isEndlessRun));
+  // 仅在提交计分序列已 bind、或调用方显式传入 isEndlessRun 时，才读设置
+  if (boundSkipSettlementIsEndlessRun != null || typeof isEndlessRun === "boolean") {
+    return shouldSkipSettlementAnim(resolveSkipSettlementIsEndlessRun(isEndlessRun));
+  }
+  return false;
 }
 
 /** 提交尾段（总分后、离场前）宝藏装饰 FX 是否跳过 */

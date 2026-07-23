@@ -82,6 +82,42 @@ function pickLengthFallback(args, prop = "") {
   return [...args].sort((a, b) => score(b) - score(a))[0];
 }
 
+/**
+ * 是否更像「流体上限」（% / vw / vh / 含 % 的 calc），适合做 max-* 而非主尺寸。
+ * @param {string} a
+ */
+function isFluidCapLength(a) {
+  const s = String(a || "").toLowerCase();
+  return /%|vw|vh|dvh|svh|lvh/.test(s);
+}
+
+/**
+ * width/height: min(A,B) → 主尺寸 + max-*。
+ * 优先把定长（含 --rpx）放主尺寸、流体放 max-*，避免与同规则已有 `max-width:100%` 冲突时被盖成全宽。
+ * （`width:100%; max-width:600rpx` 再被后面的 `max-width:100%` 覆盖 → 弹窗撑满。）
+ * @param {string[]} args
+ * @returns {[string, string]}
+ */
+function orderMinSizeArgs(args) {
+  const [a, b] = args;
+  const aFluid = isFluidCapLength(a);
+  const bFluid = isFluidCapLength(b);
+  if (aFluid && !bFluid) return [b, a];
+  if (!aFluid && bFluid) return [a, b];
+  // 两边都流体或都定长：保持源码顺序
+  return [a, b];
+}
+
+/**
+ * width/height: max(A,B) → 主尺寸 + min-*。
+ * 优先把定长放主尺寸、流体放 min-*（与 min 对称）。
+ * @param {string[]} args
+ * @returns {[string, string]}
+ */
+function orderMaxSizeArgs(args) {
+  return orderMinSizeArgs(args);
+}
+
 const SIZE_PROPS = new Set(["width", "height"]);
 
 /**
@@ -114,22 +150,22 @@ export default function minMaxClampLegacy(_opts = {}) {
       }
 
       if (name === "min" && SIZE_PROPS.has(prop)) {
-        const [a, b] = args;
-        decl.cloneBefore({ prop, value: a });
+        const [base, cap] = orderMinSizeArgs(args);
+        decl.cloneBefore({ prop, value: base });
         decl.cloneBefore({
           prop: prop === "width" ? "max-width" : "max-height",
-          value: b,
+          value: cap,
         });
         decl.remove();
         return;
       }
 
       if (name === "max" && SIZE_PROPS.has(prop)) {
-        const [a, b] = args;
-        decl.cloneBefore({ prop, value: a });
+        const [base, floor] = orderMaxSizeArgs(args);
+        decl.cloneBefore({ prop, value: base });
         decl.cloneBefore({
           prop: prop === "width" ? "min-width" : "min-height",
-          value: b,
+          value: floor,
         });
         decl.remove();
         return;

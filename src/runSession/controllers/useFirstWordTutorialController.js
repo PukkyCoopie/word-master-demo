@@ -54,6 +54,7 @@ import { resetFirstWordTutorialCompleted } from "../../profile/playerProfile.js"
  * @param {FirstWordTutorialDomGetters} options.dom
  * @param {() => import('vue').ComponentPublicInstance | null | undefined} options.getLayerHost
  * @param {() => boolean} [options.getHintWordAlreadyActive]
+ * @param {() => void} [options.ensureTutorialGameLettersOnBoard] casual retryHint：进入阶段时确保棋盘为 GAME
  * @param {ReturnType<typeof useFirstWordTutorial>} [options.tutorial] 已创建的 composable（供 playfield 提前接线）
  */
 export function useFirstWordTutorialController(options) {
@@ -82,6 +83,7 @@ export function useFirstWordTutorialController(options) {
     getPlayfieldFlySnapshot,
     dom,
     getHintWordAlreadyActive,
+    ensureTutorialGameLettersOnBoard,
     tutorial: tutorialOverride,
   } = options;
 
@@ -226,8 +228,7 @@ export function useFirstWordTutorialController(options) {
     }
     if (p === "retry") {
       if (scoringAnimating.value || gridRefillAnimating.value) {
-        holes.value = [];
-        arrowTarget.value = null;
+        // 与 retryHint 一致：动画中保留已有镂空，避免闪没
         return;
       }
       const submitReady = retrySubmitReady.value;
@@ -254,8 +255,7 @@ export function useFirstWordTutorialController(options) {
     }
     if (p === "retryHint") {
       if (scoringAnimating.value || gridRefillAnimating.value) {
-        holes.value = [];
-        arrowTarget.value = null;
+        // 勿清空已有镂空，否则会出现「闪一帧再缩回」
         return;
       }
       const hintActive = getHintWordAlreadyActive?.() === true;
@@ -358,7 +358,17 @@ export function useFirstWordTutorialController(options) {
       return;
     }
     tutorial.onScoreIntroContinue();
-    scheduleSpotlightUpdate();
+    if (phase.value === "retryHint") {
+      ensureTutorialGameLettersOnBoard?.();
+    }
+    // 提示钮 v-if 挂载后再量镂空；多帧兜底避免 ref/布局未就绪
+    void nextTick().then(() => {
+      scheduleSpotlightUpdate();
+      requestAnimationFrame(() => {
+        scheduleSpotlightUpdate();
+        requestAnimationFrame(() => scheduleSpotlightUpdate());
+      });
+    });
   }
 
   function maybeEndShopTutorialOnOfferOpen(treasure) {
@@ -462,6 +472,21 @@ export function useFirstWordTutorialController(options) {
     },
   );
 
+  // 必须等计分/补牌动画真正结束后再进 scoreIntro。
+  // 若在 onFirstWordSubmitted（phase=scoring）时 scoringAnimating 尚未置 true，
+  // 旧逻辑会立刻误判为 settled → 补牌时 phase 已是 scoreIntro，GAME 落字与镂空都会乱。
+  watch(
+    () => [scoringAnimating.value, gridRefillAnimating.value],
+    ([scoring, refill], prev) => {
+      if (phase.value !== "scoring") return;
+      const wasBusy = Array.isArray(prev) && (prev[0] === true || prev[1] === true);
+      const busy = scoring === true || refill === true;
+      if (!wasBusy || busy) return;
+      tutorial.onFirstWordScoringSettled();
+      scheduleSpotlightUpdate();
+    },
+  );
+
   watch(
     () => [
       layerOpen.value,
@@ -475,9 +500,6 @@ export function useFirstWordTutorialController(options) {
       canSubmit.value,
     ],
     () => {
-      if (phase.value === "scoring" && !scoringAnimating.value && !gridRefillAnimating.value) {
-        tutorial.onFirstWordScoringSettled();
-      }
       if (layerOpen.value) scheduleSpotlightUpdate();
     },
     { flush: "post" },

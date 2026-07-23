@@ -125,30 +125,7 @@ async function performUpload() {
     const bundle = exportCloudSaveBundle(activeAccount.unionId);
     const metadata = buildArchiveMetadata(bundle);
     const dataJson = JSON.stringify(bundle);
-    const meta = loadCloudSaveMeta();
-    let archive;
-    if (meta.archiveUuid) {
-      archive = await cloudSaveUpdateArchive({
-        archiveUuid: meta.archiveUuid,
-        ...metadata,
-        dataJson,
-      });
-    } else {
-      const archives = await cloudSaveGetArchiveList();
-      const existing = archives.find((item) => item.name === CLOUD_ARCHIVE_NAME);
-      if (existing) {
-        archive = await cloudSaveUpdateArchive({
-          archiveUuid: existing.uuid,
-          ...metadata,
-          dataJson,
-        });
-      } else {
-        archive = await cloudSaveCreateArchive({
-          ...metadata,
-          dataJson,
-        });
-      }
-    }
+    const archive = await uploadBundleWithArchiveRecovery(metadata, dataJson);
     persistCloudSaveMeta({
       archiveUuid: archive.uuid,
       archiveFileId: archive.fileId,
@@ -177,15 +154,70 @@ async function performUpload() {
 }
 
 /**
+ * 优先用本地缓存的 archiveUuid 更新；若云端已不存在（400002）则清元数据并按列表重建。
+ * @param {ReturnType<typeof buildArchiveMetadata>} metadata
+ * @param {string} dataJson
+ */
+async function uploadBundleWithArchiveRecovery(metadata, dataJson) {
+  const meta = loadCloudSaveMeta();
+  if (meta.archiveUuid) {
+    try {
+      return await cloudSaveUpdateArchive({
+        archiveUuid: meta.archiveUuid,
+        ...metadata,
+        dataJson,
+      });
+    } catch (err) {
+      if (parseCloudSaveErrorCode(err) !== 400002) throw err;
+      persistCloudSaveMeta({
+        archiveUuid: null,
+        archiveFileId: null,
+      });
+    }
+  }
+  return createOrUpdateArchiveByName(metadata, dataJson);
+}
+
+/**
+ * @param {ReturnType<typeof buildArchiveMetadata>} metadata
+ * @param {string} dataJson
+ */
+async function createOrUpdateArchiveByName(metadata, dataJson) {
+  const archives = await cloudSaveGetArchiveList();
+  const existing = archives.find((item) => item.name === CLOUD_ARCHIVE_NAME);
+  if (existing) {
+    try {
+      return await cloudSaveUpdateArchive({
+        archiveUuid: existing.uuid,
+        ...metadata,
+        dataJson,
+      });
+    } catch (err) {
+      if (parseCloudSaveErrorCode(err) !== 400002) throw err;
+    }
+  }
+  return cloudSaveCreateArchive({
+    ...metadata,
+    dataJson,
+  });
+}
+
+/**
  * @param {import('./cloudSaveConstants.js').CloudSaveArchiveInfo} archive
  */
 async function downloadCloudBundle(archive) {
-  const rawJson = await cloudSaveDownloadBundleJson(archive.uuid, archive.fileId);
-  if (!rawJson.trim()) return null;
   try {
-    return normalizeCloudSaveBundle(JSON.parse(rawJson));
-  } catch {
-    return null;
+    const rawJson = await cloudSaveDownloadBundleJson(archive.uuid, archive.fileId);
+    if (!rawJson.trim()) return null;
+    try {
+      return normalizeCloudSaveBundle(JSON.parse(rawJson));
+    } catch {
+      return null;
+    }
+  } catch (err) {
+    /* 400002：列表里的存档已被删或不存在，当作无云存档 */
+    if (parseCloudSaveErrorCode(err) === 400002) return null;
+    throw err;
   }
 }
 
@@ -236,7 +268,14 @@ export async function syncOnLogin(account) {
   }
 
   if (!localHas && cloudHas && cloudArchive) {
-    const cloudBundle = await downloadCloudBundle(cloudArchive);
+    let cloudBundle = null;
+    try {
+      cloudBundle = await downloadCloudBundle(cloudArchive);
+    } catch {
+      persistCloudSaveMeta({ syncState: "error" });
+      setCloudSaveSyncState("error");
+      return;
+    }
     if (cloudBundle && importCloudSaveBundle(cloudBundle)) {
       persistCloudSaveMeta({
         archiveUuid: cloudArchive.uuid,
@@ -248,6 +287,16 @@ export async function syncOnLogin(account) {
       });
       setCloudSaveSyncState("idle");
       notifyCloudSaveApplied();
+    } else if (!cloudBundle) {
+      /* 列表有条目但文件已不存在：等同无云档 */
+      markPendingTutorialAutoStart();
+      persistCloudSaveMeta({
+        archiveUuid: null,
+        archiveFileId: null,
+        lastSyncedUnionId: account.unionId,
+        syncState: "idle",
+      });
+      setCloudSaveSyncState("idle");
     }
     return;
   }
@@ -276,10 +325,22 @@ export async function syncOnLogin(account) {
   if (!cloudArchive) return;
 
   const meta = loadCloudSaveMeta();
-  const cloudBundle = await downloadCloudBundle(cloudArchive);
-  if (!cloudBundle) {
+  let cloudBundle = null;
+  try {
+    cloudBundle = await downloadCloudBundle(cloudArchive);
+  } catch {
     persistCloudSaveMeta({ syncState: "error" });
     setCloudSaveSyncState("error");
+    return;
+  }
+  if (!cloudBundle) {
+    persistCloudSaveMeta({
+      archiveUuid: null,
+      archiveFileId: null,
+      syncState: "idle",
+    });
+    dirty = true;
+    await flushCloudUpload({ force: true });
     return;
   }
 

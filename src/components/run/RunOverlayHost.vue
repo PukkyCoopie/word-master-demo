@@ -236,7 +236,7 @@ defineExpose({
     <PagerQuizLayer
       v-if="pagerQuizSessionActive"
       :session="pagerQuizSessionActive"
-      :overlay-suppressed="shopOverlayLayersSuppressed"
+      :overlay-suppressed="false"
       @resolved="lifecycle.onPagerQuizResolved($event)"
       @closed="lifecycle.onPagerQuizClosed()"
     />

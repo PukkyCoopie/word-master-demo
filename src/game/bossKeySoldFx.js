@@ -131,7 +131,11 @@ export async function runBossKeySoldEffects(deps) {
   );
   deps.touchGrid();
 
-  if (slug === "the_manacle" && deps.releaseManacleBossTopRow()) {
+  if (
+    slug === "the_manacle" &&
+    typeof deps.releaseManacleBossTopRow === "function" &&
+    deps.releaseManacleBossTopRow()
+  ) {
     const prevFlip = {
       cells: deps.snapshotGridCellsByTileId?.() ?? new Map(),
     };

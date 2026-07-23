@@ -6,7 +6,7 @@ import { normalizeSlotCareerStats } from "../save/slotCareerStats.js";
 import { createAchievementRunState } from "./achievementRunState.js";
 import { createRunMatchStats } from "../game/runMatchStats.js";
 import { getLevelIndexForId } from "./achievementCareer.js";
-import { LEVELS } from "../levelDefinitions.js";
+import { LEVELS, RUN_START_LEVEL_INDEX } from "../levelDefinitions.js";
 import { TREASURE_CATALOG } from "../treasures/treasureCatalog.js";
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
 import { COLLECTION_UPGRADE_TREASURE_IDS } from "../collection/collectionUpgradeCatalog.js";
@@ -82,11 +82,12 @@ function buildUnlockFixture(def) {
       break;
     case "run_one_word_per_level_win": {
       ctx.runWon = true;
-      const completedLevelIds = LEVELS.slice(0, 3).map((l) => l.id);
+      const completedLevelIds = LEVELS.slice(RUN_START_LEVEL_INDEX, RUN_START_LEVEL_INDEX + 3).map(
+        (l) => l.id,
+      );
       for (const levelId of completedLevelIds) {
         ctx.achievementRun.wordsPerLevelId[levelId] = 1;
       }
-      ctx.runMatchStats.wordsSubmitted = completedLevelIds.length;
       ctx.completedLevelIds = completedLevelIds;
       break;
     }

@@ -558,6 +558,7 @@ const {
   resetLevel,
   resetDeckAfterStageEnd,
   touchGrid,
+  releaseManacleBossTopRow,
   removeDeckLetterInstancesByRaws,
   shiftDeckCardsBackByUids,
   removeDeckCardsForSubmittedWord,
@@ -958,17 +959,20 @@ async function runTreasurePackOpenPrecursor(slotIndex, bundleKind = "", opts = {
   shopOverlayLayersSuppressed.value = true;
   await nextTick();
   await new Promise((r) => requestAnimationFrame(r));
-  const wobbleTl = createWobbleScoreSlotTimeline(el);
-  if (wobbleTl) {
-    wobbleTl.timeScale(sp);
-    wobbleTl.play(0);
+  try {
+    const wobbleTl = createWobbleScoreSlotTimeline(el);
+    if (wobbleTl) {
+      wobbleTl.timeScale(sp);
+      wobbleTl.play(0);
+    }
+    await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
+    const bubble = ctrlEarly.showBundlePackBubble(el, bundleKind, sp);
+    scheduleSmallPlusBubbleOutro(bubble, sp);
+    await awaitWobbleScoreSlotTimeline(wobbleTl);
+    await scoringSleep(SCORING_STEP_BEAT_MS, sp);
+  } finally {
+    shopOverlayLayersSuppressed.value = false;
   }
-  await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, sp);
-  const bubble = ctrlEarly.showBundlePackBubble(el, bundleKind, sp);
-  scheduleSmallPlusBubbleOutro(bubble, sp);
-  await awaitWobbleScoreSlotTimeline(wobbleTl);
-  await scoringSleep(SCORING_STEP_BEAT_MS, sp);
-  shopOverlayLayersSuppressed.value = false;
 }
 
 function getInRunDeckFlyTargetEl() {
@@ -1375,10 +1379,11 @@ function pickRandomInRunSpellIdForRun() {
 
 const shopInteractionsDisabled = computed(() => {
   if (shopPhase.shopUpgradeAnimating.value || packPickBusy.value) return true;
-  // 包层/盲选/测验被 suppress 隐藏时，勿仅因 session 残留而锁死整页商店
+  // 包层/盲选被 suppress 隐藏时，勿仅因 session 残留而锁死整页商店
   if (packPickSession.value && !packPickOverlaySuppressed.value) return true;
   if (bossRerollSession.value && !shopOverlayLayersSuppressed.value) return true;
-  if (ctrlEarly.pagerQuizSession.value && !shopOverlayLayersSuppressed.value) return true;
+  // 寻呼机测验是提交门闩，session 存在即不可操作（层本身不再吃 shop suppress）
+  if (ctrlEarly.pagerQuizSession.value) return true;
   return false;
 });
 
@@ -1819,8 +1824,10 @@ const { ports: gamePanelPorts } = setupGamePanelAssembly(
       reorderSelectedOrder,
       removeSelectedLetters,
       touchGrid,
+      releaseManacleBossTopRow,
       snapshotGridCellsByTileId,
       syncPlayerMarkBatchCounterFromGrid,
+      shiftDeckCardsBackByUids,
       ceruleanBellSlotIndex,
       finalizeCeruleanBellSlotIndex,
       ensureCeruleanBellMarkedOnGrid,

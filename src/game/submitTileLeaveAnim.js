@@ -24,7 +24,7 @@ import {
   ICE_MATERIAL_SHATTER_PROB_NUM,
 } from "./iceMaterialScoring.js";
 import { rollProbabilitySuccess } from "../treasures/treasureProbability.js";
-import { resolveWordSlotShrinkPopEl } from "./gridTileIgniteFx.js";
+import { resolveWordSlotShrinkPopEl } from "./wordSlotAnimTarget.js";
 
 const TOOLBOX_REMOVE_BUBBLE_HOLD_MS = 200;
 const TOOLBOX_REMOVE_SHRINK_S = 0.14;

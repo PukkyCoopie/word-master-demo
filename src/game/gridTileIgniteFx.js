@@ -13,6 +13,7 @@ function prepMaterialChangeAnimEls(els) {
 }
 
 export { findWordSlotIndexForGridCell } from "./fireworkIgniteTargets.js";
+export { resolveWordSlotShrinkPopEl } from "./wordSlotAnimTarget.js";
 
 const IGNITE_BUBBLE_Z_INDEX = 380;
 
@@ -25,11 +26,6 @@ const IGNITE_BUBBLE_Z_INDEX = 380;
  * @property {(anchor: unknown, text: string, kind: string, speed?: number, bubbleZIndex?: number) => HTMLElement | null} showScoreBubble
  * @property {(bubble: HTMLElement | null | undefined, speed?: number) => void} scheduleSmallPlusBubbleOutro
  */
-
-/** @param {HTMLElement | null | undefined} slotWrapper `.word-slot-tile` 外包层（与计分 wobble / grid `.grid-tile` 同级缩放） */
-export function resolveWordSlotShrinkPopEl(slotWrapper) {
-  return slotWrapper instanceof HTMLElement ? slotWrapper : null;
-}
 
 /** @param {GridTileIgniteFxDeps} deps @param {number} row @param {number} col @param {number} [sp=1] */
 export function showIgniteBubbleAtGridCell(deps, row, col, sp = 1) {

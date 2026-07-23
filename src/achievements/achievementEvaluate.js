@@ -69,8 +69,7 @@ function isConditionMet(career, def, ctx) {
         ctx.runWon === true &&
         !!ctx.achievementRun &&
         !!ctx.completedLevelIds?.length &&
-        !!ctx.runMatchStats &&
-        checkOneWordPerLevelWin(ctx.achievementRun, ctx.runMatchStats, ctx.completedLevelIds)
+        checkOneWordPerLevelWin(ctx.achievementRun, ctx.completedLevelIds)
       );
     case "run_no_discard_win":
       return ctx.runWon === true && (ctx.achievementRun?.discardUsesCount ?? 0) === 0;

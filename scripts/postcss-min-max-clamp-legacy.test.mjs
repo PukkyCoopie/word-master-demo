@@ -26,6 +26,20 @@ describe("postcss-min-max-clamp-legacy", () => {
     assert.equal(out.includes("height: min("), false);
   });
 
+  it("puts rpx base before fluid cap so later max-width:100% cannot wipe the cap", async () => {
+    const out = await run(`
+.run-start-dialog-card {
+  width: min(100%, calc(600 * var(--rpx)));
+  max-width: 100%;
+}
+`);
+    assert.match(out, /(?:^|[^\w-])width:\s*calc\(600 \* var\(--rpx\)\)/m);
+    assert.match(out, /max-width:\s*100%/);
+    // 展开后的主 width 应为定长，而非 100%（否则会被后面的 max-width:100% 盖成全宽）
+    assert.equal(/(?:^|[^\w-])width:\s*100%/.test(out), false);
+    assert.equal(out.includes("width: min("), false);
+  });
+
   it("keeps progressive min() on max-width with fixed fallback first", async () => {
     const out = await run(`
 .box {

@@ -133,6 +133,7 @@ function trackOwnedTreasureBarVisualDeps(runState, instances) {
  *   noteCollectionTreasureSlotAccessories: (input: object) => void,
  *   noteCollectionDeckEntryModifiers: (entry: object) => void,
  *   flushDeckMultisetAchievements: () => void,
+ *   noteLevelEnterForAchievements?: (levelId: string) => void,
  * }} collection
  * @property {() => void} scheduleRunAutoSave
  * @property {(kind: string) => void} triggerHaptic
@@ -944,6 +945,7 @@ export function useTreasureRunController(options) {
    * @param {{ skipBossRestrictionNotify?: boolean, discardPendingAfterGridSettled?: boolean }} [opts]
    */
   async function resetLevelAfterTreasurePrep(levelDef, opts = {}) {
+    collection.noteLevelEnterForAchievements?.(levelDef?.id ?? "1-1");
     hooks.clearPendingAfterGridTilesSettled?.();
     const resetOptsPreview = hooks.buildLevelResetRunOpts(levelDef);
     const incomingMechSlug = hooks.resolveBossSlugForMechanics(

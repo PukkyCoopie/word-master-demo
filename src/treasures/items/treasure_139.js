@@ -4,10 +4,7 @@ import {
   commitWildcardMorphBeforeEnhancementStrip,
   submitWordTileHasEnhancement,
 } from "../../game/treasureEnhancementStrip.js";
-import {
-  isTreasureHookContributionActive,
-  shouldTreasureRunAccumulationMutate,
-} from "../../game/treasureBlueprintMirror.js";
+import { isTreasureHookContributionActive } from "../../game/treasureBlueprintMirror.js";
 import { describe } from "../treasureDescription.js";
 import { deckCardRaw, syncTileStateToDeckCard } from "../../game/deckCardSync.js";
 import { wobbleTreasureHookContributor } from "../treasureBankHelpers.js";
@@ -79,21 +76,25 @@ export default {
   description: describe("在每个关卡的第一次拼写中，将第一个具有增强效果的字母复制并洗入你的字母库"),
 };
 
-/** @param {import('../treasureTypes.js').TreasureSubmitSuccessContext} ctx */
+/**
+ * 本关首次拼写复制：实体传真机与面具/绵羊 blueprint 各计一次（按贡献键）。
+ * 贡献键在该次提交尝试时即消耗（即使词内无增强字母），保证仅「第一次拼写」可触发。
+ * 勿用 `shouldTreasureRunAccumulationMutate`：那是银行累加闸门，会误拦蓝图复现本效果。
+ * @param {import('../treasureTypes.js').TreasureSubmitSuccessContext} ctx
+ */
 async function tryApplyFax139CopySubmit(ctx) {
   const rs = ctx.treasureRun;
   if (!rs) return false;
   const slotIndex = Math.floor(Number(ctx.hookSlotIndex) || 0);
   const source = ctx.hookSource === "blueprint" ? "blueprint" : "self";
   const ownedSlots = ctx.ownedSlotTreasureIds ?? ctx.getOwnedSlotTreasureIds?.() ?? [];
-  if (
-    !isTreasureHookContributionActive(ownedSlots, { slotIndex, treasureId: ID, source }) ||
-    !shouldTreasureRunAccumulationMutate(ownedSlots, slotIndex, ID, source)
-  ) {
+  if (!isTreasureHookContributionActive(ownedSlots, { slotIndex, treasureId: ID, source })) {
     return false;
   }
   const key = fax139ContributionKey(rs, slotIndex, source);
   if (!key || rs.level139FaxCopyContributions.has(key)) return false;
+  // 本关该贡献的「第一次拼写」机会：无论有无增强字母可复制，提交时即消耗，避免次词才复制。
+  rs.level139FaxCopyContributions.add(key);
   const tiles = ctx.submittedScoringTiles ?? [];
   let sourceIndex = -1;
   /** @type {ReturnType<typeof buildFaxAppendSpec> | null} */
@@ -117,7 +118,6 @@ async function tryApplyFax139CopySubmit(ctx) {
   if (!appendSpec || sourceIndex < 0) return false;
   const appended = ctx.appendDeckCardSpecToRunDeck?.(appendSpec);
   if (!appended) return false;
-  rs.level139FaxCopyContributions.add(key);
   if (ctx.skipSettlementFx === true) return true;
   void wobbleTreasureHookContributor(ctx, ID);
   await ctx.playWordSlotCopyFxAtIndex?.(sourceIndex);

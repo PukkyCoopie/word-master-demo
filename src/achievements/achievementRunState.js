@@ -23,6 +23,17 @@ export function createAchievementRunState() {
 }
 
 /**
+ * 进入某一关时刷新该关拼词次数（卷轴回退再进关等）：本关从 0 起计，不累加历史访问。
+ * @param {AchievementRunState} state
+ * @param {string} levelId
+ */
+export function resetAchievementRunWordsForLevel(state, levelId) {
+  const id = String(levelId ?? "").trim();
+  if (!id || !state?.wordsPerLevelId) return;
+  state.wordsPerLevelId[id] = 0;
+}
+
+/**
  * @param {AchievementRunState} state
  * @param {string} levelId
  */
@@ -33,17 +44,20 @@ export function recordAchievementRunWordSubmitted(state, levelId) {
 }
 
 /**
+ * 「一字千金」：通关路径上每个关卡成功拼写次数 ≤ 1（含 0，便于卷轴/调试跳关）。
+ * 仅依据 `wordsPerLevelId`（与 `flushSubmitAchievements` 同步），不依赖 `runMatchStats.wordsSubmitted`：
+ * 后者在 Boss 软违规等路径会多计，或与存档/记分延迟不同步时会造成误判未达成。
+ *
  * @param {AchievementRunState} state
- * @param {import('../game/runMatchStats.js').RunMatchStats} stats
  * @param {readonly string[]} completedLevelIds
  */
-export function checkOneWordPerLevelWin(state, stats, completedLevelIds) {
+export function checkOneWordPerLevelWin(state, completedLevelIds) {
+  if (!completedLevelIds?.length) return false;
   for (const levelId of completedLevelIds) {
     const count = state.wordsPerLevelId[levelId] ?? 0;
-    if (count !== 1) return false;
+    if (count > 1) return false;
   }
-  const totalWords = Math.max(0, Math.floor(Number(stats.wordsSubmitted) || 0));
-  return totalWords >= completedLevelIds.length && completedLevelIds.length > 0;
+  return true;
 }
 
 /** @param {AchievementRunState} state @param {number} amount */

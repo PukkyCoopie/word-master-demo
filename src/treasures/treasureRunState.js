@@ -76,7 +76,7 @@ export function normalizeTreasureBank(raw) {
  * @property {number} runLuckyTriggerCount 本局幸运块效果成功触发次数（宝藏 128）
  * @property {boolean} levelBossRestrictionSuppressed 本小关 Boss 限制已消除（宝藏 136 卖出）
  * @property {boolean} level137BonusApplied 本小关已消耗电池储存分（宝藏 137）
- * @property {Set<string>} level139FaxCopyContributions 传真机（139）本关已结算的 hook 贡献键（实体/绵羊蓝图各计一次）
+ * @property {Set<string>} level139FaxCopyContributions 传真机（139）本关已消耗的「首次拼写」hook 贡献键（实体/面具蓝图各计一次；无增强可复制时也记入）
  * @property {number} [ownedSlotBankRevision] 槽位 bank 就地变更计数（供宝藏栏充能/失效态 computed 追踪）
  */
 

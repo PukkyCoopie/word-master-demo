@@ -6,6 +6,7 @@ import {
   recordAchievementRunSafeBombBlast,
   recordAchievementRunVolcanoEruption,
   recordAchievementRunWordSubmitted,
+  resetAchievementRunWordsForLevel,
 } from "../achievements/achievementRunState.js";
 import { resolveMaxLengthAndRarityLevel } from "../achievements/achievementEvaluate.js";
 import {
@@ -281,11 +282,20 @@ export function useRunAchievementBridge(deps) {
     }
   }
 
+  /** 进关时刷新本关拼词次数（卷轴回退再打等不累加历史） */
+  function noteLevelEnterForAchievements(levelId) {
+    resetAchievementRunWordsForLevel(
+      achievementRunState.value,
+      levelId ?? deps.currentLevel.value?.id ?? "1-1",
+    );
+  }
+
   return {
     achievementRunState,
     flushAchievementUnlocks,
     flushDeckMultisetAchievements,
     flushSubmitAchievements,
+    noteLevelEnterForAchievements,
     noteRunMoneySpent,
     noteCollectionDiscovery,
     noteCollectionTreasureAcquired,

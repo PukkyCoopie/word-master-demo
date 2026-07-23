@@ -177,12 +177,9 @@ const entries = computed(() =>
   flex-shrink: 0;
 }
 
-.collection-achievement-cell--locked .collection-achievement-cell__content {
-  opacity: 0.55;
-}
-
+.collection-achievement-cell--locked .collection-achievement-cell__content,
 .collection-achievement-cell--preview-revealed .collection-achievement-cell__content {
-  opacity: 0.75;
+  opacity: 0.55;
 }
 
 .collection-achievement-cell__icon {
@@ -203,12 +200,10 @@ const entries = computed(() =>
   padding: calc(2 * var(--rpx)) 0;
 }
 
-.collection-achievement-cell--locked .collection-achievement-cell__icon {
-  filter: grayscale(1);
-}
-
+/* 未解锁（含 tab ≥80% 预览）保持灰阶，勿变为彩色 */
+.collection-achievement-cell--locked .collection-achievement-cell__icon,
 .collection-achievement-cell--preview-revealed .collection-achievement-cell__icon {
-  filter: none;
+  filter: grayscale(1);
 }
 
 .collection-achievement-cell__name {

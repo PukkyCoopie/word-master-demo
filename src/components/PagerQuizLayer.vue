@@ -194,7 +194,8 @@ function applyEnterInitialHide(backdrop, staggerEls) {
 
 function runEnterAnimation() {
   const backdrop = backdropRef.value;
-  if (!backdrop) return;
+  // Teleport defer 后首帧可能尚未挂上 DOM；勿停在 --boot（选项 opacity:0）导致「看不见却挡操作」死锁
+  if (!backdrop || props.overlaySuppressed) return;
 
   killEnterTweens();
   enterBoot.value = true;
@@ -224,6 +225,29 @@ function runEnterAnimation() {
     },
     0.06,
   );
+}
+
+/** @param {number} [attempt] */
+function scheduleEnterAnimation(attempt = 0) {
+  void nextTick(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (closing.value) return;
+        if (props.overlaySuppressed) return;
+        if (backdropRef.value) {
+          runEnterAnimation();
+          scheduleOptionMultilineSync();
+          return;
+        }
+        if (attempt < 8) {
+          scheduleEnterAnimation(attempt + 1);
+          return;
+        }
+        // 兜底：去掉 boot 遮罩，避免透明挡板永久卡住提交
+        enterBoot.value = false;
+      });
+    });
+  });
 }
 
 /**
@@ -385,17 +409,24 @@ function playClose(correct) {
 
 defineExpose({ playClose });
 
-onMounted(async () => {
+onMounted(() => {
   stackZ.value = bumpOverlayZ();
-  await nextTick();
-  runEnterAnimation();
-  scheduleOptionMultilineSync();
+  scheduleEnterAnimation();
 });
 
 watch(
   () => props.session.options,
   () => scheduleOptionMultilineSync(),
   { deep: true },
+);
+
+watch(
+  () => props.overlaySuppressed,
+  (suppressed, was) => {
+    if (!was || suppressed || closing.value) return;
+    enterBoot.value = true;
+    scheduleEnterAnimation();
+  },
 );
 
 onUnmounted(() => {

@@ -110,6 +110,7 @@ import { requestCloudSync } from "../../save/cloudSave/cloudSaveSync.js";
  *   noteRunMoneySpent: (amount: number) => void,
  *   flushAchievementUnlocks: () => void,
  *   recordPointerClientFromEvent: (event: Event | undefined) => void,
+ *   clearShopOverlayLayersSuppressed?: () => void,
  * }} callbacks
  */
 
@@ -391,6 +392,9 @@ export function useRunLifecycleController(options) {
     if (slotIx >= 0) {
       await dom.wobbleGameTreasureSlot(slotIx);
     }
+
+    // 测验是提交门闩：打开前解除 portal suppress，避免「抖动了但看不见题」死锁
+    callbacks.clearShopOverlayLayersSuppressed?.();
 
     return new Promise((resolve) => {
       pagerQuizPendingResolve = resolve;

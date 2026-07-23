@@ -35,8 +35,14 @@ setSubmitScoringMidPhaseSkipActive(false);
 assert.equal(isSubmitScoringMidPhaseSkipActive(), false);
 
 setTestSkipSettlementAnimModeOverride("always");
-assert.equal(shouldSkipSettlementTreasureFx(), true);
+// 非结算期：总是跳过不应吞掉局内交互 FX（如寻呼机拦截释义）
+assert.equal(shouldSkipSettlementTreasureFx(), false);
 assert.equal(shouldSkipSubmitTailTreasureFx(), true);
+setSubmitScoringMidPhaseSkipActive(true);
+assert.equal(shouldSkipSettlementTreasureFx(), true);
+setSubmitScoringMidPhaseSkipActive(false);
+assert.equal(shouldSkipSettlementTreasureFx(false), true);
+assert.equal(shouldSkipSettlementTreasureFx(true), true);
 setTestSkipSettlementAnimModeOverride(null);
 
 console.log("settlementAnimSkip.test.mjs ok");

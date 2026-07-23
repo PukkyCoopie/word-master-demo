@@ -66,16 +66,6 @@
                   />
                 </div>
 
-                <div class="settings-row settings-row--segment">
-                  <span class="settings-row-label">跳过结算动画</span>
-                  <SettingsSegmentControl
-                    :options="SKIP_SETTLEMENT_ANIM_MODE_OPTIONS"
-                    :model-value="skipSettlementAnimMode"
-                    aria-label="跳过结算动画"
-                    @update:model-value="onSkipSettlementAnimModeChange"
-                  />
-                </div>
-
                 <label
                   class="settings-row"
                   :class="{ 'settings-row--disabled': !materialAnimationSettingSupported }"
@@ -131,6 +121,16 @@
               class="settings-layer-panel"
             >
               <div class="settings-layer-list">
+                <div class="settings-row settings-row--segment">
+                  <span class="settings-row-label">跳过结算动画</span>
+                  <SettingsSegmentControl
+                    :options="SKIP_SETTLEMENT_ANIM_MODE_OPTIONS"
+                    :model-value="skipSettlementAnimMode"
+                    aria-label="跳过结算动画"
+                    @update:model-value="onSkipSettlementAnimModeChange"
+                  />
+                </div>
+
                 <label class="settings-row">
                   <span class="settings-row-label">允许拼写缩写</span>
                   <button

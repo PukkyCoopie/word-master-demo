@@ -1,4 +1,4 @@
-import { computed, nextTick, provide, ref } from "vue";
+import { computed, nextTick, provide, ref, unref } from "vue";
 import gsap from "gsap";
 import { DECK_PREVIEW_KEY } from "../components/run/deckPreviewKey.js";
 import { coerceRunSeedNumeric } from "../game/runRng.js";
@@ -14,9 +14,7 @@ import { noteTreasureRunUpgradeUsed } from "../treasures/treasureRunTracking.js"
 import { isLengthObservatoryBoosted } from "../vouchers/voucherRuntime.js";
 import { parseTranslationLines } from "../dictionary/parseTranslationLines.js";
 import { notifySubmitAfterLettersBeforePostSteps, notifyPerLetterPostScoringMaterialFx } from "../treasures/treasureRegistry.js";
-import {
-  resolveWordSlotShrinkPopEl,
-} from "../game/gridTileIgniteFx.js";
+import { resolveWordSlotShrinkPopEl } from "../game/wordSlotAnimTarget.js";
 import { animateGridTileMaterialChangeAtCell } from "../game/spellTileAppearanceAnim.js";
 import { animateTreasureFrameFly } from "../game/shopOfferFlyAnim.js";
 import { handleRunEndDiscoverySelect as handleRunEndDiscoverySelectPreview } from "../game/runEndDiscoveryPreview.js";
@@ -33,6 +31,7 @@ import { useFirstWordTutorialController } from "./controllers/useFirstWordTutori
 import { shouldApplyTutorialGameRefillAfterPlay } from "../tutorial/firstWordTutorialCasualFlow.js";
 import { applyTutorialGameLettersAfterPlaySubmit } from "../tutorial/firstWordTutorial.js";
 import { getSlotExperienceMode } from "../profile/slotExperienceMode.js";
+import { refToDom } from "./playfieldDomUtils.js";
 import { useWordSlotPresentation } from "./controllers/useWordSlotPresentation.js";
 import { usePlayfieldController } from "./controllers/usePlayfieldController.js";
 import { useGridDiscardController } from "./controllers/useGridDiscardController.js";
@@ -557,6 +556,9 @@ const firstWordTutorialCtrl = useFirstWordTutorialController({
   getShopOffers: () => shopOffers.value,
   bumpOverlayZ,
   getPlayfieldFlySnapshot: getPlayfieldFlySnapshotFromBridge,
+  ensureTutorialGameLettersOnBoard: () => {
+    applyTutorialGameLettersAfterPlaySubmit(grid.value, touchGrid, rarityLevelsByRarity.value);
+  },
   dom: {
     getPortalFrameEl: () => document.getElementById("game-view-portal-frame"),
     getDeckBtn: () => deckBtnRef.value,
@@ -565,7 +567,11 @@ const firstWordTutorialCtrl = useFirstWordTutorialController({
     getWordSlotsWrap: () => wordSlotsWrapRef.value,
     getSubmitBtn: () => submitBtnRef.value,
     getSubmitBookmark: () => submitBookmarkRef.value,
-    getHintBtn: () => hintBtnRef.value,
+    // 提示钮在教程里 v-if 晚挂载；勿用 GamePanel 缓存的 hintBtnRef（常为 null）
+    getHintBtn: () => {
+      const live = refToDom(unref(gamePanelPlayfieldRef.value?.hintBtnRef));
+      return live ?? hintBtnRef.value ?? null;
+    },
     getRunHeaderScoresRef: () => gamePanelPlayfieldRef.value?.runHeaderBarRef?.scoresHeaderRef,
     getShopTreasureOfferEl: () => shopPanelRef.value?.getFirstGuaranteedTreasureOfferEl?.(),
   },
@@ -590,14 +596,14 @@ const firstWordTutorialTreasureDetailStackZFloor = firstWordTutorialCtrl.treasur
 
 /** casual 教程：play 提交补牌后强制落下 GAME */
 function applySubmitRefillForTutorial(options = {}) {
-  applySubmitRefill(options);
-  if (
-    shouldApplyTutorialGameRefillAfterPlay(
-      firstWordTutorialPhase.value,
-      getSlotExperienceMode(props.saveSlotIndex),
-      runPresetId.value,
-    )
-  ) {
+  const wantTutorialGame = shouldApplyTutorialGameRefillAfterPlay(
+    firstWordTutorialPhase.value,
+    getSlotExperienceMode(props.saveSlotIndex),
+    runPresetId.value,
+  );
+  // 通关/出牌用尽时 skipNewFromDeck 会留下 null 格，GAME 覆写会跳过；教程第二词必须有实体格
+  applySubmitRefill(wantTutorialGame ? { ...options, skipNewFromDeck: false } : options);
+  if (wantTutorialGame) {
     applyTutorialGameLettersAfterPlaySubmit(grid.value, touchGrid, rarityLevelsByRarity.value);
   }
 }
