@@ -16,6 +16,7 @@ import BossBlindRerollLayer from "../BossBlindRerollLayer.vue";
 import PagerQuizLayer from "../PagerQuizLayer.vue";
 import DeveloperOptionsLayer from "../DeveloperOptionsLayer.vue";
 import RunGlobalOverlays from "./RunGlobalOverlays.vue";
+import { resolveRestartEffectiveSpellId } from "../../game/inRunGrantFlow.js";
 
 /** @type {import('../../runSession/runSessionTypes.js').RunSession} */
 const session = inject(RUN_SESSION_KEY);
@@ -85,7 +86,10 @@ const spellReplayTargetSpellId = computed(() => {
   if (fromOwned) return fromOwned;
   const detail = sv(treasures.treasureDetail);
   if (detail?.treasure?.offerType === "spell" && String(detail.treasure.spellId ?? "") === "restart") {
-    return sv(spell.lastReplayableSpellId);
+    return resolveRestartEffectiveSpellId(
+      sv(spell.spellCastHistory) ?? [],
+      sv(spell.lastReplayableSpellId),
+    );
   }
   return null;
 });

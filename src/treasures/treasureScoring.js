@@ -18,7 +18,7 @@ import {
   sumLetterRarityMultAddFromSlots,
   sumLetterRarityMultDeltaForLetterPart,
 } from "./treasureReplaySubmitAggregate.js";
-import { addScore, multiplyScoreRound } from "../utils/scoreInteger.js";
+import { addScore, multiplyScoreRound, normalizeScore, parseScore } from "../utils/scoreInteger.js";
 import {
   accumulateTileTreasureAccessoryPerLetter,
   buildTreasureAccessoryPostLetterStepForSlot,
@@ -277,7 +277,7 @@ function buildPostLetterTreasureSteps(
  * @param {(string | null | undefined)[]} slots
  */
 function buildFinalScoreTreasureSteps(slots, hookCtx) {
-  /** @type {{ treasureId: string, slotIndex: number, finalScoreAdd: number }[]} */
+  /** @type {{ treasureId: string, slotIndex: number, finalScoreAdd: import('../utils/scoreInteger.js').ScoreValue }[]} */
   const steps = [];
   for (const { slotIndex: si, treasureId: tid, source } of iterTreasureHookContributions(slots)) {
     const hooks = TREASURE_HOOKS_BY_ID.get(tid);
@@ -288,24 +288,23 @@ function buildFinalScoreTreasureSteps(slots, hookCtx) {
       hookSlotIndex: si,
       hookSource: source,
     });
-    const add = Math.round(Number(step?.finalScoreAdd) || 0);
-    if (add > 0) {
-      steps.push({ treasureId: tid, slotIndex: animSi, finalScoreAdd: add });
+    const addBi = parseScore(step?.finalScoreAdd);
+    if (addBi > 0n) {
+      steps.push({ treasureId: tid, slotIndex: animSi, finalScoreAdd: normalizeScore(addBi) });
     }
   }
   return steps;
 }
 
 /**
- * @param {{ finalScoreAdd?: number }[]} steps
+ * @param {{ finalScoreAdd?: import('../utils/scoreInteger.js').ScoreValue }[]} steps
  */
 function sumFinalScoreAdd(steps) {
   let s = 0n;
   for (const st of steps ?? []) {
-    const add = Math.max(0, Math.round(Number(st?.finalScoreAdd) || 0));
-    if (add > 0) s += BigInt(add);
+    s += parseScore(st?.finalScoreAdd);
   }
-  return s === 0n ? 0 : addScore(0, s);
+  return s === 0n ? 0 : normalizeScore(s);
 }
 
 /**

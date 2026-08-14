@@ -16,8 +16,8 @@ test("attachTreasurePoolDerivedStats 单次扫描牌库与已拥有槽位", () =
       { rarity: "legendary", materialId: "gold", accessoryId: "coin" },
     ],
     ownedTreasureSlots: [
-      { treasureId: "1", treasureAccessoryId: "flame" },
-      { treasureId: "2", treasureAccessoryId: "" },
+      { treasureId: "1", treasureAccessoryIds: ["flame"] },
+      { treasureId: "2", treasureAccessoryIds: [] },
     ],
     isEndlessRun: false,
     runState: {},
@@ -35,6 +35,21 @@ test("attachTreasurePoolDerivedStats 单次扫描牌库与已拥有槽位", () =
   assert.equal(snap.derivedStats, derived);
 });
 
+test("attachTreasurePoolDerivedStats：仅有 treasureAccessoryIds 时也算有配饰", () => {
+  /** @type {import('./treasureAvailability.js').TreasurePoolSnapshot} */
+  const snap = {
+    deck: [],
+    ownedTreasureSlots: [
+      { treasureId: "1", treasureAccessoryIds: ["flame"] },
+      { treasureId: "2", treasureAccessoryIds: ["wrench"] },
+    ],
+    isEndlessRun: false,
+    runState: {},
+  };
+  const derived = attachTreasurePoolDerivedStats(snap);
+  assert.equal(derived.allOwnedTreasuresHaveAccessory, true);
+});
+
 test("isTreasureUnlocked 使用 derivedStats 与逐条扫描结果一致", () => {
   /** @type {import('./treasureAvailability.js').TreasurePoolSnapshot} */
   const snap = {
@@ -43,7 +58,7 @@ test("isTreasureUnlocked 使用 derivedStats 与逐条扫描结果一致", () =>
       { rarity: "epic" },
       { rarity: "legendary" },
     ],
-    ownedTreasureSlots: [{ treasureId: "70", treasureAccessoryId: "flame" }],
+    ownedTreasureSlots: [{ treasureId: "70", treasureAccessoryIds: ["flame"] }],
     isEndlessRun: true,
     runState: { runSpellsCastCount: 5 },
   };

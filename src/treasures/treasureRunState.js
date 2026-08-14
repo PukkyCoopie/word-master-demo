@@ -1,6 +1,8 @@
 /** 整局宝藏运行时状态（计分银行、关卡内计数、解锁标志） */
 
-/** @typedef {{ multAdd: number, multMul: number, scoreAdd: number, posPackProgress?: number }} TreasureIdBank */
+import { addScore, deserializeScore } from "../utils/scoreInteger.js";
+
+/** @typedef {{ multAdd: number, multMul: number, scoreAdd: import('../utils/scoreInteger.js').ScoreValue, posPackProgress?: number }} TreasureIdBank */
 
 /** 全局 run 银行（按 treasureId）；目前仅海浪（143）等作用于全局材质池的宝藏 */
 export const GLOBAL_TREASURE_BANK_IDS = Object.freeze(new Set(["143"]));
@@ -23,7 +25,10 @@ export function normalizeTreasureBank(raw) {
   base.multAdd = Number(o.multAdd) || 0;
   const m = Number(o.multMul);
   base.multMul = m > 0 ? m : 1;
-  base.scoreAdd = Number(o.scoreAdd) || 0;
+  // 勿 Number(巨大分)：会变成 Infinity，提交计分 BigInt(Infinity) 会抛错
+  base.scoreAdd = deserializeScore(
+    /** @type {import('../utils/scoreInteger.js').ScoreValue | null | undefined} */ (o.scoreAdd),
+  );
   if (o.posPackProgress != null) {
     base.posPackProgress = Math.max(0, Math.floor(Number(o.posPackProgress) || 0));
   }

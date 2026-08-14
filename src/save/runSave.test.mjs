@@ -338,6 +338,24 @@ test("TapTap increment policy: career counters yes, all_* unlock only", () => {
   assert.equal(resolveTapTapIncrementCurrent(career, getAchievementDef("words_50")), 12);
 });
 
+test("TapTap increment current still resolves after achievement unlocked (catch-up)", () => {
+  const career = normalizeSlotCareerStats({ totalLettersDiscarded: 250 });
+  unlockAchievementId(career, "discard_200");
+  // 收藏进度在已解锁时为 null，但 TapTap 补报应仍能读到计数
+  assert.equal(getAchievementCollectionProgress(career, getAchievementDef("discard_200")), null);
+  assert.equal(resolveTapTapIncrementCurrent(career, getAchievementDef("discard_200")), 200);
+});
+
+test("career reconcile restores discard achievements from totalLettersDiscarded", () => {
+  const career = normalizeSlotCareerStats({
+    totalLettersDiscarded: 800,
+  });
+  const ids = reconcileAchievementsFromPersistedCareer(career).map((d) => d.id);
+  assert.ok(ids.includes("discard_200"));
+  assert.ok(ids.includes("discard_400"));
+  assert.ok(ids.includes("discard_800"));
+});
+
 test("wallet, interest and spend achievements hide collection progress until unlocked", () => {
   const career = normalizeSlotCareerStats({
     peakWalletAmount: 350,

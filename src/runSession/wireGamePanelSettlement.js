@@ -91,5 +91,6 @@ export function wireGamePanelSettlement(d) {
     openStageSettlement,
     onSettlementContinue,
     enterEndlessModeAfterWin: stageSettlementFlow.enterEndlessModeAfterWin,
+    buildSettlementSnapshot: buildSettlementSnapshotForFlow,
   };
 }

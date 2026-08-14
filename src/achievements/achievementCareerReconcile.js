@@ -28,6 +28,10 @@ function peakWordLengthFromCareer(career) {
  * 从已持久化的生涯字段推断可补回的成就上下文（用于历史漏记修复）。
  * 仅包含「生涯里留有痕迹、可安全推断」的条件；不含整局一次性/瞬时条件。
  *
+ * 空上下文 `{}` 即可补判：
+ * - career_words / career_tiles_used / career_tiles_discarded / career_level_reached / career_wallet_peak
+ * - discover_all_treasures / discover_all_spells / …（图鉴进度）
+ *
  * @param {import('../save/runSaveSchema.js').SlotCareerStats | Record<string, unknown>} career
  * @returns {import('./achievementEvaluate.js').AchievementEvalContext[]}
  */

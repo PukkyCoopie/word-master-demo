@@ -39,6 +39,8 @@ assert.equal(
   multiplyScoreRound("1000000000000", 1000000, 1),
   "1000000000000000000",
 );
+assert.equal(multiplyScoreRound(100, Infinity, 1), 0);
+assert.equal(multiplyScoreRound(100, 1e300, 1), 0);
 
 assert.equal(scoreGte("9007199254740992", 9007199254740991), true);
 assert.equal(scoreLt(100, 200), true);

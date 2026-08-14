@@ -21,9 +21,14 @@ import { SPELL_TAG_SPECTRAL } from "./spellTags.js";
 import {
   addTreasureAccessory,
   normalizeExclusiveTileAccessoryPair,
+  normalizeOwnedTreasureSlot,
+  readTreasureAccessoryIds,
+  TREASURE_ACCESSORY_SLOT_CAP,
   treasureHasAccessory,
   writeEntityAccessory,
+  writeTreasureAccessoryIds,
 } from "../accessories/accessoryState.js";
+import { rollProbabilitySuccess } from "../treasures/treasureProbability.js";
 import {
   buildOwnedTreasureSlot,
   computeOwnedTreasureSellRefund,
@@ -34,6 +39,8 @@ import { resolveLetterFromRaw } from "../settings/letterQ.js";
 import { allConsonantRaws, allLetterRaws, allVowelRaws } from "../game/initialDeckLetterCounts.js";
 import { pickWeightedLetterRaw } from "../shop/tilePackLetterRoll.js";
 import { WATER_MATERIAL_SCORE_BONUS } from "../game/tileMaterialApply.js";
+import { nextAlphabetLetterRaw } from "./spellLetterShift.js";
+export { nextAlphabetLetterRaw };
 const FIRE_MATERIAL_MULT_BONUS = 5;
 
 function rngU(rng) {
@@ -178,17 +185,9 @@ export function getSpellTileAppearanceTargets(effectiveSpellId, ordered, g, ROWS
     case "notification":
     case "phone":
     case "delete_back":
+    case "seedling":
       for (const p of ord) add(p.row, p.col);
       break;
-    case "seedling": {
-      const sorted = [...ord].sort((a, b) => b.row - a.row);
-      for (const p of sorted) {
-        if (p.row >= ROWS - 1) continue;
-        add(p.row, p.col);
-        add(p.row + 1, p.col);
-      }
-      break;
-    }
     case "file_copy":
       if (ord.length >= 2) {
         const dst = ord[0];
@@ -601,23 +600,34 @@ function resolveSpellTargetTile(ctx, p) {
  */
 
 /**
- * 星星法术：1/4 概率为随机已拥有宝藏装备随机配饰；否则未命中。
+ * 星星法术：1/4 概率为随机已拥有宝藏追加随机配饰；否则未命中（受彗星倍率影响）。
+ * 仅考虑未达配饰上限、且池中仍有可新装配饰的槽位；无满足目标则不生效。
  * @param {SpellRuntimeContext} ctx
  * @param {() => number} [rng]
  * @returns {{ ok: true, slotIndex: number, accessoryId: string } | { ok: false }}
  */
 export function resolveStarSpellOutcome(ctx, rng = Math.random) {
-  if (rngU(rng) >= 0.25) return { ok: false };
   const slots = ctx.ownedTreasures.value;
-  /** @type {number[]} */
-  const ixList = [];
+  const ownedIds = (slots ?? []).map((s) =>
+    s && typeof s === "object" ? /** @type {{ treasureId?: unknown }} */ (s).treasureId : null,
+  );
+  if (!rollProbabilitySuccess(1, 4, rng, ownedIds)) return { ok: false };
+
+  /** @type {{ slotIndex: number, accessoryId: string }[]} */
+  const candidates = [];
+  const pool = ALL_TREASURE_ACCESSORY_IDS;
   for (let i = 0; i < slots.length; i++) {
-    if (slots[i] != null) ixList.push(i);
+    const cur = slots[i];
+    if (!cur || typeof cur !== "object") continue;
+    const have = readTreasureAccessoryIds(cur);
+    if (have.length >= TREASURE_ACCESSORY_SLOT_CAP) continue;
+    for (const acc of pool) {
+      if (!have.includes(acc)) candidates.push({ slotIndex: i, accessoryId: acc });
+    }
   }
-  if (ixList.length === 0) return { ok: false };
-  const ix = ixList[Math.floor(rngU(rng) * ixList.length)];
-  const acc = ALL_TREASURE_ACCESSORY_IDS[Math.floor(rngU(rng) * ALL_TREASURE_ACCESSORY_IDS.length)];
-  return { ok: true, slotIndex: ix, accessoryId: acc };
+  if (!candidates.length) return { ok: false };
+  const pick = candidates[Math.floor(rngU(rng) * candidates.length)];
+  return { ok: true, slotIndex: pick.slotIndex, accessoryId: pick.accessoryId };
 }
 
 /**
@@ -631,7 +641,10 @@ export function applyStarSpellOutcome(ctx, outcome) {
   const cur = slots[ix];
   if (cur && typeof cur === "object") {
     const nextSlots = [...slots];
-    nextSlots[ix] = { ...cur, treasureAccessoryId: outcome.accessoryId };
+    const next = { .../** @type {Record<string, unknown>} */ (cur) };
+    if (!addTreasureAccessory(next, outcome.accessoryId)) return;
+    normalizeOwnedTreasureSlot(next);
+    nextSlots[ix] = next;
     ctx.ownedTreasures.value = nextSlots;
     ctx.onAccessoryAcquired?.(outcome.accessoryId);
   }
@@ -769,23 +782,14 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
       break;
     }
     case "seedling": {
-      const sorted = [...gridOrdered].sort((a, b) => b.row - a.row);
-      for (const p of sorted) {
-        if (p.row >= ROWS - 1) continue;
-        const a = g[p.row]?.[p.col];
-        const b = g[p.row + 1]?.[p.col];
-        g[p.row][p.col] = b;
-        g[p.row + 1][p.col] = a;
-      }
-      /** @type {number[]} */
-      const deckUids = [];
+      const rl = ctx.rarityLevelsByRarity.value;
       for (const p of ordered) {
-        const gp = resolveSpellTargetsToGridPositions([p], g, ROWS, COLS);
-        if (gp.length > 0) continue;
-        const uid = Math.floor(Number(p?.deckCardUid));
-        if (Number.isFinite(uid)) deckUids.push(uid);
+        const t = tileAt(p);
+        if (!t?.letter) continue;
+        const next = nextAlphabetLetterRaw(tileLetterToRaw(t));
+        if (!next) continue;
+        remapSpellTargetTileToRaw(t, next, rl);
       }
-      if (deckUids.length) ctx.shiftDeckCardsBackByUids?.(deckUids);
       break;
     }
     case "delete_back": {
@@ -1041,13 +1045,19 @@ export function applySpell(ctx, purchasedSpellId, effectiveSpellId, ordered, opt
     }
     case "dice": {
       if (opts.skipDiceInline !== true) {
+        const extraExclude = Array.isArray(opts.excludeSpellIds)
+          ? opts.excludeSpellIds.map((id) => String(id))
+          : [];
+        const exclude = new Set([...SPELL_IDS_EXCLUDED_FROM_DICE, ...extraExclude]);
         const pool = SPELL_DEFINITIONS.map((d) => d.id).filter(
           (id) =>
-            !SPELL_IDS_EXCLUDED_FROM_DICE.includes(id) &&
+            id &&
+            !exclude.has(id) &&
             !spellHasTag(getSpellDefinition(id), SPELL_TAG_SPECTRAL),
         );
         const merged = [];
         for (let k = 0; k < 2; k++) {
+          if (!pool.length) break;
           const sub = pool[Math.floor(rngU(rng) * pool.length)];
           const def = getSpellDefinition(sub);
           const n = def ? Math.max(0, def.pickCount) : 0;

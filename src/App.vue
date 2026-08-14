@@ -291,6 +291,7 @@ import { tryUnlockAchievementsInCareer } from "./achievements/achievementUnlock.
 import {
   bootstrapTapTapAchievements,
   reportTapTapAchievementUnlocks,
+  shouldReportTapTapIncrement,
   syncTapTapIncrementProgressInCareer,
 } from "./achievements/achievementTapTapSync.js";
 import AchievementToastLayer from "./components/AchievementToastLayer.vue";
@@ -493,6 +494,8 @@ provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyInde
   const careerBefore = normalizeSlotCareerStats(getSlotCareer(ix) ?? createEmptySlotCareerStats());
   /** @type {ReturnType<typeof collectFreshUnlocksFromWin> | null} */
   let freshUnlocks = null;
+  /** @type {import('./achievements/achievementTypes.js').AchievementDefinition[]} */
+  let newlyFromMerge = [];
 
   mutateSlotCareer(ix, (career) => {
     mergeRunMatchStatsIntoCareer(career, stats, outcome);
@@ -512,6 +515,9 @@ provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyInde
         freshUnlocks = fresh;
       }
     }
+    // 合并本局弃牌/用词等计数后再评估：补记局内未 flush 到的生涯成就，并给 TapTap 分步进补齐
+    newlyFromMerge = tryUnlockAchievementsInCareer(career, {});
+    syncTapTapIncrementProgressInCareer(career);
   });
 
   if (freshUnlocks) {
@@ -527,6 +533,11 @@ provide("mergeCareerOnRunEnd", ({ outcome, stats, runPresetId, runDifficultyInde
   }
   flushSaveStorageSync();
   bumpSaveUi();
+  if (newlyFromMerge.length) {
+    bumpCollectionUi();
+    // 对局结束补记：静默写入收藏（不弹 Toast，避免与局内已达成提示叠报）
+    void reportTapTapAchievementUnlocks(newlyFromMerge, getSlotCareer(ix));
+  }
 });
 
 function openSettings() {
@@ -697,6 +708,7 @@ function unlockAchievementsWithCtx(ctx) {
   let newly = [];
   mutateSlotCareer(ix, (career) => {
     newly = tryUnlockAchievementsInCareer(career, ctx);
+    // 须在 unlock 写入之后同步：已解锁但生涯计数尚未合并的分步成就会补报到阈值
     syncTapTapIncrementProgressInCareer(career);
   });
   flushSaveStorageSync();
@@ -704,22 +716,36 @@ function unlockAchievementsWithCtx(ctx) {
     bumpCollectionUi();
     achievementToastQueue.enqueue(newly);
   }
-  void reportTapTapAchievementUnlocks(newly);
+  void reportTapTapAchievementUnlocks(newly, getSlotCareer(ix));
   return newly;
 }
 
-/** 收藏入口：按生涯数据补判漏记的解锁（不重复弹 Toast）。 */
+/** 收藏入口 / 退菜单：按生涯数据补判漏记的解锁（不重复弹 Toast）。 */
 function reconcileCareerAchievementsForCollection(slotIndex) {
   /** @type {import('./achievements/achievementTypes.js').AchievementDefinition[]} */
   let repaired = [];
   mutateSlotCareer(slotIndex, (career) => {
     repaired = reconcileAchievementsFromPersistedCareer(career);
-    if (repaired.length) syncTapTapIncrementProgressInCareer(career);
+    // 无论是否新解锁，都补齐 TapTap 分步进度（历史「只 unlock 未 increment」的补偿）
+    syncTapTapIncrementProgressInCareer(career);
   });
+  flushSaveStorageSync();
   if (repaired.length) {
-    flushSaveStorageSync();
     bumpCollectionUi();
-    void reportTapTapAchievementUnlocks(repaired);
+    void reportTapTapAchievementUnlocks(repaired, getSlotCareer(slotIndex));
+  } else {
+    // 生涯已解锁但 TapTap 可能未记上：补报分步类 + all_* 收集类
+    const career = getSlotCareer(slotIndex);
+    /** @type {import('./achievements/achievementTypes.js').AchievementDefinition[]} */
+    const catchUpDefs = [];
+    for (const id of career.unlockedAchievementIds ?? []) {
+      const def = getAchievementDef(id);
+      if (!def) continue;
+      if (shouldReportTapTapIncrement(def) || String(def.id).startsWith("all_")) {
+        catchUpDefs.push(def);
+      }
+    }
+    if (catchUpDefs.length) void reportTapTapAchievementUnlocks(catchUpDefs, career);
   }
 }
 
@@ -753,7 +779,7 @@ function applyDeveloperAchievementCheatFromApp(achievementId) {
   bumpSaveUi();
   if (newly.length) {
     achievementToastQueue.enqueue(newly);
-    void reportTapTapAchievementUnlocks(newly);
+    void reportTapTapAchievementUnlocks(newly, getSlotCareer(ix));
   }
 }
 
@@ -772,8 +798,16 @@ watch(
   () => [tapTapPhase.value, account.value?.unionId, activeSaveSlotIndex.value, saveUiRefreshKey.value],
   ([phase, unionId]) => {
     if (phase !== "ready" || !unionId) return;
-    const career = normalizeSlotCareerStats(getSlotCareer(getActiveSaveSlotIndex()));
-    void bootstrapTapTapAchievements(String(unionId), career, collectAllUnlockedAchievementIds());
+    const ix = getActiveSaveSlotIndex();
+    // 在 mutate 内同步分步进度，确保 taptapReportedAchievementSteps 落盘
+    mutateSlotCareer(ix, (career) => {
+      syncTapTapIncrementProgressInCareer(career);
+    });
+    void bootstrapTapTapAchievements(
+      String(unionId),
+      getSlotCareer(ix),
+      collectAllUnlockedAchievementIds(),
+    );
   },
   { immediate: true },
 );
@@ -1371,6 +1405,8 @@ async function onGameExitToMenu() {
   transitionBusy.value = true;
   const slotIx = sessionSaveSlotIndex.value;
   reconcileCollectionDiscoveriesForSlot(slotIx);
+  // 发现写入生涯后再补判 all_treasures 等（不必等打开收藏）
+  reconcileCareerAchievementsForCollection(slotIx);
   await irisFxRef.value?.play({
     onCovered: () => {
       screen.value = "menu";

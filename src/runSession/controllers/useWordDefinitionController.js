@@ -22,6 +22,8 @@ import {
  * @param {() => Record<string, unknown>} options.ownedTreasureHookFxBridge
  * @param {(word: string) => unknown} options.getWordDefinition
  * @param {(kind: string) => void} options.triggerHaptic
+ * @param {import('vue').Ref<string | null> | import('vue').ComputedRef<string | null> | (() => string | null | undefined)} [options.getPreferredDefinitionPosKey]
+ *   棘梅 Boss 等：优先展示该词性释义（`n` | `v` | `adj`）
  */
 export function useWordDefinitionController(options) {
   const wordDefinitionLayerOpen = ref(false);
@@ -61,13 +63,22 @@ export function useWordDefinitionController(options) {
     }),
   );
 
+  function resolvePreferredDefinitionPosKey() {
+    const src = options.getPreferredDefinitionPosKey;
+    if (src == null) return null;
+    if (typeof src === "function") return src() ?? null;
+    return src.value ?? null;
+  }
+
   const wordDefinitionPreviewBundle = computed(() => {
     const word = options.resolvedWordForSubmit.value;
     if (!word) {
       return { word: "", lines: [], previewLine: "", extraCount: 0 };
     }
     const def = options.getWordDefinition(word);
-    const { lines, previewLine, extraCount } = buildWordDefinitionPreview(def);
+    const { lines, previewLine, extraCount } = buildWordDefinitionPreview(def, {
+      preferredPosKey: resolvePreferredDefinitionPosKey(),
+    });
     return { word, lines, previewLine, extraCount };
   });
 

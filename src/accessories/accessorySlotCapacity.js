@@ -57,7 +57,7 @@ function normalizeIncomingTreasureAccessoryIds(incomingAccessoryIds) {
 }
 
 /**
- * @param {readonly (null | { accessoryId?: string | null, treasureAccessoryId?: string | null })[]} ownedSlots
+ * @param {readonly (null | { treasureAccessoryIds?: unknown, treasureAccessoryId?: unknown })[]} ownedSlots
  * @param {number} [voucherExtraSlots=0]
  * @param {string | readonly string[] | null | undefined} incomingAccessoryIds
  */
@@ -73,7 +73,7 @@ export function willIncomingTreasureAccessoriesExpandSlots(
 }
 
 /**
- * @param {readonly (null | { accessoryId?: string | null, treasureAccessoryId?: string | null })[]} ownedSlots
+ * @param {readonly (null | { treasureAccessoryIds?: unknown, treasureAccessoryId?: unknown })[]} ownedSlots
  * @param {number} [voucherExtraSlots=0]
  * @param {string | null | undefined} incomingAccessoryId
  */
@@ -91,7 +91,7 @@ export function willCropAccessoryExpandSlots(ownedSlots, voucherExtraSlots, inco
 /**
  * @param {Array<object | null>} slots
  * @param {number} soldIndex
- * @param {{ accessoryId?: string | null, treasureAccessoryId?: string | null }} soldTreasure
+ * @param {{ treasureAccessoryIds?: unknown, treasureAccessoryId?: unknown } | null | undefined} soldTreasure
  */
 export function compactOwnedSlotsAfterCropSell(slots, soldIndex, soldTreasure) {
   const isCrop = readTreasureAccessoryIds(soldTreasure).includes(ACCESSORY_CROP);
@@ -157,9 +157,9 @@ export function reconcileOwnedTreasureSlotsAfterDestruction(slots, keys, voucher
 }
 
 /**
- * @param {readonly (null | { accessoryId?: string | null, treasureAccessoryId?: string | null })[]} ownedSlots
+ * @param {readonly (null | { treasureAccessoryIds?: unknown, treasureAccessoryId?: unknown })[]} ownedSlots
  * @param {number} [voucherExtraSlots=0]
- * @param {string | null | undefined} [incomingAccessoryId]
+ * @param {string | readonly string[] | null | undefined} [incomingAccessoryIds]
  */
 export function canAcquireTreasureOffer(ownedSlots, voucherExtraSlots, incomingAccessoryIds) {
   const arr = Array.isArray(ownedSlots) ? ownedSlots : [];

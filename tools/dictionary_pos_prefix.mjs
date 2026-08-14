@@ -78,6 +78,6 @@ export function materializeTranslationWithPosPrefix(translationZh, posField) {
 		return repairTranslationLinePosArtifacts(`${token}. ${String(line).trimStart()}`);
 	});
 
-	const joined = out.join("\n");
+	const joined = out.join("\\n");
 	return joined !== raw ? joined : raw;
 }

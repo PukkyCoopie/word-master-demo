@@ -746,6 +746,7 @@ function noteSpellCastForReplay(purchasedSpellId) {
   callbacks.noteCollectionDiscovery({ spellId: sid });
   if (sid === "restart" || sid === "dice") return;
   spellCastHistory.value = [...spellCastHistory.value, sid];
+  lastReplayableSpellId.value = sid;
   noteTreasureRunSpellCast(treasureRunState.value);
   treasureRunState.value.lastSpellIdBeforeShopLeave = sid;
 }
@@ -814,7 +815,7 @@ function buildSpellTargetSessionFields(
   const pickSourceId =
     pid === "restart" && replayTarget ? replayTarget : replayAs === "restart" ? pid : pid;
   let pickMode = resolveSpellPickMode(pickSourceId);
-  let pickCount = resolveSpellPickCount(sessionPurchasedId, lastReplayableSpellId.value);
+  let pickCount = resolveSpellPickCount(sessionPurchasedId, replayTarget);
   if (overrides.forcePreviewOnly === true) {
     pickMode = "preview_only";
     pickCount = 0;
@@ -872,7 +873,11 @@ async function runDiceSubSpellChain(context, offerDeckSource, overrides = {}) {
   void spellName;
   void spellIconClass;
   void spellRarity;
-  for (const subId of pickDiceChainSpellIds(runRandom)) {
+  const excludeIds =
+    typeof callbacks.getSpellPoolExcludeIdsForRandom === "function"
+      ? callbacks.getSpellPoolExcludeIdsForRandom()
+      : [];
+  for (const subId of pickDiceChainSpellIds(runRandom, excludeIds)) {
     const result = await openSpellGrantDetailPreviewThenCast(
       subId,
       subId,
@@ -880,7 +885,10 @@ async function runDiceSubSpellChain(context, offerDeckSource, overrides = {}) {
       offerDeckSource,
       diceRestOverrides,
     );
-    if (!result.confirmed) return result;
+    if (!result.confirmed) {
+      if (result.skipped) continue;
+      return result;
+    }
   }
   return { confirmed: true, skipped: false };
 }

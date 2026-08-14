@@ -6,6 +6,7 @@ import {
 } from "../../save/gamePanelSaveApi.js";
 import { createRunAutoSave } from "../../save/runAutoSave.js";
 import { flushSaveStorageSync } from "../../save/runSaveStorage.js";
+import { repairSoftLockedPlayingSave } from "../../save/repairSoftLockedPlayingSave.js";
 
 /** @typedef {import('../runSessionTypes.js').SaveBridge} SaveBridge */
 /** @typedef {import('../runSessionTypes.js').CanSaveSnapshot} CanSaveSnapshot */
@@ -198,7 +199,9 @@ export function useRunSaveBridge(options) {
 
   /** @param {import('../../save/runSavePayload.js').RunSavePayload} payload */
   function hydrateFromPayload(payload) {
-    applyGamePanelSave(payload, buildHydrateContext());
+    const repaired = repairSoftLockedPlayingSave(payload);
+    applyGamePanelSave(repaired.payload, buildHydrateContext());
+    return repaired.kind;
   }
 
   const runAutoSave = createRunAutoSave({
@@ -229,10 +232,16 @@ export function useRunSaveBridge(options) {
     flushRunSaveNow();
   }
 
-  /** 退菜单 / 切后台：写入当前局内状态并立即落盘（不依赖 pending 标记与动画空闲门禁）。 */
+  /**
+   * 退菜单 / 切后台：立即落盘。
+   * 记分/提交中途不覆盖存档——否则会写入「次数已扣、分或结算未提交」软锁态；保留上一份空闲存档。
+   */
   function flushRunSaveNow() {
     if (isAlive()) {
-      saveCurrentRun(getSaveSlotIndex(), { immediate: true });
+      const midSubmit = anim.scoringAnimating.value === true || anim.submitWordBusy.value === true;
+      if (!midSubmit) {
+        saveCurrentRun(getSaveSlotIndex(), { immediate: true });
+      }
       runAutoSave.cancelPending();
     }
     flushSaveStorageSync();

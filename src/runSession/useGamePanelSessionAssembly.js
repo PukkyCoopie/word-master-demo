@@ -12,7 +12,7 @@ import { applyWalletDeltaClamped } from "../treasures/treasureWalletFloor.js";
 import { getUpgradeTreasureIdForRarityKey } from "../collection/collectionUpgradeCatalog.js";
 import { noteTreasureRunUpgradeUsed } from "../treasures/treasureRunTracking.js";
 import { isLengthObservatoryBoosted } from "../vouchers/voucherRuntime.js";
-import { parseTranslationLines } from "../dictionary/parseTranslationLines.js";
+import { parseTranslationLinesPreferringPos } from "../dictionary/parseTranslationLines.js";
 import { notifySubmitAfterLettersBeforePostSteps, notifyPerLetterPostScoringMaterialFx } from "../treasures/treasureRegistry.js";
 import { resolveWordSlotShrinkPopEl } from "../game/wordSlotAnimTarget.js";
 import { animateGridTileMaterialChangeAtCell } from "../game/spellTileAppearanceAnim.js";
@@ -941,7 +941,8 @@ const submitController = useSubmitWordController({
     playBossTapeTriggerCue,
     notifyBossRestrictionTreasures,
     applyWalletDeltaClamped,
-    parseTranslationLines,
+    parseTranslationLines: (translationZh) =>
+      parseTranslationLinesPreferringPos(translationZh, clubRequiredKeyBoss.value),
     submitUpgradeFxRegistrarState,
     submitAccessoryUpgradeBatchState,
     runInRunUpgradeStaircasePlayback,
@@ -1169,7 +1170,8 @@ const submitController = useSubmitWordController({
     tryConsumeHintOnSuccessfulSubmit: (word) =>
       playfieldController.tryConsumeHintOnSuccessfulSubmit(word),
     notifyWordSubmitStarted: () => playfieldController.notifyWordSubmitStarted(),
-    parseTranslationLines,
+    parseTranslationLines: (translationZh) =>
+      parseTranslationLinesPreferringPos(translationZh, clubRequiredKeyBoss.value),
     setSettlementSnapshot(snapshot) {
       settlementSnapshot.value = snapshot;
     },
@@ -1400,6 +1402,10 @@ const spellCastController = useSpellCastController({
     buildTileDetailPayloadFromDeckCard,
     showToast,
     scheduleRunAutoSave,
+    getSpellPoolExcludeIdsForRandom: () => [
+      ...shopPhase.spellPoolExcludeIdsWhenBonusVoucherActive(),
+      ...buildSpellPoolExcludeIds(shopPhase.buildSpellPoolEligibilityCountsForRun()),
+    ],
   },
   sleep,
 });

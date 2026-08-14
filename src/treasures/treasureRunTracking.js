@@ -1,3 +1,4 @@
+import { readTreasureAccessoryIds } from "../accessories/accessoryState.js";
 import { dictionaryPosMatchesTreasureLevelKey } from "../game/wordPosMatch.js";
 import { isVowelLetterWithMask } from "./treasureLetterClassify.js";
 import { normalizeLetterChar } from "./treasureLifecycleShared.js";
@@ -82,25 +83,20 @@ export function checkLevelLegendaryDeckExhaustedUnlock(rs, deck) {
 }
 
 /**
- * @param {readonly (null | { treasureAccessoryId?: string | null, treasureAccessoryIds?: unknown })[]} ownedSlots
+ * @param {readonly (null | { treasureAccessoryIds?: unknown, treasureAccessoryId?: unknown })[]} ownedSlots
  */
 export function countOwnedTreasuresWithAccessory(ownedSlots) {
   let n = 0;
   for (const s of ownedSlots ?? []) {
     if (!s) continue;
-    const ids = Array.isArray(s.treasureAccessoryIds)
-      ? s.treasureAccessoryIds.map((x) => String(x ?? "").trim()).filter(Boolean)
-      : s.treasureAccessoryId != null && String(s.treasureAccessoryId).trim()
-        ? [String(s.treasureAccessoryId).trim()]
-        : [];
-    if (ids.length > 0) n += 1;
+    if (readTreasureAccessoryIds(s).length > 0) n += 1;
   }
   return n;
 }
 
 /**
  * @param {import('./treasureRunState.js').TreasureRunState} rs
- * @param {readonly (null | { treasureAccessoryId?: string | null, treasureAccessoryIds?: unknown })[]} ownedSlots
+ * @param {readonly (null | { treasureAccessoryIds?: unknown, treasureAccessoryId?: unknown })[]} ownedSlots
  */
 export function noteEverTwoTreasuresWithAccessoryUnlocked(rs, ownedSlots) {
   if (!rs || rs.everTwoTreasuresWithAccessoryUnlocked) return;
@@ -210,10 +206,10 @@ export function recordTreasureRunDeckCardsAdded(rs, cards) {
 }
 
 /**
- * @param {readonly (null | { treasureAccessoryId?: string | null })[]} ownedSlots
+ * @param {readonly (null | { treasureAccessoryIds?: unknown, treasureAccessoryId?: unknown })[]} ownedSlots
  */
 export function checkAllOwnedTreasuresHaveAccessory(ownedSlots) {
   const filled = (ownedSlots ?? []).filter(Boolean);
   if (!filled.length) return false;
-  return filled.every((s) => String(s?.treasureAccessoryId ?? "").trim() !== "");
+  return filled.every((s) => readTreasureAccessoryIds(s).length > 0);
 }

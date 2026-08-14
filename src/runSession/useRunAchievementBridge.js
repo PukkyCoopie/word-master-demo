@@ -250,7 +250,7 @@ export function useRunAchievementBridge(deps) {
     if (entry.treasureAccessoryId) noteCollectionAccessoryAcquired(entry.treasureAccessoryId);
   }
 
-  /** @param {{ treasureAccessoryId?: string | null, treasureAccessoryIds?: string[] } | null | undefined} input */
+  /** @param {{ treasureAccessoryIds?: unknown, treasureAccessoryId?: unknown } | null | undefined} input */
   function noteCollectionTreasureSlotAccessories(input) {
     for (const id of readTreasureAccessoryIds(input ?? {})) {
       noteCollectionAccessoryAcquired(id);

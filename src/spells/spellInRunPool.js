@@ -34,11 +34,16 @@ export function pickRandomInRunSpellIds(rng, count, excludeIds = IN_RUN_RANDOM_S
   return out;
 }
 
-/** 骰子链式预览用池（与旧 applySpell 内 dice 一致：另排除 spectrals） */
-export function pickDiceChainSpellIds(rng) {
+/** 骰子链式预览用池（与旧 applySpell 内 dice 一致：另排除 spectrals；可叠加 eligibility 排除如促销） */
+export function pickDiceChainSpellIds(rng, excludeIds = []) {
+  const exclude = new Set([
+    ...SPELL_IDS_EXCLUDED_FROM_DICE,
+    ...(Array.isArray(excludeIds) ? excludeIds : []).map((id) => String(id)),
+  ]);
   const pool = SPELL_DEFINITIONS.map((d) => d.id).filter(
     (id) =>
-      !SPELL_IDS_EXCLUDED_FROM_DICE.includes(id) &&
+      id &&
+      !exclude.has(id) &&
       !spellHasTag(getSpellDefinition(id), SPELL_TAG_SPECTRAL),
   );
   if (!pool.length) return [];

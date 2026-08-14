@@ -83,6 +83,25 @@ test("电池 onLevelComplete：有超额时 wobble 并写入槽位银行", async
   assert.equal(getScoreAddBank(rs, "137", ctx), 5);
 });
 
+test("电池 onLevelComplete：天文超额存为字符串，不会写成 Infinity", async () => {
+  const rs = createTreasureRunState();
+  const ctx = makeBatteryCtx(rs);
+  const huge = `1${"0".repeat(400)}`;
+  await treasureHooks.onLevelComplete?.({
+    ...ctx,
+    targetScore: 100,
+    currentScore: huge,
+    wobbleOwnedTreasureById: async () => {},
+  });
+  const stored = getScoreAddBank(rs, "137", ctx);
+  assert.equal(typeof stored, "string");
+  assert.equal(Number.isFinite(Number(stored)), false);
+  assert.notEqual(stored, Infinity);
+  const step = treasureHooks.buildFinalScoreStep?.({ ...ctx, treasureRun: rs });
+  assert.ok(step?.finalScoreAdd);
+  assert.notEqual(step.finalScoreAdd, Infinity);
+});
+
 test("电池简介文案", () => {
   assert.equal(
     treasureDef.description.some((s) => s?.type === "text" && s.v.includes("超过部分的一半")),

@@ -370,10 +370,14 @@ export function useSubmitWordController(options) {
           materialScoreBonus: 0,
           letterMultBonus: 0,
         }));
+        // 须同时清 formulaFinalScore / multTotal：计分动画优先读 formulaFinalScore 揭示总分，
+        // 若只清 finalScore/scoreSum，会把违规前算好的非零分显示在公式区。
         detailed = {
           ...detailed,
           letterParts: lp,
           scoreSum: 0,
+          multTotal: 0,
+          formulaFinalScore: 0,
           finalScore: 0,
           postLetterTreasureSteps: [],
           finalScoreTreasureSteps: [],

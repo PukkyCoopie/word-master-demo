@@ -6,6 +6,7 @@ import { getSpellDefinition, getSpellShopPrice } from "../spells/spellDefinition
 import { isSpellEligibleForPools } from "../spells/spellPoolEligibility.js";
 import { LETTER_RARITY_ORDER, getRarityForLetter } from "../composables/useScoring.js";
 import { getShopTreasureAccessoryPriceAddFromIds, isTreasureShopGainAccessoryId, rollShopTreasureAccessoryId, rollShopTreasureGainAccessoryId } from "../accessories/accessoryResolve.js";
+import { writeTreasureAccessoryIds } from "../accessories/accessoryState.js";
 import { rollDifficultyNegativeTreasureAccessoryIds, treasureOfferHasRentalAccessory } from "../game/runDifficultyRuntime.js";
 import {
   SHOP_SINGLE_ROW_PRICES,
@@ -179,8 +180,8 @@ export function buildTreasureShopRowFromDef(
   }
   let price = def.price + getShopTreasureAccessoryPriceAddFromIds(uniqueIds);
   if (treasureOfferHasRentalAccessory(uniqueIds)) price = RENTAL_TREASURE_LIST_PRICE;
-  const legacyId = uniqueIds[0] ?? null;
-  return {
+  /** @type {Record<string, unknown>} */
+  const row = {
     kind: "offer",
     offerInstanceId: nextOfferInstanceId(),
     offerType: "treasure",
@@ -190,9 +191,9 @@ export function buildTreasureShopRowFromDef(
     name: def.name,
     emoji: def.emoji,
     description: def.description,
-    treasureAccessoryIds: uniqueIds,
-    treasureAccessoryId: legacyId,
   };
+  writeTreasureAccessoryIds(row, uniqueIds);
+  return row;
 }
 
 /**

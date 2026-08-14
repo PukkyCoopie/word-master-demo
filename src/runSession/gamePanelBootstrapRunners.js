@@ -13,7 +13,7 @@ import { resolveSavedIsEndlessRun } from "../save/runSaveEndless.js";
  */
 export async function startGamePanelFromRestoredSave(deps, restored) {
   deps.setSuppressShopEnterVisitInit(normalizeRunSavePhase(restored.phase) === "shop");
-  await deps.hydrateFromPayload(restored);
+  const softLockKind = deps.hydrateFromPayload(restored);
   deps.syncOwnedTreasureSlots?.();
   deps.syncShopUpgradesFreeFromOwnedTreasures();
   deps.syncPlayerMarkBatchCounterFromGrid();
@@ -44,7 +44,17 @@ export async function startGamePanelFromRestoredSave(deps, restored) {
     ).id;
     deps.syncEndlessLeaderboardChapterBaseline?.(levelId);
   }
-  deps.scheduleRunAutoSave();
+  if (softLockKind === "restore_submit_chance") {
+    deps.scheduleRunAutoSave();
+    deps.flushRunSaveNow?.();
+  } else if (softLockKind === "open_stage_settlement") {
+    await deps.openStageSettlement?.();
+  } else if (softLockKind === "open_run_end_win") {
+    deps.setSettlementSnapshot?.(deps.buildSettlementSnapshot?.());
+    await deps.openRunEnd?.("win", { preserveSettlement: true });
+  } else {
+    deps.scheduleRunAutoSave();
+  }
   deps.flushAchievementUnlocks();
 }
 

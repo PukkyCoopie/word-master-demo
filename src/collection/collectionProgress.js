@@ -75,16 +75,23 @@ export function getCollectionTabProgress(career, tabId) {
   if (!COLLECTION_UNLOCK_TAB_IDS.has(tabId)) return null;
 
   switch (tabId) {
-    case "treasures":
-      return {
-        unlocked: normalizeIdSet(career?.discoveredTreasureIds).size,
-        total: TREASURE_TOTAL,
-      };
-    case "spells":
-      return {
-        unlocked: normalizeIdSet(career?.discoveredSpellIds).size,
-        total: SPELL_TOTAL,
-      };
+    case "treasures": {
+      const discovered = normalizeIdSet(career?.discoveredTreasureIds);
+      let unlocked = 0;
+      for (const t of TREASURE_CATALOG) {
+        if (discovered.has(t.treasureId)) unlocked += 1;
+      }
+      return { unlocked, total: TREASURE_TOTAL };
+    }
+    case "spells": {
+      const discovered = normalizeIdSet(career?.discoveredSpellIds);
+      let unlocked = 0;
+      for (const s of SPELL_DEFINITIONS) {
+        const id = String(s?.id ?? "").trim();
+        if (id && discovered.has(id)) unlocked += 1;
+      }
+      return { unlocked, total: SPELL_TOTAL };
+    }
     case "upgrades": {
       const discovered = normalizeIdSet(career?.discoveredUpgradeIds);
       let unlocked = 0;

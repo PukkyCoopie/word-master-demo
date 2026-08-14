@@ -2279,6 +2279,7 @@ const {
   openStageSettlement,
   onSettlementContinue,
   enterEndlessModeAfterWin: enterStageSettlementEndlessFlow,
+  buildSettlementSnapshot: buildSettlementSnapshotForBootstrap,
 } = wireGamePanelSettlement({
   runSaveBridge,
   money,
@@ -2450,6 +2451,12 @@ function buildGamePanelBootstrapSource() {
     getShowShop: () => showShop.value,
     scheduleRunAutoSave,
     flushAchievementUnlocks,
+    openStageSettlement,
+    openRunEnd,
+    setSettlementSnapshot: (snap) => {
+      ctrlEarly.settlementSnapshot.value = snap ?? null;
+    },
+    buildSettlementSnapshot: buildSettlementSnapshotForBootstrap,
     setRunPresetId: (v) => {
       runPresetId.value = v;
     },

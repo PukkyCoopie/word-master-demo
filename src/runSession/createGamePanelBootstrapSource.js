@@ -28,7 +28,14 @@ export function createGamePanelBootstrapSource(d) {
     refreshShopVoucherShelfForCurrentVisit: d.shopPhase.refreshShopVoucherShelfForCurrentVisit,
     applyShopVisitStockRoll: d.shopPhase.applyShopVisitStockRoll,
     scheduleRunAutoSave: d.scheduleRunAutoSave,
+    flushRunSaveNow: () => d.runSaveBridge.flushRunSaveNow?.(),
     flushAchievementUnlocks: d.flushAchievementUnlocks,
+    openStageSettlement: (...args) => d.openStageSettlement?.(...args),
+    openRunEnd: (...args) => d.openRunEnd?.(...args),
+    setSettlementSnapshot: (snap) => {
+      if (typeof d.setSettlementSnapshot === "function") d.setSettlementSnapshot(snap);
+    },
+    buildSettlementSnapshot: () => d.buildSettlementSnapshot?.(),
     setRunPresetId: d.setRunPresetId,
     getRunPresetIdProp: d.getRunPresetIdProp,
     setRunDifficultyIndex: d.setRunDifficultyIndex,

@@ -23,6 +23,7 @@ import {
   getShopTreasureAccessoryPriceAdd,
   rollShopTreasureAccessoryId,
 } from "../../treasures/shopTreasureAccessoryRoll.js";
+import { writeTreasureAccessoryIds } from "../../accessories/accessoryState.js";
 import { rollPackOfferStock } from "../../shop/rollPackStock.js";
 import {
   getShopRandomCardSlotCount,
@@ -36,7 +37,7 @@ import {
   resolveVoucherShelfClearTarget,
   shouldClearVoucherShelfSlot,
 } from "../../vouchers/shopVoucherShelfPurchase.js";
-import { rollShopVoucherOfferDef } from "../../vouchers/voucherRegistry.js";
+import { rollShopVoucherOfferDef, listPurchasableVoucherDefs } from "../../vouchers/voucherRegistry.js";
 import {
   buildSpellPoolEligibilityCounts,
   buildSpellPoolExcludeIds,
@@ -275,6 +276,25 @@ export function useShopPhaseController(options) {
     return expandShopTreasurePoolForRun(base, ownedSlotTreasureIdList(), snap);
   }
 
+  function spellBonusVoucherRollExcludeIds() {
+    const shelf = shopVoucherShelf.value;
+    if (shelf?.kind === "offer" && shelf.voucherId) {
+      return [String(shelf.voucherId)];
+    }
+    return [];
+  }
+
+  /** @param {import('../../spells/spellPoolEligibility.js').SpellPoolEligibilityCounts} counts */
+  function withGrantableVoucherCount(counts) {
+    return {
+      ...counts,
+      grantableVoucherCount: listPurchasableVoucherDefs(
+        ownedVoucherIds.value,
+        spellBonusVoucherRollExcludeIds(),
+      ).length,
+    };
+  }
+
   function beginShopRollScratch() {
     const snap = buildTreasurePoolSnapshotForRoll();
     let ownedFilled = 0;
@@ -286,12 +306,14 @@ export function useShopPhaseController(options) {
     shopRollScratch = {
       snap,
       pool: resolveShopTreasurePoolFromSnap(snap),
-      eligibility: buildSpellPoolEligibilityCounts(
-        IMPLEMENTED_TREASURE_GRANT_DEFS,
-        snap,
-        ownedTreasureIdSet.value,
-        ownedFilled,
-        emptySlots,
+      eligibility: withGrantableVoucherCount(
+        buildSpellPoolEligibilityCounts(
+          IMPLEMENTED_TREASURE_GRANT_DEFS,
+          snap,
+          ownedTreasureIdSet.value,
+          ownedFilled,
+          emptySlots,
+        ),
       ),
     };
     return shopRollScratch;
@@ -402,12 +424,14 @@ export function useShopPhaseController(options) {
       if (slot == null) emptySlots += 1;
       else ownedFilled += 1;
     }
-    return buildSpellPoolEligibilityCounts(
-      IMPLEMENTED_TREASURE_GRANT_DEFS,
-      poolSnap,
-      ownedTreasureIdSet.value,
-      ownedFilled,
-      emptySlots,
+    return withGrantableVoucherCount(
+      buildSpellPoolEligibilityCounts(
+        IMPLEMENTED_TREASURE_GRANT_DEFS,
+        poolSnap,
+        ownedTreasureIdSet.value,
+        ownedFilled,
+        emptySlots,
+      ),
     );
   }
 
@@ -421,14 +445,6 @@ export function useShopPhaseController(options) {
 
   function isCouponDropSpellBlockedByBonusVoucher(spellId) {
     return String(spellId ?? "") === "coupon_drop" && hasSpellBonusShopVoucher();
-  }
-
-  function spellBonusVoucherRollExcludeIds() {
-    const shelf = shopVoucherShelf.value;
-    if (shelf?.kind === "offer" && shelf.voucherId) {
-      return [String(shelf.voucherId)];
-    }
-    return [];
   }
 
   /** @returns {{ ok: boolean }} */
@@ -486,8 +502,10 @@ export function useShopPhaseController(options) {
     const hone = getShopAccessoryChanceMultiplier(ownedVoucherIds.value);
     return defs.map((def) => {
       const treasureAccessoryId = rollShopTreasureAccessoryId(rng, hone);
+      const ids = treasureAccessoryId ? [treasureAccessoryId] : [];
       const priceAdd = getShopTreasureAccessoryPriceAdd(treasureAccessoryId);
-      return {
+      /** @type {Record<string, unknown>} */
+      const row = {
         kind: "offer",
         offerInstanceId: nextOfferInstanceId.value++,
         offerType: "treasure",
@@ -497,8 +515,9 @@ export function useShopPhaseController(options) {
         name: def.name,
         emoji: def.emoji,
         description: def.description,
-        treasureAccessoryId: treasureAccessoryId ?? null,
       };
+      writeTreasureAccessoryIds(row, ids);
+      return row;
     });
   }
 

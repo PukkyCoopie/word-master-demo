@@ -1258,7 +1258,8 @@ const isCollectionLockedTreasurePreview = computed(
 );
 
 const collectionIntroducedVersion = computed(() => {
-  if (!isCollectionPreviewMode.value || isDeckOffer.value) return null;
+  // 收藏详情：仅真实宝藏显示引入版本；法术/升级/券等合成 treasureId 不展示
+  if (!isCollectionTreasurePreview.value) return null;
   const tid = String(props.treasure?.treasureId ?? "").trim();
   if (!tid) return null;
   return resolveTreasureIntroducedVersion(tid);

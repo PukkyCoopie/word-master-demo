@@ -1,69 +1,20 @@
-import fs from "node:fs";
-import readline from "node:readline";
-
 /**
  * Merge supplemental word rows into word_filtered.csv.
  * Skips words already present (case-insensitive). Supplement rows must have word,pos,translation.
+ *
+ * Note: corrections to existing words go through dict_overrides.generated.csv
+ * (see apply_dict_overrides.mjs), not this append-only merge.
  */
 
+import fs from "node:fs";
+import readline from "node:readline";
 import { materializeTranslationWithPosPrefix } from "./dictionary_pos_prefix.mjs";
+import { csvEscape, csvReadyTranslation, isPureWord, parseCsvLine } from "./dictionary_csv_utils.mjs";
 
 const PROJECT = new URL("../", import.meta.url);
 const FILTERED = new URL("data/dictionary/word_filtered.csv", PROJECT);
 const SUPPLEMENT = new URL("data/dictionary/supplement_words.csv", PROJECT);
 const EXTRA = new URL("data/dictionary/supplement_words_generated.csv", PROJECT);
-
-function parseCsvLine(line) {
-	const out = [];
-	let i = 0;
-	let field = "";
-	let inQuotes = false;
-	while (i < line.length) {
-		const ch = line[i];
-		if (inQuotes) {
-			if (ch === '"') {
-				const next = line[i + 1];
-				if (next === '"') {
-					field += '"';
-					i += 2;
-					continue;
-				}
-				inQuotes = false;
-				i += 1;
-				continue;
-			}
-			field += ch;
-			i += 1;
-			continue;
-		}
-		if (ch === ",") {
-			out.push(field);
-			field = "";
-			i += 1;
-			continue;
-		}
-		if (ch === '"') {
-			inQuotes = true;
-			i += 1;
-			continue;
-		}
-		field += ch;
-		i += 1;
-	}
-	out.push(field);
-	return out;
-}
-
-function csvEscape(s) {
-	if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
-		return `"${s.replace(/"/g, '""')}"`;
-	}
-	return s;
-}
-
-function isPureWord(w) {
-	return /^[a-z]{3,32}$/.test(w);
-}
 
 async function loadExistingWords(path) {
 	const set = new Set();
@@ -145,7 +96,9 @@ async function main() {
 	toAppend.sort((a, b) => a[0].localeCompare(b[0]));
 	const out = fs.createWriteStream(FILTERED, { flags: "a", encoding: "utf8" });
 	for (const [word, pos, translation] of toAppend) {
-		const translationOut = materializeTranslationWithPosPrefix(translation, pos);
+		const translationOut = csvReadyTranslation(
+			materializeTranslationWithPosPrefix(translation, pos),
+		);
 		out.write(`${word},${csvEscape(pos)},${csvEscape(translationOut)}\n`);
 	}
 	await new Promise((resolve) => out.end(resolve));

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import readline from "node:readline";
 import { materializeTranslationWithPosPrefix } from "./dictionary_pos_prefix.mjs";
+import { csvEscape, csvReadyTranslation, parseCsvLine } from "./dictionary_csv_utils.mjs";
 
 /**
  * 在现有 word_filtered.csv 上就地补释义行首词性前缀（不重建 word.csv）。
@@ -10,56 +11,6 @@ import { materializeTranslationWithPosPrefix } from "./dictionary_pos_prefix.mjs
 const PROJECT = new URL("../", import.meta.url);
 const FILTERED = new URL("data/dictionary/word_filtered.csv", PROJECT);
 const TEMP = new URL("data/dictionary/word_filtered.csv.tmp", PROJECT);
-
-function parseCsvLine(line) {
-	const out = [];
-	let i = 0;
-	let field = "";
-	let inQuotes = false;
-
-	while (i < line.length) {
-		const ch = line[i];
-		if (inQuotes) {
-			if (ch === '"') {
-				const next = line[i + 1];
-				if (next === '"') {
-					field += '"';
-					i += 2;
-					continue;
-				}
-				inQuotes = false;
-				i += 1;
-				continue;
-			}
-			field += ch;
-			i += 1;
-			continue;
-		}
-
-		if (ch === ",") {
-			out.push(field);
-			field = "";
-			i += 1;
-			continue;
-		}
-		if (ch === '"') {
-			inQuotes = true;
-			i += 1;
-			continue;
-		}
-		field += ch;
-		i += 1;
-	}
-	out.push(field);
-	return out;
-}
-
-function csvEscape(s) {
-	if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
-		return `"${s.replace(/"/g, '""')}"`;
-	}
-	return s;
-}
 
 async function main() {
 	if (!fs.existsSync(FILTERED)) {
@@ -77,6 +28,7 @@ async function main() {
 	let isFirst = true;
 	let rows = 0;
 	let changed = 0;
+	let skipped = 0;
 
 	for await (const line of rl) {
 		if (isFirst) {
@@ -87,12 +39,18 @@ async function main() {
 		if (!line) continue;
 
 		const fields = parseCsvLine(line);
-		const word = (fields[0] ?? "").trim();
+		const word = (fields[0] ?? "").trim().toLowerCase();
 		const pos = (fields[1] ?? "").trim();
 		const translation = (fields[2] ?? "").trim();
-		if (!word || !pos) continue;
+		// Skip corrupt rows (e.g. prior multiline CSV breakage)
+		if (!/^[a-z]{3,32}$/.test(word) || !pos) {
+			skipped += 1;
+			continue;
+		}
 
-		const translationOut = materializeTranslationWithPosPrefix(translation, pos);
+		const translationOut = csvReadyTranslation(
+			materializeTranslationWithPosPrefix(translation, pos),
+		);
 		if (translationOut !== translation) changed += 1;
 		out.write(`${word},${csvEscape(pos)},${csvEscape(translationOut)}\n`);
 		rows += 1;
@@ -100,7 +58,9 @@ async function main() {
 
 	await new Promise((resolve) => out.end(resolve));
 	fs.renameSync(TEMP, FILTERED);
-	console.log(`Done. rows=${rows} translation_updated=${changed} -> ${FILTERED.pathname}`);
+	console.log(
+		`Done. rows=${rows} translation_updated=${changed} skipped_corrupt=${skipped} -> ${FILTERED.pathname}`,
+	);
 }
 
 main().catch((err) => {

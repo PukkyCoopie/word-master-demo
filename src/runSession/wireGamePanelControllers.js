@@ -524,6 +524,7 @@ function wireGamePanelControllersLate(d) {
     ownedTreasureHookFxBridge: d.ownedTreasureHookFxBridge,
     getWordDefinition: d.getWordDefinition,
     triggerHaptic: d.triggerHaptic,
+    getPreferredDefinitionPosKey: () => d.clubRequiredKeyBoss?.value ?? null,
   });
 
   const wordFavoriteCtrl = useWordFavoriteController({

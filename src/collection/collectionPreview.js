@@ -1,5 +1,5 @@
 import { offerFlyOriginRectFromEl, resolveOfferFlyOriginEl } from "../game/offerFlyOrigin.js";
-import { readTreasureAccessoryIds } from "../accessories/accessoryState.js";
+import { readTreasureAccessoryIds, writeTreasureAccessoryIds } from "../accessories/accessoryState.js";
 import { ACCESSORY_CATALOG } from "../accessories/accessoryCatalog.js";
 import { TILE_MATERIAL_CONCEPT_BY_ID } from "../game/gameConceptCopy.js";
 import { buildTreasureShopRowFromDef } from "../shop/shopOfferRowBuilders.js";
@@ -64,7 +64,8 @@ export function buildCollectionOwnedTreasurePreview(saved) {
   const slot = buildOwnedTreasureSlot(saved);
   if (!slot) return null;
   const accessoryIds = readTreasureAccessoryIds(slot);
-  return {
+  /** @type {Record<string, unknown>} */
+  const preview = {
     kind: "offer",
     offerType: "treasure",
     offerInstanceId: ++previewOfferInstanceSeq,
@@ -74,11 +75,11 @@ export function buildCollectionOwnedTreasurePreview(saved) {
     name: slot.name,
     emoji: slot.emoji,
     description: slot.description,
-    treasureAccessoryIds: accessoryIds,
-    treasureAccessoryId: accessoryIds[0] ?? null,
     hourglassStagesElapsed: slot.hourglassStagesElapsed,
     treasureAccessoryExpired: slot.treasureAccessoryExpired === true,
   };
+  writeTreasureAccessoryIds(preview, accessoryIds);
+  return preview;
 }
 
 /**

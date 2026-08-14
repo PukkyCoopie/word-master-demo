@@ -5,7 +5,7 @@ import { getSpellDefinition } from "./spellDefinitions.js";
 /** 需至少 1 个已装备宝藏才有意义（随机目标宝藏 / 配饰） */
 export const SPELL_IDS_REQUIRING_OWNED_TREASURE = Object.freeze(["ectoplasm", "ankh", "star"]);
 
-/** 需空宝藏槽且法术授予池内仍有未拥有宝藏 */
+/** 需空宝藏槽且法术授予池非空（可含已拥有，占新空槽） */
 export const SPELL_IDS_GRANTING_RANDOM_TREASURE = Object.freeze(["treasure_map", "cache", "wraith"]);
 
 const GRANT_RARITY_BY_SPELL_ID = Object.freeze({
@@ -21,6 +21,7 @@ const GRANT_RARITY_BY_SPELL_ID = Object.freeze({
  *   grantableAnyTreasureCount?: number,
  *   grantableEpicTreasureCount?: number,
  *   grantableLegendaryTreasureCount?: number,
+ *   grantableVoucherCount?: number,
  * }} SpellPoolEligibilityCounts
  */
 
@@ -48,7 +49,7 @@ function grantableTreasureCountForSpell(spellId, counts) {
 }
 
 /**
- * 是否可进入商店单卡区 / 牌包法术池、对局内随机释法池等（不含重播、促销券等特例）。
+ * 是否可进入商店单卡区 / 牌包法术池、对局内随机释法池等（不含重播特例；促销券看 grantableVoucherCount）。
  * @param {string} spellId
  * @param {SpellPoolEligibilityCounts} [counts]
  */
@@ -62,6 +63,11 @@ export function isSpellEligibleForPools(spellId, counts = {}) {
   if (SPELL_IDS_GRANTING_RANDOM_TREASURE.includes(sid)) {
     if (grantableTreasureCountForSpell(sid, counts) < 1) return false;
   }
+  if (sid === "coupon_drop") {
+    if (!Object.prototype.hasOwnProperty.call(counts, "grantableVoucherCount")) return true;
+    const vouchers = Math.max(0, Math.floor(Number(counts.grantableVoucherCount) || 0));
+    if (vouchers < 1) return false;
+  }
   return true;
 }
 
@@ -71,7 +77,11 @@ export function isSpellEligibleForPools(spellId, counts = {}) {
  */
 export function buildSpellPoolExcludeIds(counts, extraExcludeIds = []) {
   const out = new Set((extraExcludeIds ?? []).map((id) => String(id)));
-  for (const sid of [...SPELL_IDS_REQUIRING_OWNED_TREASURE, ...SPELL_IDS_GRANTING_RANDOM_TREASURE]) {
+  for (const sid of [
+    ...SPELL_IDS_REQUIRING_OWNED_TREASURE,
+    ...SPELL_IDS_GRANTING_RANDOM_TREASURE,
+    "coupon_drop",
+  ]) {
     if (!isSpellEligibleForPools(sid, counts)) out.add(sid);
   }
   return [...out];
@@ -79,6 +89,7 @@ export function buildSpellPoolExcludeIds(counts, extraExcludeIds = []) {
 
 /**
  * 与 `grantRandomShopTreasureByRarity` 同源：法术授予宝藏池（含非商店专属掉落）。
+ * `grantable*TreasureCount` 为池大小（含已拥有），空槽仍为硬条件。
  *
  * @param {import("../treasures/treasureTypes.js").TreasureDef[]} grantDefs
  * @param {import("../treasures/treasureAvailability.js").TreasurePoolSnapshot} snap
@@ -94,19 +105,19 @@ export function buildSpellPoolEligibilityCounts(
   ownedTreasureCount,
   emptyTreasureSlots,
 ) {
-  const owned = ownedTreasureIdSet instanceof Set ? ownedTreasureIdSet : new Set();
+  void ownedTreasureIdSet;
   const empty = Math.max(0, Math.floor(Number(emptyTreasureSlots) || 0));
-  const countUnowned = (/** @type {readonly import("../treasures/treasureTypes.js").TreasureDef[]} */ pool) =>
-    pool.filter((t) => t && !owned.has(t.treasureId)).length;
+  const countPool = (/** @type {readonly import("../treasures/treasureTypes.js").TreasureDef[]} */ pool) =>
+    pool.filter((t) => t).length;
 
   const anyPool = filterTreasureDefsForSpellGrantPool(grantDefs, snap, null);
 
   return {
     ownedTreasureCount: Math.max(0, Math.floor(Number(ownedTreasureCount) || 0)),
     emptyTreasureSlots: empty,
-    grantableAnyTreasureCount: countUnowned(anyPool),
-    grantableEpicTreasureCount: countUnowned(anyPool.filter((t) => t.rarity === "epic")),
-    grantableLegendaryTreasureCount: countUnowned(anyPool.filter((t) => t.rarity === "legendary")),
+    grantableAnyTreasureCount: countPool(anyPool),
+    grantableEpicTreasureCount: countPool(anyPool.filter((t) => t.rarity === "epic")),
+    grantableLegendaryTreasureCount: countPool(anyPool.filter((t) => t.rarity === "legendary")),
   };
 }
 

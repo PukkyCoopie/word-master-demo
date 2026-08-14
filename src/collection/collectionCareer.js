@@ -1,5 +1,6 @@
 import { VOUCHERS_BY_ID } from "../vouchers/voucherDefinitions.js";
 import { ACCESSORY_CATALOG } from "../accessories/accessoryCatalog.js";
+import { readTreasureAccessoryIds } from "../accessories/accessoryState.js";
 import { TILE_MATERIAL_CONCEPT_BY_ID } from "../game/gameConceptCopy.js";
 import { COLLECTION_UPGRADE_TREASURE_IDS } from "./collectionUpgradeCatalog.js";
 import { COLLECTION_LEADERBOARD_MAX } from "./collectionTypes.js";
@@ -113,9 +114,8 @@ function normalizeWordRecords(raw) {
             };
             const sellPriceBonus = Math.max(0, Math.floor(Number(slot.sellPriceBonus) || 0));
             if (sellPriceBonus > 0) out.sellPriceBonus = sellPriceBonus;
-            if (Array.isArray(slot.treasureAccessoryIds) && slot.treasureAccessoryIds.length) {
-              out.treasureAccessoryIds = slot.treasureAccessoryIds.map(String).filter(Boolean);
-            }
+            const accessoryIds = readTreasureAccessoryIds(slot);
+            if (accessoryIds.length) out.treasureAccessoryIds = [...accessoryIds];
             const elapsed = Math.floor(Number(slot.hourglassStagesElapsed) || 0);
             if (elapsed > 0) out.hourglassStagesElapsed = elapsed;
             if (slot.treasureAccessoryExpired === true) out.treasureAccessoryExpired = true;

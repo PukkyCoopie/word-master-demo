@@ -128,7 +128,7 @@ export function getTileAccessoryLinkedConceptPanels(_accessoryId) {
 }
 
 // ---------------------------------------------------------------------------
-// 已拥有宝藏上的具名装备配饰（treasureAccessoryId，与 treasureAccessories.js 常量同值）
+// 已拥有宝藏上的具名装备配饰（treasureAccessoryIds 内 id，与 treasureAccessories.js 常量同值）
 // ---------------------------------------------------------------------------
 
 /** @type {Readonly<Record<string, Readonly<{ title: string, effectDescription: string }>>>} */
@@ -188,10 +188,6 @@ export function buildNoSellAccessoryDescriptionSegments() {
 
 /** 星星法术：随机装备四配饰之一（整句主描述用，与配饰展示名一致） */
 export function buildStarSpellRandomTreasureAccessoryDescription() {
-  const ids = Object.freeze(["treasure_acc_fire", "treasure_acc_drop", "treasure_acc_wrench", "treasure_acc_crop"]);
-  const titles = ids.map((id) => TREASURE_ACCESSORY_CONCEPT_BY_ID[id]?.title).filter(Boolean);
-  if (titles.length === 0) return "";
-  if (titles.length === 1) return titles[0];
   return `1/4 概率：为你的一个随机宝藏装备一个随机配饰`;
 }
 

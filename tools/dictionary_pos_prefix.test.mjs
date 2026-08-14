@@ -17,11 +17,15 @@ assert.equal(
 assert.equal(materializeTranslationWithPosPrefix("n. 猫", "n"), "n. 猫");
 assert.equal(
   materializeTranslationWithPosPrefix("foo\nv. bar", "n|v"),
-  "n. foo\nv. bar",
+  "n. foo\\nv. bar",
 );
 assert.equal(
   materializeTranslationWithPosPrefix("foo\nbar", "n|v"),
-  "n. foo\nv. bar",
+  "n. foo\\nv. bar",
+);
+assert.equal(
+  materializeTranslationWithPosPrefix("foo\\nbar", "n|v"),
+  "n. foo\\nv. bar",
 );
 assert.equal(
   materializeTranslationWithPosPrefix("(bane 的复数) n. 祸根, 毒药", "n"),

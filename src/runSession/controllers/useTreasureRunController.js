@@ -636,7 +636,7 @@ export function useTreasureRunController(options) {
     });
   }
 
-  /** @param {{ treasureAccessoryId?: string | null, treasureAccessoryIds?: string[] } | null | undefined} offer */
+  /** @param {{ treasureAccessoryIds?: unknown, treasureAccessoryId?: unknown } | null | undefined} offer */
   function canPlaceTreasureOffer(offer) {
     return canAcquireTreasureOffer(
       ownedTreasures.value,
@@ -645,7 +645,7 @@ export function useTreasureRunController(options) {
     );
   }
 
-  /** @param {{ treasureAccessoryId?: string | null } | null | undefined} offer */
+  /** @param {{ treasureAccessoryIds?: unknown, treasureAccessoryId?: unknown } | null | undefined} offer */
   function findTreasurePlacementIndex(offer) {
     const slots = ownedTreasures.value;
     const ix = slots.findIndex((s) => s == null);

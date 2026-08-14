@@ -26,60 +26,11 @@ import {
 	materializeTranslationWithPosPrefix,
 	normalizePosToken,
 } from "./dictionary_pos_prefix.mjs";
+import { csvEscape, csvReadyTranslation, parseCsvLine } from "./dictionary_csv_utils.mjs";
 
 const PROJECT = new URL("../", import.meta.url); // tools/ -> project root
 const INPUT = new URL("data/dictionary/word.csv", PROJECT);
 const OUTPUT = new URL("data/dictionary/word_filtered.csv", PROJECT);
-
-function parseCsvLine(line) {
-	const out = [];
-	let i = 0;
-	let field = "";
-	let inQuotes = false;
-
-	while (i < line.length) {
-		const ch = line[i];
-		if (inQuotes) {
-			if (ch === '"') {
-				const next = line[i + 1];
-				if (next === '"') {
-					field += '"';
-					i += 2;
-					continue;
-				}
-				inQuotes = false;
-				i += 1;
-				continue;
-			}
-			field += ch;
-			i += 1;
-			continue;
-		}
-
-		if (ch === ",") {
-			out.push(field);
-			field = "";
-			i += 1;
-			continue;
-		}
-		if (ch === '"') {
-			inQuotes = true;
-			i += 1;
-			continue;
-		}
-		field += ch;
-		i += 1;
-	}
-	out.push(field);
-	return out;
-}
-
-function csvEscape(s) {
-	if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
-		return `"${s.replace(/"/g, '""')}"`;
-	}
-	return s;
-}
 
 /** 从释义中推断词性：凡以「字母+点」开头的均视为词性，无论是否在映射表中 */
 function inferPosFromTranslation(translationZh) {
@@ -143,7 +94,9 @@ function inferPos(word, posField, translationZh) {
 		inferPosFromTranslation(translationZh) ||
 		inferPosFromEcdictColumn(posField) ||
 		inferPosFromChineseInflection(translationZh, word) ||
-		inferPosFromBracketTaggedIngForm(word, translationZh)
+		inferPosFromBracketTaggedIngForm(word, translationZh) ||
+		// ECDICT 大量词条 pos 为空且中文无 n./v. 前缀；有释义时默认名词，避免整词丢失
+		(String(translationZh ?? "").trim() ? "n" : "")
 	);
 }
 
@@ -182,7 +135,9 @@ async function main() {
 			continue;
 		}
 
-		const translationOut = materializeTranslationWithPosPrefix(translation, pos);
+		const translationOut = csvReadyTranslation(
+			materializeTranslationWithPosPrefix(translation, pos),
+		);
 		outStream.write(`${word},${csvEscape(pos)},${csvEscape(translationOut)}\n`);
 		kept += 1;
 	}

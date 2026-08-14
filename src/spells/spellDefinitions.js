@@ -1,10 +1,9 @@
 import {
-  buildStarSpellRandomTreasureAccessoryDescription,
   getTileBoardAccessoryTitle,
   getTileMaterialBlockTitle,
   getTreasureAccessoryPanelTitle,
 } from "../game/gameConceptCopy.js";
-import { concept, describe, gain, money, rarity, riskBlock, score } from "../treasures/treasureDescription.js";
+import { concept, describe, gain, money, prob, rarity, riskBlock, score } from "../treasures/treasureDescription.js";
 import { SPELL_TAG_SPECTRAL } from "./spellTags.js";
 
 /** 商店法术卡单价（与 `src/shop/shopPackEconomy.js` 的 `SHOP_SINGLE_ROW_PRICES.spell` 保持一致） */
@@ -64,7 +63,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-dice-fill",
       pickCount: 0,
       shopPrice: 4,
-      description: "随机释放2张其他法术卡",
+      description: "随机展示2张其他法术卡；跳过其中一张仍可使用另一张",
     },
     {
       id: "arrow_up",
@@ -128,7 +127,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-star-fill",
       pickCount: 0,
       shopPrice: 3,
-      description: buildStarSpellRandomTreasureAccessoryDescription(),
+      description: describe(prob("1/4"), "概率：为你的一个随机宝藏装备一个随机配饰"),
     },
     {
       id: "seedling",
@@ -136,7 +135,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-seedling-fill",
       pickCount: 2,
       shopPrice: 2,
-      description: "选择2个字母块，使他们后移1位",
+      description: "选择2个字母块，使它们在字母表中后移1位（Z变为A）",
     },
     {
       id: "delete_back",
@@ -185,7 +184,7 @@ function buildSpellDefinitions() {
       iconClass: "ri-bard-fill",
       pickCount: 2,
       shopPrice: 3,
-      description: "选择2个字母块，使其稀有度提升1级",
+      description: "选择2个字母块，提升它们的稀有度",
     },
     {
       id: "mic",

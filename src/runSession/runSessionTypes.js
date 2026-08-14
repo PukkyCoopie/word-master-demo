@@ -159,7 +159,8 @@
  * @property {() => { ok: true } | { ok: false, reason: string }} canSaveNow
  * @property {() => Record<string, unknown>} buildSaveContext 供 `gamePanelSaveApi.buildGamePanelSaveContext`
  * @property {() => Promise<void>} flushAutoSave
- * @property {(payload: import('../save/runSavePayload.js').RunSavePayload) => void} hydrateFromPayload
+ * @property {(payload: import('../save/runSavePayload.js').RunSavePayload) =>
+ *   'none' | 'restore_submit_chance' | 'open_stage_settlement' | 'open_run_end_win'} hydrateFromPayload
  */
 
 // ---------------------------------------------------------------------------

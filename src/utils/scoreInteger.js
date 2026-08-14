@@ -141,7 +141,10 @@ export function multiplyScoreRound(scoreSum, multTotal, treasureMult = 1) {
   if (!Number.isFinite(m1) || !Number.isFinite(m2)) return 0;
   const combined = m1 * m2;
   if (!Number.isFinite(combined) || combined <= 0) return 0;
-  const scaledMult = BigInt(Math.round(combined * Number(MULT_SCALE)));
+  // combined 很大但仍有限时，× MULT_SCALE 可能溢出成 Infinity，BigInt(Infinity) 会抛错
+  const scaledProduct = combined * Number(MULT_SCALE);
+  if (!Number.isFinite(scaledProduct)) return 0;
+  const scaledMult = BigInt(Math.round(scaledProduct));
   if (scaledMult <= 0n) return 0;
   const half = MULT_SCALE / 2n;
   return normalizeScore((sum * scaledMult + half) / MULT_SCALE);

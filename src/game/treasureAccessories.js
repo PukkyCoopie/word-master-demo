@@ -9,6 +9,8 @@ export {
   ACCESSORY_CROP as TREASURE_ACCESSORY_CROP,
 } from "../accessories/accessoryCatalog.js";
 
+export { TREASURE_ACCESSORY_SLOT_CAP } from "../accessories/accessoryState.js";
+
 import { getAccessoryIdsForRollPool } from "../accessories/accessoryResolve.js";
 import { readTreasureAccessoryIds } from "../accessories/accessoryState.js";
 import { getTreasureFieldAccessoryChipVisual } from "../accessories/accessoryResolve.js";
@@ -16,7 +18,7 @@ import { getTreasureFieldAccessoryChipVisual } from "../accessories/accessoryRes
 /** @type {readonly string[]} */
 export const ALL_TREASURE_ACCESSORY_IDS = Object.freeze(getAccessoryIdsForRollPool("treasureShop"));
 
-/** 商店/牌包字母块可掷出的宝藏配饰（不含裁剪） */
+/** 字母块可掷出的宝藏配饰（不含裁剪） */
 export const TILE_ROLLABLE_TREASURE_ACCESSORY_IDS = Object.freeze(getAccessoryIdsForRollPool("deckTileEdition"));
 
 export {

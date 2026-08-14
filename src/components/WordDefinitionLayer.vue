@@ -67,7 +67,7 @@
     <SettingsHelpDialog :open="helpOpen" @close="closeHelpDialog">
       <template #body>
         <p class="settings-help-dialog-text word-definition-help-text">
-          释义来自于网络词库；发音来自于系统文字转语音（需英文语音包，并打开媒体音量）。均并非100%准确。如有错漏请点击这里反馈：
+          释义来自于网络词库；发音来自于系统文字转语音。均并非100%准确。如有错漏请点击这里反馈：
           <button
             type="button"
             class="word-definition-help-feedback-btn"

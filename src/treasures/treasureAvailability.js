@@ -2,6 +2,7 @@
  * 宝藏解锁与商店池过滤（`unlockPrerequisite` / `poolPrerequisite` 写在各 treasure_*.js 的 default 上）
  */
 
+import { readTreasureAccessoryIds } from "../accessories/accessoryState.js";
 import { getTreasureDef } from "./treasureRegistry.js";
 
 /** @typedef {Object} TreasurePoolDerivedStats
@@ -19,7 +20,7 @@ import { getTreasureDef } from "./treasureRegistry.js";
  * @property {unknown[]} [deck]
  * @property {boolean} [isEndlessRun]
  * @property {import('./treasureRunState.js').TreasureRunState} [runState]
- * @property {readonly (null | { treasureAccessoryId?: string | null, treasureId?: string | null })[]} [ownedTreasureSlots]
+ * @property {readonly (null | { treasureAccessoryIds?: unknown, treasureAccessoryId?: string | null, treasureId?: string | null })[]} [ownedTreasureSlots]
  * @property {TreasurePoolDerivedStats} [derivedStats]
  */
 
@@ -93,7 +94,7 @@ export function attachTreasurePoolDerivedStats(snap) {
     const def = getTreasureDef(String(s.treasureId));
     if (def?.rarity === "legendary") ownedLegendaryCount += 1;
     if (def?.rarity === "epic") ownedEpicCount += 1;
-    if (String(s.treasureAccessoryId ?? "").trim() === "") {
+    if (!readTreasureAccessoryIds(s).length) {
       allOwnedTreasuresHaveAccessory = false;
     }
   }

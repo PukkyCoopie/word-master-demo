@@ -1,5 +1,6 @@
 import { resolvePhysicalTreasureSlotIndex, resolvePostLetterAnimSlotIndex, shouldTreasureRunAccumulationMutate } from "../game/treasureBlueprintMirror.js";
 import { shouldSkipSettlementTreasureFx } from "../settings/settlementAnimSkip.js";
+import { addScore, deserializeScore } from "../utils/scoreInteger.js";
 import { describe, mult, score } from "./treasureDescription.js";
 import {
   bumpOwnedSlotBankRevision,
@@ -159,7 +160,11 @@ export function assignOwnedSlotTreasureBank(access, treasureId, fields) {
     const m = Number(fields.multMul);
     bank.multMul = m > 0 ? m : 1;
   }
-  if (fields.scoreAdd != null) bank.scoreAdd = Number(fields.scoreAdd) || 0;
+  if (fields.scoreAdd != null) {
+    bank.scoreAdd = deserializeScore(
+      /** @type {import('../utils/scoreInteger.js').ScoreValue} */ (fields.scoreAdd),
+    );
+  }
   if (fields.posPackProgress != null) {
     bank.posPackProgress = Math.max(0, Math.floor(Number(fields.posPackProgress) || 0));
   }
@@ -338,7 +343,7 @@ export function addScoreAddBank(runState, treasureId, delta, hookCtx) {
   if (hookCtx && !canMutateTreasureBankFromCtx(/** @type {object} */ (hookCtx), treasureId)) return;
   const bank = resolveTreasureBankMutable(runState, treasureId, hookCtx);
   if (!bank) return;
-  bank.scoreAdd += Number(delta) || 0;
+  bank.scoreAdd = addScore(bank.scoreAdd, delta);
   notifyOwnedSlotBankMutated(runState, treasureId);
 }
 

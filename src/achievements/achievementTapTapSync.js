@@ -1,7 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { ACHIEVEMENT_DEFINITIONS } from "./achievementDefinitions.js";
 import { isAchievementUnlocked } from "./achievementCareer.js";
-import { getAchievementCollectionProgress } from "./achievementCollectionProgress.js";
 import { shouldSuppressAchievementsAndLeaderboardsInDevMode } from "../dev/developerMode.js";
 import { TapTap } from "../taptap/tapTapPlugin.js";
 
@@ -29,13 +28,39 @@ export function shouldReportTapTapIncrement(def) {
 }
 
 /**
+ * 分步成就目标步数（与 TapTap 后台配置一致，取 condition.threshold）。
+ * @param {AchievementDefinition | null | undefined} def
+ * @returns {number}
+ */
+export function resolveTapTapIncrementTarget(def) {
+  if (!shouldReportTapTapIncrement(def)) return 0;
+  return Math.max(0, Math.floor(Number(def?.condition?.threshold) || 0));
+}
+
+/**
+ * 生涯计数对应的当前步数（已解锁时仍返回真实进度，便于补报到阈值）。
+ * 不依赖 getAchievementCollectionProgress（后者在已解锁时返回 null）。
+ *
  * @param {import('../save/runSaveSchema.js').SlotCareerStats | Record<string, unknown>} career
  * @param {AchievementDefinition} def
  * @returns {number}
  */
 export function resolveTapTapIncrementCurrent(career, def) {
-  const progress = getAchievementCollectionProgress(career, def);
-  return Math.max(0, Math.floor(Number(progress?.current) || 0));
+  const target = resolveTapTapIncrementTarget(def);
+  if (target <= 0) return 0;
+
+  const kind = def.condition?.kind;
+  let raw = 0;
+  if (kind === "career_words") {
+    raw = Math.max(0, Math.floor(Number(career?.totalWordsSubmitted) || 0));
+  } else if (kind === "career_tiles_used") {
+    raw = Math.max(0, Math.floor(Number(career?.totalLettersUsed) || 0));
+  } else if (kind === "career_tiles_discarded") {
+    raw = Math.max(0, Math.floor(Number(career?.totalLettersDiscarded) || 0));
+  } else {
+    return 0;
+  }
+  return Math.min(raw, target);
 }
 
 /**
@@ -48,7 +73,9 @@ function ensureTapTapReportedStepsMap(career) {
 }
 
 /**
- * 将生涯内分步成就进度增量同步到 TapTap（all_* 等仅解锁时上报，不走此路径）。
+ * 将生涯内分步成就进度增量同步到 TapTap。
+ * 已解锁但仍未报到阈值的成就也会补报（局内达门槛时曾只调 unlock、跳过 increment 的历史缺口）。
+ *
  * @param {import('../save/runSaveSchema.js').SlotCareerStats} career
  */
 export function syncTapTapIncrementProgressInCareer(career) {
@@ -59,22 +86,51 @@ export function syncTapTapIncrementProgressInCareer(career) {
 
   for (const def of ACHIEVEMENT_DEFINITIONS) {
     if (!shouldReportTapTapIncrement(def)) continue;
-    if (isAchievementUnlocked(career, def.id)) continue;
+
+    const target = resolveTapTapIncrementTarget(def);
+    if (target <= 0) continue;
 
     const current = resolveTapTapIncrementCurrent(career, def);
+    /** 已解锁但生涯计数仍低于阈值时，直接补报到阈值（局内用 runMatchStats 达门槛的补偿）。 */
+    const reportTo =
+      isAchievementUnlocked(career, def.id) && current < target ? target : current;
     const prev = Math.max(0, Math.floor(Number(career.taptapReportedAchievementSteps[def.id]) || 0));
-    const delta = current - prev;
+    const delta = reportTo - prev;
     if (delta <= 0) continue;
 
-    career.taptapReportedAchievementSteps[def.id] = current;
+    career.taptapReportedAchievementSteps[def.id] = reportTo;
     void TapTap.incrementAchievement({ achievementId: def.id, steps: delta }).catch(() => {});
   }
 }
 
 /**
- * @param {readonly AchievementDefinition[]} defs
+ * 解锁上报前：对分步成就先把 TapTap 步数补到阈值，再 unlock。
+ * （TapTap 分步成就仅调 unlock、未够步数时后台往往不记达成。）
+ *
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats | null | undefined} career
+ * @param {AchievementDefinition} def
  */
-export async function reportTapTapAchievementUnlocks(defs) {
+async function catchUpTapTapIncrementBeforeUnlock(career, def) {
+  if (!career || !shouldReportTapTapIncrement(def)) return;
+  ensureTapTapReportedStepsMap(career);
+  const target = resolveTapTapIncrementTarget(def);
+  if (target <= 0) return;
+  const prev = Math.max(0, Math.floor(Number(career.taptapReportedAchievementSteps[def.id]) || 0));
+  const delta = target - prev;
+  if (delta <= 0) return;
+  career.taptapReportedAchievementSteps[def.id] = target;
+  try {
+    await TapTap.incrementAchievement({ achievementId: def.id, steps: delta });
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * @param {readonly AchievementDefinition[]} defs
+ * @param {import('../save/runSaveSchema.js').SlotCareerStats | null | undefined} [career]
+ */
+export async function reportTapTapAchievementUnlocks(defs, career = null) {
   if (shouldSuppressAchievementsAndLeaderboardsInDevMode()) return;
   if (!Capacitor.isNativePlatform() || !defs?.length) return;
 
@@ -83,6 +139,7 @@ export async function reportTapTapAchievementUnlocks(defs) {
   for (const def of defs) {
     if (!def?.id) continue;
     try {
+      await catchUpTapTapIncrementBeforeUnlock(career, def);
       await TapTap.unlockAchievement({ achievementId: def.id });
     } catch {
       /* 未登录或后台未配置时忽略，避免阻断游戏 */
@@ -117,13 +174,22 @@ export async function bootstrapTapTapAchievements(unionId, activeCareer, unlocke
   const shouldFullUnlockBootstrap = bootstrappedUnionId !== uid;
   if (shouldFullUnlockBootstrap) {
     bootstrappedUnionId = uid;
+    /** @type {AchievementDefinition[]} */
+    const defsToUnlock = [];
     for (const achievementId of unlockedAchievementIds) {
-      try {
-        await TapTap.unlockAchievement({ achievementId });
-      } catch {
-        /* ignore */
+      const id = String(achievementId ?? "").trim();
+      if (!id) continue;
+      const def = ACHIEVEMENT_DEFINITIONS.find((d) => d.id === id);
+      if (def) defsToUnlock.push(def);
+      else {
+        try {
+          await TapTap.unlockAchievement({ achievementId: id });
+        } catch {
+          /* ignore */
+        }
       }
     }
+    await reportTapTapAchievementUnlocks(defsToUnlock, activeCareer);
   }
 
   syncTapTapIncrementProgressInCareer(activeCareer);

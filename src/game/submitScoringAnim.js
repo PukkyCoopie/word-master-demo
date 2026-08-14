@@ -74,6 +74,7 @@ import {
   scoreIsPositive,
   subtractScore,
 } from "../utils/scoreInteger.js";
+import { formatIntegerScoreForDisplay } from "../utils/scoreNumericFormat.js";
 import {
   shouldSkipSettlementAnim,
   setSubmitScoringMidPhaseSkipActive,
@@ -1873,15 +1874,17 @@ async function runResultWordLengthExitThenTotalReveal(formulaFinalScore) {
  * @param {number} formulaFinalScore
  */
 async function runSkipSettlementFormulaRevealWithResultHandoff(detailed, formulaFinalScore) {
-  const targetScore = Math.round(Number(detailed.scoreSum) || 0);
-  const targetMult = Math.round(Number(detailed.multTotal) || 0);
+  const softZero = detailed.bossSoftViolation === true;
+  const targetScore = softZero ? 0 : Math.round(Number(detailed.scoreSum) || 0);
+  const targetMult = softZero ? 0 : Math.round(Number(detailed.multTotal) || 0);
+  const total = softZero ? 0 : formulaFinalScore;
 
   refs.hideResultWordLengthBeforeTotal.value = true;
   refs.suppressResultWordLengthUntilScoringEnd.value = true;
 
   refs.animScoreSum.value = targetScore;
   refs.animMultTotal.value = targetMult;
-  refs.animResultTotal.value = formulaFinalScore;
+  refs.animResultTotal.value = total;
   refs.hideResultWordLengthBeforeTotal.value = false;
 
   await nextTick();
@@ -2174,16 +2177,19 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     }
   }
 
+  // Boss 软违规：本手计 0，勿回落详细算分里残留的 formulaFinalScore
   const formulaFinalScore =
-    detailed.formulaFinalScore != null
-      ? detailed.formulaFinalScore
-      : subtractScore(
-          detailed.finalScore,
-          (detailed.finalScoreTreasureSteps ?? []).reduce(
-            (s, st) => addScore(s, Math.max(0, Math.round(Number(st?.finalScoreAdd) || 0))),
-            0,
-          ),
-        );
+    detailed.bossSoftViolation === true
+      ? 0
+      : detailed.formulaFinalScore != null
+        ? detailed.formulaFinalScore
+        : subtractScore(
+            detailed.finalScore,
+            (detailed.finalScoreTreasureSteps ?? []).reduce(
+              (s, st) => addScore(s, st?.finalScoreAdd),
+              0,
+            ),
+          );
   if (midPhaseInstantApplied) {
     await runSkipSettlementFormulaRevealWithResultHandoff(detailed, formulaFinalScore);
   } else {
@@ -2191,9 +2197,7 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   }
 
   const finalScoreSteps = detailed.finalScoreTreasureSteps ?? [];
-  const hasFinalScoreTreasureSteps = finalScoreSteps.some(
-    (st) => Math.round(Number(st?.finalScoreAdd) || 0) > 0,
-  );
+  const hasFinalScoreTreasureSteps = finalScoreSteps.some((st) => scoreIsPositive(st?.finalScoreAdd));
   if (hasFinalScoreTreasureSteps) {
     if (midPhaseInstantApplied) {
       await sleep(60);
@@ -2203,8 +2207,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   }
   if (midPhaseInstantApplied) {
     for (const step of finalScoreSteps) {
-      const add = Math.round(Number(step.finalScoreAdd) || 0);
-      if (add <= 0) continue;
+      const add = step.finalScoreAdd;
+      if (!scoreIsPositive(add)) continue;
       refs.animResultTotal.value = addScore(refs.animResultTotal.value, add);
     }
     if (hasFinalScoreTreasureSteps) {
@@ -2215,8 +2219,8 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
     }
   } else {
   for (const step of finalScoreSteps) {
-    const add = Math.round(Number(step.finalScoreAdd) || 0);
-    if (add <= 0) continue;
+    const add = step.finalScoreAdd;
+    if (!scoreIsPositive(add)) continue;
     const spFinal = beatSpeed(scoringBeat, totalScoringBeats);
     scoringBeat += 1;
     const ti =
@@ -2232,7 +2236,12 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
       await scoringSleep(SCORING_BUBBLE_POP_DELAY_MS, spFinal);
       refs.animResultTotal.value = addScore(refs.animResultTotal.value, add);
       await nextTick();
-      const bubbleFinal = showScoreBubble(tel, `+${add}`, "final-total", spFinal);
+      const bubbleFinal = showScoreBubble(
+        tel,
+        `+${formatIntegerScoreForDisplay(add)}`,
+        "final-total",
+        spFinal,
+      );
       pulseFill(getResultTotalEl());
       scheduleSmallPlusBubbleOutro(bubbleFinal, spFinal);
       await scoringSleep(SCORING_STEP_BEAT_MS, spFinal);
@@ -2249,20 +2258,25 @@ async function runSubmitScoringSequence(tiles, detailed, resolvedWord = null, is
   if (!midPhaseInstantApplied) {
     await sleep(220);
 
-    await new Promise((resolve) => {
-      const o = { s: refs.animScoreSum.value, m: refs.animMultTotal.value };
-      gsapLib.to(o, {
-        s: 0,
-        m: 0,
-        duration: 0.5,
-        ease: EASE_TRANSFORM,
-        onUpdate: () => {
-          refs.animScoreSum.value = Math.round(o.s);
-          refs.animMultTotal.value = Math.round(o.m);
-        },
-        onComplete: resolve,
-      });
-    });
+    // 与顶栏滚分相同：不用 GSAP onComplete。局内 pause 会冻 globalTimeline，onComplete 永不触发，
+    // 会卡在「分数×倍率」收束阶段；退出强制存档还会写入「次数已扣、分未入账」软锁。
+    {
+      const startS = Number(refs.animScoreSum.value) || 0;
+      const startM = Number(refs.animMultTotal.value) || 0;
+      const steps = 20;
+      const stepMs = Math.round(500 / steps);
+      const easeFn = gsapLib.parseEase(EASE_TRANSFORM);
+      for (let step = 0; step <= steps; step++) {
+        const t = easeFn(step / steps);
+        refs.animScoreSum.value = Math.round(startS + (0 - startS) * t);
+        refs.animMultTotal.value = Math.round(startM + (0 - startM) * t);
+        if (step < steps) {
+          await animSleep(stepMs, 1);
+        }
+      }
+      refs.animScoreSum.value = 0;
+      refs.animMultTotal.value = 0;
+    }
 
     await sleep(220);
   }

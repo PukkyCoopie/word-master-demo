@@ -92,7 +92,14 @@ export function deckTileOfferHasAccessoryGain(mods) {
 }
 
 /**
- * 从宝藏实体读取配饰 id 列表（`treasureAccessoryIds` 优先，兼容单字段 `treasureAccessoryId`）。
+ * 单个已拥有宝藏可同时装备的配饰上限。
+ */
+export const TREASURE_ACCESSORY_SLOT_CAP = 4;
+
+/**
+ * 从宝藏实体读取配饰 id 列表。
+ * **宝藏槽 / 宝藏 offer 权威字段为 `treasureAccessoryIds`**；单字段 `treasureAccessoryId` 仅作旧档回退。
+ * 字母块上的 `treasureAccessoryId`（与 `accessoryId` twin）不走本函数。
  * @param {{ treasureAccessoryIds?: unknown, treasureAccessoryId?: unknown } | null | undefined} entity
  * @returns {string[]}
  */
@@ -112,7 +119,9 @@ export function readTreasureAccessoryIds(entity) {
 }
 
 /**
- * 将配饰 id 列表写入宝藏实体，并同步 legacy 单字段（首项）。
+ * 将配饰 id 列表写入宝藏实体（权威写入入口）。
+ * 禁止业务侧单独赋值 `treasureAccessoryId` 作为宝藏配饰写入；本函数会把单字段同步为 `ids[0]` 派生镜像。
+ * 写入时截断至 {@link TREASURE_ACCESSORY_SLOT_CAP}。
  * @param {Record<string, unknown>} entity
  * @param {readonly string[]} accessoryIds
  */
@@ -124,6 +133,7 @@ export function writeTreasureAccessoryIds(entity, accessoryIds) {
     const def = getAccessoryDef(id);
     if (!def || !def.scopes.includes("treasure")) continue;
     ids.push(id);
+    if (ids.length >= TREASURE_ACCESSORY_SLOT_CAP) break;
   }
   entity.treasureAccessoryIds = ids;
   entity.treasureAccessoryId = ids[0] ?? null;
@@ -132,13 +142,16 @@ export function writeTreasureAccessoryIds(entity, accessoryIds) {
 /**
  * @param {Record<string, unknown>} entity
  * @param {string | null | undefined} accessoryId
+ * @returns {boolean} 是否实际写入
  */
 export function addTreasureAccessory(entity, accessoryId) {
   const id = accessoryId != null ? String(accessoryId).trim() : "";
-  if (!id) return;
+  if (!id) return false;
   const ids = readTreasureAccessoryIds(entity);
-  if (ids.includes(id)) return;
+  if (ids.includes(id)) return false;
+  if (ids.length >= TREASURE_ACCESSORY_SLOT_CAP) return false;
   writeTreasureAccessoryIds(entity, [...ids, id]);
+  return true;
 }
 
 /**
@@ -152,14 +165,12 @@ export function treasureHasAccessory(entity, accessoryId) {
 }
 
 /**
- * 读档 / 购买后规范化宝藏槽配饰字段。
+ * 读档 / 购买后规范化宝藏槽配饰字段（升成 `treasureAccessoryIds`，单字段为派生镜像）。
  * @param {Record<string, unknown> | null | undefined} slot
  */
 export function normalizeOwnedTreasureSlot(slot) {
   if (!slot || typeof slot !== "object") return slot;
-  const ids = readTreasureAccessoryIds(slot);
-  slot.treasureAccessoryIds = ids;
-  slot.treasureAccessoryId = ids[0] ?? null;
+  writeTreasureAccessoryIds(slot, readTreasureAccessoryIds(slot));
   if (slot.hourglassStagesElapsed != null) {
     slot.hourglassStagesElapsed = Math.max(0, Math.floor(Number(slot.hourglassStagesElapsed) || 0));
   }

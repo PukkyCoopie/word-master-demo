@@ -1,5 +1,6 @@
 import { getEffectiveAnimSpeed } from "../settings/animationSpeed.js";
 import { isSubmitScoringMidPhaseSkipActive } from "../settings/settlementAnimSkip.js";
+import { scoreIsPositive } from "../utils/scoreInteger.js";
 import { isIceMaterialPostLetterStep } from "./iceMaterialScoring.js";
 import { isLuckyMaterialPostLetterStep } from "./luckyMaterialScoring.js";
 import { pauseAwareDelay } from "./gamePause.js";
@@ -33,8 +34,8 @@ export function getSubmitScoringTotalBeats(detailed) {
   const n = detailed.letterParts?.length ?? 0;
   const letterPassCount = Math.max(1, Math.round(Number(detailed.letterScoringPassCount)) || 1);
   const post = countActivePostLetterTreasureSteps(detailed.postLetterTreasureSteps);
-  const finalScore = (detailed.finalScoreTreasureSteps ?? []).filter(
-    (st) => Math.round(Number(st?.finalScoreAdd) || 0) > 0,
+  const finalScore = (detailed.finalScoreTreasureSteps ?? []).filter((st) =>
+    scoreIsPositive(st?.finalScoreAdd),
   ).length;
   const extraCues = Math.max(0, letterPassCount - 1);
   const replayExtra = (detailed.letterReplayExtraCounts ?? []).reduce(

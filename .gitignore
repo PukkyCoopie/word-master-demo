@@ -38,5 +38,9 @@ tmp/
 data/dictionary/ecdict-sqlite-28.zip
 data/dictionary/ecdict-sqlite-tmp/
 
+# abbr 拉取临时文件（正式 cache/abbr_enrichment.json 可提交）
+data/dictionary/cache/*.tmp
+data/dictionary/word_filtered.csv.tmp
+
 # 下次 commit 使用的中/大版本标记（npm run version:minor/major）
 .version-bump-pending

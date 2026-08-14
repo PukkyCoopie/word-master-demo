@@ -3,6 +3,7 @@ import {
   ACCESSORY_NO_SELL,
   ACCESSORY_RENTAL,
 } from "../accessories/accessoryCatalog.js";
+import { readTreasureAccessoryIds } from "../accessories/accessoryState.js";
 import { resolveLevelTargetScore } from "./levelTargetScore.js";
 import { normalizeRunDifficultyIndex } from "./runDifficultyDefinitions.js";
 
@@ -157,10 +158,5 @@ export function treasureHasNoSellAccessoryIds(accessoryIds) {
  */
 export function ownedTreasureHasNoSellAccessory(slot) {
   if (!slot) return false;
-  const ids = Array.isArray(slot.treasureAccessoryIds)
-    ? slot.treasureAccessoryIds.map(String)
-    : slot.treasureAccessoryId
-      ? [String(slot.treasureAccessoryId)]
-      : [];
-  return treasureHasNoSellAccessoryIds(ids);
+  return treasureHasNoSellAccessoryIds(readTreasureAccessoryIds(slot));
 }

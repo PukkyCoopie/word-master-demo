@@ -235,7 +235,7 @@
  * @property {number} [multAdd]
  * @property {number} [scoreAdd]
  * @property {number} [multMul]
- * @property {number} [finalScoreAdd] 公式汇聚后的最终得分加成（不参与 score×mult，见 `buildFinalScoreStep`）
+ * @property {import('../utils/scoreInteger.js').ScoreValue} [finalScoreAdd] 公式汇聚后的最终得分加成（不参与 score×mult，见 `buildFinalScoreStep`）
  * @property {number} [scoreFxGridTileIndex] 字后动效落在棋盘格（`r * gridCols + c`）
  */
 
@@ -486,7 +486,8 @@
  * @property {string} name
  * @property {string} emoji
  * @property {import('./treasureDescription.js').TreasureDescSegment[] | string} description
- * @property {string | null} [treasureAccessoryId] 商店购入时带入已拥有槽
+ * @property {string[]} [treasureAccessoryIds] 商店购入时带入已拥有槽（权威）
+ * @property {string | null} [treasureAccessoryId] 旧档/镜像：等同 `treasureAccessoryIds[0]`
  */
 
 /**
@@ -506,7 +507,8 @@
  * @property {string} [lengthGroupKey]
  * @property {number} [lengthMin]
  * @property {number} [lengthMax]
- * @property {string | null} [treasureAccessoryId] 货架宝藏随机配饰（`treasureAccessories.js`）；无则省略或 null
+ * @property {string[]} [treasureAccessoryIds] 货架宝藏随机配饰（权威）
+ * @property {string | null} [treasureAccessoryId] 旧字段/镜像：等同 `treasureAccessoryIds[0]`
  */
 
 /**

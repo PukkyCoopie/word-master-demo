@@ -42,10 +42,12 @@ export function planRandomTreasureGrant({
         rarityFilter,
       )
     : shopTreasurePool;
-  const pool = sourcePool.filter((t) => !ownedIdSet.has(t.treasureId));
+  const pool = Array.isArray(sourcePool) ? sourcePool.filter((t) => t) : [];
   if (!pool.length) return { ok: false, slotIndex: -1 };
 
-  const picks = rollDistinctShopTreasures(pool, ownedIdSet, new Set(), 1, runRandom);
+  const picks = rollDistinctShopTreasures(pool, ownedIdSet, new Set(), 1, runRandom, {
+    allowOwnedTreasuresInShop: true,
+  });
   const treasureDef = picks[0];
   if (!treasureDef) return { ok: false, slotIndex: -1 };
 
