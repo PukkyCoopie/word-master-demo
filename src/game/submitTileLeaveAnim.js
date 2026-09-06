@@ -209,11 +209,11 @@ export function createSubmitTileLeaveAnim(deps) {
 
   /** @param {HTMLElement | null | undefined} slotEl @param {HTMLElement | null | undefined} gridEl @param {number} [speed] */
   async function playIceTileShatterWobbleAndBubble(slotEl, gridEl, speed = 1) {
+    // 只 wobble 一个锚点：词槽优先。双目标（词槽+棋盘）在华为等机上叠 GSAP 易卡。
     const anchorEl = slotEl || gridEl;
     if (!anchorEl) return;
     const sp = Math.max(0.01, Number(speed) || 1);
-    const wobbleTargets = /** @type {HTMLElement[]} */ ([slotEl, gridEl].filter(Boolean));
-    const wobbleP = Promise.all(wobbleTargets.map((el) => awaitTreasureSlotWobbleEl(el, sp)));
+    const wobbleP = awaitTreasureSlotWobbleEl(anchorEl, sp);
     const bubbleP = (async () => {
       await new Promise((r) => requestAnimationFrame(r));
       return showScoreBubble(anchorEl, "碎裂！", "ice-shatter", sp);
@@ -264,6 +264,9 @@ export function createSubmitTileLeaveAnim(deps) {
     let shatterCount = 0;
     const skipFx = shouldSkipSettlementTreasureFx();
     let iceShatterHapticCount = 0;
+    /** 完整 wobble+气泡次数上限，其余块仍结算碎裂逻辑，减轻多冰同破卡顿 */
+    const FULL_ICE_SHATTER_FX_CAP = 3;
+    let fullFxCount = 0;
     for (let i = 0; i < list.length; i += 1) {
       const t = list[i];
       if (t?.materialId !== "ice" || isBossTileDebuffed(t)) continue;
@@ -283,11 +286,13 @@ export function createSubmitTileLeaveAnim(deps) {
         iceShatterHapticCount += 1;
       }
       applyIceShatterStateForTile(t);
-      if (skipFx) {
+      const useLiteFx = skipFx || fullFxCount >= FULL_ICE_SHATTER_FX_CAP;
+      if (useLiteFx) {
         await applySnowmanIceShatterTreasureFx(false);
         await notifyIceBreak({ iceShatterTreasureFxHandled });
         continue;
       }
+      fullFxCount += 1;
       const slotEl = getWordSlotRefs()[i];
       const gridEl = gridEls[i];
       await playIceTileShatterWobbleAndBubble(slotEl, gridEl);

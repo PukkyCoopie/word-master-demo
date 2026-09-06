@@ -1604,24 +1604,24 @@ textarea::-moz-placeholder {
 .grid-tile.grid-tile--hint-ripple::after {
 	content: "";
 	position: absolute;
-	inset: calc(-2 * var(--rpx));
-	border-radius: calc(10 * var(--rpx));
-	border: calc(3 * var(--rpx)) solid rgba(240, 169, 40, 0.88);
-	box-shadow: 0 0 calc(8 * var(--rpx)) rgba(240, 169, 40, 0.42);
+	inset: calc(-6 * var(--rpx));
+	border-radius: calc(14 * var(--rpx));
+	border: calc(5 * var(--rpx)) solid rgba(240, 169, 40, 0.95);
+	box-shadow: 0 0 calc(16 * var(--rpx)) rgba(240, 169, 40, 0.65);
 	pointer-events: none;
-	animation: grid-tile-hint-ripple-out 0.72s cubic-bezier(0.18, 0.72, 0.32, 1) 1 forwards;
+	animation: grid-tile-hint-ripple-out 0.8s cubic-bezier(0.18, 0.72, 0.32, 1) 1 forwards;
 }
 
 @keyframes grid-tile-hint-ripple-out {
 	0% {
-		inset: calc(-2 * var(--rpx));
-		opacity: 0.96;
+		inset: calc(-6 * var(--rpx));
+		opacity: 1;
 	}
 	55% {
-		opacity: 0.5;
+		opacity: 0.55;
 	}
 	100% {
-		inset: calc(-22 * var(--rpx));
+		inset: calc(-36 * var(--rpx));
 		opacity: 0;
 	}
 }
@@ -1629,8 +1629,8 @@ textarea::-moz-placeholder {
 @media (prefers-reduced-motion: reduce) {
 	.grid-tile.grid-tile--hint-ripple::after {
 		animation: none;
-		inset: calc(-6 * var(--rpx));
-		opacity: 0.65;
+		inset: calc(-10 * var(--rpx));
+		opacity: 0.8;
 	}
 }
 

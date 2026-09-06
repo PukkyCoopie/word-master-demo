@@ -140,6 +140,9 @@ export function useFirstWordTutorial(resolveSaveSlotIndex, resolveRunPresetId) {
   /**
    * @param {{ treasureId?: string | null, emoji?: string, name?: string }} [target]
    */
+  /**
+   * @param {{ treasureId?: string | null, emoji?: string, name?: string }} [target]
+   */
   function onShopOpened(target = {}) {
     if (phase.value !== "awaitShop") return;
     const tid = target.treasureId != null ? String(target.treasureId) : "";
