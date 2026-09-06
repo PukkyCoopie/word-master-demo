@@ -1,21 +1,64 @@
+# GitHub Pages：push main 时自动构建发布。
 # CloudBase 发布已改由本地 pre-push 钩子（scripts/deploy-cloudbase.mjs）执行，
-# 避免 GitHub Actions  runner 到腾讯云出现 UserNetworkTooSlow。
-# 本 workflow 仅保留手动触发，供应急使用。
+# 避免 GitHub Actions runner 到腾讯云出现 UserNetworkTooSlow。
+# 手动 workflow_dispatch 会同时发 Pages，并应急发布 CloudBase。
+# 每个 workflow run 只能有一次 upload-pages-artifact（固定名 github-pages）。
+# GitHub Pages：仓库 Settings → Pages → Source 选「GitHub Actions」。
 # CloudBase：在仓库 Secrets 配置 TCB_SECRET_ID、TCB_SECRET_KEY、TCB_ENV_ID。
-name: Deploy static (CloudBase)
+name: Deploy static (GitHub Pages + CloudBase)
 
 on:
+  push:
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: static-deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  build-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # https://<用户>.github.io/<仓库名>/ 须与子路径 base 一致
+      - name: Build (GitHub Pages)
+        env:
+          WM_DICT_SHIP: web
+        run: npm run build -- --base=/${{ github.event.repository.name }}/
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy-github-pages:
+    needs: build-pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
   deploy-cloudbase:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

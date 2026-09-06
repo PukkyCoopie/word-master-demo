@@ -13,7 +13,7 @@
 
 部署日志：`tmp/deploy-cloudbase.log`（目录已在 `.gitignore`）。
 
-GitHub Actions 的自动部署已关闭；仓库内 workflow 仅保留 `workflow_dispatch` 应急手动触发。
+GitHub Pages 由 Actions 在推送 `main` 时自动发布。CloudBase 的 Actions 自动部署已关闭，仅保留 `workflow_dispatch` 应急手动触发（会同时发 Pages）。
 
 ## Android 真机：编译 / 安装 APK
 
