@@ -1,6 +1,8 @@
-export const ACHIEVEMENT_ICON_DIR = "/images/achievements";
+import { publicUrl } from "../assets/publicUrl.js";
+
+export const ACHIEVEMENT_ICON_DIR = publicUrl("images/achievements");
 /** Achievement placeholder icon, 256x256 WebP. */
-export const ACHIEVEMENT_ICON_URL = "/images/challenge.webp";
+export const ACHIEVEMENT_ICON_URL = publicUrl("images/challenge.webp");
 
 /** @param {string} id */
 export function getAchievementIconPath(id) {

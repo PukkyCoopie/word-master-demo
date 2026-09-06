@@ -1,11 +1,12 @@
 import { Capacitor } from "@capacitor/core";
+import { publicUrl } from "../assets/publicUrl.js";
 
 /** 电脑端右下角角标（低于海报弹层，高于游戏 portal 浮层 200 / 局内 350） */
 export const TAP_TAP_VIEWPORT_PROMO_Z = 450;
 export const TAP_TAP_POSTER_LAYER_Z = 500;
 export const TAP_TAP_APP_URL = "https://www.taptap.cn/app/861643?os=android";
-export const TAP_TAP_POSTER_SRC = "/images/poster.webp";
-export const TAP_TAP_ICON_SRC = "/taptap/taptap.svg";
+export const TAP_TAP_POSTER_SRC = publicUrl("images/poster.webp");
+export const TAP_TAP_ICON_SRC = publicUrl("taptap/taptap.svg");
 
 /**
  * 完整版 TapTap 推广文案开关。

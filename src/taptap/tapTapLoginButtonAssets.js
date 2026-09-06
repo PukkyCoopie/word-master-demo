@@ -1,3 +1,5 @@
+import { publicUrl } from "../assets/publicUrl.js";
+
 /**
  * TapTap「TapTap 登录」文字按钮资源（移动端）。
  *
@@ -8,5 +10,6 @@
 export const TAP_TAP_LOGIN_BUTTON_HEIGHT_RPX = 50;
 
 /** @type {string} 官方「TapTap 登录」文字按钮 SVG */
-export const TAP_TAP_LOGIN_BUTTON_SRC =
-  "/taptap/login/button-text-default-radius-brand-blue.svg";
+export const TAP_TAP_LOGIN_BUTTON_SRC = publicUrl(
+  "taptap/login/button-text-default-radius-brand-blue.svg",
+);
